@@ -9,6 +9,26 @@
       "update_date": "2025-07-08",
       "description": "Runbook to troubleshoot upgrade issues in Azure Kubernetes Service clusters",
       "link": "upgrade/upgrade_troubleshooting_instructions.md"
+    },
+    {
+      "update_date": "2025-07-16",
+      "description": "Runbook to troubleshoot and investigate DNS resolution issue on Kubernetes cluster using Azure Monitor and Prometheus",
+      "link": "networking/dns_troubleshooting_prometheus_instructions.md"
+    },
+    {
+      "update_date": "2025-07-16",
+      "description": "Runbook to troubleshoot and investigate node issues on Kubernetes cluster using Azure Monitor and Prometheus",
+      "link": "node_troubleshooting_prometheus_instructions.md"
+    },
+    {
+      "update_date": "2025-07-16",
+      "description": "Runbook to troubleshoot and investigate pod issues on Kubernetes cluster using Azure Monitor and Prometheus",
+      "link": "pod_troubleshooting_prometheus_instructions.md"
+    },
+    {
+      "update_date": "2025-01-19",
+      "description": "Comprehensive runbook to analyze Azure Monitor Container Insights log volume and costs for AKS clusters, providing detailed cost optimization recommendations with volume and USD savings calculations, competitive analysis, and implementation guidance",
+      "link": "azure_monitor_logs_cost_optimization.md"
     }
   ]
 }

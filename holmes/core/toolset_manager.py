@@ -90,6 +90,13 @@ class ToolsetManager:
         if enable_all_toolsets:
             for toolset in toolsets_by_name.values():
                 toolset.enabled = True
+            
+            # Special handling: disable specific toolsets that should never be enabled by default
+            # even when enable_all_toolsets=True (CLI mode)
+            toolsets_to_keep_disabled = ["azuremonitorlogs"]
+            for toolset_name in toolsets_to_keep_disabled:
+                if toolset_name in toolsets_by_name:
+                    toolsets_by_name[toolset_name].enabled = False
 
         # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
         if self.toolsets is not None:

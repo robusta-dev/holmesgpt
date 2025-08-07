@@ -6,6 +6,27 @@ from typing import Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import ValidationError
 
+try:
+    from holmes.plugins.toolsets.azuremonitor_metrics.azuremonitor_metrics_toolset import AzureMonitorMetricsToolset
+    AZURE_MONITOR_METRICS_AVAILABLE = True
+    logging.info("Azure Monitor Metrics toolset imported successfully")
+except ImportError as e:
+    logging.warning(f"Azure Monitor Metrics toolset not available due to ImportError: {e}")
+    AZURE_MONITOR_METRICS_AVAILABLE = False
+except Exception as e:
+    logging.error(f"Failed to import Azure Monitor Metrics toolset: {e}", exc_info=True)
+    AZURE_MONITOR_METRICS_AVAILABLE = False
+
+try:
+    from holmes.plugins.toolsets.azuremonitorlogs.azuremonitorlogs_toolset import AzureMonitorLogsToolset
+    AZURE_MONITOR_LOGS_AVAILABLE = True
+    logging.info("Azure Monitor Logs toolset imported successfully")
+except ImportError as e:
+    logging.warning(f"Azure Monitor Logs toolset not available due to ImportError: {e}")
+    AZURE_MONITOR_LOGS_AVAILABLE = False
+except Exception as e:
+    logging.error(f"Failed to import Azure Monitor Logs toolset: {e}", exc_info=True)
+    AZURE_MONITOR_LOGS_AVAILABLE = False
 import holmes.utils.env as env_utils
 from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 from holmes.core.supabase_dal import SupabaseDal
@@ -93,6 +114,20 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         AzureSQLToolset(),
         ServiceNowToolset(),
     ]
+    
+    # Add Azure Monitor Metrics toolset if available
+    if AZURE_MONITOR_METRICS_AVAILABLE:
+        logging.info("Adding Azure Monitor Metrics toolset to built-in toolsets")
+        toolsets.append(AzureMonitorMetricsToolset())
+    else:
+        logging.warning("Azure Monitor Metrics toolset not available - skipping")
+    
+    # Add Azure Monitor Logs toolset if available
+    if AZURE_MONITOR_LOGS_AVAILABLE:
+        logging.info("Adding Azure Monitor Logs toolset to built-in toolsets")
+        toolsets.append(AzureMonitorLogsToolset())
+    else:
+        logging.warning("Azure Monitor Logs toolset not available - skipping")
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 
@@ -122,6 +157,11 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolset.type = ToolsetType.BUILTIN
         # dont' expose build-in toolsets path
         toolset.path = None
+        # Set enabled status based on is_default property
+        if hasattr(toolset, 'is_default'):
+            toolset.enabled = toolset.is_default
+        else:
+            toolset.enabled = False  # Default to disabled if no is_default property
 
     return all_toolsets  # type: ignore
 

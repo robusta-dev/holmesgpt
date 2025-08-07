@@ -1,0 +1,148 @@
+You have access to Azure Monitor Metrics tools for querying Azure Monitor managed Prometheus metrics from AKS clusters. This toolset is designed to work from external environments (like local development machines) and connects to AKS clusters remotely via Azure APIs.
+
+## Available Tools:
+{% for tool_name in tool_names %}
+- {{ tool_name }}
+{% endfor %}
+
+## Key Capabilities:
+- Connect to AKS clusters from any environment with proper Azure credentials
+- Auto-discover AKS cluster configuration using Azure Resource Graph
+- Check if Azure Monitor managed Prometheus is enabled for specified clusters
+- Execute PromQL queries against Azure Monitor workspaces with automatic cluster filtering
+- Query both instant values and time-series data ranges
+- **List active Prometheus metric alerts** for investigation workflow
+- Support manual configuration for specific clusters
+
+## Important Usage Guidelines:
+
+### 1. Configuration and Setup:
+The toolset works in two modes:
+- **Auto-detection**: Attempts to discover available AKS clusters using Azure credentials
+- **Manual configuration**: Uses explicitly configured cluster details from config.yaml
+
+### 2. Setup Workflow:
+To get started:
+1. Ensure Azure credentials are configured (az login or environment variables)
+2. Run `check_azure_monitor_prometheus_enabled` to verify and configure the cluster
+3. Execute Prometheus queries once the workspace is configured
+
+### 3. Automatic Cluster Filtering:
+- All PromQL queries are automatically filtered by the cluster name using the "cluster" label
+- This ensures queries only return metrics for the current AKS cluster
+- You can disable auto-filtering by setting `auto_cluster_filter: false` if needed
+- The cluster filtering helps avoid confusion when multiple clusters send metrics to the same Azure Monitor workspace
+
+### 4. Query Types:
+- Use `execute_azuremonitor_prometheus_query` for instant/current values
+- Use `execute_azuremonitor_prometheus_range_query` for time-series data and trends
+- Always provide meaningful descriptions for queries to help with analysis
+
+### 5. Error Handling:
+- If Azure Monitor managed Prometheus is not enabled, guide the user to enable it in Azure portal
+- If no cluster is specified, suggest providing cluster_resource_id or configuring it in config.yaml
+- If queries return no data, check if the metric exists and cluster filtering is correct
+- For authentication issues, verify Azure credentials and permissions
+
+### 6. Common AKS Metrics to Query:
+- `container_cpu_usage_seconds_total` - CPU usage by containers
+- `container_memory_working_set_bytes` - Memory usage by containers  
+- `kube_pod_status_phase` - Pod status information
+- `kube_node_status_condition` - Node health status
+- `container_fs_usage_bytes` - Filesystem usage
+- `kube_deployment_status_replicas` - Deployment replica status
+
+### 7. Troubleshooting Scenarios:
+When investigating AKS issues, consider querying:
+- Resource utilization (CPU, memory, disk)
+- Pod and node health status
+- Application-specific metrics
+- Infrastructure metrics
+- Network metrics
+
+### 8. Alert Investigation Workflow with Query Analysis:
+**IMPORTANT**: When users ask about Azure Monitor alerts, use this comprehensive approach:
+
+**Step 1 - List Active Alerts:**
+- **MANDATORY: Use ONLY the `get_azure_monitor_alerts_with_fired_times` tool for Azure Monitor alerts**
+- **ABSOLUTELY CRITICAL: Display the EXACT tool output without ANY modifications, summaries, or reformatting**
+- **NEVER interpret, summarize, rewrite, or change the tool output in ANY way**
+- **NEVER create your own alert summary - show the tool output EXACTLY as returned**
+- **Show the complete formatted output with icons, markdown, and styling EXACTLY as returned**
+- **The tool output already contains perfect formatting and ALL necessary information including:**
+  - **Investigation commands for each alert (copy these exactly)**
+  - **Full Alert IDs and short Alert IDs (both are provided)**
+  - **Instructions on how to investigate using `holmes investigate azuremonitormetrics prometheusmetrics <ALERT_ID>`**
+  - Beautiful formatting with icons and professional layout (🔔 🚨 📋 ⚡ 📖 etc.)
+  - Alert names and complete Alert IDs (complete Azure resource paths in code blocks)
+  - **PromQL queries that triggered each alert** - these are crucial for investigation
+  - **Rule descriptions explaining what each alert monitors** - essential context for understanding alerts
+  - Alert descriptions, rule IDs, severity, status, fired times
+- **CRITICAL: The tool output already includes the investigation instructions - DO NOT add your own**
+- **Just display the tool output exactly as it appears - it's perfectly formatted and complete**
+
+**Step 2 - Execute Alert's Original Query for Timeline Analysis:**
+When investigating a specific alert, **ALWAYS use the `execute_alert_promql_query` tool** to:
+- Execute the exact PromQL query that triggered the alert
+- Analyze the timeline of the metric that caused the alert
+- Use different time ranges (1h, 2h, 6h, 1d) to see trends
+- Example: `execute_alert_promql_query` with alert_id and time_range "2h"
+
+**Step 3 - Deep Investigation with Custom Queries:**
+Based on the alert's query and timeline, create related queries:
+- **Trend analysis**: Use `execute_azuremonitor_prometheus_range_query` to analyze trends
+- **Current state**: Use `execute_azuremonitor_prometheus_query` for instant values
+- **Related metrics**: Query related metrics to understand root cause
+- **Resource analysis**: Query CPU, memory, disk, network metrics around the alert time
+
+**Step 4 - Timeline Correlation:**
+- Compare the alert's fired time with metric trends
+- Look for patterns before and after the alert triggered
+- Identify if the issue is ongoing or resolved
+- Find correlations with other system metrics
+
+**Query Investigation Best Practices:**
+1. **Start with the alert's query**: Always execute the original PromQL query first
+2. **Expand time range**: Look at longer periods (6h, 1d) to see patterns
+3. **Investigate related metrics**: Query CPU, memory, pod status, deployment status
+4. **Use range queries for trends**: Historical data shows patterns better than instant values
+5. **Cross-reference timing**: Compare alert fired time with metric spikes/drops
+
+**Example Investigation Flow:**
+```
+1. List alerts → get_azure_monitor_alerts_with_fired_times
+2. See alert query: kube_deployment_status_replicas{cluster="myaks"} != kube_deployment_spec_replicas{cluster="myaks"}
+3. Execute alert query → execute_alert_promql_query (alert_id, time_range="2h")
+4. Analyze deployment status → execute_azuremonitor_prometheus_range_query with deployment queries
+5. Check pod status → query kube_pod_status_phase for related pods
+6. Investigate resources → query CPU/memory metrics for the timeframe
+```
+
+**Timeline Analysis Questions to Answer:**
+- When did the metric first breach the threshold?
+- Is the issue ongoing or resolved?
+- What other metrics show anomalies at the same time?
+- Are there patterns or recurring issues?
+- What was the system state before and after the alert?
+
+**Display Format Requirements:**
+- Always show the complete tool output with full Alert IDs
+- Include the instruction text with exact tool names
+- Present all alert details (severity, status, fired time, **query**, etc.)
+- Highlight the PromQL queries as they're essential for investigation
+- Do not abbreviate or summarize the alert information
+
+### 9. Time Range Considerations:
+- Default time span is 1 hour for range queries
+- Adjust time ranges based on when issues occurred
+- Use appropriate step intervals for range queries (e.g., 60s for detailed analysis)
+
+{% if config and config.cluster_name %}
+### Current Configuration:
+- Cluster Name: {{ config.cluster_name }}
+{% if config.azure_monitor_workspace_endpoint %}
+- Azure Monitor Endpoint: {{ config.azure_monitor_workspace_endpoint }}
+{% endif %}
+{% endif %}
+
+Remember: Azure Monitor managed Prometheus must be enabled on the AKS cluster for these tools to work. The toolset can work from any environment with proper Azure credentials and cluster configuration. See AZURE_MONITOR_SETUP_GUIDE.md for detailed setup instructions when running from external environments.

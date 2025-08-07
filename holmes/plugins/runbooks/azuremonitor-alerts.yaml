@@ -1,0 +1,151 @@
+# Built-in runbooks for Azure Monitor alerts
+# These runbooks provide systematic diagnostic guidance for Azure Monitor Prometheus metric alerts
+runbooks:
+  # Generic diagnostic runbook for all Azure Monitor alerts
+  - match:
+      source: "azuremonitoralerts"
+    instructions: >
+      Perform comprehensive diagnostic analysis for this Azure Monitor alert using a systematic approach:
+
+      1. ALERT CONTEXT ANALYSIS:
+         - Extract and analyze the alert details: metric name, query, threshold, severity, and current state
+         - Identify the timeframe when the alert fired and duration
+         - Determine the affected resources (pods, nodes, services, namespaces) from the alert
+         - Understand what the alert is measuring and why it triggered
+
+      2. CURRENT STATE ASSESSMENT:
+         - Use kubectl commands to check the current status of affected resources
+         - Query current values of the alert metric using Azure Monitor Prometheus queries
+         - Compare current values with the alert threshold to see if issue persists
+         - Check if the alert is still active or has resolved
+
+      3. RESOURCE INVESTIGATION:
+         - Examine the health and status of affected pods, nodes, or services
+         - Check resource requests, limits, and actual utilization
+         - Look for recent changes in replica counts, node status, or resource allocation
+         - Identify any resource constraints or scheduling issues
+
+      4. METRIC CORRELATION AND TRENDS:
+         - Query related Azure Monitor Prometheus metrics around the alert timeframe
+         - Analyze trends for the last 1-2 hours to understand the pattern leading to the alert
+         - Correlate with other important metrics (CPU, memory, network, disk) to find relationships
+         - Look for sudden spikes, gradual increases, or cyclical patterns
+
+      5. EVENT TIMELINE ANALYSIS:
+         - Check Kubernetes events around the alert firing time using kubectl
+         - Look for recent deployments, pod restarts, scaling events, or configuration changes
+         - Correlate timing of events with the alert onset to identify potential triggers
+         - Check for any failed operations or warning events
+
+      6. LOG ANALYSIS:
+         - Examine logs from affected pods and containers for error messages or warnings
+         - Look for application-specific errors, performance issues, or resource exhaustion messages
+         - Check system logs if the alert is infrastructure-related (node issues, etc.)
+         - Search for patterns that coincide with the alert timing
+
+      7. DEPENDENCY AND SERVICE ANALYSIS:
+         - If alert affects application pods, check dependent services and databases
+         - Verify network connectivity and service discovery functionality
+         - Check ingress controllers, load balancers, or external dependencies
+         - Analyze service mesh metrics if applicable
+
+      8. ROOT CAUSE HYPOTHESIS:
+         - Based on metrics, events, logs, and resource analysis, form clear hypotheses about the root cause
+         - Prioritize the most likely causes based on evidence strength
+         - Explain the chain of events that led to the alert condition
+         - Distinguish between symptoms and actual root causes
+
+      9. IMPACT ASSESSMENT:
+         - Determine what users or services are affected by this alert condition
+         - Assess the severity and scope of the impact
+         - Check if there are cascading effects on other systems or services
+         - Evaluate business impact if applicable
+
+      10. REMEDIATION RECOMMENDATIONS:
+          - Suggest immediate actions to resolve the alert condition if appropriate
+          - Recommend monitoring steps to verify resolution
+          - Propose preventive measures to avoid recurrence
+          - Identify any configuration changes or scaling actions needed
+
+      Use available toolsets systematically: Azure Monitor Metrics for querying, Kubernetes for resource analysis, and Bash for kubectl commands. Present findings clearly with supporting data and specific next steps.
+
+  # Specialized runbook for high CPU usage alerts
+  - match:
+      source: "azuremonitoralerts"
+      issue_name: ".*[Hh]igh [Cc][Pp][Uu].*"
+    instructions: >
+      This is a high CPU usage alert. Focus your diagnostic analysis on:
+
+      1. CPU-SPECIFIC ANALYSIS:
+         - Query CPU usage trends using container_cpu_usage_seconds_total and rate() functions
+         - Identify which specific pods/containers are consuming the most CPU
+         - Check CPU requests and limits vs actual usage
+         - Analyze CPU throttling metrics if available
+
+      2. APPLICATION PERFORMANCE:
+         - Look for application logs indicating performance issues or increased load
+         - Check for recent deployments that might have introduced performance regressions
+         - Analyze request rates and response times if this is a web application
+         - Look for resource-intensive operations or batch jobs
+
+      3. SCALING AND CAPACITY:
+         - Check if horizontal or vertical scaling is needed
+         - Analyze historical CPU patterns to determine if this is normal load growth
+         - Verify auto-scaling configuration and behavior
+         - Assess node capacity and CPU availability
+
+      Follow the standard diagnostic steps but emphasize CPU-related metrics and analysis.
+
+  # Specialized runbook for memory-related alerts
+  - match:
+      source: "azuremonitoralerts"
+      issue_name: ".*[Mm]emory.*"
+    instructions: >
+      This is a memory-related alert. Focus your diagnostic analysis on:
+
+      1. MEMORY-SPECIFIC ANALYSIS:
+         - Query memory usage using container_memory_working_set_bytes and related metrics
+         - Check for memory leaks by analyzing memory usage trends over time
+         - Examine memory requests and limits vs actual usage
+         - Look for Out of Memory (OOM) kills in events and logs
+
+      2. APPLICATION MEMORY BEHAVIOR:
+         - Check application logs for memory-related errors or warnings
+         - Look for garbage collection issues in managed runtime applications (Java, .NET)
+         - Analyze heap dumps or memory profiles if available
+         - Check for inefficient memory usage patterns
+
+      3. SYSTEM IMPACT:
+         - Verify node memory availability and pressure conditions
+         - Check if memory pressure is affecting other pods on the same node
+         - Look for swap usage if applicable
+         - Assess overall cluster memory capacity
+
+      Follow the standard diagnostic steps but emphasize memory-related metrics and analysis.
+
+  # Specialized runbook for pod waiting state alerts
+  - match:
+      source: "azuremonitoralerts"
+      issue_name: ".*[Pp]od.*[Ww]aiting.*"
+    instructions: >
+      This alert indicates pods are in a waiting state. Focus your analysis on:
+
+      1. POD STATE ANALYSIS:
+         - Check pod status and container states using kubectl describe
+         - Identify the specific waiting reason (ImagePullBackOff, CrashLoopBackOff, etc.)
+         - Examine pod events for scheduling or startup issues
+         - Check init containers if they exist
+
+      2. RESOURCE AND SCHEDULING:
+         - Verify node capacity and resource availability for scheduling
+         - Check resource requests vs available cluster capacity
+         - Look for node selectors, affinity rules, or taints preventing scheduling
+         - Examine persistent volume claims if storage is involved
+
+      3. IMAGE AND CONFIGURATION:
+         - Verify image availability and registry connectivity
+         - Check image pull secrets and registry authentication
+         - Validate container configuration and environment variables
+         - Look for configuration map or secret mounting issues
+
+      Follow the standard diagnostic steps but emphasize pod lifecycle and scheduling analysis.
