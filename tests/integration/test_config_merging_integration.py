@@ -22,7 +22,7 @@ def create_kubernetes_toolset():
                 config={
                     "input_threshold": 1000,
                     "prompt": "Summarize kubectl describe output...",
-                }
+                },
             )
         ],
     )
@@ -37,7 +37,7 @@ def create_kubernetes_toolset():
                 config={
                     "input_threshold": 1000,
                     "prompt": "Summarize kubectl output...",
-                }
+                },
             )
         ],
     )
@@ -57,7 +57,9 @@ def test_cli_fast_model_integration_with_kubernetes():
     This is the critical test case from the plan.
     """
     # Simulate CLI --fast-model setting
-    global_configs = [Transformer(name="llm_summarize", config={"fast_model": "azure/gpt-4.1"})]
+    global_configs = [
+        Transformer(name="llm_summarize", config={"fast_model": "azure/gpt-4.1"})
+    ]
 
     kubernetes_toolset = create_kubernetes_toolset()
 
@@ -90,7 +92,10 @@ def test_three_level_inheritance_chain():
     """
     # Global config (CLI --fast-model)
     global_configs = [
-        Transformer(name="llm_summarize", config={"fast_model": "gpt-4.1", "input_threshold": 500})
+        Transformer(
+            name="llm_summarize",
+            config={"fast_model": "gpt-4.1", "input_threshold": 500},
+        )
     ]
 
     # Tool with specific override
@@ -98,7 +103,9 @@ def test_three_level_inheritance_chain():
         name="specific_tool",
         description="Tool with specific config",
         command="echo test",
-        transformers=[Transformer(name="llm_summarize", config={"input_threshold": 2000})],
+        transformers=[
+            Transformer(name="llm_summarize", config={"input_threshold": 2000})
+        ],
     )
 
     # Tool without specific config (should inherit from toolset)
@@ -112,7 +119,10 @@ def test_three_level_inheritance_chain():
         tags=[ToolsetTag.CORE],
         description="Test toolset",
         transformers=[
-            Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Toolset prompt"})
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "Toolset prompt"},
+            )
         ],
         tools=[tool_with_override, tool_without_config],
     )
@@ -160,14 +170,22 @@ def test_multiple_transformer_types_integration():
     Note: Using only llm_summarize since that's the only registered transformer.
     """
     global_configs = [
-        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500})
+        Transformer(
+            name="llm_summarize",
+            config={"fast_model": "gpt-4o-mini", "input_threshold": 500},
+        )
     ]
 
     toolset_configs = [
-        Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Toolset prompt"})
+        Transformer(
+            name="llm_summarize",
+            config={"input_threshold": 1000, "prompt": "Toolset prompt"},
+        )
     ]
 
-    tool_configs = [Transformer(name="llm_summarize", config={"prompt": "Custom prompt"})]
+    tool_configs = [
+        Transformer(name="llm_summarize", config={"prompt": "Custom prompt"})
+    ]
 
     tool = YAMLTool(
         name="multi_transformer_tool",
@@ -214,7 +232,9 @@ def test_backward_compatibility():
     """
     Test that toolsets without transformers still work correctly.
     """
-    global_configs = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    global_configs = [
+        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})
+    ]
 
     # Toolset without transformers (like some existing toolsets)
     simple_toolset = YAMLToolset(
@@ -244,7 +264,9 @@ def test_no_global_configs_no_regression():
     """
     Test that existing behavior is unchanged when no global configs are provided.
     """
-    toolset_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+    toolset_configs = [
+        Transformer(name="llm_summarize", config={"input_threshold": 1000})
+    ]
 
     toolset = YAMLToolset(
         name="existing_toolset",

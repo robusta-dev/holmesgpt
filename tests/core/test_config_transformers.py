@@ -8,7 +8,7 @@ from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.tools import Toolset, Tool, Transformer
 
 # Setup global namespace for Config model rebuilding
-sys.modules[__name__].__dict__['Transformer'] = Transformer
+sys.modules[__name__].__dict__["Transformer"] = Transformer
 Config.model_rebuild()
 
 
@@ -18,7 +18,10 @@ class TestConfigTransformers:
     def test_config_loads_transformers_from_dict(self):
         """Test that Config correctly loads transformers from dict."""
         transformers = [
-            Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Test prompt"})
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "Test prompt"},
+            )
         ]
         config_data = {
             "model": "gpt-4o",
@@ -35,7 +38,7 @@ class TestConfigTransformers:
 
     def test_config_handles_none_transformers(self):
         """Test that Config handles None transformers gracefully."""
-        
+
         config_data = {"model": "gpt-4o", "transformers": None}
 
         config = Config(**config_data)
@@ -44,7 +47,7 @@ class TestConfigTransformers:
 
     def test_config_handles_empty_transformers(self):
         """Test that Config handles empty transformers list."""
-        
+
         config_data = {"model": "gpt-4o", "transformers": []}
 
         config = Config(**config_data)
@@ -53,8 +56,10 @@ class TestConfigTransformers:
 
     def test_config_passes_transformers_to_toolset_manager(self):
         """Test that Config passes transformers to ToolsetManager."""
-        
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
+
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 500})
+        ]
 
         config_data = {"model": "gpt-4o", "transformers": transformers}
 
@@ -68,8 +73,10 @@ class TestConfigTransformers:
     @patch("holmes.config.ToolsetManager")
     def test_toolset_manager_receives_global_configs(self, mock_toolset_manager):
         """Test that ToolsetManager receives global transformers."""
-        
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 800})]
+
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 800})
+        ]
 
         config_data = {"model": "gpt-4o", "transformers": transformers}
 
@@ -89,15 +96,19 @@ class TestToolsetManagerTransformers:
 
     def test_toolset_manager_stores_global_transformers(self):
         """Test that ToolsetManager stores global transformers."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
 
         manager = ToolsetManager(global_transformers=global_configs)
 
         assert manager.global_transformers == global_configs
 
     def test_apply_global_transformers_to_toolset_without_configs(self):
-        """Test applying global configs to toolset without its own configs."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        """Test that global transformers are NOT applied to toolsets without configs (new behavior)."""
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
 
         # Create a mock toolset without transformers
         mock_toolset = Mock(spec=Toolset)
@@ -107,12 +118,16 @@ class TestToolsetManagerTransformers:
         manager = ToolsetManager(global_transformers=global_configs)
         manager._apply_global_transformers([mock_toolset])
 
-        assert mock_toolset.transformers == global_configs
+        assert mock_toolset.transformers is None  # Global configs should NOT be applied
 
     def test_does_not_override_existing_toolset_configs(self):
         """Test that existing toolset configs are not overridden by global configs."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
-        existing_configs = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
+        existing_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 500})
+        ]
 
         # Create a mock toolset with existing transformers
         mock_toolset = Mock(spec=Toolset)
@@ -126,8 +141,10 @@ class TestToolsetManagerTransformers:
         assert mock_toolset.transformers == existing_configs
 
     def test_apply_global_configs_to_tools_without_configs(self):
-        """Test that tool inheritance is handled by existing preprocess_tools logic."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        """Test that global transformers are NOT applied when toolset has no transformers (new behavior)."""
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
 
         # Create mock tool without transformers
         mock_tool = Mock(spec=Tool)
@@ -141,15 +158,19 @@ class TestToolsetManagerTransformers:
         manager = ToolsetManager(global_transformers=global_configs)
         manager._apply_global_transformers([mock_toolset])
 
-        # Toolset should receive global configs
-        assert mock_toolset.transformers == global_configs
-        # Tool should inherit the toolset's transformers (including global configs)
-        assert mock_tool.transformers == global_configs
+        # Toolset should NOT receive global configs when it has no transformers
+        assert mock_toolset.transformers is None
+        # Tool transformers remain unchanged
+        assert mock_tool.transformers is None
 
     def test_tool_configs_override_global_configs(self):
-        """Test that tool-level configs are not overridden by global configs."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
-        tool_configs = [Transformer(name="llm_summarize", config={"input_threshold": 200})]
+        """Test that tool-level configs remain unchanged when toolset has no transformers (new behavior)."""
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
+        tool_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 200})
+        ]
 
         # Create mock tool with existing transformers
         mock_tool = Mock(spec=Tool)
@@ -163,14 +184,19 @@ class TestToolsetManagerTransformers:
         manager = ToolsetManager(global_transformers=global_configs)
         manager._apply_global_transformers([mock_toolset])
 
-        # Toolset should get global configs, but tool should keep its own
-        assert mock_toolset.transformers == global_configs
+        # Toolset should NOT get global configs when it has none
+        assert mock_toolset.transformers is None
+        # Tool should keep its own configs unchanged
         assert mock_tool.transformers == tool_configs
 
     def test_toolset_configs_prevent_global_application_to_tools(self):
         """Test that toolset configs prevent global configs from being applied to tools."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
-        toolset_configs = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
+        toolset_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 500})
+        ]
 
         # Create mock tool without transformers
         mock_tool = Mock(spec=Tool)
@@ -184,7 +210,7 @@ class TestToolsetManagerTransformers:
         manager = ToolsetManager(global_transformers=global_configs)
         manager._apply_global_transformers([mock_toolset])
 
-        # Toolset should keep its configs, tool should inherit from toolset 
+        # Toolset should keep its configs, tool should inherit from toolset
         assert mock_toolset.transformers == toolset_configs
         assert mock_tool.transformers == toolset_configs
 
@@ -224,9 +250,15 @@ class TestConfigInheritanceIntegration:
 
     def test_configuration_inheritance_priority(self):
         """Test complete configuration inheritance: Global → Toolset → Tool."""
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
-        toolset_configs = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
-        tool_configs = [Transformer(name="llm_summarize", config={"input_threshold": 200})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
+        toolset_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 500})
+        ]
+        tool_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 200})
+        ]
 
         # Create tools with different config states
         tool_with_configs = Mock(spec=Tool)
@@ -264,8 +296,8 @@ class TestConfigInheritanceIntegration:
         # 3. Toolset with configs keeps its own configs
         assert toolset_with_configs.transformers == toolset_configs
 
-        # 4. Toolset without configs gets global configs
-        assert toolset_without_configs.transformers == global_configs
+        # 4. Toolset without configs does NOT get global configs (new behavior)
+        assert toolset_without_configs.transformers is None
 
-        # 5. Tool in toolset without configs inherits global configs via toolset
-        assert tool_in_no_config_toolset.transformers == global_configs
+        # 5. Tool in toolset without configs also remains None
+        assert tool_in_no_config_toolset.transformers is None

@@ -20,7 +20,7 @@ def test_merge_transformers_base_none():
 
 
 def test_merge_transformers_override_none():
-    """Test that when override is None, base transformers are returned."""
+    """Test that when override is None, base transformers are returned (default behavior)."""
     base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
     result = merge_transformers(base, None)
     assert result == base
@@ -34,8 +34,17 @@ def test_merge_transformers_both_empty():
 
 def test_merge_transformers_field_level_merge():
     """Test field-level merging with precedence."""
-    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500})]
-    override = [Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"})]
+    base = [
+        Transformer(
+            name="llm_summarize",
+            config={"fast_model": "gpt-4o-mini", "input_threshold": 500},
+        )
+    ]
+    override = [
+        Transformer(
+            name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"}
+        )
+    ]
 
     result = merge_transformers(base, override)
 
@@ -83,14 +92,20 @@ def test_merge_transformers_multiple_base():
 def test_merge_transformers_override_precedence():
     """Test that override transformers take precedence for existing fields."""
     base = [
-        Transformer(name="llm_summarize", config={
-            "fast_model": "gpt-4o-mini",
-            "input_threshold": 500,
-            "prompt": "Base prompt",
-        })
+        Transformer(
+            name="llm_summarize",
+            config={
+                "fast_model": "gpt-4o-mini",
+                "input_threshold": 500,
+                "prompt": "Base prompt",
+            },
+        )
     ]
     override = [
-        Transformer(name="llm_summarize", config={"input_threshold": 2000, "prompt": "Override prompt"})
+        Transformer(
+            name="llm_summarize",
+            config={"input_threshold": 2000, "prompt": "Override prompt"},
+        )
     ]
 
     result = merge_transformers(base, override)
@@ -107,11 +122,16 @@ def test_merge_transformers_override_precedence():
 def test_merge_transformers_complex_scenario():
     """Test complex merging scenario with multiple types and transformers."""
     base = [
-        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500}),
+        Transformer(
+            name="llm_summarize",
+            config={"fast_model": "gpt-4o-mini", "input_threshold": 500},
+        ),
         Transformer(name="data_filter", config={"max_items": 100}),
     ]
     override = [
-        Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"}),
+        Transformer(
+            name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"}
+        ),
         Transformer(name="result_formatter", config={"format": "json"}),
     ]
 
@@ -131,3 +151,35 @@ def test_merge_transformers_complex_scenario():
 
     # Should have 3 transformer types
     assert len(result_dict) == 3
+
+
+def test_merge_transformers_only_merge_when_override_exists_true():
+    """Test that with only_merge_when_override_exists=True, None is returned when no override exists."""
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    result = merge_transformers(base, None, only_merge_when_override_exists=True)
+    assert result is None
+
+
+def test_merge_transformers_only_merge_when_override_exists_false():
+    """Test that with only_merge_when_override_exists=False, base transformers are returned."""
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    result = merge_transformers(base, None, only_merge_when_override_exists=False)
+    assert result == base
+
+
+def test_merge_transformers_only_merge_when_override_exists_with_override():
+    """Test that the parameter doesn't affect behavior when both base and override exist."""
+    base = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+    override = [Transformer(name="llm_summarize", config={"prompt": "Custom"})]
+
+    # Should work the same regardless of parameter value when both exist
+    result_true = merge_transformers(
+        base, override, only_merge_when_override_exists=True
+    )
+    result_false = merge_transformers(
+        base, override, only_merge_when_override_exists=False
+    )
+
+    assert result_true == result_false
+    assert len(result_true) == 1
+    assert result_true[0].config == {"fast_model": "gpt-4o-mini", "prompt": "Custom"}

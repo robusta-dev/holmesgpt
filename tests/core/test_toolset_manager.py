@@ -342,15 +342,20 @@ def test_mcp_servers_from_config(toolset_manager):
     assert len(toolset_manager.toolsets) == 1
     assert "mcp1" in toolset_manager.toolsets
     assert toolset_manager.toolsets["mcp1"]["type"] == ToolsetType.MCP.value
+
+
 # Tests for transformer config merging functionality
 
 
 def test_apply_global_transformers_with_merging():
     """Test that global transformers are merged with toolset configs."""
     from holmes.core.tools import Transformer
-    
+
     global_transformers = [
-        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini", "input_threshold": 500})
+        Transformer(
+            name="llm_summarize",
+            config={"fast_model": "gpt-4o-mini", "input_threshold": 500},
+        )
     ]
 
     # Create toolset with existing transformers
@@ -359,7 +364,10 @@ def test_apply_global_transformers_with_merging():
         tags=[ToolsetTag.CORE],
         description="Test toolset",
         transformers=[
-            Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "Custom"})
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "Custom"},
+            )
         ],
     )
 
@@ -376,11 +384,13 @@ def test_apply_global_transformers_with_merging():
     assert config_dict["llm_summarize"]["prompt"] == "Custom"  # From toolset
 
 
-def test_apply_global_transformers_no_toolset_configs():
-    """Test that global configs are applied when toolset has no configs."""
+def test_apply_global_transformer_configs_no_toolset_configs():
+    """Test that global configs are NOT applied when toolset has no configs (new behavior for global level)."""
     from holmes.core.tools import Transformer
-    
-    global_transformers = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+
+    global_transformers = [
+        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})
+    ]
 
     toolset = YAMLToolset(
         name="test_toolset", tags=[ToolsetTag.CORE], description="Test toolset"
@@ -389,19 +399,21 @@ def test_apply_global_transformers_no_toolset_configs():
     manager = ToolsetManager(global_transformers=global_transformers)
     manager._apply_global_transformers([toolset])
 
-    # Global configs should be assigned
-    assert toolset.transformers == global_transformers
+    # Global configs should NOT be applied when no toolset configs exist
+    assert toolset.transformers is None
 
 
 def test_apply_global_transformers_no_global_configs():
     """Test that nothing happens when no global configs are provided."""
     from holmes.core.tools import Transformer
-    
+
     toolset = YAMLToolset(
         name="test_toolset",
         tags=[ToolsetTag.CORE],
         description="Test toolset",
-        transformers=[Transformer(name="llm_summarize", config={"input_threshold": 1000})],
+        transformers=[
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ],
     )
     original_transformers = toolset.transformers
 
@@ -415,14 +427,18 @@ def test_apply_global_transformers_no_global_configs():
 def test_apply_global_transformers_different_transformer_types():
     """Test merging with different transformer types."""
     from holmes.core.tools import Transformer
-    
-    global_transformers = [Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})]
+
+    global_transformers = [
+        Transformer(name="llm_summarize", config={"fast_model": "gpt-4o-mini"})
+    ]
 
     toolset = YAMLToolset(
         name="test_toolset",
         tags=[ToolsetTag.CORE],
         description="Test toolset",
-        transformers=[Transformer(name="custom_transformer", config={"param": "value"})],
+        transformers=[
+            Transformer(name="custom_transformer", config={"param": "value"})
+        ],
     )
 
     manager = ToolsetManager(global_transformers=global_transformers)
@@ -441,20 +457,25 @@ def test_apply_global_transformers_different_transformer_types():
 def test_list_all_toolsets_applies_global_configs(mock_load_builtin_toolsets):
     """Integration test that global configs are applied during toolset loading."""
     from holmes.core.tools import Transformer
-    
+
     # Create toolset with transformers
     toolset = YAMLToolset(
         name="kubernetes",
         tags=[ToolsetTag.CORE],
         description="Kubernetes toolset",
         transformers=[
-            Transformer(name="llm_summarize", config={"input_threshold": 1000, "prompt": "K8s prompt"})
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "K8s prompt"},
+            )
         ],
     )
     mock_load_builtin_toolsets.return_value = [toolset]
 
     # Create manager with CLI fast_model
-    global_transformers = [Transformer(name="llm_summarize", config={"fast_model": "azure/gpt-4.1"})]
+    global_transformers = [
+        Transformer(name="llm_summarize", config={"fast_model": "azure/gpt-4.1"})
+    ]
     manager = ToolsetManager(global_transformers=global_transformers)
 
     # Load toolsets

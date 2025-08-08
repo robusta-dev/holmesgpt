@@ -166,10 +166,7 @@ def test_auto_generate_transformers_with_fast_model():
         assert config.transformers is not None
         assert len(config.transformers) == 1
         assert "llm_summarize" in config.transformers[0]
-        assert (
-            config.transformers[0]["llm_summarize"]["fast_model"]
-            == "gpt-4o-mini"
-        )
+        assert config.transformers[0]["llm_summarize"]["fast_model"] == "gpt-4o-mini"
         assert config.transformers[0]["llm_summarize"]["input_threshold"] == 500
 
 
@@ -225,10 +222,7 @@ def test_auto_generate_transformers_cli_override():
         # Should auto-generate transformers from CLI parameters
         assert config.transformers is not None
         assert len(config.transformers) == 1
-        assert (
-            config.transformers[0]["llm_summarize"]["fast_model"]
-            == "azure/gpt-4.1"
-        )
+        assert config.transformers[0]["llm_summarize"]["fast_model"] == "azure/gpt-4.1"
         assert config.transformers[0]["llm_summarize"]["input_threshold"] == 2000
 
 

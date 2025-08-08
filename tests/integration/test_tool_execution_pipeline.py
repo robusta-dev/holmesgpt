@@ -8,7 +8,13 @@ in a more realistic environment.
 from unittest.mock import patch
 from typing import Dict
 
-from holmes.core.tools import Tool, YAMLTool, StructuredToolResult, ToolResultStatus, Transformer
+from holmes.core.tools import (
+    Tool,
+    YAMLTool,
+    StructuredToolResult,
+    ToolResultStatus,
+    Transformer,
+)
 from holmes.core.transformers import registry, BaseTransformer, TransformerError
 
 
@@ -64,7 +70,9 @@ class TestToolExecutionPipelineIntegration:
             name="test_yaml_tool",
             description="Test YAML tool with transformer",
             command="echo 'This is a very long output from a kubectl command that would normally overwhelm the LLM context window with unnecessary details and verbose information that should be summarized'",
-            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 50})],
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 50})
+            ],
         )
 
         result = tool.invoke({})
@@ -112,7 +120,9 @@ class TestToolExecutionPipelineIntegration:
         tool = LogReaderTool(
             name="log_reader",
             description="Read application logs",
-            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 100})],
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 100})
+            ],
         )
 
         result = tool.invoke({})
@@ -153,7 +163,9 @@ class TestToolExecutionPipelineIntegration:
                 command="echo 'This is test output that should remain unchanged due to transformer failure'",
                 transformers=[
                     Transformer(name="failing_transformer", config={}),
-                    Transformer(name="llm_summarize", config={"input_threshold": 10}),  # This should still work
+                    Transformer(
+                        name="llm_summarize", config={"input_threshold": 10}
+                    ),  # This should still work
                 ],
             )
 
@@ -182,7 +194,9 @@ class TestToolExecutionPipelineIntegration:
             description="Tool with conditional transformer",
             command="echo 'Short'",  # Short output
             transformers=[
-                Transformer(name="llm_summarize", config={"input_threshold": 100})  # Higher than output length
+                Transformer(
+                    name="llm_summarize", config={"input_threshold": 100}
+                )  # Higher than output length
             ],
         )
 
@@ -270,7 +284,9 @@ redis-cache-abc123                 1/1     Running   0          1d"""
             name="kubectl_get_pods",
             description="Get all pods in namespace",
             command=f"echo '{kubectl_output}'",
-            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 200})],
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 200})
+            ],
         )
 
         result = tool.invoke({})
@@ -290,7 +306,9 @@ redis-cache-abc123                 1/1     Running   0          1d"""
             name="debug_tool",
             description="Tool for testing debug preservation",
             command="echo 'Important debugging information that should not be lost'",
-            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 10})],
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 10})
+            ],
         )
 
         # Even if transformer modifies the output, the result structure should be preserved

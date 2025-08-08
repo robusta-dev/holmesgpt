@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 def merge_transformers(
     base_transformers: Optional[List["Transformer"]],
     override_transformers: Optional[List["Transformer"]],
+    only_merge_when_override_exists: bool = False,
 ) -> Optional[List["Transformer"]]:
     """
     Merge transformer configurations with intelligent field-level merging.
@@ -23,6 +24,7 @@ def merge_transformers(
     Args:
         base_transformers: Base transformer configurations (e.g., global transformers)
         override_transformers: Override transformer configurations (e.g., toolset transformers)
+        only_merge_when_override_exists: If True, only merge when override_transformers exist.
 
     Returns:
         Merged transformer configuration list or None if both inputs are None/empty
@@ -32,7 +34,10 @@ def merge_transformers(
     if not base_transformers:
         return override_transformers
     if not override_transformers:
-        return base_transformers
+        if only_merge_when_override_exists:
+            return None  # Don't apply base transformers if override doesn't exist
+        else:
+            return base_transformers  # Original behavior: return base transformers
 
     # Convert lists to dicts keyed by transformer name for easier merging
     base_dict = {}
@@ -52,11 +57,16 @@ def merge_transformers(
             # Merge fields: override takes precedence, base provides missing fields
             override_transformer = override_dict[transformer_name]
             merged_config = dict(base_transformer.config)  # Start with base
-            merged_config.update(override_transformer.config)  # Override with specific fields
-            
+            merged_config.update(
+                override_transformer.config
+            )  # Override with specific fields
+
             # Create new transformer with merged config
             from holmes.core.tools import Transformer
-            merged_transformer = Transformer(name=transformer_name, config=merged_config)
+
+            merged_transformer = Transformer(
+                name=transformer_name, config=merged_config
+            )
             merged_transformers.append(merged_transformer)
         else:
             # No override, use base transformer as-is

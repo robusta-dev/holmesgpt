@@ -9,7 +9,7 @@ from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.tools import Toolset, Tool, Transformer
 
 # Setup global namespace for Config model rebuilding
-sys.modules[__name__].__dict__['Transformer'] = Transformer
+sys.modules[__name__].__dict__["Transformer"] = Transformer
 Config.model_rebuild()
 
 
@@ -50,8 +50,12 @@ class TestBackwardsCompatibility:
 
     def test_existing_toolsets_with_transformers_unchanged(self):
         """Test that existing toolsets with transformers are unchanged."""
-        existing_tool_configs = [Transformer(name="llm_summarize", config={"input_threshold": 300})]
-        existing_toolset_configs = [Transformer(name="llm_summarize", config={"input_threshold": 600})]
+        existing_tool_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 300})
+        ]
+        existing_toolset_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 600})
+        ]
 
         # Create tool and toolset with existing configs
         mock_tool = Mock(spec=Tool)
@@ -62,7 +66,9 @@ class TestBackwardsCompatibility:
         mock_toolset.tools = [mock_tool]
 
         # Apply global configs
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
         manager = ToolsetManager(global_transformers=global_configs)
         manager._apply_global_transformers([mock_toolset])
 
@@ -113,7 +119,9 @@ class TestBackwardsCompatibility:
         # Test the existing behavior for toolset-level transformers
         values = {
             "additional_instructions": "Test instructions",
-            "transformers": [Transformer(name="llm_summarize", config={"input_threshold": 500})],
+            "transformers": [
+                Transformer(name="llm_summarize", config={"input_threshold": 500})
+            ],
             "tools": [
                 {
                     "name": "test_tool",
@@ -124,7 +132,9 @@ class TestBackwardsCompatibility:
                     "name": "tool_with_configs",
                     "description": "Tool with configs",
                     "transformers": [
-                        Transformer(name="llm_summarize", config={"input_threshold": 200})
+                        Transformer(
+                            name="llm_summarize", config={"input_threshold": 200}
+                        )
                     ],
                     # Has its own configs - should not inherit
                 },
@@ -227,9 +237,7 @@ class TestBackwardsCompatibility:
             def get_parameterized_one_liner(self, params):
                 return "test tool execution"
 
-        tool = TestTool(
-            name="test_tool", description="Test tool", transformers=None
-        )
+        tool = TestTool(name="test_tool", description="Test tool", transformers=None)
 
         # Tool should execute normally without transformers
         result = tool.invoke({})
@@ -251,7 +259,9 @@ class TestBackwardsCompatibility:
         assert manager.global_transformers is None
 
         # New way should also work
-        global_configs = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        global_configs = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
         manager_with_configs = ToolsetManager(
             toolsets={"test": {"enabled": True}},
             global_transformers=global_configs,

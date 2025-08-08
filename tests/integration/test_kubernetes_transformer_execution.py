@@ -7,7 +7,7 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import ToolResultStatus
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 
@@ -41,7 +41,7 @@ class TestKubernetesTransformerExecution:
         for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
-        
+
         # Register mock transformer with a different name to avoid conflicts
         registry.register(MockSummarizeTransformer)
 
@@ -466,7 +466,7 @@ class TestTransformerPerformanceMetrics:
         for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
-        
+
         # Register mock transformer with a different name to avoid conflicts
         registry.register(MockSummarizeTransformer)
 

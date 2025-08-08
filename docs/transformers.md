@@ -181,7 +181,7 @@ Found 104 pods across 2 nodes:
 ```
 Log analysis (2024-01-15 10:30-10:35):
 - 1000+ INFO messages showing normal application startup and operations
-- 1 ERROR: Redis connection timeout at 10:35:15Z 
+- 1 ERROR: Redis connection timeout at 10:35:15Z
 - 1 WARN: Redis retry attempt at 10:35:16Z
 - Search with "grep ERROR" or "grep Redis" to investigate the connection issue
 ```
@@ -243,7 +243,7 @@ Add transformer configuration to tools that generate large outputs:
 - name: "my_large_output_tool"
   command: "some command that produces lots of output"
 
-# After  
+# After
 - name: "my_large_output_tool"
   command: "some command that produces lots of output"
   transformers:

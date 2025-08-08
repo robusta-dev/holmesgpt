@@ -174,14 +174,14 @@ class Config(RobustaBaseConfig):
         """
         if self.fast_model and not self.transformers:
             from holmes.core.tools import Transformer
-            
+
             self.transformers = [
                 Transformer(
                     name="llm_summarize",
                     config={
                         "fast_model": self.fast_model,
                         "input_threshold": self.summarize_threshold,
-                    }
+                    },
                 )
             ]
             logging.debug(
@@ -206,10 +206,10 @@ class Config(RobustaBaseConfig):
         """
         # Import Transformer class to resolve forward reference
         from holmes.core.tools import Transformer
-        
+
         # Rebuild the model to resolve forward references
         cls.model_rebuild()
-        
+
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -232,10 +232,10 @@ class Config(RobustaBaseConfig):
     def load_from_env(cls):
         # Import Transformer class to resolve forward reference
         from holmes.core.tools import Transformer
-        
+
         # Rebuild the model to resolve forward references
         cls.model_rebuild()
-        
+
         kwargs = {}
         for field_name in [
             "model",

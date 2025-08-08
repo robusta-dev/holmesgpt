@@ -466,19 +466,20 @@ class ToolsetManager:
             return
 
         for toolset in toolsets:
-            # Always attempt merging (remove the if not check)
-            # type: ignore - forward reference "Transformer" vs actual Transformer class are the same type
+            # Only merge global configs when toolset configs exist
             toolset.transformers = merge_transformers(
                 base_transformers=self.global_transformers,
                 override_transformers=toolset.transformers,
+                only_merge_when_override_exists=True,  # Only for global-level merging
             )
 
             # Re-apply toolset configs to tools after global merge
             # This ensures tools inherit the newly merged toolset configs
             if hasattr(toolset, "tools") and toolset.tools:
                 for tool in toolset.tools:
-                    # type: ignore - forward reference "Transformer" vs actual Transformer class are the same type
+                    # Use original behavior: toolset configs should always be applied to tools
                     tool.transformers = merge_transformers(
                         base_transformers=toolset.transformers,
                         override_transformers=tool.transformers,
+                        only_merge_when_override_exists=False,  # Keep original behavior for toolset→tool
                     )

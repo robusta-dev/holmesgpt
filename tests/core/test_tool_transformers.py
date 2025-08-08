@@ -2,7 +2,6 @@
 Unit tests for Phase 2.1: Tool transformer integration and validation.
 """
 
-import pytest
 from typing import Dict
 from unittest.mock import Mock, patch
 
@@ -41,7 +40,9 @@ class TestToolTransformField:
 
     def test_tool_with_transforms(self):
         """Test that Tool accepts transformers field."""
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 500})]
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 500})
+        ]
 
         # Create a concrete tool for testing
         class ConcreteTestTool(Tool):
@@ -61,7 +62,9 @@ class TestToolTransformField:
 
     def test_yaml_tool_with_transforms(self):
         """Test that YAMLTool accepts transformers field."""
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 1000})]
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ]
 
         tool = YAMLTool(
             name="test_yaml_tool",
@@ -94,7 +97,9 @@ class TestToolsetTransformers:
 
     def test_toolset_with_transformers(self):
         """Test that Toolset accepts transformers field."""
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 800})]
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 800})
+        ]
 
         toolset = YAMLToolset(
             name="test_toolset",
@@ -107,7 +112,9 @@ class TestToolsetTransformers:
 
     def test_toolset_yaml_from_config_with_transformers(self):
         """Test that ToolsetYamlFromConfig accepts transformers."""
-        transformers = [Transformer(name="llm_summarize", config={"input_threshold": 1200})]
+        transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 1200})
+        ]
 
         toolset = ToolsetYamlFromConfig(
             name="test_config_toolset", transformers=transformers
@@ -117,7 +124,9 @@ class TestToolsetTransformers:
 
     def test_toolset_transformers_propagation(self):
         """Test that toolset transformers propagate to tools that don't have their own."""
-        toolset_transformers = [Transformer(name="llm_summarize", config={"input_threshold": 600})]
+        toolset_transformers = [
+            Transformer(name="llm_summarize", config={"input_threshold": 600})
+        ]
 
         # Create toolset with transformers
         toolset_data = {
@@ -135,7 +144,9 @@ class TestToolsetTransformers:
                     "description": "Tool with its own transforms",
                     "command": "echo 'test2'",
                     "transformers": [
-                        Transformer(name="llm_summarize", config={"input_threshold": 300})
+                        Transformer(
+                            name="llm_summarize", config={"input_threshold": 300}
+                        )
                     ],
                 },
             ],
@@ -187,7 +198,7 @@ class TestToolValidationIntegration:
         """Test tool creation with invalid transformers logs warning but continues."""
         # Note: Tool.__init__ validates transformers during instantiation
         # Invalid transformers will cause validation to fail during model creation
-        
+
         class ConcreteTestTool(Tool):
             def _invoke(self, params: Dict) -> Mock:
                 return Mock()
@@ -265,7 +276,9 @@ class TestBackwardCompatibility:
         toolset = YAMLToolset(**toolset_data)
 
         assert toolset.tools[0].transformers is None
-        assert toolset.tools[1].transformers == [Transformer(name="llm_summarize", config={})]
+        assert toolset.tools[1].transformers == [
+            Transformer(name="llm_summarize", config={})
+        ]
 
 
 class TestToolExecutionPipeline:
@@ -422,7 +435,10 @@ class TestToolExecutionPipeline:
         registry.register(SecondTransformer)
 
         try:
-            transforms = [Transformer(name="mock_transformer", config={}), Transformer(name="second_transformer", config={})]
+            transforms = [
+                Transformer(name="mock_transformer", config={}),
+                Transformer(name="second_transformer", config={}),
+            ]
 
             class ConcreteTestTool(Tool):
                 def _invoke(self, params: Dict) -> StructuredToolResult:
@@ -711,7 +727,7 @@ class TestTransformerCachingOptimization:
 
     def test_transformer_initialization_failure_handling(self):
         """Test graceful handling when transformer initialization fails during model_post_init."""
-        
+
         # Create a transformer config that will fail to initialize
         transformers = [
             Transformer(name="nonexistent_transformer", config={}),
@@ -729,15 +745,18 @@ class TestTransformerCachingOptimization:
                 return "test command"
 
         # Create tool - initialization should handle the failure gracefully
-        with patch('logging.warning') as mock_warning:
+        with patch("logging.warning") as mock_warning:
             tool = ConcreteTestTool(
                 name="test_tool", description="Test tool", transformers=transformers
             )
 
             # Verify that warning was logged for failed transformer
             mock_warning.assert_called()
-            warning_calls = [call for call in mock_warning.call_args_list 
-                           if 'nonexistent_transformer' in str(call)]
+            warning_calls = [
+                call
+                for call in mock_warning.call_args_list
+                if "nonexistent_transformer" in str(call)
+            ]
             assert len(warning_calls) > 0
 
         # Verify that only the successful transformer was cached
@@ -795,7 +814,9 @@ class TestTransformerCachingOptimization:
         )
 
         # Mock the registry.create_transformer to track calls
-        with patch.object(registry, 'create_transformer', wraps=registry.create_transformer) as mock_create:
+        with patch.object(
+            registry, "create_transformer", wraps=registry.create_transformer
+        ) as mock_create:
             # Invoke the tool multiple times
             tool.invoke({})
             tool.invoke({})

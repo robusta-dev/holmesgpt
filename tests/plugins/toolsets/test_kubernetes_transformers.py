@@ -51,8 +51,7 @@ class TestKubernetesYAMLTransformers:
         assert len(kubectl_describe.transformers) == 1
         assert "llm_summarize" in kubectl_describe.transformers[0]
         assert (
-            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
+            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"] == 1000
         )
 
         # Test kubectl_get_by_kind_in_namespace has transformer config
@@ -121,10 +120,7 @@ class TestKubernetesYAMLTransformers:
         assert kubectl_logs.transformers is not None
         assert len(kubectl_logs.transformers) == 1
         assert "llm_summarize" in kubectl_logs.transformers[0]
-        assert (
-            kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
-        )
+        assert kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"] == 1000
 
         # Test kubectl_logs_all_containers has transformer config
         kubectl_logs_all = None
@@ -140,8 +136,7 @@ class TestKubernetesYAMLTransformers:
         assert len(kubectl_logs_all.transformers) == 1
         assert "llm_summarize" in kubectl_logs_all.transformers[0]
         assert (
-            kubectl_logs_all.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
+            kubectl_logs_all.transformers[0]["llm_summarize"]["input_threshold"] == 1000
         )
 
     def test_yaml_transformer_parsing(self):
@@ -157,7 +152,7 @@ toolsets:
         transformers:
           - llm_summarize:
               input_threshold: 500
-              
+
       - name: "kubectl_test_custom_prompt"
         description: "Test tool with custom prompt"
         command: "kubectl describe pod test"
@@ -168,7 +163,7 @@ toolsets:
                 Custom summarization prompt for testing:
                 - Focus on errors
                 - Group similar items
-                
+
       - name: "kubectl_test_no_transform"
         description: "Test tool without transformers"
         command: "kubectl get nodes"
@@ -230,7 +225,7 @@ toolsets:
       - name: "kubectl_inherit"
         description: "Tool that inherits toolset transformers"
         command: "kubectl get pods"
-        
+
       - name: "kubectl_override"
         description: "Tool that overrides toolset transformers"
         command: "kubectl describe pod test"
@@ -285,7 +280,7 @@ toolsets:
       - name: "kubectl_legacy"
         description: "Legacy tool"
         command: "kubectl get pods"
-        
+
       - name: "kubectl_legacy_2"
         description: "Another legacy tool"
         command: "kubectl get nodes"
@@ -499,8 +494,7 @@ class TestKubernetesTransformerPrompts:
         )
         assert kubectl_describe.transformers is not None
         assert (
-            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
+            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"] == 1000
         )
 
         # kubectl get tools should have threshold of 1000
@@ -511,8 +505,7 @@ class TestKubernetesTransformerPrompts:
         )
         assert kubectl_get_ns.transformers is not None
         assert (
-            kubectl_get_ns.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
+            kubectl_get_ns.transformers[0]["llm_summarize"]["input_threshold"] == 1000
         )
 
         # Test kubernetes logs tools (higher threshold for logs)
@@ -534,7 +527,4 @@ class TestKubernetesTransformerPrompts:
             tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"
         )
         assert kubectl_logs.transformers is not None
-        assert (
-            kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1000
-        )
+        assert kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"] == 1000

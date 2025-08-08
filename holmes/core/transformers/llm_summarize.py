@@ -37,23 +37,21 @@ class LLMSummarizeTransformer(BaseTransformer):
 
     # Pydantic fields with validation
     input_threshold: int = Field(
-        default=1000,
-        ge=0,
-        description="Minimum input length to trigger summarization"
+        default=1000, ge=0, description="Minimum input length to trigger summarization"
     )
     prompt: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Custom prompt template for summarization"
+        description="Custom prompt template for summarization",
     )
     fast_model: Optional[str] = Field(
         default=None,
         min_length=1,
-        description="Fast model name for summarization (e.g., 'gpt-4o-mini')"
+        description="Fast model name for summarization (e.g., 'gpt-4o-mini')",
     )
     api_key: Optional[str] = Field(
         default=None,
-        description="API key for the fast model (optional, uses default if not provided)"
+        description="API key for the fast model (optional, uses default if not provided)",
     )
 
     # Private attribute for the LLM instance (not serialized)
@@ -62,7 +60,7 @@ class LLMSummarizeTransformer(BaseTransformer):
     def model_post_init(self, __context) -> None:
         """Initialize the fast LLM instance after model validation."""
         self._fast_llm = None
-        
+
         # Create fast LLM instance if fast_model is provided
         if self.fast_model:
             try:

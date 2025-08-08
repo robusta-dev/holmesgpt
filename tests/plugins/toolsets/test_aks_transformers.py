@@ -48,8 +48,7 @@ class TestAKSTransformers:
         assert len(check_node_status.transformers) == 1
         assert "llm_summarize" in check_node_status.transformers[0]
         assert (
-            check_node_status.transformers[0]["llm_summarize"]["input_threshold"]
-            == 800
+            check_node_status.transformers[0]["llm_summarize"]["input_threshold"] == 800
         )
 
         # Test describe_node has transformer config
@@ -63,10 +62,7 @@ class TestAKSTransformers:
         assert describe_node.transformers is not None
         assert len(describe_node.transformers) == 1
         assert "llm_summarize" in describe_node.transformers[0]
-        assert (
-            describe_node.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1200
-        )
+        assert describe_node.transformers[0]["llm_summarize"]["input_threshold"] == 1200
 
     def test_load_aks_core_yaml_with_transformers(self):
         """Test loading the aks.yaml file with transformers."""
@@ -100,8 +96,7 @@ class TestAKSTransformers:
         assert len(aks_get_cluster.transformers) == 1
         assert "llm_summarize" in aks_get_cluster.transformers[0]
         assert (
-            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1500
+            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"] == 1500
         )
 
         # Test aks_list_node_pools has transformer config
@@ -116,9 +111,7 @@ class TestAKSTransformers:
         assert len(aks_list_node_pools.transformers) == 1
         assert "llm_summarize" in aks_list_node_pools.transformers[0]
         assert (
-            aks_list_node_pools.transformers[0]["llm_summarize"][
-                "input_threshold"
-            ]
+            aks_list_node_pools.transformers[0]["llm_summarize"]["input_threshold"]
             == 1200
         )
 
@@ -203,8 +196,7 @@ class TestAKSTransformers:
         )
         assert check_node_status.transformers is not None
         assert (
-            check_node_status.transformers[0]["llm_summarize"]["input_threshold"]
-            == 800
+            check_node_status.transformers[0]["llm_summarize"]["input_threshold"] == 800
         )
 
         # describe_node should have higher threshold (detailed output)
@@ -212,10 +204,7 @@ class TestAKSTransformers:
             tool for tool in aks_node_health.tools if tool.name == "describe_node"
         )
         assert describe_node.transformers is not None
-        assert (
-            describe_node.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1200
-        )
+        assert describe_node.transformers[0]["llm_summarize"]["input_threshold"] == 1200
 
         # Test AKS core thresholds
         aks_yaml_path = os.path.join(
@@ -230,8 +219,7 @@ class TestAKSTransformers:
         )
         assert aks_get_cluster.transformers is not None
         assert (
-            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"]
-            == 1500
+            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"] == 1500
         )
 
         # aks_list_clusters_by_rg should have medium threshold (list of clusters)

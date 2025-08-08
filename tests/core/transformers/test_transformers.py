@@ -26,7 +26,9 @@ class MockTransformer(BaseTransformer):
 class ThresholdTransformer(BaseTransformer):
     """Transformer with configurable threshold for testing."""
 
-    threshold: int = Field(default=5, ge=0, description="Threshold for triggering transformation")
+    threshold: int = Field(
+        default=5, ge=0, description="Threshold for triggering transformation"
+    )
 
     def transform(self, input_text: str) -> str:
         return input_text.upper()
@@ -60,7 +62,7 @@ class TestBaseTransformer:
         """Test transformer initialization without config."""
         transformer = MockTransformer()
         # Pydantic models don't have a 'config' attribute - they have field values directly
-        assert hasattr(transformer, 'model_fields')
+        assert hasattr(transformer, "model_fields")
 
     def test_init_with_config(self):
         """Test transformer initialization with config."""
@@ -97,6 +99,7 @@ class TestBaseTransformer:
     def test_config_validation_failure(self):
         """Test config validation failure."""
         from pydantic import ValidationError
+
         with pytest.raises(ValidationError):
             ThresholdTransformer(threshold=-1)
 
@@ -143,10 +146,10 @@ class TestTransformerRegistry:
         class DuplicateMockTransformer(BaseTransformer):
             def transform(self, input_text: str) -> str:
                 return f"duplicate: {input_text}"
-            
+
             def should_apply(self, input_text: str) -> bool:
                 return True
-            
+
             @property
             def name(self) -> str:
                 return "mock"  # Same name as MockTransformer
@@ -190,7 +193,7 @@ class TestTransformerRegistry:
 
         assert isinstance(transformer, MockTransformer)
         # Pydantic models don't have a config attribute
-        assert hasattr(transformer, 'model_fields')
+        assert hasattr(transformer, "model_fields")
 
     def test_create_transformer_with_config(self):
         """Test transformer creation with config."""

@@ -7,7 +7,7 @@ toolsets:
       - command: "az account show"
       - command: "az aks --help"
       - command: "kubectl version --client"
-    
+
     # Note: Tools in this toolset use transformers with llm_summarize
     # to automatically summarize large JSON outputs from Azure CLI commands
     # when a fast model is configured, focusing on key configuration and status information.
