@@ -64,7 +64,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                     required=False,
                 ),
                 "tag_filter": ToolParameter(
-                    description="Filter metrics by tags in the format tag:value. pod tag is pod_name. namespace tag is kube_namespace.",
+                    description="Filter metrics by tags in the format tag:value.",
                     type="string",
                     required=False,
                 ),
@@ -114,6 +114,12 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             )
 
             metrics = data.get("metrics", [])
+            if not metrics:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data="Your filter returned no metrics. Change your filter and try again",
+                    params=params,
+                )
 
             output = ["Metric Name"]
             output.append("-" * 50)
