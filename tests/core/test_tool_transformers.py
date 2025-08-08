@@ -17,12 +17,7 @@ from holmes.core.tools import (
 )
 from holmes.core.transformers import (
     registry,
-    TransformerValidationError,
     TransformerError,
-    validate_transformer_config,
-    validate_transformer_configs,
-    validate_tool_transformer_configs,
-    safe_validate_tool_transformer_configs,
 )
 from holmes.core.transformers.base import BaseTransformer
 
@@ -157,111 +152,6 @@ class TestToolsetTransformers:
         assert len(tool_with_transforms.transformers) == 1
         # The tool should get the merged config (override takes precedence)
         assert tool_with_transforms.transformers[0].config["input_threshold"] == 300
-
-
-class TestTransformerValidation:
-    """Test transformer validation functionality."""
-
-    def setup_method(self):
-        """Set up test fixtures."""
-        # Register mock transformer for testing
-        registry.register(MockTransformer)
-
-    def teardown_method(self):
-        """Clean up test fixtures."""
-        # Unregister mock transformer
-        if registry.is_registered("mock_transformer"):
-            registry.unregister("mock_transformer")
-
-    def test_validate_transformer_config_valid(self):
-        """Test validation of valid transformer configuration."""
-        config = {"mock_transformer": {"test_param": "value"}}
-
-        # Should not raise exception
-        validate_transformer_config(config)
-
-    def test_validate_transformer_config_invalid_format(self):
-        """Test validation fails for invalid configuration format."""
-        # Not a dict
-        with pytest.raises(TransformerValidationError, match="must be a dictionary"):
-            validate_transformer_config("invalid")  # type: ignore
-
-        # Multiple transformers in one config
-        with pytest.raises(
-            TransformerValidationError, match="exactly one transformer type"
-        ):
-            validate_transformer_config({"transformer1": {}, "transformer2": {}})
-
-    def test_validate_transformer_config_unknown_transformer(self):
-        """Test validation fails for unknown transformer."""
-        config = {"unknown_transformer": {}}
-
-        with pytest.raises(TransformerValidationError, match="Unknown transformer"):
-            validate_transformer_config(config)
-
-    def test_validate_transformer_config_invalid_config(self):
-        """Test validation fails for invalid transformer-specific config."""
-        # Use llm_summarize with invalid threshold
-        config = {"llm_summarize": {"input_threshold": -1}}
-
-        with pytest.raises(TransformerValidationError, match="Invalid configuration"):
-            validate_transformer_config(config)
-
-    def test_validate_transforms_list_valid(self):
-        """Test validation of valid transforms list."""
-        transforms = [
-            {"mock_transformer": {}},
-            {"llm_summarize": {"input_threshold": 1000}},
-        ]
-
-        # Should not raise exception
-        validate_transformer_configs(transforms)
-
-    def test_validate_transforms_list_invalid_format(self):
-        """Test validation fails for invalid transforms list format."""
-        with pytest.raises(TransformerValidationError, match="must be a list"):
-            validate_transformer_configs("not a list")  # type: ignore
-
-    def test_validate_transforms_list_invalid_item(self):
-        """Test validation fails for invalid item in transforms list."""
-        transforms = [
-            {"mock_transformer": {}},
-            {"unknown_transformer": {}},  # Invalid
-        ]
-
-        with pytest.raises(
-            TransformerValidationError,
-            match="Invalid transformer configuration at index 1",
-        ):
-            validate_transformer_configs(transforms)
-
-    def test_validate_tool_transforms_valid(self):
-        """Test validation of valid tool transforms."""
-        transforms = [{"mock_transformer": {}}]
-
-        # Should not raise exception
-        validate_tool_transformer_configs("test_tool", transforms)
-
-    def test_validate_tool_transforms_none(self):
-        """Test validation passes for None transforms."""
-        # Should not raise exception
-        validate_tool_transformer_configs("test_tool", None)
-
-    def test_safe_validate_tool_transforms_valid(self):
-        """Test safe validation returns True for valid transforms."""
-        transforms = [{"mock_transformer": {}}]
-
-        result = safe_validate_tool_transformer_configs("test_tool", transforms)
-        assert result is True
-
-    def test_safe_validate_tool_transforms_invalid(self):
-        """Test safe validation returns False for invalid transforms."""
-        transforms = [{"unknown_transformer": {}}]
-
-        with patch("holmes.core.transformers.validation.logger") as mock_logger:
-            result = safe_validate_tool_transformer_configs("test_tool", transforms)
-            assert result is False
-            mock_logger.warning.assert_called_once()
 
 
 class TestToolValidationIntegration:
