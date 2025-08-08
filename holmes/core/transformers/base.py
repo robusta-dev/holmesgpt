@@ -14,7 +14,7 @@ class TransformerError(Exception):
     pass
 
 
-class BaseTransformer(ABC, BaseModel):
+class BaseTransformer(BaseModel, ABC):
     """
     Abstract base class for all tool output transformers.
 

@@ -113,7 +113,7 @@ The `llm_summarize` transformer is the primary transformer available in HolmesGP
 
 The default summarization prompt is optimized for operational diagnostics:
 
-```
+```text
 Summarize this operational data focusing on:
 - What needs attention or immediate action
 - Group similar entries into a single line and description
@@ -145,7 +145,7 @@ Summarize this operational data focusing on:
 ### Kubernetes Resource Listing
 
 **Without Transformer:**
-```
+```text
 NAME                                READY   STATUS      RESTARTS   AGE     IP           NODE
 pod-1                              1/1     Running     0          5d      10.1.1.1     node-1
 pod-2                              1/1     Running     0          5d      10.1.1.2     node-1
@@ -155,7 +155,7 @@ pod-4                              0/1     CrashLoopBackOff  15    1h      10.1.
 ```
 
 **With Transformer:**
-```
+```text
 Found 104 pods across 2 nodes:
 - 103 pods are healthy and running (age: 5d, on node-1 and node-2)
 - 1 pod in CrashLoopBackOff state: pod-4 (15 restarts, 1h old, IP 10.1.1.4, node-2)
@@ -165,7 +165,7 @@ Found 104 pods across 2 nodes:
 ### Log Analysis
 
 **Without Transformer:**
-```
+```text
 2024-01-15T10:30:01Z INFO Starting application...
 2024-01-15T10:30:02Z INFO Database connection established
 2024-01-15T10:30:03Z INFO Loading configuration...
@@ -175,7 +175,7 @@ Found 104 pods across 2 nodes:
 ```
 
 **With Transformer:**
-```
+```text
 Log analysis (2024-01-15 10:30-10:35):
 - 1000+ INFO messages showing normal application startup and operations
 - 1 ERROR: Redis connection timeout at 10:35:15Z

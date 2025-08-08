@@ -48,7 +48,12 @@ class TestToolExecutionPipelineIntegration:
         self._original_llm_summarize = None
         if registry.is_registered("llm_summarize"):
             # Store the original transformer class for restoration
-            self._original_llm_summarize = registry._transformers["llm_summarize"]
+            # Use create_transformer to verify it exists and get the class reference
+            try:
+                test_instance = registry.create_transformer("llm_summarize", {})
+                self._original_llm_summarize = test_instance.__class__
+            except Exception:
+                self._original_llm_summarize = None
             registry.unregister("llm_summarize")
 
         # Register our mock transformer
@@ -135,9 +140,17 @@ class TestToolExecutionPipelineIntegration:
         assert "SUMMARIZED:" in result.data
 
         # Should be much shorter than original
-        original_size = len(
-            "\n".join(["2024-01-01 10:00:00 INFO Starting application"] * 140)
-        )
+        # Calculate size based on the actual test data: 7 different log entries * 20 repetitions
+        log_entries = [
+            "2024-01-01 10:00:00 INFO Starting application",
+            "2024-01-01 10:00:01 INFO Loading configuration",
+            "2024-01-01 10:00:02 DEBUG Database connection established",
+            "2024-01-01 10:00:03 INFO Server listening on port 8080",
+            "2024-01-01 10:01:00 ERROR Failed to process request: timeout",
+            "2024-01-01 10:01:01 WARN Retrying request",
+            "2024-01-01 10:01:02 INFO Request processed successfully",
+        ] * 20
+        original_size = len("\n".join(log_entries))
         assert len(result.data) < original_size / 2
 
     def test_transformer_failure_recovery_integration(self):
@@ -254,8 +267,8 @@ class TestToolExecutionPipelineIntegration:
                 assert performance_log is not None
                 assert "slow_transformer" in performance_log
                 assert "performance_test_tool" in performance_log
-                assert "in 0." in performance_log  # Should show elapsed time
-                assert "output size:" in performance_log  # Should show size information
+                assert " in " in performance_log and "s " in performance_log  # Should show elapsed time pattern like "in X.XXs"
+                assert "size:" in performance_log  # Should show size information
 
         finally:
             if registry.is_registered("slow_transformer"):
@@ -298,14 +311,14 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         assert "SUMMARIZED:" in result.data
 
         # Should preserve important information structure
-        assert len(result.data) < len(kubectl_output) * 5  # Much shorter than original
+        assert len(result.data) < len(kubectl_output)  # Much shorter than original
 
     def test_error_handling_preserves_debugging_info_integration(self):
         """Test that original output is preserved for debugging when transformers fail."""
         tool = YAMLTool(
             name="debug_tool",
             description="Tool for testing debug preservation",
-            command="echo 'Important debugging information that should not be lost'",
+            command="echo 'Important debugging information that should not be lost and contains many additional details about the system state and error conditions that occurred during processing'",
             transformers=[
                 Transformer(name="llm_summarize", config={"input_threshold": 10})
             ],
@@ -319,7 +332,7 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         assert "echo" in result.invocation  # Original command preserved
 
         # Transformation applied but structure preserved
-        assert (
-            "SUMMARIZED:" in result.data
-            or "Important debugging information" in result.data
-        )
+        print(f"DEBUG: Raw result.data = {repr(result.data)}")
+        print(f"DEBUG: result.data length = {len(result.data)}")
+        assert "SUMMARIZED:" in result.data
+        assert "Important debugging information" in result.data

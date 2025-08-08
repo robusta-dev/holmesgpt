@@ -128,21 +128,19 @@ def test_transformer_backward_compatibility():
 
 
 def test_transformer_env_vars_in_load_from_env_list():
-    """Test that the fast_model environment variable is included in the load_from_env field list."""
-    # This tests the code change we made to the load_from_env method
+    """Test that the fast_model environment variable is properly loaded by load_from_env method."""
+    # This tests that the fast_model field is correctly loaded from environment variables
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        import inspect
 
-        # Get the source code of load_from_env method
-        source = inspect.getsource(Config.load_from_env)
-
-        # Verify our field is in the field list
-        assert '"fast_model"' in source
+        # Test that FAST_MODEL environment variable is properly loaded
+        with patch.dict(os.environ, {"FAST_MODEL": "test-model"}):
+            config = Config.load_from_env()
+            assert config.fast_model == "test-model"
 
 
 def test_auto_generate_transformers_with_fast_model():

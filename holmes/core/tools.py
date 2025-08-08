@@ -164,8 +164,6 @@ class Transformer(BaseModel):
     @model_validator(mode="after")
     def validate_transformer(self):
         """Validate that the transformer name is known to the registry."""
-        from holmes.core.transformers import registry
-
         if not registry.is_registered(self.name):
             # Log warning but don't fail validation - allows for graceful degradation
             logging.warning(f"Transformer '{self.name}' is not registered")
