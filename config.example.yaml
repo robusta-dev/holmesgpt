@@ -8,7 +8,6 @@
 # Optional fast model for summarizing large tool outputs before sending to main LLM
 # Helps reduce context window usage, improve performance, and reduce costs
 #fast_model: "gpt-4o-mini"
-#summarize_threshold: 1000  # Minimum characters to trigger summarization
 
 # try adding your own tools here!
 # e.g. query company-specific data, fetch logs from your existing observability tools, etc

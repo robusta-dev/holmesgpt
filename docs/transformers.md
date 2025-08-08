@@ -14,22 +14,19 @@ Configure transformer behavior globally in your HolmesGPT configuration:
 
 ```bash
 # CLI flags
-holmes ask "what pods are unhealthy?" --fast-model gpt-4o-mini --summarize-threshold 1000
+holmes ask "what pods are unhealthy?" --fast-model gpt-4o-mini
 
 # Environment variables
 export FAST_MODEL="gpt-4o-mini"
-export SUMMARIZE_THRESHOLD="1000"
 
 # Or via config file
 # ~/.holmes/config.yaml:
 # fast_model: gpt-4o-mini
-# summarize_threshold: 1000
 ```
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--fast-model` | Fast model for summarization tasks | `None` (disabled) |
-| `--summarize-threshold` | Minimum input length to trigger summarization | `1000` characters |
 
 ### Tool-Level Configuration
 
@@ -109,7 +106,7 @@ The `llm_summarize` transformer is the primary transformer available in HolmesGP
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `input_threshold` | Minimum characters to trigger summarization | Global `--summarize-threshold` |
+| `input_threshold` | Minimum characters to trigger summarization | `1000` characters (default) |
 | `prompt` | Custom summarization instructions | Default diagnostic prompt |
 
 ### Default Prompt

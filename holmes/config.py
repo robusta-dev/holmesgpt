@@ -74,7 +74,6 @@ class Config(RobustaBaseConfig):
     )
     model: Optional[str] = "gpt-4o"
     fast_model: Optional[str] = None
-    summarize_threshold: int = 1000
     transformers: Optional[List["Transformer"]] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
@@ -169,7 +168,7 @@ class Config(RobustaBaseConfig):
 
     def _auto_generate_transformers(self) -> None:
         """
-        Auto-generate transformers from CLI fast_model and summarize_threshold parameters.
+        Auto-generate transformers from CLI fast_model parameter.
         Only generates if fast_model is provided and transformers is not already set.
         """
         if self.fast_model and not self.transformers:
@@ -180,7 +179,6 @@ class Config(RobustaBaseConfig):
                     name="llm_summarize",
                     config={
                         "fast_model": self.fast_model,
-                        "input_threshold": self.summarize_threshold,
                     },
                 )
             ]
@@ -240,7 +238,6 @@ class Config(RobustaBaseConfig):
         for field_name in [
             "model",
             "fast_model",
-            "summarize_threshold",
             "api_key",
             "max_steps",
             "alertmanager_url",
