@@ -10,7 +10,7 @@ class TestAKSTransformers:
     """Test that AKS toolsets correctly parse transformer configurations."""
 
     def test_load_aks_node_health_yaml_with_transformers(self):
-        """Test loading the aks-node-health.yaml file with transformer configs."""
+        """Test loading the aks-node-health.yaml file with transformers."""
         # Find the actual aks-node-health.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         aks_node_health_yaml_path = os.path.join(
@@ -44,11 +44,11 @@ class TestAKSTransformers:
                 break
 
         assert check_node_status is not None, "check_node_status tool not found"
-        assert check_node_status.transformer_configs is not None
-        assert len(check_node_status.transformer_configs) == 1
-        assert "llm_summarize" in check_node_status.transformer_configs[0]
+        assert check_node_status.transformers is not None
+        assert len(check_node_status.transformers) == 1
+        assert "llm_summarize" in check_node_status.transformers[0]
         assert (
-            check_node_status.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            check_node_status.transformers[0]["llm_summarize"]["input_threshold"]
             == 800
         )
 
@@ -60,16 +60,16 @@ class TestAKSTransformers:
                 break
 
         assert describe_node is not None, "describe_node tool not found"
-        assert describe_node.transformer_configs is not None
-        assert len(describe_node.transformer_configs) == 1
-        assert "llm_summarize" in describe_node.transformer_configs[0]
+        assert describe_node.transformers is not None
+        assert len(describe_node.transformers) == 1
+        assert "llm_summarize" in describe_node.transformers[0]
         assert (
-            describe_node.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            describe_node.transformers[0]["llm_summarize"]["input_threshold"]
             == 1200
         )
 
     def test_load_aks_core_yaml_with_transformers(self):
-        """Test loading the aks.yaml file with transformer configs."""
+        """Test loading the aks.yaml file with transformers."""
         # Find the actual aks.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         aks_yaml_path = os.path.join(
@@ -96,11 +96,11 @@ class TestAKSTransformers:
                 break
 
         assert aks_get_cluster is not None, "aks_get_cluster tool not found"
-        assert aks_get_cluster.transformer_configs is not None
-        assert len(aks_get_cluster.transformer_configs) == 1
-        assert "llm_summarize" in aks_get_cluster.transformer_configs[0]
+        assert aks_get_cluster.transformers is not None
+        assert len(aks_get_cluster.transformers) == 1
+        assert "llm_summarize" in aks_get_cluster.transformers[0]
         assert (
-            aks_get_cluster.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"]
             == 1500
         )
 
@@ -112,11 +112,11 @@ class TestAKSTransformers:
                 break
 
         assert aks_list_node_pools is not None, "aks_list_node_pools tool not found"
-        assert aks_list_node_pools.transformer_configs is not None
-        assert len(aks_list_node_pools.transformer_configs) == 1
-        assert "llm_summarize" in aks_list_node_pools.transformer_configs[0]
+        assert aks_list_node_pools.transformers is not None
+        assert len(aks_list_node_pools.transformers) == 1
+        assert "llm_summarize" in aks_list_node_pools.transformers[0]
         assert (
-            aks_list_node_pools.transformer_configs[0]["llm_summarize"][
+            aks_list_node_pools.transformers[0]["llm_summarize"][
                 "input_threshold"
             ]
             == 1200
@@ -144,8 +144,8 @@ class TestAKSTransformers:
         check_node_status = next(
             tool for tool in aks_node_health.tools if tool.name == "check_node_status"
         )
-        assert check_node_status.transformer_configs is not None
-        prompt = check_node_status.transformer_configs[0]["llm_summarize"]["prompt"]
+        assert check_node_status.transformers is not None
+        prompt = check_node_status.transformers[0]["llm_summarize"]["prompt"]
         assert "NotReady or in error states" in prompt
         assert "Node health patterns" in prompt
         assert "exact node names" in prompt
@@ -154,8 +154,8 @@ class TestAKSTransformers:
         describe_node = next(
             tool for tool in aks_node_health.tools if tool.name == "describe_node"
         )
-        assert describe_node.transformer_configs is not None
-        prompt = describe_node.transformer_configs[0]["llm_summarize"]["prompt"]
+        assert describe_node.transformers is not None
+        prompt = describe_node.transformers[0]["llm_summarize"]["prompt"]
         assert "Node conditions and health status" in prompt
         assert "Resource capacity vs allocatable" in prompt
         assert "taints, labels" in prompt
@@ -172,8 +172,8 @@ class TestAKSTransformers:
         aks_get_cluster = next(
             tool for tool in aks_core.tools if tool.name == "aks_get_cluster"
         )
-        assert aks_get_cluster.transformer_configs is not None
-        prompt = aks_get_cluster.transformer_configs[0]["llm_summarize"]["prompt"]
+        assert aks_get_cluster.transformers is not None
+        prompt = aks_get_cluster.transformers[0]["llm_summarize"]["prompt"]
         assert "Cluster status, health state" in prompt
         assert "Network configuration" in prompt
         assert "Security settings" in prompt
@@ -201,9 +201,9 @@ class TestAKSTransformers:
         check_node_status = next(
             tool for tool in aks_node_health.tools if tool.name == "check_node_status"
         )
-        assert check_node_status.transformer_configs is not None
+        assert check_node_status.transformers is not None
         assert (
-            check_node_status.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            check_node_status.transformers[0]["llm_summarize"]["input_threshold"]
             == 800
         )
 
@@ -211,9 +211,9 @@ class TestAKSTransformers:
         describe_node = next(
             tool for tool in aks_node_health.tools if tool.name == "describe_node"
         )
-        assert describe_node.transformer_configs is not None
+        assert describe_node.transformers is not None
         assert (
-            describe_node.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            describe_node.transformers[0]["llm_summarize"]["input_threshold"]
             == 1200
         )
 
@@ -228,9 +228,9 @@ class TestAKSTransformers:
         aks_get_cluster = next(
             tool for tool in aks_core.tools if tool.name == "aks_get_cluster"
         )
-        assert aks_get_cluster.transformer_configs is not None
+        assert aks_get_cluster.transformers is not None
         assert (
-            aks_get_cluster.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            aks_get_cluster.transformers[0]["llm_summarize"]["input_threshold"]
             == 1500
         )
 
@@ -238,8 +238,8 @@ class TestAKSTransformers:
         aks_list_clusters = next(
             tool for tool in aks_core.tools if tool.name == "aks_list_clusters_by_rg"
         )
-        assert aks_list_clusters.transformer_configs is not None
+        assert aks_list_clusters.transformers is not None
         assert (
-            aks_list_clusters.transformer_configs[0]["llm_summarize"]["input_threshold"]
+            aks_list_clusters.transformers[0]["llm_summarize"]["input_threshold"]
             == 1000
         )

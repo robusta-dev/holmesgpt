@@ -8,7 +8,7 @@ toolsets:
       - command: "az aks --help"
       - command: "kubectl version --client"
     
-    # Note: Tools in this toolset use transformer_configs with llm_summarize
+    # Note: Tools in this toolset use transformers with llm_summarize
     # to automatically summarize large JSON outputs from Azure CLI commands
     # when a fast model is configured, focusing on key configuration and status information.
     tools:
@@ -22,8 +22,9 @@ toolsets:
         user_description: "get AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }} in subscription {{ SUBSCRIPTION_ID }}"
         command: |
           az aks show --resource-group {{ RESOURCE_GROUP_NAME }} --name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1500
               prompt: |
                 Summarize this AKS cluster configuration focusing on:
@@ -39,8 +40,9 @@ toolsets:
         user_description: "list AKS clusters in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
         command: |
           az aks list --resource-group {{ RESOURCE_GROUP_NAME }} --subscription {{ SUBSCRIPTION_ID }}
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize this AKS clusters list focusing on:
@@ -55,8 +57,9 @@ toolsets:
         user_description: "list node pools for AKS cluster {{ CLUSTER_NAME }} under resource group {{ RESOURCE_GROUP_NAME }}"
         command: |
           az aks nodepool list --resource-group {{ RESOURCE_GROUP_NAME }} --cluster-name {{ CLUSTER_NAME }} --subscription {{ SUBSCRIPTION_ID }}
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1200
               prompt: |
                 Summarize this AKS node pools list focusing on:
@@ -123,8 +126,9 @@ toolsets:
         user_description: "list NSG rules for NSG {{ NSG_NAME }} in resource group {{ RESOURCE_GROUP_NAME }} under subscription {{ SUBSCRIPTION_ID }}"
         command: |
             az network nsg rule list --resource-group {{ RESOURCE_GROUP_NAME }} --nsg-name {{ NSG_NAME }} --subscription {{ SUBSCRIPTION_ID }} --include-default -o table
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize these NSG rules focusing on:

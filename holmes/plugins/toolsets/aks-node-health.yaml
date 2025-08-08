@@ -8,7 +8,7 @@ toolsets:
       - command: "az aks --help"
       - command: "kubectl version --client"
     
-    # Note: Tools in this toolset use transformer_configs with llm_summarize
+    # Note: Tools in this toolset use transformers with llm_summarize
     # to automatically summarize large outputs from Azure CLI and kubectl commands
     # when a fast model is configured, focusing on health issues and troubleshooting.
     tools:
@@ -17,8 +17,9 @@ toolsets:
         user_description: "get the status of all nodes in the AKS cluster"
         command: |
           kubectl get nodes
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 800
               prompt: |
                 Summarize this node status output focusing on:
@@ -32,8 +33,9 @@ toolsets:
         user_description: "describe node {{ NODE_NAME }} in the AKS cluster"
         command: |
           kubectl describe node {{ NODE_NAME }}
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1200
               prompt: |
                 Summarize this node description focusing on:
@@ -58,8 +60,9 @@ toolsets:
         user_description: "review Azure Activity Log for resource group {{ RESOURCE_GROUP_NAME }}"
         command: |
           az monitor activity-log list --resource-group {{ RESOURCE_GROUP_NAME }}
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1500
               prompt: |
                 Summarize this Azure Activity Log focusing on:

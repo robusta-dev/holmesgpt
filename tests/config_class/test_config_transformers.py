@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 
-def test_transformer_config_fields_exist():
+def test_transformer_fields_exist():
     """Test that Config class has the new transformer configuration fields."""
     # Mock the dependencies at their actual import locations
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
@@ -30,7 +30,7 @@ def test_transformer_config_fields_exist():
         assert config.summarize_threshold == 1000
 
 
-def test_transformer_config_from_file():
+def test_transformer_from_file():
     """Test loading transformer config from YAML file."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
@@ -57,7 +57,7 @@ def test_transformer_config_from_file():
                 os.unlink(f.name)
 
 
-def test_transformer_config_from_env():
+def test_transformer_from_env():
     """Test loading transformer config from environment variables."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
@@ -82,7 +82,7 @@ def test_transformer_config_from_env():
             assert config.model == "gpt-4o"
 
 
-def test_transformer_config_cli_override():
+def test_transformer_cli_override():
     """Test that CLI options override config file values."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
@@ -106,7 +106,7 @@ def test_transformer_config_cli_override():
                 os.unlink(f.name)
 
 
-def test_transformer_config_backward_compatibility():
+def test_transformer_backward_compatibility():
     """Test that existing configs without transformer fields still work."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
@@ -150,8 +150,8 @@ def test_transformer_env_vars_in_load_from_env_list():
         assert '"summarize_threshold"' in source
 
 
-def test_auto_generate_transformer_configs_with_fast_model():
-    """Test that transformer_configs are auto-generated when fast_model is provided."""
+def test_auto_generate_transformers_with_fast_model():
+    """Test that transformers are auto-generated when fast_model is provided."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
@@ -162,19 +162,19 @@ def test_auto_generate_transformer_configs_with_fast_model():
         # Test with fast_model provided
         config = Config(fast_model="gpt-4o-mini", summarize_threshold=500)
 
-        # Should auto-generate transformer_configs
-        assert config.transformer_configs is not None
-        assert len(config.transformer_configs) == 1
-        assert "llm_summarize" in config.transformer_configs[0]
+        # Should auto-generate transformers
+        assert config.transformers is not None
+        assert len(config.transformers) == 1
+        assert "llm_summarize" in config.transformers[0]
         assert (
-            config.transformer_configs[0]["llm_summarize"]["fast_model"]
+            config.transformers[0]["llm_summarize"]["fast_model"]
             == "gpt-4o-mini"
         )
-        assert config.transformer_configs[0]["llm_summarize"]["input_threshold"] == 500
+        assert config.transformers[0]["llm_summarize"]["input_threshold"] == 500
 
 
-def test_auto_generate_transformer_configs_without_fast_model():
-    """Test that transformer_configs are not auto-generated when fast_model is not provided."""
+def test_auto_generate_transformers_without_fast_model():
+    """Test that transformers are not auto-generated when fast_model is not provided."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
@@ -185,12 +185,12 @@ def test_auto_generate_transformer_configs_without_fast_model():
         # Test without fast_model
         config = Config(summarize_threshold=500)
 
-        # Should not auto-generate transformer_configs
-        assert config.transformer_configs is None
+        # Should not auto-generate transformers
+        assert config.transformers is None
 
 
-def test_auto_generate_transformer_configs_respects_existing_configs():
-    """Test that existing transformer_configs are not overridden by auto-generation."""
+def test_auto_generate_transformers_respects_existing_configs():
+    """Test that existing transformers are not overridden by auto-generation."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
@@ -198,16 +198,16 @@ def test_auto_generate_transformer_configs_respects_existing_configs():
     ):
         from holmes.config import Config
 
-        # Test with existing transformer_configs
+        # Test with existing transformers
         existing_configs = [{"custom_transformer": {"param": "value"}}]
-        config = Config(fast_model="gpt-4o-mini", transformer_configs=existing_configs)
+        config = Config(fast_model="gpt-4o-mini", transformers=existing_configs)
 
-        # Should preserve existing transformer_configs
-        assert config.transformer_configs == existing_configs
+        # Should preserve existing transformers
+        assert config.transformers == existing_configs
 
 
-def test_auto_generate_transformer_configs_cli_override():
-    """Test that CLI fast_model parameter auto-generates transformer_configs."""
+def test_auto_generate_transformers_cli_override():
+    """Test that CLI fast_model parameter auto-generates transformers."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
@@ -222,17 +222,17 @@ def test_auto_generate_transformer_configs_cli_override():
             summarize_threshold=2000,
         )
 
-        # Should auto-generate transformer_configs from CLI parameters
-        assert config.transformer_configs is not None
-        assert len(config.transformer_configs) == 1
+        # Should auto-generate transformers from CLI parameters
+        assert config.transformers is not None
+        assert len(config.transformers) == 1
         assert (
-            config.transformer_configs[0]["llm_summarize"]["fast_model"]
+            config.transformers[0]["llm_summarize"]["fast_model"]
             == "azure/gpt-4.1"
         )
-        assert config.transformer_configs[0]["llm_summarize"]["input_threshold"] == 2000
+        assert config.transformers[0]["llm_summarize"]["input_threshold"] == 2000
 
 
-def test_auto_generate_transformer_configs_default_threshold():
+def test_auto_generate_transformers_default_threshold():
     """Test that auto-generation uses default threshold when not specified."""
     with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
@@ -245,4 +245,4 @@ def test_auto_generate_transformer_configs_default_threshold():
         config = Config(fast_model="gpt-4o-mini")
 
         # Should use default summarize_threshold (1000)
-        assert config.transformer_configs[0]["llm_summarize"]["input_threshold"] == 1000
+        assert config.transformers[0]["llm_summarize"]["input_threshold"] == 1000

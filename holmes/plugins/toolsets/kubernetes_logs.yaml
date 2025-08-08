@@ -8,7 +8,7 @@ toolsets:
     prerequisites:
       - command: "kubectl version --client"
 
-    # Note: Log tools use transformer_configs with llm_summarize to automatically
+    # Note: Log tools use transformers with llm_summarize to automatically
     # summarize large log outputs when a fast model is configured. This helps
     # focus on errors, patterns, and key information while reducing context usage.
 
@@ -28,8 +28,9 @@ toolsets:
       - name: "kubectl_logs"
         description: "Run `kubectl logs` on a single Kubernetes pod. Never give a deployment name or a resource that is not a pod."
         command: "kubectl logs {{pod_name}} -n {{ namespace }}"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize these pod logs focusing on:
@@ -43,8 +44,9 @@ toolsets:
       - name: "kubectl_logs_all_containers"
         description: "Run `kubectl logs` on all containers within a single Kubernetes pod."
         command: "kubectl logs {{pod_name}} -n {{ namespace }} --all-containers"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize these multi-container pod logs focusing on:

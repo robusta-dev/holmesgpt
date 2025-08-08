@@ -8,7 +8,7 @@ toolsets:
     prerequisites:
       - command: "kubectl version --client"
 
-    # Note: Many tools in this toolset use transformer_configs with llm_summarize
+    # Note: Many tools in this toolset use transformers with llm_summarize
     # to automatically summarize large kubectl outputs when a fast model is configured.
     # This reduces context window usage while preserving key information for debugging.
 
@@ -21,8 +21,9 @@ toolsets:
             - 'describe pod xyz-123'
             - 'show service xyz-123 in namespace my-ns'
         command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize this kubectl describe output focusing on:
@@ -39,8 +40,9 @@ toolsets:
       - name: "kubectl_get_by_kind_in_namespace"
         description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
         command: "kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize this kubectl output focusing on:
@@ -54,8 +56,9 @@ toolsets:
       - name: "kubectl_get_by_kind_in_cluster"
         description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
         command: "kubectl get -A --show-labels -o wide {{ kind }}"
-        transformer_configs:
-          - llm_summarize:
+        transformers:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Summarize this kubectl output focusing on:

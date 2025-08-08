@@ -572,8 +572,8 @@ class TestToolExecutionPipeline:
             assert transformer_log is not None
             assert "mock_transformer" in transformer_log
             assert "test_tool" in transformer_log
-            assert "output size:" in transformer_log
-            assert "characters)" in transformer_log
+            assert "size:" in transformer_log
+            assert "chars" in transformer_log
 
     def test_tool_without_transformers_unchanged(self):
         """Test that tools without transformers work exactly as before."""

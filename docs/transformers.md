@@ -42,14 +42,14 @@ Tools can declare transformers in their definitions:
 - name: "kubectl_get_by_kind_in_namespace"
   description: "Get all resources of a type in a namespace"
   command: "kubectl get --show-labels -o wide {{ kind }} -n {{ namespace }}"
-  transformer_configs:
+  transformers:
     - llm_summarize: {}
 
 # Custom threshold and prompt
 - name: "kubectl_describe"
   description: "Describe a Kubernetes resource"
   command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-  transformer_configs:
+  transformers:
     - llm_summarize:
         input_threshold: 1000
         prompt: |
@@ -71,13 +71,13 @@ class PrometheusToolset(Toolset):
             tools=[
                 ListPrometheusRules(
                     toolset=self,
-                    transformer_configs=[
+                    transformers=[
                         {"llm_summarize": {}}  # use default config
                     ]
                 ),
                 ListAvailableMetrics(
                     toolset=self,
-                    transformer_configs=[
+                    transformers=[
                         {
                             "llm_summarize": {
                                 "input_threshold": 800,
@@ -216,7 +216,7 @@ Log analysis (2024-01-15 10:30-10:35):
 
 - **Check fast model configuration**: Ensure `--fast-model` is set
 - **Verify threshold**: Output must exceed `input_threshold` characters
-- **Review tool configuration**: Confirm `transformer_configs` is properly defined
+- **Review tool configuration**: Confirm `transformers` is properly defined
 
 ### Poor Summarization Quality
 
@@ -246,7 +246,7 @@ Add transformer configuration to tools that generate large outputs:
 # After  
 - name: "my_large_output_tool"
   command: "some command that produces lots of output"
-  transformer_configs:
+  transformers:
     - llm_summarize:
         input_threshold: 1000
         prompt: "Custom prompt for this tool's output type"
@@ -263,7 +263,7 @@ MyTool(toolset=self)
 # After
 MyTool(
     toolset=self,
-    transformer_configs=[
+    transformers=[
         {"llm_summarize": {"input_threshold": 800}}
     ]
 )

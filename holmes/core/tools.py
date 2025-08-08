@@ -162,7 +162,7 @@ class Transformer(BaseModel):
     )
 
     @model_validator(mode="after")
-    def validate_transformer_config(self):
+    def validate_transformer(self):
         """Validate that the transformer name is known to the registry."""
         from holmes.core.transformers import registry
 
@@ -533,15 +533,18 @@ class Toolset(BaseModel):
             if field in self.__class__.model_fields and value not in (None, [], {}, ""):
                 setattr(self, field, value)
 
+
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
         additional_instructions = values.get("additional_instructions", "")
         transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
+        
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
                 tool["additional_instructions"] = additional_instructions
+                
                 # Merge toolset-level transformers with tool-level configs
                 tool["transformers"] = merge_transformers(
                     base_transformers=transformers,

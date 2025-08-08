@@ -126,7 +126,7 @@ class ToolsetManager:
 
         # Apply global transformer configurations to all toolsets
         final_toolsets = list(toolsets_by_name.values())
-        self._apply_global_transformer_configs(final_toolsets)
+        self._apply_global_transformers(final_toolsets)
 
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
@@ -291,8 +291,8 @@ class ToolsetManager:
             check_conflict_default=True,
         )
 
-        # Apply global transformer configs to CLI custom toolsets
-        self._apply_global_transformer_configs(custom_toolsets_from_cli)
+        # Apply global transformers to CLI custom toolsets
+        self._apply_global_transformers(custom_toolsets_from_cli)
 
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
         enabled_toolsets_from_cli: List[Toolset] = []
@@ -457,7 +457,7 @@ class ToolsetManager:
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
 
-    def _apply_global_transformer_configs(self, toolsets: List[Toolset]) -> None:
+    def _apply_global_transformers(self, toolsets: List[Toolset]) -> None:
         """
         Apply global transformer configurations using intelligent merging.
         Global configs provide missing fields, toolset configs take precedence.
