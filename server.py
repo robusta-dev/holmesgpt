@@ -160,7 +160,7 @@ def stream_investigate_issues(req: InvestigateRequest):
         # is_structured_output = not robusta_ai
 
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config, True)
+            investigation.get_investigation_context(req, dal, config)
         )
         return StreamingResponse(
             ai.call_stream(
