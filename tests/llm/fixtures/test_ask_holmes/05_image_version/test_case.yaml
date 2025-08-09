@@ -1,6 +1,6 @@
 user_prompt: 'what is the image version of << { "type": "pod", "name": "sea-turtle" } >>'
 expected_output:
-  - The image version of the `sea-turtle` pod is `1.23.4`.
+  - The image version of the `sea-turtle` pod is either `1.23.4` or `nginx:1.23.4`.
 tags:
   - kubernetes
   - easy
