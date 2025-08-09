@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from typing import Any, List, Optional
+from typing import Any, List, Optional, TYPE_CHECKING
 
 from benedict import benedict
 from pydantic import FilePath
@@ -12,6 +12,10 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
+from holmes.utils.config_utils import merge_transformers
+
+if TYPE_CHECKING:
+    from holmes.core.tools import Transformer
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
 
@@ -30,6 +34,7 @@ class ToolsetManager:
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
+        global_transformers: Optional[List["Transformer"]] = None,
     ):
         self.toolsets = toolsets
         self.toolsets = toolsets or {}
@@ -38,6 +43,7 @@ class ToolsetManager:
                 mcp_server["type"] = ToolsetType.MCP.value
         self.toolsets.update(mcp_servers or {})
         self.custom_toolsets = custom_toolsets
+        self.global_transformers = global_transformers
 
         if toolset_status_location is None:
             toolset_status_location = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION)
@@ -118,9 +124,13 @@ class ToolsetManager:
                 if any(tag in toolset_tags for tag in toolset.tags)
             }
 
+        # Apply global transformer configurations to all toolsets
+        final_toolsets = list(toolsets_by_name.values())
+        self._apply_global_transformers(final_toolsets)
+
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
-            return list(toolsets_by_name.values())
+            return final_toolsets
 
         enabled_toolsets: List[Toolset] = []
         for _, toolset in toolsets_by_name.items():
@@ -130,7 +140,7 @@ class ToolsetManager:
                 toolset.status = ToolsetStatusEnum.DISABLED
         self.check_toolset_prerequisites(enabled_toolsets)
 
-        return list(toolsets_by_name.values())
+        return final_toolsets
 
     @classmethod
     def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
@@ -280,6 +290,10 @@ class ToolsetManager:
             list(toolsets_status_by_name.keys()),
             check_conflict_default=True,
         )
+
+        # Apply global transformers to CLI custom toolsets
+        self._apply_global_transformers(custom_toolsets_from_cli)
+
         # custom toolsets from cli as experimental toolset should not override custom toolsets from config
         enabled_toolsets_from_cli: List[Toolset] = []
         for custom_toolset_from_cli in custom_toolsets_from_cli:
@@ -442,3 +456,30 @@ class ToolsetManager:
             else:
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
+
+    def _apply_global_transformers(self, toolsets: List[Toolset]) -> None:
+        """
+        Apply global transformer configurations using intelligent merging.
+        Global configs provide missing fields, toolset configs take precedence.
+        """
+        if not self.global_transformers:
+            return
+
+        for toolset in toolsets:
+            # Only merge global configs when toolset configs exist
+            toolset.transformers = merge_transformers(
+                base_transformers=self.global_transformers,
+                override_transformers=toolset.transformers,
+                only_merge_when_override_exists=True,  # Only for global-level merging
+            )
+
+            # Re-apply toolset configs to tools after global merge
+            # This ensures tools inherit the newly merged toolset configs
+            if hasattr(toolset, "tools") and toolset.tools:
+                for tool in toolset.tools:
+                    # Use original behavior: toolset configs should always be applied to tools
+                    tool.transformers = merge_transformers(
+                        base_transformers=toolset.transformers,
+                        override_transformers=tool.transformers,
+                        only_merge_when_override_exists=False,  # Keep original behavior for toolset→tool
+                    )

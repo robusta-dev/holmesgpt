@@ -8,14 +8,39 @@ import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    OrderedDict,
+    Tuple,
+    Union,
+)
 
 from jinja2 import Template
-from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FilePath,
+    model_validator,
+    PrivateAttr,
+)
 from rich.console import Console
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.core.transformers import (
+    registry,
+    TransformerError,
+)
+
+if TYPE_CHECKING:
+    from holmes.core.transformers import BaseTransformer
+from holmes.utils.config_utils import merge_transformers
 import time
 from rich.table import Table
 
@@ -123,6 +148,28 @@ class ToolParameter(BaseModel):
     required: bool = True
 
 
+class Transformer(BaseModel):
+    """
+    Configuration for a tool transformer.
+
+    Each transformer config specifies a transformer type and its parameters.
+    This replaces the previous dict-based configuration with proper type safety.
+    """
+
+    name: str = Field(description="Name of the transformer (e.g., 'llm_summarize')")
+    config: Dict[str, Any] = Field(
+        default_factory=dict, description="Configuration parameters for the transformer"
+    )
+
+    @model_validator(mode="after")
+    def validate_transformer(self):
+        """Validate that the transformer name is known to the registry."""
+        if not registry.is_registered(self.name):
+            # Log warning but don't fail validation - allows for graceful degradation
+            logging.warning(f"Transformer '{self.name}' is not registered")
+        return self
+
+
 class Tool(ABC, BaseModel):
     name: str
     description: str
@@ -131,6 +178,37 @@ class Tool(ABC, BaseModel):
         None  # templated string to show to the user describing this tool invocation (not seen by llm)
     )
     additional_instructions: Optional[str] = None
+    transformers: Optional[List[Transformer]] = None
+
+    # Private attribute to store initialized transformer instances for performance
+    _transformer_instances: Optional[List["BaseTransformer"]] = PrivateAttr(
+        default=None
+    )
+
+    def model_post_init(self, __context) -> None:
+        """Initialize transformer instances once during tool creation for better performance."""
+        if self.transformers:
+            self._transformer_instances = []
+            for transformer in self.transformers:
+                if not transformer:
+                    continue
+                try:
+                    # Create transformer instance once and cache it
+                    transformer_instance = registry.create_transformer(
+                        transformer.name, transformer.config
+                    )
+                    self._transformer_instances.append(transformer_instance)
+                    logging.debug(
+                        f"Initialized transformer '{transformer.name}' for tool '{self.name}'"
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"Failed to initialize transformer '{transformer.name}' for tool '{self.name}': {e}"
+                    )
+                    # Continue with other transformers, don't fail the entire initialization
+                    continue
+        else:
+            self._transformer_instances = None
 
     def get_openai_format(self):
         return format_tool_to_open_ai_standard(
@@ -148,17 +226,91 @@ class Tool(ABC, BaseModel):
         )
         start_time = time.time()
         result = self._invoke(params)
+
+        # Apply transformers to the result
+        transformed_result = self._apply_transformers(result)
+
         elapsed = time.time() - start_time
         output_str = (
-            result.get_stringified_data()
-            if hasattr(result, "get_stringified_data")
-            else str(result)
+            transformed_result.get_stringified_data()
+            if hasattr(transformed_result, "get_stringified_data")
+            else str(transformed_result)
         )
         show_hint = f"/show {tool_number}" if tool_number else "/show"
         line_count = output_str.count("\n") + 1 if output_str else 0
         logging.info(
             f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
         )
+        return transformed_result
+
+    def _apply_transformers(self, result: StructuredToolResult) -> StructuredToolResult:
+        """
+        Apply configured transformers to the tool result.
+
+        Args:
+            result: The original tool result
+
+        Returns:
+            The tool result with transformed data, or original result if transformation fails
+        """
+        if not self._transformer_instances or result.status != ToolResultStatus.SUCCESS:
+            return result
+
+        # Get the output string to transform
+        original_data = result.get_stringified_data()
+        if not original_data:
+            return result
+
+        transformed_data = original_data
+        transformers_applied = []
+
+        # Use cached transformer instances instead of creating new ones
+        for transformer_instance in self._transformer_instances:
+            try:
+                # Check if transformer should be applied
+                if not transformer_instance.should_apply(transformed_data):
+                    logging.debug(
+                        f"Transformer '{transformer_instance.name}' skipped for tool '{self.name}' (conditions not met)"
+                    )
+                    continue
+
+                # Apply transformation
+                pre_transform_size = len(transformed_data)
+                transform_start_time = time.time()
+                transformed_data = transformer_instance.transform(transformed_data)
+                transform_elapsed = time.time() - transform_start_time
+
+                transformers_applied.append(transformer_instance.name)
+
+                # Generic logging - transformers can override this with their own specific metrics
+                post_transform_size = len(transformed_data)
+                size_change = post_transform_size - pre_transform_size
+                logging.info(
+                    f"Applied transformer '{transformer_instance.name}' to tool '{self.name}' output "
+                    f"in {transform_elapsed:.2f}s (size: {pre_transform_size:,} → {post_transform_size:,} chars, "
+                    f"change: {size_change:+,})"
+                )
+
+            except TransformerError as e:
+                logging.warning(
+                    f"Transformer '{transformer_instance.name}' failed for tool '{self.name}': {e}"
+                )
+                # Continue with other transformers, don't fail the entire chain
+                continue
+            except Exception as e:
+                logging.error(
+                    f"Unexpected error applying transformer '{transformer_instance.name}' to tool '{self.name}': {e}"
+                )
+                # Continue with other transformers
+                continue
+
+        # If any transformers were applied, update the result
+        if transformers_applied:
+            # Create a copy of the result with transformed data
+            result_dict = result.model_dump(exclude={"data"})
+            result_dict["data"] = transformed_data
+            return StructuredToolResult(**result_dict)
+
         return result
 
     @abstractmethod
@@ -356,6 +508,7 @@ class Toolset(BaseModel):
     config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
+    transformers: Optional[List[Transformer]] = None
 
     # warning! private attributes are not copied, which can lead to subtle bugs.
     # e.g. l.extend([some_tool]) will reset these private attribute to None
@@ -381,13 +534,26 @@ class Toolset(BaseModel):
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
         additional_instructions = values.get("additional_instructions", "")
+        transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
+
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
                 tool["additional_instructions"] = additional_instructions
+
+                # Merge toolset-level transformers with tool-level configs
+                tool["transformers"] = merge_transformers(
+                    base_transformers=transformers,
+                    override_transformers=tool.get("transformers"),
+                )
             if isinstance(tool, Tool):
                 tool.additional_instructions = additional_instructions
+                # Merge toolset-level transformers with tool-level configs
+                tool.transformers = merge_transformers(  # type: ignore
+                    base_transformers=transformers,
+                    override_transformers=tool.transformers,
+                )
             tools.append(tool)
         values["tools"] = tools
 
