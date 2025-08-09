@@ -3,6 +3,7 @@ from autoevals import LLMClassifier, init
 from braintrust.oai import wrap_openai
 import openai
 import os
+import textwrap
 from braintrust import Span, SpanTypeAttribute
 
 import logging
@@ -71,54 +72,26 @@ def evaluate_correctness(
         expected_elements = [expected_elements]
     expected_elements_str = "\n- ".join(expected_elements)
 
-    prompt_prefix = """
-You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
-represents the correctness of that OUTPUT.
+    prompt_prefix = textwrap.dedent("""
+        Grade OUTPUT by the following EXPECTED specifications that MUST ALL be satisfied:
 
-The correctness is defined by the presence of EXPECTED ELEMENTS in the OUTPUT.
-Make a judgement call whether each ELEMENT sufficiently matches the OUTPUT. ELEMENTS do
-not need to appear verbatim or be a perfect match but their essence should be
-present in the whole OUTPUT, even if it spans multiple sentences.
+        EXPECTED (one or more):
 
-# EXPECTED ELEMENTS
+        {{expected}}
 
-- {{expected}}
+        ----
 
-# OUTPUT
+        OUTPUT:
 
-{{output}}
+        {{output}}
 
+        ----
+        GRADE:
 
-Return a choice based on the number of EXPECTED ELEMENTS present in the OUTPUT.
-Possible choices:
-- A: All elements are presents
-- B: Either no element is present or only some but not all elements are present
-"""
-
-    if evaluation_type == "loose":
-        prompt_prefix = """
-You are evaluating the correctness of an OUTPUT given by a LLM. You must return a score that
-represents the correctness of that OUTPUT.
-
-The correctness is defined by the presence of EXPECTED in the OUTPUT.
-Make a judgement call whether each ELEMENT sufficiently matches the OUTPUT. ELEMENTS do
-not need to appear verbatim or be a perfect match but their essence should be
-present in the whole OUTPUT, even if it spans multiple sentences.
-
-# EXPECTED
-
-{{expected}}
-
-# OUTPUT
-
-{{output}}
-
-
-Return a choice based on the number of EXPECTED presence in the OUTPUT.
-Possible choices:
-- A: The OUTPUT reasonably matches the EXPECTED content
-- B: The OUTPUT does not match the EXPECTED content
-"""
+        Return a choice as follows:
+        - A: Output matches all EXPECTED conditions
+        - B: Ouput does not match one or more EXPECTED condition
+        """)
     if base_url:
         logger.info(
             f"Evaluating correctness with Azure OpenAI; base_url={base_url}, api_version={api_version}, model={classifier_model}, api_key ending with: {api_key[-4:] if api_key else None}"
