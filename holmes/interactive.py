@@ -794,6 +794,7 @@ def run_interactive_loop(
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
+    show_reasoning: bool,
     tracer=None,
     runbooks=None,
     system_prompt_additions: Optional[str] = None,
