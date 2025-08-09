@@ -170,6 +170,18 @@ toolsets:
         description: >
           Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
         command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+        transformers:
+          - name: llm_summarize
+            config:
+              input_threshold: 1000
+              prompt: |
+                Summarize this jq query output focusing on:
+                - Key patterns and commonalities in the data
+                - Notable outliers, anomalies, or items that need attention
+                - Group similar results into aggregate descriptions when possible
+                - Highlight any empty results, null values, or missing data
+                - When applicable, mention specific resource names, namespaces, or values that stand out
+                - Organize findings in a structured way that helps with troubleshooting
 
       - name: "kubernetes_count"
         user_description: "Count Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
