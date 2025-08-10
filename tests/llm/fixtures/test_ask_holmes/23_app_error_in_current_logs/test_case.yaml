@@ -3,6 +3,7 @@ expected_output:
   - The `meme-deployment` is experiencing issues due to a DNS resolution error.
   - This indicates that the hostname `memcom` cannot be resolved to an IP address.
 before_test: |
+  kubectl create namespace app-23 || true
   kubectl apply -f ./manifests/
   kubectl wait --for=condition=available --timeout=120s deployment/curl-deployment -n app-23
   kubectl wait --for=condition=available --timeout=120s deployment/meme-deployment -n app-23
