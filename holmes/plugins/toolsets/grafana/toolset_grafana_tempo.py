@@ -25,14 +25,11 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
-from holmes.plugins.toolsets.utils import (
-    get_param_or_raise,
-    process_timestamps_to_int,
-    toolset_name_for_one_liner,
 )
 from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_int,
+    toolset_name_for_one_liner,
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
