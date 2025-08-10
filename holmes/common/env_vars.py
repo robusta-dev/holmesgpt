@@ -37,6 +37,7 @@ SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
 THINKING = os.environ.get("THINKING", "")
+REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip().lower()
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
 
 STREAM_CHUNKS_PER_PARSE = int(
