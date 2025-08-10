@@ -222,7 +222,9 @@ class DefaultLLM(LLM):
 
         if REASONING_EFFORT:
             self.args.setdefault("reasoning_effort", REASONING_EFFORT)
-            allowed_openai_params = ["reasoning_effort"]
+            allowed_openai_params = [
+                "reasoning_effort"
+            ]  # can be removed after next litelm version
 
         self.args.setdefault("temperature", temperature)
         # Get the litellm module to use (wrapped or unwrapped)

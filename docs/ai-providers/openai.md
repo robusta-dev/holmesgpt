@@ -47,7 +47,7 @@ export REASONING_EFFORT="minimal"
 holmes ask "what pods are failing?" --model="gpt-5"
 
 # Use default reasoning effort
-export REASONING_EFFORT="default"
+export REASONING_EFFORT="medium"
 holmes ask "what pods are failing?" --model="gpt-5"
 
 # Use high reasoning effort for complex investigations
