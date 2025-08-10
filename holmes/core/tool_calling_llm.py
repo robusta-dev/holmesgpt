@@ -12,8 +12,7 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from pydantic import BaseModel
 from rich.console import Console
 
-from holmes.common.env_vars import TEMPERATURE
-
+from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -88,12 +87,13 @@ def truncate_messages_to_fit_context(
 
     tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
-    if message_size_without_tools >= (max_context_size - maximum_output_token):
+    reserved_for_output_tokens = min(maximum_output_token, MAX_OUTPUT_TOKEN_RESERVATION)
+    if message_size_without_tools >= (max_context_size - reserved_for_output_tokens):
         logging.error(
             f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
         )
         raise Exception(
-            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - maximum_output_token} tokens available for input."
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - reserved_for_output_tokens} tokens available for input."
         )
 
     if len(tool_call_messages) == 0:
