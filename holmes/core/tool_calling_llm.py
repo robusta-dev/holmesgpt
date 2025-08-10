@@ -4,26 +4,22 @@ import logging
 import textwrap
 from typing import Dict, List, Optional, Type, Union
 
-import requests  # type: ignore
 import sentry_sdk
-from litellm.types.utils import Message
 from openai import BadRequestError
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
 from pydantic import BaseModel
-from pydantic_core import from_json
 from rich.console import Console
 
-from holmes.common.env_vars import ROBUSTA_API_ENDPOINT, STREAM_CHUNKS_PER_PARSE
+from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
+
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
     REQUEST_STRUCTURED_OUTPUT_FROM_LLM,
     InputSectionsDataType,
     get_output_format_for_investigation,
     is_response_an_incorrect_tool_call,
-    parse_markdown_into_sections_from_hash_sign,
-    process_response_into_sections,
 )
 from holmes.core.issue import Issue
 from holmes.core.llm import LLM
@@ -41,6 +37,7 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
+from holmes.utils.stream import StreamEvents, StreamMessage
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -90,12 +87,13 @@ def truncate_messages_to_fit_context(
 
     tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
-    if message_size_without_tools >= (max_context_size - maximum_output_token):
+    reserved_for_output_tokens = min(maximum_output_token, MAX_OUTPUT_TOKEN_RESERVATION)
+    if message_size_without_tools >= (max_context_size - reserved_for_output_tokens):
         logging.error(
             f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
         )
         raise Exception(
-            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - maximum_output_token} tokens available for input."
+            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - reserved_for_output_tokens} tokens available for input."
         )
 
     if len(tool_call_messages) == 0:
@@ -217,6 +215,7 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         messages = [
             {"role": "system", "content": system_prompt},
@@ -228,6 +227,7 @@ class ToolCallingLLM:
             response_format,
             user_prompt=user_prompt,
             sections=sections,
+            trace_span=trace_span,
         )
 
     def messages_call(
@@ -286,6 +286,7 @@ class ToolCallingLLM:
                     messages=parse_messages_tags(messages),
                     tools=tools,
                     tool_choice=tool_choice,
+                    temperature=TEMPERATURE,
                     response_format=response_format,
                     drop_params=True,
                 )
@@ -409,20 +410,41 @@ class ToolCallingLLM:
         trace_span=DummySpan(),
         tool_number=None,
     ) -> ToolCallResult:
-        tool_name = tool_to_call.function.name
+        # Handle the union type - ChatCompletionMessageToolCall can be either
+        # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
+        # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
+        # We use hasattr to check for the 'function' attribute as it's more flexible
+        # and doesn't require importing the specific type.
+        if hasattr(tool_to_call, "function"):
+            tool_name = tool_to_call.function.name
+            tool_arguments = tool_to_call.function.arguments
+        else:
+            # This is a custom tool call - we don't support these currently
+            logging.error(f"Unsupported custom tool call: {tool_to_call}")
+            return ToolCallResult(
+                tool_call_id=tool_to_call.id,
+                tool_name="unknown",
+                description="NA",
+                result=StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Custom tool calls are not supported",
+                    params=None,
+                ),
+            )
+
         tool_params = None
         try:
-            tool_params = json.loads(tool_to_call.function.arguments)
+            tool_params = json.loads(tool_arguments)
         except Exception:
             logging.warning(
-                f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}"
+                f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
 
         if (not tool) or (tool_params is None):
             logging.warning(
-                f"Skipping tool execution for {tool_name}: args: {tool_to_call.function.arguments}"
+                f"Skipping tool execution for {tool_name}: args: {tool_arguments}"
             )
             return ToolCallResult(
                 tool_call_id=tool_call_id,
@@ -549,61 +571,37 @@ class ToolCallingLLM:
 
     def call_stream(
         self,
-        system_prompt: str,
+        system_prompt: str = "",
         user_prompt: Optional[str] = None,
-        stream: bool = False,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
-        runbooks: Optional[List[str]] = None,
+        msgs: Optional[list[dict]] = None,
     ):
-        def stream_analysis(it, peek_chunk):
-            buffer = peek_chunk.get("data", "")
-            yield create_sse_message(peek_chunk.get("event"), peek_chunk.get("data"))
-            chunk_counter = 0
-
-            for chunk in it:
-                buffer += chunk
-                chunk_counter += 1
-                if chunk_counter == STREAM_CHUNKS_PER_PARSE:
-                    chunk_counter = 0
-                    yield create_sse_message(
-                        "ai_answer",
-                        {
-                            "sections": parse_markdown_into_sections_from_hash_sign(
-                                buffer
-                            )
-                            or {},
-                            "analysis": buffer,
-                            "instructions": runbooks or [],
-                        },
-                    )
-
-            yield create_sse_message(
-                "ai_answer_end",
-                {
-                    "sections": parse_markdown_into_sections_from_hash_sign(buffer)
-                    or {},
-                    "analysis": buffer,
-                    "instructions": runbooks or [],
-                },
-            )
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        """
+        This function DOES NOT call llm.completion(stream=true).
+        This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
+        """
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        if user_prompt:
+            messages.append({"role": "user", "content": user_prompt})
+        if msgs:
+            messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
+        tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
+        max_steps = self.max_steps
         i = 0
-        tool_calls: list[dict] = []
-        while i < self.max_steps:
+
+        while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
 
-            tools = [] if i == self.max_steps - 1 else tools
-            tool_choice = None if tools == [] else "auto"
+            tools = None if i == max_steps else tools
+            tool_choice = "auto" if tools else None
 
             total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
@@ -619,94 +617,57 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                if stream:
-                    response = requests.post(
-                        f"{ROBUSTA_API_ENDPOINT}/chat/completions",
-                        json={
-                            "messages": parse_messages_tags(messages),  # type: ignore
-                            "tools": tools,
-                            "tool_choice": tool_choice,
-                            "response_format": response_format,
-                            "stream": True,
-                            "drop_param": True,
-                        },
-                        headers={"Authorization": f"Bearer {self.llm.api_key}"},  # type: ignore
-                        stream=True,
-                    )
-                    response.raise_for_status()
-                    it = response.iter_content(chunk_size=None, decode_unicode=True)
-                    peek_chunk = from_json(next(it))
-                    tools = peek_chunk.get("tool_calls")
-
-                    if not tools:
-                        yield from stream_analysis(it, peek_chunk)
-                        perf_timing.measure("llm.completion")
-                        return
-
-                    response_message = Message(**peek_chunk)
-                    tools_to_call = response_message.tool_calls
-                else:
-                    full_response = self.llm.completion(
-                        messages=parse_messages_tags(messages),  # type: ignore
-                        tools=tools,
-                        tool_choice=tool_choice,
-                        response_format=response_format,
-                        stream=False,
-                        drop_params=True,
-                    )
-                    perf_timing.measure("llm.completion")
-
-                    response_message = full_response.choices[0].message  # type: ignore
-                    if response_message and response_format:
-                        # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
-                        dict_response = json.loads(full_response.to_json())  # type: ignore
-                        incorrect_tool_call = is_response_an_incorrect_tool_call(
-                            sections, dict_response.get("choices", [{}])[0]
-                        )
-
-                        if incorrect_tool_call:
-                            logging.warning(
-                                "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
-                            )
-                            # disable structured output going forward and and retry
-                            response_format = None
-                            i -= 1
-                            continue
-
-                    tools_to_call = getattr(response_message, "tool_calls", None)
-                    if not tools_to_call:
-                        (text_response, sections) = process_response_into_sections(  # type: ignore
-                            response_message.content
-                        )
-
-                        yield create_sse_message(
-                            "ai_answer_end",
-                            {
-                                "sections": sections or {},
-                                "analysis": text_response,
-                                "instructions": runbooks or [],
-                            },
-                        )
-                        return
+                full_response = self.llm.completion(
+                    messages=parse_messages_tags(messages),  # type: ignore
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    response_format=response_format,
+                    temperature=TEMPERATURE,
+                    stream=False,
+                    drop_params=True,
+                )
+                perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
-                logging.exception("Bad completion request")
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
                     e
                 ):
                     raise Exception(
                         "The Azure model you chose is not supported. Model version 1106 and higher required."
+                    ) from e
+                else:
+                    raise
+
+            response_message = full_response.choices[0].message  # type: ignore
+            if response_message and response_format:
+                # Litellm API is bugged. Stringify and parsing ensures all attrs of the choice are available.
+                dict_response = json.loads(full_response.to_json())  # type: ignore
+                incorrect_tool_call = is_response_an_incorrect_tool_call(
+                    sections, dict_response.get("choices", [{}])[0]
+                )
+
+                if incorrect_tool_call:
+                    logging.warning(
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
-                raise e
-            except Exception:
-                logging.exception("Completion request exception")
-                raise
+                    # disable structured output going forward and and retry
+                    response_format = None
+                    max_steps = max_steps + 1
+                    continue
 
             messages.append(
                 response_message.model_dump(
                     exclude_defaults=True, exclude_unset=True, exclude_none=True
                 )
             )
+
+            tools_to_call = getattr(response_message, "tool_calls", None)
+            if not tools_to_call:
+                yield StreamMessage(
+                    event=StreamEvents.ANSWER_END,
+                    data={"content": response_message.content, "messages": messages},
+                )
+                return
 
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
@@ -721,8 +682,9 @@ class ToolCallingLLM:
                             tool_number=tool_index,
                         )
                     )
-                    yield create_sse_message(
-                        "start_tool_calling", {"tool_name": t.function.name, "id": t.id}
+                    yield StreamMessage(
+                        event=StreamEvents.START_TOOL,
+                        data={"tool_name": t.function.name, "id": t.id},
                     )
 
                 for future in concurrent.futures.as_completed(futures):
@@ -733,12 +695,9 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                    streaming_result_dict = (
-                        tool_call_result.as_streaming_tool_result_response()
-                    )
-
-                    yield create_sse_message(
-                        "tool_calling_result", streaming_result_dict
+                    yield StreamMessage(
+                        event=StreamEvents.TOOL_RESULT,
+                        data=tool_call_result.as_streaming_tool_result_response(),
                     )
 
         raise Exception(
@@ -761,9 +720,11 @@ class IssueInvestigator(ToolCallingLLM):
         runbook_manager: RunbookManager,
         max_steps: int,
         llm: LLM,
+        cluster_name: Optional[str],
     ):
         super().__init__(tool_executor, max_steps, llm)
         self.runbook_manager = runbook_manager
+        self.cluster_name = cluster_name
 
     def investigate(
         self,
@@ -774,6 +735,7 @@ class IssueInvestigator(ToolCallingLLM):
         global_instructions: Optional[Instructions] = None,
         post_processing_prompt: Optional[str] = None,
         sections: Optional[InputSectionsDataType] = None,
+        trace_span=DummySpan(),
     ) -> LLMResult:
         runbooks = self.runbook_manager.get_instructions_for_issue(issue)
 
@@ -822,6 +784,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "sections": sections,
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
+                "cluster_name": self.cluster_name,
             },
         )
 
@@ -856,10 +819,7 @@ class IssueInvestigator(ToolCallingLLM):
             post_processing_prompt,
             response_format=response_format,
             sections=sections,
+            trace_span=trace_span,
         )
         res.instructions = runbooks
         return res
-
-
-def create_sse_message(event_type: str, data: dict = {}):
-    return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"

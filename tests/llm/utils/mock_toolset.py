@@ -5,9 +5,9 @@ import logging
 import os
 import re
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 import urllib
-
+import threading
 from pydantic import BaseModel
 import pytest
 
@@ -62,7 +62,7 @@ class MockMode(Enum):
     """Modes for mock tool execution."""
 
     MOCK = "mock"  # Use existing mock files
-    GENERATE = "generate"  # Generate new mock files
+    GENERATE = "generate"  # Generate new mock files and run tools in live mode
     LIVE = "live"  # Use real tools without mocking
 
 
@@ -188,6 +188,7 @@ class MockFileManager:
         self.test_case_folder = test_case_folder
         self.add_params_to_filename = add_params_to_filename
         self._mock_cache = None  # Cache for loaded mocks
+        self._lock = threading.Lock()
 
     def _get_mock_file_path(self, tool_name: str, params: Dict) -> str:
         """Generate the path for a mock file."""
@@ -300,94 +301,84 @@ class MockFileManager:
 
         return cleared_files
 
-    def has_mock_files(self, tool_name: str) -> bool:
-        """Check if any mock files exist for this tool."""
-        # First check with glob pattern for efficiency
-        pattern = os.path.join(self.test_case_folder, f"{tool_name}*.txt")
-        if len(glob.glob(pattern)) > 0:
-            return True
-
-        # Also check loaded mocks in case filename doesn't match tool name
-        all_mocks = self._load_all_mocks()
-        return tool_name in all_mocks and len(all_mocks[tool_name]) > 0
-
     def _load_all_mocks(self) -> Dict[str, List[ToolMock]]:
         """Load all mock files in the directory and organize by tool name."""
-        if self._mock_cache is not None:
-            return self._mock_cache
+        with self._lock:
+            if self._mock_cache is not None:
+                return self._mock_cache
 
-        self._mock_cache = {}
+            self._mock_cache = {}
 
-        # Load all .txt files in the directory
-        for file_path in glob.glob(os.path.join(self.test_case_folder, "*.txt")):
-            try:
-                with open(file_path, "r") as f:
-                    lines = f.readlines()
-                    if len(lines) < 1:
-                        continue
-
-                    # Try to parse first line as JSON metadata
-                    try:
-                        first_line = lines[0].strip()
-                        metadata = json.loads(first_line)
-                        if "tool_name" not in metadata:
+            # Load all .txt files in the directory
+            for file_path in glob.glob(os.path.join(self.test_case_folder, "*.txt")):
+                try:
+                    with open(file_path, "r") as f:
+                        lines = f.readlines()
+                        if len(lines) < 1:
                             continue
-                    except json.JSONDecodeError:
-                        # Not a mock file, skip
-                        continue
 
-                    # This looks like a mock file, parse it
-                    if len(lines) < 2:
-                        continue
+                        # Try to parse first line as JSON metadata
+                        try:
+                            first_line = lines[0].strip()
+                            metadata = json.loads(first_line)
+                            if "tool_name" not in metadata:
+                                continue
+                        except json.JSONDecodeError:
+                            # Not a mock file, skip
+                            continue
 
-                    try:
-                        structured_output = json.loads(lines[1].strip())
-                    except json.JSONDecodeError:
-                        # Check if this is an old format mock file
-                        # Old format: Line 1 = metadata JSON, Line 2+ = raw output
-                        # New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output
-                        logging.error(
-                            f"Mock file {file_path} appears to be in old format (missing structured JSON on second line). "
-                            f"The mock file format was updated to include structured tool output metadata. "
-                            f"Old format: Line 1 = metadata JSON, Line 2+ = raw output. "
-                            f"New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output. "
-                            f"This change was introduced in PR https://github.com/robusta-dev/holmesgpt/pull/372. "
-                            f"Please regenerate your mock files using --regenerate-all-mocks or manually update them to the new format."
+                        # This looks like a mock file, parse it
+                        if len(lines) < 2:
+                            continue
+
+                        try:
+                            structured_output = json.loads(lines[1].strip())
+                        except json.JSONDecodeError:
+                            # Check if this is an old format mock file
+                            # Old format: Line 1 = metadata JSON, Line 2+ = raw output
+                            # New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output
+                            logging.error(
+                                f"Mock file {file_path} appears to be in old format (missing structured JSON on second line). "
+                                f"The mock file format was updated to include structured tool output metadata. "
+                                f"Old format: Line 1 = metadata JSON, Line 2+ = raw output. "
+                                f"New format: Line 1 = metadata JSON, Line 2 = structured output JSON, Line 3+ = raw output. "
+                                f"This change was introduced in PR https://github.com/robusta-dev/holmesgpt/pull/372. "
+                                f"Please regenerate your mock files using --regenerate-all-mocks or manually update them to the new format."
+                            )
+                            raise MockDataCorruptedError(
+                                f"Mock file {file_path} is in old format and needs to be updated (see PR #372)",
+                                tool_name=metadata.get("tool_name", "unknown"),
+                            ) from None
+
+                        content = "".join(lines[2:]) if len(lines) > 2 else None
+                        if content is not None:
+                            structured_output["data"] = content
+
+                        mock = ToolMock(
+                            toolset_name=metadata.get("toolset_name", ""),
+                            tool_name=metadata["tool_name"],
+                            match_params=metadata.get("match_params"),
+                            source_file=file_path,
+                            return_value=StructuredToolResult(**structured_output),
                         )
-                        raise MockDataCorruptedError(
-                            f"Mock file {file_path} is in old format and needs to be updated (see PR #372)",
-                            tool_name=metadata.get("tool_name", "unknown"),
-                        ) from None
 
-                    content = "".join(lines[2:]) if len(lines) > 2 else None
-                    if content is not None:
-                        structured_output["data"] = content
+                        # Add to cache organized by tool name
+                        tool_name = metadata["tool_name"]
+                        if tool_name not in self._mock_cache:
+                            self._mock_cache[tool_name] = []
+                        self._mock_cache[tool_name].append(mock)
+                        logging.debug(
+                            f"Loaded mock for {tool_name} from {file_path}: match_params={mock.match_params}"
+                        )
 
-                    mock = ToolMock(
-                        toolset_name=metadata.get("toolset_name", ""),
-                        tool_name=metadata["tool_name"],
-                        match_params=metadata.get("match_params"),
-                        source_file=file_path,
-                        return_value=StructuredToolResult(**structured_output),
-                    )
+                except MockDataError:
+                    # Re-raise MockDataError types (including old format error) to propagate them
+                    raise
+                except Exception as e:
+                    logging.warning(f"Failed to load mock file {file_path}: {e}")
+                    continue
 
-                    # Add to cache organized by tool name
-                    tool_name = metadata["tool_name"]
-                    if tool_name not in self._mock_cache:
-                        self._mock_cache[tool_name] = []
-                    self._mock_cache[tool_name].append(mock)
-                    logging.debug(
-                        f"Loaded mock for {tool_name} from {file_path}: match_params={mock.match_params}"
-                    )
-
-            except MockDataError:
-                # Re-raise MockDataError types (including old format error) to propagate them
-                raise
-            except Exception as e:
-                logging.warning(f"Failed to load mock file {file_path}: {e}")
-                continue
-
-        return self._mock_cache
+            return self._mock_cache
 
 
 class MockableToolWrapper(Tool):
@@ -413,42 +404,46 @@ class MockableToolWrapper(Tool):
         self._toolset_name = toolset_name
         self._request = request
 
+    def _call_live_invoke(self, params: Dict) -> StructuredToolResult:
+        """Call the tool in live mode."""
+        logging.info(f"Calling live tool {self.name} with params: {params}")
+        return self._tool.invoke(params)
+
+    def _call_mock_invoke(self, params: Dict):
+        # Mock mode: read from mock file
+        mock = self._file_manager.read_mock(self.name, params)
+        if not mock:
+            # Check if there are any mock files for this tool that might be in old format
+            pattern = os.path.join(
+                self._file_manager.test_case_folder, f"{self.name}*.txt"
+            )
+            existing_files = glob.glob(pattern)
+
+            if existing_files:
+                # There are mock files, but none matched - could be old format
+                error_msg = (
+                    f"No mock data found for tool '{self.name}' with params: {params}. "
+                    f"Found {len(existing_files)} mock file(s) for this tool, but none matched the parameters. "
+                    f"This could be due to mock files being in the old format (missing structured JSON on line 2). "
+                    f"See PR https://github.com/robusta-dev/holmesgpt/pull/372 for format details."
+                )
+            else:
+                error_msg = (
+                    f"No mock data found for tool '{self.name}' with params: {params}"
+                )
+
+            raise MockDataNotFoundError(error_msg, tool_name=self.name)
+        return mock.return_value
+
     def _invoke(self, params: Dict) -> StructuredToolResult:
         """Execute the tool based on the current mode."""
-        if self._mode == MockMode.LIVE:
-            # Live mode: just call the real tool
-            logging.info(f"Calling live tool {self.name} with params: {params}")
-            return self._tool.invoke(params)
+        if self._mode == MockMode.GENERATE:
+            try:
+                return self._call_mock_invoke(params)
+            except MockDataNotFoundError as e:
+                logging.debug(str(e))
 
-        elif self._mode == MockMode.MOCK:
-            # Mock mode: read from mock file
-            mock = self._file_manager.read_mock(self.name, params)
-            if not mock:
-                # Check if there are any mock files for this tool that might be in old format
-                pattern = os.path.join(
-                    self._file_manager.test_case_folder, f"{self.name}*.txt"
-                )
-                existing_files = glob.glob(pattern)
-
-                if existing_files:
-                    # There are mock files, but none matched - could be old format
-                    error_msg = (
-                        f"No mock data found for tool '{self.name}' with params: {params}. "
-                        f"Found {len(existing_files)} mock file(s) for this tool, but none matched the parameters. "
-                        f"This could be due to mock files being in the old format (missing structured JSON on line 2). "
-                        f"See PR https://github.com/robusta-dev/holmesgpt/pull/372 for format details."
-                    )
-                else:
-                    error_msg = f"No mock data found for tool '{self.name}' with params: {params}"
-
-                raise MockDataNotFoundError(error_msg, tool_name=self.name)
-            return mock.return_value
-
-        elif self._mode == MockMode.GENERATE:
-            # Generate mode: call real tool and save result
-            logging.info(f"Generating mock for tool {self.name} with params: {params}")
-            result = self._tool.invoke(params)
-
+            result = self._call_live_invoke(params)
             # Write mock file
             mock_file_path = self._file_manager.write_mock(
                 tool_name=self.name,
@@ -465,7 +460,11 @@ class MockableToolWrapper(Tool):
             )
 
             return result
-
+        elif self._mode == MockMode.LIVE:
+            # Live mode: just call the real tool
+            return self._call_live_invoke(params)
+        elif self._mode == MockMode.MOCK:
+            return self._call_mock_invoke(params)
         else:
             raise ValueError(f"Unknown mock mode: {self._mode}")
 
@@ -476,6 +475,8 @@ class MockableToolWrapper(Tool):
 
 class SimplifiedMockToolset(Toolset):
     """Simplified mock toolset for testing."""
+
+    original_toolset_type: Type[Toolset]
 
     def get_status(self):
         return ToolsetStatusEnum.ENABLED
@@ -548,6 +549,23 @@ class MockToolsetManager:
         configured = []
 
         for toolset in builtin_toolsets:
+            # Replace RunbookToolset with one that has test folder search path
+            if toolset.name == "runbook":
+                from holmes.plugins.toolsets.runbook.runbook_fetcher import (
+                    RunbookToolset,
+                )
+
+                # Create new RunbookToolset with test folder as additional search path
+                new_runbook_toolset = RunbookToolset(
+                    additional_search_paths=[self.test_case_folder]
+                )
+                new_runbook_toolset.enabled = toolset.enabled
+                new_runbook_toolset.status = toolset.status
+                # Preserve any existing config but add our search paths
+                if toolset.config:
+                    new_runbook_toolset.config.update(toolset.config)
+                toolset = new_runbook_toolset
+
             # Enable default toolsets
             if toolset.is_default or isinstance(toolset, YAMLToolset):
                 toolset.enabled = True
@@ -566,7 +584,7 @@ class MockToolsetManager:
             # Check prerequisites for enabled toolsets with timeout
             # Only check prerequisites in LIVE mode - for MOCK/GENERATE modes we don't need real connections
             if toolset.enabled:
-                if self.mode == MockMode.LIVE:
+                if self.mode == MockMode.LIVE or self.mode == MockMode.GENERATE:
                     try:
                         # TODO: add timeout
                         toolset.check_prerequisites()
@@ -615,6 +633,7 @@ class MockToolsetManager:
                     description=toolset.description,
                     llm_instructions=toolset.llm_instructions,
                     config=toolset.config,
+                    original_toolset_type=type(toolset),
                 )
                 mock_toolset.status = ToolsetStatusEnum.ENABLED
                 self.toolsets[i] = mock_toolset

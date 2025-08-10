@@ -19,12 +19,15 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
 from prompt_toolkit.widgets import TextArea
+from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
+from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
@@ -190,7 +193,7 @@ class ShowCommandCompleter(Completer):
                         )
 
 
-WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to {agent_name}:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
 
 def format_tool_call_output(
@@ -227,6 +230,28 @@ def format_tool_call_output(
 def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
     """Build modal title with navigation instructions."""
     return f"{tool_call.description} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
+
+
+def detect_lexer(content: str) -> Optional[PygmentsLexer]:
+    """
+    Detect appropriate lexer for content using Pygments' built-in detection.
+
+    Args:
+        content: String content to analyze
+
+    Returns:
+        PygmentsLexer instance if content type is detected, None otherwise
+    """
+    if not content.strip():
+        return None
+
+    try:
+        # Use Pygments' built-in lexer guessing
+        lexer = guess_lexer(content)
+        return PygmentsLexer(lexer.__class__)
+    except Exception:
+        # If detection fails, return None for no syntax highlighting
+        return None
 
 
 def handle_show_command(
@@ -290,6 +315,9 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         output = tool_call.result.get_stringified_data()
         title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
 
+        # Detect appropriate syntax highlighting
+        lexer = detect_lexer(output)
+
         # Create text area with the output
         text_area = TextArea(
             text=output,
@@ -297,6 +325,7 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
             scrollbar=True,
             line_numbers=False,
             wrap_lines=False,  # Disable word wrap by default
+            lexer=lexer,
         )
 
         # Create header
@@ -319,15 +348,18 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         # Create key bindings
         bindings = KeyBindings()
 
-        # Exit commands
+        # Track exit state to prevent double exits
+        exited = False
+
+        # Exit commands (q, escape, or ctrl+c to exit)
         @bindings.add("q")
         @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
         @bindings.add("c-c")
         def _(event):
-            event.app.exit()
+            nonlocal exited
+            if not exited:
+                exited = True
+                event.app.exit()
 
         # Vim/less-like navigation
         @bindings.add("j")
@@ -758,13 +790,15 @@ def display_recent_tool_outputs(
 def run_interactive_loop(
     ai: ToolCallingLLM,
     console: Console,
-    system_prompt_rendered: str,
     initial_user_input: Optional[str],
     include_files: Optional[List[Path]],
     post_processing_prompt: Optional[str],
     show_tool_output: bool,
     show_reasoning: bool,
     tracer=None,
+    runbooks=None,
+    system_prompt_additions: Optional[str] = None,
+    check_version: bool = True,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -789,7 +823,8 @@ def run_interactive_loop(
     )
 
     # Use file-based history
-    history_file = os.path.expanduser("~/.holmes/history")
+    history_file = os.path.join(config_path_dir, "history")
+
     os.makedirs(os.path.dirname(history_file), exist_ok=True)
     history = FileHistory(history_file)
     if initial_user_input:
@@ -862,7 +897,8 @@ def run_interactive_loop(
     )  # type: ignore
 
     # Start background version check
-    check_version_async(on_version_check_complete)
+    if check_version:
+        check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 
@@ -963,7 +999,12 @@ def run_interactive_loop(
 
             if messages is None:
                 messages = build_initial_ask_messages(
-                    console, system_prompt_rendered, user_input, include_files
+                    console,
+                    user_input,
+                    include_files,
+                    ai.tool_executor,
+                    runbooks,
+                    system_prompt_additions,
                 )
             else:
                 messages.append({"role": "user", "content": user_input})

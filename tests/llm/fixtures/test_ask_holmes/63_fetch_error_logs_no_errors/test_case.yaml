@@ -12,4 +12,4 @@ after_test: |
 
 tags:
   - logs
-  - medium
+  - easy

@@ -23,7 +23,7 @@ from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from holmes.utils.robusta import load_robusta_api_key
-
+from holmes.utils.stream import stream_investigate_formatter, stream_chat_formatter
 from holmes.common.env_vars import (
     HOLMES_HOST,
     HOLMES_PORT,
@@ -155,21 +155,19 @@ def investigate_issues(investigate_request: InvestigateRequest):
 @app.post("/api/stream/investigate")
 def stream_investigate_issues(req: InvestigateRequest):
     try:
-        # Disabled the logic for streaming & structured output with robusta AI
-        # robusta_ai = req.model == "Robusta"
-        # is_structured_output = not robusta_ai
-
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config, True)
+            investigation.get_investigation_context(req, dal, config)
         )
+
         return StreamingResponse(
-            ai.call_stream(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                stream=False,
-                response_format=response_format,
-                sections=sections,
-                runbooks=runbooks,
+            stream_investigate_formatter(
+                ai.call_stream(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    response_format=response_format,
+                    sections=sections,
+                ),
+                runbooks,
             ),
             media_type="text/event-stream",
         )
@@ -217,6 +215,7 @@ def workload_health_check(request: WorkloadHealthRequest):
                 "alerts": workload_alerts,
                 "toolsets": ai.tool_executor.toolsets,
                 "response_format": workload_health_structured_output,
+                "cluster_name": config.cluster_name,
             },
         )
 
@@ -250,7 +249,12 @@ def workload_health_conversation(
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
-        messages = build_workload_health_chat_messages(request, ai, global_instructions)
+        messages = build_workload_health_chat_messages(
+            workload_health_chat_request=request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
+        )
         llm_call = ai.messages_call(messages=messages)
 
         return ChatResponse(
@@ -273,7 +277,10 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         global_instructions = dal.get_global_instructions_for_account()
 
         messages = build_issue_chat_messages(
-            issue_chat_request, ai, global_instructions
+            issue_chat_request=issue_chat_request,
+            ai=ai,
+            config=config,
+            global_instructions=global_instructions,
         )
         llm_call = ai.messages_call(messages=messages)
 
@@ -310,6 +317,7 @@ def chat(chat_request: ChatRequest):
             chat_request.ask,
             chat_request.conversation_history,
             ai=ai,
+            config=config,
             global_instructions=global_instructions,
         )
         follow_up_actions = []
@@ -335,13 +343,22 @@ def chat(chat_request: ChatRequest):
                 ),
             ]
 
-        llm_call = ai.messages_call(messages=messages)
-        return ChatResponse(
-            analysis=llm_call.result,
-            tool_calls=llm_call.tool_calls,
-            conversation_history=llm_call.messages,
-            follow_up_actions=follow_up_actions,
-        )
+        if chat_request.stream:
+            return StreamingResponse(
+                stream_chat_formatter(
+                    ai.call_stream(msgs=messages),
+                    [f.model_dump() for f in follow_up_actions],
+                ),
+                media_type="text/event-stream",
+            )
+        else:
+            llm_call = ai.messages_call(messages=messages)
+            return ChatResponse(
+                analysis=llm_call.result,
+                tool_calls=llm_call.tool_calls,
+                conversation_history=llm_call.messages,
+                follow_up_actions=follow_up_actions,
+            )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
