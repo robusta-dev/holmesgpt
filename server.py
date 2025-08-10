@@ -156,7 +156,7 @@ def investigate_issues(investigate_request: InvestigateRequest):
 def stream_investigate_issues(req: InvestigateRequest):
     try:
         ai, system_prompt, user_prompt, response_format, sections, runbooks = (
-            investigation.get_investigation_context(req, dal, config, True)
+            investigation.get_investigation_context(req, dal, config)
         )
 
         return StreamingResponse(
