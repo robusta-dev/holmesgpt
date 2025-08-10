@@ -40,7 +40,7 @@ starlette = "0.47.2"
 google-api-python-client = "^2.156.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "1.74.7"
+litellm = "1.74.15"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
