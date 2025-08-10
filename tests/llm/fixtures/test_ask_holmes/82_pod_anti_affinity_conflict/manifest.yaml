@@ -7,27 +7,27 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cache-server
+  name: silver-puffin
   namespace: namespace-82
 spec:
   replicas: 30  # Trying to schedule 30 pods (this eval assumes less than 30 nodes in cluster - otherwise the eval will be broken because scheduling can be satisfied)
   selector:
     matchLabels:
-      app: cache-server
+      app: silver-puffin
   template:
     metadata:
       labels:
-        app: cache-server
+        app: silver-puffin
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:  # Hard requirement
           - labelSelector:
               matchLabels:
-                app: cache-server
+                app: silver-puffin
             topologyKey: kubernetes.io/hostname  # Can't be on same node
       containers:
-      - name: cache-server
+      - name: silver-puffin
         image: redis:alpine
         resources:
           requests:

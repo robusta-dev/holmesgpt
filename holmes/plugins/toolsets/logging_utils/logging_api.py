@@ -178,29 +178,10 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
 
-        start_time = params.get("start_time")
-        end_time = params.get("end_time")
-        filter = params.get("filter")
-        limit = params.get("limit")
-
-        extra_params_str = ""
-
-        if start_time and not end_time:
-            extra_params_str += f" start_time={start_time}"
-        elif not start_time and end_time:
-            extra_params_str += f" end_time={end_time}"
-        elif start_time and end_time:
-            extra_params_str += f" time range={start_time}/{end_time}"
-
-        if filter:
-            extra_params_str += f" filter={filter}"
-        if limit:
-            extra_params_str += f" limit={limit}"
-
         logger_name = (
             f"{self._toolset.logger_name()}: " if self._toolset.logger_name() else ""
         )
-        return f"{logger_name}Fetching logs for pod {pod_name} in namespace {namespace}.{extra_params_str}"
+        return f"{logger_name}Fetch Logs (pod={pod_name}, namespace={namespace})"
 
 
 def process_time_parameters(

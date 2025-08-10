@@ -27,6 +27,7 @@ from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
+from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
@@ -192,7 +193,7 @@ class ShowCommandCompleter(Completer):
                         )
 
 
-WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to HolmesGPT:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to {agent_name}:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
 
 
 def format_tool_call_output(
@@ -796,6 +797,7 @@ def run_interactive_loop(
     tracer=None,
     runbooks=None,
     system_prompt_additions: Optional[str] = None,
+    check_version: bool = True,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -820,7 +822,8 @@ def run_interactive_loop(
     )
 
     # Use file-based history
-    history_file = os.path.expanduser("~/.holmes/history")
+    history_file = os.path.join(config_path_dir, "history")
+
     os.makedirs(os.path.dirname(history_file), exist_ok=True)
     history = FileHistory(history_file)
     if initial_user_input:
@@ -893,7 +896,8 @@ def run_interactive_loop(
     )  # type: ignore
 
     # Start background version check
-    check_version_async(on_version_check_complete)
+    if check_version:
+        check_version_async(on_version_check_complete)
 
     input_prompt = [("class:prompt", "User: ")]
 

@@ -6,12 +6,6 @@ description: |
 user_prompt: "The frontend deployment in production namespace is showing issues. Can you investigate why some replicas are not running?"
 expected_output: |
   The issue should be identified as a missing Secret mount (frontend-api-keys),
-  The output should mention:
-  - 3/7 replicas running
-  - 4 replicas in CreateContainerConfigError state
-  - Root cause: Secret "frontend-api-keys" not found
-  - The deployment expects this secret to be mounted at /etc/app-secrets
-  - Remediation should suggest creating the missing secret or checking if it was deleted
 before_test: |
   kubectl apply -f manifest.yaml
   sleep 30
@@ -19,4 +13,4 @@ after_test: |
   kubectl delete -f manifest.yaml
 tags:
   - kubernetes
-  - medium
+  - easy

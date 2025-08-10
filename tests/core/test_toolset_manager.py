@@ -302,3 +302,43 @@ def test_load_custom_toolsets_empty_file(tmp_path, toolset_manager):
     with pytest.raises(Exception) as e_info:
         toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
     assert "Invalid data type:" in e_info.value.args[0]
+
+
+def test_mcp_servers_from_custom_toolset_config(tmp_path, toolset_manager):
+    custom_file = tmp_path / "custom_toolset.yaml"
+    data = {
+        "mcp_servers": {
+            "mcp1": {
+                "url": "http://example.com:8000/sse",
+                "description": "Test MCP server",
+                "config": {"key": "value"},
+            }
+        }
+    }
+    custom_file.write_text(yaml.dump(data))
+
+    toolset_manager.custom_toolsets = [custom_file]
+    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+    assert len(result) == 1
+    assert result[0].name == "mcp1"
+    assert result[0].type == ToolsetType.MCP
+
+
+def test_mcp_servers_from_config(toolset_manager):
+    mcp_servers = {
+        "mcp1": {
+            "url": "http://example.com:8000/sse",
+            "description": "Test MCP server",
+            "config": {"key": "value"},
+        }
+    }
+
+    toolset_manager = ToolsetManager(
+        toolsets=None,
+        mcp_servers=mcp_servers,
+        custom_toolsets=None,
+        custom_toolsets_from_cli=None,
+    )
+    assert len(toolset_manager.toolsets) == 1
+    assert "mcp1" in toolset_manager.toolsets
+    assert toolset_manager.toolsets["mcp1"]["type"] == ToolsetType.MCP.value
