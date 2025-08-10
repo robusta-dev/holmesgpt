@@ -115,11 +115,13 @@ modelList:
 
 ## Model Parameters
 
-Each model in `modelList` can accept **any parameter supported by LiteLLM** for that provider. All parameters (except `api_key` and `model` which are handled specially) are passed directly through to the LLM provider.
+Each model in `modelList` can accept any parameter supported by LiteLLM for that provider. The `model` parameter is required, while authentication requirements vary by provider. Any additional LiteLLM parameters will be passed directly through to the provider.
+
+### Required Parameter
+- `model`: Model identifier (provider-specific format)
 
 ### Common Parameters
-- `api_key`: API key for authentication (can use `{{ env.VAR_NAME }}` syntax)
-- `model`: Model identifier (provider-specific format)
+- `api_key`: API key for authentication where required (can use `{{ env.VAR_NAME }}` syntax)
 - `temperature`: Creativity level (0-2, lower is more deterministic)
 
 ### Additional Parameters
