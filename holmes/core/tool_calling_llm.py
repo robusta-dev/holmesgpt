@@ -409,20 +409,41 @@ class ToolCallingLLM:
         trace_span=DummySpan(),
         tool_number=None,
     ) -> ToolCallResult:
-        tool_name = tool_to_call.function.name
+        # Handle the union type - ChatCompletionMessageToolCall can be either
+        # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
+        # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
+        # We use hasattr to check for the 'function' attribute as it's more flexible
+        # and doesn't require importing the specific type.
+        if hasattr(tool_to_call, "function"):
+            tool_name = tool_to_call.function.name
+            tool_arguments = tool_to_call.function.arguments
+        else:
+            # This is a custom tool call - we don't support these currently
+            logging.error(f"Unsupported custom tool call: {tool_to_call}")
+            return ToolCallResult(
+                tool_call_id=tool_to_call.id,
+                tool_name="unknown",
+                description="NA",
+                result=StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Custom tool calls are not supported",
+                    params=None,
+                ),
+            )
+
         tool_params = None
         try:
-            tool_params = json.loads(tool_to_call.function.arguments)
+            tool_params = json.loads(tool_arguments)
         except Exception:
             logging.warning(
-                f"Failed to parse arguments for tool: {tool_name}. args: {tool_to_call.function.arguments}"
+                f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
         tool_call_id = tool_to_call.id
         tool = self.tool_executor.get_tool_by_name(tool_name)
 
         if (not tool) or (tool_params is None):
             logging.warning(
-                f"Skipping tool execution for {tool_name}: args: {tool_to_call.function.arguments}"
+                f"Skipping tool execution for {tool_name}: args: {tool_arguments}"
             )
             return ToolCallResult(
                 tool_call_id=tool_call_id,
