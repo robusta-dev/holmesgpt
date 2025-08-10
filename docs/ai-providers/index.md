@@ -23,7 +23,7 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 
     **Anthropic models** often give better results at the expense of speed.
 
-    To get get started with an OpenAI model:
+    To get started with an OpenAI model:
 
     1. Get an [OpenAI API key](https://platform.openai.com/api-keys){:target="_blank"}
     2. Set `export OPENAI_API_KEY="your-api-key"`

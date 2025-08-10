@@ -19,7 +19,6 @@ kubectl create secret generic holmes-secrets \
   --from-literal=openai-api-key="sk-..." \
   --from-literal=anthropic-api-key="sk-ant-..." \
   --from-literal=azure-api-key="..." \
-  --from-literal=azure-api-key-arik="..." \
   --from-literal=aws-access-key-id="AKIA..." \
   --from-literal=aws-secret-access-key="..." \
   -n <namespace>
@@ -42,11 +41,6 @@ additionalEnvVars:
       secretKeyRef:
         name: holmes-secrets
         key: azure-api-key
-  - name: AZURE_API_KEY_ARIK
-    valueFrom:
-      secretKeyRef:
-        name: holmes-secrets
-        key: azure-api-key-arik
   - name: ANTHROPIC_API_KEY
     valueFrom:
       secretKeyRef:
@@ -89,7 +83,7 @@ modelList:
     model: azure/gpt-5-chat
     api_base: https://your-resource.openai.azure.com/
     api_version: "2025-01-01-preview"
-    temperature: 0
+    temperature: 1 # only 1 is supported for gpt-5 models
 
   # Anthropic Models
   claude-sonnet-4:
@@ -127,17 +121,6 @@ Each model in `modelList` can accept any parameter supported by LiteLLM for that
 ### Additional Parameters
 
 You can pass any LiteLLM-supported parameter for your provider. Examples include:
-
-**Common across providers:**
-
-- `max_tokens`: Maximum tokens in response
-- `top_p`: Nucleus sampling parameter
-- `frequency_penalty`: Reduce repetition
-- `presence_penalty`: Encourage topic diversity
-- `seed`: For reproducible outputs
-- `response_format`: Control output format
-
-**Provider-specific examples:**
 
 - **Azure**: `api_base`, `api_version`, `deployment_id`
 - **Anthropic**: `thinking` (with `budget_tokens` and `type`)
