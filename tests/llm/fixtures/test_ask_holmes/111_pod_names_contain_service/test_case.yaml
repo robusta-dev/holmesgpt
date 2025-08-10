@@ -1,4 +1,5 @@
-user_prompt: "What is the issue with search-engine pod"
+user_prompt: "What is the issue with search-engine-service"
+description: "gpt-5 tried to find a service because this pod name contains the word service, thus the test failed."
 expected_output:
   - The `search-engine` pod is not ready due to a failing readiness probe
 before_test: |
@@ -8,4 +9,5 @@ after_test: |
   kubectl delete -f manifest.yaml
 tags:
   - kubernetes
-  - easy
+  - medium
+  - understanding-real-intent
