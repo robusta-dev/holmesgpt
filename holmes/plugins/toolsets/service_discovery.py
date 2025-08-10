@@ -1,21 +1,38 @@
 import logging
 import os
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 
-from kubernetes import client  # type: ignore
-from kubernetes import config  # type: ignore
-from kubernetes.client import V1ServiceList  # type: ignore
-from kubernetes.client.models.v1_service import V1Service  # type: ignore
+from holmes.plugins.toolsets.lazy_imports import get_kubernetes
+
+if TYPE_CHECKING:
+    pass  # type: ignore
 
 CLUSTER_DOMAIN = os.environ.get("CLUSTER_DOMAIN", "cluster.local")
 
-try:
-    if os.getenv("KUBERNETES_SERVICE_HOST"):
-        config.load_incluster_config()
-    else:
-        config.load_kube_config()
-except config.config_exception.ConfigException as e:
-    logging.warning(f"Running without kube-config! e={e}")
+# Global variable to track if kubernetes is initialized
+_kube_initialized = False
+_kube_modules = None
+
+
+def _init_kubernetes():
+    """Initialize kubernetes configuration once."""
+    global _kube_initialized, _kube_modules
+    if _kube_initialized:
+        return _kube_modules
+
+    _kube_modules = get_kubernetes()
+    config = _kube_modules["config"]
+
+    try:
+        if os.getenv("KUBERNETES_SERVICE_HOST"):
+            config.load_incluster_config()
+        else:
+            config.load_kube_config()
+    except config.config_exception.ConfigException as e:
+        logging.warning(f"Running without kube-config! e={e}")
+
+    _kube_initialized = True
+    return _kube_modules
 
 
 def find_service_url(label_selector):
@@ -24,13 +41,16 @@ def find_service_url(label_selector):
     """
     # we do it this way because there is a weird issue with hikaru's ServiceList.listServiceForAllNamespaces()
     try:
+        kube_modules = _init_kubernetes()
+        client = kube_modules["client"]
+
         v1 = client.CoreV1Api()
-        svc_list: V1ServiceList = v1.list_service_for_all_namespaces(  # type: ignore
+        svc_list = v1.list_service_for_all_namespaces(  # type: ignore
             label_selector=label_selector
         )
         if not svc_list.items:
             return None
-        svc: V1Service = svc_list.items[0]  # type: ignore
+        svc = svc_list.items[0]  # type: ignore
         name = svc.metadata.name
         namespace = svc.metadata.namespace
         port = svc.spec.ports[0].port

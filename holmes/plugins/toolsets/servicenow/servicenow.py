@@ -1,7 +1,6 @@
-import requests  # type: ignore
 import logging
 import os
-from typing import Any, Dict, Tuple, List
+from typing import Any, Dict, Tuple, List, TYPE_CHECKING
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -17,6 +16,10 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
     toolset_name_for_one_liner,
 )
+from holmes.plugins.toolsets.lazy_imports import get_requests
+
+if TYPE_CHECKING:
+    import requests  # type: ignore
 
 DEFAULT_TIME_SPAN_SECONDS = 3600
 
@@ -30,7 +33,15 @@ class ServiceNowToolset(Toolset):
     name: str = "ServiceNow"
     description: str = "Database containing changes information related to keys, workloads or any service."
     tags: List[ToolsetTag] = [ToolsetTag.CORE]
-    _session: requests.Session = PrivateAttr(default=requests.Session())
+    _session: Any = PrivateAttr(default=None)
+
+    @property
+    def session(self):
+        """Lazily initialize requests session."""
+        if self._session is None:
+            requests = get_requests()
+            self._session = requests.Session()
+        return self._session
 
     def __init__(self):
         super().__init__(
@@ -53,14 +64,14 @@ class ServiceNowToolset(Toolset):
 
         try:
             self.config: Dict = ServiceNowConfig(**config).model_dump()
-            self._session.headers.update(
+            self.session.headers.update(
                 {
                     "x-sn-apikey": self.config.get("api_key"),
                 }
             )
 
             url = f"https://{self.config.get('instance')}.service-now.com/api/now/v2/table/change_request"
-            response = self._session.get(url=url, params={"sysparm_limit": 1})
+            response = self.session.get(url=url, params={"sysparm_limit": 1})
 
             return response.ok, ""
         except Exception as e:
@@ -80,7 +91,7 @@ class ServiceNowBaseTool(Tool):
     toolset: ServiceNowToolset
 
     def return_result(
-        self, response: requests.Response, params: Any, field: str = "result"
+        self, response: "requests.Response", params: Any, field: str = "result"
     ) -> StructuredToolResult:
         response.raise_for_status()
         res = response.json()
@@ -131,7 +142,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
             )
             parsed_params.update({"sysparm_query": f"sys_updated_on>={start}"})
 
-            response = self.toolset._session.get(url=url, params=parsed_params)
+            response = self.toolset.session.get(url=url, params=parsed_params)
             return self.return_result(response, parsed_params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
@@ -163,7 +174,7 @@ class ReturnChange(ServiceNowBaseTool):
                 instance=self.toolset.config.get("instance"),
                 sys_id=params.get("sys_id"),
             )
-            response = self.toolset._session.get(url=url)
+            response = self.toolset.session.get(url=url)
             return self.return_result(response, params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
@@ -201,7 +212,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
             parsed_params.update(
                 {"sysparm_query": f"short_descriptionLIKE{params.get('keyword')}"}
             )
-            response = self.toolset._session.get(url=url, params=parsed_params)
+            response = self.toolset.session.get(url=url, params=parsed_params)
             return self.return_result(response, parsed_params)
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
