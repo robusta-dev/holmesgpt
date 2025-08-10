@@ -135,6 +135,8 @@ nav:
 
   - Walkthrough:
       - walkthrough/index.md
+      - Interactive Mode: walkthrough/interactive-mode.md
+      - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
   - AI Providers:
@@ -163,8 +165,8 @@ nav:
           - Datetime: data-sources/builtin-toolsets/datetime.md
           - Docker: data-sources/builtin-toolsets/docker.md
           - GitHub: data-sources/builtin-toolsets/github.md
-          - Grafana Loki: data-sources/builtin-toolsets/grafanaloki.md
-          - Grafana Tempo: data-sources/builtin-toolsets/grafanatempo.md
+          - Loki: data-sources/builtin-toolsets/grafanaloki.md
+          - Tempo: data-sources/builtin-toolsets/grafanatempo.md
           - Helm: data-sources/builtin-toolsets/helm.md
           - Internet: data-sources/builtin-toolsets/internet.md
           - Kafka: data-sources/builtin-toolsets/kafka.md
@@ -188,10 +190,11 @@ nav:
       - development/index.md
       - Evaluations:
           - development/evals/index.md
-          - Writing Evaluations: development/evals/writing.md
+          - Adding a New Eval: development/evals/adding-new-eval.md
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
+      - Slash Commands: reference/slash-commands.md
       - Troubleshooting: reference/troubleshooting.md

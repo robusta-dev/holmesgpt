@@ -2,9 +2,6 @@
 
 This guide explains how to use Braintrust to analyze evaluation results, debug failures, and compare model performance.
 
-- [Evaluations Overview](index.md) - Introduction to HolmesGPT's evaluation system
-- [Writing Evaluations](writing.md) - Learn how to create new test cases and evaluations
-
 ## Overview
 
 Braintrust is a platform for tracking and analyzing LLM evaluations. HolmesGPT evals can be used without Braintrust but using Braintrust has a few advantages:
@@ -39,17 +36,24 @@ export BRAINTRUST_API_KEY=sk-your-api-key-here
 
 ```bash
 export BRAINTRUST_API_KEY=sk-your-key
-export UPLOAD_DATASET=true
 
-pytest ./tests/llm/test_ask_holmes.py
+# Run all regression tests with Braintrust tracking
+RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
+
+# Run specific test with tracking
+RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pods"
 ```
 
 ### Named Experiment
 
 ```bash
-export EXPERIMENT_ID=baseline_gpt4o
-export MODEL=gpt-4o
-pytest -n 10 ./tests/llm/test_*.py
+export BRAINTRUST_API_KEY=sk-your-key
+
+# Run with multiple iterations for reliable results
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10
+
+# Compare with different model
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10
 ```
 
 ### Key Environment Variables
@@ -97,34 +101,3 @@ Click on a failing test to see:
 - **Expected**: What the test expected
 
 ![Screenshot of tool call output](../../assets/braintrust_eval_tool_call.png)
-
-### 3. Common Failure Patterns
-
-**Low Correctness Score**:
-- LLM missed key information in tool outputs
-- Response doesn't address the core question
-- Factual errors in the analysis
-
-**Low Context Score**:
-- LLM didn't reference important context items
-- May indicate prompt engineering issues
-- Could suggest irrelevant context was provided
-
-**Missing Tool Calls**:
-- LLM didn't invoke necessary tools
-- Check if tool descriptions are clear
-- Verify mock data is realistic
-
-### 4. Debug Example
-
-**Failing Test**: "02_what_is_wrong_with_pod"
-- **Score**: Correctness 0.2, Context 0.1
-- **Issue**: LLM said "pod is healthy" but expected "CrashLoopBackOff detected"
-
-**Investigation**:
-1. Check `kubectl_describe.txt` mock - contains correct CrashLoopBackOff status
-2. Verify `kubectl_logs.txt` shows crash errors
-3. Review LLM's tool calls - did it call `kubectl_describe`?
-4. Examine LLM output - did it misinterpret the kubectl output?
-
-**Solution**: Update mock files to be more explicit about the crash status

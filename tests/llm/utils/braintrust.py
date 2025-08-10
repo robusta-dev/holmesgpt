@@ -188,10 +188,15 @@ def get_braintrust_url(
     if not BRAINTRUST_API_KEY:
         return None
 
+    from urllib.parse import quote
+
     experiment_name = get_experiment_name()
 
+    # URL encode the experiment name to handle spaces and special characters
+    encoded_experiment_name = quote(experiment_name, safe="")
+
     # Build URL with available parameters
-    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{experiment_name}?c="
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c="
 
     # Add span IDs if available
     if span_id and root_span_id:

@@ -18,6 +18,8 @@ from datetime import datetime, timedelta, timezone
 import os
 from collections import Counter
 
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+
 
 class MongoDBConfig(BaseModel):
     public_key: str
@@ -103,6 +105,7 @@ class MongoDBAtlasBaseTool(Tool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
+        # Default implementation - will be overridden by subclasses
         return f"MongoDB {self.name} project {self.toolset.config.get('project_id')} {params}"
 
 
@@ -110,6 +113,10 @@ class MongoDBAtlasBaseTool(Tool):
 class ReturnProjectAlerts(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_alerts"
     description: str = "Returns all project alerts. These alerts apply to all components in one project. You receive an alert when a monitored component meets or exceeds a value you set."
+
+    def get_parameterized_one_liner(self, params) -> str:
+        project_id = self.toolset.config.get("project_id", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Alerts ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -131,6 +138,10 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
 class ReturnProjectProcesses(MongoDBAtlasBaseTool):
     name: str = "atlas_return_project_processes"
     description: str = "Returns details of all processes for the specified project. Useful for getting logs and data for specific project"
+
+    def get_parameterized_one_liner(self, params) -> str:
+        project_id = self.toolset.config.get("project_id", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Processes ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
@@ -161,6 +172,10 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
         ),
     }
 
+    def get_parameterized_one_liner(self, params) -> str:
+        process_id = params.get("process_id", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Slow Queries ({process_id})"
+
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = self.url.format(
@@ -183,6 +198,10 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
     name: str = "atlas_return_events_from_project"
     description: str = "Returns all events occurrences for the specified project. Events identify significant database, security activities or status changes. can only query the last 4 hours."
     url: str = "https://cloud.mongodb.com/api/atlas/v2/groups/{projectId}/events"
+
+    def get_parameterized_one_liner(self, params) -> str:
+        project_id = self.toolset.config.get("project_id", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Events ({project_id})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         params.update({"itemsPerPage": 500})
@@ -237,6 +256,10 @@ class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
         ),
     }
 
+    def get_parameterized_one_liner(self, params) -> str:
+        hostname = params.get("hostName", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Host Logs ({hostname})"
+
     def _invoke(self, params: Any) -> StructuredToolResult:
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         try:
@@ -284,6 +307,10 @@ class ReturnEventTypeFromProject(MongoDBAtlasBaseTool):
             required=True,
         ),
     }
+
+    def get_parameterized_one_liner(self, params) -> str:
+        event_type = params.get("eventType", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Event Details ({event_type})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:

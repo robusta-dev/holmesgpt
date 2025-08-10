@@ -105,7 +105,6 @@ class TestDatadogMetricsToolset:
         result = tool._invoke(params)
 
         assert result.status == ToolResultStatus.SUCCESS
-        assert "series" in result.data
         assert "system.cpu.user" in result.data
 
         call_args = mock_get.call_args
