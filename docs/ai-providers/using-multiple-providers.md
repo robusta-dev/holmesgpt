@@ -115,31 +115,34 @@ modelList:
 
 ## Model Parameters
 
-Each model in `modelList` supports provider-specific parameters:
+Each model in `modelList` can accept **any parameter supported by LiteLLM** for that provider. All parameters (except `api_key` and `model` which are handled specially) are passed directly through to the LLM provider.
 
 ### Common Parameters
 - `api_key`: API key for authentication (can use `{{ env.VAR_NAME }}` syntax)
 - `model`: Model identifier (provider-specific format)
 - `temperature`: Creativity level (0-2, lower is more deterministic)
 
-### Provider-Specific Parameters
+### Additional Parameters
 
-**OpenAI/Azure OpenAI:**
+You can pass any LiteLLM-supported parameter for your provider. Examples include:
 
-- `api_base`: Base URL for API endpoint
-- `api_version`: API version (Azure only)
+**Common across providers:**
 
-**Anthropic:**
+- `max_tokens`: Maximum tokens in response
+- `top_p`: Nucleus sampling parameter
+- `frequency_penalty`: Reduce repetition
+- `presence_penalty`: Encourage topic diversity
+- `seed`: For reproducible outputs
+- `response_format`: Control output format
 
-- `thinking`: Configuration for chain-of-thought reasoning
-  - `budget_tokens`: Maximum tokens for thinking
-  - `type`: Enable/disable thinking mode
+**Provider-specific examples:**
 
-**AWS Bedrock:**
+- **Azure**: `api_base`, `api_version`, `deployment_id`
+- **Anthropic**: `thinking` (with `budget_tokens` and `type`)
+- **AWS Bedrock**: `aws_access_key_id`, `aws_secret_access_key`, `aws_region_name`, `aws_session_token`
+- **Google Vertex**: `vertex_project`, `vertex_location`
 
-- `aws_access_key_id`: AWS access key
-- `aws_secret_access_key`: AWS secret key
-- `aws_region_name`: AWS region
+Refer to [LiteLLM documentation](https://docs.litellm.ai/docs/providers) for the complete list of parameters supported by each provider.
 
 ## User Experience
 
