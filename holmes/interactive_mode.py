@@ -928,7 +928,7 @@ def run_interactive_loop(
 
     # Initialize managers
     status_bar_manager = StatusBarManager()
-    toolset_refresh_manager = ToolsetRefreshManager(config, ai)
+    toolset_refresh_manager = ToolsetRefreshManager(config, ai, status_bar_manager)
 
     style = Style.from_dict(
         {
@@ -986,85 +986,8 @@ def run_interactive_loop(
 
     def start_background_toolset_refresh():
         """Start background toolset refresh if cache exists"""
-        progress_info = {"current": 0, "total": 0, "active": []}
-
-        def progress_callback(current, total, active_checks):
-            progress_info["current"] = current
-            progress_info["total"] = total
-            progress_info["active"] = active_checks[:]
-
-        def completion_callback(result):
-            if not result["success"]:
-                # Error message - single red part
-                styled_parts = [
-                    (
-                        "bg:#ff0000 fg:#000000",
-                        f"✗ Toolset refresh failed: {result.get('error', 'Unknown error')}",
-                    )
-                ]
-                status_bar_manager.show_toolset_complete(styled_parts, duration=5)
-                return
-
-            # Build the success message with styled parts
-            total_enabled = result["total_enabled"]
-            newly_enabled = result.get("newly_enabled", set())
-            newly_disabled = result.get("newly_disabled", set())
-
-            styled_parts = [("bg:ansigreen ansiblack", f" {total_enabled} ready ")]
-
-            if newly_enabled:
-                # Show first 3 toolsets by name, then count if more
-                names_to_show = sorted(newly_enabled)[:3]
-                if len(newly_enabled) > 3:
-                    extra_count = len(newly_enabled) - 3
-                    names_display = " ".join(names_to_show) + f" +{extra_count}"
-                else:
-                    names_display = " ".join(names_to_show)
-                styled_parts.append(
-                    ("bg:ansiblue ansiwhite", f" new: {names_display} ")
-                )
-
-            if newly_disabled:
-                # Show first 3 toolsets by name, then count if more
-                names_to_show = sorted(newly_disabled)[:3]
-                if len(newly_disabled) > 3:
-                    extra_count = len(newly_disabled) - 3
-                    names_display = " ".join(names_to_show) + f" +{extra_count}"
-                else:
-                    names_display = " ".join(names_to_show)
-                styled_parts.append(
-                    ("bg:ansired ansiwhite", f" disabled: {names_display} ")
-                )
-
-            if not newly_enabled and not newly_disabled:
-                styled_parts.append(("bg:ansibrightblack ansiwhite", " no changes "))
-
-            status_bar_manager.show_toolset_complete(styled_parts, duration=5)
-
-        # Start spinner with formatted message callback
-        def get_spinner_message():
-            base = "Refreshing toolsets..."
-            if progress_info["total"] > 0:
-                base = f"Refreshing toolsets... {progress_info['current']}/{progress_info['total']}"
-
-            right = None
-            if progress_info["active"]:
-                first_active = progress_info["active"][0]
-                if len(progress_info["active"]) > 1:
-                    right = (
-                        f"checking {first_active} +{len(progress_info['active']) - 1}"
-                    )
-                else:
-                    right = f"checking {first_active}"
-
-            return base, right
-
-        status_bar_manager.start_spinner(get_spinner_message)
-
-        # Start refresh
-        toolset_refresh_manager.start_background_refresh(
-            progress_callback=progress_callback, completion_callback=completion_callback
-        )
+        # Simply delegate to the refresh manager with the status bar
+        toolset_refresh_manager.start_background_refresh(status_bar_manager)
 
     @bindings.add("c-c")
     def _(event):

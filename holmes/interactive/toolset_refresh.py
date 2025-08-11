@@ -4,20 +4,43 @@ import logging
 import os
 import threading
 import time
-from typing import Callable, Optional, Dict
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Set, List, Tuple
 
 from holmes.core.tools import ToolsetStatusEnum
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
+@dataclass
+class RefreshProgress:
+    """Progress information for toolset refresh."""
+
+    current: int = 0
+    total: int = 0
+    active: List[str] = field(default_factory=list)
+
+
+@dataclass
+class RefreshResult:
+    """Result of a toolset refresh operation."""
+
+    success: bool
+    total_enabled: int = 0
+    newly_enabled: Set[str] = field(default_factory=set)
+    newly_disabled: Set[str] = field(default_factory=set)
+    error: Optional[str] = None
+
+
 class ToolsetRefreshManager:
     """Manages background toolset refresh operations."""
 
-    def __init__(self, config, ai):
+    def __init__(self, config, ai, status_bar=None):
         self.config = config
         self.ai = ai
+        self.status_bar = status_bar
         self.refreshing = False
         self.refresh_thread = None
+        self.progress = RefreshProgress()
 
     def should_refresh(self) -> bool:
         """Check if background refresh should be started."""
@@ -35,12 +58,67 @@ class ToolsetRefreshManager:
         )
         return loaded_from_cache
 
-    def start_background_refresh(
-        self,
-        progress_callback: Optional[Callable] = None,
-        completion_callback: Optional[Callable] = None,
-    ):
-        """Start background toolset refresh if appropriate."""
+    def format_progress_message(self) -> Tuple[str, Optional[str]]:
+        """Format the current progress for spinner display."""
+        base = "Refreshing toolsets..."
+        if self.progress.total > 0:
+            base = (
+                f"Refreshing toolsets... {self.progress.current}/{self.progress.total}"
+            )
+
+        right = None
+        if self.progress.active:
+            first_active = self.progress.active[0]
+            if len(self.progress.active) > 1:
+                right = f"checking {first_active} +{len(self.progress.active) - 1}"
+            else:
+                right = f"checking {first_active}"
+
+        return base, right
+
+    def build_completion_message(self, result: RefreshResult) -> List[Tuple[str, str]]:
+        """Build styled message parts for completion display."""
+        if not result.success:
+            # Error message - single red part
+            return [
+                (
+                    "bg:#ff0000 fg:#000000",
+                    f"✗ Toolset refresh failed: {result.error or 'Unknown error'}",
+                )
+            ]
+
+        # Build the success message with styled parts
+        styled_parts = [("bg:ansigreen ansiblack", f" {result.total_enabled} ready ")]
+
+        if result.newly_enabled:
+            # Show first 3 toolsets by name, then count if more
+            names_to_show = sorted(result.newly_enabled)[:3]
+            if len(result.newly_enabled) > 3:
+                extra_count = len(result.newly_enabled) - 3
+                names_display = " ".join(names_to_show) + f" +{extra_count}"
+            else:
+                names_display = " ".join(names_to_show)
+            styled_parts.append(("bg:ansiblue ansiwhite", f" new: {names_display} "))
+
+        if result.newly_disabled:
+            # Show first 3 toolsets by name, then count if more
+            names_to_show = sorted(result.newly_disabled)[:3]
+            if len(result.newly_disabled) > 3:
+                extra_count = len(result.newly_disabled) - 3
+                names_display = " ".join(names_to_show) + f" +{extra_count}"
+            else:
+                names_display = " ".join(names_to_show)
+            styled_parts.append(
+                ("bg:ansired ansiwhite", f" disabled: {names_display} ")
+            )
+
+        if not result.newly_enabled and not result.newly_disabled:
+            styled_parts.append(("bg:ansibrightblack ansiwhite", " no changes "))
+
+        return styled_parts
+
+    def start_background_refresh(self, status_bar=None):
+        """Start background toolset refresh with integrated status bar updates."""
         if not self.should_refresh():
             return
 
@@ -48,6 +126,20 @@ class ToolsetRefreshManager:
             return
 
         self.refreshing = True
+        self.progress = RefreshProgress()  # Reset progress
+
+        # Use provided status bar or instance one
+        status_bar = status_bar or self.status_bar
+
+        if status_bar:
+            # Start spinner with our formatter
+            status_bar.start_spinner(self.format_progress_message)
+
+        def progress_callback(current, total, active_checks):
+            """Internal callback to update progress."""
+            self.progress.current = current
+            self.progress.total = total
+            self.progress.active = active_checks[:]
 
         def refresh_worker():
             try:
@@ -89,25 +181,26 @@ class ToolsetRefreshManager:
                     if ts.enabled and ts.status == ToolsetStatusEnum.ENABLED
                 )
 
-                # Calculate changes
-                newly_enabled = enabled_after - enabled_before
-                newly_disabled = enabled_before - enabled_after
+                # Build result
+                result = RefreshResult(
+                    success=True,
+                    total_enabled=len(enabled_after),
+                    newly_enabled=enabled_after - enabled_before,
+                    newly_disabled=enabled_before - enabled_after,
+                )
 
-                # Call completion callback with results
-                if completion_callback:
-                    completion_callback(
-                        {
-                            "success": True,
-                            "total_enabled": len(enabled_after),
-                            "newly_enabled": newly_enabled,
-                            "newly_disabled": newly_disabled,
-                        }
-                    )
+                # Update status bar with completion message
+                if status_bar:
+                    styled_parts = self.build_completion_message(result)
+                    status_bar.show_toolset_complete(styled_parts, duration=5)
 
             except Exception as e:
                 logging.error(f"Background toolset refresh failed: {e}")
-                if completion_callback:
-                    completion_callback({"success": False, "error": str(e)})
+                result = RefreshResult(success=False, error=str(e))
+
+                if status_bar:
+                    styled_parts = self.build_completion_message(result)
+                    status_bar.show_toolset_complete(styled_parts, duration=5)
             finally:
                 self.refreshing = False
                 # Restore logging
