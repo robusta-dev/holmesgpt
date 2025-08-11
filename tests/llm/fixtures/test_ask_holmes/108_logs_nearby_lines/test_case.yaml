@@ -7,7 +7,7 @@ user_prompt: "What is causing connection refused errors in api-service namespace
 
 tags:
   - logs
-  - medium
+  - hard
 
 before_test: |
   kubectl create namespace app-108 || true

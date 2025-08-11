@@ -5,7 +5,7 @@ expected_output:
   - EXPLAIN shows Seq Scan with high cost and execution time
   - CREATE INDEX idx_customer_email ON orders(customer_email) needed
 tags:
-  - medium
+  - hard
   - database
 
 description: |

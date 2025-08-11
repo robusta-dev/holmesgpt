@@ -1,0 +1,12 @@
+user_prompt: "Why are pods in pending state for the api-server deployment in namespace-78b?"
+tags:
+  - kubernetes
+  - medium
+expected_output:
+  - API server pods are pending because deployment requests 30m CPU total (3 replicas × 10m each) but namespace resource quota only allows 20m total CPU requests
+  - The ResourceQuota compute-quota limits total CPU requests to 20m but the deployment needs 30m
+before_test: |
+  kubectl apply -f ./manifest.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f ./manifest.yaml
