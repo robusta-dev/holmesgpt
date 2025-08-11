@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: test-15
+  name: app-15
 ---
 apiVersion: v1
 kind: Pod
 metadata:
   name: search-engine
-  namespace: test-15
+  namespace: app-15
 spec:
   containers:
   - name: get-details
