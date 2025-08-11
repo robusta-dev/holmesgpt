@@ -49,10 +49,8 @@ class TestKubernetesYAMLTransformers:
         assert kubectl_describe is not None, "kubectl_describe tool not found"
         assert kubectl_describe.transformers is not None
         assert len(kubectl_describe.transformers) == 1
-        assert "llm_summarize" in kubectl_describe.transformers[0]
-        assert (
-            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"] == 1000
-        )
+        assert kubectl_describe.transformers[0].name == "llm_summarize"
+        assert kubectl_describe.transformers[0].config["input_threshold"] == 1000
 
         # Test kubectl_get_by_kind_in_namespace has transformer config
         kubectl_get_namespace = None
@@ -66,7 +64,7 @@ class TestKubernetesYAMLTransformers:
         ), "kubectl_get_by_kind_in_namespace tool not found"
         assert kubectl_get_namespace.transformers is not None
         assert len(kubectl_get_namespace.transformers) == 1
-        assert "llm_summarize" in kubectl_get_namespace.transformers[0]
+        assert kubectl_get_namespace.transformers[0].name == "llm_summarize"
 
         # Test kubectl_get_by_kind_in_cluster has transformer config
         kubectl_get_cluster = None
@@ -80,7 +78,7 @@ class TestKubernetesYAMLTransformers:
         ), "kubectl_get_by_kind_in_cluster tool not found"
         assert kubectl_get_cluster.transformers is not None
         assert len(kubectl_get_cluster.transformers) == 1
-        assert "llm_summarize" in kubectl_get_cluster.transformers[0]
+        assert kubectl_get_cluster.transformers[0].name == "llm_summarize"
 
     def test_load_kubernetes_logs_yaml_with_transformers(self):
         """Test loading the kubernetes_logs.yaml file with transformers."""
@@ -119,8 +117,8 @@ class TestKubernetesYAMLTransformers:
         assert kubectl_logs is not None, "kubectl_logs tool not found"
         assert kubectl_logs.transformers is not None
         assert len(kubectl_logs.transformers) == 1
-        assert "llm_summarize" in kubectl_logs.transformers[0]
-        assert kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"] == 1000
+        assert kubectl_logs.transformers[0].name == "llm_summarize"
+        assert kubectl_logs.transformers[0].config["input_threshold"] == 1000
 
         # Test kubectl_logs_all_containers has transformer config
         kubectl_logs_all = None
@@ -134,10 +132,8 @@ class TestKubernetesYAMLTransformers:
         ), "kubectl_logs_all_containers tool not found"
         assert kubectl_logs_all.transformers is not None
         assert len(kubectl_logs_all.transformers) == 1
-        assert "llm_summarize" in kubectl_logs_all.transformers[0]
-        assert (
-            kubectl_logs_all.transformers[0]["llm_summarize"]["input_threshold"] == 1000
-        )
+        assert kubectl_logs_all.transformers[0].name == "llm_summarize"
+        assert kubectl_logs_all.transformers[0].config["input_threshold"] == 1000
 
     def test_yaml_transformer_parsing(self):
         """Test YAML parsing of transformer configurations with various options."""
@@ -150,14 +146,16 @@ toolsets:
         description: "Basic test tool"
         command: "kubectl get pods"
         transformers:
-          - llm_summarize:
+          - name: llm_summarize
+            config:
               input_threshold: 500
 
       - name: "kubectl_test_custom_prompt"
         description: "Test tool with custom prompt"
         command: "kubectl describe pod test"
         transformers:
-          - llm_summarize:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: |
                 Custom summarization prompt for testing:
@@ -190,7 +188,7 @@ toolsets:
             assert basic_tool.name == "kubectl_test_basic"
             assert basic_tool.transformers is not None
             assert len(basic_tool.transformers) == 1
-            config = basic_tool.transformers[0]["llm_summarize"]
+            config = basic_tool.transformers[0].config
             assert config["input_threshold"] == 500
             assert "prompt" not in config  # Should use default prompt
 
@@ -198,7 +196,7 @@ toolsets:
             custom_tool = toolset.tools[1]
             assert custom_tool.name == "kubectl_test_custom_prompt"
             assert custom_tool.transformers is not None
-            config = custom_tool.transformers[0]["llm_summarize"]
+            config = custom_tool.transformers[0].config
             assert config["input_threshold"] == 1000
             assert "Custom summarization prompt for testing:" in config["prompt"]
 
@@ -218,7 +216,8 @@ toolsets:
   test/kubernetes:
     description: "Test Kubernetes toolset with toolset-level transformers"
     transformers:
-      - llm_summarize:
+      - name: llm_summarize
+        config:
           input_threshold: 800
           prompt: "Toolset default prompt"
     tools:
@@ -230,7 +229,8 @@ toolsets:
         description: "Tool that overrides toolset transformers"
         command: "kubectl describe pod test"
         transformers:
-          - llm_summarize:
+          - name: llm_summarize
+            config:
               input_threshold: 1200
               prompt: "Tool-specific override prompt"
 """
@@ -254,7 +254,7 @@ toolsets:
             inherit_tool = toolset.tools[0]
             assert inherit_tool.name == "kubectl_inherit"
             assert inherit_tool.transformers is not None
-            config = inherit_tool.transformers[0]["llm_summarize"]
+            config = inherit_tool.transformers[0].config
             assert config["input_threshold"] == 800
             assert config["prompt"] == "Toolset default prompt"
 
@@ -262,7 +262,7 @@ toolsets:
             override_tool = toolset.tools[1]
             assert override_tool.name == "kubectl_override"
             assert override_tool.transformers is not None
-            config = override_tool.transformers[0]["llm_summarize"]
+            config = override_tool.transformers[0].config
             assert config["input_threshold"] == 1200
             assert config["prompt"] == "Tool-specific override prompt"
 
@@ -321,7 +321,8 @@ toolsets:
         description: "Tool with invalid transformer"
         command: "kubectl get pods"
         transformers:
-          - unknown_transformer:
+          - name: unknown_transformer
+            config:
               some_param: "value"
 """
 
@@ -365,10 +366,12 @@ toolsets:
         description: "Tool with multiple transformers"
         command: "kubectl get pods -o yaml"
         transformers:
-          - llm_summarize:
+          - name: llm_summarize
+            config:
               input_threshold: 1000
               prompt: "First transformer"
-          - llm_summarize:
+          - name: llm_summarize
+            config:
               input_threshold: 500
               prompt: "Second transformer"
 """
@@ -393,12 +396,12 @@ toolsets:
             assert len(tool.transformers) == 2
 
             # Check first transformer
-            config1 = tool.transformers[0]["llm_summarize"]
+            config1 = tool.transformers[0].config
             assert config1["input_threshold"] == 1000
             assert config1["prompt"] == "First transformer"
 
             # Check second transformer
-            config2 = tool.transformers[1]["llm_summarize"]
+            config2 = tool.transformers[1].config
             assert config2["input_threshold"] == 500
             assert config2["prompt"] == "Second transformer"
 
@@ -431,7 +434,7 @@ class TestKubernetesTransformerPrompts:
         )
 
         assert kubectl_describe.transformers is not None
-        prompt = kubectl_describe.transformers[0]["llm_summarize"]["prompt"]
+        prompt = kubectl_describe.transformers[0].config["prompt"]
 
         # Check that prompt contains key elements for kubectl describe
         assert "What needs attention or immediate action" in prompt
@@ -460,7 +463,7 @@ class TestKubernetesTransformerPrompts:
         )
 
         assert kubectl_logs.transformers is not None
-        prompt = kubectl_logs.transformers[0]["llm_summarize"]["prompt"]
+        prompt = kubectl_logs.transformers[0].config["prompt"]
 
         # Check that prompt contains key elements for log analysis
         assert "Errors, exceptions, and warning messages" in prompt
@@ -493,9 +496,7 @@ class TestKubernetesTransformerPrompts:
             tool for tool in kubernetes_core.tools if tool.name == "kubectl_describe"
         )
         assert kubectl_describe.transformers is not None
-        assert (
-            kubectl_describe.transformers[0]["llm_summarize"]["input_threshold"] == 1000
-        )
+        assert kubectl_describe.transformers[0].config["input_threshold"] == 1000
 
         # kubectl get tools should have threshold of 1000
         kubectl_get_ns = next(
@@ -504,9 +505,7 @@ class TestKubernetesTransformerPrompts:
             if tool.name == "kubectl_get_by_kind_in_namespace"
         )
         assert kubectl_get_ns.transformers is not None
-        assert (
-            kubectl_get_ns.transformers[0]["llm_summarize"]["input_threshold"] == 1000
-        )
+        assert kubectl_get_ns.transformers[0].config["input_threshold"] == 1000
 
         # Test kubernetes logs tools (higher threshold for logs)
         kubernetes_logs_yaml_path = os.path.join(
@@ -527,4 +526,4 @@ class TestKubernetesTransformerPrompts:
             tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"
         )
         assert kubectl_logs.transformers is not None
-        assert kubectl_logs.transformers[0]["llm_summarize"]["input_threshold"] == 1000
+        assert kubectl_logs.transformers[0].config["input_threshold"] == 1000
