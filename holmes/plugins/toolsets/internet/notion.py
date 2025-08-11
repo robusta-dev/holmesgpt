@@ -15,6 +15,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     ToolResultStatus,
 )
+from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class FetchNotion(Tool):
@@ -108,7 +109,7 @@ class FetchNotion(Tool):
 
     def get_parameterized_one_liner(self, params) -> str:
         url: str = params["url"]
-        return f"fetched notion webpage {url}"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Webpage {url}"
 
 
 class NotionToolset(InternetBaseToolset):

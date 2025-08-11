@@ -1,5 +1,10 @@
 ## Datadog Metrics Tools Usage Guide
 
+Before running metrics queries:
+** ALWAYS use kubectl_find_resource to find the resource you are being asked about!
+** Find the involved resource name and kind
+
+
 When investigating metrics-related issues:
 
 1. **Start with `list_active_datadog_metrics`** to discover available metrics
@@ -15,12 +20,62 @@ When investigating metrics-related issues:
    - Provides metric type (gauge/count/rate), unit, and description
    - Accepts comma-separated list for batch queries
 
+4. **Use `list_datadog_metric_tags`** to understand which tags are available for a given metric
+   - Provides a set of tags and aggregations
+   - Can help to build the correct `tag_filter`, to find which metrics are available for a given resource
+
+### General guideline
+- This toolset is used to generate visualizations and graphs.
+- Assume the resource should have metrics. If metrics not found, try to adjust tag filters
+- IMPORTANT: This toolset DOES NOT support promql queries.
+
+### CRITICAL: Pod Name Resolution Workflow
+When users ask for metrics about a deployment, service, or workload (e.g., "my-workload", "nginx-deployment"):
+
+**ALWAYS follow this two-step process:**
+1. **First**: Use `kubectl_find_resource` to find the actual pod names
+   - Example: `kubectl_find_resource` with "my-workload" → finds pods like "my-workload-8f8cdfxyz-c7zdr"
+2. **Then**: Use those specific pod names in Datadog queries
+   - Correct: `container.cpu.usage{pod_name:my-workload-8f8cdfxyz-c7zdr}`
+   - WRONG: `container.cpu.usage{pod_name:my-workload}` ← This will return no data!
+
+**Why this matters:**
+- Pod names in Datadog are the actual Kubernetes pod names (with random suffixes)
+- Deployment/service names are NOT pod names
+- Using deployment names as pod_name filters will always return empty results
+
 ### Time Parameters
 - Use RFC3339 format: `2023-03-01T10:30:00Z`
 - Or relative seconds: `-3600` for 1 hour ago
 - Defaults to 1 hour window if not specified
 
-### Common Patterns
-- CPU investigation: First list metrics with `tag_filter:kube_node_name:nodename`, then query specific metrics
-- Memory issues: Look for `system.mem.*` or `kubernetes.memory.*` metrics
-- Container metrics: Filter by pod/container tags
+### Common Investigation Patterns
+
+**For Pod/Container Metrics (MOST COMMON):**
+1. User asks: "Show CPU for my-workload"
+2. Use `kubectl_find_resource` → find pod "my-workload-abc123-xyz"
+3. Query Datadog: `container.cpu.usage{pod_name:my-workload-abc123-xyz}`
+
+**For Node-level Metrics:**
+1. Use `tag_filter:kube_node_name:nodename` to filter by node
+2. Query system-level metrics like `system.cpu.user{kube_node_name:worker-1}`
+
+**For Service-level Metrics:**
+1. First resolve service to pods using `kubectl_find_resource`
+2. Query metrics for all pods belonging to that service
+3. Use namespace filtering: `tag_filter:kube_namespace:default`
+
+
+# Handling queries results
+* ALWAYS embed the execution results into your answer
+* You only need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "datadogql", "tool_name": "query_datadog_metrics", "random_key": "92jf2hf"} >>
+* Post processing will parse your response, re-run the query from the tool output and create a chart visible to the user
+* You MUST ensure that the query is successful.
+* ALWAYS embed a DataDog graph in the response. The graph should visualize data related to the incident.
+* Embed at most 2 graphs
+* When embedding multiple graphs, always add line spacing between them
+    For example:
+
+    <<{"type": "datadogql", "tool_name": "query_datadog_metrics", "random_key": "lBaA"}>>
+
+    <<{"type": "datadogql", "tool_name": "query_datadog_metrics", "random_key": "IKtq"}>>

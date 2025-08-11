@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from pathlib import Path
 from typing import Optional
 import json
@@ -19,14 +20,13 @@ from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
     Evaluation,
     HealthCheckTestCase,
-    MockHelper,
     check_and_skip_test,
 )
 from tests.llm.utils.property_manager import set_initial_properties, update_test_results
 from os import path
 from unittest.mock import patch
 
-from tests.llm.utils.tags import add_tags_to_eval
+from tests.llm.utils.iteration_utils import get_test_cases
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_workload_health"))
@@ -59,29 +59,12 @@ class MockConfig(Config):
         return ToolExecutor(mock.toolsets)
 
 
-def get_test_cases():
-    mh = MockHelper(TEST_CASES_FOLDER)
-    # dataset_name = braintrust_util.get_dataset_name("health_check")
-    # if os.environ.get("UPLOAD_DATASET") and os.environ.get("BRAINTRUST_API_KEY"):
-    #     bt_helper = braintrust_util.BraintrustEvalHelper(
-    #         project_name=BRAINTRUST_PROJECT, dataset_name=dataset_name
-    #     )
-    #     bt_helper.upload_test_cases(mh.load_test_cases())
-
-    test_cases = mh.load_workload_health_test_cases()
-    iterations = int(os.environ.get("ITERATIONS", "1"))
-    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
-
-
-def idfn(val):
-    if isinstance(val, HealthCheckTestCase):
-        return val.id
-    else:
-        return str(val)
+def get_workload_health_test_cases():
+    return get_test_cases(TEST_CASES_FOLDER)
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_workload_health_test_cases())
 def test_health_check(
     test_case: HealthCheckTestCase,
     caplog,
@@ -129,8 +112,12 @@ def test_health_check(
             )
 
         with patch.multiple("server", dal=mock_dal, config=config):
-            with eval_span.start_span("Holmes Run", type=SpanType.LLM):
+            # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
+            with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
+                start_time = time.time()
                 result = workload_health_check(request=input)
+                holmes_duration = time.time() - start_time
+                eval_span.log(metadata={"Holmes Duration": holmes_duration})
 
         assert result, "No result returned by workload_health_check()"
         # check that analysis is json parsable otherwise failed.

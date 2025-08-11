@@ -1,5 +1,6 @@
 # type: ignore
 import os
+import time
 from typing import Optional
 import pytest
 from pathlib import Path
@@ -24,7 +25,6 @@ from tests.llm.utils.mock_toolset import (
 from tests.llm.utils.test_case_utils import (
     AskHolmesTestCase,
     Evaluation,
-    MockHelper,
     check_and_skip_test,
 )
 
@@ -36,7 +36,6 @@ from tests.llm.utils.property_manager import (
     update_mock_error,
 )
 from os import path
-from tests.llm.utils.tags import add_tags_to_eval
 from holmes.core.tracing import SpanType
 from tests.llm.utils.test_helpers import (
     print_expected_output,
@@ -44,29 +43,19 @@ from tests.llm.utils.test_helpers import (
     print_tool_calls_summary,
     print_tool_calls_detailed,
 )
+from tests.llm.utils.iteration_utils import get_test_cases
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
 )
 
 
-# TODO: reuse code with test_investigate.py and test_workload_health.py
-def get_test_cases():
-    mh = MockHelper(TEST_CASES_FOLDER)
-    test_cases = mh.load_ask_holmes_test_cases()
-    iterations = int(os.environ.get("ITERATIONS", "1"))
-    return [add_tags_to_eval(test_case) for test_case in test_cases] * iterations
-
-
-def idfn(val):
-    if isinstance(val, AskHolmesTestCase):
-        return val.id
-    else:
-        return str(val)
+def get_ask_holmes_test_cases():
+    return get_test_cases(TEST_CASES_FOLDER)
 
 
 @pytest.mark.llm
-@pytest.mark.parametrize("test_case", get_test_cases(), ids=idfn)
+@pytest.mark.parametrize("test_case", get_ask_holmes_test_cases())
 def test_ask_holmes(
     test_case: AskHolmesTestCase,
     caplog,
@@ -144,6 +133,7 @@ def test_ask_holmes(
                         result = ask_holmes(
                             test_case=test_case,
                             tracer=tracer,
+                            eval_span=eval_span,
                             mock_generation_config=mock_generation_config,
                             request=request,
                         )
@@ -152,6 +142,7 @@ def test_ask_holmes(
                     result = ask_holmes(
                         test_case=test_case,
                         tracer=tracer,
+                        eval_span=eval_span,
                         mock_generation_config=mock_generation_config,
                         request=request,
                     )
@@ -166,7 +157,7 @@ def test_ask_holmes(
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
-                    # metadata={"tags": test_case.tags},
+                    tags=test_case.tags or [],
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -231,7 +222,7 @@ def test_ask_holmes(
             dataset_record_id=test_case.id,
             scores=scores,
             metadata={"system_prompt": prompt},
-            # metadata={"tags": test_case.tags},
+            tags=test_case.tags or [],
         )
 
     # Print tool calls summary
@@ -280,14 +271,22 @@ def test_ask_holmes(
 
 # TODO: can this call real ask_holmes so more of the logic is captured
 def ask_holmes(
-    test_case: AskHolmesTestCase, tracer, mock_generation_config, request=None
+    test_case: AskHolmesTestCase,
+    tracer,
+    eval_span,
+    mock_generation_config,
+    request=None,
 ) -> LLMResult:
-    toolset_manager = MockToolsetManager(
-        test_case_folder=test_case.folder,
-        mock_generation_config=mock_generation_config,
-        request=request,
-        mock_policy=test_case.mock_policy,
-    )
+    with eval_span.start_span(
+        "Initialize Toolsets",
+        type=SpanType.TASK.value,
+    ):
+        toolset_manager = MockToolsetManager(
+            test_case_folder=test_case.folder,
+            mock_generation_config=mock_generation_config,
+            request=request,
+            mock_policy=test_case.mock_policy,
+        )
 
     tool_executor = ToolExecutor(toolset_manager.toolsets)
     enabled_toolsets = [t.name for t in tool_executor.enabled_toolsets]
@@ -301,7 +300,9 @@ def ask_holmes(
         llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 
-    test_type = os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    test_type = (
+        test_case.test_type or os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+    )
     if test_type == "cli":
         if test_case.conversation_history:
             pytest.skip("CLI mode does not support conversation history tests")
@@ -337,5 +338,9 @@ def ask_holmes(
         )
 
     # Create LLM completion trace within current context
-    with tracer.start_trace("run holmes", span_type=SpanType.LLM) as llm_span:
-        return ai.messages_call(messages=messages, trace_span=llm_span)
+    with tracer.start_trace("Holmes Run", span_type=SpanType.TASK) as llm_span:
+        start_time = time.time()
+        result = ai.messages_call(messages=messages, trace_span=llm_span)
+        holmes_duration = time.time() - start_time
+        eval_span.log(metadata={"Holmes Duration": holmes_duration})
+    return result
