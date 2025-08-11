@@ -1,6 +1,6 @@
-user_prompt: "How many pods are running in the test-1 namespace?"
+user_prompt: "How many pods are in the test-1 namespace?"
 expected_output:
-  - 14 pods are running in the test-1 namespace
+  - There are 14 pods in the test-1 namespace
 before_test: |
   kubectl apply -f manifests.yaml
   sleep 60
