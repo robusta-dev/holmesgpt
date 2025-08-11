@@ -62,5 +62,8 @@ class ToolExecutor:
         return None
 
     @sentry_sdk.trace
-    def get_all_tools_openai_format(self):
-        return [tool.get_openai_format() for tool in self.tools_by_name.values()]
+    def get_all_tools_openai_format(self, target_model: str):
+        return [
+            tool.get_openai_format(target_model=target_model)
+            for tool in self.tools_by_name.values()
+        ]
