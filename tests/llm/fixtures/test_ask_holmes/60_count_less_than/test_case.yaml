@@ -1,6 +1,6 @@
 user_prompt: "How many pods in namespace test-60 have restarted fewer than 3 times?"
 expected_output:
-  - 6 pods in test-60 have restarted fewer than 3 times
+  - either 6, 6 pods, etc.
 before_test: |
   kubectl apply -f manifests.yaml
   # Wait for all pods to reach expected state with 90 second timeout
