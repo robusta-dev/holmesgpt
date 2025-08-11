@@ -183,10 +183,43 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
         namespace = params.get("namespace", "unknown-namespace")
         pod_name = params.get("pod_name", "unknown-pod")
 
+        # Build parameter details showing defaults clearly
+        param_details = []
+
+        # Show limit (with default indicator)
+        limit = params.get("limit")
+        if limit is not None:
+            param_details.append(f"limit={limit}")
+        else:
+            param_details.append(f"limit={DEFAULT_LOG_LIMIT} (default)")
+
+        # Show time range (with default indicator)
+        start_time = params.get("start_time")
+        end_time = params.get("end_time")
+        if start_time is not None:
+            param_details.append(f"start={start_time}")
+        else:
+            default_days = DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY
+            param_details.append(
+                f"start=-{DEFAULT_TIME_SPAN_SECONDS} (default: {default_days}d ago)"
+            )
+
+        if end_time is not None:
+            param_details.append(f"end={end_time}")
+        else:
+            param_details.append("end=now (default)")
+
+        # Show filters if present
+        if params.get("filter"):
+            param_details.append(f"filter='{params['filter']}'")
+        if params.get("exclude_filter"):
+            param_details.append(f"exclude='{params['exclude_filter']}'")
+
         logger_name = (
             f"{self._toolset.logger_name()}: " if self._toolset.logger_name() else ""
         )
-        return f"{logger_name}Fetch Logs (pod={pod_name}, namespace={namespace})"
+        params_str = ", ".join(param_details)
+        return f"{logger_name}Fetch Logs (pod={pod_name}, namespace={namespace}, {params_str})"
 
 
 def process_time_parameters(
