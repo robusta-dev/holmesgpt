@@ -5,7 +5,7 @@ expected_output:
   - The Redis pod is stuck in Pending state because the PVC is unbound
   - To fix this issue, either create the missing StorageClass "standard-v2" or update the PVC to use an existing StorageClass
 tags:
-  - medium  # requires deeper analysis to identify the specific StorageClass issue
+  - hard
   - kubernetes
 before_test: |
   kubectl create namespace app-24b || true
