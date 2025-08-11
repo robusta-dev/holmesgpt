@@ -17,8 +17,9 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
     toolset_name_for_one_liner,
 )
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 
 
 class ServiceNowConfig(BaseModel):

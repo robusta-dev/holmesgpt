@@ -30,10 +30,12 @@ from holmes.plugins.toolsets.utils import (
 from holmes.utils.cache import TTLCache
 from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 from holmes.utils.keygen_utils import generate_random_key
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
-DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class PrometheusConfig(BaseModel):
