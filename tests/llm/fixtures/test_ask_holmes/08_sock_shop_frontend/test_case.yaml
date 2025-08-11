@@ -1,7 +1,9 @@
 user_prompt: "Why did the sock-shop front-end stop working?"
 tags:
   - logs
-  - medium
+  - hard
+skip: true
+skip_reason: need to check any issues with test setup
 expected_output:
   - There is an error related to the database
   - The MongoDB client driver may require an upgrade

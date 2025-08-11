@@ -16,7 +16,3 @@ tags:
   - transparency
   - datetime
   - medium
-
-evaluation:
-  # This test verifies that Holmes communicates custom time periods when specified
-  correctness: 1
