@@ -98,10 +98,10 @@ class TestToolsetManagerFastModel:
         """Test that fast model is injected into transformers without fast_model config."""
         global_fast_model = "gpt-4o-mini"
 
-        # Create a mock toolset with transformers that don't have fast_model
-        mock_transformer = Mock()
-        mock_transformer.name = "llm_summarize"
-        mock_transformer.config = {"input_threshold": 1000}  # No fast_model
+        # Create a real Transformer instance with the config (not a mock)
+        mock_transformer = Transformer(
+            name="llm_summarize", config={"input_threshold": 1000}
+        )
 
         mock_toolset = Mock(spec=Toolset)
         mock_toolset.transformers = [mock_transformer]
@@ -118,13 +118,14 @@ class TestToolsetManagerFastModel:
         """Test that existing fast_model configs are not overridden."""
         global_fast_model = "gpt-4o-mini"
 
-        # Create transformer with existing fast_model
-        mock_transformer = Mock()
-        mock_transformer.name = "llm_summarize"
-        mock_transformer.config = {
-            "input_threshold": 500,
-            "fast_model": "existing-model",
-        }
+        # Create transformer with existing fast_model using real Transformer instance
+        mock_transformer = Transformer(
+            name="llm_summarize",
+            config={
+                "input_threshold": 500,
+                "fast_model": "existing-model",
+            },
+        )
 
         mock_toolset = Mock(spec=Toolset)
         mock_toolset.transformers = [mock_transformer]
@@ -142,10 +143,10 @@ class TestToolsetManagerFastModel:
         """Test that fast model is injected into tool-level transformers."""
         global_fast_model = "gpt-4o-mini"
 
-        # Create mock tool with transformers that need fast_model
-        mock_tool_transformer = Mock()
-        mock_tool_transformer.name = "llm_summarize"
-        mock_tool_transformer.config = {"input_threshold": 200}
+        # Create mock tool with transformers that need fast_model using real Transformer
+        mock_tool_transformer = Transformer(
+            name="llm_summarize", config={"input_threshold": 200}
+        )
 
         mock_tool = Mock(spec=Tool)
         mock_tool.transformers = [mock_tool_transformer]
@@ -178,14 +179,14 @@ class TestToolsetManagerFastModel:
         """Test that injection only affects llm_summarize transformers."""
         global_fast_model = "gpt-4o-mini"
 
-        # Create transformers with different names
-        llm_transformer = Mock()
-        llm_transformer.name = "llm_summarize"
-        llm_transformer.config = {"input_threshold": 200}
+        # Create transformers with different names using real Transformer instances
+        llm_transformer = Transformer(
+            name="llm_summarize", config={"input_threshold": 200}
+        )
 
-        other_transformer = Mock()
-        other_transformer.name = "custom_transformer"
-        other_transformer.config = {"some_param": "value"}
+        other_transformer = Transformer(
+            name="custom_transformer", config={"some_param": "value"}
+        )
 
         mock_toolset = Mock(spec=Toolset)
         mock_toolset.transformers = [llm_transformer, other_transformer]
@@ -240,18 +241,18 @@ class TestFastModelInjectionIntegration:
         """Test complete fast model injection: ToolsetManager → Transformers."""
         global_fast_model = "gpt-4o-mini"
 
-        # Create transformers with different configurations
-        toolset_transformer = Mock()
-        toolset_transformer.name = "llm_summarize"
-        toolset_transformer.config = {"input_threshold": 500}
+        # Create transformers with different configurations using real Transformer instances
+        toolset_transformer = Transformer(
+            name="llm_summarize", config={"input_threshold": 500}
+        )
 
-        tool_transformer = Mock()
-        tool_transformer.name = "llm_summarize"
-        tool_transformer.config = {"input_threshold": 200}
+        tool_transformer = Transformer(
+            name="llm_summarize", config={"input_threshold": 200}
+        )
 
-        existing_fast_model_transformer = Mock()
-        existing_fast_model_transformer.name = "llm_summarize"
-        existing_fast_model_transformer.config = {"fast_model": "existing-model"}
+        existing_fast_model_transformer = Transformer(
+            name="llm_summarize", config={"fast_model": "existing-model"}
+        )
 
         # Create tools
         tool_with_transformers = Mock(spec=Tool)

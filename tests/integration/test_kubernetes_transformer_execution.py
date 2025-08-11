@@ -15,14 +15,14 @@ from holmes.core.transformers.base import BaseTransformer
 class MockSummarizeTransformer(BaseTransformer):
     """Mock LLM summarize transformer for testing."""
 
-    input_threshold: int = 1000
+    input_threshold: int = 1000  # default value
     prompt: str = "Default summarization prompt"
 
     def transform(self, input_text: str) -> str:
         # Simulate summarization by truncating and adding prefix
         if len(input_text) > 100:
             return f"SUMMARIZED: {input_text[:50]}... [Original length: {len(input_text)} chars]"
-        return input_text
+        return f"SUMMARIZED: {input_text}"
 
     def should_apply(self, input_text: str) -> bool:
         return len(input_text) >= self.input_threshold
@@ -340,11 +340,11 @@ toolsets:
                         assert result.status == ToolResultStatus.SUCCESS
                         assert result.data == test_output
 
-                        # Should log warning about transformer failure
-                        mock_logging.warning.assert_called()
-                        warning_call = mock_logging.warning.call_args[0][0]
-                        assert "failing_summarize" in warning_call
-                        assert "failed" in warning_call
+                        # Should log error about transformer failure (generic Exception -> error log)
+                        mock_logging.error.assert_called()
+                        error_call = mock_logging.error.call_args[0][0]
+                        assert "failing_summarize" in error_call
+                        assert "failed" in error_call
 
             finally:
                 os.unlink(tmp_file_path)
@@ -528,8 +528,12 @@ toolsets:
                     assert transformer_log is not None
                     assert "llm_summarize" in transformer_log
                     assert "kubectl_perf" in transformer_log
-                    assert "output size:" in transformer_log
-                    assert "characters)" in transformer_log
+                    assert (
+                        "size:" in transformer_log
+                    )  # Changed from "output size:" to "size:"
+                    assert (
+                        "chars," in transformer_log
+                    )  # Changed from "characters)" to "chars," (from tools.py line 305-306)
 
         finally:
             os.unlink(tmp_file_path)

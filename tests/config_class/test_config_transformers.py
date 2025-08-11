@@ -15,7 +15,7 @@ from unittest.mock import patch
 def test_transformer_fields_exist():
     """Test that Config class has the transformer configuration fields."""
     # Mock the dependencies at their actual import locations
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -39,7 +39,7 @@ def test_transformer_fields_exist():
 
 def test_transformer_from_file():
     """Test loading transformer config from YAML file."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -69,7 +69,7 @@ def test_transformer_from_file():
 
 def test_transformer_from_env():
     """Test loading transformer config from environment variables."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -95,7 +95,7 @@ def test_transformer_from_env():
 
 def test_transformer_cli_override():
     """Test that CLI options override config file values."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -121,7 +121,7 @@ def test_transformer_cli_override():
 
 def test_transformer_backward_compatibility():
     """Test that existing configs without transformer fields still work."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -151,7 +151,7 @@ def test_transformer_backward_compatibility():
 def test_transformer_env_vars_in_load_from_env_list():
     """Test that the fast_model environment variable is properly loaded by load_from_env method."""
     # This tests that the fast_model field is correctly loaded from environment variables
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -171,7 +171,7 @@ def test_transformer_env_vars_in_load_from_env_list():
 
 def test_auto_generate_transformers_with_fast_model():
     """Test that Config stores fast_model for ToolsetManager injection."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -197,7 +197,7 @@ def test_auto_generate_transformers_with_fast_model():
 
 def test_auto_generate_transformers_without_fast_model():
     """Test that transformers are not auto-generated when fast_model is not provided."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -219,7 +219,7 @@ def test_auto_generate_transformers_without_fast_model():
 
 def test_auto_generate_transformers_respects_existing_configs():
     """Test that existing transformers are not overridden by auto-generation."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
@@ -239,7 +239,7 @@ def test_auto_generate_transformers_respects_existing_configs():
 
 def test_auto_generate_transformers_cli_override():
     """Test that CLI fast_model parameter is stored for ToolsetManager injection."""
-    with patch("holmes.__init__.get_version", return_value="1.0.0"), patch(
+    with patch("holmes.version.get_version", return_value="1.0.0"), patch(
         "holmes.clients.robusta_client.fetch_holmes_info", return_value=None
     ), patch("holmes.config.parse_models_file", return_value={}), patch(
         "holmes.common.env_vars.ROBUSTA_AI", False
