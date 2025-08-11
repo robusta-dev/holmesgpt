@@ -3,8 +3,9 @@ tags:
   - kubernetes
   - medium
 expected_output:
-  - API server pods are pending because deployment requests 30m CPU total (3 replicas × 10m each) but namespace resource quota only allows 20m total CPU requests
-  - The ResourceQuota compute-quota limits total CPU requests to 20m but the deployment needs 30m
+  - Pods are pending due to CPU quota being exceeded
+  - The deployment needs more CPU than the namespace quota allows (quota is 20m, deployment needs 10m per pod)
+  - The namespace ResourceQuota prevents pod creation due to insufficient CPU requests available
 before_test: |
   kubectl apply -f ./manifest.yaml
   sleep 20
