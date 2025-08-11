@@ -21,7 +21,9 @@ from holmes.plugins.toolsets.lazy_imports import get_requests
 if TYPE_CHECKING:
     import requests  # type: ignore
 
-DEFAULT_TIME_SPAN_SECONDS = 3600
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 
 
 class ServiceNowConfig(BaseModel):

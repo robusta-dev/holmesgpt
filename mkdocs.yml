@@ -149,6 +149,7 @@ nav:
       - Ollama: ai-providers/ollama.md
       - OpenAI: ai-providers/openai.md
       - OpenAI-Compatible: ai-providers/openai-compatible.md
+      - Using Multiple Providers: ai-providers/using-multiple-providers.md
 
   - Data Sources:
       - data-sources/index.md

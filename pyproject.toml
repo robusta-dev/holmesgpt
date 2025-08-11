@@ -40,7 +40,7 @@ starlette = "0.47.2"
 google-api-python-client = "^2.156.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "1.74.15"
+litellm = "^1.75.4"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 python_multipart = "^0.0.18"
@@ -115,7 +115,8 @@ markers = [
     "port-forward: Tests requiring port forwarding to local services (automatically added to tests with port_forwards in test_case.yaml)",
     "toolset-limitation: Tests that cannot be solved no matter how smart the model, unless we improve the underlying toolsets themselves",
     "ask-for-clarification: Tests where Holmes should ask the user for clarification",
-    "database: Tests involving database interactions"
+    "database: Tests involving database interactions",
+    "datadog: DataDog toolset"
 ]
 
 addopts = [
