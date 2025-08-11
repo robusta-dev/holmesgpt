@@ -59,6 +59,7 @@ def format_tool_to_open_ai_standard(
                 "required": [
                     param_name
                     for param_name, param_attributes in tool_parameters.items()
+                    if param_attributes.required or strict_mode
                 ],
                 "type": "object",
             },
