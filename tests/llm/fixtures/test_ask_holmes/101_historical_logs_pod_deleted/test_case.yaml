@@ -14,7 +14,7 @@ expected_output:
 tags:
   - logs
   - kubernetes
-  - medium
+  - hard
 
 port_forwards:
   - namespace: app-101

@@ -322,3 +322,18 @@ When asked about content from the HolmesGPT documentation website (https://robus
 - Kubernetes deployment: `docs/installation/kubernetes-installation.md`
 - Toolset documentation: `docs/data-sources/builtin-toolsets/`
 - API reference: `docs/reference/`
+
+## MkDocs Formatting Notes
+
+When writing documentation in the `docs/` directory:
+- **Lists after headers**: Always add a blank line between a header/bold text and a list, otherwise MkDocs won't render the list properly
+  ```markdown
+  **Good:**
+
+  - item 1
+  - item 2
+
+  **Bad:**
+  - item 1
+  - item 2
+  ```
