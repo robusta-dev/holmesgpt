@@ -550,15 +550,88 @@ class Toolset(BaseModel):
         transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
 
+        # Convert raw dict transformers to Transformer objects BEFORE merging
+        if transformers:
+            converted_transformers = []
+            for t in transformers:
+                if isinstance(t, dict):
+                    try:
+                        # Import here to avoid circular imports
+                        from holmes.core.tools import Transformer
+
+                        transformer_obj = Transformer(**t)
+                        # Check if transformer is registered
+                        from holmes.core.transformers import registry
+
+                        if not registry.is_registered(transformer_obj.name):
+                            import logging
+
+                            logging.warning(
+                                f"Invalid toolset transformer configuration: Transformer '{transformer_obj.name}' is not registered"
+                            )
+                            continue  # Skip invalid transformer
+                        converted_transformers.append(transformer_obj)
+                    except Exception as e:
+                        # Log warning and skip invalid transformer
+                        import logging
+
+                        logging.warning(
+                            f"Invalid toolset transformer configuration: {e}"
+                        )
+                        continue
+                else:
+                    # Already a Transformer object
+                    converted_transformers.append(t)
+            transformers = converted_transformers if converted_transformers else None
+
         tools = []
         for tool in tools_data:
             if isinstance(tool, dict):
                 tool["additional_instructions"] = additional_instructions
 
+                # Convert tool-level transformers to Transformer objects
+                tool_transformers = tool.get("transformers")
+                if tool_transformers:
+                    converted_tool_transformers = []
+                    for t in tool_transformers:
+                        if isinstance(t, dict):
+                            try:
+                                # Import here to avoid circular imports
+                                from holmes.core.tools import Transformer
+
+                                transformer_obj = Transformer(**t)
+                                # Check if transformer is registered
+                                from holmes.core.transformers import registry
+
+                                if not registry.is_registered(transformer_obj.name):
+                                    import logging
+
+                                    logging.warning(
+                                        f"Invalid tool transformer configuration: Transformer '{transformer_obj.name}' is not registered"
+                                    )
+                                    continue  # Skip invalid transformer
+                                converted_tool_transformers.append(transformer_obj)
+                            except Exception as e:
+                                # Log warning and skip invalid transformer
+                                import logging
+
+                                logging.warning(
+                                    f"Invalid tool transformer configuration: {e}"
+                                )
+                                continue
+                        else:
+                            # Already a Transformer object
+                            converted_tool_transformers.append(t)
+                    tool_transformers = (
+                        converted_tool_transformers
+                        if converted_tool_transformers
+                        else None
+                    )
+
                 # Merge toolset-level transformers with tool-level configs
                 tool["transformers"] = merge_transformers(
                     base_transformers=transformers,
-                    override_transformers=tool.get("transformers"),
+                    override_transformers=tool_transformers,
                 )
             if isinstance(tool, Tool):
                 tool.additional_instructions = additional_instructions
