@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import subprocess
 import tempfile
 import threading
@@ -11,24 +10,20 @@ from typing import Optional, List, DefaultDict, Dict
 
 import typer
 from prompt_toolkit import PromptSession
-from prompt_toolkit.application import Application
 from prompt_toolkit.completion import Completer, Completion, merge_completers
 from prompt_toolkit.completion.filesystem import ExecutableCompleter, PathCompleter
-from prompt_toolkit.history import InMemoryHistory, FileHistory
 from prompt_toolkit.document import Document
+from prompt_toolkit.history import InMemoryHistory, FileHistory
 from prompt_toolkit.key_binding import KeyBindings
-from prompt_toolkit.keys import Keys
-from prompt_toolkit.layout import Layout
-from prompt_toolkit.layout.containers import HSplit, Window
-from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.shortcuts.prompt import CompleteStyle
 from prompt_toolkit.styles import Style
-from prompt_toolkit.validation import Validator, ValidationError
-from prompt_toolkit.widgets import TextArea
 
 from rich.console import Console
-from rich.markdown import Markdown, Panel
+from rich.markdown import Markdown
+from rich.panel import Panel
 
+from holmes.cli.find_command import handle_find_modal
+from holmes.cli.utils import show_scrollable_modal
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import pretty_print_toolset_status
@@ -105,69 +100,6 @@ class SmartPathCompleter(Completer):
                     display=completion.display,
                     display_meta=completion.display_meta,
                 )
-
-
-class ActionMenuCompleter(Completer):
-    """Completer for action menu selections with arrow navigation"""
-
-    def __init__(self, actions_list, add_back_option=True):
-        self.actions = actions_list
-        self.all_options = [(num, desc) for num, desc in actions_list]
-        if add_back_option:
-            self.all_options.append(("b", "Back to resource list"))
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor.lower()
-
-        # Always show all options, but style based on whether they match
-        for num, desc in self.all_options:
-            # Check if this option matches the filter
-            matches = (
-                not text
-                or desc.lower().find(text) >= 0
-                or num.startswith(text)
-                or (num == "b" and "back".startswith(text))
-            )
-
-            # Truncate long descriptions
-            display_text = desc[:70] + "..." if len(desc) > 70 else desc
-
-            # Style non-matching items differently
-            if not matches and text:
-                # Dim style for non-matching items - append to base style
-                style = "class:completion-menu.meta"
-            else:
-                # Normal style for matching items
-                style = ""
-
-            # Always yield all completions
-            yield Completion(
-                text=desc,  # Insert full description when selected
-                start_position=-len(document.text),  # Replace all typed text
-                display=display_text,  # What's shown in the menu
-                style=style,  # Apply dimmed style to non-matches
-            )
-
-
-class ActionMenuValidator(Validator):
-    """Validator for action menu selections"""
-
-    def __init__(self, actions_list):
-        self.valid_values = {}  # Map descriptions to numbers
-        for num, desc in actions_list:
-            self.valid_values[desc] = num
-            self.valid_values[num] = num  # Also accept numbers directly
-        self.valid_values["Back to resource list"] = "b"
-        self.valid_values["b"] = "b"
-        self.valid_values["Exit find mode"] = "q"
-        self.valid_values["q"] = "q"
-
-    def validate(self, document):
-        text = document.text.strip()
-        if text not in self.valid_values:
-            raise ValidationError(
-                message="Invalid selection. Please select from the menu."
-            )
 
 
 class ConditionalExecutableCompleter(Completer):
@@ -308,144 +240,17 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         tool_call: ToolCallResult object to display
         console: Rich console (for fallback display)
     """
-    try:
-        # Get the full output
-        output = tool_call.result.get_stringified_data()
-        title = build_modal_title(tool_call, "off")  # Word wrap starts disabled
+    output = tool_call.result.get_stringified_data()
+    title = tool_call.description
 
-        # Create text area with the output
-        text_area = TextArea(
-            text=output,
-            read_only=True,
-            scrollbar=True,
-            line_numbers=False,
-            wrap_lines=False,  # Disable word wrap by default
-        )
-
-        # Create header
-        header = Window(
-            FormattedTextControl(title),
-            height=1,
-            style="reverse",
-        )
-
-        # Create layout
-        layout = Layout(
-            HSplit(
-                [
-                    header,
-                    text_area,
-                ]
-            )
-        )
-
-        # Create key bindings
-        bindings = KeyBindings()
-
-        # Exit commands
-        @bindings.add("q")
-        @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
-        @bindings.add("c-c")
-        def _(event):
-            event.app.exit()
-
-        # Vim/less-like navigation
-        @bindings.add("j")
-        @bindings.add("down")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_down()
-
-        @bindings.add("k")
-        @bindings.add("up")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_up()
-
-        @bindings.add("g")
-        @bindings.add("home")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_position = 0
-
-        @bindings.add("G")
-        @bindings.add("end")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Go to last line, then to beginning of that line
-            text_area.buffer.cursor_position = len(text_area.buffer.text)
-            text_area.buffer.cursor_left(
-                count=text_area.buffer.document.cursor_position_col
-            )
-
-        @bindings.add("d")
-        @bindings.add("c-d")
-        @bindings.add("pagedown")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by half
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height // 2)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_down()
-
-        @bindings.add("u")
-        @bindings.add("c-u")
-        @bindings.add("pageup")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by half
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height // 2)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_up()
-
-        @bindings.add("f")
-        @bindings.add("c-f")
-        @bindings.add("space")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by full page
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_down()
-
-        @bindings.add("b")
-        @bindings.add("c-b")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by full page
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_up()
-
-        @bindings.add("w")
-        def _(event):
-            # Toggle word wrap
-            text_area.wrap_lines = not text_area.wrap_lines
-            # Update the header to show current wrap state
-            wrap_status = "on" if text_area.wrap_lines else "off"
-            new_title = build_modal_title(tool_call, wrap_status)
-            header.content = FormattedTextControl(new_title)
-
-        # Create and run application
-        app: Application = Application(
-            layout=layout,
-            key_bindings=bindings,
-            full_screen=True,
-        )
-
-        app.run()
-
-    except Exception as e:
-        # Fallback to regular display
-        console.print(f"[bold red]Error showing modal: {e}[/bold red]")
-        console.print(format_tool_call_output(tool_call))
+    # Use the unified scrollable modal
+    show_scrollable_modal(
+        content=output,
+        title=title,
+        console=console,
+        enable_word_wrap=True,
+        fallback_panel_style=TOOLS_COLOR,
+    )
 
 
 def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> None:
@@ -787,543 +592,134 @@ def show_action_result_modal(content: str, title: str, console: Console) -> None
         title: Title for the modal
         console: Rich console (for fallback display)
     """
-    try:
-        # Create text area with the output
-        text_area = TextArea(
-            text=content,
-            read_only=True,
-            scrollbar=True,
-            line_numbers=False,
-            wrap_lines=False,  # Disable word wrap by default
-        )
-
-        # Create header with navigation instructions
-        header_text = f"{title} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [off])"
-        header = Window(
-            FormattedTextControl(header_text),
-            height=1,
-            style="reverse",
-        )
-
-        # Create layout
-        layout = Layout(
-            HSplit(
-                [
-                    header,
-                    text_area,
-                ]
-            )
-        )
-
-        # Create key bindings
-        bindings = KeyBindings()
-
-        # Exit commands
-        @bindings.add("q")
-        @bindings.add("escape")
-        def _(event):
-            event.app.exit()
-
-        @bindings.add("c-c")
-        def _(event):
-            event.app.exit()
-
-        # Vim/less-like navigation
-        @bindings.add("j")
-        @bindings.add("down")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_down()
-
-        @bindings.add("k")
-        @bindings.add("up")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_up()
-
-        @bindings.add("g")
-        @bindings.add("home")
-        def _(event):
-            event.app.layout.focus(text_area)
-            text_area.buffer.cursor_position = 0
-
-        @bindings.add("G")
-        @bindings.add("end")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Go to last line, then to beginning of that line
-            text_area.buffer.cursor_position = len(text_area.buffer.text)
-            text_area.buffer.cursor_left(
-                count=text_area.buffer.document.cursor_position_col
-            )
-
-        @bindings.add("d")
-        @bindings.add("c-d")
-        @bindings.add("pagedown")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by half
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height // 2)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_down()
-
-        @bindings.add("u")
-        @bindings.add("c-u")
-        @bindings.add("pageup")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by half
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height // 2)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_up()
-
-        @bindings.add("f")
-        @bindings.add("c-f")
-        @bindings.add("space")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by full page
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_down()
-
-        @bindings.add("b")
-        @bindings.add("c-b")
-        def _(event):
-            event.app.layout.focus(text_area)
-            # Get current window height and scroll by full page
-            window_height = event.app.output.get_size().rows - 1  # -1 for header
-            scroll_amount = max(1, window_height)
-            for _ in range(scroll_amount):
-                text_area.buffer.cursor_up()
-
-        @bindings.add("w")
-        def _(event):
-            # Toggle word wrap
-            text_area.wrap_lines = not text_area.wrap_lines
-            # Update the header to show current wrap state
-            wrap_status = "on" if text_area.wrap_lines else "off"
-            new_header_text = f"{title} (exit: q, nav: ↑↓/j/k/g/G/d/u/f/b/space, wrap: w [{wrap_status}])"
-            header.content = FormattedTextControl(new_header_text)
-
-        # Create and run application
-        app: Application = Application(
-            layout=layout,
-            key_bindings=bindings,
-            full_screen=True,
-        )
-
-        app.run()
-    except Exception as e:
-        # Fallback to regular display
-        console.print(f"[bold red]Error showing modal: {e}[/bold red]")
-        console.print(Panel(content, title=title, border_style=TOOLS_COLOR))
+    # Use the unified scrollable modal
+    show_scrollable_modal(
+        content=content,
+        title=title,
+        console=console,
+        enable_word_wrap=True,
+        fallback_panel_style=TOOLS_COLOR,
+    )
 
 
-def handle_find_modal(
-    find_args: str,
-    ai: ToolCallingLLM,
-    console: Console,
-    messages: Optional[List[Dict]],
+def process_slash_command(
+    user_input: str,
     session: PromptSession,
     style: Style,
-) -> Optional[str]:
+    console: Console,
+    ai: ToolCallingLLM,
+    messages: Optional[List[Dict]],
+    last_response,
+    all_tool_calls_history: List[ToolCallResult],
+    show_tool_output: bool,
+) -> tuple[Optional[str], bool, Optional[List[Dict]], Optional[object], bool]:
     """
-    Handle /find as a modal interaction with its own loop.
-    Returns a command to execute (like /run) or None.
+    Process slash commands and return processed input and state.
+
+    Returns:
+        - Processed user input (or None if command was handled)
+        - Whether to continue the loop (False means exit)
+        - Updated messages
+        - Updated last_response
+        - Updated show_tool_output flag
     """
-    # Phase 1: Search using LLM
-    search_prompt = f"""
-The user wants to look up a resource: {find_args}
+    original_input = user_input.strip()
+    command = original_input.lower()
 
-Please search across all available toolsets (Kubernetes, GCP, AWS, etc.) for resources matching this query.
-Use tools like kubectl_find_resource, kubectl_get_by_kind_in_cluster, and any GCP/AWS search tools available.
-
-After gathering results, format them EXACTLY like this:
-
-🐳 Kubernetes
-├─ [1] Pod: nginx-web-7d9f8b6c5-x2kt4 (namespace: default)
-│      └─ Running on node-1, IP: 10.0.1.5
-└─ [2] Service: nginx-service (namespace: default)
-       └─ LoadBalancer: 34.102.136.180:80
-
-☁️ GCP
-└─ [3] GCE Instance: nginx-prod (zone: us-central1-a)
-       └─ Running, External IP: 35.202.123.45
-
-IMPORTANT:
-- Use inline numbers [1], [2], etc. for each resource
-- Continue numbering across providers (don't restart at 1)
-- Only show providers that have results
-- If no resources found at all, respond with ONLY: "No resources found matching '{find_args}'"
-- DO NOT add any summary or extra text after the tree structure
-- The response should ONLY contain the tree structure, nothing before or after it
-"""
-
-    # Build messages for the lookup
-    lookup_messages: List[Dict] = messages.copy() if messages else []
-    lookup_messages.append({"role": "user", "content": search_prompt})
-
-    # Get search results from LLM
-    console.print(
-        f"[bold {AI_COLOR}]Entering find mode - searching for '{find_args}' (press 'q' to exit)[/bold {AI_COLOR}]\n"
-    )
-    search_response = ai.call(lookup_messages, trace_span=DummySpan())
-
-    # Store the search results
-    resources_found = search_response.result or ""
-    lookup_messages = search_response.messages or []
-
-    # Check if no results at all (not just some providers with no results)
-    if resources_found.strip().startswith("No resources found"):
-        console.print(resources_found)
-        return None
-
-    # Phase 2: Interactive selection loop
-    while True:
-        # Display search results
+    # Handle prefix matching for slash commands
+    matches = [cmd for cmd in ALL_SLASH_COMMANDS if cmd.startswith(command)]
+    if len(matches) == 1:
+        command = matches[0]
+    elif len(matches) > 1:
         console.print(
-            Panel(
-                resources_found,
-                padding=(1, 2),
-                border_style=AI_COLOR,
-                title="Search Results",
-                title_align="left",
-            )
+            f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
         )
+        return None, True, messages, last_response, show_tool_output
 
-        console.print()  # Add blank line for clarity
-
-        # Parse resources from the LLM response to create menu options
-        resource_list = []
-        for line in resources_found.split("\n"):
-            # Look for lines with [number] pattern
-            match = re.search(r"\[(\d+)\]\s+(.+)", line)
-            if match:
-                num, desc = match.groups()
-                # Clean up the description
-                desc = desc.strip()
-                resource_list.append((num, desc))
-
-        # Add quit option to resource list
-        resource_list.append(("q", "Exit find mode"))
-
-        # Create completer for resource selection (without back option)
-        resource_completer = ActionMenuCompleter(resource_list, add_back_option=False)
-        resource_validator = ActionMenuValidator(resource_list)
-
-        # Create key bindings for resource selection (same as action selection)
-        resource_bindings = KeyBindings()
-
-        @resource_bindings.add("escape")
-        def _(event):
-            """Override Escape to keep menu open"""
-            b = event.app.current_buffer
-            b.reset()
-            b.start_completion(select_first=True)
-
-        @resource_bindings.add("backspace")
-        def _(event):
-            """Smart backspace for resource selection"""
-            b = event.app.current_buffer
-            valid_descriptions = [desc for _, desc in resource_completer.all_options]
-
-            if b.text in valid_descriptions:
-                b.text = ""
-            elif b.text:
-                b.delete_before_cursor()
-
-            b.start_completion(select_first=True)
-
-        from prompt_toolkit.filters import has_completions
-
-        @resource_bindings.add(Keys.Any, filter=~has_completions)
-        def _(event):
-            """Auto-show completions after any key press"""
-            event.app.current_buffer.insert_text(event.data)
-            event.app.current_buffer.start_completion(select_first=False)
-
-        # Create a temporary session with resource completion
-        modal_session: PromptSession = PromptSession(
-            completer=resource_completer,
-            validator=resource_validator,
-            validate_while_typing=False,
-            complete_while_typing=True,
-            history=InMemoryHistory(),
-            complete_style=CompleteStyle.COLUMN,
-            reserve_space_for_menu=min(10, len(resource_list) + 2),
-            key_bindings=resource_bindings,
+    if command == SlashCommands.EXIT.command:
+        return None, False, messages, last_response, show_tool_output
+    elif command == SlashCommands.HELP.command:
+        console.print(f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]")
+        for cmd, description in SLASH_COMMANDS_REFERENCE.items():
+            console.print(f"  [bold]{cmd}[/bold] - {description}")
+        return None, True, messages, last_response, show_tool_output
+    elif command == SlashCommands.CLEAR.command:
+        console.clear()
+        console.print(
+            f"[bold {STATUS_COLOR}]Screen cleared and context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
         )
-
-        # Create a custom style for find mode prompts using AI_COLOR
-        find_style = Style.from_dict(
-            {
-                "prompt": AI_COLOR,  # Use AI_COLOR for find mode prompts
-                "completion-menu": "bg:#1a1a1a #888888",  # Dark background, gray text
-                "completion-menu.completion.current": "bg:#1a1a1a #ffffff",  # White text for selected
-                "completion-menu.meta": "bg:#1a1a1a #666666",  # Darker gray for meta
-                "completion-menu.meta.current": "bg:#1a1a1a #888888",  # Slightly brighter for selected meta
-            }
+        all_tool_calls_history.clear()
+        return None, True, None, None, show_tool_output
+    elif command == SlashCommands.TOOLS_CONFIG.command:
+        pretty_print_toolset_status(ai.tool_executor.toolsets, console)
+        return None, True, messages, last_response, show_tool_output
+    elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.command:
+        show_tool_output = not show_tool_output
+        status = "enabled" if show_tool_output else "disabled"
+        console.print(
+            f"[bold yellow]Auto-display of tool outputs {status}.[/bold yellow]"
         )
-
-        console.print("[dim]Type to filter or use ↑↓ arrows, Enter to select[/dim]")
-
-        # Pre-run to show menu immediately
-        def pre_run():
-            app = modal_session.app
-            if app:
-                app.current_buffer.start_completion(select_first=True)
-
-        # Prompt for selection
-        selection = modal_session.prompt(
-            [("class:prompt", "> ")], style=find_style, pre_run=pre_run
-        )
-
-        # Convert description back to number if needed
-        if selection in resource_validator.valid_values:
-            selection = resource_validator.valid_values[selection]
-
-        if selection.lower() == "q":
-            console.print(f"[bold {AI_COLOR}]Exiting find mode.[/bold {AI_COLOR}]")
-            return None
-
-        try:
-            # Phase 3: Show resource details with actions
-            detail_prompt = f"""
-The user selected option [{selection}] from the search results above.
-
-Please:
-1. Use appropriate tools to get detailed information about this specific resource
-2. Present the key details in a clean, concise format
-3. Do NOT include an "Available Actions" section in your response
-
-IMPORTANT: Also include a section at the very end of your response in this exact format:
-```actions
-1|Show full details (kubectl describe)
-2|Show YAML
-3|Show logs
-4|Show events
-5|/run kubectl exec -it <actual-pod-name> -n <actual-namespace> -- sh
-6|/run kubectl port-forward <actual-pod-name> -n <actual-namespace> 8080:80
-7|/run kubectl logs <actual-pod-name> -n <actual-namespace> --tail=100
-```
-
-For GCP resources, include similar appropriate actions in the actions block.
-"""
-
-            lookup_messages.append({"role": "user", "content": detail_prompt})
-
-            console.print(f"[bold {AI_COLOR}]Getting details...[/bold {AI_COLOR}]\n")
-            detail_response = ai.call(lookup_messages, trace_span=DummySpan())
-
-            # Display details (but hide the actions code block)
-            display_text = detail_response.result or ""
-            # Remove the ```actions...``` block from display
-            display_text = re.sub(
-                r"```actions\n.*?```", "", display_text, flags=re.DOTALL
-            )
-            # Also remove extra newlines that might be left
-            display_text = re.sub(r"\n{3,}", "\n\n", display_text.strip())
-
+        return None, True, messages, last_response, show_tool_output
+    elif command == SlashCommands.LAST_OUTPUT.command:
+        handle_last_command(last_response, console, all_tool_calls_history)
+        return None, True, messages, last_response, show_tool_output
+    elif command == SlashCommands.CONTEXT.command:
+        handle_context_command(messages, ai, console)
+        return None, True, messages, last_response, show_tool_output
+    elif command.startswith(SlashCommands.SHOW.command):
+        # Parse the command to extract tool index or name
+        show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
+        handle_show_command(show_arg, all_tool_calls_history, console)
+        return None, True, messages, last_response, show_tool_output
+    elif command.startswith(SlashCommands.RUN.command):
+        bash_command = original_input[len(SlashCommands.RUN.command) :].strip()
+        shared_input = handle_run_command(bash_command, session, style, console)
+        if shared_input is None:
+            return None, True, messages, last_response, show_tool_output
+        return shared_input, True, messages, last_response, show_tool_output
+    elif command == SlashCommands.SHELL.command:
+        shared_input = handle_shell_command(session, style, console)
+        if shared_input is None:
+            return None, True, messages, last_response, show_tool_output
+        return shared_input, True, messages, last_response, show_tool_output
+    elif command.startswith(SlashCommands.FIND.command):
+        find_args = original_input[len(SlashCommands.FIND.command) :].strip()
+        if not find_args:
             console.print(
-                Panel(
-                    Markdown(display_text),
-                    padding=(1, 2),
-                    border_style=AI_COLOR,
-                    title="Resource Details",
-                    title_align="left",
-                )
+                f"[bold {ERROR_COLOR}]Usage: /find <search-term>[/bold {ERROR_COLOR}]"
             )
-
-            # Extract actions from the response for menu selection
-            actions_list = []
-            actions_match = re.search(
-                r"```actions\n(.*?)```", detail_response.result or "", re.DOTALL
+            console.print(
+                "[dim]Examples:[/dim]\n"
+                "  /find nginx            # Find all resources with 'nginx' in name\n"
+                "  /find pod redis        # Find pods containing 'redis'\n"
+                "  /find deployment app=  # Find deployments by label\n"
+                "  /find 10.0.1.         # Find resources by IP prefix\n"
+                "  /find gke-cluster      # Find GKE clusters/nodes\n"
+                "  /find ec2 prod         # Find EC2 instances with 'prod'\n"
+                "  /find rds mysql        # Find RDS MySQL databases"
             )
-            if actions_match:
-                actions_text = actions_match.group(1).strip()
-                for line in actions_text.split("\n"):
-                    if "|" in line:
-                        num, desc = line.split("|", 1)
-                        actions_list.append((num.strip(), desc.strip()))
-
-            # Phase 4: Action selection loop
-            while True:
-                # Display a compact action menu
-                console.print()  # Blank line for spacing
-
-                if actions_list:
-                    # Just show a header, the menu will display the options
-                    console.print(
-                        f"[bold {AI_COLOR}]Select action for {selection}:[/bold {AI_COLOR}]"
-                    )
-
-                    # Create a session with completer and validator
-                    action_completer = ActionMenuCompleter(actions_list)
-                    action_validator = ActionMenuValidator(actions_list)
-
-                    # Create key bindings that auto-show completions
-                    action_bindings = KeyBindings()
-
-                    @action_bindings.add("c-space")
-                    @action_bindings.add("tab")
-                    def _(event):
-                        """Show completions on Tab or Ctrl+Space"""
-                        b = event.app.current_buffer
-                        if b.complete_state:
-                            b.complete_next()
-                        else:
-                            b.start_completion(select_first=True)
-
-                    @action_bindings.add("escape")
-                    def _(event):
-                        """Override Escape to re-show completions instead of hiding them"""
-                        b = event.app.current_buffer
-                        # Clear the current input but keep completions open
-                        b.reset()
-                        # Immediately restart completion
-                        b.start_completion(select_first=True)
-
-                    # Add a catch-all for any printable character
-                    from prompt_toolkit.filters import has_completions
-
-                    @action_bindings.add(Keys.Any, filter=~has_completions)
-                    def _(event):
-                        """Auto-show completions after any key press if not already shown"""
-                        # Let the key be processed normally first
-                        event.app.current_buffer.insert_text(event.data)
-                        # Then ensure completions are shown
-                        event.app.current_buffer.start_completion(select_first=True)
-
-                    # Also handle backspace to keep menu visible
-                    @action_bindings.add("backspace")
-                    def _(event):
-                        """Handle backspace while keeping completions visible"""
-                        b = event.app.current_buffer
-                        # Check if current text is a valid full selection
-                        valid_descriptions = [
-                            desc for _, desc in action_completer.all_options
-                        ]
-
-                        if b.text in valid_descriptions:
-                            # If it's a valid selection description, clear it completely
-                            b.text = ""
-                        elif b.text:
-                            # Otherwise just delete one character
-                            b.delete_before_cursor()
-
-                        # Always restart completion after backspace
-                        b.start_completion(select_first=True)
-
-                    # Create a temporary session with menu-style completion
-                    menu_session: PromptSession = PromptSession(
-                        completer=action_completer,
-                        validator=action_validator,
-                        validate_while_typing=False,
-                        complete_while_typing=True,
-                        history=InMemoryHistory(),
-                        complete_style=CompleteStyle.COLUMN,  # Vertical column style
-                        reserve_space_for_menu=min(
-                            10, len(actions_list) + 2
-                        ),  # Reserve space for menu
-                        key_bindings=action_bindings,
-                    )
-
-                    # Show instruction and prompt
-                    console.print(
-                        "[dim]Type to filter or use ↑↓ arrows, Enter to select[/dim]"
-                    )
-
-                    # Define pre_run to auto-start completion
-                    def pre_run():
-                        # Start completion immediately with first item selected
-                        app = menu_session.app
-                        if app:
-                            app.current_buffer.start_completion(select_first=True)
-
-                    action_selection = menu_session.prompt(
-                        [("class:prompt", "> ")],
-                        style=find_style,
-                        default="",  # Start with empty
-                        pre_run=pre_run,  # Auto-show menu
-                    )
-                else:
-                    # Fallback to original text-based selection
-                    console.print(
-                        f"\n[dim]Resource: {selection} - Choose an action or 'b' to go back[/dim]"
-                    )
-
-                    action_selection = modal_session.prompt(
-                        [("class:prompt", "Select action [1-N] or 'b' for back: ")],
-                        style=find_style,
-                    )
-
-                # Convert description back to number if needed
-                if action_selection in action_validator.valid_values:
-                    action_number = action_validator.valid_values[action_selection]
-                else:
-                    action_number = action_selection  # fallback
-
-                if action_number == "b" or action_selection.lower() == "b":
-                    break  # Back to resource list
-
-                # Check if this is a /run command
-                detail_result = detail_response.result or ""
-                if "/run" in detail_result:
-                    # Let LLM extract and execute the action
-                    action_prompt = f"""
-The user selected action [{action_number}] from the list above.
-
-If this action is a /run command, please extract and return ONLY the /run command line.
-If it's a describe/show action, execute it using the appropriate tool and show the output.
-
-For /run commands, respond with ONLY the command like:
-/run kubectl exec -it nginx-pod -- sh
-
-For other actions:
-1. First output a line starting with "EXECUTING: " that describes what you're doing (e.g., "EXECUTING: Showing pod YAML")
-2. Then execute the tool and present the results
-
-IMPORTANT: For "Show logs" actions, use fetch_pod_logs which defaults to 100 lines. This is usually sufficient. Only if the user asks for more logs or you need to see earlier logs, use a higher limit.
-"""
-                    lookup_messages.append({"role": "user", "content": action_prompt})
-
-                    action_response = ai.call(lookup_messages, trace_span=DummySpan())
-                    action_result = action_response.result or ""
-
-                    # Check if response is a /run command
-                    if action_result.strip().startswith("/run"):
-                        # Return the command to be executed in main loop
-                        return action_result.strip()
-                    else:
-                        # Extract the action description from EXECUTING line if present
-                        modal_title = f"Action {action_selection} Result"
-                        exec_match = re.search(
-                            r"^EXECUTING:\s*(.+?)(?:\n|$)", action_result, re.MULTILINE
-                        )
-                        if exec_match:
-                            modal_title = exec_match.group(1)
-                            # Remove the EXECUTING line from the result
-                            action_result = re.sub(
-                                r"^EXECUTING:.*\n",
-                                "",
-                                action_result,
-                                flags=re.MULTILINE,
-                            )
-
-                        # Display the action result in a modal
-                        show_action_result_modal(action_result, modal_title, console)
-                        lookup_messages = action_response.messages or []
-                else:
-                    console.print(
-                        f"[bold {ERROR_COLOR}]Invalid selection[/bold {ERROR_COLOR}]"
-                    )
-
-        except (ValueError, IndexError):
-            console.print(f"[bold {ERROR_COLOR}]Invalid selection[/bold {ERROR_COLOR}]")
+            return None, True, messages, last_response, show_tool_output
+        command_to_run = handle_find_modal(
+            find_args, ai, console, messages, session, style
+        )
+        if command_to_run:
+            # Recursively process the returned slash command
+            return process_slash_command(
+                command_to_run,
+                session,
+                style,
+                console,
+                ai,
+                messages,
+                last_response,
+                all_tool_calls_history,
+                show_tool_output,
+            )
+        else:
+            return None, True, messages, last_response, show_tool_output
+    else:
+        console.print(f"Unknown command: {command}")
+        return None, True, messages, last_response, show_tool_output
 
 
 def run_interactive_loop(
@@ -1425,104 +821,28 @@ def run_interactive_loop(
                 user_input = session.prompt(input_prompt, style=style)  # type: ignore
 
             if user_input.startswith("/"):
-                original_input = user_input.strip()
-                command = original_input.lower()
-
-                # Handle prefix matching for slash commands
-                matches = [cmd for cmd in ALL_SLASH_COMMANDS if cmd.startswith(command)]
-                if len(matches) == 1:
-                    command = matches[0]
-                elif len(matches) > 1:
-                    console.print(
-                        f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
-                    )
-                    continue
-
-                if command == SlashCommands.EXIT.command:
+                (
+                    processed_input,
+                    should_continue,
+                    messages,
+                    last_response,
+                    show_tool_output,
+                ) = process_slash_command(
+                    user_input,
+                    session,
+                    style,
+                    console,
+                    ai,
+                    messages,
+                    last_response,
+                    all_tool_calls_history,
+                    show_tool_output,
+                )
+                if not should_continue:
                     return
-                elif command == SlashCommands.HELP.command:
-                    console.print(
-                        f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]"
-                    )
-                    for cmd, description in SLASH_COMMANDS_REFERENCE.items():
-                        console.print(f"  [bold]{cmd}[/bold] - {description}")
+                if processed_input is None:
                     continue
-                elif command == SlashCommands.CLEAR.command:
-                    console.clear()
-                    console.print(
-                        f"[bold {STATUS_COLOR}]Screen cleared and context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
-                    )
-                    messages = None
-                    last_response = None
-                    all_tool_calls_history.clear()
-                    continue
-                elif command == SlashCommands.TOOLS_CONFIG.command:
-                    pretty_print_toolset_status(ai.tool_executor.toolsets, console)
-                    continue
-                elif command == SlashCommands.TOGGLE_TOOL_OUTPUT.command:
-                    show_tool_output = not show_tool_output
-                    status = "enabled" if show_tool_output else "disabled"
-                    console.print(
-                        f"[bold yellow]Auto-display of tool outputs {status}.[/bold yellow]"
-                    )
-                    continue
-                elif command == SlashCommands.LAST_OUTPUT.command:
-                    handle_last_command(last_response, console, all_tool_calls_history)
-                    continue
-                elif command == SlashCommands.CONTEXT.command:
-                    handle_context_command(messages, ai, console)
-                    continue
-                elif command.startswith(SlashCommands.SHOW.command):
-                    # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
-                    handle_show_command(show_arg, all_tool_calls_history, console)
-                    continue
-                elif command.startswith(SlashCommands.RUN.command):
-                    bash_command = original_input[
-                        len(SlashCommands.RUN.command) :
-                    ].strip()
-                    shared_input = handle_run_command(
-                        bash_command, session, style, console
-                    )
-                    if shared_input is None:
-                        continue  # User chose not to share, continue to next input
-                    user_input = shared_input
-                elif command == SlashCommands.SHELL.command:
-                    shared_input = handle_shell_command(session, style, console)
-                    if shared_input is None:
-                        continue  # User chose not to share or no output, continue to next input
-                    user_input = shared_input
-                elif command.startswith(SlashCommands.FIND.command):
-                    find_args = original_input[
-                        len(SlashCommands.FIND.command) :
-                    ].strip()
-                    if not find_args:
-                        console.print(
-                            f"[bold {ERROR_COLOR}]Usage: /find <search-term>[/bold {ERROR_COLOR}]"
-                        )
-                        console.print(
-                            "[dim]Examples:[/dim]\n"
-                            "  /find nginx            # Find all resources with 'nginx' in name\n"
-                            "  /find pod redis        # Find pods containing 'redis'\n"
-                            "  /find deployment app=  # Find deployments by label\n"
-                            "  /find 10.0.1.         # Find resources by IP prefix\n"
-                            "  /find gke-cluster      # Find GKE clusters/nodes\n"
-                            "  /find ec2 prod         # Find EC2 instances with 'prod'\n"
-                            "  /find rds mysql        # Find RDS MySQL databases"
-                        )
-                        continue
-                    command_to_run = handle_find_modal(
-                        find_args, ai, console, messages, session, style
-                    )
-                    if command_to_run:
-                        # Execute the returned command (e.g., /run kubectl exec...)
-                        user_input = command_to_run
-                        # Let it fall through to process as normal input
-                    else:
-                        continue  # User exited find mode
-                else:
-                    console.print(f"Unknown command: {command}")
-                    continue
+                user_input = processed_input
             elif not user_input.strip():
                 continue
 
