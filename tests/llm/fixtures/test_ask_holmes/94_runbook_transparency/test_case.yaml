@@ -2,6 +2,8 @@ user_prompt: "Database connection timeouts are occurring for blue-whale app in n
 tags:
   - runbooks
   - medium
+  - transparency
+
 expected_output: |
   - Uses database troubleshooting runbook
   - Includes detailed "Investigation Steps Performed" section

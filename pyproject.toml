@@ -115,7 +115,8 @@ markers = [
     "port-forward: Tests requiring port forwarding to local services (automatically added to tests with port_forwards in test_case.yaml)",
     "toolset-limitation: Tests that cannot be solved no matter how smart the model, unless we improve the underlying toolsets themselves",
     "ask-for-clarification: Tests where Holmes should ask the user for clarification",
-    "database: Tests involving database interactions"
+    "database: Tests involving database interactions",
+    "datadog: DataDog toolset"
 ]
 
 addopts = [

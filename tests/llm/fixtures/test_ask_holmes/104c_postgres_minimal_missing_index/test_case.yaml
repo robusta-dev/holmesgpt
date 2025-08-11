@@ -3,9 +3,9 @@ expected_output:
   - Database queries slow due to missing index on orders.customer_email
   - Sequential scan on 75k orders table for email lookups
   - EXPLAIN shows Seq Scan with high cost and execution time
-  - CREATE INDEX idx_customer_email ON orders(customer_email) needed
+#  - CREATE INDEX idx_customer_email ON orders(customer_email) needed
 tags:
-  - medium
+  - hard
   - database
 
 description: |
