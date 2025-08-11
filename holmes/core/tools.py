@@ -44,6 +44,8 @@ from holmes.utils.config_utils import merge_transformers
 import time
 from rich.table import Table
 
+logger = logging.getLogger(__name__)
+
 
 class ToolResultStatus(str, Enum):
     SUCCESS = "success"
@@ -187,10 +189,6 @@ class Tool(ABC, BaseModel):
 
     def model_post_init(self, __context) -> None:
         """Initialize transformer instances once during tool creation for better performance."""
-        import logging
-
-        logger = logging.getLogger(__name__)
-
         logger.debug(
             f"Tool '{self.name}' model_post_init: creating transformer instances"
         )
@@ -212,11 +210,11 @@ class Tool(ABC, BaseModel):
                         transformer.name, transformer.config
                     )
                     self._transformer_instances.append(transformer_instance)
-                    logging.debug(
+                    logger.debug(
                         f"Initialized transformer '{transformer.name}' for tool '{self.name}'"
                     )
                 except Exception as e:
-                    logging.warning(
+                    logger.warning(
                         f"Failed to initialize transformer '{transformer.name}' for tool '{self.name}': {e}"
                     )
                     # Continue with other transformers, don't fail the entire initialization

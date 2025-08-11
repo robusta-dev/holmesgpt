@@ -6,6 +6,7 @@ import sys
 from holmes.config import Config
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.tools import Toolset, Tool, Transformer
+from holmes.core.transformers import registry
 
 # Setup global namespace for Config model rebuilding
 sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -161,8 +162,8 @@ class TestToolsetManagerFastModel:
 
         # Mock the transformer registry
         mock_instance = Mock()
-        with patch("holmes.core.transformers.registry") as mock_registry:
-            mock_registry.create_transformer.return_value = mock_instance
+        with patch.object(registry, "create_transformer") as mock_create_transformer:
+            mock_create_transformer.return_value = mock_instance
 
             manager = ToolsetManager(global_fast_model=global_fast_model)
             manager._inject_fast_model_into_transformers([mock_toolset])
@@ -170,7 +171,7 @@ class TestToolsetManagerFastModel:
             # Should inject global_fast_model into tool transformer
             assert mock_tool_transformer.config["global_fast_model"] == "gpt-4o-mini"
             # Should recreate transformer instances
-            mock_registry.create_transformer.assert_called_once_with(
+            mock_create_transformer.assert_called_once_with(
                 "llm_summarize", mock_tool_transformer.config
             )
             assert mock_tool._transformer_instances == [mock_instance]

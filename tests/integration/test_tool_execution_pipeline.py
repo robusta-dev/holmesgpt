@@ -7,6 +7,7 @@ in a more realistic environment.
 
 from unittest.mock import patch
 from typing import Dict
+import time
 
 from holmes.core.tools import (
     Tool,
@@ -227,8 +228,6 @@ class TestToolExecutionPipelineIntegration:
 
         class SlowTransformer(BaseTransformer):
             def transform(self, input_text: str) -> str:
-                import time
-
                 time.sleep(0.1)  # Simulate slow transformation
                 return f"SLOW_TRANSFORMED: {input_text}"
 

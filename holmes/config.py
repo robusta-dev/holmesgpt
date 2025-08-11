@@ -10,6 +10,7 @@ import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
+from holmes.core.tools import Transformer
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -24,7 +25,6 @@ if TYPE_CHECKING:
     from holmes.core.llm import LLM
     from holmes.core.supabase_dal import SupabaseDal
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
-    from holmes.core.tools import Transformer
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
     from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
@@ -74,7 +74,7 @@ class Config(RobustaBaseConfig):
     )
     model: Optional[str] = "gpt-4o"
     fast_model: Optional[str] = None
-    transformers: Optional[List["Transformer"]] = None
+    transformers: Optional[List[Transformer]] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
 
@@ -172,8 +172,6 @@ class Config(RobustaBaseConfig):
         Only generates if fast_model is provided and transformers is not already set.
         """
         if self.fast_model and not self.transformers:
-            from holmes.core.tools import Transformer
-
             self.transformers = [
                 Transformer(
                     name="llm_summarize",
