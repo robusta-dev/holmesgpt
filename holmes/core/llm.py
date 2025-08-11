@@ -11,8 +11,8 @@ from pydantic import BaseModel
 import litellm
 import os
 from holmes.common.env_vars import (
+    REASONING_EFFORT,
     THINKING,
-    TEMPERATURE,
 )
 
 
@@ -208,6 +208,8 @@ class DefaultLLM(LLM):
         stream: Optional[bool] = None,
     ) -> Union[ModelResponse, CustomStreamWrapper]:
         tools_args = {}
+        allowed_openai_params = None
+
         if tools and len(tools) > 0 and tool_choice == "auto":
             tools_args["tools"] = tools
             tools_args["tool_choice"] = tool_choice  # type: ignore
@@ -218,6 +220,13 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
+        if REASONING_EFFORT:
+            self.args.setdefault("reasoning_effort", REASONING_EFFORT)
+            allowed_openai_params = [
+                "reasoning_effort"
+            ]  # can be removed after next litelm version
+
+        self.args.setdefault("temperature", temperature)
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
 
@@ -225,9 +234,9 @@ class DefaultLLM(LLM):
             model=self.model,
             api_key=self.api_key,
             messages=messages,
-            temperature=temperature or self.args.pop("temperature", TEMPERATURE),
             response_format=response_format,
             drop_params=drop_params,
+            allowed_openai_params=allowed_openai_params,
             stream=stream,
             **tools_args,
             **self.args,

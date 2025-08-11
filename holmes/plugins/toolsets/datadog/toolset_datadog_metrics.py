@@ -26,11 +26,15 @@ from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_int,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
     DEFAULT_LOG_LIMIT,
 )
+from datetime import datetime
+
+from holmes.utils.keygen_utils import generate_random_key
 
 
 class DatadogMetricsConfig(DatadogBaseConfig):
@@ -62,7 +66,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                     required=False,
                 ),
                 "tag_filter": ToolParameter(
-                    description="Filter metrics by tags in the format tag:value",
+                    description="Filter metrics by tags in the format tag:value.",
                     type="string",
                     required=False,
                 ),
@@ -112,6 +116,12 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             )
 
             metrics = data.get("metrics", [])
+            if not metrics:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data="Your filter returned no metrics. Change your filter and try again",
+                    params=params,
+                )
 
             output = ["Metric Name"]
             output.append("-" * 50)
@@ -163,8 +173,8 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             filters.append(f"host={params['host']}")
         if params.get("tag_filter"):
             filters.append(f"tag_filter={params['tag_filter']}")
-        filter_str = f" with filters: {', '.join(filters)}" if filters else ""
-        return f"List active Datadog metrics{filter_str}"
+        filter_str = f"{', '.join(filters)}" if filters else "all"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List Active Metrics ({filter_str})"
 
 
 class QueryMetrics(BaseDatadogMetricsTool):
@@ -187,6 +197,16 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 ),
                 "to_time": ToolParameter(
                     description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
+                    required=False,
+                ),
+                "description": ToolParameter(
+                    description="Describes the query",
+                    type="string",
+                    required=True,
+                ),
+                "output_type": ToolParameter(
+                    description="Specifies how to interpret the Datadog result. Use 'Plain' for raw values, 'Bytes' to format byte values, 'Percentage' to scale 0–1 values into 0–100%, or 'CPUUsage' to convert values to cores (e.g., 500 becomes 500m, 2000 becomes 2).",
                     type="string",
                     required=False,
                 ),
@@ -232,6 +252,8 @@ class QueryMetrics(BaseDatadogMetricsTool):
             )
 
             series = data.get("series", [])
+            description = params.get("description", "")
+            output_type = params.get("output_type", "Plain")
 
             if not series:
                 return StructuredToolResult(
@@ -240,17 +262,58 @@ class QueryMetrics(BaseDatadogMetricsTool):
                     params=params,
                 )
 
+            # Transform Datadog series data to match Prometheus format
+            prometheus_result = []
+            for serie in series:
+                # Extract metric info from Datadog series
+                metric_info = {}
+                if "metric" in serie:
+                    metric_info["__name__"] = serie["metric"]
+
+                # Add other fields from scope/tag_set if available
+                if "scope" in serie and serie["scope"]:
+                    # Parse scope like "pod_name:robusta-runner-78599b764d-f847h" into labels
+                    scope_parts = serie["scope"].split(",")
+                    for part in scope_parts:
+                        if ":" in part:
+                            key, value = part.split(":", 1)
+                            metric_info[key.strip()] = value.strip()
+
+                # Transform pointlist to values format (timestamp, value as strings)
+                values = []
+                if "pointlist" in serie:
+                    for point in serie["pointlist"]:
+                        if len(point) >= 2:
+                            # Convert timestamp from milliseconds to seconds, format as string
+                            timestamp = int(point[0] / 1000)
+                            value = str(point[1])
+                            values.append([timestamp, value])
+
+                prometheus_result.append({"metric": metric_info, "values": values})
+
+            # Convert timestamps to RFC3339 format for start/end
+            start_rfc = datetime.fromtimestamp(from_time).strftime("%Y-%m-%dT%H:%M:%SZ")
+            end_rfc = datetime.fromtimestamp(to_time).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            # Create response matching Prometheus format
             response_data = {
                 "status": "success",
+                "error_message": None,
+                "random_key": generate_random_key(),
+                "tool_name": self.name,
+                "description": description,
                 "query": query,
-                "from_time": from_time,
-                "to_time": to_time,
-                "series": series,
+                "start": start_rfc,
+                "end": end_rfc,
+                "step": 60,  # Default step, Datadog doesn't provide this directly
+                "output_type": output_type,
+                "data": {"resultType": "matrix", "result": prometheus_result},
             }
 
+            data_str = json.dumps(response_data, indent=2)
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                data=json.dumps(response_data, indent=2),
+                data=data_str,
                 params=params,
             )
 
@@ -288,8 +351,8 @@ class QueryMetrics(BaseDatadogMetricsTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query", "<no query>")
-        return f"Query Datadog metrics: {query}"
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query Metrics ({description})"
 
 
 class QueryMetricsMetadata(BaseDatadogMetricsTool):
@@ -400,10 +463,96 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
         metric_names = params.get("metric_names", [])
         if isinstance(metric_names, list):
             if len(metric_names) == 1:
-                return f"Get Datadog metric metadata for: {metric_names[0]}"
+                return f"Get Metric Metadata ({metric_names[0]})"
             elif len(metric_names) > 1:
-                return f"Get Datadog metric metadata for {len(metric_names)} metrics"
-        return "Get Datadog metric metadata"
+                return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Datadog metric metadata for {len(metric_names)} metrics"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Datadog metric metadata"
+
+
+class ListMetricTags(BaseDatadogMetricsTool):
+    def __init__(self, toolset: "DatadogMetricsToolset"):
+        super().__init__(
+            name="list_datadog_metric_tags",
+            description="List all available tags and aggregations for a specific metric. This helps in building queries by showing what dimensions are available for filtering.",
+            parameters={
+                "metric_name": ToolParameter(
+                    description="The name of the metric to get tags for (e.g., 'system.cpu.user', 'container.memory.usage')",
+                    type="string",
+                    required=True,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        if not self.toolset.dd_config:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=TOOLSET_CONFIG_MISSING_ERROR,
+                params=params,
+            )
+
+        url = None
+        query_params = None
+
+        try:
+            metric_name = get_param_or_raise(params, "metric_name")
+
+            url = f"{self.toolset.dd_config.site_api_url}/api/v2/metrics/{metric_name}/active-configurations"
+            headers = get_headers(self.toolset.dd_config)
+
+            data = execute_datadog_http_request(
+                url=url,
+                headers=headers,
+                timeout=self.toolset.dd_config.request_timeout,
+                method="GET",
+                payload_or_params={},
+            )
+
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=data,
+                params=params,
+            )
+
+        except DataDogRequestError as e:
+            logging.exception(e, exc_info=True)
+
+            if e.status_code == 404:
+                error_msg = f"Metric '{params.get('metric_name', 'unknown')}' not found. Please check the metric name."
+            elif e.status_code == 429:
+                error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
+            elif e.status_code == 403:
+                error_msg = (
+                    f"Permission denied. Ensure your Datadog Application Key has the 'metrics_read' "
+                    f"permissions. Error: {str(e)}"
+                )
+            else:
+                error_msg = f"Exception while querying Datadog: {str(e)}"
+
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=error_msg,
+                params=params,
+                invocation=json.dumps({"url": url, "params": query_params})
+                if url and query_params
+                else None,
+            )
+
+        except Exception as e:
+            logging.exception(
+                f"Failed to query Datadog metric tags for params: {params}",
+                exc_info=True,
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Exception while querying Datadog: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params) -> str:
+        metric_name = params.get("metric_name", "<no metric>")
+        return f"List available tags for Datadog metric: {metric_name}"
 
 
 class DatadogMetricsToolset(Toolset):
@@ -420,6 +569,7 @@ class DatadogMetricsToolset(Toolset):
                 ListActiveMetrics(toolset=self),
                 QueryMetrics(toolset=self),
                 QueryMetricsMetadata(toolset=self),
+                ListMetricTags(toolset=self),
             ],
             experimental=True,
             tags=[ToolsetTag.CORE],

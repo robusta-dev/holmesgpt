@@ -1,12 +1,12 @@
-import os
+import getpass
 import logging
+import os
 import platform
-import pwd
 import socket
 from datetime import datetime
-from typing import Optional, Any, Union, Dict
-from pathlib import Path
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
 
 BRAINTRUST_API_KEY = os.environ.get("BRAINTRUST_API_KEY")
 BRAINTRUST_ORG = os.environ.get("BRAINTRUST_ORG", "robustadev")
@@ -69,7 +69,7 @@ def get_active_branch_name():
 
 def get_machine_state_tags() -> Dict[str, str]:
     return {
-        "username": pwd.getpwuid(os.getuid()).pw_name,
+        "username": getpass.getuser(),
         "branch": get_active_branch_name(),
         "platform": platform.platform(),
         "hostname": socket.gethostname(),
@@ -91,10 +91,11 @@ class SpanType(Enum):
     """Standard span types for tracing categorization."""
 
     LLM = "llm"
-    TOOL = "tool"
-    TASK = "task"
     SCORE = "score"
+    FUNCTION = "function"
     EVAL = "eval"
+    TASK = "task"
+    TOOL = "tool"
 
 
 class DummySpan:

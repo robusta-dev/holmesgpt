@@ -29,4 +29,4 @@ before_test: |
   kubectl wait --for=condition=Ready pod/grafana-7f8b9c6d5-x2m4n -n app-03 --timeout=60s
 
 after_test: |
-  kubectl delete namespace app-03 --force --grace-period=0
+  kubectl delete namespace app-03

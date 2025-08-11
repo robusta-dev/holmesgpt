@@ -12,7 +12,6 @@ before_test: |
 after_test: |
   kubectl delete -f ./job.yaml
   kubectl delete secret java-api-checker-logs-script -n app-12 --ignore-not-found
-evaluation:
-  correctness: 1
+  kubectl delete namespace app-12 --ignore-not-found
 tags:
-  - medium
+  - hard

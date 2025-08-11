@@ -22,8 +22,8 @@ def generate_logs():
     print(f"{datetime.now()} FATAL: Shutting down application")
 
     # Generate some additional health check logs
-    for _ in range(10):
-        print(f"{datetime.now()} INFO: Health check requested")
+    for _ in range(2000):
+        print(f"{datetime.now()} INFO: Status healthy")
 
     # Keep pod running
     while True:
