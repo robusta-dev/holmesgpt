@@ -92,6 +92,29 @@ Essential variables for controlling test behavior:
 | `ITERATIONS` | Run each test N times | `ITERATIONS=10` |
 | `MODEL` | LLM to test | `MODEL=gpt-4o` |
 | `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
+| `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
+
+### ASK_HOLMES_TEST_TYPE Details
+
+The `ASK_HOLMES_TEST_TYPE` environment variable controls how messages are built in ask_holmes tests:
+
+- **`cli` (default)**: Uses `build_initial_ask_messages` like the CLI ask() command. This mode:
+  - Simulates the CLI interface behavior
+  - Does not support conversation history tests (will skip them)
+  - Includes runbook loading and system prompts as done in the CLI
+
+- **`server`**: Uses `build_chat_messages` with ChatRequest for server-style flow. This mode:
+  - Simulates the API/server interface behavior
+  - Supports conversation history tests
+  - Uses the ChatRequest model for message building
+
+```bash
+# Test with CLI-style message building (default)
+RUN_LIVE=true poetry run pytest -k "test_name"
+
+# Test with server-style message building
+RUN_LIVE=true ASK_HOLMES_TEST_TYPE=server poetry run pytest -k "test_name"
+```
 
 ## Advanced Usage
 
