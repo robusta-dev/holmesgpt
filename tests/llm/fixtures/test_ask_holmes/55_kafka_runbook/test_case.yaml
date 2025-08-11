@@ -3,7 +3,7 @@ tags:
   - logs
   - kafka
   - runbooks
-  - hard # gpt-4o does not get to the root cause which is slower consumer due to email processing.
+  - medium # gpt-4o does not get to the root cause which is slower consumer due to email processing.
 
 skip: true
 skip_reason: this hangs when the port-forward is not set up correctly
