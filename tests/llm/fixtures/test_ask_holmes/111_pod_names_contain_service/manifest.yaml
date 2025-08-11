@@ -7,7 +7,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: search-engine
-  namespace: test-15
+  namespace: test-111
 spec:
   containers:
   - name: get-details
