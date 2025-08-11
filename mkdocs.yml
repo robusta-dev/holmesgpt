@@ -194,6 +194,7 @@ nav:
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
+      - Environment Variables: reference/environment-variables.md
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
       - Slash Commands: reference/slash-commands.md

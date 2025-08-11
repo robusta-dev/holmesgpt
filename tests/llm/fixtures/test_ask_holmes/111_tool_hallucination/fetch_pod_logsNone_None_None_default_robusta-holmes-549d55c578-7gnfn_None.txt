@@ -83,9 +83,9 @@ setting up colored logging
     "content": "**@user_U08QARDG9LZ** \u2022 2025-08-08T08:04:11Z \u2022 (in thread)\n\nOops :( Something went wrong"
   }
 ]
-[92m08:07:05 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:07:05 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:07:05.890 INFO     
+[32m2025-08-08 08:07:05.890 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:07:08 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:07:08.839 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -95,9 +95,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:07:08.919 INFO       [dim]Finished #1 in 0.07s, output length: 1,938 characters (51 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:07:09.364 INFO       [dim]Finished #2 in 0.52s, output length: 23,245 characters (34 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 08:07:09.365 INFO     [0m
-[92m08:07:09 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:07:09 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:07:09.373 INFO     
+[32m2025-08-08 08:07:09.373 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:07:12 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:07:12.583 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -105,9 +105,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:07:12.585 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=customer-relations-webapp-7c67c65579-rvxtj, namespace=default)[0m
 [32m2025-08-08 08:07:12.718 INFO       [dim]Finished #1 in 0.13s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:07:12.718 INFO     [0m
-[92m08:07:12 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:07:12 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:07:12.721 INFO     
+[32m2025-08-08 08:07:12.721 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:07:15 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:07:15.610 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -121,9 +121,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "You are a tool-calling AI assist provided with common devops and IT tools that you can use to troubleshoot problems or answer questions.\nWhenever possible you MUST first use tools to investigate then answer the question.\nDo not say 'based on the tool output' or explicitly refer to tools at all.\nIf you output an answer and then realize you need to call more tools or there are possible next steps, you may do so by calling tools at that point in time.\nIf you have a good and concrete suggestion for how the user can fix something, tell them even if not asked explicitly\n\nUse conversation history to maintain continuity when appropriate, ensuring efficiency in your responses.\n\n\nIn general:\n* when it can provide extra information, first run as many tools as you need to gather more information, then respond.\n* if possible, do so repeatedly with different tool calls each time to gather more information.\n* do not stop investigating until you are at the final root cause you are able to find.\n* use the \"five whys\" methodology to find the root cause.\n* for example, if you found a problem in microservice A that is due to an error in microservice B, look at microservice B too and find the error in that.\n* if you cannot find the resource/application that the user referred to, assume they made a typo or included/excluded characters like - and.\n* in this case, try to find substrings or search for the correct spellings\n* always provide detailed information like exact resource names, versions, labels, etc\n* even if you found the root cause, keep investigating to find other possible root causes and to gather data for the answer like exact names\n* when giving an answer don't say root cause but \"possible root causes\" and be clear to distinguish between what you know for certain and what is a possible explanation\n* if a runbook url is present as well as tool that can fetch it, you MUST fetch the runbook before beginning your investigation and follow the steps written in it.\n* if you don't know, say that the analysis was inconclusive.\n* if there are multiple possible causes list them in a numbered list.\n* there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.\n\nIf investigating Kubernetes problems:\n* run as many kubectl commands as you need to gather more information, then respond.\n* if possible, do so repeatedly on different Kubernetes objects.\n* for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.\n* if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep\n* use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream\n* when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs\n* do not give an answer like \"The pod is pending\" as that doesn't state why the pod is pending and how to fix it.\n* do not give an answer like \"Pod's node affinity/selector doesn't match any available nodes\" because that doesn't include data on WHICH label doesn't match\n* if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant\n* if the user says something isn't working, ALWAYS:\n** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to\n** check the application aspects through the logs (kubectl_logs and kubectl_previous_logs) and other relevant tools\n** look for misconfigured ingresses/services etc\n\nHandling Permission Errors\nIf during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:\n1.**Analyze the Error Message**\n - Identify the missing resource, API group, and verbs from the error details.\n - Never stop at reporting the error\n - Proceed with an in-depth investigation.\n2.**Locate the Relevant Helm Release**\nCheck if Helm tools are available, if they are available always use Helm commands to help user find the release associated with the Holmes pod:\n - Run `helm list -A | grep holmes` to identify the release name.\n - Run `helm get values <RELEASE_NAME> -n <NAMESPACE>` to retrieve details such as `customClusterRoleRules` and `clusterName`.\nIf Helm tools are unavailable, skip this step.\n3. **Check for Missing Permissions**\n - Check for a cluster role with <RELEASE_NAME>-holmes-cluster-role in its name and a service account with <RELEASE_NAME>-holmes-service-account in its name to troubleshoot missing permissions where release name is the name you found earlier if helm tools are available (If the exact cluster role or service account isn't found, search for similar or related names, including variations or prefixes/suffixes that might be used in the cluster.)\n - Focus on identifying absent permissions that align with the error message.\n4. **Update the Configuration**\nIf necessary permissions are absent both in customClusterRoleRules and the cluster role mentioned previously, ALWAYS advise the user to update their configuration by modifying the `generated_values.yaml` file as follows:\n```\nholmes:\n    customClusterRoleRules:\n      - apiGroups: [\"<API_GROUP>\"]\n        resources: [\"<RESOURCE_1>\", \"<RESOURCE_2>\"]\n        verbs: [\"<VERB_1>\", \"<VERB_2>\", \"<VERB_3>\"]\n```\nAfter that instruct them to apply the changes with::\n```\n    helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>\n```\n5. **Fallback Guidelines**\n- If you cannot determine the release or cluster name, use placeholders `<RELEASE_NAME>` and `<YOUR_CLUSTER_NAME>`.\n- While you should attempt to retrieve details using Helm commands, do **not** direct the user to execute these commands themselves.\nReminder:\n* Always adhere to this process, even if Helm tools are unavailable.\n* Strive for thoroughness and precision, ensuring the issue is fully addressed.\n\nSpecial cases and how to reply:\n* if you are unable to investigate something properly because you do not have tools that let you access the right data, explicitly tell the user that you are missing an integration to access XYZ which you would need to investigate. you should give an answer similar to \"I don't have access to <details>. Please add a Holmes integration for <XYZ> so that I can investigate this.\"\n* make sure you differentiate between \"I investigated and found error X caused this problem\" and \"I tried to investigate but while investigating I got some errors that prevented me from completing the investigation.\"\n* as a special case of that, If a tool generates a permission error when attempting to run it, follow the Handling Permission Errors section for detailed guidance.\n* that is different than - for example - fetching a pod's logs and seeing that the pod itself has permission errors. in that case, you explain say that permission errors are the cause of the problem and give details\n* Issues are a subset of findings. When asked about an issue or a finding and you have an id, use the tool `fetch_finding_by_id`.\n* For any question, try to make the answer specific to the user's cluster.\n** For example, if asked to port forward, find out the app or pod port (kubectl decribe) and provide a port forward command specific to the user's question\n\n\n\nStyle guide:\n* Reply with terse output.\n* Be painfully concise.\n* Leave out \"the\" and filler words when possible.\n* Be terse but not at the expense of leaving out important data like the root cause and how to fix.\n\nExamples:\n\nUser: Why did the webserver-example app crash?\n(Call tool kubectl_find_resource kind=pod keyword=webserver`)\n(Call tool kubectl_previous_logs namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)\n\nAI: `webserver-example-1299492-d9g9d` crashed due to email validation error during HTTP request for /api/create_user\nRelevant logs:\n\n```\n2021-01-01T00:00:00.000Z [ERROR] Missing required field 'email' in request body\n```\n\nValidation error led to unhandled Java exception causing a crash.\n"
   }
 ]
-[92m08:15:51 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:15:51 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:15:51.258 INFO     
+[32m2025-08-08 08:15:51.258 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:15:55 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:15:55.282 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -146,9 +146,9 @@ Proceeding with the investigation now.[0m
 [32m2025-08-08 08:15:55.286 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep 'Transaction XXXX Failed'[0m
 [32m2025-08-08 08:15:55.345 INFO       [dim]Finished #1 in 0.06s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:15:55.346 INFO     [0m
-[92m08:15:55 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:15:55 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:15:55.349 INFO     
+[32m2025-08-08 08:15:55.349 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:15:56 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:15:56.866 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -156,9 +156,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:15:56.870 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep Transaction[0m
 [32m2025-08-08 08:15:56.938 INFO       [dim]Finished #1 in 0.07s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:15:56.940 INFO     [0m
-[92m08:15:56 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:15:56 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:15:56.942 INFO     
+[32m2025-08-08 08:15:56.942 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:15:58 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:15:58.661 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -176,9 +176,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "I have the following alert: **@user_U020QD7TF0X** \u2022 2025-08-08T08:08:38Z\n\nCrashing pod payment-processing-worker-747ccfb9db-kx5qw in namespace default * [ payment-processing-worker-747ccfb9db-kx5qw.log](https://robustaco.slack.com/files/U020QD7TF0X/F099CL1CAJX/payment-processing-worker-747ccfb9db-kx5qw.log )\n\n:eyes: **K8s event detected** :red_circle: **High**\n[**Crashing pod payment-processing-worker-747ccfb9db-kx5qw in namespace default**](https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&amp;clusters=%5B%22nicolas-demo-prod-double-node%22%5D&amp;namespaces=%5B%22default%22%5D&amp;kind=Deployment&amp;name=payment-processing-worker&amp;names=%5B%22CrashLoopBackoff%22%5D&amp;finding=d52ed94e-3871-4301-a1f4-a95870656724)\n\n**Source:** `nicolas-demo-prod-double-node`\n\n**Crash Info** \n\u25cf Container `payment-processing-container`\n\u25cf Restarts `22`\n\u25cf Status `WAITING`\n\u25cf Reason `CrashLoopBackOff`\n\n**Previous Container** \n\u25cf Status `TERMINATED`\n\u25cf Reason `Completed`\n\u25cf Started at `2025-08-08T08:08:21Z`\n\u25cf Finished at `2025-08-08T08:08:21Z`\n\n---\n\n*Ask AI questions about this alert, by adding @holmes to your [Slack](https://docs.robusta.dev/master/configuration/holmesgpt/index.html#enable-holmes-in-slack-in-the-platform).*"
   }
 ]
-[92m08:18:42 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:18:42 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:18:42.295 INFO     
+[32m2025-08-08 08:18:42.295 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:18:44 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:18:44.638 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -186,9 +186,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:18:44.640 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=payment-processing-worker-747ccfb9db-kx5qw, namespace=default)[0m
 [32m2025-08-08 08:18:44.755 INFO       [dim]Finished #1 in 0.11s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:18:44.756 INFO     [0m
-[92m08:18:44 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:18:44 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:18:44.758 INFO     
+[32m2025-08-08 08:18:44.758 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:18:46 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:18:46.511 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -196,9 +196,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:18:46.513 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=payment-processing-worker-747ccfb9db-kx5qw, namespace=default)[0m
 [32m2025-08-08 08:18:46.645 INFO       [dim]Finished #1 in 0.13s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:18:46.646 INFO     [0m
-[92m08:18:46 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:18:46 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:18:46.648 INFO     
+[32m2025-08-08 08:18:46.648 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:18:48 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:18:48.652 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -206,9 +206,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:18:48.655 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=payment-processing-worker-747ccfb9db-kx5qw, namespace=default)[0m
 [32m2025-08-08 08:18:48.761 INFO       [dim]Finished #1 in 0.11s, output length: 89 characters (2 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 08:18:48.761 INFO     [0m
-[92m08:18:48 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:18:48 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:18:48.763 INFO     
+[32m2025-08-08 08:18:48.763 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:18:53 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:18:53.491 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -221,9 +221,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "You are a tool-calling AI assist provided with common devops and IT tools that you can use to troubleshoot problems or answer questions.\nWhenever possible you MUST first use tools to investigate then answer the question.\nDo not say 'based on the tool output' or explicitly refer to tools at all.\nIf you output an answer and then realize you need to call more tools or there are possible next steps, you may do so by calling tools at that point in time.\nIf you have a good and concrete suggestion for how the user can fix something, tell them even if not asked explicitly\n\nUse conversation history to maintain continuity when appropriate, ensuring efficiency in your responses.\n\n\nIn general:\n* when it can provide extra information, first run as many tools as you need to gather more information, then respond.\n* if possible, do so repeatedly with different tool calls each time to gather more information.\n* do not stop investigating until you are at the final root cause you are able to find.\n* use the \"five whys\" methodology to find the root cause.\n* for example, if you found a problem in microservice A that is due to an error in microservice B, look at microservice B too and find the error in that.\n* if you cannot find the resource/application that the user referred to, assume they made a typo or included/excluded characters like - and.\n* in this case, try to find substrings or search for the correct spellings\n* always provide detailed information like exact resource names, versions, labels, etc\n* even if you found the root cause, keep investigating to find other possible root causes and to gather data for the answer like exact names\n* when giving an answer don't say root cause but \"possible root causes\" and be clear to distinguish between what you know for certain and what is a possible explanation\n* if a runbook url is present as well as tool that can fetch it, you MUST fetch the runbook before beginning your investigation and follow the steps written in it.\n* if you don't know, say that the analysis was inconclusive.\n* if there are multiple possible causes list them in a numbered list.\n* there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.\n\nIf investigating Kubernetes problems:\n* run as many kubectl commands as you need to gather more information, then respond.\n* if possible, do so repeatedly on different Kubernetes objects.\n* for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.\n* if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep\n* use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream\n* when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs\n* do not give an answer like \"The pod is pending\" as that doesn't state why the pod is pending and how to fix it.\n* do not give an answer like \"Pod's node affinity/selector doesn't match any available nodes\" because that doesn't include data on WHICH label doesn't match\n* if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant\n* if the user says something isn't working, ALWAYS:\n** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to\n** check the application aspects through the logs (kubectl_logs and kubectl_previous_logs) and other relevant tools\n** look for misconfigured ingresses/services etc\n\nHandling Permission Errors\nIf during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:\n1.**Analyze the Error Message**\n - Identify the missing resource, API group, and verbs from the error details.\n - Never stop at reporting the error\n - Proceed with an in-depth investigation.\n2.**Locate the Relevant Helm Release**\nCheck if Helm tools are available, if they are available always use Helm commands to help user find the release associated with the Holmes pod:\n - Run `helm list -A | grep holmes` to identify the release name.\n - Run `helm get values <RELEASE_NAME> -n <NAMESPACE>` to retrieve details such as `customClusterRoleRules` and `clusterName`.\nIf Helm tools are unavailable, skip this step.\n3. **Check for Missing Permissions**\n - Check for a cluster role with <RELEASE_NAME>-holmes-cluster-role in its name and a service account with <RELEASE_NAME>-holmes-service-account in its name to troubleshoot missing permissions where release name is the name you found earlier if helm tools are available (If the exact cluster role or service account isn't found, search for similar or related names, including variations or prefixes/suffixes that might be used in the cluster.)\n - Focus on identifying absent permissions that align with the error message.\n4. **Update the Configuration**\nIf necessary permissions are absent both in customClusterRoleRules and the cluster role mentioned previously, ALWAYS advise the user to update their configuration by modifying the `generated_values.yaml` file as follows:\n```\nholmes:\n    customClusterRoleRules:\n      - apiGroups: [\"<API_GROUP>\"]\n        resources: [\"<RESOURCE_1>\", \"<RESOURCE_2>\"]\n        verbs: [\"<VERB_1>\", \"<VERB_2>\", \"<VERB_3>\"]\n```\nAfter that instruct them to apply the changes with::\n```\n    helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>\n```\n5. **Fallback Guidelines**\n- If you cannot determine the release or cluster name, use placeholders `<RELEASE_NAME>` and `<YOUR_CLUSTER_NAME>`.\n- While you should attempt to retrieve details using Helm commands, do **not** direct the user to execute these commands themselves.\nReminder:\n* Always adhere to this process, even if Helm tools are unavailable.\n* Strive for thoroughness and precision, ensuring the issue is fully addressed.\n\nSpecial cases and how to reply:\n* if you are unable to investigate something properly because you do not have tools that let you access the right data, explicitly tell the user that you are missing an integration to access XYZ which you would need to investigate. you should give an answer similar to \"I don't have access to <details>. Please add a Holmes integration for <XYZ> so that I can investigate this.\"\n* make sure you differentiate between \"I investigated and found error X caused this problem\" and \"I tried to investigate but while investigating I got some errors that prevented me from completing the investigation.\"\n* as a special case of that, If a tool generates a permission error when attempting to run it, follow the Handling Permission Errors section for detailed guidance.\n* that is different than - for example - fetching a pod's logs and seeing that the pod itself has permission errors. in that case, you explain say that permission errors are the cause of the problem and give details\n* Issues are a subset of findings. When asked about an issue or a finding and you have an id, use the tool `fetch_finding_by_id`.\n* For any question, try to make the answer specific to the user's cluster.\n** For example, if asked to port forward, find out the app or pod port (kubectl decribe) and provide a port forward command specific to the user's question\n\n\n\nStyle guide:\n* Reply with terse output.\n* Be painfully concise.\n* Leave out \"the\" and filler words when possible.\n* Be terse but not at the expense of leaving out important data like the root cause and how to fix.\n\nExamples:\n\nUser: Why did the webserver-example app crash?\n(Call tool kubectl_find_resource kind=pod keyword=webserver`)\n(Call tool kubectl_previous_logs namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)\n\nAI: `webserver-example-1299492-d9g9d` crashed due to email validation error during HTTP request for /api/create_user\nRelevant logs:\n\n```\n2021-01-01T00:00:00.000Z [ERROR] Missing required field 'email' in request body\n```\n\nValidation error led to unhandled Java exception causing a crash.\n"
   }
 ]
-[92m08:21:50 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:21:50 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:21:50.773 INFO     
+[32m2025-08-08 08:21:50.773 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:21:54 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:21:54.396 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -238,9 +238,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "You are a tool-calling AI assist provided with common devops and IT tools that you can use to troubleshoot problems or answer questions.\nWhenever possible you MUST first use tools to investigate then answer the question.\nDo not say 'based on the tool output' or explicitly refer to tools at all.\nIf you output an answer and then realize you need to call more tools or there are possible next steps, you may do so by calling tools at that point in time.\nIf you have a good and concrete suggestion for how the user can fix something, tell them even if not asked explicitly\n\nUse conversation history to maintain continuity when appropriate, ensuring efficiency in your responses.\n\n\nIn general:\n* when it can provide extra information, first run as many tools as you need to gather more information, then respond.\n* if possible, do so repeatedly with different tool calls each time to gather more information.\n* do not stop investigating until you are at the final root cause you are able to find.\n* use the \"five whys\" methodology to find the root cause.\n* for example, if you found a problem in microservice A that is due to an error in microservice B, look at microservice B too and find the error in that.\n* if you cannot find the resource/application that the user referred to, assume they made a typo or included/excluded characters like - and.\n* in this case, try to find substrings or search for the correct spellings\n* always provide detailed information like exact resource names, versions, labels, etc\n* even if you found the root cause, keep investigating to find other possible root causes and to gather data for the answer like exact names\n* when giving an answer don't say root cause but \"possible root causes\" and be clear to distinguish between what you know for certain and what is a possible explanation\n* if a runbook url is present as well as tool that can fetch it, you MUST fetch the runbook before beginning your investigation and follow the steps written in it.\n* if you don't know, say that the analysis was inconclusive.\n* if there are multiple possible causes list them in a numbered list.\n* there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.\n\nIf investigating Kubernetes problems:\n* run as many kubectl commands as you need to gather more information, then respond.\n* if possible, do so repeatedly on different Kubernetes objects.\n* for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.\n* if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep\n* use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream\n* when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs\n* do not give an answer like \"The pod is pending\" as that doesn't state why the pod is pending and how to fix it.\n* do not give an answer like \"Pod's node affinity/selector doesn't match any available nodes\" because that doesn't include data on WHICH label doesn't match\n* if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant\n* if the user says something isn't working, ALWAYS:\n** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to\n** check the application aspects through the logs (kubectl_logs and kubectl_previous_logs) and other relevant tools\n** look for misconfigured ingresses/services etc\n\nHandling Permission Errors\nIf during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:\n1.**Analyze the Error Message**\n - Identify the missing resource, API group, and verbs from the error details.\n - Never stop at reporting the error\n - Proceed with an in-depth investigation.\n2.**Locate the Relevant Helm Release**\nCheck if Helm tools are available, if they are available always use Helm commands to help user find the release associated with the Holmes pod:\n - Run `helm list -A | grep holmes` to identify the release name.\n - Run `helm get values <RELEASE_NAME> -n <NAMESPACE>` to retrieve details such as `customClusterRoleRules` and `clusterName`.\nIf Helm tools are unavailable, skip this step.\n3. **Check for Missing Permissions**\n - Check for a cluster role with <RELEASE_NAME>-holmes-cluster-role in its name and a service account with <RELEASE_NAME>-holmes-service-account in its name to troubleshoot missing permissions where release name is the name you found earlier if helm tools are available (If the exact cluster role or service account isn't found, search for similar or related names, including variations or prefixes/suffixes that might be used in the cluster.)\n - Focus on identifying absent permissions that align with the error message.\n4. **Update the Configuration**\nIf necessary permissions are absent both in customClusterRoleRules and the cluster role mentioned previously, ALWAYS advise the user to update their configuration by modifying the `generated_values.yaml` file as follows:\n```\nholmes:\n    customClusterRoleRules:\n      - apiGroups: [\"<API_GROUP>\"]\n        resources: [\"<RESOURCE_1>\", \"<RESOURCE_2>\"]\n        verbs: [\"<VERB_1>\", \"<VERB_2>\", \"<VERB_3>\"]\n```\nAfter that instruct them to apply the changes with::\n```\n    helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>\n```\n5. **Fallback Guidelines**\n- If you cannot determine the release or cluster name, use placeholders `<RELEASE_NAME>` and `<YOUR_CLUSTER_NAME>`.\n- While you should attempt to retrieve details using Helm commands, do **not** direct the user to execute these commands themselves.\nReminder:\n* Always adhere to this process, even if Helm tools are unavailable.\n* Strive for thoroughness and precision, ensuring the issue is fully addressed.\n\nSpecial cases and how to reply:\n* if you are unable to investigate something properly because you do not have tools that let you access the right data, explicitly tell the user that you are missing an integration to access XYZ which you would need to investigate. you should give an answer similar to \"I don't have access to <details>. Please add a Holmes integration for <XYZ> so that I can investigate this.\"\n* make sure you differentiate between \"I investigated and found error X caused this problem\" and \"I tried to investigate but while investigating I got some errors that prevented me from completing the investigation.\"\n* as a special case of that, If a tool generates a permission error when attempting to run it, follow the Handling Permission Errors section for detailed guidance.\n* that is different than - for example - fetching a pod's logs and seeing that the pod itself has permission errors. in that case, you explain say that permission errors are the cause of the problem and give details\n* Issues are a subset of findings. When asked about an issue or a finding and you have an id, use the tool `fetch_finding_by_id`.\n* For any question, try to make the answer specific to the user's cluster.\n** For example, if asked to port forward, find out the app or pod port (kubectl decribe) and provide a port forward command specific to the user's question\n\n\n\nStyle guide:\n* Reply with terse output.\n* Be painfully concise.\n* Leave out \"the\" and filler words when possible.\n* Be terse but not at the expense of leaving out important data like the root cause and how to fix.\n\nExamples:\n\nUser: Why did the webserver-example app crash?\n(Call tool kubectl_find_resource kind=pod keyword=webserver`)\n(Call tool kubectl_previous_logs namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)\n\nAI: `webserver-example-1299492-d9g9d` crashed due to email validation error during HTTP request for /api/create_user\nRelevant logs:\n\n```\n2021-01-01T00:00:00.000Z [ERROR] Missing required field 'email' in request body\n```\n\nValidation error led to unhandled Java exception causing a crash.\n"
   }
 ]
-[92m08:41:29 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:41:29 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:41:29.813 INFO     
+[32m2025-08-08 08:41:29.813 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:41:34 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:41:34.003 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -252,9 +252,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "You are a tool-calling AI assist provided with common devops and IT tools that you can use to troubleshoot problems or answer questions.\nWhenever possible you MUST first use tools to investigate then answer the question.\nDo not say 'based on the tool output' or explicitly refer to tools at all.\nIf you output an answer and then realize you need to call more tools or there are possible next steps, you may do so by calling tools at that point in time.\nIf you have a good and concrete suggestion for how the user can fix something, tell them even if not asked explicitly\n\nUse conversation history to maintain continuity when appropriate, ensuring efficiency in your responses.\n\n\nIn general:\n* when it can provide extra information, first run as many tools as you need to gather more information, then respond.\n* if possible, do so repeatedly with different tool calls each time to gather more information.\n* do not stop investigating until you are at the final root cause you are able to find.\n* use the \"five whys\" methodology to find the root cause.\n* for example, if you found a problem in microservice A that is due to an error in microservice B, look at microservice B too and find the error in that.\n* if you cannot find the resource/application that the user referred to, assume they made a typo or included/excluded characters like - and.\n* in this case, try to find substrings or search for the correct spellings\n* always provide detailed information like exact resource names, versions, labels, etc\n* even if you found the root cause, keep investigating to find other possible root causes and to gather data for the answer like exact names\n* when giving an answer don't say root cause but \"possible root causes\" and be clear to distinguish between what you know for certain and what is a possible explanation\n* if a runbook url is present as well as tool that can fetch it, you MUST fetch the runbook before beginning your investigation and follow the steps written in it.\n* if you don't know, say that the analysis was inconclusive.\n* if there are multiple possible causes list them in a numbered list.\n* there will often be errors in the data that are not relevant or that do not have an impact - ignore them in your conclusion if you were not able to tie them to an actual error.\n\nIf investigating Kubernetes problems:\n* run as many kubectl commands as you need to gather more information, then respond.\n* if possible, do so repeatedly on different Kubernetes objects.\n* for example, for deployments first run kubectl on the deployment then a replicaset inside it, then a pod inside that.\n* if the user wants to find a specific term in a pod's logs, use kubectl_logs_grep\n* use both kubectl_previous_logs and kubectl_logs when reading logs. Treat the output of both as a single unified logs stream\n* when investigating a pod that crashed or application errors, always run kubectl_describe and fetch the logs\n* do not give an answer like \"The pod is pending\" as that doesn't state why the pod is pending and how to fix it.\n* do not give an answer like \"Pod's node affinity/selector doesn't match any available nodes\" because that doesn't include data on WHICH label doesn't match\n* if investigating an issue on many pods, there is no need to check more than 3 individual pods in the same deployment. pick up to a representative 3 from each deployment if relevant\n* if the user says something isn't working, ALWAYS:\n** use kubectl_describe on the owner workload + individual pods and look for any transient issues they might have been referring to\n** check the application aspects through the logs (kubectl_logs and kubectl_previous_logs) and other relevant tools\n** look for misconfigured ingresses/services etc\n\nHandling Permission Errors\nIf during the investigation you encounter a permissions error (e.g., `Error from server (Forbidden):`), **ALWAYS** follow these steps to ensure a thorough resolution:\n1.**Analyze the Error Message**\n - Identify the missing resource, API group, and verbs from the error details.\n - Never stop at reporting the error\n - Proceed with an in-depth investigation.\n2.**Locate the Relevant Helm Release**\nCheck if Helm tools are available, if they are available always use Helm commands to help user find the release associated with the Holmes pod:\n - Run `helm list -A | grep holmes` to identify the release name.\n - Run `helm get values <RELEASE_NAME> -n <NAMESPACE>` to retrieve details such as `customClusterRoleRules` and `clusterName`.\nIf Helm tools are unavailable, skip this step.\n3. **Check for Missing Permissions**\n - Check for a cluster role with <RELEASE_NAME>-holmes-cluster-role in its name and a service account with <RELEASE_NAME>-holmes-service-account in its name to troubleshoot missing permissions where release name is the name you found earlier if helm tools are available (If the exact cluster role or service account isn't found, search for similar or related names, including variations or prefixes/suffixes that might be used in the cluster.)\n - Focus on identifying absent permissions that align with the error message.\n4. **Update the Configuration**\nIf necessary permissions are absent both in customClusterRoleRules and the cluster role mentioned previously, ALWAYS advise the user to update their configuration by modifying the `generated_values.yaml` file as follows:\n```\nholmes:\n    customClusterRoleRules:\n      - apiGroups: [\"<API_GROUP>\"]\n        resources: [\"<RESOURCE_1>\", \"<RESOURCE_2>\"]\n        verbs: [\"<VERB_1>\", \"<VERB_2>\", \"<VERB_3>\"]\n```\nAfter that instruct them to apply the changes with::\n```\n    helm upgrade <RELEASE_NAME> robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>\n```\n5. **Fallback Guidelines**\n- If you cannot determine the release or cluster name, use placeholders `<RELEASE_NAME>` and `<YOUR_CLUSTER_NAME>`.\n- While you should attempt to retrieve details using Helm commands, do **not** direct the user to execute these commands themselves.\nReminder:\n* Always adhere to this process, even if Helm tools are unavailable.\n* Strive for thoroughness and precision, ensuring the issue is fully addressed.\n\nSpecial cases and how to reply:\n* if you are unable to investigate something properly because you do not have tools that let you access the right data, explicitly tell the user that you are missing an integration to access XYZ which you would need to investigate. you should give an answer similar to \"I don't have access to <details>. Please add a Holmes integration for <XYZ> so that I can investigate this.\"\n* make sure you differentiate between \"I investigated and found error X caused this problem\" and \"I tried to investigate but while investigating I got some errors that prevented me from completing the investigation.\"\n* as a special case of that, If a tool generates a permission error when attempting to run it, follow the Handling Permission Errors section for detailed guidance.\n* that is different than - for example - fetching a pod's logs and seeing that the pod itself has permission errors. in that case, you explain say that permission errors are the cause of the problem and give details\n* Issues are a subset of findings. When asked about an issue or a finding and you have an id, use the tool `fetch_finding_by_id`.\n* For any question, try to make the answer specific to the user's cluster.\n** For example, if asked to port forward, find out the app or pod port (kubectl decribe) and provide a port forward command specific to the user's question\n\n\n\nStyle guide:\n* Reply with terse output.\n* Be painfully concise.\n* Leave out \"the\" and filler words when possible.\n* Be terse but not at the expense of leaving out important data like the root cause and how to fix.\n\nExamples:\n\nUser: Why did the webserver-example app crash?\n(Call tool kubectl_find_resource kind=pod keyword=webserver`)\n(Call tool kubectl_previous_logs namespace=demos pod=webserver-example-1299492-d9g9d # this pod name was found from the previous tool call)\n\nAI: `webserver-example-1299492-d9g9d` crashed due to email validation error during HTTP request for /api/create_user\nRelevant logs:\n\n```\n2021-01-01T00:00:00.000Z [ERROR] Missing required field 'email' in request body\n```\n\nValidation error led to unhandled Java exception causing a crash.\n"
   }
 ]
-[92m08:49:26 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:49:26 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:49:26.332 INFO     
+[32m2025-08-08 08:49:26.332 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:49:28 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:49:28.590 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -266,9 +266,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 08:49:28.649 INFO     [0m
 [33m2025-08-08 08:49:28.712 WARNING  Token limit exceeded. Truncating tool responses.[0m
 [32m2025-08-08 08:49:28.712 INFO     Truncating tool message 'list_prometheus_rules' from 396365 to 94001 tokens[0m
-[92m08:49:28 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:49:28 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 08:49:28.714 INFO     
+[32m2025-08-08 08:49:28.714 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:49:35 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 08:49:35.348 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -285,9 +285,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "I have the following alert: **@user_U020QD7TF0X** \u2022 2025-08-08T08:41:16Z\n\nFailed to pull at least one image in pod customer-relations-webapp-7c67c65579-r7wwr in namespace default\n\n:eyes: **K8s event detected** :red_circle: **High**\n[**Failed to pull at least one image in pod customer-relations-webapp-7c67c65579-r7wwr in namespace default**](https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&amp;clusters=%5B%22nicolas-demo-prod-double-node%22%5D&amp;namespaces=%5B%22default%22%5D&amp;kind=Deployment&amp;name=customer-relations-webapp&amp;names=%5B%22ImagePullBackoff%22%5D&amp;finding=18df96a5-8637-4d47-941e-8e8495dccda9)\n\n**Source:** `nicolas-demo-prod-double-node`\n\n---\n\n*Ask AI questions about this alert, by adding @holmes to your [Slack](https://docs.robusta.dev/master/configuration/holmesgpt/index.html#enable-holmes-in-slack-in-the-platform).*"
   }
 ]
-[92m09:00:10 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:00:10 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:00:10.814 INFO     
+[32m2025-08-08 09:00:10.814 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:00:13 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:00:13.300 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -297,15 +297,15 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:00:13.362 INFO       [dim]Finished #1 in 0.06s, output length: 1,947 characters (51 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:00:13.411 INFO       [dim]Finished #2 in 0.11s, output length: 0 characters (0 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 09:00:13.412 INFO     [0m
-[92m09:00:13 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:00:13 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:00:13.414 INFO     
+[32m2025-08-08 09:00:13.414 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:00:15 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:00:15.531 INFO     Wrapper: Completed Call, calling success_handler[0m
 2025-08-08 09:00:15,533 INFO     10.244.1.50:57352 - "POST /api/chat HTTP/1.1" 200
 2025-08-08 09:11:03,418 INFO     10.244.1.50:55654 - "GET /api/model HTTP/1.1" 200
-**** 
+****
 [
   {
     "role": "system",
@@ -320,9 +320,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "**@user_U07RFLT3Q6A** \u2022 2025-08-08T09:11:20Z \u2022 (in thread)\n\n<@U07SUCY4XQ9> investigate this"
   }
 ]
-[92m09:11:24 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:11:24 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:11:24.193 INFO     
+[32m2025-08-08 09:11:24.193 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:11:26 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:11:26.622 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -332,9 +332,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:11:26.639 INFO       [dim]Finished #1 in 0.00s, output length: 396,365 characters (7,662 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:11:26.983 INFO       [dim]Finished #2 in 0.36s, output length: 77 characters (1 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 09:11:26.984 INFO     [0m
-[92m09:11:27 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:11:27 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:11:27.094 INFO     
+[32m2025-08-08 09:11:27.094 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:11:37 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:11:37.390 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -349,14 +349,14 @@ Traceback (most recent call last):
 requests.exceptions.HTTPError: 404 Client Error: Not Found for url: https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&clusters=%5B%22nicolas-demo-prod-double-node%22%5D&namespaces=%5B%22default%22%5D&kind=Deployment&name=customer-relations-webapp&names=%5B%22BBB4444%22%5D&finding=63a9266c-5bf5-46d9-b492-816c9bbf6a86
 [32m2025-08-08 09:11:37.657 INFO       [dim]Finished #1 in 0.26s, output length: 622 characters (1 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:11:37.657 INFO     [0m
-[92m09:11:37 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:11:37 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:11:37.663 INFO     
+[32m2025-08-08 09:11:37.663 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:11:40 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:11:40.702 INFO     Wrapper: Completed Call, calling success_handler[0m
 2025-08-08 09:11:40,718 INFO     10.244.1.50:49456 - "POST /api/chat HTTP/1.1" 200
-**** 
+****
 [
   {
     "role": "system",
@@ -379,9 +379,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "**@user_U07RFLT3Q6A** \u2022 2025-08-08T09:12:08Z \u2022 (in thread)\n\n<@U07SUCY4XQ9> investigate this"
   }
 ]
-[92m09:12:11 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:11 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:11.528 INFO     
+[32m2025-08-08 09:12:11.528 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:13 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:13.768 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -390,9 +390,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:13.773 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep 'Transaction XXXX Failed'[0m
 [32m2025-08-08 09:12:13.871 INFO       [dim]Finished #1 in 0.10s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:13.873 INFO     [0m
-[92m09:12:13 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:13 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:13.876 INFO     
+[32m2025-08-08 09:12:13.876 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:15 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:15.834 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -401,9 +401,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:15.838 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep Transaction[0m
 [32m2025-08-08 09:12:15.923 INFO       [dim]Finished #1 in 0.08s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:15.926 INFO     [0m
-[92m09:12:15 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:15 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:15.928 INFO     
+[32m2025-08-08 09:12:15.928 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:18 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:18.243 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -412,9 +412,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:18.248 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep Failed[0m
 [32m2025-08-08 09:12:18.354 INFO       [dim]Finished #1 in 0.11s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:18.356 INFO     [0m
-[92m09:12:18 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:18 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:18.358 INFO     
+[32m2025-08-08 09:12:18.358 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:20 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:20.463 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -423,9 +423,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:20.467 INFO     Running tool #1 [bold]kubectl_find_resource[/bold]: kubectl get -A --show-labels -o wide pod | grep customer-relations-webapp[0m
 [32m2025-08-08 09:12:20.547 INFO       [dim]Finished #1 in 0.08s, output length: 911 characters (3 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:20.549 INFO     [0m
-[92m09:12:20 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:20 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:20.552 INFO     
+[32m2025-08-08 09:12:20.552 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:23 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:23.853 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -434,9 +434,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:23.857 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=customer-relations-webapp-7c67c65579-r7wwr, namespace=default)[0m
 [32m2025-08-08 09:12:23.987 INFO       [dim]Finished #1 in 0.13s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:23.987 INFO     [0m
-[92m09:12:23 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:23 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:23.990 INFO     
+[32m2025-08-08 09:12:23.990 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:26 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:26.527 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -445,9 +445,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:26.530 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=customer-relations-webapp-7c67c65579-4jkg9, namespace=default)[0m
 [32m2025-08-08 09:12:26.649 INFO       [dim]Finished #1 in 0.12s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:26.649 INFO     [0m
-[92m09:12:26 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:26 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:26.652 INFO     
+[32m2025-08-08 09:12:26.652 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:29 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:29.691 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -456,14 +456,14 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:12:29.694 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=customer-relations-webapp-7c67c65579-rvxtj, namespace=default)[0m
 [32m2025-08-08 09:12:29.812 INFO       [dim]Finished #1 in 0.12s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:12:29.812 INFO     [0m
-[92m09:12:29 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:12:29 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:12:29.814 INFO     
+[32m2025-08-08 09:12:29.814 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:12:32 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:12:32.859 INFO     Wrapper: Completed Call, calling success_handler[0m
 2025-08-08 09:12:32,864 INFO     10.244.1.50:49908 - "POST /api/chat HTTP/1.1" 200
-**** 
+****
 [
   {
     "role": "system",
@@ -486,9 +486,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "**@user_U07RFLT3Q6A** \u2022 2025-08-08T09:14:11Z \u2022 (in thread)\n\n<@U07SUCY4XQ9> investigate this"
   }
 ]
-[92m09:14:13 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:14:13 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:14:13.894 INFO     
+[32m2025-08-08 09:14:13.894 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:14:16 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:14:16.437 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -498,9 +498,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 09:14:16.486 INFO       [dim]Finished #1 in 0.05s, output length: 1,947 characters (51 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 09:14:16.530 INFO       [dim]Finished #2 in 0.09s, output length: 0 characters (0 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 09:14:16.531 INFO     [0m
-[92m09:14:16 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m09:14:16 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 09:14:16.533 INFO     
+[32m2025-08-08 09:14:16.533 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m09:14:19 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 09:14:19.630 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -527,9 +527,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "I have the following alert: **@user_U020QD7TF0X** \u2022 2025-08-08T10:48:01Z\n\nFailed to pull at least one image in pod customer-relations-webapp-7c67c65579-rvxtj in namespace default\n\n:eyes: **K8s event detected** :red_circle: **High**\n[**Failed to pull at least one image in pod customer-relations-webapp-7c67c65579-rvxtj in namespace default**](https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&amp;clusters=%5B%22nicolas-demo-prod-double-node%22%5D&amp;namespaces=%5B%22default%22%5D&amp;kind=Deployment&amp;name=customer-relations-webapp&amp;names=%5B%22ImagePullBackoff%22%5D&amp;finding=6565df0e-ba8d-4daa-85db-3cf7754df8d7)\n\n**Source:** `nicolas-demo-prod-double-node`\n\n---\n\n*Ask AI questions about this alert, by adding @holmes to your [Slack](https://docs.robusta.dev/master/configuration/holmesgpt/index.html#enable-holmes-in-slack-in-the-platform).*"
   }
 ]
-[92m10:48:55 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:48:55 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:48:55.310 INFO     
+[32m2025-08-08 10:48:55.310 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:48:58 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:48:58.124 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -539,9 +539,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:48:58.215 INFO       [dim]Finished #1 in 0.09s, output length: 2,041 characters (52 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:48:58.893 INFO       [dim]Finished #2 in 0.76s, output length: 19,742 characters (26 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 10:48:58.894 INFO     [0m
-[92m10:48:58 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:48:58 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:48:58.904 INFO     
+[32m2025-08-08 10:48:58.904 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:49:01 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:49:01.119 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -549,9 +549,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:49:01.121 INFO     Running tool #1 [bold]fetch_pod_logs[/bold]: Fetch Logs (pod=customer-relations-webapp-7c67c65579-rvxtj, namespace=default)[0m
 [32m2025-08-08 10:49:01.249 INFO       [dim]Finished #1 in 0.13s, output length: 0 characters (0 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:49:01.249 INFO     [0m
-[92m10:49:01 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:49:01 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:49:01.251 INFO     
+[32m2025-08-08 10:49:01.251 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:49:03 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:49:03.830 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -567,9 +567,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "I have the following alert: **@user_U020QD7TF0X** \u2022 2025-08-08T10:22:23Z\n\nOne or more targets are unreachable.\n\n:fire: `Prometheus Alert Firing` :fire: :large_yellow_circle: **Low**\n[**One or more targets are unreachable.**](https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&amp;clusters=%5B%22nicolas-demo-prod-double-node%22%5D&amp;namespaces=%5B%22kube-system%22%5D&amp;names=%5B%22TargetDown%22%5D&amp;finding=fe6da957-762d-4cee-8914-810499aae812)\n\n**Source:** `nicolas-demo-prod-double-node`\n\n:rotating_light: **Alert:** 100% of the kube-controller-manager/robusta-kube-prometheus-st-kube-controller-manager targets in kube-system namespace are down.\n\n---\n\n*Ask AI questions about this alert, by adding @holmes to your [Slack](https://docs.robusta.dev/master/configuration/holmesgpt/index.html#enable-holmes-in-slack-in-the-platform).*"
   }
 ]
-[92m10:58:19 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:19 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:19.237 INFO     
+[32m2025-08-08 10:58:19.237 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:21 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:21.316 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -577,9 +577,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:58:21.318 INFO     Running tool #1 [bold]list_prometheus_rules[/bold]: Prometheus: Fetch Rules[0m
 [32m2025-08-08 10:58:21.341 INFO       [dim]Finished #1 in 0.02s, output length: 397,290 characters (7,679 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:58:21.353 INFO     [0m
-[92m10:58:21 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:21 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:21.429 INFO     
+[32m2025-08-08 10:58:21.429 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:30 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:30.192 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -587,9 +587,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:58:30.194 INFO     Running tool #1 [bold]fetch_webpage[/bold]: Internet: Fetch Webpage https://runbooks.prometheus-operator.dev/runbooks/general/targetdown[0m
 [32m2025-08-08 10:58:30.661 INFO       [dim]Finished #1 in 0.47s, output length: 1,284 characters (35 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:58:30.662 INFO     [0m
-[92m10:58:30 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:30 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:30.666 INFO     
+[32m2025-08-08 10:58:30.666 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:40 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:40.392 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -601,9 +601,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:58:40.476 INFO       [dim]Finished #3 in 0.07s, output length: 0 characters (0 lines) - /show 3 to view contents[/dim][0m
 [32m2025-08-08 10:58:40.496 INFO       [dim]Finished #1 in 0.10s, output length: 288 characters (1 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:58:40.498 INFO     [0m
-[92m10:58:40 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:40 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:40.503 INFO     
+[32m2025-08-08 10:58:40.503 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:44 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:44.791 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -615,9 +615,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:58:44.873 INFO     [0m
 [33m2025-08-08 10:58:44.876 WARNING  Token limit exceeded. Truncating tool responses.[0m
 [32m2025-08-08 10:58:44.877 INFO     Truncating tool message 'list_prometheus_rules' from 397290 to 95620 tokens[0m
-[92m10:58:44 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:44 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:44.879 INFO     
+[32m2025-08-08 10:58:44.879 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:48 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:48.650 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -627,9 +627,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 10:58:48.805 INFO       [dim]Finished #2 in 0.15s, output length: 9,830 characters (28 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 10:58:48.914 INFO       [dim]Finished #1 in 0.26s, output length: 320 characters (1 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 10:58:48.914 INFO     [0m
-[92m10:58:48 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m10:58:48 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 10:58:48.937 INFO     
+[32m2025-08-08 10:58:48.937 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m10:58:55 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 10:58:55.263 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -662,9 +662,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "content": "I have the following alert: **@user_U020QD7TF0X** \u2022 2025-08-08T12:35:19Z\n\nFailed to pull at least one image in pod customer-relations-webapp-7c67c65579-rvxtj in namespace default\n\n:eyes: **K8s event detected** :red_circle: **High**\n[**Failed to pull at least one image in pod customer-relations-webapp-7c67c65579-rvxtj in namespace default**](https://stg.platform.robusta.dev/graphs?account=16ecba1a-7993-4dd1-a98c-d201462ccba7&amp;clusters=%5B%22nicolas-demo-prod-double-node%22%5D&amp;namespaces=%5B%22default%22%5D&amp;kind=Deployment&amp;name=customer-relations-webapp&amp;names=%5B%22ImagePullBackoff%22%5D&amp;finding=feaba915-3149-4a1b-a41e-3abab7ee8214)\n\n**Source:** `nicolas-demo-prod-double-node`\n\n---\n\n*Ask AI questions about this alert, by adding @holmes to your [Slack](https://docs.robusta.dev/master/configuration/holmesgpt/index.html#enable-holmes-in-slack-in-the-platform).*"
   }
 ]
-[92m13:23:31 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m13:23:31 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 13:23:31.589 INFO     
+[32m2025-08-08 13:23:31.589 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m13:23:34 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 13:23:34.086 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -674,9 +674,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-08 13:23:34.144 INFO       [dim]Finished #1 in 0.06s, output length: 1,950 characters (51 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-08 13:23:34.186 INFO       [dim]Finished #2 in 0.10s, output length: 0 characters (0 lines) - /show 2 to view contents[/dim][0m
 [32m2025-08-08 13:23:34.187 INFO     [0m
-[92m13:23:34 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m13:23:34 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-08 13:23:34.190 INFO     
+[32m2025-08-08 13:23:34.190 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m13:23:36 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-08 13:23:36.738 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -719,9 +719,9 @@ setting up colored logging
 2025-08-11 08:07:14,312 INFO     10.244.1.7:49298 - "GET /api/model HTTP/1.1" 200
 **** show me a graph of pod cpu
 []
-[92m08:13:42 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:13:42 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-11 08:13:42.716 INFO     
+[32m2025-08-11 08:13:42.716 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:13:49 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-11 08:13:49.653 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -729,9 +729,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-11 08:13:49.655 INFO     Running tool #1 [bold]list_available_metrics[/bold]: Prometheus: Search Metrics (container_cpu_usage_seconds_total)[0m
 [32m2025-08-11 08:13:49.674 INFO       [dim]Finished #1 in 0.02s, output length: 328 characters (3 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-11 08:13:49.675 INFO     [0m
-[92m08:13:49 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:13:49 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-11 08:13:49.676 INFO     
+[32m2025-08-11 08:13:49.676 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:13:56 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-11 08:13:56.485 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -739,9 +739,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
 [32m2025-08-11 08:13:56.486 INFO     Running tool #1 [bold]execute_prometheus_range_query[/bold]: Prometheus: Query (Pod CPU cores used over time (5m rate), grouped by namespace/pod)[0m
 [32m2025-08-11 08:13:56.494 INFO       [dim]Finished #1 in 0.01s, output length: 81,427 characters (3,877 lines) - /show 1 to view contents[/dim][0m
 [32m2025-08-11 08:13:56.495 INFO     [0m
-[92m08:13:56 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:13:56 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-11 08:13:56.509 INFO     
+[32m2025-08-11 08:13:56.509 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:14:00 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-11 08:14:00.792 INFO     Wrapper: Completed Call, calling success_handler[0m
@@ -806,9 +806,9 @@ LiteLLM completion() model= gpt-4o; provider = openai[0m
     "annotations": []
   }
 ]
-[92m08:14:10 - LiteLLM:INFO[0m: utils.py:3230 - 
+[92m08:14:10 - LiteLLM:INFO[0m: utils.py:3230 -
 LiteLLM completion() model= gpt-4o; provider = openai
-[32m2025-08-11 08:14:10.481 INFO     
+[32m2025-08-11 08:14:10.481 INFO
 LiteLLM completion() model= gpt-4o; provider = openai[0m
 [92m08:14:16 - LiteLLM:INFO[0m: utils.py:1239 - Wrapper: Completed Call, calling success_handler
 [32m2025-08-11 08:14:16.848 INFO     Wrapper: Completed Call, calling success_handler[0m
