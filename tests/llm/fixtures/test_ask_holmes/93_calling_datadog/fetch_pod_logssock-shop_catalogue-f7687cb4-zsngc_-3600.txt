@@ -1,4 +1,4 @@
-{"toolset_name":"datadog/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"catalogue-f7687cb4-zsngc","namespace":"sock-shop","start_time":"-3600"}}
+{"toolset_name":"datadog/logs","tool_name":"fetch_pod_logs","match_params":{"pod_name":"catalogue-f7687cb4-zsngc","namespace":"sock-shop"}}
 {"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "url": null, "invocation": null, "params": {"namespace": "sock-shop", "pod_name": "catalogue-f7687cb4-zsngc", "start_time": "-3600", "end_time": null, "filter": null, "limit": null}}
 ts=2025-08-04T11:51:00Z caller=logging.go:85 method=Health result=2 took=40µs
 ts=2025-08-04T11:51:00Z caller=logging.go:85 method=Health result=2 took=25.103µs
