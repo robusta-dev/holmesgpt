@@ -132,7 +132,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
-                global_transformers=self.transformers,
+                global_fast_model=self.fast_model,
             )
         return self._toolset_manager
 
@@ -203,7 +203,6 @@ class Config(RobustaBaseConfig):
             Config instance with merged settings
         """
         # Import Transformer class to resolve forward reference
-        from holmes.core.tools import Transformer
 
         # Rebuild the model to resolve forward references
         cls.model_rebuild()
@@ -229,7 +228,6 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_env(cls):
         # Import Transformer class to resolve forward reference
-        from holmes.core.tools import Transformer
 
         # Rebuild the model to resolve forward references
         cls.model_rebuild()

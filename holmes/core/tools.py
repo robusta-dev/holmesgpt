@@ -187,11 +187,25 @@ class Tool(ABC, BaseModel):
 
     def model_post_init(self, __context) -> None:
         """Initialize transformer instances once during tool creation for better performance."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        logger.debug(
+            f"Tool '{self.name}' model_post_init: creating transformer instances"
+        )
+
         if self.transformers:
+            logger.debug(
+                f"Tool '{self.name}' has {len(self.transformers)} transformers to initialize"
+            )
             self._transformer_instances = []
             for transformer in self.transformers:
                 if not transformer:
                     continue
+                logger.debug(
+                    f"  Initializing transformer '{transformer.name}' with config: {transformer.config}"
+                )
                 try:
                     # Create transformer instance once and cache it
                     transformer_instance = registry.create_transformer(
@@ -208,6 +222,7 @@ class Tool(ABC, BaseModel):
                     # Continue with other transformers, don't fail the entire initialization
                     continue
         else:
+            logger.debug(f"Tool '{self.name}' has no transformers")
             self._transformer_instances = None
 
     def get_openai_format(self):

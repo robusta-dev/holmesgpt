@@ -33,23 +33,25 @@ class TestBackwardsCompatibility:
         # Create a toolset without transformers (existing behavior)
         mock_tool = Mock(spec=Tool)
         mock_tool.transformers = None
+        mock_tool.name = "test_tool"
 
         mock_toolset = Mock(spec=Toolset)
         mock_toolset.transformers = None
         mock_toolset.tools = [mock_tool]
+        mock_toolset.name = "test_toolset"
 
-        # Create ToolsetManager without global configs (existing behavior)
+        # Create ToolsetManager without global fast model (existing behavior)
         manager = ToolsetManager()
 
         # Should not raise any exceptions
-        manager._apply_global_transformers([mock_toolset])
+        manager._inject_fast_model_into_transformers([mock_toolset])
 
-        # Nothing should change
+        # Nothing should change (no injection occurs when no global_fast_model)
         assert mock_toolset.transformers is None
         assert mock_tool.transformers is None
 
     def test_existing_toolsets_with_transformers_unchanged(self):
-        """Test that existing toolsets with transformers are unchanged."""
+        """Test that existing toolsets with transformers get global_fast_model injection."""
         existing_tool_configs = [
             Transformer(name="llm_summarize", config={"input_threshold": 300})
         ]
@@ -60,21 +62,33 @@ class TestBackwardsCompatibility:
         # Create tool and toolset with existing configs
         mock_tool = Mock(spec=Tool)
         mock_tool.transformers = existing_tool_configs
+        mock_tool.name = "test_tool"
+        mock_tool._transformer_instances = []
 
         mock_toolset = Mock(spec=Toolset)
         mock_toolset.transformers = existing_toolset_configs
         mock_toolset.tools = [mock_tool]
+        mock_toolset.name = "test_toolset"
 
-        # Apply global configs
-        global_configs = [
-            Transformer(name="llm_summarize", config={"input_threshold": 1000})
-        ]
-        manager = ToolsetManager(global_transformers=global_configs)
-        manager._apply_global_transformers([mock_toolset])
+        # Apply global fast model
+        global_fast_model = "gpt-4o-mini"
 
-        # Existing configs should be completely unchanged
-        assert mock_tool.transformers == existing_tool_configs
-        assert mock_toolset.transformers == existing_toolset_configs
+        with patch("holmes.core.transformers.registry") as mock_registry:
+            mock_instance = Mock()
+            mock_registry.create_transformer.return_value = mock_instance
+
+            manager = ToolsetManager(global_fast_model=global_fast_model)
+            manager._inject_fast_model_into_transformers([mock_toolset])
+
+            # Existing configs should get global_fast_model injected
+            assert existing_tool_configs[0].config["global_fast_model"] == "gpt-4o-mini"
+            assert (
+                existing_toolset_configs[0].config["global_fast_model"] == "gpt-4o-mini"
+            )
+
+            # Original config values should remain
+            assert existing_tool_configs[0].config["input_threshold"] == 300
+            assert existing_toolset_configs[0].config["input_threshold"] == 600
 
     def test_config_load_from_file_backwards_compatible(self):
         """Test that Config.load_from_file works with existing config files."""
@@ -247,7 +261,7 @@ class TestBackwardsCompatibility:
 
     def test_toolset_manager_backwards_compatible_constructor(self):
         """Test that ToolsetManager constructor is backwards compatible."""
-        # Old way of creating ToolsetManager (without global_transformers)
+        # Old way of creating ToolsetManager (without global_fast_model)
         manager = ToolsetManager(
             toolsets={"test": {"enabled": True}},
             custom_toolsets=None,
@@ -256,15 +270,13 @@ class TestBackwardsCompatibility:
 
         # Should work fine
         assert manager.toolsets == {"test": {"enabled": True}}
-        assert manager.global_transformers is None
+        assert manager.global_fast_model is None
 
         # New way should also work
-        global_configs = [
-            Transformer(name="llm_summarize", config={"input_threshold": 1000})
-        ]
-        manager_with_configs = ToolsetManager(
+        global_fast_model = "gpt-4o-mini"
+        manager_with_fast_model = ToolsetManager(
             toolsets={"test": {"enabled": True}},
-            global_transformers=global_configs,
+            global_fast_model=global_fast_model,
         )
 
-        assert manager_with_configs.global_transformers == global_configs
+        assert manager_with_fast_model.global_fast_model == global_fast_model

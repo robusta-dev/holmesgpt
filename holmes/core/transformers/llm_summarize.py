@@ -49,6 +49,11 @@ class LLMSummarizeTransformer(BaseTransformer):
         min_length=1,
         description="Fast model name for summarization (e.g., 'gpt-4o-mini')",
     )
+    global_fast_model: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Global fast model name fallback when fast_model is not set",
+    )
     api_key: Optional[str] = Field(
         default=None,
         description="API key for the fast model (optional, uses default if not provided)",
@@ -59,16 +64,33 @@ class LLMSummarizeTransformer(BaseTransformer):
 
     def model_post_init(self, __context) -> None:
         """Initialize the fast LLM instance after model validation."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         self._fast_llm = None
 
-        # Create fast LLM instance if fast_model is provided
-        if self.fast_model:
+        # Determine which fast model to use: fast_model takes precedence over global_fast_model
+        effective_fast_model = self.fast_model or self.global_fast_model
+
+        logger.debug(
+            f"LLMSummarizeTransformer initialization: fast_model='{self.fast_model}', global_fast_model='{self.global_fast_model}', effective='{effective_fast_model}'"
+        )
+
+        # Create fast LLM instance if a fast model is available
+        if effective_fast_model:
             try:
-                self._fast_llm = DefaultLLM(self.fast_model, self.api_key)
-                logger.debug(f"Created fast LLM instance with model: {self.fast_model}")
+                self._fast_llm = DefaultLLM(effective_fast_model, self.api_key)
+                logger.info(
+                    f"Created fast LLM instance with model: {effective_fast_model}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to create fast LLM instance: {e}")
                 self._fast_llm = None
+        else:
+            logger.debug(
+                "No fast model configured (neither fast_model nor global_fast_model)"
+            )
 
     def should_apply(self, input_text: str) -> bool:
         """
@@ -80,9 +102,15 @@ class LLMSummarizeTransformer(BaseTransformer):
         Returns:
             True if summarization should be applied, False otherwise
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         # Skip if no fast model is configured
         if self._fast_llm is None:
-            logger.debug("Skipping summarization: no fast model configured")
+            logger.debug(
+                f"Skipping summarization: no fast model configured (fast_model='{self.fast_model}', global_fast_model='{self.global_fast_model}')"
+            )
             return False
 
         # Check if input exceeds threshold

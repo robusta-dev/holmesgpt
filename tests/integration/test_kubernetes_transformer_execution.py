@@ -29,7 +29,7 @@ class MockSummarizeTransformer(BaseTransformer):
 
     @property
     def name(self) -> str:
-        return "mock_llm_summarize"
+        return "llm_summarize"  # Changed to match kubernetes.yaml transformer name
 
 
 class TestKubernetesTransformerExecution:
@@ -38,7 +38,7 @@ class TestKubernetesTransformerExecution:
     def setup_method(self):
         """Set up test fixtures."""
         # Clean up any existing registrations first
-        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -48,7 +48,7 @@ class TestKubernetesTransformerExecution:
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -463,7 +463,7 @@ class TestTransformerPerformanceMetrics:
     def setup_method(self):
         """Set up test fixtures."""
         # Clean up any existing registrations first
-        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 
@@ -473,7 +473,7 @@ class TestTransformerPerformanceMetrics:
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        for transformer_name in ["mock_llm_summarize", "MockSummarizeTransformer"]:
+        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
             if registry.is_registered(transformer_name):
                 registry.unregister(transformer_name)
 

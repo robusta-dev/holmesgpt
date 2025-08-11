@@ -267,7 +267,9 @@ class TestToolExecutionPipelineIntegration:
                 assert performance_log is not None
                 assert "slow_transformer" in performance_log
                 assert "performance_test_tool" in performance_log
-                assert " in " in performance_log and "s " in performance_log  # Should show elapsed time pattern like "in X.XXs"
+                assert (
+                    " in " in performance_log and "s " in performance_log
+                )  # Should show elapsed time pattern like "in X.XXs"
                 assert "size:" in performance_log  # Should show size information
 
         finally:
