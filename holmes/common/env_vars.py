@@ -37,6 +37,7 @@ SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
 THINKING = os.environ.get("THINKING", "")
+REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip().lower()
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
 
 STREAM_CHUNKS_PER_PARSE = int(
@@ -51,10 +52,13 @@ KUBERNETES_LOGS_TIMEOUT_SECONDS = int(
 TOOL_CALL_SAFEGUARDS_ENABLED = load_bool("TOOL_CALL_SAFEGUARDS_ENABLED", True)
 IS_OPENSHIFT = load_bool("IS_OPENSHIFT", False)
 
-
 LLMS_WITH_STRICT_TOOL_CALLS = os.environ.get(
     "LLMS_WITH_STRICT_TOOL_CALLS", "azure/gpt-4o, openai/*"
 )
 TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS = load_bool(
     "TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS", False
 )
+
+MAX_OUTPUT_TOKEN_RESERVATION = int(
+    os.environ.get("MAX_OUTPUT_TOKEN_RESERVATION", 16384)
+)  ## 16k

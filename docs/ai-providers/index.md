@@ -12,13 +12,18 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
 -   [:simple-ollama:{ .lg .middle } **Ollama**](ollama.md)
 -   [:simple-openai:{ .lg .middle } **OpenAI**](openai.md)
 -   [:material-api:{ .lg .middle } **OpenAI-Compatible**](openai-compatible.md)
+-   [:material-layers-triple:{ .lg .middle } **Using Multiple Providers**](using-multiple-providers.md)
 
 </div>
 
 ## Quick Start
 
 !!! tip "Recommended for New Users"
-    **OpenAI GPT-4o** provides the best balance of accuracy and speed. Get started with:
+    **OpenAI models** provide a good balance of accuracy and speed.
+
+    **Anthropic models** often give better results at the expense of speed.
+
+    To get started with an OpenAI model:
 
     1. Get an [OpenAI API key](https://platform.openai.com/api-keys){:target="_blank"}
     2. Set `export OPENAI_API_KEY="your-api-key"`

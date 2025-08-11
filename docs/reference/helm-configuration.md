@@ -53,6 +53,7 @@ toolsets:
 |-----------|-------------|---------|
 | `additionalEnvVars` | Environment variables (API keys, etc.) | `[]` |
 | `toolsets` | Enable/disable specific toolsets | (see values.yaml) |
+| `modelList` | Configure multiple AI models for UI selection. See [Using Multiple Providers](../ai-providers/using-multiple-providers.md) | `{}` |
 | `openshift` | Enable OpenShift compatibility mode | `false` |
 | `image` | HolmesGPT image name | `holmes:0.0.0` |
 | `registry` | Container registry | `robustadev` |
@@ -191,7 +192,8 @@ enableAccountsCreate: true
 # MCP servers configuration
 mcp_servers: {}
 
-# Model list configuration
+# Model list configuration for multiple AI providers (UI only)
+# See: https://holmesgpt.dev/ai-providers/using-multiple-providers/
 modelList: {}
 ```
 
@@ -224,6 +226,55 @@ toolsets:
     enabled: false
   prometheus/metrics:
     enabled: false
+```
+
+### Multiple AI Providers Setup
+
+```yaml
+# values.yaml
+additionalEnvVars:
+  - name: OPENAI_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: holmes-secrets
+        key: openai-api-key
+  - name: ANTHROPIC_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: holmes-secrets
+        key: anthropic-api-key
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: holmes-secrets
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: holmes-secrets
+        key: aws-secret-access-key
+
+modelList:
+  gpt-4o:
+    api_key: "{{ env.OPENAI_API_KEY }}"
+    model: openai/gpt-4o
+    temperature: 0
+  anthropic-sonnet-4:
+    api_key: "{{ env.ANTHROPIC_API_KEY }}"
+    model: anthropic/claude-sonnet-4-20250514
+    temperature: 1
+    thinking:
+      budget_tokens: 10000
+      type: enabled
+  bedrock-sonnet-4:
+    aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+    aws_region_name: us-east-1
+    aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+    model: bedrock/anthropic.claude-sonnet-4-20250514-v1:0
+    temperature: 1
+    thinking:
+      budget_tokens: 10000
+      type: enabled
 ```
 
 

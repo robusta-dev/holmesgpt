@@ -94,7 +94,11 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     3. **Ask your first question**:
         ```bash
+        # Uses gpt-4o by default
         holmes ask "what is wrong with the user-profile-import pod?"
+
+        # Or specify a different model
+        holmes ask "what is wrong with the user-profile-import pod?" --model="gpt-5"
         ```
 
 === "Azure OpenAI"

@@ -236,10 +236,10 @@ def check_llm_api_with_test_call():
         )
 
         if azure_base:
-            error_msg = f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set - and failed. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI. Exception: {type(e).__name__}: {str(e)}"
+            error_msg = f"Exception: {type(e).__name__}: {str(e)} - Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
 
         else:
-            error_msg = f"Tried to use OpenAI (model: {classifier_model}) Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI. Exception: {type(e).__name__}: {str(e)}"
+            error_msg = f"Exception: {type(e).__name__}: {str(e)} - Tried to use OpenAI (model: {classifier_model}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
 
         return False, error_msg
 
