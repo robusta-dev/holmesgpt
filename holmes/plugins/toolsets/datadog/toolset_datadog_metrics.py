@@ -26,6 +26,7 @@ from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_int,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 from datetime import datetime
 
@@ -63,7 +64,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                     required=False,
                 ),
                 "tag_filter": ToolParameter(
-                    description="Filter metrics by tags in the format tag:value. pod tag is pod_name. namespace tag is kube_namespace.",
+                    description="Filter metrics by tags in the format tag:value.",
                     type="string",
                     required=False,
                 ),
@@ -113,6 +114,12 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             )
 
             metrics = data.get("metrics", [])
+            if not metrics:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data="Your filter returned no metrics. Change your filter and try again",
+                    params=params,
+                )
 
             output = ["Metric Name"]
             output.append("-" * 50)
@@ -164,8 +171,8 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             filters.append(f"host={params['host']}")
         if params.get("tag_filter"):
             filters.append(f"tag_filter={params['tag_filter']}")
-        filter_str = f" with filters: {', '.join(filters)}" if filters else ""
-        return f"List active Datadog metrics{filter_str}"
+        filter_str = f"{', '.join(filters)}" if filters else "all"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List Active Metrics ({filter_str})"
 
 
 class QueryMetrics(BaseDatadogMetricsTool):
@@ -342,9 +349,8 @@ class QueryMetrics(BaseDatadogMetricsTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query", "<no query>")
         description = params.get("description", "")
-        return f"Query Datadog metrics: query='{query}', description='{description}'"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query Metrics ({description})"
 
 
 class QueryMetricsMetadata(BaseDatadogMetricsTool):
@@ -455,10 +461,10 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
         metric_names = params.get("metric_names", [])
         if isinstance(metric_names, list):
             if len(metric_names) == 1:
-                return f"Get Datadog metric metadata for: {metric_names[0]}"
+                return f"Get Metric Metadata ({metric_names[0]})"
             elif len(metric_names) > 1:
-                return f"Get Datadog metric metadata for {len(metric_names)} metrics"
-        return "Get Datadog metric metadata"
+                return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Datadog metric metadata for {len(metric_names)} metrics"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Datadog metric metadata"
 
 
 class ListMetricTags(BaseDatadogMetricsTool):
