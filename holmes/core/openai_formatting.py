@@ -16,7 +16,7 @@ LLMS_WITH_STRICT_TOOL_CALLS_LIST = [
 ]
 
 
-def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool):
+def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str, Any]:
     match = re.match(pattern, param_attributes.type.strip())
 
     type_obj: Optional[dict[str, Any]] = None
