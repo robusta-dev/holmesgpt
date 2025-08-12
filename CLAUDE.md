@@ -244,10 +244,12 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory
   - If `runbooks` field is not specified, default system runbooks are used
+- Test cases can specify custom toolsets by creating a separate `toolsets.yaml` file in the test directory:
+  - The `toolsets.yaml` file should follow the format shown in `_EXAMPLE_01_toolsets_config/toolsets.yaml`
+  - You can enable/disable specific toolsets and provide custom configurations
+  - If no `toolsets.yaml` file exists, default system toolsets are used
+  - Note: Do NOT put toolsets configuration directly in test_case.yaml - it must be in a separate file
 - For mock data usage (rare cases), see [Using Mock Data](docs/using-mock-data.md)
-
-## Memory Notes
-
 
 **Realism is Critical:**
 - No fake/obvious logs like "Memory usage stabilized at 800MB"
@@ -322,3 +324,18 @@ When asked about content from the HolmesGPT documentation website (https://robus
 - Kubernetes deployment: `docs/installation/kubernetes-installation.md`
 - Toolset documentation: `docs/data-sources/builtin-toolsets/`
 - API reference: `docs/reference/`
+
+## MkDocs Formatting Notes
+
+When writing documentation in the `docs/` directory:
+- **Lists after headers**: Always add a blank line between a header/bold text and a list, otherwise MkDocs won't render the list properly
+  ```markdown
+  **Good:**
+
+  - item 1
+  - item 2
+
+  **Bad:**
+  - item 1
+  - item 2
+  ```

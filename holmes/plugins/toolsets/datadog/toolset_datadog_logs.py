@@ -1,7 +1,7 @@
 from enum import Enum
 import json
 import logging
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Optional, Dict, Tuple, Set
 from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
@@ -18,8 +18,10 @@ from holmes.plugins.toolsets.datadog.datadog_api import (
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
@@ -47,7 +49,7 @@ class DatadogLogsConfig(DatadogBaseConfig):
     )
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 def calculate_page_size(
@@ -136,6 +138,11 @@ def format_logs(raw_logs: list[dict]) -> str:
 
 class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
+
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Datadog logs API only supports substring matching, no exclude filter"""
+        return set()  # No regex support, no exclude filter
 
     def __init__(self):
         super().__init__(
