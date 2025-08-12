@@ -45,7 +45,7 @@ spec:
           args:
             - /bin/sh
             - -c
-            - while true; do curl -s http://localhost:8000; sleep 60; done
+            - while true; do curl -s http://localhost:8000; sleep 1; done
 ---
 apiVersion: v1
 kind: Service
