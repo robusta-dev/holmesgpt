@@ -5,7 +5,7 @@ Configuration utility functions for HolmesGPT.
 from typing import List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from holmes.core.tools import Transformer
+    from holmes.core.transformers import Transformer
 
 
 def merge_transformers(
@@ -73,7 +73,7 @@ def merge_transformers(
                 ]
 
             # Create new transformer with merged config
-            from holmes.core.tools import Transformer
+            from holmes.core.transformers import Transformer
 
             merged_transformer = Transformer(
                 name=transformer_name, config=merged_config

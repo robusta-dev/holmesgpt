@@ -3,7 +3,7 @@ Tests for configuration utility functions.
 """
 
 from holmes.utils.config_utils import merge_transformers
-from holmes.core.tools import Transformer
+from holmes.core.transformers import Transformer
 
 
 def test_merge_transformers_both_none():

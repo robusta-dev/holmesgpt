@@ -348,7 +348,9 @@ toolsets:
 
         try:
             # Load toolsets from the temporary file
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logging") as mock_tools_logging, patch(
+                "holmes.core.transformers.transformer.logging"
+            ) as mock_transformer_logging:
                 toolsets = load_toolsets_from_file(tmp_file_path)
 
                 assert len(toolsets) == 1
@@ -361,8 +363,11 @@ toolsets:
                     tool.transformers is None
                 )  # Should be cleared due to validation failure
 
-                # Should have logged warning about invalid config
-                mock_logging.warning.assert_called()
+                # Should have logged warning about invalid config in either module
+                assert (
+                    mock_tools_logging.warning.called
+                    or mock_transformer_logging.warning.called
+                )
 
         finally:
             # Clean up temporary file
@@ -535,7 +540,9 @@ class TestKubernetesTransformerPrompts:
             ),
             None,
         )
-        assert kubectl_get_ns is not None, "kubectl_get_by_kind_in_namespace tool not found"
+        assert (
+            kubectl_get_ns is not None
+        ), "kubectl_get_by_kind_in_namespace tool not found"
         assert kubectl_get_ns.transformers is not None
         assert kubectl_get_ns.transformers[0].config["input_threshold"] == 1000
 

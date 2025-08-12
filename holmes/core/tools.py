@@ -36,6 +36,7 @@ from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.transformers import (
     registry,
     TransformerError,
+    Transformer,
 )
 
 if TYPE_CHECKING:
@@ -148,28 +149,6 @@ class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
-
-
-class Transformer(BaseModel):
-    """
-    Configuration for a tool transformer.
-
-    Each transformer config specifies a transformer type and its parameters.
-    This replaces the previous dict-based configuration with proper type safety.
-    """
-
-    name: str = Field(description="Name of the transformer (e.g., 'llm_summarize')")
-    config: Dict[str, Any] = Field(
-        default_factory=dict, description="Configuration parameters for the transformer"
-    )
-
-    @model_validator(mode="after")
-    def validate_transformer(self):
-        """Validate that the transformer name is known to the registry."""
-        if not registry.is_registered(self.name):
-            # Log warning but don't fail validation - allows for graceful degradation
-            logging.warning(f"Transformer '{self.name}' is not registered")
-        return self
 
 
 class Tool(ABC, BaseModel):
@@ -556,9 +535,6 @@ class Toolset(BaseModel):
             for t in transformers:
                 if isinstance(t, dict):
                     try:
-                        # Import here to avoid circular imports
-                        from holmes.core.tools import Transformer
-
                         transformer_obj = Transformer(**t)
                         # Check if transformer is registered
                         from holmes.core.transformers import registry
@@ -596,9 +572,6 @@ class Toolset(BaseModel):
                     for t in tool_transformers:
                         if isinstance(t, dict):
                             try:
-                                # Import here to avoid circular imports
-                                from holmes.core.tools import Transformer
-
                                 transformer_obj = Transformer(**t)
                                 # Check if transformer is registered
                                 from holmes.core.transformers import registry

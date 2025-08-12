@@ -8,6 +8,7 @@ before they are passed to the LLM for analysis.
 from .base import BaseTransformer, TransformerError
 from .registry import TransformerRegistry, registry
 from .llm_summarize import LLMSummarizeTransformer
+from .transformer import Transformer
 
 # Register built-in transformers
 registry.register(LLMSummarizeTransformer)
@@ -18,4 +19,5 @@ __all__ = [
     "TransformerRegistry",
     "registry",
     "LLMSummarizeTransformer",
+    "Transformer",
 ]

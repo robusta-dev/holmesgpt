@@ -141,7 +141,11 @@ class TestAKSTransformers:
 
         # Test check_node_status prompt
         check_node_status = next(
-            (tool for tool in aks_node_health.tools if tool.name == "check_node_status"),
+            (
+                tool
+                for tool in aks_node_health.tools
+                if tool.name == "check_node_status"
+            ),
             None,
         )
         assert check_node_status is not None, "check_node_status tool not found"
@@ -210,7 +214,11 @@ class TestAKSTransformers:
 
         # check_node_status should have lower threshold (simpler output)
         check_node_status = next(
-            (tool for tool in aks_node_health.tools if tool.name == "check_node_status"),
+            (
+                tool
+                for tool in aks_node_health.tools
+                if tool.name == "check_node_status"
+            ),
             None,
         )
         assert check_node_status is not None, "check_node_status tool not found"

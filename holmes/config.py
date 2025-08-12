@@ -10,7 +10,7 @@ import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
-from holmes.core.tools import Transformer
+from holmes.core.transformers import Transformer
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (

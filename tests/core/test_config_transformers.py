@@ -5,8 +5,8 @@ import sys
 
 from holmes.config import Config
 from holmes.core.toolset_manager import ToolsetManager
-from holmes.core.tools import Toolset, Tool, Transformer
-from holmes.core.transformers import registry
+from holmes.core.tools import Toolset, Tool
+from holmes.core.transformers import Transformer, registry
 
 # Setup global namespace for Config model rebuilding
 sys.modules[__name__].__dict__["Transformer"] = Transformer

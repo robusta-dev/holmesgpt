@@ -5,7 +5,8 @@ Tests the complete CLI --fast-model workflow with real-world toolset configurati
 
 from unittest.mock import patch
 
-from holmes.core.tools import YAMLTool, YAMLToolset, ToolsetTag, Transformer
+from holmes.core.tools import YAMLTool, YAMLToolset, ToolsetTag
+from holmes.core.transformers import Transformer
 from holmes.core.toolset_manager import ToolsetManager
 
 

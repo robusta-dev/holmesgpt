@@ -12,11 +12,11 @@ from holmes.core.tools import (
     ToolsetYamlFromConfig,
     StructuredToolResult,
     ToolResultStatus,
-    Transformer,
 )
 from holmes.core.transformers import (
     registry,
     TransformerError,
+    Transformer,
 )
 from holmes.core.transformers.base import BaseTransformer
 

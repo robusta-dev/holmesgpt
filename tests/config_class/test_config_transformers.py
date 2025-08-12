@@ -21,7 +21,7 @@ def test_transformer_fields_exist():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
 
         # Import Transformer class to resolve forward reference
         import sys
@@ -45,7 +45,7 @@ def test_transformer_from_file():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -75,7 +75,7 @@ def test_transformer_from_env():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -101,7 +101,7 @@ def test_transformer_cli_override():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -127,7 +127,7 @@ def test_transformer_backward_compatibility():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -157,7 +157,7 @@ def test_transformer_env_vars_in_load_from_env_list():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -177,7 +177,7 @@ def test_auto_generate_transformers_with_fast_model():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -203,7 +203,7 @@ def test_auto_generate_transformers_without_fast_model():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
         import sys
 
         sys.modules[__name__].__dict__["Transformer"] = Transformer
@@ -225,7 +225,7 @@ def test_auto_generate_transformers_respects_existing_configs():
         "holmes.common.env_vars.ROBUSTA_AI", False
     ):
         from holmes.config import Config
-        from holmes.core.tools import Transformer
+        from holmes.core.transformers import Transformer
 
         # Test with existing transformers
         existing_configs = [

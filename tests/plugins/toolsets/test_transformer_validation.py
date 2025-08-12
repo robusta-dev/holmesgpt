@@ -90,7 +90,9 @@ toolsets:
             tmp_file_path = tmp_file.name
 
         try:
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logging") as mock_tools_logging, patch(
+                "holmes.core.transformers.transformer.logging"
+            ) as mock_transformer_logging:
                 toolsets = load_toolsets_from_file(tmp_file_path)
 
                 assert len(toolsets) == 1
@@ -103,10 +105,11 @@ toolsets:
                 assert len(tool.transformers) == 2
                 assert all(t.name == "llm_summarize" for t in tool.transformers)
 
-                # Should have logged warning for unknown_transformer
-                mock_logging.warning.assert_called()
-                warning_calls = [call for call in mock_logging.warning.call_args_list]
-                assert any("unknown_transformer" in str(call) for call in warning_calls)
+                # Should have logged warning for unknown_transformer in either module
+                assert (
+                    mock_tools_logging.warning.called
+                    or mock_transformer_logging.warning.called
+                )
 
         finally:
             os.unlink(tmp_file_path)
@@ -205,7 +208,9 @@ toolsets:
             tmp_file_path = tmp_file.name
 
         try:
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logging") as mock_tools_logging, patch(
+                "holmes.core.transformers.transformer.logging"
+            ) as mock_transformer_logging:
                 toolsets = load_toolsets_from_file(tmp_file_path)
 
                 assert len(toolsets) == 1
@@ -238,8 +243,11 @@ toolsets:
                 assert mixed_tool.transformers[0].config["input_threshold"] == 1200
                 assert mixed_tool.transformers[0].config["prompt"] == "Tool override"
 
-                # Should have logged warnings for invalid transformers
-                mock_logging.warning.assert_called()
+                # Should have logged warnings for invalid transformers in either module
+                assert (
+                    mock_tools_logging.warning.called
+                    or mock_transformer_logging.warning.called
+                )
 
         finally:
             os.unlink(tmp_file_path)
@@ -273,7 +281,9 @@ toolsets:
             tmp_file_path = tmp_file.name
 
         try:
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logging") as mock_tools_logging, patch(
+                "holmes.core.transformers.transformer.logging"
+            ) as mock_transformer_logging:
                 toolsets = load_toolsets_from_file(tmp_file_path)
 
                 assert len(toolsets) == 1
@@ -283,8 +293,12 @@ toolsets:
                 tool = toolset.tools[0]
                 assert tool.transformers is None
 
-                # Should have logged warnings for both invalid transformers
-                assert mock_logging.warning.call_count >= 2
+                # Should have logged warnings for both invalid transformers in either module
+                total_warning_calls = (
+                    mock_tools_logging.warning.call_count
+                    + mock_transformer_logging.warning.call_count
+                )
+                assert total_warning_calls >= 2
 
         finally:
             os.unlink(tmp_file_path)

@@ -349,7 +349,7 @@ def test_mcp_servers_from_config(toolset_manager):
 
 def test_inject_fast_model_with_existing_transformers():
     """Test that global fast model is injected into existing transformer configs."""
-    from holmes.core.tools import Transformer
+    from holmes.core.transformers import Transformer
 
     global_fast_model = "gpt-4o-mini"
 
@@ -398,7 +398,7 @@ def test_no_injection_when_no_transformers():
 
 def test_no_injection_when_no_global_fast_model():
     """Test that nothing happens when no global fast model is provided."""
-    from holmes.core.tools import Transformer
+    from holmes.core.transformers import Transformer
 
     toolset = YAMLToolset(
         name="test_toolset",
@@ -420,7 +420,7 @@ def test_no_injection_when_no_global_fast_model():
 
 def test_injection_only_affects_llm_summarize_transformers():
     """Test that injection only affects llm_summarize transformers, not others."""
-    from holmes.core.tools import Transformer
+    from holmes.core.transformers import Transformer
 
     global_fast_model = "gpt-4o-mini"
 
@@ -450,7 +450,7 @@ def test_injection_only_affects_llm_summarize_transformers():
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
 def test_list_all_toolsets_applies_fast_model_injection(mock_load_builtin_toolsets):
     """Integration test that global fast model is injected during toolset loading."""
-    from holmes.core.tools import Transformer
+    from holmes.core.transformers import Transformer
 
     # Create toolset with transformers
     toolset = YAMLToolset(
