@@ -13,7 +13,7 @@ from holmes.core.tools import (
     ToolsetType,
     YAMLToolset,
 )
-from holmes.core.toolset_manager import ToolsetManager
+from holmes.core.toolset_manager import ToolsetManager, CLI_TOOL_TAGS, SERVER_TOOL_TAGS
 
 
 @pytest.fixture
@@ -21,14 +21,14 @@ def toolset_manager():
     return ToolsetManager()
 
 
-def test_cli_tool_tags(toolset_manager):
-    tags = toolset_manager.cli_tool_tags
+def test_cli_tool_tags():
+    tags = CLI_TOOL_TAGS
     assert ToolsetTag.CORE in tags
     assert ToolsetTag.CLI in tags
 
 
-def test_server_tool_tags(toolset_manager):
-    tags = toolset_manager.server_tool_tags
+def test_server_tool_tags():
+    tags = SERVER_TOOL_TAGS
     assert ToolsetTag.CORE in tags
     assert ToolsetTag.CLUSTER in tags
 

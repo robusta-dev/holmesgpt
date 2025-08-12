@@ -18,6 +18,10 @@ if TYPE_CHECKING:
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
 
+# Global constants for toolset tags
+CLI_TOOL_TAGS = [ToolsetTag.CORE, ToolsetTag.CLI]
+SERVER_TOOL_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
+
 
 class ToolsetManager:
     """
@@ -61,20 +65,6 @@ class ToolsetManager:
     def set_suppress_logging(self, suppress: bool) -> None:
         """Temporarily control logging output"""
         self.suppress_logging = suppress
-
-    @property
-    def cli_tool_tags(self) -> List[ToolsetTag]:
-        """
-        Returns the list of toolset tags that are relevant for CLI tools.
-        """
-        return [ToolsetTag.CORE, ToolsetTag.CLI]
-
-    @property
-    def server_tool_tags(self) -> List[ToolsetTag]:
-        """
-        Returns the list of toolset tags that are relevant for server tools.
-        """
-        return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
     def _list_all_toolsets(
         self,
@@ -367,7 +357,7 @@ class ToolsetManager:
             dal=None,  # CLI always uses None for DAL
             refresh_status=refresh_status,
             enable_all_toolsets=True,  # Console always enables all toolsets
-            toolset_tags=self.cli_tool_tags,  # Console always uses CLI tags
+            toolset_tags=CLI_TOOL_TAGS,  # Console always uses CLI tags
             skip_prerequisite_check=skip_prerequisite_check,
         )
         return toolsets_with_status
@@ -386,7 +376,7 @@ class ToolsetManager:
             dal,
             check_prerequisites=True,
             enable_all_toolsets=False,
-            toolset_tags=self.server_tool_tags,
+            toolset_tags=SERVER_TOOL_TAGS,
         )
         return toolsets_with_status
 

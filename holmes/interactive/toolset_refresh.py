@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Set, List, Tuple
 
 from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.toolset_manager import CLI_TOOL_TAGS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
@@ -161,7 +162,7 @@ class ToolsetRefreshManager:
                 self.config.toolset_manager.refresh_toolset_status(
                     dal=None,
                     enable_all_toolsets=True,
-                    toolset_tags=self.config.toolset_manager.cli_tool_tags,
+                    toolset_tags=CLI_TOOL_TAGS,
                     progress_callback=progress_callback,
                 )
 
