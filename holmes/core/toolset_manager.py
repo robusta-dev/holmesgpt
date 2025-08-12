@@ -316,6 +316,32 @@ class ToolsetManager:
         """Temporarily control logging output"""
         self.suppress_logging = suppress
 
+    def _normalize_config(self, config: Dict) -> Dict[str, Dict]:
+        """Normalize various config formats into unified structure
+
+        Handles both old-style (single dict) and new-style (split toolsets/mcp_servers)
+        configurations, returning a unified dictionary of all toolset configurations.
+        """
+        result = {}
+
+        if "toolsets" in config or "mcp_servers" in config:
+            # New style - split config
+            result.update(config.get("toolsets", {}))
+
+            # Add type to MCP servers
+            mcp_servers = config.get("mcp_servers", {})
+            if mcp_servers:
+                # Deep copy to avoid mutating original config
+                mcp_config = copy.deepcopy(mcp_servers)
+                for server_config in mcp_config.values():
+                    server_config["type"] = ToolsetType.MCP.value
+                result.update(mcp_config)
+        else:
+            # Old style - all in one dict
+            result = config
+
+        return result
+
     def _load_definitions(self):
         """Load all toolset definitions"""
         # 1. Load built-in toolsets
@@ -324,27 +350,9 @@ class ToolsetManager:
         # 2. Apply config overrides
         configured_names = set()
         if self.config:
-            # Handle both old-style single dict and split toolsets/mcp_servers
-            if "toolsets" in self.config or "mcp_servers" in self.config:
-                # New style - split config
-                toolsets_config = self.config.get("toolsets", {})
-                if toolsets_config:
-                    self.registry.update_from_config(toolsets_config)
-                    configured_names.update(toolsets_config.keys())
-
-                # MCP servers with type set
-                mcp_servers = self.config.get("mcp_servers", {})
-                if mcp_servers:
-                    # Deep copy to avoid mutating original config
-                    mcp_config = copy.deepcopy(mcp_servers)
-                    for server_config in mcp_config.values():
-                        server_config["type"] = ToolsetType.MCP.value
-                    self.registry.update_from_config(mcp_config)
-                    configured_names.update(mcp_config.keys())
-            else:
-                # Old style - all in one dict
-                self.registry.update_from_config(self.config)
-                configured_names.update(self.config.keys())
+            normalized = self._normalize_config(self.config)
+            self.registry.update_from_config(normalized)
+            configured_names.update(normalized.keys())
 
         # 3. Load custom toolsets from files
         for path in self.custom_paths:
