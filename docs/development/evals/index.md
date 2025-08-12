@@ -1,258 +1,178 @@
 # HolmesGPT Evaluations
 
-HolmesGPT uses automated evaluations (evals) to ensure consistent performance across different LLM models and to catch regressions during development. These evaluations test the system's ability to correctly diagnose Kubernetes issues.
+Evaluations are automated tests that measure HolmesGPT's accuracy on real-world scenarios.
 
-- [Writing Evaluations](writing.md) - Learn how to create new test cases and evaluations
+They are used to both catch regressions and measure the impact of new features.
 
-## Overview
+[Example: pod crashloop eval](https://github.com/robusta-dev/holmesgpt/tree/master/tests/llm/fixtures/test_ask_holmes/09_crashpod).
 
-The eval system comprises two main test suites:
+## Eval Tags
 
-- **Ask Holmes**: Tests single-question interactions with HolmesGPT
-- **Investigate**: Tests HolmesGPT's ability to investigate specific issues reported by AlertManager
+Evals are tagged and grouped into categories. Two common tags are `easy` and `medium`:
 
-Evals use fixtures that simulate real Kubernetes environments and tool outputs, allowing comprehensive testing without requiring live clusters.
+* `easy` - regression tests - scenarios that HolmesGPT passes today and must continue to pass after any change
+* `medium` - more challenging scenarios that push boundaries of what HolmesGPT can do
 
-While results are tracked and analyzed using Braintrust, Braintrust is not necessary to writing, running and debugging evals.
+Changes to HolmesGPT are good if they allow us to promote an eval from `easy` to `medium` without increasing latency by too much.
 
-## Examples
-
-| Test suite | Test case | Status |
-|-----------|-----------|--------|
-| ask_holmes | 01_how_many_pods | ⚠️ |
-| ask_holmes | 02_what_is_wrong_with_pod | ✅ |
-| ask_holmes | 02_what_is_wrong_with_pod_LOKI | ✅ |
-| ask_holmes | 03_what_is_the_command_to_port_forward | ✅ |
-| ask_holmes | 04_related_k8s_events | ✅ |
-| ask_holmes | 05_image_version | ✅ |
-| ask_holmes | 06_explain_issue | ✅ |
-| ask_holmes | 07_high_latency | ✅ |
-| ask_holmes | 07_high_latency_LOKI | ✅ |
-| ask_holmes | 08_sock_shop_frontend | ✅ |
-| ask_holmes | 09_crashpod | ✅ |
-| ask_holmes | 10_image_pull_backoff | ✅ |
-| ask_holmes | 11_init_containers | ✅ |
-| ask_holmes | 12_job_crashing | ✅ |
-| ask_holmes | 12_job_crashing_CORALOGIX | ✅ |
-| ask_holmes | 12_job_crashing_LOKI | ⚠️ |
-| ask_holmes | 13_pending_node_selector | ✅ |
-| ask_holmes | 14_pending_resources | ✅ |
-| ask_holmes | 15_failed_readiness_probe | ✅ |
-| ask_holmes | 16_failed_no_toolset_found | ✅ |
-| ask_holmes | 17_oom_kill | ✅ |
-| ask_holmes | 18_crash_looping_v2 | ✅ |
-
-## Test Status Legend
-
-- ✅ **Successful**: Test passed and meets quality standards
-- ⚠️ **Warning**: Test failed but is known to be flaky or expected to fail
-- ❌ **Failed**: Test failed and should be fixed before merging
-
-## Why Evaluations Matter
-
-Evaluations serve several critical purposes:
-
-1. **Quality Assurance**: Ensure HolmesGPT provides accurate diagnostics and recommendations
-2. **Model Comparison**: Compare performance across different LLM models (GPT-4, Claude, Gemini, etc.)
-3. **Regression Testing**: Catch performance degradations when updating code or dependencies
-4. **Toolset Validation**: Verify that new toolsets and integrations work correctly
-5. **Continuous Improvement**: Identify areas where HolmesGPT needs enhancement
-
-## How to Run Evaluations
+## Getting Started
 
 ### Prerequisites
 
-```bash
-poetry install
-```
-
-### Basic Usage
-
-Run all evaluations:
-```bash
-poetry run pytest ./tests/llm/test_*.py --no-cov --disable-warnings
-```
-
-By default the tests load and present mock files to the LLM whenever it asks for them. If a mock file is not present for a tool call, the tool call is passed through to the live tool itself. In a lot of cases this can cause the eval to fail unless the live environment (k8s cluster) matches what the LLM expects.
-
-Run specific test suite:
-```bash
-poetry run pytest ./tests/llm/test_ask_holmes.py --no-cov --disable-warnings
-poetry run pytest ./tests/llm/test_investigate.py --no-cov --disable-warnings
-```
-
-Run a specific test case:
-```bash
-poetry run pytest ./tests/llm/test_ask_holmes.py -k "01_how_many_pods" --no-cov --disable-warnings
-```
-
-> It is possible to investigate and debug why an eval fails by the output provided in the console. The output includes the correctness score, the reasoning for the score, information about what tools were called, the expected answer, as well as the LLM's answer.
-
-### Custom Evaluation Flags
-
-HolmesGPT provides custom pytest flags for evaluation workflows:
-
-| Flag | Description | Usage |
-|------|-------------|-------|
-| `--generate-mocks` | Generate mock data files during test execution | Use when adding new tests or updating existing ones |
-| `--regenerate-all-mocks` | Regenerate all mock files (implies --generate-mocks) | Use to ensure mock consistency across all tests |
-| `--skip-setup` | Skip `before_test` commands | Use for faster iteration during development |
-| `--skip-cleanup` | Skip `after_test` commands | Use for debugging test failures |
-
-### Common Evaluation Patterns
-
-#### Rapid Test Development Workflow
-
-When developing or debugging tests, use this pattern for faster iteration:
+Install HolmesGPT python dependencies:
 
 ```bash
-# 1. Initial run with setup (skip cleanup to keep resources)
-poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-cleanup
-
-# 2. Quick iterations without setup/cleanup
-poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup --skip-cleanup
-
-# 3. Final cleanup when done
-poetry run pytest tests/llm/test_ask_holmes.py -k "specific_test" --skip-setup
+poetry install --with=dev
 ```
 
-#### Mock Generation
+### Basic Commands
 
 ```bash
-# Generate mocks for specific test
-poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+# Run all easy evals - these should always pass assuming you have a kubernetes cluster with sufficient resources and a 'good enough model' (e.g. gpt-4o)
+RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
 
-# Generate mocks with multiple iterations to cover all investigative paths
-ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "test_name" --generate-mocks
+# Run a specific eval
+RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pods"
 
-# Regenerate all mocks for consistency
-poetry run pytest tests/llm/ --regenerate-all-mocks
+# Run evals with a specific tag
+RUN_LIVE=true poetry run pytest -m "llm and logs" --no-cov
 ```
 
-#### Parallel Execution
+### Testing Different Models
 
-For faster test runs, use pytest's parallel execution:
+The `MODEL` environment variable is equivalent to the `--model` flag on the `holmes ask` CLI command. You can test HolmesGPT with different LLM providers:
 
 ```bash
-# Run with 6 parallel workers
-poetry run pytest tests/llm/ -n 6 --no-cov --disable-warnings
+# Test with GPT-4 (default)
+RUN_LIVE=true MODEL=gpt-4o poetry run pytest -m 'llm and easy'
 
-# Run with auto-detected worker count
-poetry run pytest tests/llm/ -n auto --no-cov --disable-warnings
+# Test with Claude
+# Note: CLASSIFIER_MODEL must be set to OpenAI or Azure as Anthropic models are not currently supported for classification
+RUN_LIVE=true MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+
+# Test with Azure OpenAI
+# Set required Azure environment variables for your deployment
+export AZURE_API_KEY=your-azure-api-key
+export AZURE_API_BASE=https://your-deployment.openai.azure.com/
+export AZURE_API_VERSION=2024-02-15-preview
+RUN_LIVE=true MODEL=azure/your-deployment-name CLASSIFIER_MODEL=azure/your-deployment-name poetry run pytest -m 'llm and easy'
 ```
 
-### Environment Variables
+**Important Notes:**
 
-Configure evaluations using these environment variables:
+- When using Anthropic models, you must set `CLASSIFIER_MODEL` to an OpenAI or Azure model because the evaluation framework's classifier currently only supports these providers
+- For any model provider, ensure you have the necessary API keys and environment variables set (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AZURE_API_KEY`)
+- The model specified here is passed directly to LiteLLM, so any model supported by LiteLLM can be used
 
-| Variable | Example | Description |
-|----------|---------|-------------|
-| `MODEL` | `MODEL=anthropic/claude-3-5-sonnet-20241022` | Specify which LLM model to use |
-| `CLASSIFIER_MODEL` | `CLASSIFIER_MODEL=gpt-4o` | The LLM model to use for scoring the answer (LLM as judge). Defaults to `MODEL` |
-| `ITERATIONS` | `ITERATIONS=3` | Run each test multiple times for consistency checking |
-| `RUN_LIVE` | `RUN_LIVE=true` | Execute `before-test` and `after-test` commands, ignore mock files |
-| `UPLOAD_DATASET` | `UPLOAD_DATASET=true` | Sync dataset to external evaluation platform |
-| `EXPERIMENT_ID` | `EXPERIMENT_ID=my_baseline` | Custom experiment name for result tracking |
-| `BRAINTRUST_API_KEY` | `BRAINTRUST_API_KEY=sk-...` | Enable Braintrust integration for result tracking and CI/CD report generation |
-| `BRAINTRUST_ORG` | `BRAINTRUST_ORG=my-org` | Braintrust organization name (defaults to "robustadev") |
-| `ASK_HOLMES_TEST_TYPE` | `ASK_HOLMES_TEST_TYPE=server` | Controls message building flow in ask_holmes tests. `cli` (default) uses `build_initial_ask_messages` and skips conversation history tests. `server` uses `build_chat_messages` with full conversation support |
+### Running Evals with Multiple Iterations
 
-### Simple Example
+LLMs are non-deterministic - they produce different outputs for the same input. **10 iterations is a good rule of thumb** for reliable results.
 
-Run a comprehensive evaluation:
 ```bash
-export MODEL=gpt-4o
+# Recommended: Run with multiple iterations
+RUN_LIVE=true ITERATIONS=10 poetry run pytest -m 'llm and easy' --no-cov
 
-# Run with parallel execution for speed
-poetry run pytest -n 10 ./tests/llm/test_*.py --no-cov --disable-warnings
+# Quick check: Single run (less reliable)
+RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
 ```
 
-### Live Testing
+### Using RUN_LIVE=true vs Mock Data
 
-For tests that require actual Kubernetes resources:
+Some evals support mock-data and don't need a live Kubernetes cluster to run. However, for the most accurate evaluation you should set `RUN_LIVE=true` which tests HolmesGPT with a live Kubernetes cluster not mock data.
+
+This is important because LLMs can take multiple paths to reach conclusions, and mock data only captures one path. See [Using Mock Data](../../using-mock-data.md) for rare cases when mocks are necessary.
+
+## Environment Variables
+
+Essential variables for controlling test behavior:
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `RUN_LIVE` | Use real tools instead of mocks | `RUN_LIVE=true` |
+| `ITERATIONS` | Run each test N times | `ITERATIONS=10` |
+| `MODEL` | LLM to test | `MODEL=gpt-4o` |
+| `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
+| `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
+
+### ASK_HOLMES_TEST_TYPE Details
+
+The `ASK_HOLMES_TEST_TYPE` environment variable controls how messages are built in ask_holmes tests:
+
+- **`cli` (default)**: Uses `build_initial_ask_messages` like the CLI ask() command. This mode:
+  - Simulates the CLI interface behavior
+  - Does not support conversation history tests (will skip them)
+  - Includes runbook loading and system prompts as done in the CLI
+
+- **`server`**: Uses `build_chat_messages` with ChatRequest for server-style flow. This mode:
+  - Simulates the API/server interface behavior
+  - Supports conversation history tests
+  - Uses the ChatRequest model for message building
+
 ```bash
-export RUN_LIVE=true
+# Test with CLI-style message building (default)
+RUN_LIVE=true poetry run pytest -k "test_name"
 
-poetry run pytest ./tests/llm/test_ask_holmes.py -k "specific_test" --no-cov --disable-warnings
+# Test with server-style message building
+RUN_LIVE=true ASK_HOLMES_TEST_TYPE=server poetry run pytest -k "test_name"
 ```
 
-Live testing requires a Kubernetes cluster and will execute `before-test` and `after-test` commands to set up/tear down resources. Not all tests support live testing. Some tests require manual setup.
+## Advanced Usage
+
+### Parallel Execution
+
+Speed up test runs with parallel workers:
+
+```bash
+# Run with 10 parallel workers
+RUN_LIVE=true ITERATIONS=10 poetry run pytest tests/llm/ -n 10
+```
+
+### Debugging Failed Tests
+
+When tests fail, use these techniques to investigate:
+
+```bash
+# 1. Verbose output to see details
+RUN_LIVE=true pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test"
+
+# 2. Keep resources after test for inspection
+RUN_LIVE=true pytest -k "test" --skip-cleanup
+
+# 3. Iterate quickly without setup/cleanup
+RUN_LIVE=true pytest -k "test" --skip-setup --skip-cleanup
+
+# 4. Clean up when done debugging
+RUN_LIVE=true pytest -k "test" --skip-setup
+```
 
 ## Model Comparison Workflow
 
-1. **Create Baseline**: Run evaluations with a reference model
-   ```bash
-   EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o poetry run pytest -n 10 ./tests/llm/test_* --no-cov --disable-warnings
-   ```
+Track performance across different models:
 
-2. **Test New Model**: Run evaluations with the model you want to compare
-   ```bash
-   EXPERIMENT_ID=test_claude35 MODEL=anthropic/claude-3-5-sonnet-20241022 poetry run pytest -n 10 ./tests/llm/test_*  --no-cov --disable-warnings
-   ```
+```bash
+# 1. Baseline with GPT-4
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 10 tests/llm/
 
-3. **Compare Results**: Use evaluation tracking tools to analyze performance differences
+# 2. Compare with Claude
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
+
+# 3. Results will be tracked if BRAINTRUST_API_KEY is set
+export BRAINTRUST_API_KEY=your-key
+```
 
 ## Test Markers
 
-Filter tests using pytest markers:
+Filter tests by functionality:
 
 ```bash
-# Run only LLM tests
-poetry run pytest -m "llm"
+# Regression tests (should always pass)
+RUN_LIVE=true ITERATIONS=10 poetry run pytest -m "llm and easy"
 
-# Run tests that don't require network
-poetry run pytest -m "not network"
+# Challenging tests
+RUN_LIVE=true ITERATIONS=10 poetry run pytest -m "llm and medium"
 
-# Combine markers
-poetry run pytest -m "llm and not synthetic"
+# Tests involving logs
+RUN_LIVE=true poetry run pytest -m "llm and logs"
 ```
 
-**Available markers:**
-- `llm` - LLM behavior tests
-- `datetime` - Datetime functionality tests
-- `logs` - Log processing tests
-- `context_window` - Context window handling tests
-- `synthetic` - Tests using synthetic data
-- `network` - Tests requiring network connectivity
-- `runbooks` - Runbook functionality tests
-- `misleading-history` - Tests with misleading historical data
-- `chain-of-causation` - Chain of causation analysis tests
-- `slackbot` - Slack integration tests
-- `counting` - Resource counting tests
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Missing API keys**: Some tests are skipped without proper API keys
-2. **Live test failures**: Ensure Kubernetes cluster access and proper permissions
-3. **Mock file mismatches**: Regenerate mocks with `--regenerate-all-mocks` or `--generate-mocks` CLI flags
-4. **Timeout errors**: Increase test timeout or check network connectivity
-
-### Debug Mode
-
-Enable verbose output:
-```bash
-poetry run pytest -v -s ./tests/llm/test_ask_holmes.py -k "specific_test" --no-cov --disable-warnings
-```
-
-This shows detailed output including:
-- Expected vs actual results
-- Tool calls made by the LLM
-- Evaluation scores and rationales
-- Debugging information
-
-### Common Pytest Flags
-
-| Flag | Description |
-|------|--------------|
-| `-n <number>` | Run tests in parallel with specified workers |
-| `-k <pattern>` | Run tests matching the pattern |
-| `-m <marker>` | Run tests with specific marker |
-| `-v/-vv` | Verbose output (more v's = more verbose) |
-| `-s` | Show print statements |
-| `--no-cov` | Disable coverage reporting |
-| `--disable-warnings` | Disable warning summary |
-| `--collect-only` | List tests without running |
-| `-q` | Quiet mode |
-| `--timeout=<seconds>` | Set test timeout |
+See `pyproject.toml` for all available markers.

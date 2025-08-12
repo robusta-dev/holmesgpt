@@ -1,9 +1,7 @@
 import json
 import logging
 import os
-import random
 import re
-import string
 import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urljoin
@@ -27,13 +25,17 @@ from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
 from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
+from holmes.utils.keygen_utils import generate_random_key
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
-DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class PrometheusConfig(BaseModel):
@@ -77,10 +79,6 @@ class PrometheusConfig(BaseModel):
 
 class BasePrometheusTool(Tool):
     toolset: "PrometheusToolset"
-
-
-def generate_random_key():
-    return "".join(random.choices(string.ascii_letters + string.digits, k=4))
 
 
 def filter_metrics_by_type(metrics: Dict, expected_type: str):
@@ -372,7 +370,7 @@ class ListPrometheusRules(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return "list available prometheus rules"
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Rules"
 
 
 class ListAvailableMetrics(BasePrometheusTool):
@@ -475,7 +473,8 @@ class ListAvailableMetrics(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f'Search Available Prometheus Metrics: name_filter="{params.get("name_filter", "<no filter>")}", type_filter="{params.get("type_filter", "<no filter>")}"'
+        name_filter = params.get("name_filter", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Metrics ({name_filter})"
 
 
 class ExecuteInstantQuery(BasePrometheusTool):
@@ -584,9 +583,8 @@ class ExecuteInstantQuery(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query")
-        description = params.get("description")
-        return f"Execute Prometheus Query (instant): promql='{query}', description='{description}'"
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
 class ExecuteRangeQuery(BasePrometheusTool):
@@ -687,6 +685,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 if self.toolset.config.tool_calls_return_data:
                     response_data["data"] = data.get("data")
                 data_str = json.dumps(response_data, indent=2)
+
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=data_str,
@@ -730,12 +729,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query")
-        start = params.get("start")
-        end = params.get("end")
-        step = params.get("step")
-        description = params.get("description")
-        return f"Execute Prometheus Query (range): promql='{query}', start={start}, end={end}, step={step}, description='{description}'"
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
 class PrometheusToolset(Toolset):

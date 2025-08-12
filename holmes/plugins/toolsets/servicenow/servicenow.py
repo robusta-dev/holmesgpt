@@ -15,9 +15,11 @@ from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
 
 
 class ServiceNowConfig(BaseModel):
@@ -92,7 +94,8 @@ class ServiceNowBaseTool(Tool):
         )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"ServiceNow {self.name} {params}"
+        # Default implementation - will be overridden by subclasses
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: ServiceNow {self.name} {params}"
 
 
 class ReturnChangesInTimerange(ServiceNowBaseTool):
@@ -107,6 +110,10 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
             required=False,
         )
     }
+
+    def get_parameterized_one_liner(self, params) -> str:
+        start = params.get("start", "last hour")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Requests ({start})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}
@@ -147,6 +154,10 @@ class ReturnChange(ServiceNowBaseTool):
         )
     }
 
+    def get_parameterized_one_liner(self, params) -> str:
+        sys_id = params.get("sys_id", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Details ({sys_id})"
+
     def _invoke(self, params: Any) -> StructuredToolResult:
         try:
             url = "https://{instance}.service-now.com/api/now/v2/table/change_request/{sys_id}".format(
@@ -174,6 +185,10 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
             required=True,
         )
     }
+
+    def get_parameterized_one_liner(self, params) -> str:
+        keyword = params.get("keyword", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Changes ({keyword})"
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         parsed_params = {}

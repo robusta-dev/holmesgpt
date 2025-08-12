@@ -23,7 +23,14 @@ from holmes.plugins.toolsets.grafana.tempo_api import (
     query_tempo_traces,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
-from holmes.plugins.toolsets.utils import get_param_or_raise, process_timestamps_to_int
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+)
+from holmes.plugins.toolsets.utils import (
+    get_param_or_raise,
+    process_timestamps_to_int,
+    toolset_name_for_one_liner,
+)
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
@@ -144,7 +151,7 @@ class GetTempoTraces(Tool):
         start, end = process_timestamps_to_int(
             params.get("start_datetime"),
             params.get("end_datetime"),
-            default_time_span_seconds=3600,
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
 
         prefix = ""
@@ -190,7 +197,7 @@ class GetTempoTraces(Tool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo traces with min_duration={params.get('min_duration')} ({str(params)})"
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Traces (min_duration={params.get('min_duration')})"
 
 
 class GetTempoTags(Tool):
@@ -244,7 +251,7 @@ class GetTempoTags(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo tags ({str(params)})"
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
 
 
 class GetTempoTraceById(Tool):
@@ -281,7 +288,7 @@ class GetTempoTraceById(Tool):
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Fetched Tempo trace with trace_id={params.get('trace_id')} ({str(params)})"
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
 
 
 class GrafanaTempoToolset(BaseGrafanaTempoToolset):
