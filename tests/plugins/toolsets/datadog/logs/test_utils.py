@@ -4,7 +4,10 @@ import pytest
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
     DatadogLogsConfig,
     calculate_page_size,
-    format_logs,
+    parse_datadog_logs,
+)
+from holmes.plugins.toolsets.logging_utils.shared_log_utils import (
+    format_logs_with_containers,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
@@ -247,4 +250,10 @@ def test_calculate_page_size(params, configs, logs, expected_page_size):
     ],
 )
 def test_format_logs(raw_logs, expected_logs):
-    assert format_logs(raw_logs) == expected_logs
+    # Parse Datadog logs to structured format
+    structured_logs = parse_datadog_logs(raw_logs)
+    # Format without container names (single container)
+    formatted = format_logs_with_containers(
+        structured_logs, display_container_name=False
+    )
+    assert formatted == expected_logs

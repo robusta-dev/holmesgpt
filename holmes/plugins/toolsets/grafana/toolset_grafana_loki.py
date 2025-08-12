@@ -37,8 +37,8 @@ class GrafanaLokiConfig(GrafanaConfig):
 class GrafanaLokiToolset(BasePodLoggingToolset):
     @property
     def supported_capabilities(self) -> Set[LoggingCapability]:
-        """Loki only supports substring matching, not regex or exclude filters"""
-        return set()  # No regex support, no exclude filter
+        """Loki supports pod name regex matching via LogQL regex operator"""
+        return {LoggingCapability.POD_NAME_REGEX}
 
     def __init__(self):
         super().__init__(

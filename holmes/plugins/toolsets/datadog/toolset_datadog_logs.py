@@ -1,7 +1,7 @@
 from enum import Enum
 import json
 import logging
-from typing import Any, Optional, Dict, Tuple, Set
+from typing import Any, Optional, Dict, Tuple, Set, List
 from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
@@ -24,7 +24,11 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     PodLoggingTool,
 )
-from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
+from holmes.plugins.toolsets.logging_utils.shared_log_utils import (
+    StructuredLog,
+    format_logs_with_containers,
+)
+from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339, to_unix_ms
 
 
 class DataDogLabelsMapping(BaseModel):
@@ -64,11 +68,31 @@ def calculate_page_size(
     return min(dd_config.page_size, max(0, max_logs_count - logs_count))
 
 
+def build_datadog_explorer_url(
+    dd_config: DatadogLogsConfig, query: str, from_time: str, to_time: str
+) -> str:
+    """Build URL to view these logs in Datadog Log Explorer"""
+    import urllib.parse
+
+    # Extract base URL without /api path
+    base_url = str(dd_config.site_api_url).replace("/api/v2", "").replace("/api", "")
+    if base_url.endswith("/"):
+        base_url = base_url[:-1]
+
+    # Build the logs explorer URL
+    # Format: https://app.datadoghq.com/logs?query=...&from_ts=...&to_ts=...
+    params = {"query": query, "from_ts": from_time, "to_ts": to_time, "live": "false"}
+
+    query_string = urllib.parse.urlencode(params)
+    return f"{base_url}/logs?{query_string}"
+
+
 def fetch_paginated_logs(
     params: FetchPodLogsParams,
     dd_config: DatadogLogsConfig,
     storage_tier: DataDogStorageTier,
-) -> list[dict]:
+) -> Tuple[list[dict], str]:
+    """Fetch logs from Datadog and return logs plus the query URL"""
     limit = params.limit or dd_config.default_limit
 
     (from_time, to_time) = process_timestamps_to_rfc3339(
@@ -80,11 +104,25 @@ def fetch_paginated_logs(
     url = f"{dd_config.site_api_url}/api/v2/logs/events/search"
     headers = get_headers(dd_config)
 
-    query = f"{dd_config.labels.namespace}:{params.namespace}"
-    query += f" {dd_config.labels.pod}:{params.pod_name}"
+    # Build base query
+    query_parts = [
+        f"{dd_config.labels.namespace}:{params.namespace}",
+        f"{dd_config.labels.pod}:{params.pod_name}",
+    ]
+
+    # Add filter if provided (already in Datadog query syntax)
     if params.filter:
-        filter = params.filter.replace('"', '\\"')
-        query += f' "{filter}"'
+        query_parts.append(f"({params.filter})")
+
+    # Add exclude filter if provided
+    if params.exclude_filter:
+        # If it doesn't start with NOT, add it
+        if not params.exclude_filter.strip().upper().startswith("NOT"):
+            query_parts.append(f"NOT ({params.exclude_filter})")
+        else:
+            query_parts.append(params.exclude_filter)
+
+    query = " ".join(query_parts)
 
     payload: Dict[str, Any] = {
         "filter": {
@@ -95,7 +133,7 @@ def fetch_paginated_logs(
             "storage_tier": storage_tier.value,
         },
         "sort": "-timestamp",
-        "page": {"limit": calculate_page_size(params, dd_config, [])},
+        "page": {"limit": min(dd_config.page_size, limit)},
     }
 
     logs, cursor = execute_paginated_datadog_http_request(
@@ -107,6 +145,7 @@ def fetch_paginated_logs(
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
+        payload["page"]["limit"] = min(dd_config.page_size, limit - len(logs))
         new_logs, cursor = execute_paginated_datadog_http_request(
             url=url,
             headers=headers,
@@ -114,26 +153,50 @@ def fetch_paginated_logs(
             timeout=dd_config.request_timeout,
         )
         logs += new_logs
-        payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
 
     # logs are fetched descending order. Unified logging API follows the pattern of kubectl logs where oldest logs are first
     logs.reverse()
 
+    # Trim to limit if we got more
     if len(logs) > limit:
         logs = logs[-limit:]
-    return logs
+
+    # Construct Datadog Explorer URL
+    explorer_url = build_datadog_explorer_url(dd_config, query, from_time, to_time)
+
+    return logs, explorer_url
 
 
-def format_logs(raw_logs: list[dict]) -> str:
-    logs = []
+def parse_datadog_logs(raw_logs: list[dict]) -> List[StructuredLog]:
+    """Convert Datadog log format to StructuredLog format"""
+    structured_logs = []
 
     for raw_log_item in raw_logs:
-        message = raw_log_item.get("attributes", {}).get(
-            "message", json.dumps(raw_log_item)
-        )
-        logs.append(message)
+        attributes = raw_log_item.get("attributes", {})
+        message = attributes.get("message", json.dumps(raw_log_item))
 
-    return "\n".join(logs)
+        # Extract timestamp
+        timestamp_str = attributes.get("timestamp")
+        timestamp_ms = None
+        if timestamp_str:
+            try:
+                timestamp_ms = to_unix_ms(timestamp_str)
+            except Exception:
+                # If we can't parse timestamp, leave it as None
+                pass
+
+        # Extract container name if available
+        container = attributes.get("container_name") or attributes.get(
+            "docker", {}
+        ).get("container_name")
+
+        structured_logs.append(
+            StructuredLog(
+                timestamp_ms=timestamp_ms, container=container, content=message
+            )
+        )
+
+    return structured_logs
 
 
 class DatadogLogsToolset(BasePodLoggingToolset):
@@ -141,8 +204,8 @@ class DatadogLogsToolset(BasePodLoggingToolset):
 
     @property
     def supported_capabilities(self) -> Set[LoggingCapability]:
-        """Datadog logs API only supports substring matching, no exclude filter"""
-        return set()  # No regex support, no exclude filter
+        """Datadog supports its own query syntax, not regex"""
+        return set()  # Empty since we use custom parameter descriptions
 
     def __init__(self):
         super().__init__(
@@ -152,7 +215,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
-                PodLoggingTool(self),
+                PodLoggingTool(self, toolset_name="datadog/logs"),
             ],
             experimental=True,
             tags=[ToolsetTag.CORE],
@@ -170,22 +233,62 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             )
 
         try:
-            raw_logs = []
+            raw_logs: List[dict] = []
+            explorer_url = ""
+
             for storage_tier in self.dd_config.storage_tiers:
-                raw_logs = fetch_paginated_logs(
+                raw_logs, explorer_url = fetch_paginated_logs(
                     params, self.dd_config, storage_tier=storage_tier
                 )
 
                 if raw_logs:
-                    logs_str = format_logs(raw_logs)
+                    # Convert to structured logs
+                    structured_logs = parse_datadog_logs(raw_logs)
+
+                    # Check if we have multiple containers
+                    containers = set(
+                        log.container for log in structured_logs if log.container
+                    )
+                    has_multiple_containers = len(containers) > 1
+
+                    # Format logs
+                    formatted_logs = format_logs_with_containers(
+                        logs=structured_logs,
+                        display_container_name=has_multiple_containers,
+                    )
+
+                    # Build simple metadata showing the Datadog URL
+                    metadata_lines = [
+                        "\n" + "=" * 80,
+                        "LOG QUERY METADATA",
+                        "=" * 80,
+                        f"Total logs returned: {len(structured_logs):,}",
+                        f"View in Datadog: {explorer_url}",
+                        "=" * 80,
+                    ]
+
+                    # Put metadata at the end
+                    response_data = formatted_logs + "\n" + "\n".join(metadata_lines)
+
                     return StructuredToolResult(
                         status=ToolResultStatus.SUCCESS,
-                        data=logs_str,
+                        data=response_data,
                         params=params.model_dump(),
                     )
 
+            # No logs found in any storage tier
+            metadata_lines = [
+                "=" * 80,
+                "LOG QUERY METADATA",
+                "=" * 80,
+                "No logs found for this pod in the specified time range.",
+                f"View in Datadog: {explorer_url}",
+                "=" * 80,
+            ]
+
             return StructuredToolResult(
                 status=ToolResultStatus.NO_DATA,
+                data="\n".join(metadata_lines),
                 params=params.model_dump(),
             )
 
