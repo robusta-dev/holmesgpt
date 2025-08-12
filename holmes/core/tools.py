@@ -602,12 +602,13 @@ class TodoWriteTool(Tool):
     }
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        try:
-            from holmes.core.todo_manager import (
-                get_todo_manager,
-                get_session_id_from_context,
-            )
+        from holmes.core.todo_manager import (
+            get_todo_manager,
+            get_session_id_from_context,
+        )
 
+        try:
+            logging.info(f"### invoking todowrite tool {params}")
             todos_data = params.get("todos", [])
 
             tasks = []
@@ -638,15 +639,11 @@ class TodoWriteTool(Tool):
                 max_id_width = max(len(str(task.id)) for task in tasks)
                 max_content_width = max(len(task.content) for task in tasks)
                 max_status_width = max(len(task.status.value) for task in tasks)
-                max_priority_width = max(
-                    len(task.priority.value.upper()) for task in tasks
-                )
 
                 # Ensure minimum widths for headers
                 id_width = max(max_id_width, 2)
                 content_width = max(max_content_width, 7)
                 status_width = max(max_status_width, 6)
-                priority_width = max(max_priority_width, 8)
 
                 # Status indicators
                 status_icons = {
@@ -656,8 +653,8 @@ class TodoWriteTool(Tool):
                 }
 
                 # Build table
-                separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+{'-' * (priority_width + 2)}+"
-                header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} | {'Priority':<{priority_width}} |"
+                separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"
+                header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} |"
 
                 # Log the table
                 logging.info("Updated Investigation Tasks:")
@@ -669,8 +666,7 @@ class TodoWriteTool(Tool):
                     status_display = (
                         f"{status_icons[task.status.value]} {task.status.value}"
                     )
-                    priority_display = task.priority.value.upper()
-                    row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} | {priority_display:<{priority_width}} |"
+                    row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} |"
                     logging.info(row)
 
                 logging.info(separator)
@@ -695,6 +691,7 @@ class TodoWriteTool(Tool):
             )
 
         except Exception as e:
+            logging.exception("error using todowrite tool")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Failed to process tasks: {str(e)}",
