@@ -171,6 +171,10 @@ class DummyLoggingToolset(BasePodLoggingToolset):
         if enabled:
             self.status = ToolsetStatusEnum.ENABLED
 
+    @property
+    def supported_capabilities(self) -> set:
+        return set()  # No advanced capabilities for dummy toolset
+
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         return StructuredToolResult(status=ToolResultStatus.SUCCESS)
 

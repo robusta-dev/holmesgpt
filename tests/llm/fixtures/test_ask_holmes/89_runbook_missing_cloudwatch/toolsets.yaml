@@ -1,0 +1,20 @@
+toolsets:
+  # Enable common toolsets
+  kubernetes/core:
+    enabled: true
+
+  kubernetes/logs:
+    enabled: true
+
+  prometheus/metrics:
+    enabled: true
+
+  grafana/dashboards:
+    enabled: true
+
+  # Explicitly disable all AWS toolsets
+  aws/security:
+    enabled: false
+
+  aws/rds:
+    enabled: false

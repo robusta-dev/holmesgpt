@@ -28,15 +28,18 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
     toolset_name_for_one_liner,
 )
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
+)
+
 from datetime import datetime
 
 from holmes.utils.keygen_utils import generate_random_key
 
-DEFAULT_TIME_SPAN_SECONDS = 3600
-
 
 class DatadogMetricsConfig(DatadogBaseConfig):
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 class BaseDatadogMetricsTool(Tool):
