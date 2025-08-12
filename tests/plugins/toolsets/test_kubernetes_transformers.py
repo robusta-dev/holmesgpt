@@ -441,10 +441,15 @@ class TestKubernetesTransformerPrompts:
         )
 
         toolsets = load_toolsets_from_file(kubernetes_yaml_path)
-        kubernetes_core = next(ts for ts in toolsets if ts.name == "kubernetes/core")
-        kubectl_describe = next(
-            tool for tool in kubernetes_core.tools if tool.name == "kubectl_describe"
+        kubernetes_core = next(
+            (ts for ts in toolsets if ts.name == "kubernetes/core"), None
         )
+        assert kubernetes_core is not None, "kubernetes/core toolset not found"
+        kubectl_describe = next(
+            (tool for tool in kubernetes_core.tools if tool.name == "kubectl_describe"),
+            None,
+        )
+        assert kubectl_describe is not None, "kubectl_describe tool not found"
 
         assert kubectl_describe.transformers is not None
         prompt = kubectl_describe.transformers[0].config["prompt"]
@@ -470,10 +475,15 @@ class TestKubernetesTransformerPrompts:
         )
 
         toolsets = load_toolsets_from_file(kubernetes_logs_yaml_path)
-        kubernetes_logs = next(ts for ts in toolsets if ts.name == "kubernetes/logs")
-        kubectl_logs = next(
-            tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"
+        kubernetes_logs = next(
+            (ts for ts in toolsets if ts.name == "kubernetes/logs"), None
         )
+        assert kubernetes_logs is not None, "kubernetes/logs toolset not found"
+        kubectl_logs = next(
+            (tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"),
+            None,
+        )
+        assert kubectl_logs is not None, "kubectl_logs tool not found"
 
         assert kubectl_logs.transformers is not None
         prompt = kubectl_logs.transformers[0].config["prompt"]
@@ -502,21 +512,30 @@ class TestKubernetesTransformerPrompts:
             "kubernetes.yaml",
         )
         toolsets = load_toolsets_from_file(kubernetes_yaml_path)
-        kubernetes_core = next(ts for ts in toolsets if ts.name == "kubernetes/core")
+        kubernetes_core = next(
+            (ts for ts in toolsets if ts.name == "kubernetes/core"), None
+        )
+        assert kubernetes_core is not None, "kubernetes/core toolset not found"
 
         # kubectl describe should have threshold of 1000
         kubectl_describe = next(
-            tool for tool in kubernetes_core.tools if tool.name == "kubectl_describe"
+            (tool for tool in kubernetes_core.tools if tool.name == "kubectl_describe"),
+            None,
         )
+        assert kubectl_describe is not None, "kubectl_describe tool not found"
         assert kubectl_describe.transformers is not None
         assert kubectl_describe.transformers[0].config["input_threshold"] == 1000
 
         # kubectl get tools should have threshold of 1000
         kubectl_get_ns = next(
-            tool
-            for tool in kubernetes_core.tools
-            if tool.name == "kubectl_get_by_kind_in_namespace"
+            (
+                tool
+                for tool in kubernetes_core.tools
+                if tool.name == "kubectl_get_by_kind_in_namespace"
+            ),
+            None,
         )
+        assert kubectl_get_ns is not None, "kubectl_get_by_kind_in_namespace tool not found"
         assert kubectl_get_ns.transformers is not None
         assert kubectl_get_ns.transformers[0].config["input_threshold"] == 1000
 
@@ -532,11 +551,16 @@ class TestKubernetesTransformerPrompts:
             "kubernetes_logs.yaml",
         )
         toolsets = load_toolsets_from_file(kubernetes_logs_yaml_path)
-        kubernetes_logs = next(ts for ts in toolsets if ts.name == "kubernetes/logs")
+        kubernetes_logs = next(
+            (ts for ts in toolsets if ts.name == "kubernetes/logs"), None
+        )
+        assert kubernetes_logs is not None, "kubernetes/logs toolset not found"
 
         # kubectl logs should have higher threshold of 1000 (logs can be longer)
         kubectl_logs = next(
-            tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"
+            (tool for tool in kubernetes_logs.tools if tool.name == "kubectl_logs"),
+            None,
         )
+        assert kubectl_logs is not None, "kubectl_logs tool not found"
         assert kubectl_logs.transformers is not None
         assert kubectl_logs.transformers[0].config["input_threshold"] == 1000

@@ -134,12 +134,17 @@ class TestAKSTransformers:
         )
 
         toolsets = load_toolsets_from_file(aks_node_health_yaml_path)
-        aks_node_health = next(ts for ts in toolsets if ts.name == "aks/node-health")
+        aks_node_health = next(
+            (ts for ts in toolsets if ts.name == "aks/node-health"), None
+        )
+        assert aks_node_health is not None, "aks/node-health toolset not found"
 
         # Test check_node_status prompt
         check_node_status = next(
-            tool for tool in aks_node_health.tools if tool.name == "check_node_status"
+            (tool for tool in aks_node_health.tools if tool.name == "check_node_status"),
+            None,
         )
+        assert check_node_status is not None, "check_node_status tool not found"
         assert check_node_status.transformers is not None
         prompt = check_node_status.transformers[0].config["prompt"]
         assert "NotReady or in error states" in prompt
@@ -148,8 +153,10 @@ class TestAKSTransformers:
 
         # Test describe_node prompt
         describe_node = next(
-            tool for tool in aks_node_health.tools if tool.name == "describe_node"
+            (tool for tool in aks_node_health.tools if tool.name == "describe_node"),
+            None,
         )
+        assert describe_node is not None, "describe_node tool not found"
         assert describe_node.transformers is not None
         prompt = describe_node.transformers[0].config["prompt"]
         assert "Node conditions and health status" in prompt
@@ -162,12 +169,14 @@ class TestAKSTransformers:
         )
 
         toolsets = load_toolsets_from_file(aks_yaml_path)
-        aks_core = next(ts for ts in toolsets if ts.name == "aks/core")
+        aks_core = next((ts for ts in toolsets if ts.name == "aks/core"), None)
+        assert aks_core is not None, "aks/core toolset not found"
 
         # Test aks_get_cluster prompt
         aks_get_cluster = next(
-            tool for tool in aks_core.tools if tool.name == "aks_get_cluster"
+            (tool for tool in aks_core.tools if tool.name == "aks_get_cluster"), None
         )
+        assert aks_get_cluster is not None, "aks_get_cluster tool not found"
         assert aks_get_cluster.transformers is not None
         prompt = aks_get_cluster.transformers[0].config["prompt"]
         assert "Cluster status, health state" in prompt
@@ -194,19 +203,26 @@ class TestAKSTransformers:
             "aks-node-health.yaml",
         )
         toolsets = load_toolsets_from_file(aks_node_health_yaml_path)
-        aks_node_health = next(ts for ts in toolsets if ts.name == "aks/node-health")
+        aks_node_health = next(
+            (ts for ts in toolsets if ts.name == "aks/node-health"), None
+        )
+        assert aks_node_health is not None, "aks/node-health toolset not found"
 
         # check_node_status should have lower threshold (simpler output)
         check_node_status = next(
-            tool for tool in aks_node_health.tools if tool.name == "check_node_status"
+            (tool for tool in aks_node_health.tools if tool.name == "check_node_status"),
+            None,
         )
+        assert check_node_status is not None, "check_node_status tool not found"
         assert check_node_status.transformers is not None
         assert check_node_status.transformers[0].config["input_threshold"] == 800
 
         # describe_node should have higher threshold (detailed output)
         describe_node = next(
-            tool for tool in aks_node_health.tools if tool.name == "describe_node"
+            (tool for tool in aks_node_health.tools if tool.name == "describe_node"),
+            None,
         )
+        assert describe_node is not None, "describe_node tool not found"
         assert describe_node.transformers is not None
         assert describe_node.transformers[0].config["input_threshold"] == 1200
 
@@ -215,18 +231,22 @@ class TestAKSTransformers:
             current_dir, "..", "..", "..", "holmes", "plugins", "toolsets", "aks.yaml"
         )
         toolsets = load_toolsets_from_file(aks_yaml_path)
-        aks_core = next(ts for ts in toolsets if ts.name == "aks/core")
+        aks_core = next((ts for ts in toolsets if ts.name == "aks/core"), None)
+        assert aks_core is not None, "aks/core toolset not found"
 
         # aks_get_cluster should have highest threshold (very detailed JSON)
         aks_get_cluster = next(
-            tool for tool in aks_core.tools if tool.name == "aks_get_cluster"
+            (tool for tool in aks_core.tools if tool.name == "aks_get_cluster"), None
         )
+        assert aks_get_cluster is not None, "aks_get_cluster tool not found"
         assert aks_get_cluster.transformers is not None
         assert aks_get_cluster.transformers[0].config["input_threshold"] == 1500
 
         # aks_list_clusters_by_rg should have medium threshold (list of clusters)
         aks_list_clusters = next(
-            tool for tool in aks_core.tools if tool.name == "aks_list_clusters_by_rg"
+            (tool for tool in aks_core.tools if tool.name == "aks_list_clusters_by_rg"),
+            None,
         )
+        assert aks_list_clusters is not None, "aks_list_clusters_by_rg tool not found"
         assert aks_list_clusters.transformers is not None
         assert aks_list_clusters.transformers[0].config["input_threshold"] == 1000
