@@ -103,7 +103,7 @@ def test_get_output_format_for_investigation():
         "section 1": "section 1 text",
         "section 2": "section 2 text"
         }
-        ````
+        ```
 
         anything else here""",
             "\n# section 1\nsection 1 text\n\n# section 2\nsection 2 text\n",
