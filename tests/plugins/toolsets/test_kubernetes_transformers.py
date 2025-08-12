@@ -7,6 +7,7 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
+from .transformer_test_utils import ensure_transformers_registered
 
 
 class TestKubernetesYAMLTransformers:
@@ -14,6 +15,9 @@ class TestKubernetesYAMLTransformers:
 
     def test_load_kubernetes_yaml_with_transformers(self):
         """Test loading the actual kubernetes.yaml file with transformers."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Find the actual kubernetes.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         kubernetes_yaml_path = os.path.join(
@@ -82,6 +86,9 @@ class TestKubernetesYAMLTransformers:
 
     def test_load_kubernetes_logs_yaml_with_transformers(self):
         """Test loading the kubernetes_logs.yaml file with transformers."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Find the actual kubernetes_logs.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         kubernetes_logs_yaml_path = os.path.join(
@@ -211,6 +218,9 @@ toolsets:
 
     def test_toolset_level_transformer_inheritance(self):
         """Test that tools inherit transformers from toolset level."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/kubernetes:
@@ -312,6 +322,9 @@ toolsets:
 
     def test_invalid_transformer_handling(self):
         """Test that invalid transformers are handled gracefully."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/invalid:

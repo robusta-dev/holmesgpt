@@ -4,6 +4,7 @@ Unit tests for AKS toolsets with transformer configurations.
 
 import os
 from holmes.plugins.toolsets import load_toolsets_from_file
+from .transformer_test_utils import ensure_transformers_registered
 
 
 class TestAKSTransformers:
@@ -11,6 +12,9 @@ class TestAKSTransformers:
 
     def test_load_aks_node_health_yaml_with_transformers(self):
         """Test loading the aks-node-health.yaml file with transformers."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Find the actual aks-node-health.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         aks_node_health_yaml_path = os.path.join(
@@ -64,6 +68,9 @@ class TestAKSTransformers:
 
     def test_load_aks_core_yaml_with_transformers(self):
         """Test loading the aks.yaml file with transformers."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Find the actual aks.yaml file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         aks_yaml_path = os.path.join(
@@ -110,6 +117,9 @@ class TestAKSTransformers:
 
     def test_aks_transformer_prompts(self):
         """Test that AKS tools have appropriate transformer prompts."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Test AKS node health prompts
         current_dir = os.path.dirname(os.path.abspath(__file__))
         aks_node_health_yaml_path = os.path.join(
@@ -166,6 +176,9 @@ class TestAKSTransformers:
 
     def test_aks_transformer_thresholds(self):
         """Test that AKS tools have appropriate transformer thresholds."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         # Load both YAML files
         current_dir = os.path.dirname(os.path.abspath(__file__))
 

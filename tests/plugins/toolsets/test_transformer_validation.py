@@ -7,6 +7,7 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
+from .transformer_test_utils import ensure_transformers_registered
 
 
 class TestTransformerValidationAndConversion:
@@ -14,6 +15,9 @@ class TestTransformerValidationAndConversion:
 
     def test_malformed_transformer_dict_tool_level(self):
         """Test that malformed transformer dicts at tool level are handled gracefully."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/malformed:
@@ -55,6 +59,9 @@ toolsets:
 
     def test_mixed_valid_invalid_transformers_toolset_level(self):
         """Test mixing valid and invalid transformers at toolset level."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/mixed:
@@ -106,6 +113,9 @@ toolsets:
 
     def test_mixed_valid_invalid_transformers_tool_level(self):
         """Test mixing valid and invalid transformers at tool level."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/mixed_tool:
@@ -149,6 +159,9 @@ toolsets:
 
     def test_inheritance_with_mixed_validation_states(self):
         """Test inheritance when toolset has valid transformers and tool has invalid ones."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/inheritance_mixed:
@@ -233,6 +246,9 @@ toolsets:
 
     def test_empty_transformer_lists_after_validation(self):
         """Test behavior when all transformers are invalid and lists become empty."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/all_invalid:
@@ -275,6 +291,9 @@ toolsets:
 
     def test_transformer_conversion_preserves_config_structure(self):
         """Test that the dict-to-Transformer conversion preserves complex config structures."""
+        # Ensure transformer registry is properly initialized
+        ensure_transformers_registered()
+
         yaml_content = """
 toolsets:
   test/complex_config:
