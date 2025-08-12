@@ -18,6 +18,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
     process_time_parameters,
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
 )
 from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     OpenSearchLoggingConfig,
@@ -99,7 +100,7 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
                 start_time=start_time,
                 end_time=end_time,
                 match=params.filter,
-                limit=params.limit,
+                limit=params.limit or DEFAULT_LOG_LIMIT,
             )
 
             headers = {"Content-Type": "application/json"}

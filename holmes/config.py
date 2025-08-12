@@ -18,6 +18,7 @@ from holmes.plugins.runbooks import (
     load_runbook_catalog,
     load_runbooks_from_file,
 )
+from holmes.plugins.toolsets.utils import parse_time_duration
 
 # Source plugin imports moved to their respective create methods to speed up startup
 if TYPE_CHECKING:
@@ -74,6 +75,9 @@ class Config(RobustaBaseConfig):
     model: Optional[str] = "gpt-4o"
     max_steps: int = 10
     cluster_name: Optional[str] = None
+    since: Optional[str] = (
+        None  # Time period for fetching historical data (e.g., '7d', '24h')
+    )
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -139,6 +143,20 @@ class Config(RobustaBaseConfig):
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+        # Handle since from config file or CLI
+        # This sets an environment variable that toolsets read during initialization
+        # Priority: CLI flag > Config file > Environment variable > Default
+        if self.since:
+            try:
+                seconds = parse_time_duration(self.since)
+                # Always set from CLI/Config, overriding any environment variable
+                os.environ["HOLMES_DEFAULT_TIME_SPAN_SECONDS"] = str(seconds)
+                logging.debug(
+                    f"Set default time span to {seconds} seconds from since: {self.since}"
+                )
+            except ValueError as e:
+                logging.warning(f"Invalid since in config: {e}")
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -506,6 +524,7 @@ class SourceFactory(BaseModel):
         ticket_username: Optional[str],
         ticket_api_key: Optional[str],
         ticket_id: Optional[str],
+        since: Optional[str] = None,
     ) -> TicketSource:
         supported_sources = [s.value for s in SupportedTicketSources]
         if source not in supported_sources:
@@ -525,6 +544,7 @@ class SourceFactory(BaseModel):
                 jira_query=None,
                 custom_toolsets=None,
                 custom_runbooks=None,
+                since=since,
             )
 
             if not (
@@ -558,6 +578,7 @@ class SourceFactory(BaseModel):
                 pagerduty_incident_key=None,
                 custom_toolsets=None,
                 custom_runbooks=None,
+                since=since,
             )
 
             if not (

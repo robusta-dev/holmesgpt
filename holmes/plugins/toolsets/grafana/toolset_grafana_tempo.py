@@ -34,8 +34,6 @@ from holmes.plugins.toolsets.utils import (
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
-ONE_HOUR_IN_SECONDS = 3600
-
 
 class GrafanaTempoLabelsConfig(BaseModel):
     pod: str = "k8s.pod.name"
@@ -226,7 +224,7 @@ class GetTempoTags(Tool):
         start, end = process_timestamps_to_int(
             start=params.get("start_datetime"),
             end=params.get("end_datetime"),
-            default_time_span_seconds=8 * ONE_HOUR_IN_SECONDS,
+            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
 
         base_url = get_base_url(self._toolset.grafana_config)

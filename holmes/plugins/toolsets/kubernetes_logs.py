@@ -20,6 +20,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingConfig,
     PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix_ms
 
@@ -598,11 +599,13 @@ def add_metadata(
 
     # Display section
     metadata_lines.append("")
-    hit_limit = params.limit is not None and params.limit < filtered_count_before_limit
-    if hit_limit and params.limit is not None:
-        logs_omitted = filtered_count_before_limit - params.limit
+    effective_limit = params.limit if params.limit is not None else DEFAULT_LOG_LIMIT
+    hit_limit = effective_limit < filtered_count_before_limit
+    if hit_limit:
+        logs_omitted = filtered_count_before_limit - effective_limit
+        limit_note = " (default)" if params.limit is None else ""
         metadata_lines.append(
-            f"Display: Showing latest {params.limit:,} of {filtered_count_before_limit:,} filtered logs ({logs_omitted:,} omitted)"
+            f"Display: Showing latest {effective_limit:,}{limit_note} of {filtered_count_before_limit:,} filtered logs ({logs_omitted:,} omitted)"
         )
     else:
         if filtered_count_before_limit == total_count:
@@ -786,8 +789,10 @@ def filter_logs(
     # Track count before limiting
     filtered_count_before_limit = len(filtered_logs)
 
-    if params.limit and params.limit < len(filtered_logs):
-        filtered_logs = filtered_logs[-params.limit :]
+    # Apply limit (use default if not specified)
+    effective_limit = params.limit if params.limit is not None else DEFAULT_LOG_LIMIT
+    if effective_limit < len(filtered_logs):
+        filtered_logs = filtered_logs[-effective_limit:]
 
     return (
         filtered_logs,

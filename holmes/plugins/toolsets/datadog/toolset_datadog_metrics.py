@@ -32,7 +32,6 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
     DEFAULT_LOG_LIMIT,
 )
-
 from datetime import datetime
 
 from holmes.utils.keygen_utils import generate_random_key

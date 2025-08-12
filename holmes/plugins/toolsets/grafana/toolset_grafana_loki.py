@@ -14,6 +14,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
@@ -94,7 +95,7 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             label_value=params.pod_name,
             start=start,
             end=end,
-            limit=params.limit or 2000,
+            limit=params.limit or DEFAULT_LOG_LIMIT,
         )
         if logs:
             logs.sort(key=lambda x: x["timestamp"])

@@ -8,6 +8,8 @@ Data overflow causes important information to be truncated. See [#437](https://g
 
 - Use specific namespaces and time ranges
 - Target individual components instead of cluster-wide queries
+- Use `--since` flag to limit time range (e.g., `--since 1h` for last hour)
+- Configure default time span with `HOLMES_DEFAULT_TIME_SPAN_SECONDS` environment variable
 
 ## 2. Missing Data Access
 
