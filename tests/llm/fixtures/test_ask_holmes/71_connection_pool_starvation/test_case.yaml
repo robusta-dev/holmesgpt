@@ -2,6 +2,7 @@ user_prompt: "Whats wrong with backend-service pod in namespace-71?"
 tags:
   - logs
   - context_window
+  - medium
 expected_output:
   - Backend service unable to handle requests due to database connection pool exhausted at 100/100 connections causing timeouts
 before_test: |

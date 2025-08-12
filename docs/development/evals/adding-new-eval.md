@@ -146,6 +146,7 @@ Port forwards are:
 - Run regardless of `--skip-setup` or `--skip-cleanup` flags
 
 **Important notes:**
+
 - Use unique local ports across all tests to avoid conflicts
 - Port forwards persist for the entire test session
 - If a port is already in use, the test will fail with helpful debugging information

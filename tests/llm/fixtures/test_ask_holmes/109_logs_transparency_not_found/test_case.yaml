@@ -20,6 +20,3 @@ before_test: |
 
 after_test: |
   kubectl delete namespace app-109 --force --grace-period=0
-
-evaluation:
-  correctness: 1

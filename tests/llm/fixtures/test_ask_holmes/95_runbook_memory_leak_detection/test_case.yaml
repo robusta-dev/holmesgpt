@@ -3,7 +3,6 @@ user_prompt: "Debug memory issues for my Python application orca in namespace ap
 tags:
   - runbooks
   - toolset-limitation
-  - hard
 
 expected_output: |
   The orca application has a memory leak caused by:
