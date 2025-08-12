@@ -1,0 +1,187 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: consumer-script
+  namespace: app-145
+type: Opaque
+stringData:
+  consumer.py: |
+    import json
+    import time
+    import logging
+    import gc
+    from datetime import datetime
+    from kafka import KafkaConsumer
+    from collections import defaultdict
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    # Wait for Kafka and producer to start
+    time.sleep(20)
+
+    class AnalyticsProcessor:
+        def __init__(self):
+            self.processed_count = 0
+            self.consumer = None
+
+            # MEMORY LEAK: These data structures grow without bounds
+            self.event_cache = []  # Stores all processed events
+            self.user_sessions = defaultdict(list)  # Maps user to all their events
+            self.aggregated_metrics = defaultdict(lambda: defaultdict(list))  # Nested structure that grows
+            self.page_view_history = []  # Keeps all page views
+
+        def connect(self):
+            """Connect to Kafka"""
+            try:
+                self.consumer = KafkaConsumer(
+                    'user-events',
+                    bootstrap_servers=['kafka.app-145.svc.cluster.local:9092'],
+                    group_id='analytics-processor',
+                    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+                    enable_auto_commit=True,
+                    auto_commit_interval_ms=5000,
+                    auto_offset_reset='earliest',
+                    max_poll_records=100,  # Process in larger batches
+                    fetch_min_bytes=1024,
+                    fetch_max_wait_ms=500
+                )
+                logger.info("Connected to Kafka successfully")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to connect to Kafka: {e}")
+                return False
+
+        def process_event(self, event):
+            """Process analytics event - contains memory leak"""
+            try:
+                user_id = event.get('user_id')
+                event_type = event.get('event_type')
+                timestamp = event.get('timestamp')
+
+                # MEMORY LEAK 1: Append to ever-growing cache
+                self.event_cache.append(event)
+
+                # MEMORY LEAK 2: Store all events per user
+                self.user_sessions[user_id].append({
+                    'event': event,
+                    'processed_at': datetime.now().isoformat(),
+                    'metadata': event.copy()  # Duplicate data
+                })
+
+                # MEMORY LEAK 3: Build complex nested aggregations
+                self.aggregated_metrics[user_id][event_type].append({
+                    'timestamp': timestamp,
+                    'full_event': event,
+                    'derived_metrics': {
+                        'processing_time': time.time(),
+                        'event_size': len(json.dumps(event)),
+                        'enriched_data': event.copy()
+                    }
+                })
+
+                # MEMORY LEAK 4: Keep page view history with full event data
+                if event_type == 'page_view':
+                    self.page_view_history.append({
+                        'user': user_id,
+                        'page': event.get('page'),
+                        'full_event': event,
+                        'behavior_data': event.get('behavior_data', {}),
+                        'recommendations': event.get('recommendations', [])
+                    })
+
+                self.processed_count += 1
+
+                # Log progress but don't clear any data structures
+                if self.processed_count % 100 == 0:
+                    cache_size = len(self.event_cache)
+                    users_tracked = len(self.user_sessions)
+                    page_views = len(self.page_view_history)
+
+                    logger.info(f"Processed {self.processed_count} events")
+                    logger.info(f"Cache size: {cache_size}, Users: {users_tracked}, Page views: {page_views}")
+
+                    # Log memory usage hint (but don't fix the leak)
+                    import sys
+                    total_size = sys.getsizeof(self.event_cache) + \
+                                sys.getsizeof(self.user_sessions) + \
+                                sys.getsizeof(self.aggregated_metrics)
+                    logger.info(f"Approximate memory usage of data structures: {total_size / 1024 / 1024:.2f} MB")
+
+                return True
+
+            except Exception as e:
+                logger.error(f"Error processing event: {e}")
+                return False
+
+        def run(self):
+            """Main consumer loop"""
+            if not self.connect():
+                logger.error("Failed to connect, exiting")
+                return
+
+            logger.info("Starting analytics processor - consuming from 'user-events' topic")
+
+            try:
+                for message in self.consumer:
+                    try:
+                        event = message.value
+                        self.process_event(event)
+
+                    except Exception as e:
+                        logger.error(f"Error processing message: {e}")
+
+            except KeyboardInterrupt:
+                logger.info("Shutting down consumer")
+            except Exception as e:
+                logger.error(f"Consumer crashed: {e}")
+            finally:
+                if self.consumer:
+                    self.consumer.close()
+                    logger.info(f"Consumer closed. Total processed: {self.processed_count}")
+                    logger.info(f"Final cache size: {len(self.event_cache)}")
+
+    if __name__ == "__main__":
+        processor = AnalyticsProcessor()
+        processor.run()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-consumer
+  namespace: app-145
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-consumer
+  template:
+    metadata:
+      labels:
+        app: analytics-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/consumer.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"  # Low limit to trigger OOM faster
+              cpu: "200m"
+      volumes:
+        - name: script
+          secret:
+            secretName: consumer-script

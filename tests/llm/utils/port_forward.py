@@ -3,6 +3,7 @@ import time
 from typing import List, Dict, Any, Optional
 import signal
 import os
+import re
 
 from tests.llm.utils.test_case_utils import HolmesTestCase
 from tests.llm.utils.setup_cleanup import log
@@ -201,7 +202,17 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
     conflicts = []
     for port, test_ids in port_usage.items():
         if len(test_ids) > 1:
-            conflicts.append((port, test_ids))
+            # Check if all test_ids are variants of the same test (e.g., test[0], test[1])
+            # Extract base test name by removing variant suffix [0], [1], etc.
+            base_names = set()
+            for tid in test_ids:
+                # Remove variant suffix if present
+                base_name = re.sub(r"\[\d+\]$", "", tid)
+                base_names.add(base_name)
+
+            # Only report as conflict if they're different base tests
+            if len(base_names) > 1:
+                conflicts.append((port, test_ids))
 
     if conflicts:
         error_msg = "\n🚨 Port conflicts detected! Multiple tests are trying to use the same local port:\n"
