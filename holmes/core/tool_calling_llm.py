@@ -204,7 +204,7 @@ class ToolCallingLLM:
         self, tool_executor: ToolExecutor, max_steps: int, llm: LLM, tracer=None
     ):
         self.tool_executor = tool_executor
-        self.max_steps = max_steps
+        self.max_steps = 40  ## TODO Arik - remove this
         self.tracer = tracer
         self.llm = llm
 
