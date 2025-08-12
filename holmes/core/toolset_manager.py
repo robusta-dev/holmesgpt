@@ -40,7 +40,7 @@ class ToolsetCache:
     def __init__(self, cache_path: Path):
         self.cache_path = cache_path
 
-    def read(self) -> Dict:
+    def _read(self) -> Dict:
         """Read entire cache including metadata"""
         if not self.cache_path.exists():
             return {}
@@ -62,7 +62,7 @@ class ToolsetCache:
 
     def read_toolsets(self) -> Dict[str, Dict]:
         """Read just the toolset data from cache"""
-        data = self.read()
+        data = self._read()
         return data.get("toolsets", {})
 
     def write(self, toolsets: List[Toolset], content_hash: str):
@@ -88,6 +88,27 @@ class ToolsetCache:
         with open(self.cache_path, "w") as f:
             json.dump(cache_data, f, indent=2)
 
+    def get_content_hash(self, config: Dict, custom_paths: List[Path]) -> str:
+        """Calculate hash of all file contents that contribute to toolsets"""
+        content_parts = []
+
+        # Include config in hash (for overrides)
+        if config:
+            content_parts.append(json.dumps(config, sort_keys=True))
+
+        # Include custom file contents
+        for path in custom_paths:
+            if path.exists():
+                try:
+                    content_parts.append(f"{path}:{path.read_text()}")
+                except (OSError, IOError):
+                    # If we can't read, include path only
+                    content_parts.append(str(path))
+
+        # Hash all content together
+        combined = "\n".join(content_parts)
+        return hashlib.md5(combined.encode()).hexdigest()
+
     def is_stale_for_content(
         self, content_hash: str, max_age_seconds: int = 3600
     ) -> bool:
@@ -95,7 +116,7 @@ class ToolsetCache:
         if not self.cache_path.exists():
             return True
 
-        data = self.read()
+        data = self._read()
         if not data:
             return True
 
@@ -118,7 +139,7 @@ class ToolsetCache:
 
 
 class ToolsetRegistry:
-    """Simple registry that handles ordering and merging"""
+    """Registry that handles toolset loading, merging, and filtering"""
 
     def __init__(self):
         self.toolsets: Dict[str, Toolset] = {}
@@ -128,35 +149,80 @@ class ToolsetRegistry:
         for t in toolsets:
             self.toolsets[t.name] = t
 
-    def update(self, overrides: Dict[str, Dict]):
-        """Apply partial updates to existing toolsets"""
-        for name, config in overrides.items():
+    def update_from_config(self, config: Dict[str, Dict]):
+        """Update toolsets from configuration dictionary"""
+        for name, toolset_config in config.items():
             if name in self.toolsets:
-                # Create a temporary toolset with the override config to use override_with
-                from holmes.plugins.toolsets import load_toolsets_from_config
-
+                # Override existing toolset
                 override_toolsets = load_toolsets_from_config(
-                    {name: config}, strict_check=False
+                    {name: toolset_config}, strict_check=False
                 )
-                if override_toolsets:
-                    self.toolsets[name].override_with(override_toolsets[0])
-                else:
-                    # If we can't create a toolset, apply the config directly
-                    for field, value in config.items():
-                        if hasattr(self.toolsets[name], field) and value not in (
-                            None,
-                            [],
-                            {},
-                            "",
-                        ):
-                            setattr(self.toolsets[name], field, value)
+                if not override_toolsets:
+                    logging.warning(
+                        f"Skipping invalid override config for toolset '{name}'"
+                    )
+                    continue
+                self.toolsets[name].override_with(override_toolsets[0])
             else:
-                # Create new toolset from config
-                from holmes.plugins.toolsets import load_toolsets_from_config
+                # Create new toolset
+                new_toolsets = load_toolsets_from_config(
+                    {name: toolset_config}, strict_check=True
+                )
+                if not new_toolsets:
+                    logging.warning(f"Skipping invalid config for new toolset '{name}'")
+                    continue
+                self.toolsets[name] = new_toolsets[0]
 
-                toolsets = load_toolsets_from_config({name: config}, strict_check=True)
-                if toolsets:
-                    self.toolsets[name] = toolsets[0]
+    def load_from_yaml_file(self, file_path: Path) -> set:
+        """Load toolsets from a YAML file and return the names that were configured"""
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"toolset file {file_path} does not exist")
+
+        try:
+            parsed_yaml = benedict(str(file_path))
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load toolsets from {file_path}, error: {e}"
+            ) from e
+
+        toolsets_config = parsed_yaml.get("toolsets", {})
+        mcp_config = parsed_yaml.get("mcp_servers", {})
+
+        # Mark MCP servers with their type
+        for server_config in mcp_config.values():
+            server_config["type"] = ToolsetType.MCP.value
+
+        # Add path info to toolset configs
+        for toolset_config in toolsets_config.values():
+            toolset_config["path"] = str(file_path)
+
+        # Merge both configs
+        toolsets_config.update(mcp_config)
+
+        if not toolsets_config:
+            raise ValueError(
+                f"No 'toolsets' or 'mcp_servers' key found in: {file_path}"
+            )
+
+        # Split into builtin overrides and new custom toolsets
+        builtin_names = set(self.toolsets.keys())
+        builtin_overrides = {
+            k: v for k, v in toolsets_config.items() if k in builtin_names
+        }
+        custom_toolsets = {
+            k: v for k, v in toolsets_config.items() if k not in builtin_names
+        }
+
+        # Apply builtin overrides (partial updates allowed)
+        if builtin_overrides:
+            self.update_from_config(builtin_overrides)
+
+        # Add new custom toolsets (all fields required)
+        if custom_toolsets:
+            new_toolsets = load_toolsets_from_config(custom_toolsets, strict_check=True)
+            self.add(new_toolsets)
+
+        return set(toolsets_config.keys())
 
     def get_by_tags(self, tags: List[ToolsetTag]) -> List[Toolset]:
         """Filter toolsets by tags"""
@@ -211,8 +277,6 @@ class PrerequisiteChecker:
 
 
 class ToolsetManager:
-    """Simple orchestrator that handles all coordination"""
-
     def __init__(
         self,
         tags: List[ToolsetTag],
@@ -224,17 +288,17 @@ class ToolsetManager:
         suppress_logging: bool = False,
     ):
         """
-        Clean constructor following the design document.
-
         Args:
             tags: Toolset tags to filter (CLI_TOOL_TAGS or SERVER_TOOL_TAGS)
             config: Combined toolsets and mcp_servers configuration
             dal: Database access layer for server toolsets
             custom_toolset_paths: Paths to custom toolset YAML files
             cache_path: Path for cache file (defaults to DEFAULT_TOOLSET_STATUS_LOCATION)
-            default_enabled: Whether to enable all toolsets by default (True for CLI, False for Server)
+            default_enabled: Whether to enable all toolsets by default (assuming they pass prequisites check)
             suppress_logging: Whether to suppress logging output
         """
+        cache_path = cache_path or Path(DEFAULT_TOOLSET_STATUS_LOCATION)
+
         self.tags = tags
         self.config = config or {}
         self.dal = dal
@@ -242,12 +306,9 @@ class ToolsetManager:
         self.default_enabled = default_enabled
         self.suppress_logging = suppress_logging
 
-        # Support magic file location for containers
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             self.custom_paths.append(Path(CUSTOM_TOOLSET_LOCATION))
 
-        # Initialize components
-        cache_path = cache_path or Path(DEFAULT_TOOLSET_STATUS_LOCATION)
         self.cache = ToolsetCache(cache_path)
         self.checker = PrerequisiteChecker()
         self.registry = ToolsetRegistry()
@@ -259,120 +320,46 @@ class ToolsetManager:
         """Temporarily control logging output"""
         self.suppress_logging = suppress
 
-    def _get_content_hash(self) -> str:
-        """Calculate hash of all file contents that contribute to toolsets"""
-        content_parts = []
-
-        # Include config in hash (for overrides)
-        if self.config:
-            content_parts.append(json.dumps(self.config, sort_keys=True))
-
-        # Include custom file contents
-        for path in self.custom_paths:
-            if path.exists():
-                try:
-                    content_parts.append(f"{path}:{path.read_text()}")
-                except (OSError, IOError):
-                    # If we can't read, include path only
-                    content_parts.append(str(path))
-
-        # Hash all content together
-        combined = "\n".join(content_parts)
-        return hashlib.md5(combined.encode()).hexdigest()
-
     def _load_definitions(self):
-        """Load all definitions once during initialization"""
-
+        """Load all toolset definitions"""
         # 1. Load built-in toolsets
         self.registry.add(load_builtin_toolsets(self.dal))
 
         # 2. Apply config overrides
+        configured_names = set()
         if self.config:
             # Handle both old-style single dict and split toolsets/mcp_servers
             if "toolsets" in self.config or "mcp_servers" in self.config:
                 # New style - split config
                 toolsets_config = self.config.get("toolsets", {})
-                self.registry.update(toolsets_config)
+                if toolsets_config:
+                    self.registry.update_from_config(toolsets_config)
+                    configured_names.update(toolsets_config.keys())
 
-                # MCP servers with type set (deep copy to avoid mutating config)
-                mcp_servers = copy.deepcopy(self.config.get("mcp_servers", {}))
-                for name, server_config in mcp_servers.items():
-                    server_config["type"] = ToolsetType.MCP.value
-                self.registry.update(mcp_servers)
+                # MCP servers with type set
+                mcp_servers = self.config.get("mcp_servers", {})
+                if mcp_servers:
+                    # Deep copy to avoid mutating original config
+                    mcp_config = copy.deepcopy(mcp_servers)
+                    for server_config in mcp_config.values():
+                        server_config["type"] = ToolsetType.MCP.value
+                    self.registry.update_from_config(mcp_config)
+                    configured_names.update(mcp_config.keys())
             else:
                 # Old style - all in one dict
-                self.registry.update(self.config)
+                self.registry.update_from_config(self.config)
+                configured_names.update(self.config.keys())
 
-        # 3. Add custom toolsets from files
-        # Track which toolsets were explicitly configured (should not get default_enabled)
-        configured_from_files = set()
+        # 3. Load custom toolsets from files
         for path in self.custom_paths:
-            # Load and properly handle as overrides or new toolsets
-            names = self._load_and_apply_toolsets_from_path(path)
-            configured_from_files.update(names)
+            names = self.registry.load_from_yaml_file(path)
+            configured_names.update(names)
 
-        # 4. Apply default enabled behavior
+        # 4. Apply default_enabled to non-configured toolsets
         if self.default_enabled:
-            configured_names = set()
-            if "toolsets" in self.config:
-                configured_names.update(self.config["toolsets"].keys())
-            if "mcp_servers" in self.config:
-                configured_names.update(self.config["mcp_servers"].keys())
-            # Also include names from custom files
-            configured_names.update(configured_from_files)
-
             for toolset in self.registry.toolsets.values():
                 if toolset.name not in configured_names:
                     toolset.enabled = True
-
-    def _load_and_apply_toolsets_from_path(self, toolset_path: Path) -> set:
-        """Load toolsets from a YAML file and return the names"""
-        if not os.path.isfile(toolset_path):
-            raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
-
-        try:
-            parsed_yaml = benedict(str(toolset_path))
-        except Exception as e:
-            raise ValueError(
-                f"Failed to load toolsets from {toolset_path}, error: {e}"
-            ) from e
-
-        toolsets_config = parsed_yaml.get("toolsets", {})
-        mcp_config = parsed_yaml.get("mcp_servers", {})
-
-        for server_config in mcp_config.values():
-            server_config["type"] = ToolsetType.MCP.value
-
-        for toolset_config in toolsets_config.values():
-            toolset_config["path"] = str(toolset_path)
-
-        toolsets_config.update(mcp_config)
-
-        if not toolsets_config:
-            raise ValueError(
-                f"No 'toolsets' or 'mcp_servers' key found in: {toolset_path}"
-            )
-
-        # Split into builtin overrides and new custom toolsets
-        builtin_names = set(self.registry.toolsets.keys())
-        builtin_overrides = {
-            k: v for k, v in toolsets_config.items() if k in builtin_names
-        }
-        custom_toolsets = {
-            k: v for k, v in toolsets_config.items() if k not in builtin_names
-        }
-
-        # Apply builtin overrides using update (partial updates allowed)
-        if builtin_overrides:
-            self.registry.update(builtin_overrides)
-
-        # Add new custom toolsets with strict_check=True (all fields required)
-        if custom_toolsets:
-            new_toolsets = load_toolsets_from_config(custom_toolsets, strict_check=True)
-            self.registry.add(new_toolsets)
-
-        # Return all names that were configured in this file
-        return set(toolsets_config.keys())
 
     def load(
         self,
@@ -390,7 +377,6 @@ class ToolsetManager:
         Returns:
             List of toolsets filtered by tags and status
         """
-        # Get relevant toolsets (all definitions already loaded)
         relevant = self.registry.get_by_tags(self.tags)
 
         # Filter out explicitly disabled (unless diagnostics mode)
@@ -398,7 +384,7 @@ class ToolsetManager:
             relevant = [t for t in relevant if t.enabled]
 
         # Calculate content hash for cache validation
-        content_hash = self._get_content_hash()
+        content_hash = self.cache.get_content_hash(self.config, self.custom_paths)
 
         # Either use cache or check prerequisites
         if use_cache and not self.cache.is_stale_for_content(content_hash):
