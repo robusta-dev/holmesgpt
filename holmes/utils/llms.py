@@ -15,6 +15,6 @@ def model_matches_list(model: str, model_list: List[str]) -> bool:
         True if the model matches any pattern in the list, False otherwise
     """
     for pattern in model_list:
-        if fnmatch.fnmatch(model, pattern):
+        if fnmatch.fnmatchcase(model, pattern):
             return True
     return False
