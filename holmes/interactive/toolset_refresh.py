@@ -1,5 +1,6 @@
 """Toolset refresh management for interactive mode."""
 
+import json
 import logging
 import os
 import threading
@@ -8,8 +9,8 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, Set, List, Tuple
 
 from holmes.core.tools import ToolsetStatusEnum
-from holmes.core.toolset_manager import CLI_TOOL_TAGS
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.toolset_manager import DEFAULT_TOOLSET_STATUS_LOCATION
 
 
 @dataclass
@@ -35,29 +36,20 @@ class RefreshResult:
 class ToolsetRefreshManager:
     """Manages background toolset refresh operations."""
 
-    def __init__(self, config, ai, status_bar=None):
-        self.config = config
+    def __init__(self, ai, toolset_manager, status_bar=None, loaded_from_cache=False):
         self.ai = ai
+        self.toolset_manager = toolset_manager
         self.status_bar = status_bar
         self.refreshing = False
         self.refresh_thread = None
         self.progress = RefreshProgress()
+        # Track if initial load was from cache
+        self.loaded_from_cache = loaded_from_cache
 
     def should_refresh(self) -> bool:
         """Check if background refresh should be started."""
-        if not self.config:
-            return False
-
-        # Check if cache file exists
-        cache_location = self.config.toolset_manager.toolset_status_location
-        if not os.path.exists(cache_location):
-            return False
-
-        # Check if we loaded from cache
-        loaded_from_cache = getattr(
-            self.config.toolset_manager, "_loaded_from_cache", True
-        )
-        return loaded_from_cache
+        # Only refresh if we actually loaded from cache
+        return self.loaded_from_cache
 
     def format_progress_message(self) -> Tuple[str, Optional[str]]:
         """Format the current progress for spinner display."""
@@ -145,31 +137,18 @@ class ToolsetRefreshManager:
         def refresh_worker():
             try:
                 # Track what was enabled before refresh
-                enabled_before = set()
-                if hasattr(self.ai, "tool_executor") and hasattr(
-                    self.ai.tool_executor, "toolsets"
-                ):
-                    enabled_before = set(
-                        ts.name
-                        for ts in self.ai.tool_executor.toolsets
-                        if ts.enabled and ts.status == ToolsetStatusEnum.ENABLED
-                    )
-
-                # Suppress logging during background refresh
-                self.config.toolset_manager.set_suppress_logging(True)
-
-                # Perform the refresh
-                self.config.toolset_manager.refresh_toolset_status(
-                    dal=None,
-                    enable_all_toolsets=True,
-                    toolset_tags=CLI_TOOL_TAGS,
-                    progress_callback=progress_callback,
+                enabled_before = set(
+                    ts.name
+                    for ts in self.ai.tool_executor.toolsets
+                    if ts.enabled and ts.status == ToolsetStatusEnum.ENABLED
                 )
 
-                # Reload toolsets after refresh
-                refreshed_toolsets = self.config.toolset_manager.list_console_toolsets(
-                    refresh_status=False,  # We just refreshed
-                    skip_prerequisite_check=True,  # Already checked during refresh
+                # Suppress logging during background refresh
+                self.toolset_manager.set_suppress_logging(True)
+
+                # Perform the refresh
+                refreshed_toolsets = self.toolset_manager.load(
+                    use_cache=False, progress_callback=progress_callback
                 )
 
                 # Update the tool executor with refreshed toolsets
@@ -205,7 +184,7 @@ class ToolsetRefreshManager:
             finally:
                 self.refreshing = False
                 # Restore logging
-                self.config.toolset_manager.set_suppress_logging(False)
+                self.toolset_manager.set_suppress_logging(False)
 
         # Start refresh in background thread
         self.refresh_thread = threading.Thread(target=refresh_worker, daemon=True)
@@ -213,38 +192,32 @@ class ToolsetRefreshManager:
 
     def get_cache_info(self) -> Optional[Dict]:
         """Get information about the toolset cache."""
-        if not self.config or not hasattr(
-            self.config.toolset_manager, "_loaded_from_cache"
-        ):
+        cache_timestamp = self._read_cache_timestamp()
+        if not cache_timestamp:
             return None
 
-        if not self.config.toolset_manager._loaded_from_cache:
-            return None
-
-        # Get toolset counts
         toolsets = self.ai.tool_executor.toolsets
-        enabled_toolsets = [
-            t for t in toolsets if t.enabled and t.status == ToolsetStatusEnum.ENABLED
-        ]
-        disabled_toolsets = [
-            t
-            for t in toolsets
-            if not t.enabled or t.status != ToolsetStatusEnum.ENABLED
-        ]
-
-        # Calculate cache age
-        cache_timestamp = getattr(self.config.toolset_manager, "_cache_timestamp", 0)
-        if cache_timestamp:
-            cache_age_seconds = time.time() - cache_timestamp
-            cache_age_str = self._format_time_ago(cache_age_seconds)
-        else:
-            cache_age_str = "unknown time ago"
+        enabled_count = sum(
+            1 for t in toolsets if t.enabled and t.status == ToolsetStatusEnum.ENABLED
+        )
 
         return {
-            "num_enabled": len(enabled_toolsets),
-            "num_disabled": len(disabled_toolsets),
-            "cache_age": cache_age_str,
+            "num_enabled": enabled_count,
+            "num_disabled": len(toolsets) - enabled_count,
+            "cache_age": self._format_time_ago(time.time() - cache_timestamp),
         }
+
+    @staticmethod
+    def _read_cache_timestamp() -> Optional[float]:
+        """Read timestamp from cache file. Returns None if cache doesn't exist."""
+        if not os.path.exists(DEFAULT_TOOLSET_STATUS_LOCATION):
+            return None
+        try:
+            with open(DEFAULT_TOOLSET_STATUS_LOCATION) as f:
+                cache_data = json.load(f)
+                return cache_data.get("_timestamp", 0) or None
+        except (json.JSONDecodeError, IOError):
+            return None
 
     @staticmethod
     def _format_time_ago(seconds: float) -> str:

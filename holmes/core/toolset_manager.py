@@ -1,11 +1,18 @@
-import concurrent.futures
+import copy
+import hashlib
 import json
 import logging
 import os
 from typing import Any, List, Optional, TYPE_CHECKING
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Callable, Dict
+
+if TYPE_CHECKING:
+    from holmes.config import Config
 
 from benedict import benedict
-from pydantic import FilePath
 
 from holmes.core.config import config_path_dir
 from holmes.core.supabase_dal import SupabaseDal
@@ -18,605 +25,457 @@ if TYPE_CHECKING:
 
 DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
 
-# Global constants for toolset tags
 CLI_TOOL_TAGS = [ToolsetTag.CORE, ToolsetTag.CLI]
 SERVER_TOOL_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
 
+def cache_exists() -> bool:
+    """Check if the toolset cache file exists."""
+    return os.path.exists(DEFAULT_TOOLSET_STATUS_LOCATION)
+
+
+class ToolsetCache:
+    """Cache for toolset status and metadata after prerequisite checks"""
+
+    def __init__(self, cache_path: Path):
+        self.cache_path = cache_path
+
+    def read(self) -> Dict:
+        """Read entire cache including metadata"""
+        if not self.cache_path.exists():
+            return {}
+        try:
+            with open(self.cache_path) as f:
+                data = json.load(f)
+                # Check if it's old format (array or plain dict without metadata)
+                if (
+                    isinstance(data, list)
+                    or not isinstance(data, dict)
+                    or "_content_hash" not in data
+                ):
+                    logging.info("Old cache format detected, will refresh")
+                    return {}
+                return data
+        except (json.JSONDecodeError, ValueError) as e:
+            logging.warning(f"Corrupted cache file, returning empty: {e}")
+            return {}
+
+    def read_toolsets(self) -> Dict[str, Dict]:
+        """Read just the toolset data from cache"""
+        data = self.read()
+        return data.get("toolsets", {})
+
+    def write(self, toolsets: List[Toolset], content_hash: str):
+        """Write cache with content hash"""
+        cache_data = {
+            "_content_hash": content_hash,
+            "_timestamp": time.time(),
+            "toolsets": {
+                t.name: {
+                    "status": t.status.value if t.status else "unknown",
+                    "error": t.error,
+                    "enabled": t.enabled,
+                    "type": t.type.value if t.type else None,
+                    "path": str(t.path) if t.path else None,
+                }
+                for t in toolsets
+            },
+        }
+
+        # Ensure directory exists
+        self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(self.cache_path, "w") as f:
+            json.dump(cache_data, f, indent=2)
+
+    def is_stale_for_content(
+        self, content_hash: str, max_age_seconds: int = 3600
+    ) -> bool:
+        """Check if cache is stale based on content hash"""
+        if not self.cache_path.exists():
+            return True
+
+        data = self.read()
+        if not data:
+            return True
+
+        # Different content = stale
+        if data.get("_content_hash") != content_hash:
+            return True
+
+        # Too old = stale (for non-file toolsets)
+        age = time.time() - data.get("_timestamp", 0)
+        if age > max_age_seconds:
+            return True
+
+        # Check if any toolset has invalid/unknown status
+        toolsets = data.get("toolsets", {})
+        for name, toolset_data in toolsets.items():
+            if toolset_data.get("status") == "unknown":
+                return True
+
+        return False
+
+
+class ToolsetRegistry:
+    """Simple registry that handles ordering and merging"""
+
+    def __init__(self):
+        self.toolsets: Dict[str, Toolset] = {}
+
+    def add(self, toolsets: List[Toolset]):
+        """Add or replace toolsets"""
+        for t in toolsets:
+            self.toolsets[t.name] = t
+
+    def update(self, overrides: Dict[str, Dict]):
+        """Apply partial updates to existing toolsets"""
+        for name, config in overrides.items():
+            if name in self.toolsets:
+                # Create a temporary toolset with the override config to use override_with
+                from holmes.plugins.toolsets import load_toolsets_from_config
+
+                override_toolsets = load_toolsets_from_config(
+                    {name: config}, strict_check=False
+                )
+                if override_toolsets:
+                    self.toolsets[name].override_with(override_toolsets[0])
+                else:
+                    # If we can't create a toolset, apply the config directly
+                    for field, value in config.items():
+                        if hasattr(self.toolsets[name], field) and value not in (
+                            None,
+                            [],
+                            {},
+                            "",
+                        ):
+                            setattr(self.toolsets[name], field, value)
+            else:
+                # Create new toolset from config
+                from holmes.plugins.toolsets import load_toolsets_from_config
+
+                toolsets = load_toolsets_from_config({name: config}, strict_check=True)
+                if toolsets:
+                    self.toolsets[name] = toolsets[0]
+
+    def get_by_tags(self, tags: List[ToolsetTag]) -> List[Toolset]:
+        """Filter toolsets by tags"""
+        return [t for t in self.toolsets.values() if any(tag in tags for tag in t.tags)]
+
+
+class PrerequisiteChecker:
+    """Pure prerequisite checker - no cache knowledge"""
+
+    def check_all(
+        self,
+        toolsets: List[Toolset],
+        progress_callback: Optional[Callable] = None,
+        quiet: bool = False,
+    ) -> List[Toolset]:
+        """Check prerequisites for toolsets
+        Returns NEW toolset objects with updated statuses"""
+        result = []
+
+        with ThreadPoolExecutor(max_workers=30) as executor:
+            futures = {}
+            for t in toolsets:
+                future = executor.submit(t.check_prerequisites, quiet=quiet)
+                futures[future] = t
+
+            completed = 0
+            total = len(futures)
+            active_checks = [t.name for t in toolsets]
+
+            for future in as_completed(futures):
+                completed += 1
+                toolset = futures[future]
+                active_checks.remove(toolset.name)
+
+                # Create new toolset with updated status (don't modify input)
+                updated = copy.copy(toolset)
+                try:
+                    future.result()  # This runs check_prerequisites which modifies the toolset
+                    # Copy the status and error from the modified toolset
+                    updated.status = toolset.status
+                    updated.error = toolset.error
+                except Exception as e:
+                    updated.status = ToolsetStatusEnum.DISABLED
+                    updated.error = str(e)
+
+                result.append(updated)
+
+                if progress_callback is not None:
+                    progress_callback(completed, total, active_checks)
+
+        return result
+
+
 class ToolsetManager:
-    """
-    ToolsetManager is responsible for managing toolset locally.
-    It can refresh the status of all toolsets and cache the status to a file.
-    It also provides methods to get toolsets by name and to get the list of all toolsets.
-    """
+    """Simple orchestrator that handles all coordination"""
 
     def __init__(
         self,
-        toolsets: Optional[dict[str, dict[str, Any]]] = None,
-        mcp_servers: Optional[dict[str, dict[str, Any]]] = None,
-        custom_toolsets: Optional[List[FilePath]] = None,
-        custom_toolsets_from_cli: Optional[List[FilePath]] = None,
-        toolset_status_location: Optional[FilePath] = None,
-        global_fast_model: Optional[str] = None,
+        tags: List[ToolsetTag],
+        config: Optional[dict[str, dict[str, Any]]] = None,
+        dal: Optional[SupabaseDal] = None,
+        custom_toolset_paths: Optional[List[Path]] = None,
+        cache_path: Optional[Path] = None,
+        default_enabled: bool = False,
         suppress_logging: bool = False,
     ):
-        self.toolsets = toolsets or {}
-        if mcp_servers is not None:
-            for _, mcp_server in mcp_servers.items():
-                mcp_server["type"] = ToolsetType.MCP.value
-            self.toolsets.update(mcp_servers)
+        """
+        Clean constructor following the design document.
 
-        self.custom_toolsets = custom_toolsets
-        self.global_fast_model = global_fast_model
-
-        if toolset_status_location is None:
-            toolset_status_location = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION)
-
-        # holmes container uses CUSTOM_TOOLSET_LOCATION to load custom toolsets
-        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
-            if self.custom_toolsets is None:
-                self.custom_toolsets = []
-            self.custom_toolsets.append(FilePath(CUSTOM_TOOLSET_LOCATION))
-
-        self.custom_toolsets_from_cli = custom_toolsets_from_cli
-        self.toolset_status_location = toolset_status_location
+        Args:
+            tags: Toolset tags to filter (CLI_TOOL_TAGS or SERVER_TOOL_TAGS)
+            config: Combined toolsets and mcp_servers configuration
+            dal: Database access layer for server toolsets
+            custom_toolset_paths: Paths to custom toolset YAML files
+            cache_path: Path for cache file (defaults to DEFAULT_TOOLSET_STATUS_LOCATION)
+            default_enabled: Whether to enable all toolsets by default (True for CLI, False for Server)
+            suppress_logging: Whether to suppress logging output
+        """
+        self.tags = tags
+        self.config = config or {}
+        self.dal = dal
+        self.custom_paths = custom_toolset_paths or []
+        self.default_enabled = default_enabled
         self.suppress_logging = suppress_logging
+
+        # Support magic file location for containers
+        if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
+            self.custom_paths.append(Path(CUSTOM_TOOLSET_LOCATION))
+
+        # Initialize components
+        cache_path = cache_path or Path(DEFAULT_TOOLSET_STATUS_LOCATION)
+        self.cache = ToolsetCache(cache_path)
+        self.checker = PrerequisiteChecker()
+        self.registry = ToolsetRegistry()
+
+        # Load all definitions once during initialization
+        self._load_definitions()
 
     def set_suppress_logging(self, suppress: bool) -> None:
         """Temporarily control logging output"""
         self.suppress_logging = suppress
 
-    def _list_all_toolsets(
-        self,
-        dal: Optional[SupabaseDal] = None,
-        check_prerequisites=True,
-        enable_all_toolsets=False,
-        toolset_tags: Optional[List[ToolsetTag]] = None,
-        progress_callback=None,
-    ) -> List[Toolset]:
-        """
-        List all built-in and custom toolsets.
+    def _get_content_hash(self) -> str:
+        """Calculate hash of all file contents that contribute to toolsets"""
+        content_parts = []
 
-        The method loads toolsets in this order, with later sources overriding earlier ones:
-        1. Built-in toolsets
-        2. Toolsets defined in self.toolsets can override both built-in and add new custom toolsets
-        3. custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
-        """
-        # Load built-in toolsets
-        builtin_toolsets = load_builtin_toolsets(dal)
-        toolsets_by_name: dict[str, Toolset] = {
-            toolset.name: toolset for toolset in builtin_toolsets
-        }
-        builtin_toolsets_names = list(toolsets_by_name.keys())
+        # Include config in hash (for overrides)
+        if self.config:
+            content_parts.append(json.dumps(self.config, sort_keys=True))
 
-        if enable_all_toolsets:
-            for toolset in toolsets_by_name.values():
-                toolset.enabled = True
+        # Include custom file contents
+        for path in self.custom_paths:
+            if path.exists():
+                try:
+                    content_parts.append(f"{path}:{path.read_text()}")
+                except (OSError, IOError):
+                    # If we can't read, include path only
+                    content_parts.append(str(path))
 
-        # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
-        if self.toolsets is not None:
-            toolsets_from_config = self._load_toolsets_from_config(
-                self.toolsets, builtin_toolsets_names, dal
-            )
+        # Hash all content together
+        combined = "\n".join(content_parts)
+        return hashlib.md5(combined.encode()).hexdigest()
 
-            if toolsets_from_config:
-                self.add_or_merge_onto_toolsets(
-                    toolsets_from_config,
-                    toolsets_by_name,
-                )
+    def _load_definitions(self):
+        """Load all definitions once during initialization"""
 
-        # custom toolset should not override built-in toolsets
-        # to test the new change of built-in toolset, we should make code change and re-compile the program
-        custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
-        self.add_or_merge_onto_toolsets(
-            custom_toolsets,
-            toolsets_by_name,
-        )
+        # 1. Load built-in toolsets
+        self.registry.add(load_builtin_toolsets(self.dal))
 
-        if toolset_tags is not None:
-            toolsets_by_name = {
-                name: toolset
-                for name, toolset in toolsets_by_name.items()
-                if any(tag in toolset_tags for tag in toolset.tags)
-            }
+        # 2. Apply config overrides
+        if self.config:
+            # Handle both old-style single dict and split toolsets/mcp_servers
+            if "toolsets" in self.config or "mcp_servers" in self.config:
+                # New style - split config
+                toolsets_config = self.config.get("toolsets", {})
+                self.registry.update(toolsets_config)
 
-        # Inject global fast_model into all toolsets
-        final_toolsets = list(toolsets_by_name.values())
-        self._inject_fast_model_into_transformers(final_toolsets)
-
-        # check_prerequisites against each enabled toolset
-        if not check_prerequisites:
-            return final_toolsets
-
-        enabled_toolsets: List[Toolset] = []
-        for _, toolset in toolsets_by_name.items():
-            if toolset.enabled:
-                enabled_toolsets.append(toolset)
+                # MCP servers with type set (deep copy to avoid mutating config)
+                mcp_servers = copy.deepcopy(self.config.get("mcp_servers", {}))
+                for name, server_config in mcp_servers.items():
+                    server_config["type"] = ToolsetType.MCP.value
+                self.registry.update(mcp_servers)
             else:
-                toolset.status = ToolsetStatusEnum.DISABLED
-        self.check_toolset_prerequisites(enabled_toolsets, progress_callback)
+                # Old style - all in one dict
+                self.registry.update(self.config)
 
-        return final_toolsets
+        # 3. Add custom toolsets from files
+        # Track which toolsets were explicitly configured (should not get default_enabled)
+        configured_from_files = set()
+        for path in self.custom_paths:
+            # Load and properly handle as overrides or new toolsets
+            names = self._load_and_apply_toolsets_from_path(path)
+            configured_from_files.update(names)
 
-    def check_toolset_prerequisites(
-        self, toolsets: list[Toolset], progress_callback=None
-    ):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
-            futures = {}
-            active_checks = []
+        # 4. Apply default enabled behavior
+        if self.default_enabled:
+            configured_names = set()
+            if "toolsets" in self.config:
+                configured_names.update(self.config["toolsets"].keys())
+            if "mcp_servers" in self.config:
+                configured_names.update(self.config["mcp_servers"].keys())
+            # Also include names from custom files
+            configured_names.update(configured_from_files)
 
-            for toolset in toolsets:
-                future = executor.submit(
-                    toolset.check_prerequisites, quiet=self.suppress_logging
-                )
-                futures[future] = toolset
-                active_checks.append(toolset.name)
+            for toolset in self.registry.toolsets.values():
+                if toolset.name not in configured_names:
+                    toolset.enabled = True
 
-            completed = 0
-            total = len(futures)
-            for future in concurrent.futures.as_completed(futures):
-                completed += 1
-                toolset = futures[future]
-                active_checks.remove(toolset.name)
+    def _load_and_apply_toolsets_from_path(self, toolset_path: Path) -> set:
+        """Load toolsets from a YAML file and return the names"""
+        if not os.path.isfile(toolset_path):
+            raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
 
-                if progress_callback:
-                    progress_callback(completed, total, active_checks)
-
-    def _load_toolsets_from_config(
-        self,
-        toolsets: dict[str, dict[str, Any]],
-        builtin_toolset_names: list[str],
-        dal: Optional[SupabaseDal] = None,
-    ) -> List[Toolset]:
-        if toolsets is None:
-            logging.debug("No toolsets configured, skipping loading toolsets")
-            return []
-
-        builtin_toolsets_dict: dict[str, dict[str, Any]] = {}
-        custom_toolsets_dict: dict[str, dict[str, Any]] = {}
-        for toolset_name, toolset_config in toolsets.items():
-            if toolset_name in builtin_toolset_names:
-                # build-in types was assigned when loaded
-                builtin_toolsets_dict[toolset_name] = toolset_config
-            else:
-                if toolset_config.get("type") is None:
-                    toolset_config["type"] = ToolsetType.CUSTOMIZED.value
-                # custom toolsets defaults to enabled when not explicitly disabled
-                if toolset_config.get("enabled", True) is False:
-                    toolset_config["enabled"] = False
-                else:
-                    toolset_config["enabled"] = True
-                custom_toolsets_dict[toolset_name] = toolset_config
-
-        # built-in toolsets and built-in MCP servers in the config can override the existing fields of built-in toolsets
-        builtin_toolsets = load_toolsets_from_config(
-            builtin_toolsets_dict, strict_check=False
-        )
-        # custom toolsets or MCP servers are expected to defined required fields
-        custom_toolsets = load_toolsets_from_config(
-            toolsets=custom_toolsets_dict, strict_check=True
-        )
-
-        return builtin_toolsets + custom_toolsets
-
-    def refresh_toolset_status(
-        self,
-        dal: Optional[SupabaseDal] = None,
-        enable_all_toolsets=False,
-        toolset_tags: Optional[List[ToolsetTag]] = None,
-        progress_callback=None,
-    ):
-        """
-        Refresh the status of all toolsets and cache the status to a file.
-        Loading cached toolsets status saves the time for runtime tool executor checking the status of each toolset
-
-        enabled toolset when:
-        - build-in toolset specified in the config and not explicitly disabled
-        - custom toolset not explicitly disabled
-        """
-
-        all_toolsets = self._list_all_toolsets(
-            dal=dal,
-            check_prerequisites=True,
-            enable_all_toolsets=enable_all_toolsets,
-            toolset_tags=toolset_tags,
-            progress_callback=progress_callback,
-        )
-
-        if self.toolset_status_location and not os.path.exists(
-            os.path.dirname(self.toolset_status_location)
-        ):
-            os.makedirs(os.path.dirname(self.toolset_status_location))
-        with open(self.toolset_status_location, "w") as f:
-            toolset_status = [
-                json.loads(
-                    toolset.model_dump_json(
-                        include={"name", "status", "enabled", "type", "path", "error"}
-                    )
-                )
-                for toolset in all_toolsets
-            ]
-            json.dump(toolset_status, f, indent=2)
-        if not self.suppress_logging:
-            logging.info(
-                f"Toolset statuses are cached to {self.toolset_status_location}"
-            )
-
-    def load_toolset_with_status(
-        self,
-        dal: Optional[SupabaseDal] = None,
-        refresh_status: bool = False,
-        enable_all_toolsets=False,
-        toolset_tags: Optional[List[ToolsetTag]] = None,
-        skip_prerequisite_check: bool = False,
-    ) -> List[Toolset]:
-        """
-        Load the toolset with status from the cache file.
-        1. load the built-in toolsets
-        2. load the custom toolsets from config, and override the built-in toolsets
-        3. load the custom toolsets from CLI, and raise error if the custom toolset from CLI conflicts with existing toolsets
-        """
-
-        if not os.path.exists(self.toolset_status_location) or refresh_status:
-            if not self.suppress_logging:
-                logging.info("Refreshing available datasources (toolsets)")
-            self.refresh_toolset_status(
-                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
-            )
-            using_cached = False
-        else:
-            using_cached = True
-
-        cached_toolsets: List[dict[str, Any]] = []
         try:
-            with open(self.toolset_status_location, "r") as f:
-                cached_toolsets = json.load(f)
-        except (json.JSONDecodeError, ValueError) as e:
-            # Handle corrupted or empty status file
-            if not self.suppress_logging:
-                logging.warning(f"Corrupted toolsets status file, regenerating: {e}")
-            self.refresh_toolset_status(
-                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
-            )
-            with open(self.toolset_status_location, "r") as f:
-                cached_toolsets = json.load(f)
-            using_cached = False
+            parsed_yaml = benedict(str(toolset_path))
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load toolsets from {toolset_path}, error: {e}"
+            ) from e
 
-        # load status from cached file and update the toolset details
-        toolsets_status_by_name: dict[str, dict[str, Any]] = {
-            cached_toolset["name"]: cached_toolset for cached_toolset in cached_toolsets
+        toolsets_config = parsed_yaml.get("toolsets", {})
+        mcp_config = parsed_yaml.get("mcp_servers", {})
+
+        for server_config in mcp_config.values():
+            server_config["type"] = ToolsetType.MCP.value
+
+        for toolset_config in toolsets_config.values():
+            toolset_config["path"] = str(toolset_path)
+
+        toolsets_config.update(mcp_config)
+
+        if not toolsets_config:
+            raise ValueError(
+                f"No 'toolsets' or 'mcp_servers' key found in: {toolset_path}"
+            )
+
+        # Split into builtin overrides and new custom toolsets
+        builtin_names = set(self.registry.toolsets.keys())
+        builtin_overrides = {
+            k: v for k, v in toolsets_config.items() if k in builtin_names
         }
-        all_toolsets_with_status = self._list_all_toolsets(
-            dal=dal, check_prerequisites=False, toolset_tags=toolset_tags
-        )
+        custom_toolsets = {
+            k: v for k, v in toolsets_config.items() if k not in builtin_names
+        }
 
-        enabled_toolsets_from_cache: List[Toolset] = []
-        for toolset in all_toolsets_with_status:
-            if toolset.name in toolsets_status_by_name:
-                # Update the status and error from the cached status
-                cached_status = toolsets_status_by_name[toolset.name]
-                toolset.status = ToolsetStatusEnum(cached_status["status"])
-                toolset.error = cached_status.get("error", None)
-                toolset.enabled = cached_status.get("enabled", True)
-                toolset.type = ToolsetType(
-                    cached_status.get("type", ToolsetType.BUILTIN.value)
-                )
-                toolset.path = cached_status.get("path", None)
-            # check prerequisites for only enabled toolset when the toolset is loaded from cache. When the toolset is
-            # not loaded from cache, the prerequisites are checked in the refresh_toolset_status method.
-            if toolset.enabled and (
-                toolset.status == ToolsetStatusEnum.ENABLED
-                or toolset.type == ToolsetType.MCP
-            ):
-                # MCP servers need to reload their tools even if previously failed, so rerun prerequisites
-                enabled_toolsets_from_cache.append(toolset)
+        # Apply builtin overrides using update (partial updates allowed)
+        if builtin_overrides:
+            self.registry.update(builtin_overrides)
 
-        # Only check prerequisites if not skipping (e.g., when we're about to refresh in background)
-        if not skip_prerequisite_check:
-            self.check_toolset_prerequisites(enabled_toolsets_from_cache)
+        # Add new custom toolsets with strict_check=True (all fields required)
+        if custom_toolsets:
+            new_toolsets = load_toolsets_from_config(custom_toolsets, strict_check=True)
+            self.registry.add(new_toolsets)
 
-        # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
-        custom_toolsets_from_cli = self._load_toolsets_from_paths(
-            self.custom_toolsets_from_cli,
-            list(toolsets_status_by_name.keys()),
-            check_conflict_default=True,
-        )
+        # Return all names that were configured in this file
+        return set(toolsets_config.keys())
 
-        # Inject fast_model into CLI custom toolsets
-        self._inject_fast_model_into_transformers(custom_toolsets_from_cli)
-
-        # custom toolsets from cli as experimental toolset should not override custom toolsets from config
-        enabled_toolsets_from_cli: List[Toolset] = []
-        for custom_toolset_from_cli in custom_toolsets_from_cli:
-            if custom_toolset_from_cli.name in toolsets_status_by_name:
-                raise ValueError(
-                    f"Toolset {custom_toolset_from_cli.name} from cli is already defined in existing toolset"
-                )
-            enabled_toolsets_from_cli.append(custom_toolset_from_cli)
-        # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-        if not skip_prerequisite_check:
-            self.check_toolset_prerequisites(enabled_toolsets_from_cli)
-
-        all_toolsets_with_status.extend(custom_toolsets_from_cli)
-        # Just store metadata about whether we used cache
-        self._loaded_from_cache = using_cached
-        if using_cached:
-            self._cache_timestamp = os.path.getmtime(self.toolset_status_location)
-        return all_toolsets_with_status
-
-    def list_console_toolsets(
-        self, refresh_status=False, skip_prerequisite_check=False
-    ) -> List[Toolset]:
-        """
-        List all enabled toolsets that cli tools can use.
-
-        listing console toolset does not refresh toolset status by default, and expects the status to be
-        refreshed specifically and cached locally.
-        """
-        toolsets_with_status = self.load_toolset_with_status(
-            dal=None,  # CLI always uses None for DAL
-            refresh_status=refresh_status,
-            enable_all_toolsets=True,  # Console always enables all toolsets
-            toolset_tags=CLI_TOOL_TAGS,  # Console always uses CLI tags
-            skip_prerequisite_check=skip_prerequisite_check,
-        )
-        return toolsets_with_status
-
-    # TODO(mainred): cache and refresh periodically toolset status for server if necessary
-    def list_server_toolsets(
-        self, dal: Optional[SupabaseDal] = None, refresh_status=True
-    ) -> List[Toolset]:
-        """
-        List all toolsets that are enabled and have the server tool tags.
-
-        server will sync the status of toolsets to DB during startup instead of local cache.
-        Refreshing the status by default for server to keep the toolsets up-to-date instead of relying on local cache.
-        """
-        toolsets_with_status = self._list_all_toolsets(
-            dal,
-            check_prerequisites=True,
-            enable_all_toolsets=False,
-            toolset_tags=SERVER_TOOL_TAGS,
-        )
-        return toolsets_with_status
-
-    def _load_toolsets_from_paths(
+    def load(
         self,
-        toolset_paths: Optional[List[FilePath]],
-        builtin_toolsets_names: list[str],
-        check_conflict_default: bool = False,
+        use_cache: bool = True,
+        progress_callback: Optional[Callable] = None,
+        include_disabled: bool = False,
     ) -> List[Toolset]:
-        if not toolset_paths:
-            logging.debug("No toolsets configured, skipping loading toolsets")
-            return []
+        """Load toolsets - either from cache or fresh
 
-        loaded_custom_toolsets: List[Toolset] = []
-        for toolset_path in toolset_paths:
-            if not os.path.isfile(toolset_path):
-                raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
+        Args:
+            use_cache: Whether to use cached status if available and fresh
+            progress_callback: Callback for prerequisite check progress
+            include_disabled: Whether to include disabled toolsets in results
 
-            try:
-                parsed_yaml = benedict(toolset_path)
-            except Exception as e:
-                raise ValueError(
-                    f"Failed to load toolsets from {toolset_path}, error: {e}"
-                ) from e
-            toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
-            mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+        Returns:
+            List of toolsets filtered by tags and status
+        """
+        # Get relevant toolsets (all definitions already loaded)
+        relevant = self.registry.get_by_tags(self.tags)
 
-            for server_config in mcp_config.values():
-                server_config["type"] = ToolsetType.MCP.value
+        # Filter out explicitly disabled (unless diagnostics mode)
+        if not include_disabled:
+            relevant = [t for t in relevant if t.enabled]
 
-            for toolset_config in toolsets_config.values():
-                toolset_config["path"] = toolset_path
+        # Calculate content hash for cache validation
+        content_hash = self._get_content_hash()
 
-            toolsets_config.update(mcp_config)
-
-            if not toolsets_config:
-                raise ValueError(
-                    f"No 'toolsets' or 'mcp_servers' key found in: {toolset_path}"
-                )
-
-            toolsets_from_config = self._load_toolsets_from_config(
-                toolsets_config, builtin_toolsets_names
+        # Either use cache or check prerequisites
+        if use_cache and not self.cache.is_stale_for_content(content_hash):
+            cached_data = self.cache.read_toolsets()
+            checked = self._apply_cached_data(relevant, cached_data)
+        else:
+            checked = self.checker.check_all(
+                relevant, progress_callback, quiet=self.suppress_logging
             )
-            if check_conflict_default:
-                for toolset in toolsets_from_config:
-                    if toolset.name in builtin_toolsets_names:
-                        raise Exception(
-                            f"Toolset {toolset.name} is already defined in the built-in toolsets. "
-                            "Please rename the custom toolset or remove it from the custom toolsets configuration."
-                        )
+            self.cache.write(checked, content_hash)
+            if not self.suppress_logging:
+                logging.info(f"Toolset statuses are cached to {self.cache.cache_path}")
 
-            loaded_custom_toolsets.extend(toolsets_from_config)
+        # Return based on caller needs
+        if include_disabled:
+            return checked
+        else:
+            return [t for t in checked if t.status == ToolsetStatusEnum.ENABLED]
 
-        return loaded_custom_toolsets
-
-    def load_custom_toolsets(self, builtin_toolsets_names: list[str]) -> list[Toolset]:
-        """
-        Loads toolsets config from custom toolset path with YAMLToolset class.
-
-        Example configuration:
-        # override the built-in toolsets with custom toolsets
-        kubernetes/logs:
-            enabled: false
-
-        # define a custom toolset with strictly defined fields
-        test/configurations:
-            enabled: true
-            icon_url: "example.com"
-            description: "test_description"
-            docs_url: "https://docs.docker.com/"
-            prerequisites:
-                - env:
-                    - API_ENDPOINT
-                - command: "curl ${API_ENDPOINT}"
-            additional_instructions: "jq -r '.result.results[].userData | fromjson | .text | fromjson | .log'"
-            tools:
-                - name: "curl_example"
-                  description: "Perform a curl request to example.com using variables"
-                  command: "curl -X GET '{{api_endpoint}}?query={{ query_param }}' "
-        """
-        if not self.custom_toolsets and not self.custom_toolsets_from_cli:
-            logging.debug(
-                "No custom toolsets configured, skipping loading custom toolsets"
-            )
-            return []
-
-        loaded_custom_toolsets: List[Toolset] = []
-        custom_toolsets = self._load_toolsets_from_paths(
-            self.custom_toolsets, builtin_toolsets_names
-        )
-        loaded_custom_toolsets.extend(custom_toolsets)
-
-        return loaded_custom_toolsets
-
-    def add_or_merge_onto_toolsets(
-        self,
-        new_toolsets: list[Toolset],
-        existing_toolsets_by_name: dict[str, Toolset],
-    ) -> None:
-        """
-        Add new or merge toolsets onto existing toolsets.
-        """
-
-        for new_toolset in new_toolsets:
-            if new_toolset.name in existing_toolsets_by_name.keys():
-                existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
+    def _apply_cached_data(
+        self, toolsets: List[Toolset], cached_data: Dict[str, Dict]
+    ) -> List[Toolset]:
+        """Apply cached data to toolsets"""
+        result = []
+        for t in toolsets:
+            updated = copy.copy(t)
+            if t.name in cached_data:
+                data = cached_data[t.name]
+                updated.status = ToolsetStatusEnum(data.get("status", "disabled"))
+                updated.error = data.get("error")
+                updated.enabled = data.get("enabled", True)
+                if data.get("type"):
+                    updated.type = ToolsetType(data["type"])
+                if data.get("path"):
+                    updated.path = Path(data["path"])
             else:
-                existing_toolsets_by_name[new_toolset.name] = new_toolset
-                existing_toolsets_by_name[new_toolset.name] = new_toolset
+                # No cache data for this toolset
+                updated.status = ToolsetStatusEnum.DISABLED
+                updated.error = "No cache data available"
+            result.append(updated)
+        return result
 
-    def _inject_fast_model_into_transformers(self, toolsets: List[Toolset]) -> None:
-        """
-        Inject global fast_model setting into all llm_summarize transformers that don't already have fast_model.
-        This ensures --fast-model reaches all tools regardless of toolset-level transformer configuration.
+    @classmethod
+    def _create_from_config(
+        cls,
+        config: "Config",
+        tags: List[ToolsetTag],
+        dal: Optional[SupabaseDal] = None,
+        default_enabled: bool = False,
+    ):
+        """Common factory method logic"""
+        # Build combined config dict if needed
+        toolset_config = {}
+        if config.toolsets:
+            toolset_config["toolsets"] = config.toolsets
+        if config.mcp_servers:
+            toolset_config["mcp_servers"] = config.mcp_servers
 
-        IMPORTANT: This also forces recreation of transformer instances since they may already be created.
-        """
-        import logging
-        from holmes.core.transformers import registry
-
-        logger = logging.getLogger(__name__)
-
-        logger.debug(
-            f"Starting fast_model injection. global_fast_model={self.global_fast_model}"
+        return cls(
+            tags=tags,
+            config=toolset_config or None,
+            dal=dal,
+            custom_toolset_paths=[Path(p) for p in config.custom_toolset_paths]
+            if config.custom_toolset_paths
+            else None,
+            default_enabled=default_enabled,
+            suppress_logging=False,
         )
 
-        if not self.global_fast_model:
-            logger.debug("No global_fast_model configured, skipping injection")
-            return
+    @classmethod
+    def for_cli(cls, config: "Config"):
+        """Create CLI-configured manager from Config object"""
+        return cls._create_from_config(config, CLI_TOOL_TAGS, default_enabled=True)
 
-        injected_count = 0
-        toolset_count = 0
-
-        for toolset in toolsets:
-            toolset_count += 1
-            toolset_injected = 0
-            logger.debug(
-                f"Processing toolset '{toolset.name}', has toolset transformers: {toolset.transformers is not None}"
-            )
-
-            # Inject into toolset-level transformers
-            if toolset.transformers:
-                logger.debug(
-                    f"Toolset '{toolset.name}' has {len(toolset.transformers)} toolset-level transformers"
-                )
-                for transformer in toolset.transformers:
-                    logger.debug(
-                        f"  Toolset transformer: name='{transformer.name}', config keys={list(transformer.config.keys())}"
-                    )
-                    if (
-                        transformer.name == "llm_summarize"
-                        and "fast_model" not in transformer.config
-                    ):
-                        transformer.config["global_fast_model"] = self.global_fast_model
-                        injected_count += 1
-                        toolset_injected += 1
-                        logger.info(
-                            f"  ✓ Injected global_fast_model into toolset '{toolset.name}' transformer"
-                        )
-                    elif transformer.name == "llm_summarize":
-                        logger.debug(
-                            f"  - Toolset transformer already has fast_model: {transformer.config.get('fast_model')}"
-                        )
-            else:
-                logger.debug(
-                    f"Toolset '{toolset.name}' has no toolset-level transformers"
-                )
-
-            # Inject into tool-level transformers
-            if hasattr(toolset, "tools") and toolset.tools:
-                logger.debug(f"Toolset '{toolset.name}' has {len(toolset.tools)} tools")
-                for tool in toolset.tools:
-                    logger.debug(
-                        f"  Processing tool '{tool.name}', has transformers: {tool.transformers is not None}"
-                    )
-                    if tool.transformers:
-                        logger.debug(
-                            f"    Tool '{tool.name}' has {len(tool.transformers)} transformers"
-                        )
-                        tool_updated = False
-                        for transformer in tool.transformers:
-                            logger.debug(
-                                f"      Tool transformer: name='{transformer.name}', config keys={list(transformer.config.keys())}"
-                            )
-                            if (
-                                transformer.name == "llm_summarize"
-                                and "fast_model" not in transformer.config
-                            ):
-                                transformer.config["global_fast_model"] = (
-                                    self.global_fast_model
-                                )
-                                injected_count += 1
-                                toolset_injected += 1
-                                tool_updated = True
-                                logger.info(
-                                    f"      ✓ Injected global_fast_model into tool '{tool.name}' transformer"
-                                )
-                            elif transformer.name == "llm_summarize":
-                                logger.debug(
-                                    f"      - Tool transformer already has fast_model: {transformer.config.get('fast_model')}"
-                                )
-
-                        # CRITICAL: Force recreation of transformer instances if we updated the config
-                        if tool_updated:
-                            logger.info(
-                                f"      🔄 Recreating transformer instances for tool '{tool.name}' after injection"
-                            )
-                            if tool.transformers:
-                                tool._transformer_instances = []
-                                for transformer in tool.transformers:
-                                    if not transformer:
-                                        continue
-                                    try:
-                                        # Create transformer instance with updated config
-                                        transformer_instance = (
-                                            registry.create_transformer(
-                                                transformer.name, transformer.config
-                                            )
-                                        )
-                                        tool._transformer_instances.append(
-                                            transformer_instance
-                                        )
-                                        logger.debug(
-                                            f"        Recreated transformer '{transformer.name}' for tool '{tool.name}' with config: {transformer.config}"
-                                        )
-                                    except Exception as e:
-                                        logger.warning(
-                                            f"        Failed to recreate transformer '{transformer.name}' for tool '{tool.name}': {e}"
-                                        )
-                                        continue
-                    else:
-                        logger.debug(f"    Tool '{tool.name}' has no transformers")
-            else:
-                logger.debug(f"Toolset '{toolset.name}' has no tools")
-
-            if toolset_injected > 0:
-                logger.info(
-                    f"Toolset '{toolset.name}': injected into {toolset_injected} transformers"
-                )
-
-        logger.info(
-            f"Fast_model injection complete: {injected_count} transformers updated across {toolset_count} toolsets"
+    @classmethod
+    def for_server(cls, config: "Config", dal: SupabaseDal):
+        """Create server-configured manager from Config object"""
+        return cls._create_from_config(
+            config, SERVER_TOOL_TAGS, dal=dal, default_enabled=False
         )

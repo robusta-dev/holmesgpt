@@ -921,6 +921,7 @@ def run_interactive_loop(
     feedback_callback: Optional[FeedbackCallback] = None,
     config=None,
     refresh_toolsets: bool = False,
+    loaded_from_cache: bool = False,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -928,7 +929,13 @@ def run_interactive_loop(
 
     # Initialize managers
     status_bar_manager = StatusBarManager()
-    toolset_refresh_manager = ToolsetRefreshManager(config, ai, status_bar_manager)
+    # Create toolset manager for refresh operations
+    from holmes.core.toolset_manager import ToolsetManager
+
+    toolset_manager = ToolsetManager.for_cli(config)
+    toolset_refresh_manager = ToolsetRefreshManager(
+        ai, toolset_manager, status_bar_manager, loaded_from_cache
+    )
 
     style = Style.from_dict(
         {
