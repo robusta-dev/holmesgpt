@@ -3,7 +3,7 @@ tags:
   - misleading-history
   - hard
 expected_output:
-  - The specified URL `http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343` could not be resolved to an IP address
+  - The output must state that either the exact URL http://kldsvklnsdiogjerkngernjk23432i90erfefjio.com/fsdkhjsadfjhsadfjsadu343 or the host kldsvklnsdiogjerkngernjk23432i90erfefjio.com could not be resolved to an IP address.
 before_test: |
   kubectl apply -f ./job-service-account-event/get-data-job.yaml
   timeout 10 bash -c 'until kubectl get events -n default --field-selector involvedObject.name=get-data | grep -q FailedCreate; do sleep 1; done; echo "FailedCreate event detected." || echo "No FailedCreate event detected within the timeout period."'
