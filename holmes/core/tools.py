@@ -213,7 +213,7 @@ class Tool(ABC, BaseModel):
         self, params: Dict, tool_number: Optional[int] = None
     ) -> StructuredToolResult:
         tool_number_str = f"#{tool_number} " if tool_number else ""
-        logging.info(
+        logger.info(
             f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
@@ -230,7 +230,7 @@ class Tool(ABC, BaseModel):
         )
         show_hint = f"/show {tool_number}" if tool_number else "/show"
         line_count = output_str.count("\n") + 1 if output_str else 0
-        logging.info(
+        logger.info(
             f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
         )
         return transformed_result
@@ -261,7 +261,7 @@ class Tool(ABC, BaseModel):
             try:
                 # Check if transformer should be applied
                 if not transformer_instance.should_apply(transformed_data):
-                    logging.debug(
+                    logger.debug(
                         f"Transformer '{transformer_instance.name}' skipped for tool '{self.name}' (conditions not met)"
                     )
                     continue
@@ -277,20 +277,20 @@ class Tool(ABC, BaseModel):
                 # Generic logging - transformers can override this with their own specific metrics
                 post_transform_size = len(transformed_data)
                 size_change = post_transform_size - pre_transform_size
-                logging.info(
+                logger.info(
                     f"Applied transformer '{transformer_instance.name}' to tool '{self.name}' output "
                     f"in {transform_elapsed:.2f}s (size: {pre_transform_size:,} → {post_transform_size:,} chars, "
                     f"change: {size_change:+,})"
                 )
 
             except TransformerError as e:
-                logging.warning(
+                logger.warning(
                     f"Transformer '{transformer_instance.name}' failed for tool '{self.name}': {e}"
                 )
                 # Continue with other transformers, don't fail the entire chain
                 continue
             except Exception as e:
-                logging.error(
+                logger.error(
                     f"Unexpected error applying transformer '{transformer_instance.name}' to tool '{self.name}': {e}"
                 )
                 # Continue with other transformers
@@ -365,7 +365,7 @@ class YAMLTool(Tool, BaseModel):
             raw_output, return_code, invocation = self.__invoke_script(params)  # type: ignore
 
         if self.additional_instructions and return_code == 0:
-            logging.info(
+            logger.info(
                 f"Applying additional instructions: {self.additional_instructions}"
             )
             output_with_instructions = self.__apply_additional_instructions(raw_output)
@@ -400,7 +400,7 @@ class YAMLTool(Tool, BaseModel):
             )
             return result.stdout.strip()
         except subprocess.CalledProcessError as e:
-            logging.error(
+            logger.error(
                 f"Failed to apply additional instructions: {self.additional_instructions}. "
                 f"Error: {e.stderr}"
             )
@@ -435,7 +435,7 @@ class YAMLTool(Tool, BaseModel):
 
     def __execute_subprocess(self, cmd) -> Tuple[str, int]:
         try:
-            logging.debug(f"Running `{cmd}`")
+            logger.debug(f"Running `{cmd}`")
             result = subprocess.run(
                 cmd,
                 shell=True,
@@ -448,7 +448,7 @@ class YAMLTool(Tool, BaseModel):
 
             return result.stdout.strip(), result.returncode
         except Exception as e:
-            logging.error(
+            logger.error(
                 f"An unexpected error occurred while running '{cmd}': {e}",
                 exc_info=True,
             )
@@ -540,18 +540,14 @@ class Toolset(BaseModel):
                         from holmes.core.transformers import registry
 
                         if not registry.is_registered(transformer_obj.name):
-                            import logging
-
-                            logging.warning(
+                            logger.warning(
                                 f"Invalid toolset transformer configuration: Transformer '{transformer_obj.name}' is not registered"
                             )
                             continue  # Skip invalid transformer
                         converted_transformers.append(transformer_obj)
                     except Exception as e:
                         # Log warning and skip invalid transformer
-                        import logging
-
-                        logging.warning(
+                        logger.warning(
                             f"Invalid toolset transformer configuration: {e}"
                         )
                         continue
@@ -577,18 +573,14 @@ class Toolset(BaseModel):
                                 from holmes.core.transformers import registry
 
                                 if not registry.is_registered(transformer_obj.name):
-                                    import logging
-
-                                    logging.warning(
+                                    logger.warning(
                                         f"Invalid tool transformer configuration: Transformer '{transformer_obj.name}' is not registered"
                                     )
                                     continue  # Skip invalid transformer
                                 converted_tool_transformers.append(transformer_obj)
                             except Exception as e:
                                 # Log warning and skip invalid transformer
-                                import logging
-
-                                logging.warning(
+                                logger.warning(
                                     f"Invalid tool transformer configuration: {e}"
                                 )
                                 continue
@@ -682,11 +674,11 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(f"❌ Toolset {self.name}: {self.error}")
+                logger.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        logging.info(f"✅ Toolset {self.name}")
+        logger.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
