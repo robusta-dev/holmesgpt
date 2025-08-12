@@ -333,7 +333,7 @@ toolsets:
                     mock_subprocess.return_value = (test_output, 0)
 
                     # Execute with logging to catch transformer failure
-                    with patch("holmes.core.tools.logging") as mock_logging:
+                    with patch("holmes.core.tools.logger") as mock_logging:
                         result = tool.invoke({})
 
                         # Should return original output when transformer fails
@@ -513,7 +513,7 @@ toolsets:
                 mock_subprocess.return_value = (test_output, 0)
 
                 # Execute with logging to capture performance metrics
-                with patch("holmes.core.tools.logging") as mock_logging:
+                with patch("holmes.core.tools.logger") as mock_logging:
                     tool.invoke({})
 
                     # Should have logged transformer application with metrics

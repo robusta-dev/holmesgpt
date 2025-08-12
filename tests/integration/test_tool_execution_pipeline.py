@@ -187,7 +187,7 @@ class TestToolExecutionPipelineIntegration:
                 ],
             )
 
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logger") as mock_logging:
                 result = tool.invoke({})
 
                 # Tool execution should still succeed
@@ -252,7 +252,7 @@ class TestToolExecutionPipelineIntegration:
                 transformers=[Transformer(name="slow_transformer", config={})],
             )
 
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logger") as mock_logging:
                 result = tool.invoke({})
 
                 # Should execute successfully
@@ -337,7 +337,5 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         assert "echo" in result.invocation  # Original command preserved
 
         # Transformation applied but structure preserved
-        print(f"DEBUG: Raw result.data = {repr(result.data)}")
-        print(f"DEBUG: result.data length = {len(result.data)}")
         assert "SUMMARIZED:" in result.data
         assert "Important debugging information" in result.data

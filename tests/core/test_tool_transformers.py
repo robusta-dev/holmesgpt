@@ -401,7 +401,7 @@ class TestToolExecutionPipeline:
                 transformers=transforms,
             )
 
-            with patch("holmes.core.tools.logging") as mock_logging:
+            with patch("holmes.core.tools.logger") as mock_logging:
                 result = tool.invoke({})
 
                 # Should return original data when transformer fails
@@ -576,7 +576,7 @@ class TestToolExecutionPipeline:
             name="test_tool", description="Test tool", transformers=transforms
         )
 
-        with patch("holmes.core.tools.logging") as mock_logging:
+        with patch("holmes.core.tools.logger") as mock_logging:
             tool.invoke({})
 
             # Should log transformer application with performance metrics
