@@ -263,10 +263,13 @@ def ask(
     # Check if toolsets will be loaded from cache
     from holmes.core.toolset_manager import cache_exists
 
+    # In non-interactive mode, always refresh toolsets for fresh results
+    # In interactive mode, use cache unless explicitly told to refresh
+    should_refresh = refresh_toolsets or not interactive
     loaded_from_cache = interactive and not refresh_toolsets and cache_exists()
 
     ai = config.create_console_toolcalling_llm(
-        refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
+        refresh_toolsets=should_refresh,  # flag to refresh the toolset status
         tracer=tracer,
         skip_prerequisite_check=loaded_from_cache,  # Skip checks if loading from cache
     )

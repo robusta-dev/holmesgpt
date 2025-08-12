@@ -329,7 +329,8 @@ class Config(RobustaBaseConfig):
         from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor()
+        # Always refresh toolsets for investigations (non-interactive)
+        tool_executor = self.create_console_tool_executor(refresh_status=True)
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(
