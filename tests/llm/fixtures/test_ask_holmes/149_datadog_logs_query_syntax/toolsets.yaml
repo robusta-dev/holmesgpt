@@ -1,0 +1,13 @@
+# Configure this test to use Datadog logs instead of Kubernetes logs
+datadog/logs:
+  enabled: true
+  dd_api_key: "mock-api-key"
+  dd_app_key: "mock-app-key"
+  site_api_url: "https://api.datadoghq.com"
+  labels:
+    pod: "kubernetes.pod_name"
+    namespace: "kubernetes.namespace"
+
+# Disable kubernetes logs to force use of Datadog
+kubernetes/logs:
+  enabled: false
