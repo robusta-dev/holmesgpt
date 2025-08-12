@@ -12,7 +12,7 @@ from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.datadog.datadog_api import (
     DatadogBaseConfig,
     DataDogRequestError,
-    execute_datadog_http_request,
+    execute_paginated_datadog_http_request,
     get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
@@ -98,7 +98,7 @@ def fetch_paginated_logs(
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
 
-    logs, cursor = execute_datadog_http_request(
+    logs, cursor = execute_paginated_datadog_http_request(
         url=url,
         headers=headers,
         payload_or_params=payload,
@@ -107,7 +107,7 @@ def fetch_paginated_logs(
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
-        new_logs, cursor = execute_datadog_http_request(
+        new_logs, cursor = execute_paginated_datadog_http_request(
             url=url,
             headers=headers,
             payload_or_params=payload,
