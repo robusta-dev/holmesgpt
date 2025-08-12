@@ -108,7 +108,8 @@ def get_session_id_from_context(context=None) -> str:
 
     # Generate new session ID
     session_id = str(uuid4())
-    context._current_session = session_id
+    if context:
+        context._current_session = session_id
     return session_id
 
 
