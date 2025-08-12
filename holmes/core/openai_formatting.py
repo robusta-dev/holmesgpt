@@ -17,19 +17,32 @@ LLMS_WITH_STRICT_TOOL_CALLS_LIST = [
 
 
 def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str, Any]:
-    match = re.match(pattern, param_attributes.type.strip())
-
+    param_type = param_attributes.type.strip()
     type_obj: Optional[dict[str, Any]] = None
-    if not match:
-        raise ValueError(f"Invalid type format: {param_attributes.type.strip()}")
 
-    if match.group("inner_type"):
-        type_obj = {"type": "array", "items": {"type": match.group("inner_type")}}
-
+    if param_type == "object":
+        type_obj = {"type": "object"}
+        if strict_mode:
+            type_obj["additionalProperties"] = False
     else:
-        type_obj = {"type": match.group("simple_type")}
+        match = re.match(pattern, param_type)
 
-    if type_obj and not param_attributes.required:
+        if not match:
+            raise ValueError(f"Invalid type format: {param_type}")
+
+        if match.group("inner_type"):
+            inner_type = match.group("inner_type")
+            if inner_type == "object":
+                items_obj: dict[str, Any] = {"type": "object"}
+                if strict_mode:
+                    items_obj["additionalProperties"] = False
+                type_obj = {"type": "array", "items": items_obj}
+            else:
+                type_obj = {"type": "array", "items": {"type": inner_type}}
+        else:
+            type_obj = {"type": match.group("simple_type")}
+
+    if strict_mode and type_obj and not param_attributes.required:
         type_obj["type"] = [type_obj["type"], "null"]
 
     return type_obj
@@ -66,7 +79,7 @@ def format_tool_to_open_ai_standard(
         },
     }
 
-    if strict_mode:
+    if strict_mode and result["function"]:
         result["function"]["strict"] = True
         result["function"]["parameters"]["additionalProperties"] = False
 
