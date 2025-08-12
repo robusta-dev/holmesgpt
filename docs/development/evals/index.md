@@ -17,6 +17,14 @@ Changes to HolmesGPT are good if they allow us to promote an eval from `easy` to
 
 ## Getting Started
 
+### Prerequisites
+
+Install HolmesGPT python dependencies:
+
+```bash
+poetry install --with=dev
+```
+
 ### Basic Commands
 
 ```bash
@@ -29,6 +37,32 @@ RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pod
 # Run evals with a specific tag
 RUN_LIVE=true poetry run pytest -m "llm and logs" --no-cov
 ```
+
+### Testing Different Models
+
+The `MODEL` environment variable is equivalent to the `--model` flag on the `holmes ask` CLI command. You can test HolmesGPT with different LLM providers:
+
+```bash
+# Test with GPT-4 (default)
+RUN_LIVE=true MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+
+# Test with Claude
+# Note: CLASSIFIER_MODEL must be set to OpenAI or Azure as Anthropic models are not currently supported for classification
+RUN_LIVE=true MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+
+# Test with Azure OpenAI
+# Set required Azure environment variables for your deployment
+export AZURE_API_KEY=your-azure-api-key
+export AZURE_API_BASE=https://your-deployment.openai.azure.com/
+export AZURE_API_VERSION=2024-02-15-preview
+RUN_LIVE=true MODEL=azure/your-deployment-name CLASSIFIER_MODEL=azure/your-deployment-name poetry run pytest -m 'llm and easy'
+```
+
+**Important Notes:**
+
+- When using Anthropic models, you must set `CLASSIFIER_MODEL` to an OpenAI or Azure model because the evaluation framework's classifier currently only supports these providers
+- For any model provider, ensure you have the necessary API keys and environment variables set (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AZURE_API_KEY`)
+- The model specified here is passed directly to LiteLLM, so any model supported by LiteLLM can be used
 
 ### Running Evals with Multiple Iterations
 
@@ -58,18 +92,31 @@ Essential variables for controlling test behavior:
 | `ITERATIONS` | Run each test N times | `ITERATIONS=10` |
 | `MODEL` | LLM to test | `MODEL=gpt-4o` |
 | `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
+| `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
 
-## Advanced Usage
+### ASK_HOLMES_TEST_TYPE Details
 
-### Testing Different Models
+The `ASK_HOLMES_TEST_TYPE` environment variable controls how messages are built in ask_holmes tests:
+
+- **`cli` (default)**: Uses `build_initial_ask_messages` like the CLI ask() command. This mode:
+  - Simulates the CLI interface behavior
+  - Does not support conversation history tests (will skip them)
+  - Includes runbook loading and system prompts as done in the CLI
+
+- **`server`**: Uses `build_chat_messages` with ChatRequest for server-style flow. This mode:
+  - Simulates the API/server interface behavior
+  - Supports conversation history tests
+  - Uses the ChatRequest model for message building
 
 ```bash
-# Test with GPT-4
-RUN_LIVE=true ITERATIONS=10 MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+# Test with CLI-style message building (default)
+RUN_LIVE=true poetry run pytest -k "test_name"
 
-# Test with Claude (requires CLASSIFIER_MODEL to be openai or azure)
-RUN_LIVE=true ITERATIONS=10 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+# Test with server-style message building
+RUN_LIVE=true ASK_HOLMES_TEST_TYPE=server poetry run pytest -k "test_name"
 ```
+
+## Advanced Usage
 
 ### Parallel Execution
 

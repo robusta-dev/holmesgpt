@@ -1,13 +1,12 @@
 description: |
   A test case that simulates an issue real customer bumped into.
   When holmes were asked to fetch logs, they were not able to do so.
-  The main reason behind this are due to the conversation history and the lack of explicity saying that we enabled datadog logs toolset as part of the system prompt logging section.
+  The main reason behind this are due to the conversation history and the lack of explicitly saying that we enabled datadog logs toolset as part of the system prompt logging section.
 
 user_prompt:
   - "Can you retrieve the datadog logs for this?"
   - "Please show me the logs for this pod"
   - "Show me logs"
-
 
 expected_output: |
   Logs for catalogue-f7687cb4-zsngc pod show consistent health checks with no errors.
@@ -15,9 +14,10 @@ expected_output: |
 evaluation:
   correctness: 1
 
-test_type: "server"
+mock_policy: always_mock
 
-# setup & teardown
+test_type: "server"
 
 tags:
   - easy
+  - datadog
