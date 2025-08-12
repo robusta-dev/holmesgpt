@@ -35,8 +35,6 @@ def cache_exists() -> bool:
 
 
 class ToolsetCache:
-    """Cache for toolset status and metadata after prerequisite checks"""
-
     def __init__(self, cache_path: Path):
         self.cache_path = cache_path
 
@@ -230,8 +228,6 @@ class ToolsetRegistry:
 
 
 class PrerequisiteChecker:
-    """Pure prerequisite checker - no cache knowledge"""
-
     def check_all(
         self,
         toolsets: List[Toolset],
