@@ -1,7 +1,7 @@
 from holmes.core.investigation_structured_output import InputSectionsDataType
 from holmes.core.tool_calling_llm import ToolCallResult
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, model_validator, Field
 from enum import Enum
 
 
@@ -89,6 +89,7 @@ class ConversationRequest(BaseModel):
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
     model: Optional[str] = None
+    stream: bool = Field(default=False)
 
     # In our setup with litellm, the first message in conversation_history
     # should follow the structure [{"role": "system", "content": ...}],

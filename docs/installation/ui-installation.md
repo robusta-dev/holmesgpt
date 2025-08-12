@@ -144,8 +144,11 @@ The fastest way to use HolmesGPT is via the managed Robusta SaaS platform.
 2. **Connect your cluster:** Follow the in-app wizard to install the Robusta agent and configure data sources.
 3. **Investigate:** Use the "Ask Holmes" chat to analyze alerts or ask questions like:
 
-      1. “What pods are failing in production?”
-      2. “Why did this alert fire?”
+      1. "What pods are failing in production?"
+      2. "Why did this alert fire?"
+
+!!! tip "Multiple AI Providers"
+    You can configure multiple AI models for users to choose from in the UI. See [Using Multiple Providers](../ai-providers/using-multiple-providers.md) for configuration details.
 
 ---
 

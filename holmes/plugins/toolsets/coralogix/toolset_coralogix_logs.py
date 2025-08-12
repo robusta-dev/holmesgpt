@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Set
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -23,11 +23,17 @@ from holmes.plugins.toolsets.coralogix.utils import (
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
 )
 
 
 class CoralogixLogsToolset(BasePodLoggingToolset):
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Coralogix only supports substring matching, not regex or exclude filters"""
+        return set()  # No regex support, no exclude filter
+
     def __init__(self):
         super().__init__(
             name="coralogix/logs",

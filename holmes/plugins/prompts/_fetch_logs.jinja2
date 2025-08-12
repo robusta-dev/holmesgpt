@@ -6,6 +6,11 @@
 {%- set datadog_ts = toolsets | selectattr("name", "equalto", "datadog/logs") | first -%}
 
 ## Logs
+
+* IMPORTANT: ALWAYS inform the user about what logs you fetched. For example: "Here are pod logs for ..."
+* IMPORTANT: If logs commands have limits mention them. For example: "Showing last 100 lines of logs:"
+* IMPORTANT: If a filter was used, mention the filter. For example: "Logs filtered for 'error':"
+
 {% if loki_ts and loki_ts.status == "enabled" -%}
 * For any logs, including for investigating kubernetes problems, use Loki
 * Use the tool fetch_loki_logs_for_resource to get the logs of any kubernetes pod or node
@@ -15,7 +20,7 @@
 * If you have an issue id or finding id, use `fetch_finding_by_id` as it contains time information about the issue (`starts_at`, `updated_at` and `ends_at`).
 ** Then, defaults to `start_timestamp=-300` (5 minutes before end_timestamp) and `end_timestamp=<issue start_at time>`.
 ** If there are too many logs, or not enough, narrow or widen the timestamps
-* If you are not provided with time information. Ignore start_timestamp and end_timestamp. Loki will default to the latest logs.
+* If you are not provided with time information. Ignore start_timestamp and end_timestamp.
 {%- elif coralogix_ts and coralogix_ts.status == "enabled" -%}
 ### coralogix/logs
 #### Coralogix Logs Toolset
