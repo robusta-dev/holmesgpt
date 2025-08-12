@@ -320,7 +320,7 @@ def test_registry_add_and_update():
     # Test update with override
     original_toolset = registry.toolsets["test1"]
     original_toolset.override_with = MagicMock()
-    registry.update({"test1": {"enabled": False}})
+    registry.update_from_config({"test1": {"enabled": False}})
     # Note: update creates a new toolset and calls override_with in current implementation
 
 
