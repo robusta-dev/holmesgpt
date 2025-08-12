@@ -1,0 +1,54 @@
+user_prompt: "The pod log-aggregator is reporting disk space issues. Can you identify what's consuming the disk space?"
+expected_output:
+  - The result identifies that log files are consuming most disk space
+  - The result mentions the /var/log directory using significant space (around 45GB)
+  - The result identifies specific large log files (application.log, debug.log)
+  - The result mentions the disk is at 92% capacity
+tags:
+  - kubernetes
+
+before_test: |
+  kubectl create namespace app-146
+  cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: log-aggregator
+    namespace: app-146
+    labels:
+      app: log-aggregator
+  spec:
+    containers:
+    - name: logger
+      image: busybox:1.35
+      command: ["sh", "-c"]
+      args:
+        - |
+          mkdir -p /var/log
+          # Create large log files to simulate disk usage
+          dd if=/dev/zero of=/var/log/application.log bs=1M count=25000
+          dd if=/dev/zero of=/var/log/debug.log bs=1M count=20000
+          # Create some smaller logs
+          dd if=/dev/zero of=/var/log/access.log bs=1M count=1000
+          dd if=/dev/zero of=/var/log/error.log bs=1M count=500
+          # Fill up to 92% (46GB out of 50GB)
+          df -h /var/log
+          echo "Log aggregator running with high disk usage"
+          sleep 3600
+      volumeMounts:
+      - name: log-storage
+        mountPath: /var/log
+      resources:
+        limits:
+          memory: "512Mi"
+        requests:
+          memory: "512Mi"
+    volumes:
+    - name: log-storage
+      emptyDir:
+        sizeLimit: 50Gi
+  EOF
+  sleep 60
+
+after_test: |
+  kubectl delete namespace app-146 --force --grace-period=0
