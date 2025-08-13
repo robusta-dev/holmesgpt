@@ -18,7 +18,7 @@ import logging
 import socket
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 import typer
 from rich.markdown import Markdown
@@ -382,6 +382,11 @@ def alertmanager(
         "builtin://generic_investigation.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    group_alerts: bool = typer.Option(
+        False,
+        "--group-alerts",
+        help="Group alerts by root cause before investigation (experimental)",
+    ),
 ):
     """
     Investigate a Prometheus/Alertmanager alert
@@ -420,28 +425,65 @@ def alertmanager(
         )
         issues = issues[:alertmanager_limit]
 
-    if alertmanager_alertname is not None:
-        console.print(
-            f"[bold yellow]Analyzing {len(issues)} issues matching filter.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
-        )
+    results: Union[Dict, List] = []  # Can be either dict (grouped) or list (individual)
+
+    if group_alerts:
+        # Use the new grouping system with beautiful two-pane view
+        from holmes.core.alert_grouping_view import LiveAlertGrouper
+
+        grouper = LiveAlertGrouper(ai, console, verify_first_n=5)
+        groups = grouper.process_alerts_with_view(issues)
+
+        # Show final summary after the live view
+        console.print("\n" + grouper.get_summary())
+
+        # Store grouped results in a different format
+        grouped_results = {
+            "groups": [
+                {
+                    "group_id": group.id,
+                    "issue_title": group.issue_title,
+                    "root_cause": group.root_cause,
+                    "alerts": [a.model_dump() for a in group.alerts],
+                    "evidence": group.evidence,
+                    "affected_components": group.affected_components,
+                    "category": group.category,
+                }
+                for group in groups
+            ],
+            "summary": {
+                "total_alerts": sum(len(g.alerts) for g in groups),
+                "total_groups": len(groups),
+                "rules_generated": len(grouper.rules),
+            },
+        }
+
+        # For compatibility with json_output_file, use the grouped format
+        results = grouped_results
     else:
-        console.print(
-            f"[bold yellow]Analyzing all {len(issues)} issues. (Use --alertmanager-alertname to filter.)[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
-        )
-    results = []
-    for i, issue in enumerate(issues):
-        console.print(
-            f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
-        )
-        result = ai.investigate(
-            issue=issue,
-            prompt=system_prompt,  # type: ignore
-            console=console,
-            instructions=None,
-            post_processing_prompt=post_processing_prompt,
-        )
-        results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-        handle_result(result, console, destination, config, issue, False, True)  # type: ignore
+        # Original behavior - investigate each alert separately
+        if alertmanager_alertname is not None:
+            console.print(
+                f"[bold yellow]Analyzing {len(issues)} issues matching filter.[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+            )
+        else:
+            console.print(
+                f"[bold yellow]Analyzing all {len(issues)} issues. (Use --alertmanager-alertname to filter.)[/bold yellow] [red]Press Ctrl+C to stop.[/red]"
+            )
+        results = []
+        for i, issue in enumerate(issues):
+            console.print(
+                f"[bold yellow]Analyzing issue {i+1}/{len(issues)}: {issue.name}...[/bold yellow]"
+            )
+            result = ai.investigate(
+                issue=issue,
+                prompt=system_prompt,  # type: ignore
+                console=console,
+                instructions=None,
+                post_processing_prompt=post_processing_prompt,
+            )
+            results.append({"issue": issue.model_dump(), "result": result.model_dump()})
+            handle_result(result, console, destination, config, issue, False, True)  # type: ignore
 
     if json_output_file:
         write_json_file(json_output_file, results)
