@@ -75,6 +75,7 @@ pytest tests/llm/test_ask_holmes.py -k "99_your_test" -v
 - `mock_policy`: Control mock behavior (`always_mock`, `never_mock`, or `inherit`)
 - `conversation_history`: For multi-turn conversation tests
 - `expected_sections`: For investigation tests only
+- `prometheus_alert`: Path to PrometheusRule YAML (deployed when `EVAL_CREATE_ALERTS=true`)
 
 ## Mock Generation
 

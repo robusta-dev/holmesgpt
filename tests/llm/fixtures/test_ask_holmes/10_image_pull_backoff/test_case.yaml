@@ -1,6 +1,7 @@
 user_prompt: What is the issue with customer-relations-webapp?
 expected_output:
   - The Docker image `yourcompany/crw:latest` cannot be pulled
+prometheus_alert: prometheus_alert.yaml
 before_test: |
   kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/image_pull_backoff/no_such_image.yaml
   sleep 20

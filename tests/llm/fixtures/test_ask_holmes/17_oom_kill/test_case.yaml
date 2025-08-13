@@ -1,6 +1,7 @@
 user_prompt: "What is the issue with analytics-exporter-fast?"
 expected_output:
   - The result mentions analytics-exporter-fast is getting OOMKILLED
+prometheus_alert: prometheus_alert.yaml
 before_test: |
   kubectl apply -f ./fast_oom_deployment.yaml
   sleep 5

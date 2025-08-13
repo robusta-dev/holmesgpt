@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: network-connectivity-rules-84
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: application-health
+    interval: 30s
+    rules:
+    - alert: ServiceEndpointUnreachable
+      expr: |
+        # Alert triggers based on namespace existence
+        # In production this would be based on actual connectivity metrics
+        kube_namespace_created{namespace="namespace-84"} > 0
+      for: 30s
+      labels:
+        severity: critical
+        namespace: namespace-84
+        service: checkout-api
+        team: platform
+      annotations:
+        summary: "Service endpoint connectivity issues detected"
+        description: "The checkout API service in namespace-84 is experiencing connectivity problems. Frontend components are unable to complete transactions with backend services."
+        impact: "Users unable to complete checkout process. Revenue impact expected."
+        dashboard: "https://grafana.example.com/d/service-mesh/service-connectivity"
+        runbook: "https://wiki.internal/runbooks/service-connectivity-issues"

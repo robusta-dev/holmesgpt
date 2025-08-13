@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: deployment-readiness-alert-10
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: deployment-health
+    interval: 30s
+    rules:
+    - alert: DeploymentNotReady
+      expr: |
+        kube_deployment_status_replicas_unavailable{namespace="app-10"} > 0
+      for: 3m
+      labels:
+        severity: warning
+        namespace: app-10
+        team: platform
+      annotations:
+        summary: "Deployment unable to reach desired state"
+        description: "Application deployment in namespace app-10 is not progressing as expected. Service may be unavailable."
+        impact: "New version deployment blocked, service availability at risk"
+        dashboard: "https://grafana.example.com/d/deployments/deployment-status"

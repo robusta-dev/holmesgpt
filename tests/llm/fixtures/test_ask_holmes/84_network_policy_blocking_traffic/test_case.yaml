@@ -5,8 +5,11 @@ tags:
   - hard
 expected_output:
   - Frontend getting timeouts because NetworkPolicy on backend only allows ingress from pods with tier backend label not frontend
+prometheus_alert: prometheus_alert.yaml
 before_test: |
-  kubectl apply -f ./manifest.yaml
+  kubectl create namespace namespace-84
+  kubectl apply -f ../../shared/network_policy_blocking/manifest.yaml -n namespace-84
   sleep 30
 after_test: |
-  kubectl delete -f ./manifest.yaml
+  kubectl delete -f ../../shared/network_policy_blocking/manifest.yaml -n namespace-84
+  kubectl delete namespace namespace-84
