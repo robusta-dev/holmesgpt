@@ -31,12 +31,15 @@ class TestAzureSQLToolset:
 
         # Mock Azure credential and token acquisition
         with patch(
-            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.ClientSecretCredential"
-        ) as mock_credential_class:
-            # Create mock credential instance
+            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.get_azure_identity"
+        ) as mock_get_azure:
+            # Create mock azure identity module
+            mock_azure_identity = MagicMock()
             mock_credential = MagicMock()
             mock_credential.get_token.return_value = mock_token
-            mock_credential_class.return_value = mock_credential
+            mock_azure_identity.ClientSecretCredential.return_value = mock_credential
+            mock_azure_identity.DefaultAzureCredential.return_value = mock_credential
+            mock_get_azure.return_value = mock_azure_identity
 
             # Mock API client creation
             with patch(
@@ -50,7 +53,7 @@ class TestAzureSQLToolset:
                 toolset.check_prerequisites()
 
                 # Verify credential was created with correct parameters
-                mock_credential_class.assert_called_once_with(
+                mock_azure_identity.ClientSecretCredential.assert_called_once_with(
                     tenant_id="test-tenant-id",
                     client_id="test-client-id",
                     client_secret="test-client-secret",
@@ -104,21 +107,24 @@ class TestAzureSQLToolset:
 
         # Mock Azure credential to fail token acquisition
         with patch(
-            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.ClientSecretCredential"
-        ) as mock_credential_class:
-            # Create mock credential instance that fails to get token
+            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.get_azure_identity"
+        ) as mock_get_azure:
+            # Create mock azure identity module
+            mock_azure_identity = MagicMock()
             mock_credential = MagicMock()
             mock_credential.get_token.side_effect = Exception(
                 "Authentication failed: Invalid client credentials"
             )
-            mock_credential_class.return_value = mock_credential
+            mock_azure_identity.ClientSecretCredential.return_value = mock_credential
+            mock_azure_identity.DefaultAzureCredential.return_value = mock_credential
+            mock_get_azure.return_value = mock_azure_identity
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify credential was created
-            mock_credential_class.assert_called_once_with(
+            mock_azure_identity.ClientSecretCredential.assert_called_once_with(
                 tenant_id="test-tenant-id",
                 client_id="test-client-id",
                 client_secret="test-client-secret",
@@ -175,14 +181,17 @@ class TestAzureSQLToolset:
         # Create toolset instance
         toolset = AzureSQLToolset()
 
-        # Mock DefaultAzureCredential
+        # Mock Azure identity
         with patch(
-            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.DefaultAzureCredential"
-        ) as mock_default_credential_class:
-            # Create mock credential instance
+            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.get_azure_identity"
+        ) as mock_get_azure:
+            # Create mock azure identity module
+            mock_azure_identity = MagicMock()
             mock_credential = MagicMock()
             mock_credential.get_token.return_value = mock_token
-            mock_default_credential_class.return_value = mock_credential
+            mock_azure_identity.ClientSecretCredential.return_value = mock_credential
+            mock_azure_identity.DefaultAzureCredential.return_value = mock_credential
+            mock_get_azure.return_value = mock_azure_identity
 
             # Mock API client creation
             with patch(
@@ -196,7 +205,7 @@ class TestAzureSQLToolset:
                 toolset.check_prerequisites()
 
                 # Verify DefaultAzureCredential was used
-                mock_default_credential_class.assert_called_once_with()
+                mock_azure_identity.DefaultAzureCredential.assert_called_once_with()
 
                 # Verify tokens were requested
                 assert mock_credential.get_token.call_count == 2
@@ -229,15 +238,18 @@ class TestAzureSQLToolset:
 
         # Mock Azure credential
         with patch(
-            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.ClientSecretCredential"
-        ) as mock_credential_class:
-            # Create mock credential instance that fails on second token request
+            "holmes.plugins.toolsets.azure_sql.azure_sql_toolset.get_azure_identity"
+        ) as mock_get_azure:
+            # Create mock azure identity module
+            mock_azure_identity = MagicMock()
             mock_credential = MagicMock()
             mock_credential.get_token.side_effect = [
                 mock_mgmt_token,  # First call succeeds (management token)
                 Exception("Failed to obtain SQL database token"),  # Second call fails
             ]
-            mock_credential_class.return_value = mock_credential
+            mock_azure_identity.ClientSecretCredential.return_value = mock_credential
+            mock_azure_identity.DefaultAzureCredential.return_value = mock_credential
+            mock_get_azure.return_value = mock_azure_identity
 
             # Set config and call check_prerequisites
             toolset.config = config

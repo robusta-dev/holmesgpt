@@ -30,8 +30,8 @@ class TestOpenSearchToolset:
 
         # Mock OpenSearch client and health check
         with patch(
-            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
-        ) as mock_opensearch_class:
+            "holmes.plugins.toolsets.opensearch.opensearch.get_opensearch"
+        ) as mock_get_opensearch:
             # Create mock client instance
             mock_client = MagicMock()
             mock_health_response = {
@@ -52,15 +52,18 @@ class TestOpenSearchToolset:
                 "active_shards_percent_as_number": 100.0,
             }
             mock_client.cluster.health.return_value = mock_health_response
-            mock_opensearch_class.return_value = mock_client
+            # Create mock opensearch module
+            mock_opensearch_module = MagicMock()
+            mock_opensearch_module.OpenSearch.return_value = mock_client
+            mock_get_opensearch.return_value = mock_opensearch_module
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify OpenSearch client was created with correct parameters
-            mock_opensearch_class.assert_called_once()
-            call_args = mock_opensearch_class.call_args[1]
+            mock_opensearch_module.OpenSearch.assert_called_once()
+            call_args = mock_opensearch_module.OpenSearch.call_args[1]
 
             # Verify hosts
             assert "hosts" in call_args
@@ -107,21 +110,24 @@ class TestOpenSearchToolset:
 
         # Mock OpenSearch client to fail health check
         with patch(
-            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
-        ) as mock_opensearch_class:
+            "holmes.plugins.toolsets.opensearch.opensearch.get_opensearch"
+        ) as mock_get_opensearch:
+            # Create mock opensearch module
+            mock_opensearch_module = MagicMock()
             # Create mock client instance that fails health check
             mock_client = MagicMock()
             mock_client.cluster.health.side_effect = Exception(
                 "Connection refused: Unable to connect to OpenSearch cluster"
             )
-            mock_opensearch_class.return_value = mock_client
+            mock_opensearch_module.OpenSearch.return_value = mock_client
+            mock_get_opensearch.return_value = mock_opensearch_module
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify OpenSearch client was created
-            mock_opensearch_class.assert_called_once()
+            mock_opensearch_module.OpenSearch.assert_called_once()
 
             # Verify health check was attempted
             mock_client.cluster.health.assert_called_once_with(params={"timeout": 5})
@@ -171,20 +177,23 @@ class TestOpenSearchToolset:
 
         # Mock OpenSearch client
         with patch(
-            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
-        ) as mock_opensearch_class:
+            "holmes.plugins.toolsets.opensearch.opensearch.get_opensearch"
+        ) as mock_get_opensearch:
+            # Create mock opensearch module
+            mock_opensearch_module = MagicMock()
             # Create mock client instance
             mock_client = MagicMock()
             mock_client.cluster.health.return_value = {"status": "green"}
-            mock_opensearch_class.return_value = mock_client
+            mock_opensearch_module.OpenSearch.return_value = mock_client
+            mock_get_opensearch.return_value = mock_opensearch_module
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify OpenSearch client was created with correct parameters
-            mock_opensearch_class.assert_called_once()
-            call_args = mock_opensearch_class.call_args[1]
+            mock_opensearch_module.OpenSearch.assert_called_once()
+            call_args = mock_opensearch_module.OpenSearch.call_args[1]
 
             # Verify http_auth was converted to tuple format
             assert "http_auth" in call_args
@@ -219,8 +228,11 @@ class TestOpenSearchToolset:
 
         # Mock OpenSearch client with different behaviors
         with patch(
-            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
-        ) as mock_opensearch_class:
+            "holmes.plugins.toolsets.opensearch.opensearch.get_opensearch"
+        ) as mock_get_opensearch:
+            # Create mock opensearch module
+            mock_opensearch_module = MagicMock()
+
             # Create different mock behaviors for each cluster
             def side_effect(*args, **kwargs):
                 mock_client = MagicMock()
@@ -240,14 +252,15 @@ class TestOpenSearchToolset:
                     )
                 return mock_client
 
-            mock_opensearch_class.side_effect = side_effect
+            mock_opensearch_module.OpenSearch.side_effect = side_effect
+            mock_get_opensearch.return_value = mock_opensearch_module
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify all three clients were attempted
-            assert mock_opensearch_class.call_count == 3
+            assert mock_opensearch_module.OpenSearch.call_count == 3
 
             # Verify toolset status is enabled (at least one cluster succeeded)
             assert toolset.status == ToolsetStatusEnum.ENABLED
@@ -280,19 +293,22 @@ class TestOpenSearchToolset:
 
         # Mock OpenSearch client to always fail
         with patch(
-            "holmes.plugins.toolsets.opensearch.opensearch.OpenSearch"
-        ) as mock_opensearch_class:
+            "holmes.plugins.toolsets.opensearch.opensearch.get_opensearch"
+        ) as mock_get_opensearch:
+            # Create mock opensearch module
+            mock_opensearch_module = MagicMock()
             # Create mock client that always fails
             mock_client = MagicMock()
             mock_client.cluster.health.side_effect = Exception("Cluster unavailable")
-            mock_opensearch_class.return_value = mock_client
+            mock_opensearch_module.OpenSearch.return_value = mock_client
+            mock_get_opensearch.return_value = mock_opensearch_module
 
             # Set config and call check_prerequisites
             toolset.config = config
             toolset.check_prerequisites()
 
             # Verify both clients were attempted
-            assert mock_opensearch_class.call_count == 2
+            assert mock_opensearch_module.OpenSearch.call_count == 2
 
             # Verify toolset status indicates failure
             assert toolset.status == ToolsetStatusEnum.FAILED

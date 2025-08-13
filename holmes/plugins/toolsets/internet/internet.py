@@ -10,13 +10,12 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
     CallablePrerequisite,
+    StructuredToolResult,
+    ToolResultStatus,
 )
-from markdownify import markdownify
-from bs4 import BeautifulSoup
-
 import requests  # type: ignore
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+from holmes.plugins.toolsets.lazy_imports import get_beautifulsoup, get_markdownify
 
 
 # TODO: change and make it holmes
@@ -118,7 +117,7 @@ def scrape(url: str, headers: Dict[str, str]) -> Tuple[Optional[str], Optional[s
     return (content, mime_type)
 
 
-def cleanup(soup: BeautifulSoup):
+def cleanup(soup):
     """Remove all elements that are irrelevant to the textual representation of a web page.
     This includes images, extra data, even links as there is no intention to navigate from that page.
     """
@@ -136,6 +135,11 @@ def cleanup(soup: BeautifulSoup):
 
 
 def html_to_markdown(page_source: str):
+    # Lazy load HTML parsing libraries on first use
+    bs4 = get_beautifulsoup()
+    markdownify = get_markdownify().markdownify
+    BeautifulSoup = bs4.BeautifulSoup
+
     soup = BeautifulSoup(page_source, "html.parser")
     soup = cleanup(soup)
     page_source = str(soup)

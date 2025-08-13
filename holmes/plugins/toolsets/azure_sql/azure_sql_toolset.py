@@ -1,8 +1,11 @@
 import os
 import logging
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Tuple, Union, TYPE_CHECKING
 
-from azure.identity import DefaultAzureCredential, ClientSecretCredential
+from holmes.plugins.toolsets.lazy_imports import get_azure_identity
+
+if TYPE_CHECKING:
+    pass
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -86,7 +89,14 @@ class AzureSQLToolset(BaseAzureSQLToolset):
 
             # Set up Azure credentials
             try:
-                credential: Union[ClientSecretCredential, DefaultAzureCredential]
+                # Lazy load Azure identity modules on first use
+                azure_identity = get_azure_identity()
+                DefaultAzureCredential = azure_identity.DefaultAzureCredential
+                ClientSecretCredential = azure_identity.ClientSecretCredential
+
+                credential: Union[
+                    Any, Any
+                ]  # Union[ClientSecretCredential, DefaultAzureCredential]
                 if (
                     azure_sql_config.tenant_id
                     and azure_sql_config.client_id
