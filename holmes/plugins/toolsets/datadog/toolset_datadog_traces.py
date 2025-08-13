@@ -1,3 +1,5 @@
+"""Datadog Traces toolset for HolmesGPT."""
+
 import json
 import logging
 import os
@@ -28,6 +30,9 @@ from holmes.plugins.toolsets.datadog.datadog_traces_formatter import (
     format_traces_list,
     format_trace_hierarchy,
     format_spans_search,
+)
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 
 
@@ -223,7 +228,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
             from_time_int, to_time_int = process_timestamps_to_int(
                 start=params.get("start_datetime"),
                 end=params.get("end_datetime"),
-                default_time_span_seconds=3600,  # Default to 1 hour
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
             )
 
             # Convert to milliseconds for Datadog API
@@ -568,7 +573,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
             from_time_int, to_time_int = process_timestamps_to_int(
                 start=params.get("start_datetime"),
                 end=params.get("end_datetime"),
-                default_time_span_seconds=3600,  # Default to 1 hour
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
             )
 
             # Convert to milliseconds for Datadog API

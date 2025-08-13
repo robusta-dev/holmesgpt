@@ -7,6 +7,7 @@ from holmes.core.investigation_structured_output import process_response_into_se
 from holmes.core.issue import Issue
 from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.tracing import DummySpan, SpanType
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 from holmes.utils.robusta import load_robusta_api_key
 
@@ -24,6 +25,7 @@ def investigate_issues(
     dal: SupabaseDal,
     config: Config,
     model: Optional[str] = None,
+    trace_span=DummySpan(),
 ) -> InvestigationResult:
     load_robusta_api_key(dal=dal, config=config)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
@@ -37,7 +39,12 @@ def investigate_issues(
     if context:
         raw_data["extra_context"] = context
 
+    # If config is not preinitilized
+    create_issue_investigator_span = trace_span.start_span(
+        "create_issue_investigator", SpanType.FUNCTION.value
+    )
     ai = config.create_issue_investigator(dal=dal, model=model)
+    create_issue_investigator_span.end()
 
     issue = Issue(
         id=context["id"] if context else "",
@@ -54,6 +61,7 @@ def investigate_issues(
         instructions=resource_instructions,
         global_instructions=global_instructions,
         sections=investigate_request.sections,
+        trace_span=trace_span,
     )
 
     (text_response, sections) = process_response_into_sections(investigation.result)

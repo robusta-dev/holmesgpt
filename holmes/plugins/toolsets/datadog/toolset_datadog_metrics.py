@@ -28,15 +28,18 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
     toolset_name_for_one_liner,
 )
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
+)
+
 from datetime import datetime
 
 from holmes.utils.keygen_utils import generate_random_key
 
-DEFAULT_TIME_SPAN_SECONDS = 3600
-
 
 class DatadogMetricsConfig(DatadogBaseConfig):
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 class BaseDatadogMetricsTool(Tool):
@@ -64,7 +67,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                     required=False,
                 ),
                 "tag_filter": ToolParameter(
-                    description="Filter metrics by tags in the format tag:value. pod tag is pod_name. namespace tag is kube_namespace.",
+                    description="Filter metrics by tags in the format tag:value.",
                     type="string",
                     required=False,
                 ),
@@ -114,6 +117,12 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             )
 
             metrics = data.get("metrics", [])
+            if not metrics:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    data="Your filter returned no metrics. Change your filter and try again",
+                    params=params,
+                )
 
             output = ["Metric Name"]
             output.append("-" * 50)
