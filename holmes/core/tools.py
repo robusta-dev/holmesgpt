@@ -608,7 +608,6 @@ class TodoWriteTool(Tool):
         )
 
         try:
-            logging.info(f"### invoking todowrite tool {params}")
             todos_data = params.get("todos", [])
 
             tasks = []
