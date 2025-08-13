@@ -289,7 +289,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-
+        metadata = {}
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -308,6 +308,9 @@ class ToolCallingLLM:
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
                 messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
@@ -390,6 +393,7 @@ class ToolCallingLLM:
                         tool_calls=tool_calls,
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
+                        metadata=metadata,
                     )
 
                 perf_timing.end(f"- completed in {i} iterations -")
@@ -398,6 +402,7 @@ class ToolCallingLLM:
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
+                    metadata=metadata,
                 )
 
             if text_response and text_response.strip():
@@ -624,6 +629,7 @@ class ToolCallingLLM:
         tools = self.tool_executor.get_all_tools_openai_format()
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
+        metadata = {}
         i = 0
 
         while i < max_steps:
@@ -644,6 +650,9 @@ class ToolCallingLLM:
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
                 messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
@@ -697,7 +706,11 @@ class ToolCallingLLM:
             if not tools_to_call:
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
-                    data={"content": response_message.content, "messages": messages},
+                    data={
+                        "content": response_message.content,
+                        "messages": messages,
+                        "metadata": metadata,
+                    },
                 )
                 return
 

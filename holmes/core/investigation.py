@@ -72,6 +72,7 @@ def investigate_issues(
         sections=sections,
         tool_calls=investigation.tool_calls or [],
         instructions=investigation.instructions,
+        metadata=investigation.metadata,
     )
 
 
