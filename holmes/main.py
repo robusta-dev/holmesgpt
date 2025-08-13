@@ -964,6 +964,178 @@ def version() -> None:
     typer.echo(get_version())
 
 
+@app.command()
+def check(
+    checks_file: Optional[Path] = typer.Option(
+        None,
+        "--checks-file",
+        help="Path to checks configuration file (defaults to ~/.holmes/checks.yaml)",
+    ),
+    inline_check: Optional[str] = typer.Option(
+        None,
+        "-c",
+        "--check",
+        help="Run a single inline check without a configuration file",
+    ),
+    slack_channel: Optional[str] = typer.Option(
+        None,
+        "--slack-channel",
+        help="Slack channel for inline check alerts (e.g., #alerts)",
+    ),
+    slack_webhook: Optional[str] = typer.Option(
+        None,
+        "--slack-webhook",
+        help="Slack webhook URL for inline check alerts",
+    ),
+    mode: Optional[str] = typer.Option(
+        "alert",
+        "--mode",
+        help="Mode for running checks: 'alert' (send notifications) or 'monitor' (only log)",
+    ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help="Run specific check by name",
+    ),
+    tags: Optional[List[str]] = typer.Option(
+        None,
+        "--tags",
+        help="Filter checks by tags (can specify multiple)",
+    ),
+    output: str = typer.Option(
+        "table",
+        "--output",
+        help="Output format: 'table' or 'json'",
+    ),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        help="Run checks continuously",
+    ),
+    interval: int = typer.Option(
+        60,
+        "--interval",
+        help="Interval in seconds for watch mode",
+    ),
+    parallel: bool = typer.Option(
+        False,
+        "--parallel",
+        help="Run checks in parallel (faster but output may be interleaved)",
+    ),
+    repeat: Optional[int] = typer.Option(
+        None,
+        "--repeat",
+        help="Override repeat count for all checks",
+    ),
+    failure_threshold: Optional[int] = typer.Option(
+        None,
+        "--failure-threshold",
+        help="Override failure threshold for all checks",
+    ),
+    # common options
+    api_key: Optional[str] = opt_api_key,
+    model: Optional[str] = opt_model,
+    config_file: Optional[Path] = opt_config_file,
+    verbose: Optional[List[bool]] = opt_verbose,
+):
+    """
+    Run health checks and optionally send alerts
+    """
+    from holmes.check import CheckMode, run_check_command
+    import tempfile
+    import yaml
+
+    console = init_logging(verbose)
+
+    # Handle inline check
+    temp_file = False
+    if inline_check:
+        # Create a temporary checks file with the inline check
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            check_config = {
+                "version": 1,
+                "checks": [
+                    {
+                        "name": "Inline Check",
+                        "query": inline_check,
+                        "repeat": repeat if repeat is not None else 1,
+                        "failure_threshold": failure_threshold
+                        if failure_threshold is not None
+                        else 0,
+                    }
+                ],
+            }
+
+            # Add destinations for inline check if Slack options provided
+            if slack_webhook or slack_channel:
+                # Use configured Slack token from config or webhook
+                slack_config: dict = {}
+                if slack_webhook:
+                    slack_config["webhook_url"] = slack_webhook
+                if slack_channel:
+                    slack_config["channel"] = slack_channel
+                check_config["destinations"] = {"slack": slack_config}
+
+                # Add destination to the check
+                checks_list = check_config.get("checks", [])
+                if isinstance(checks_list, list) and len(checks_list) > 0:
+                    checks_list[0]["destinations"] = ["slack"]
+
+            yaml.dump(check_config, f)
+            checks_file = Path(f.name)
+            temp_file = True
+    else:
+        # Determine checks file location
+        if checks_file is None:
+            default_checks = Path.home() / ".holmes" / "checks.yaml"
+            if default_checks.exists():
+                checks_file = default_checks
+            else:
+                console.print(
+                    "[red]No checks file specified and ~/.holmes/checks.yaml not found.[/red]\n"
+                    "Please specify a checks file with --checks-file or use -c for inline checks"
+                )
+                raise typer.Exit(1)
+
+    # Load config
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        model=model,
+    )
+
+    # Parse mode
+    try:
+        check_mode = CheckMode(mode.lower() if mode else "alert")
+    except ValueError:
+        console.print(f"[red]Invalid mode: {mode}. Must be 'alert' or 'monitor'[/red]")
+        raise typer.Exit(1)
+
+    try:
+        # Run checks
+        exit_code = run_check_command(
+            checks_file=checks_file,
+            config=config,
+            console=console,
+            mode=check_mode,
+            name_filter=name,
+            tag_filter=tags,
+            verbose=len(verbose) > 0 if verbose else False,
+            output_format=output,
+            watch=watch,
+            watch_interval=interval,
+            repeat_override=repeat,
+            failure_threshold_override=failure_threshold,
+            parallel=parallel,
+        )
+    finally:
+        # Clean up temp file if created
+        if temp_file and checks_file.exists():
+            checks_file.unlink()
+
+    raise typer.Exit(exit_code)
+
+
 def run():
     app()
 

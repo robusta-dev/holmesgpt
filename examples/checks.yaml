@@ -1,0 +1,114 @@
+# Example Holmes health checks configuration
+# Place this file at ~/.holmes/checks.yaml or specify with --checks-file
+
+version: 1
+
+# Default settings for all checks
+defaults:
+  timeout: 30  # seconds - max time for each check to complete
+  mode: "alert"  # "alert" or "monitor" - monitor only logs, alert sends notifications
+  repeat: 3  # Run check this many times
+  repeat_delay: 5  # seconds between repeated runs
+  failure_threshold: 1  # Tolerate up to this many failures (e.g., 1 means 2+ failures triggers alert)
+
+# Global destinations for alerts (can be overridden per check)
+destinations:
+  slack:
+    webhook_url: ${SLACK_WEBHOOK_URL}
+    channel: "#alerts"
+  pagerduty:
+    integration_key: ${PAGERDUTY_INTEGRATION_KEY}
+
+checks:
+  - name: "Frontend Deployment Health"
+    description: "Check if frontend deployment has ready replicas"
+    tags: ["kubernetes", "critical", "deployment"]
+    query: "Is the deployment 'frontend' in namespace 'production' healthy with at least 2 ready replicas?"
+    destinations: ["slack", "pagerduty"]
+
+  - name: "Database Connection"
+    description: "Verify database is accessible"
+    tags: ["database", "critical", "postgresql"]
+    query: "Can you connect to PostgreSQL at postgres.prod.svc.cluster.local:5432 and verify it's accepting connections?"
+    destinations: ["slack"]
+    repeat: 5  # Check 5 times
+    failure_threshold: 2  # Allow up to 2 failures out of 5
+
+  - name: "CPU Usage Check"
+    description: "Check if any node has CPU usage above 80%"
+    tags: ["prometheus", "warning", "performance"]
+    query: "Are any Kubernetes nodes experiencing CPU usage above 80% in the last 5 minutes?"
+    mode: "monitor"  # Only log, don't send alerts
+
+  - name: "Certificate Expiry"
+    description: "Check TLS certificates expiration"
+    tags: ["kubernetes", "security", "medium"]
+    query: "Are there any TLS certificates in the cluster expiring within the next 30 days?"
+    schedule: "0 9 * * MON"  # Optional: Only run on Mondays at 9am (future feature)
+
+  - name: "Disk Space"
+    description: "Check persistent volume usage"
+    tags: ["kubernetes", "storage", "high"]
+    query: "Are any persistent volumes in the cluster above 85% capacity?"
+    repeat: 1  # Check only once
+
+  - name: "Service Availability"
+    description: "Check if critical services are responding"
+    tags: ["http", "critical", "availability"]
+    query: "Are the following services responding with 2xx status codes: api.example.com/health, app.example.com/health?"
+    timeout: 10  # Override default timeout
+    repeat: 10  # Check 10 times for this critical service
+    failure_threshold: 3  # Allow up to 3 failures (70% success rate required)
+    repeat_delay: 2  # Check every 2 seconds
+
+  - name: "Log Errors Rate"
+    description: "Check for excessive error logs"
+    tags: ["loki", "observability", "medium"]
+    query: "Has the error log rate exceeded 100 errors per minute in the last 10 minutes for any application?"
+
+  - name: "Memory Usage"
+    description: "Check if any pod is using more than 90% of its memory limit"
+    tags: ["kubernetes", "performance", "warning"]
+    query: "Are any pods in the cluster using more than 90% of their memory limits?"
+
+  - name: "Kafka Lag"
+    description: "Check for high consumer lag in Kafka"
+    tags: ["kafka", "streaming", "high"]
+    query: "Is the consumer lag for any Kafka consumer group above 10000 messages?"
+    destinations: ["slack"]
+
+  - name: "Redis Connection"
+    description: "Check Redis connectivity and performance"
+    tags: ["redis", "cache", "critical"]
+    query: "Can you connect to Redis at redis.prod.svc.cluster.local:6379 and verify response time is under 100ms?"
+    repeat: 5
+    failure_threshold: 1
+
+# Usage Examples:
+# holmes check                           # Run all checks from this file
+# holmes check --mode monitor            # Run all checks in monitor mode (no alerts)
+# holmes check --tags critical           # Run only critical checks
+# holmes check --name "Pod Health"       # Run specific check by name
+# holmes check --parallel                # Run checks in parallel for faster execution
+# holmes check --watch --interval 300    # Run checks every 5 minutes
+
+# For inline checks without a config file:
+# holmes check -c "Are all pods running?" --mode monitor
+# holmes check -c "Is disk usage below 80%?" --mode alert \
+#   --slack-webhook "https://hooks.slack.com/..." --slack-channel "#alerts"
+
+# Tips for writing good check queries:
+# - Phrase checks so PASS means healthy (e.g., "Are all pods running?")
+# - Avoid negative phrasing (e.g., NOT "Is CPU usage above 90%?")
+# - Be specific about what constitutes healthy vs unhealthy
+
+# Future feature: Groups for organizing related checks
+# check_groups:
+#   critical_infrastructure:
+#     - "Frontend Deployment Health"
+#     - "Database Connection"
+#     - "Service Availability"
+#   monitoring:
+#     - "CPU Usage Check"
+#     - "Disk Space"
+#     - "Log Errors Rate"
