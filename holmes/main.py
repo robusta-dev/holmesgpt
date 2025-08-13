@@ -964,6 +964,123 @@ def version() -> None:
     typer.echo(get_version())
 
 
+@app.command()
+def check(
+    checks_file: Optional[Path] = typer.Option(
+        None,
+        "--checks-file",
+        help="Path to checks configuration file (defaults to ~/.holmes/checks.yaml)",
+    ),
+    inline_check: Optional[str] = typer.Option(
+        None,
+        "-c",
+        "--check",
+        help="Run a single inline check without a configuration file",
+    ),
+    mode: Optional[str] = typer.Option(
+        "alert",
+        "--mode",
+        help="Mode for running checks: 'alert' (send notifications) or 'monitor' (only log)",
+    ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help="Run specific check by name",
+    ),
+    tags: Optional[List[str]] = typer.Option(
+        None,
+        "--tags",
+        help="Filter checks by tags (can specify multiple)",
+    ),
+    output: str = typer.Option(
+        "table",
+        "--output",
+        help="Output format: 'table' or 'json'",
+    ),
+    watch: bool = typer.Option(
+        False,
+        "--watch",
+        help="Run checks continuously",
+    ),
+    interval: int = typer.Option(
+        60,
+        "--interval",
+        help="Interval in seconds for watch mode",
+    ),
+    parallel: bool = typer.Option(
+        False,
+        "--parallel",
+        help="Run checks in parallel (faster but output may be interleaved)",
+    ),
+    repeat: Optional[int] = typer.Option(
+        None,
+        "--repeat",
+        help="Override repeat count for all checks",
+    ),
+    failure_threshold: Optional[int] = typer.Option(
+        None,
+        "--failure-threshold",
+        help="Override failure threshold for all checks",
+    ),
+    # common options
+    api_key: Optional[str] = opt_api_key,
+    model: Optional[str] = opt_model,
+    config_file: Optional[Path] = opt_config_file,
+    verbose: Optional[List[bool]] = opt_verbose,
+):
+    """
+    Run health checks and optionally send alerts
+    """
+    from holmes.check import CheckMode, run_check_command
+
+    console = init_logging(verbose)
+
+    # Determine checks file location
+    if checks_file is None:
+        default_checks = Path.home() / ".holmes" / "checks.yaml"
+        if default_checks.exists():
+            checks_file = default_checks
+        else:
+            console.print(
+                "[red]No checks file specified and ~/.holmes/checks.yaml not found.[/red]\n"
+                "Please specify a checks file with --checks-file"
+            )
+            raise typer.Exit(1)
+
+    # Load config
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        model=model,
+    )
+
+    # Parse mode
+    try:
+        check_mode = CheckMode(mode.lower() if mode else "alert")
+    except ValueError:
+        console.print(f"[red]Invalid mode: {mode}. Must be 'alert' or 'monitor'[/red]")
+        raise typer.Exit(1)
+
+    # Run checks
+    exit_code = run_check_command(
+        checks_file=checks_file,
+        config=config,
+        console=console,
+        mode=check_mode,
+        name_filter=name,
+        tag_filter=tags,
+        verbose=len(verbose) > 0 if verbose else False,
+        output_format=output,
+        watch=watch,
+        watch_interval=interval,
+        repeat_override=repeat,
+        failure_threshold_override=failure_threshold,
+        parallel=parallel,
+    )
+
+    raise typer.Exit(exit_code)
+
+
 def run():
     app()
 

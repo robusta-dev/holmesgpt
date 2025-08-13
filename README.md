@@ -87,6 +87,44 @@ Read the [LLM Providers documentation](https://robusta-dev.github.io/holmesgpt/a
 holmes ask "what pods are unhealthy and why?"
 ```
 
+### Health Checks and Monitoring
+
+Run automated health checks and get alerts when they fail:
+
+```bash
+# Single check via command line (monitor mode - no alerts)
+holmes check -c "Are all pods in the default namespace running?" --mode monitor
+
+# Alert mode - sends notifications to Slack when checks fail
+holmes check -c "Is CPU usage below 90% on all nodes?" --mode alert
+
+# Run health checks from configuration file (~/.holmes/checks.yaml)
+holmes check
+
+# Monitor specific aspects with tags
+holmes check --tags critical
+
+# Run checks in parallel for faster execution
+holmes check --parallel
+```
+
+Configure Slack alerts in `~/.holmes/checks.yaml`:
+```yaml
+version: 1
+destinations:
+  slack:
+    webhook_url: "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+    channel: "#alerts"
+
+checks:
+  - name: "Kubernetes Health"
+    query: "Are all deployments in production namespace healthy?"
+    destinations: ["slack"]
+    mode: alert  # Will send to Slack if check fails
+```
+
+See the [Health Checks documentation](https://robusta-dev.github.io/holmesgpt/walkthrough/health-checks/) for details.
+
 You can also provide files as context:
 ```bash
 holmes ask "summarize the key points in this document" -f ./mydocument.txt

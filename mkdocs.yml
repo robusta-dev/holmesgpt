@@ -136,6 +136,7 @@ nav:
   - Walkthrough:
       - walkthrough/index.md
       - Interactive Mode: walkthrough/interactive-mode.md
+      - Health Checks: walkthrough/health-checks.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
@@ -195,6 +196,7 @@ nav:
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
+      - CLI Commands: reference/cli-commands.md
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
       - Slash Commands: reference/slash-commands.md

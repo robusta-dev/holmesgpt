@@ -4,6 +4,17 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 
 ![HolmesGPT Investigation](assets/HolmesInvestigation.gif)
 
+## What's New
+
+### Health Checks & Monitoring
+HolmesGPT can now continuously monitor your infrastructure health with the new `holmes check` command:
+- Define health checks as simple yes/no questions
+- Run checks in parallel for faster monitoring
+- Send alerts to Slack or PagerDuty when checks fail
+- Set failure thresholds to handle transient issues
+
+[Learn more about health checks →](walkthrough/health-checks.md)
+
 ## Quick Start
 
 <div class="grid cards" markdown>
