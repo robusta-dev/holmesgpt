@@ -1,0 +1,14 @@
+user_prompt: "What were the errors in pod robusta-holmes last December?"
+tags:
+  - logs
+  - synthetic
+  - medium
+expected_output:
+  - 2024-12-12 The database at my.postgresql.com has become unavailable
+  - 2024-12-15 Syntax error for query fetch_user_logs
+  - 2024-12-19 SSL certificate expired
+
+evaluation:
+  correctness: 1
+
+mock_policy: always_mock
