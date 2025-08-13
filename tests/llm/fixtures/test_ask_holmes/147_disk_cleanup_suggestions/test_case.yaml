@@ -4,7 +4,7 @@ expected_output:
   - The result suggests deleting or rotating old log files
   - The result mentions log rotation configuration or cleanup scripts
   - The result may suggest expanding disk space or using persistent volumes
-  - The result identifies specific directories (/tmp/processing, /var/cache) that can be cleaned
+  - The result identifies specific directories (/data/tmp/processing, /data/var/cache) that can be cleaned
 tags:
   - kubernetes
 
@@ -26,37 +26,36 @@ before_test: |
       args:
         - |
           # Create directory structure
-          mkdir -p /tmp/processing /var/cache /var/log/app
+          mkdir -p /data/tmp/processing /data/var/cache /data/var/log/app
 
           # Create old log files (30 days old pattern)
           for i in {1..30}; do
-            dd if=/dev/zero of=/var/log/app/app-2024-01-$(printf "%02d" $i).log bs=1M count=500 2>/dev/null
+            dd if=/dev/zero of=/data/var/log/app/app-2024-01-$(printf "%02d" $i).log bs=1M count=500 2>/dev/null
           done
 
           # Create temporary processing files
           for i in {1..100}; do
-            dd if=/dev/zero of=/tmp/processing/temp-$i.dat bs=1M count=50 2>/dev/null
+            dd if=/dev/zero of=/data/tmp/processing/temp-$i.dat bs=1M count=50 2>/dev/null
           done
 
           # Create cache files
-          dd if=/dev/zero of=/var/cache/large-cache.db bs=1M count=5000 2>/dev/null
+          dd if=/dev/zero of=/data/var/cache/large-cache.db bs=1M count=5000 2>/dev/null
 
           # Create current log file (smaller)
-          dd if=/dev/zero of=/var/log/app/current.log bs=1M count=100 2>/dev/null
+          dd if=/dev/zero of=/data/var/log/app/current.log bs=1M count=100 2>/dev/null
 
           # Show disk usage
           echo "Disk usage report:"
-          df -h /
+          df -h /data
           echo ""
           echo "Directory sizes:"
-          du -sh /var/log/app /tmp/processing /var/cache 2>/dev/null
+          du -sh /data/var/log/app /data/tmp/processing /data/var/cache 2>/dev/null
 
           echo "Data processor running with 95% disk usage"
           sleep 3600
       volumeMounts:
       - name: data-storage
-        mountPath: /
-        subPath: data
+        mountPath: /data
       resources:
         limits:
           memory: "1Gi"

@@ -53,13 +53,9 @@ before_test: |
   kubectl wait --for=condition=complete job/traffic-generator -n app-113 --timeout=120s
   echo "Done generating traffic"
 
-  # Verify traces are in Tempo (using port-forward instead of exec)
-  kubectl port-forward -n app-113 svc/tempo 3200:3200 &
-  PF_PID=$!
-  sleep 3
-
-  TRACE_COUNT=$(curl -s 'http://localhost:3200/api/search?limit=1' 2>/dev/null | grep -o '"traces"' | wc -l || echo "0")
-  kill $PF_PID 2>/dev/null || true
+  # Verify traces are in Tempo using kubectl exec
+  echo "Checking if traces were received by Tempo..."
+  TRACE_COUNT=$(kubectl exec -n app-113 deployment/tempo -- curl -s 'http://localhost:3200/api/search?limit=1' 2>/dev/null | grep -o '"traces"' | wc -l || echo "0")
 
   if [ "$TRACE_COUNT" -eq "0" ]; then
     echo "WARNING: No traces found in Tempo (this might be timing related)"

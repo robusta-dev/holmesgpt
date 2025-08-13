@@ -131,7 +131,13 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             setup_failures = {}
 
         # Set up port forwards AFTER namespace/resources are created
-        setup_all_port_forwards(test_cases)
+        manager, port_forward_failures = setup_all_port_forwards(test_cases)
+
+        if port_forward_failures:
+            log(
+                f"⚠️ {len(port_forward_failures)} tests will be skipped due to port forward failures"
+            )
+            setup_failures.update(port_forward_failures)
 
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],

@@ -18,12 +18,10 @@ spec:
         # Compile and run with JVM flags
         javac OrderService.java
 
-        # Run with heap size and GC logging
+        # Run with heap size and GC logging (Java 11+ compatible)
         java -Xmx1g -Xms512m \
              -XX:+UseG1GC \
-             -XX:+PrintGCDetails \
-             -XX:+PrintGCDateStamps \
-             -Xloggc:/tmp/gc.log \
+             -Xlog:gc*:file=/tmp/gc.log:time \
              -XX:+HeapDumpOnOutOfMemoryError \
              -XX:HeapDumpPath=/tmp \
              OrderService

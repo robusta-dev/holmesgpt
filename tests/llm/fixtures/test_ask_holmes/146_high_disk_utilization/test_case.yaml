@@ -1,9 +1,9 @@
 user_prompt: "The pod log-aggregator is reporting disk space issues. Can you identify what's consuming the disk space?"
 expected_output:
-  - The result identifies that log files are consuming most disk space
-  - The result mentions the /var/log directory using significant space (around 45GB)
-  - The result identifies specific large log files (application.log, debug.log)
-  - The result mentions the disk is at 92% capacity
+  - The result identifies the hidden file .temp_cache_b7f3a2d1 in /var/log/.system/ consuming 41GB
+  - The result mentions this hidden file is the primary cause of disk usage
+  - The result shows the total disk usage is around 45GB with the hidden file being the largest consumer
+  - The result may suggest removing or investigating the .temp_cache_b7f3a2d1 file
 tags:
   - kubernetes
 
@@ -24,17 +24,30 @@ before_test: |
       command: ["sh", "-c"]
       args:
         - |
-          mkdir -p /var/log
-          # Create large log files to simulate disk usage
-          dd if=/dev/zero of=/var/log/application.log bs=1M count=25000
-          dd if=/dev/zero of=/var/log/debug.log bs=1M count=20000
-          # Create some smaller logs
-          dd if=/dev/zero of=/var/log/access.log bs=1M count=1000
-          dd if=/dev/zero of=/var/log/error.log bs=1M count=500
-          # Fill up to 92% (46GB out of 50GB)
-          df -h /var/log
+          mkdir -p /var/log /var/log/.system
+          # Create normal log files (smaller than before)
+          dd if=/dev/zero of=/var/log/application.log bs=1M count=2000 2>/dev/null
+          dd if=/dev/zero of=/var/log/debug.log bs=1M count=1500 2>/dev/null
+          dd if=/dev/zero of=/var/log/access.log bs=1M count=500 2>/dev/null
+          dd if=/dev/zero of=/var/log/error.log bs=1M count=200 2>/dev/null
+
+          # Create a hidden file with obscure name that's consuming most space
+          # This file is never mentioned in any logs or output
+          dd if=/dev/zero of=/var/log/.system/.temp_cache_b7f3a2d1 bs=1M count=41000 2>/dev/null
+
+          # Only show df output for /var/log (not du which would reveal the hidden file)
           echo "Log aggregator running with high disk usage"
-          sleep 3600
+          echo "Disk usage:"
+          df -h /var/log
+          echo ""
+          echo "Visible logs in /var/log:"
+          ls -lh /var/log/*.log 2>/dev/null | head -5
+
+          # Continue running
+          while true; do
+            echo "$(date): Processing logs..." >> /var/log/application.log
+            sleep 30
+          done
       volumeMounts:
       - name: log-storage
         mountPath: /var/log

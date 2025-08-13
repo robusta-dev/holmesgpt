@@ -135,6 +135,7 @@ class PortForwardManager:
 
     def __init__(self):
         self.port_forwards: List[PortForward] = []
+        self.failed_port_forwards: Dict[int, str] = {}  # port -> error message
 
     def add_port_forward(self, config: Dict[str, Any]) -> None:
         """Add a port forward configuration."""
@@ -148,10 +149,23 @@ class PortForwardManager:
         if pf not in self.port_forwards:
             self.port_forwards.append(pf)
 
-    def start_all(self) -> None:
-        """Start all port forwards."""
+    def start_all(self) -> Dict[int, str]:
+        """Start all port forwards, continue even if some fail.
+
+        Returns:
+            Dict mapping port numbers to error messages for failed port forwards.
+        """
         for pf in self.port_forwards:
-            pf.start()
+            try:
+                pf.start()
+            except Exception as e:
+                error_msg = str(e)
+                self.failed_port_forwards[pf.local_port] = error_msg
+                log(
+                    f"⚠️ Port forward failed for port {pf.local_port}, tests requiring this will be skipped: {error_msg}"
+                )
+
+        return self.failed_port_forwards
 
     def stop_all(self) -> None:
         """Stop all port forwards."""
@@ -269,9 +283,17 @@ def _is_port_in_use(port: int) -> bool:
         sock.close()
 
 
-def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardManager:
-    """Set up port forwards for all test cases that need them."""
+def setup_all_port_forwards(
+    test_cases: List[HolmesTestCase],
+) -> tuple[PortForwardManager, Dict[str, str]]:
+    """Set up port forwards for all test cases that need them.
+
+    Returns:
+        Tuple of (manager, port_forward_failures) where port_forward_failures maps
+        test IDs to error messages for tests whose port forwards failed.
+    """
     manager = PortForwardManager()
+    test_port_forward_failures: Dict[str, str] = {}
 
     # Extract all unique port forward configs
     all_configs = extract_port_forwards_from_test_cases(test_cases)
@@ -281,10 +303,22 @@ def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardMana
         for config in all_configs:
             manager.add_port_forward(config)
 
-        # Start all port forwards
-        manager.start_all()
+        # Start all port forwards (will continue even if some fail)
+        failed_ports = manager.start_all()
 
-    return manager
+        # Map failed ports back to test IDs
+        if failed_ports:
+            for test_case in test_cases:
+                if test_case.port_forwards:
+                    for pf_config in test_case.port_forwards:
+                        if pf_config["local_port"] in failed_ports:
+                            test_port_forward_failures[test_case.id] = (
+                                f"Port forward failed for port {pf_config['local_port']}: "
+                                f"{failed_ports[pf_config['local_port']]}"
+                            )
+                            break  # One failed port forward is enough to skip the test
+
+    return manager, test_port_forward_failures
 
 
 def cleanup_port_forwards_by_config(configs: List[Dict[str, Any]]) -> None:
