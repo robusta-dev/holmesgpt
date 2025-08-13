@@ -136,8 +136,8 @@ def truncate_messages_to_fit_context(
                 truncations.append(
                     TruncationMetadata(
                         tool_call_id=msg["tool_call_id"],
-                        start_index=trunc_index,
-                        end_index=needed_space,
+                        start_index=0,
+                        end_index=trunc_index,
                     )
                 )
                 logging.info(
@@ -149,7 +149,7 @@ def truncate_messages_to_fit_context(
                     TruncationMetadata(
                         tool_call_id=msg["tool_call_id"],
                         start_index=0,
-                        end_index=needed_space,
+                        end_index=allocated_space,
                     )
                 )
                 logging.info(
