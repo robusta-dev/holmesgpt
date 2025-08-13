@@ -95,8 +95,10 @@ Run automated health checks and get alerts when they fail:
 # Single check via command line (monitor mode - no alerts)
 holmes check -c "Are all pods in the default namespace running?" --mode monitor
 
-# Alert mode - sends notifications to Slack when checks fail
-holmes check -c "Is CPU usage below 90% on all nodes?" --mode alert
+# Alert mode with Slack - sends notifications when checks fail
+holmes check -c "Is CPU usage above 90% on any node?" --mode alert \
+  --slack-webhook "https://hooks.slack.com/services/YOUR/WEBHOOK/URL" \
+  --slack-channel "#alerts"
 
 # Run health checks from configuration file (~/.holmes/checks.yaml)
 holmes check
@@ -107,6 +109,11 @@ holmes check --tags critical
 # Run checks in parallel for faster execution
 holmes check --parallel
 ```
+
+**Note on check queries**: Phrase checks so that "PASS" means healthy and "FAIL" means unhealthy. For example:
+- ✅ Good: "Are all pods running?" (PASS = yes, all healthy)
+- ⚠️ Confusing: "Is CPU usage above 90%?" (PASS = yes, which indicates a problem)
+- ✅ Better: "Is CPU usage at acceptable levels (below 90%)?"
 
 Configure Slack alerts in `~/.holmes/checks.yaml`:
 ```yaml

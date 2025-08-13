@@ -13,6 +13,23 @@ The `holmes check` command allows you to:
 - Filter checks by tags for targeted monitoring
 - Use structured output with clear pass/fail results and explanations
 
+### Writing Good Check Queries
+
+**Important**: Phrase your checks so that PASS means healthy and FAIL means there's a problem.
+
+✅ **Good examples:**
+- "Are all pods in the default namespace running?"
+- "Is CPU usage at acceptable levels (below 90%) on all nodes?"
+- "Are all critical services responding to health checks?"
+
+❌ **Avoid confusing phrasing:**
+- "Is CPU usage above 90%?" (PASS would mean high CPU - bad!)
+- "Are there any pods in CrashLoopBackOff?" (PASS would mean yes - bad!)
+
+The AI will evaluate your question and return:
+- **PASS** = The check indicates a healthy state
+- **FAIL** = The check indicates a problem that needs attention
+
 ## Quick Start
 
 1. Create a checks configuration file (`~/.holmes/checks.yaml`):

@@ -334,6 +334,32 @@ class CheckRunner:
             self.console.print("[yellow]No checks match the specified filters[/yellow]")
             return []
 
+        # Warn if in alert mode but no destinations configured
+        if self.mode == CheckMode.ALERT:
+            checks_with_no_destinations = [
+                c.name
+                for c in filtered_checks
+                if not c.destinations or (not destinations_config and c.destinations)
+            ]
+            if checks_with_no_destinations:
+                self.console.print(
+                    "[yellow]⚠️  Warning: Alert mode is enabled but the following checks have no destinations configured:[/yellow]"
+                )
+                for check_name in checks_with_no_destinations:
+                    self.console.print(f"    • {check_name}")
+                self.console.print(
+                    "[yellow]    No alerts will be sent for failed checks.[/yellow]"
+                )
+                self.console.print(
+                    "[yellow]    To fix: Use --mode monitor or configure destinations:[/yellow]"
+                )
+                self.console.print(
+                    "[yellow]    • For inline checks: --slack-webhook URL --slack-channel #channel[/yellow]"
+                )
+                self.console.print(
+                    "[yellow]    • For YAML config: Add 'destinations' section with slack/pagerduty config[/yellow]\n"
+                )
+
         self.console.print(
             f"[bold]Running {len(filtered_checks)} checks{' in parallel' if self.parallel else ''}...[/bold]"
         )
