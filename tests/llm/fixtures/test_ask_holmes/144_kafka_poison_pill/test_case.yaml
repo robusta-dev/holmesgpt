@@ -1,0 +1,34 @@
+id: "144_kafka_poison_pill"
+description: "Kafka consumer lag due to poison pill messages causing processing failures"
+tags:
+  - kafka
+  - lag
+  - medium
+
+initial_message: |
+  Our order processing service is experiencing significant Kafka lag.
+  The consumer group 'order-processor' is falling behind on the 'customer-orders' topic.
+  Some orders are not being processed in time for fulfillment SLAs.
+
+expected_output: |
+  The Kafka consumer lag is caused by poison pill messages that trigger processing failures.
+
+  The consumer logs show repeated exceptions for specific message offsets, particularly messages
+  containing orders from a legacy system with incompatible date formats. These messages cause
+  the consumer to crash and restart, continuously retrying the same problematic messages.
+
+  The pattern shows that messages with order IDs starting with "LEGACY-" fail during date parsing,
+  causing a ProcessingException. The consumer's error handling is configured to retry indefinitely,
+  creating a blocking situation where the consumer cannot progress past these messages.
+
+  Resolution involves either:
+  1. Implementing proper error handling to skip or dead-letter problematic messages
+  2. Fixing the date parsing to handle the legacy format
+  3. Adding message validation before processing
+
+# All the manifests to apply
+k8s:
+  - kafka.yaml
+  - producer.yaml
+  - consumer.yaml
+  - monitoring.yaml

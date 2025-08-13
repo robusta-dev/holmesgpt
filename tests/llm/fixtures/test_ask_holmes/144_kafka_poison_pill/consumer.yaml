@@ -1,0 +1,182 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: consumer-script
+  namespace: app-144
+type: Opaque
+stringData:
+  consumer.py: |
+    import json
+    import time
+    import logging
+    from datetime import datetime
+    from kafka import KafkaConsumer
+    from kafka.errors import KafkaError
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    # Wait for Kafka and producer to start
+    time.sleep(20)
+
+    class OrderProcessor:
+        def __init__(self):
+            self.processed_count = 0
+            self.error_count = 0
+            self.consumer = None
+
+        def connect(self):
+            """Connect to Kafka"""
+            try:
+                self.consumer = KafkaConsumer(
+                    'customer-orders',
+                    bootstrap_servers=['kafka.app-144.svc.cluster.local:9092'],
+                    group_id='order-processor',
+                    value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+                    enable_auto_commit=False,  # Manual commit for error handling
+                    auto_offset_reset='earliest',
+                    max_poll_records=10,
+                    session_timeout_ms=30000,
+                    heartbeat_interval_ms=10000
+                )
+                logger.info("Connected to Kafka successfully")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to connect to Kafka: {e}")
+                return False
+
+        def process_order(self, order):
+            """Process a single order - will fail on legacy date format"""
+            order_id = order.get('order_id', 'unknown')
+
+            try:
+                # This is where the poison pill causes issues
+                # We expect ISO format but legacy uses DD/MM/YYYY
+                order_date_str = order['order_date']
+
+                # Try to parse as ISO format (will fail for legacy format)
+                order_date = datetime.fromisoformat(order_date_str)
+
+                # Simulate order processing
+                logger.info(f"Processing order {order_id} from {order_date}")
+                time.sleep(0.1)  # Simulate processing time
+
+                # Business logic here...
+                self.processed_count += 1
+
+                if self.processed_count % 10 == 0:
+                    logger.info(f"Successfully processed {self.processed_count} orders")
+
+                return True
+
+            except ValueError as e:
+                # This will happen for legacy orders with DD/MM/YYYY format
+                logger.error(f"Failed to parse date for order {order_id}: {order.get('order_date')} - {e}")
+                logger.error(f"Order details: {json.dumps(order)}")
+                raise ProcessingException(f"Invalid date format in order {order_id}")
+            except Exception as e:
+                logger.error(f"Unexpected error processing order {order_id}: {e}")
+                raise
+
+        def run(self):
+            """Main consumer loop with retry logic"""
+            if not self.connect():
+                logger.error("Failed to connect, exiting")
+                return
+
+            consecutive_errors = 0
+            max_consecutive_errors = 3
+
+            try:
+                for message in self.consumer:
+                    try:
+                        order = message.value
+                        logger.debug(f"Received message from partition {message.partition} offset {message.offset}")
+
+                        # Process the order
+                        self.process_order(order)
+
+                        # Commit on success
+                        self.consumer.commit()
+                        consecutive_errors = 0
+
+                    except ProcessingException as e:
+                        self.error_count += 1
+                        consecutive_errors += 1
+
+                        logger.error(f"Processing exception (attempt {consecutive_errors}/{max_consecutive_errors}): {e}")
+                        logger.error(f"Failed at partition {message.partition} offset {message.offset}")
+
+                        if consecutive_errors >= max_consecutive_errors:
+                            # After multiple failures on same message, crash and restart
+                            # This simulates the poison pill effect
+                            logger.error(f"Too many consecutive errors, crashing consumer for restart...")
+                            logger.error(f"Stuck at partition {message.partition} offset {message.offset}")
+                            logger.error(f"Total errors: {self.error_count}, Processed: {self.processed_count}")
+
+                            # Sleep before crash to make pattern visible
+                            time.sleep(5)
+                            raise SystemExit(1)
+
+                        # Retry after short delay
+                        time.sleep(2)
+
+                    except Exception as e:
+                        logger.error(f"Unexpected error: {e}")
+                        time.sleep(1)
+
+            except KeyboardInterrupt:
+                logger.info("Shutting down consumer")
+            finally:
+                if self.consumer:
+                    self.consumer.close()
+                    logger.info(f"Consumer closed. Processed: {self.processed_count}, Errors: {self.error_count}")
+
+    class ProcessingException(Exception):
+        """Custom exception for processing errors"""
+        pass
+
+    if __name__ == "__main__":
+        processor = OrderProcessor()
+        processor.run()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-consumer
+  namespace: app-144
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-consumer
+  template:
+    metadata:
+      labels:
+        app: order-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/consumer.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: script
+          secret:
+            secretName: consumer-script

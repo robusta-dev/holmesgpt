@@ -1,0 +1,38 @@
+id: "145_kafka_memory_leak"
+description: "Kafka consumer experiencing OOMKills due to memory leak"
+tags:
+  - kafka
+  - memory
+  - medium
+
+initial_message: |
+  Our analytics pipeline Kafka consumer keeps crashing and restarting.
+  The consumer group 'analytics-processor' shows increasing lag on the 'user-events' topic.
+  The service has restarted multiple times in the last hour.
+
+expected_output: |
+  The Kafka consumer is experiencing repeated OOMKills due to a memory leak in the message processing logic.
+
+  The pod events show multiple OOMKilled terminations, with memory usage graphs showing a sawtooth
+  pattern - gradual increase until hitting the memory limit (256Mi), then restart. The consumer
+  accumulates processed event data in an internal cache that is never cleared.
+
+  The logs show the consumer successfully processes messages but the heap usage continuously grows.
+  Each restart causes the consumer to reprocess messages from the last committed offset, leading
+  to increasing lag as the crash frequency increases.
+
+  The memory leak is in the event aggregation logic where processed events are added to a
+  results list that grows unbounded. The consumer processes approximately 500-1000 messages
+  before hitting the memory limit and getting OOMKilled.
+
+  Resolution requires:
+  1. Fixing the memory leak by clearing or limiting the cache size
+  2. Increasing memory limits as a temporary mitigation
+  3. Implementing proper memory management for aggregated data
+
+# All the manifests to apply
+k8s:
+  - kafka.yaml
+  - producer.yaml
+  - consumer.yaml
+  - monitoring.yaml

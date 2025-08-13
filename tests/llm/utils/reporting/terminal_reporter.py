@@ -29,8 +29,12 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
     table.add_column("Status", justify="center", width=13)
     table.add_column("Time", justify="right", width=5)
     table.add_column("User Prompt", style="white", width=22)
-    table.add_column("Expected", style="green", width=22)
-    table.add_column("Actual", style="yellow", width=22)
+    table.add_column(
+        "Actual", width=22
+    )  # Style will be set per row based on test result
+    table.add_column(
+        "Expected", style="dim white", width=22
+    )  # Neutral color for reference
 
     # Add rows to table
     for result in sorted_results:
@@ -66,11 +70,33 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
             if result["expected"]
             else ""
         )
-        actual_wrapped = (
-            "\n".join(textwrap.wrap(result["actual"], width=20))
-            if result["actual"]
-            else ""
-        )
+
+        # Prepare actual output with visual indicator and color based on status
+        actual_text = result["actual"] if result["actual"] else ""
+        if status.passed:
+            # Green for passed tests with checkmark
+            actual_indicator = "✓ "
+            actual_style = "[green]"
+        else:
+            # Red for failed tests with X mark
+            actual_indicator = "✗ "
+            actual_style = "[red]"
+
+        # Wrap actual text and prepend indicator only to first line
+        if actual_text:
+            wrapped_lines = textwrap.wrap(
+                actual_text, width=18
+            )  # Reduced width to account for indicator
+            # Only add indicator to the first line
+            actual_wrapped = actual_indicator + wrapped_lines[0]
+            if len(wrapped_lines) > 1:
+                # Add remaining lines without indicator, with proper indentation
+                actual_wrapped += "\n" + "\n".join(
+                    "  " + line for line in wrapped_lines[1:]
+                )
+            actual_wrapped = f"{actual_style}{actual_wrapped}[/]"
+        else:
+            actual_wrapped = f"{actual_style}{actual_indicator}(no output)[/]"
 
         # Combine test ID and name using TestResult properties
         combined_test_name = (
@@ -94,8 +120,8 @@ def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> 
             status.console_status,
             time_str,
             user_prompt_wrapped,
-            expected_wrapped,
             actual_wrapped,
+            expected_wrapped,
         )
 
     # Use force_terminal to ensure output is displayed even when captured

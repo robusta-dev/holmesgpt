@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-script
+  namespace: app-145
+type: Opaque
+stringData:
+  monitor.py: |
+    import json
+    import time
+    import logging
+    from kafka import KafkaAdminClient, KafkaConsumer
+    from kafka.structs import TopicPartition
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    # Wait for everything to start
+    time.sleep(30)
+
+    def get_consumer_lag():
+        """Get consumer group lag information"""
+        try:
+            # Create a consumer to check offsets
+            consumer = KafkaConsumer(
+                bootstrap_servers=['kafka.app-145.svc.cluster.local:9092'],
+                group_id='monitor-temp',
+                enable_auto_commit=False
+            )
+
+            # Get partitions for topic
+            partitions = consumer.partitions_for_topic('user-events')
+            if not partitions:
+                logger.warning("No partitions found for topic")
+                consumer.close()
+                return None, None
+
+            total_lag = 0
+            partition_info = []
+
+            # For analytics-processor consumer group
+            for partition_id in partitions:
+                tp = TopicPartition('user-events', partition_id)
+
+                # Get latest offset
+                consumer.seek_to_end(tp)
+                latest = consumer.position(tp)
+
+                # Try to get committed offset for the analytics-processor group
+                # This is a simplified approach - in production use AdminClient
+                committed = latest - 100  # Simulate lag calculation
+
+                lag = max(0, latest - committed)
+                total_lag += lag
+                partition_info.append({
+                    'partition': partition_id,
+                    'committed': committed,
+                    'latest': latest,
+                    'lag': lag
+                })
+
+            consumer.close()
+            return total_lag, partition_info
+
+        except Exception as e:
+            logger.error(f"Error getting lag: {e}")
+            return None, None
+
+    def check_pod_restarts():
+        """Simulate checking for pod restarts"""
+        # In real scenario, this would query k8s API
+        # For simulation, we'll track based on time patterns
+        import random
+        if random.random() < 0.1:  # 10% chance to detect restart
+            return True
+        return False
+
+    # Monitor loop
+    logger.info("Starting monitoring for analytics-processor consumer group")
+    high_lag_count = 0
+    restart_count = 0
+    last_lag = 0
+    increasing_lag_count = 0
+
+    while True:
+        try:
+            total_lag, partitions = get_consumer_lag()
+
+            if total_lag is not None:
+                logger.info(f"[METRICS] Consumer group lag: {total_lag} messages")
+
+                # Check for increasing lag pattern (indicates processing issues)
+                if total_lag > last_lag:
+                    increasing_lag_count += 1
+                    if increasing_lag_count > 3:
+                        logger.warning(f"[ALERT] Lag is continuously increasing! Current: {total_lag}, Previous: {last_lag}")
+                else:
+                    increasing_lag_count = 0
+
+                last_lag = total_lag
+
+                if total_lag > 500:
+                    high_lag_count += 1
+                    logger.error(f"[CRITICAL] Very high lag detected: {total_lag} messages (occurrence #{high_lag_count})")
+                    logger.error("[IMPACT] Analytics dashboards may show stale data")
+                elif total_lag > 100:
+                    logger.warning(f"[WARNING] Elevated lag: {total_lag} messages")
+
+                # Log partition details when lag exists
+                if partitions and total_lag > 50:
+                    for p in partitions:
+                        if p['lag'] > 20:
+                            logger.info(f"  Partition {p['partition']}: lag={p['lag']}")
+
+            # Check for restart patterns
+            if check_pod_restarts():
+                restart_count += 1
+                logger.error(f"[ALERT] Consumer pod restart detected! Total restarts: {restart_count}")
+                logger.error("[DIAGNOSIS] Possible OOMKill - check pod events and memory metrics")
+
+            time.sleep(10)
+
+        except Exception as e:
+            logger.error(f"Monitor error: {e}")
+            time.sleep(5)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-monitor
+  namespace: app-145
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-monitor
+  template:
+    metadata:
+      labels:
+        app: kafka-monitor
+    spec:
+      containers:
+        - name: monitor
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/monitor.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: script
+          secret:
+            secretName: monitoring-script

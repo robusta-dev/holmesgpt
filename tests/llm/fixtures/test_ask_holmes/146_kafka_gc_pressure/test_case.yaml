@@ -1,0 +1,40 @@
+id: "146_kafka_gc_pressure"
+description: "Kafka consumer experiencing performance degradation due to GC pressure"
+tags:
+  - kafka
+  - performance
+  - hard
+
+initial_message: |
+  Our payment processing Kafka consumer is running very slowly.
+  The consumer group 'payment-processor' is building up lag on the 'payment-requests' topic.
+  The service hasn't crashed but throughput has dropped significantly. SRE team reports
+  that payment confirmations are delayed.
+
+expected_output: |
+  The Kafka consumer is experiencing severe performance degradation due to excessive garbage collection (GC) pressure.
+
+  The JVM is spending significant time in garbage collection, with GC pause times accounting for
+  30-40% of runtime. The consumer creates many temporary objects during message processing, including
+  JSON parsing, string concatenation, and creating intermediate data structures for each payment.
+
+  The logs show frequent "GC overhead limit" warnings and the consumer throughput has dropped from
+  the normal 100-200 messages/second to only 10-20 messages/second. The pod remains alive but
+  processing is severely impacted by constant stop-the-world GC pauses.
+
+  Memory metrics show the heap usage constantly hovering near the maximum, with frequent minor GCs
+  and occasional major GCs. The consumer is processing payment validation which involves complex
+  object creation and destruction patterns, creating memory pressure without actually leaking memory.
+
+  Resolution options:
+  1. Increase JVM heap size to reduce GC frequency
+  2. Tune GC parameters (use G1GC, adjust pause time goals)
+  3. Optimize code to reduce object allocation (reuse objects, use primitive types)
+  4. Process messages in smaller batches to reduce memory pressure
+
+# All the manifests to apply
+k8s:
+  - kafka.yaml
+  - producer.yaml
+  - consumer.yaml
+  - monitoring.yaml

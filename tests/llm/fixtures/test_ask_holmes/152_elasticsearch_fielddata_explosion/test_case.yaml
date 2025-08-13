@@ -1,0 +1,55 @@
+user_prompt: "The search-service in namespace app-152 is experiencing high memory usage and OutOfMemoryError exceptions. The service is crashing repeatedly. What's going on?"
+
+expected_output:
+  - The high memory usage is caused by fielddata cache explosion in Elasticsearch
+  - Text fields are being used for aggregations and sorting without proper field mappings
+  - The logs field is mapped as "text" but being used in terms aggregations, causing massive fielddata loading
+  - Solution is to use keyword fields or multi-fields with .keyword suffix for aggregations
+
+tags:
+  - database
+  - kubernetes
+  - medium
+
+port_forwards:
+  - namespace: app-152
+    service: elasticsearch
+    local_port: 9201
+    remote_port: 9200
+
+before_test: |
+  # Create namespace
+  kubectl create namespace app-152 || true
+
+  # Deploy Elasticsearch
+  kubectl apply -f elasticsearch.yaml -n app-152
+
+  # Create secret for search-service script
+  kubectl create secret generic search-service-script \
+    --from-file=app.py=./app.py \
+    -n app-152 --dry-run=client -o yaml | kubectl apply -f -
+
+  # Wait for Elasticsearch to be ready
+  kubectl wait --for=condition=ready pod -l app=elasticsearch -n app-152 --timeout=120s
+
+  # Wait for Elasticsearch to be fully initialized
+  for i in {1..60}; do
+    if kubectl exec -n app-152 deployment/elasticsearch -- curl -s http://localhost:9200/_cluster/health | grep -q '"status":"green\|yellow"'; then
+      echo "Elasticsearch is ready"
+      break
+    fi
+    [ $i -eq 60 ] && echo "ERROR: Elasticsearch not ready" && exit 1
+    sleep 2
+  done
+
+  # Deploy search-service
+  kubectl apply -f search-service.yaml -n app-152
+
+  # Wait for search-service pod to be ready
+  kubectl wait --for=condition=ready pod -l app=search-service -n app-152 --timeout=60s
+
+  # Let the application generate some load and trigger the issue
+  sleep 15
+
+after_test: |
+  kubectl delete namespace app-152 || true

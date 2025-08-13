@@ -1,0 +1,10 @@
+toolsets:
+  kubernetes/core:
+    enabled: true
+  elasticsearch/core:
+    enabled: true
+    config:
+      url: http://localhost:9200
+      username: ""
+      password: ""
+      verify_ssl: false

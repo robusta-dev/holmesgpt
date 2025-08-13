@@ -1,0 +1,561 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-150
+---
+# ConfigMap with data injection scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: historical-data-scripts
+  namespace: app-150
+data:
+  inject_metrics.py: |
+    #!/usr/bin/env python3
+    """Generate historical Prometheus metrics for memory leak scenario."""
+
+    import time
+    import requests
+    from datetime import datetime, timedelta
+
+    def generate_memory_metrics():
+        """Generate memory usage metrics showing gradual leak starting 3 days ago."""
+
+        # Prometheus pushgateway URL (internal to cluster)
+        pushgateway_url = 'http://prometheus-pushgateway:9091'
+
+        # Define our timeline
+        now = datetime.utcnow()
+        start_time = now - timedelta(days=7)  # Start 7 days ago
+        leak_start = now - timedelta(days=3)  # Leak started 3 days ago
+
+        # Pod names that have rotated over time
+        pod_generations = [
+            ("ml-training-pod-abc123", start_time, leak_start - timedelta(hours=2)),
+            ("ml-training-pod-def456", leak_start - timedelta(hours=2), leak_start + timedelta(days=1)),
+            ("ml-training-pod-ghi789", leak_start + timedelta(days=1), leak_start + timedelta(days=2)),
+            ("ml-training-pod-jkl012", leak_start + timedelta(days=2), now - timedelta(hours=2)),
+            ("ml-training-pod-mno345", now - timedelta(hours=2), now)  # Current pod
+        ]
+
+        # Generate metrics for each time period
+        for pod_name, pod_start, pod_end in pod_generations:
+            current_time = pod_start
+
+            while current_time <= pod_end and current_time <= now:
+                # Calculate memory usage
+                if current_time < leak_start:
+                    # Stable memory usage before leak (2GB ± 100MB)
+                    base_memory = 2 * 1024 * 1024 * 1024  # 2GB
+                    variance = (hash(str(current_time)) % 200 - 100) * 1024 * 1024  # ±100MB
+                    memory_bytes = base_memory + variance
+                else:
+                    # Memory leak: increases by ~500MB per day
+                    hours_since_leak = (current_time - leak_start).total_seconds() / 3600
+                    leak_memory = int(500 * 1024 * 1024 * (hours_since_leak / 24))  # 500MB per day
+                    base_memory = 2 * 1024 * 1024 * 1024
+                    memory_bytes = base_memory + leak_memory
+
+                # Format timestamp for Prometheus
+                timestamp_ms = int(current_time.timestamp() * 1000)
+
+                # Create metric in Prometheus exposition format
+                metric_data = f"""# TYPE container_memory_usage_bytes gauge
+    # HELP container_memory_usage_bytes Memory usage in bytes
+    container_memory_usage_bytes{{pod="{pod_name}",namespace="app-150",container="ml-training"}} {memory_bytes} {timestamp_ms}
+    # TYPE container_memory_limit_bytes gauge
+    # HELP container_memory_limit_bytes Memory limit in bytes
+    container_memory_limit_bytes{{pod="{pod_name}",namespace="app-150",container="ml-training"}} {4 * 1024 * 1024 * 1024} {timestamp_ms}
+    """
+
+                # Push to gateway
+                try:
+                    response = requests.post(
+                        f"{pushgateway_url}/metrics/job/memory_leak_historical/instance/{pod_name}",
+                        data=metric_data,
+                        headers={'Content-Type': 'text/plain'}
+                    )
+                    if response.status_code == 200:
+                        print(f"Pushed metrics for {pod_name} at {current_time}")
+                    else:
+                        print(f"Error pushing metrics: {response.status_code} - {response.text}")
+                except Exception as e:
+                    print(f"Error pushing metrics: {e}")
+
+                # Move forward 1 hour
+                current_time += timedelta(hours=1)
+
+    if __name__ == "__main__":
+        print("Starting metrics injection...")
+        generate_memory_metrics()
+        print("Metrics injection complete!")
+
+  inject_logs.py: |
+    #!/usr/bin/env python3
+    """Generate historical logs for Loki showing memory leak symptoms."""
+
+    import json
+    import time
+    import requests
+    from datetime import datetime, timedelta
+
+    def timestamp_ns(dt):
+        """Convert datetime to nanoseconds timestamp for Loki."""
+        return str(int(dt.timestamp() * 1_000_000_000))
+
+    def generate_logs():
+        """Generate logs showing ML training behavior and memory issues."""
+
+        loki_url = "http://loki:3100/loki/api/v1/push"
+
+        now = datetime.utcnow()
+        start_time = now - timedelta(days=7)
+        leak_start = now - timedelta(days=3)
+
+        # Log entries to generate
+        streams = []
+
+        # Different pod generations with their logs
+        pod_generations = [
+            ("ml-training-pod-abc123", start_time, leak_start - timedelta(hours=2)),
+            ("ml-training-pod-def456", leak_start - timedelta(hours=2), leak_start + timedelta(days=1)),
+            ("ml-training-pod-ghi789", leak_start + timedelta(days=1), leak_start + timedelta(days=2)),
+            ("ml-training-pod-jkl012", leak_start + timedelta(days=2), now - timedelta(hours=2)),
+            ("ml-training-pod-mno345", now - timedelta(hours=2), now)
+        ]
+
+        for pod_name, pod_start, pod_end in pod_generations:
+            values = []
+            current_time = pod_start
+
+            # Generate logs throughout pod lifetime
+            while current_time <= pod_end and current_time <= now:
+
+                # Normal training logs
+                values.append([
+                    timestamp_ns(current_time),
+                    f"Training epoch started - loading model weights"
+                ])
+
+                # Memory-related logs that appear after leak starts
+                if current_time >= leak_start:
+                    # Checkpoint failures start appearing
+                    if (current_time - leak_start).total_seconds() > 3600:  # After 1 hour
+                        values.append([
+                            timestamp_ns(current_time + timedelta(minutes=30)),
+                            f"WARNING: Failed to save checkpoint - MemoryError: Unable to allocate array"
+                        ])
+
+                    # GC warnings
+                    if (current_time - leak_start).total_seconds() > 7200:  # After 2 hours
+                        values.append([
+                            timestamp_ns(current_time + timedelta(minutes=45)),
+                            f"WARNING: Garbage collection took 15.2s, memory pressure detected"
+                        ])
+
+                # Model version logs (key indicator)
+                if abs((current_time - leak_start).total_seconds()) < 3600:
+                    values.append([
+                        timestamp_ns(current_time),
+                        f"INFO: Loaded model version 2.3.0 with new attention mechanism"
+                    ])
+                elif current_time < leak_start:
+                    values.append([
+                        timestamp_ns(current_time),
+                        f"INFO: Loaded model version 2.2.0"
+                    ])
+
+                current_time += timedelta(hours=1)
+
+            # Add stream for this pod
+            streams.append({
+                "stream": {
+                    "job": "ml-training",
+                    "namespace": "app-150",
+                    "pod": pod_name,
+                    "container": "ml-training"
+                },
+                "values": values
+            })
+
+        # Push to Loki
+        data = {"streams": streams}
+
+        try:
+            response = requests.post(
+                loki_url,
+                headers={"Content-Type": "application/json"},
+                json=data
+            )
+            if response.status_code == 204:
+                print("Successfully pushed logs to Loki")
+            else:
+                print(f"Error pushing logs: {response.status_code} - {response.text}")
+        except Exception as e:
+            print(f"Error connecting to Loki: {e}")
+
+    if __name__ == "__main__":
+        print("Starting log injection...")
+        generate_logs()
+        print("Log injection complete!")
+
+---
+# Job to inject historical data
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: inject-historical-data
+  namespace: app-150
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: data-injector
+        image: python:3.9-slim
+        command:
+        - /bin/bash
+        - -c
+        - |
+          # Install required packages
+          pip install requests
+
+          # Wait for services to be ready
+          echo "Waiting for services to be ready..."
+          for i in {1..60}; do
+            if curl -s http://prometheus-pushgateway:9091/-/ready && \
+               curl -s http://loki:3100/ready; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting for services... ($i/60)"
+            sleep 2
+          done
+
+          # Run metric injection
+          python /scripts/inject_metrics.py
+
+          # Run log injection
+          python /scripts/inject_logs.py
+
+          echo "Historical data injection complete!"
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+      volumes:
+      - name: scripts
+        configMap:
+          name: historical-data-scripts
+---
+# Current ML training pod (only 2 hours old)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-training-pod-mno345
+  namespace: app-150
+  labels:
+    app: ml-training
+  annotations:
+    # Make it look like pod was recently created
+    deployment.kubernetes.io/revision: "5"
+spec:
+  containers:
+  - name: ml-training
+    image: python:3.9-slim
+    command:
+    - python
+    - -c
+    - |
+      import time
+      import gc
+      import sys
+
+      # Simulate ML training with memory leak
+      print("INFO: Starting ML training pipeline", flush=True)
+      print("INFO: Loaded model version 2.3.0 with new attention mechanism", flush=True)
+
+      # Allocate memory gradually to simulate leak
+      memory_holder = []
+      iteration = 0
+
+      while True:
+          # Simulate training epoch
+          print(f"Training epoch {iteration} started - loading model weights", flush=True)
+
+          # Memory leak - allocate 50MB every iteration
+          memory_holder.append(bytearray(50 * 1024 * 1024))
+
+          # Simulate checkpoint failures when memory is high
+          if len(memory_holder) > 20:  # After 1GB allocated
+              print("WARNING: Failed to save checkpoint - MemoryError: Unable to allocate array", flush=True)
+
+          # GC warnings
+          if len(memory_holder) > 30:  # After 1.5GB
+              gc_time = gc.collect()
+              print(f"WARNING: Garbage collection took 15.2s, memory pressure detected", flush=True)
+
+          time.sleep(30)  # Run epoch every 30 seconds
+          iteration += 1
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1"
+      limits:
+        memory: "4Gi"
+        cpu: "2"
+---
+# Prometheus for metrics storage
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: app-150
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+
+    scrape_configs:
+      # Scrape pushgateway
+      - job_name: 'pushgateway'
+        honor_timestamps: true
+        static_configs:
+          - targets: ['prometheus-pushgateway:9091']
+
+      # Scrape kubelet for container metrics
+      - job_name: 'kubelet'
+        scheme: https
+        tls_config:
+          insecure_skip_verify: true
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: app-150
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        args:
+          - '--config.file=/etc/prometheus/prometheus.yml'
+          - '--storage.tsdb.path=/prometheus/'
+          - '--storage.tsdb.retention.time=7d'
+          - '--web.enable-remote-write-receiver'
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-storage
+          mountPath: /prometheus
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-storage
+        emptyDir: {}
+---
+# Prometheus service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: app-150
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+---
+# Prometheus pushgateway for historical data injection
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-pushgateway
+  namespace: app-150
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-pushgateway
+  template:
+    metadata:
+      labels:
+        app: prometheus-pushgateway
+    spec:
+      containers:
+      - name: pushgateway
+        image: prom/pushgateway:latest
+        args:
+          - '--persistence.file=/data/pushgateway.data'
+          - '--persistence.interval=5m'
+        ports:
+        - containerPort: 9091
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-pushgateway
+  namespace: app-150
+spec:
+  selector:
+    app: prometheus-pushgateway
+  ports:
+  - port: 9091
+    targetPort: 9091
+---
+# Loki for log aggregation
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  namespace: app-150
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+
+    ingester:
+      lifecycler:
+        address: 127.0.0.1
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+
+    schema_config:
+      configs:
+        - from: 2020-10-24
+          store: boltdb-shipper
+          object_store: filesystem
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /loki/boltdb-shipper-active
+        cache_location: /loki/boltdb-shipper-cache
+        shared_store: filesystem
+      filesystem:
+        directory: /loki/chunks
+
+    limits_config:
+      reject_old_samples: false
+      reject_old_samples_max_age: 168h
+      ingestion_rate_mb: 16
+      ingestion_burst_size_mb: 32
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: app-150
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      containers:
+      - name: loki
+        image: grafana/loki:2.9.0
+        args:
+          - -config.file=/etc/loki/loki.yaml
+        ports:
+        - containerPort: 3100
+        volumeMounts:
+        - name: config
+          mountPath: /etc/loki
+        - name: storage
+          mountPath: /loki
+      volumes:
+      - name: config
+        configMap:
+          name: loki-config
+      - name: storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki
+  namespace: app-150
+spec:
+  selector:
+    app: loki
+  ports:
+  - port: 3100
+    targetPort: 3100
+---
+# ServiceAccount and RBAC for Prometheus
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: app-150
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus-150
+rules:
+- apiGroups: [""]
+  resources:
+  - nodes
+  - nodes/proxy
+  - nodes/metrics
+  - services
+  - endpoints
+  - pods
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-150
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus-150
+subjects:
+- kind: ServiceAccount
+  name: prometheus
+  namespace: app-150

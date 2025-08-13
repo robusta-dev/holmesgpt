@@ -1,0 +1,29 @@
+user_prompt: "The Java application in pod order-service is experiencing memory issues. Can you help analyze what's happening and suggest next steps?"
+expected_output:
+  - The result identifies high memory usage in the Java application
+  - The result mentions the order cache growing continuously (memory leak pattern)
+  - The result mentions or suggests using a heap dump for memory analysis
+  - The result references the java-heap-dump runbook or suggests performing a heap dump
+  - The result may mention tools like jmap, Eclipse MAT, or VisualVM for heap analysis
+  - The result may identify the orderCache HashMap as the source of the memory leak
+  - The result may suggest implementing cache eviction or TTL for orders
+runbooks:
+  catalog:
+    - title: Java Application Heap Dump Analysis
+      description: "Perform heap dump analysis for Java applications experiencing memory issues"
+      path: ./java-heap-dump.md
+tags:
+  - kubernetes
+  - runbooks
+
+before_test: |
+  kubectl create namespace app-145 || true
+  kubectl create secret generic order-service-source \
+    --from-file=OrderService.java=./OrderService.java \
+    -n app-145 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f deployment.yaml -n app-145
+  kubectl wait --for=condition=ready pod/order-service -n app-145 --timeout=120s || true
+  sleep 30
+
+after_test: |
+  kubectl delete namespace app-145 --force --grace-period=0

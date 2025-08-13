@@ -1,0 +1,68 @@
+user_prompt: "Our ML training pods keep getting OOMKilled. When did this memory issue actually start happening?"
+
+expected_output:
+  - "memory issue started approximately 3 days ago"
+  - "model version 2.3.0"
+  - "memory usage was stable at approximately 2GB before"
+  - "memory consumption has been increasing"
+  - "checkpoint failures"
+
+before_test: |
+  # Apply Kubernetes manifests
+  kubectl apply -f ./k8s_manifests.yaml
+
+  # Wait for services to be ready
+  echo "Waiting for Prometheus to be ready..."
+  kubectl wait --for=condition=ready pod -l app=prometheus -n app-150 --timeout=120s
+
+  echo "Waiting for Loki to be ready..."
+  kubectl wait --for=condition=ready pod -l app=loki -n app-150 --timeout=120s
+
+  echo "Waiting for Pushgateway to be ready..."
+  kubectl wait --for=condition=ready pod -l app=prometheus-pushgateway -n app-150 --timeout=120s
+
+  # Wait for the ML training pod
+  echo "Waiting for ML training pod to be ready..."
+  kubectl wait --for=condition=ready pod/ml-training-pod-mno345 -n app-150 --timeout=60s
+
+  # Wait for the historical data injection job to complete
+  echo "Waiting for historical data injection to complete..."
+  kubectl wait --for=condition=complete job/inject-historical-data -n app-150 --timeout=300s
+
+  # Get job logs to verify success
+  echo "Historical data injection logs:"
+  kubectl logs job/inject-historical-data -n app-150
+
+  echo "Setup complete! ML training pod is experiencing memory issues."
+  echo "Historical data has been injected showing the issue started 3 days ago."
+
+after_test: |
+  kubectl delete namespace app-150 --ignore-not-found=true
+
+port_forwards:
+  - namespace: app-150
+    service: prometheus
+    local_port: 9090
+    remote_port: 9090
+  - namespace: app-150
+    service: loki
+    local_port: 3100
+    remote_port: 3100
+
+toolsets:
+  kubernetes:
+    enabled: true
+  prometheus:
+    enabled: true
+    config:
+      url: http://localhost:9090
+  grafana/loki:
+    enabled: true
+    config:
+      url: http://localhost:3100
+      grafana_datasource_uid: "loki"
+
+tags:
+  - logs
+  - medium
+  - misleading-history

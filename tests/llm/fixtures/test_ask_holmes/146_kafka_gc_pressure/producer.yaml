@@ -1,0 +1,166 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: producer-script
+  namespace: app-146
+type: Opaque
+stringData:
+  producer.py: |
+    import json
+    import time
+    import random
+    import uuid
+    from datetime import datetime
+    from kafka import KafkaProducer
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Wait for Kafka to be ready
+    time.sleep(10)
+
+    producer = KafkaProducer(
+        bootstrap_servers=['kafka.app-146.svc.cluster.local:9092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        retries=5,
+        retry_backoff_ms=1000
+    )
+
+    def generate_payment_request():
+        """Generate payment request with complex nested structure"""
+
+        payment_methods = ['credit_card', 'debit_card', 'bank_transfer', 'digital_wallet']
+        currencies = ['USD', 'EUR', 'GBP', 'JPY']
+        merchants = [f"MERCH_{i:05d}" for i in range(1, 100)]
+
+        # Create complex nested structure to increase processing overhead
+        payment = {
+            "transaction_id": str(uuid.uuid4()),
+            "timestamp": datetime.now().isoformat(),
+            "amount": round(random.uniform(10.0, 5000.0), 2),
+            "currency": random.choice(currencies),
+            "payment_method": random.choice(payment_methods),
+            "merchant": {
+                "id": random.choice(merchants),
+                "name": f"Business {random.randint(1, 1000)}",
+                "category": random.choice(['retail', 'food', 'services', 'entertainment']),
+                "location": {
+                    "country": random.choice(['US', 'UK', 'DE', 'FR']),
+                    "city": f"City{random.randint(1, 100)}",
+                    "postal_code": f"{random.randint(10000, 99999)}"
+                }
+            },
+            "customer": {
+                "id": f"CUST{random.randint(100000, 999999)}",
+                "email": f"user{random.randint(1000, 9999)}@example.com",
+                "ip_address": f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}",
+                "device_fingerprint": str(uuid.uuid4()),
+                "session_data": {
+                    "duration": random.randint(60, 3600),
+                    "page_views": random.randint(1, 50),
+                    "referrer": random.choice(['google', 'direct', 'facebook', 'email'])
+                }
+            },
+            "risk_assessment": {
+                "score": random.random(),
+                "factors": [
+                    {"type": "velocity", "value": random.randint(1, 10)},
+                    {"type": "amount", "value": random.random()},
+                    {"type": "merchant", "value": random.random()},
+                    {"type": "geo", "value": random.random()}
+                ],
+                "rules_evaluated": random.randint(10, 50)
+            },
+            "metadata": {
+                f"field_{i}": f"value_{random.randint(1000, 9999)}"
+                for i in range(random.randint(5, 15))
+            }
+        }
+
+        # Add card details for card payments
+        if payment["payment_method"] in ['credit_card', 'debit_card']:
+            payment["card_details"] = {
+                "last_four": f"{random.randint(1000, 9999)}",
+                "brand": random.choice(['visa', 'mastercard', 'amex']),
+                "issuer": f"Bank{random.randint(1, 20)}",
+                "country": random.choice(['US', 'UK', 'DE']),
+                "exp_month": random.randint(1, 12),
+                "exp_year": random.randint(2024, 2030)
+            }
+
+        return payment
+
+    # Create topic
+    from kafka.admin import KafkaAdminClient, NewTopic
+    from kafka.errors import TopicAlreadyExistsError
+
+    admin = KafkaAdminClient(
+        bootstrap_servers=['kafka.app-146.svc.cluster.local:9092'],
+        client_id='producer'
+    )
+
+    try:
+        topic = NewTopic(name='payment-requests', num_partitions=3, replication_factor=1)
+        admin.create_topics(new_topics=[topic], validate_only=False)
+        logger.info("Created topic 'payment-requests'")
+    except TopicAlreadyExistsError:
+        logger.info("Topic 'payment-requests' already exists")
+
+    admin.close()
+
+    # Produce messages at steady rate
+    request_count = 0
+    while True:
+        try:
+            payment = generate_payment_request()
+            producer.send('payment-requests', value=payment)
+
+            request_count += 1
+            if request_count % 50 == 0:
+                logger.info(f"Produced {request_count} payment requests")
+
+            # Steady rate to maintain pressure
+            time.sleep(0.05)  # 20 messages per second
+
+        except Exception as e:
+            logger.error(f"Error producing message: {e}")
+            time.sleep(1)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-producer
+  namespace: app-146
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-producer
+  template:
+    metadata:
+      labels:
+        app: payment-producer
+    spec:
+      containers:
+        - name: producer
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/producer.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: script
+          secret:
+            secretName: producer-script

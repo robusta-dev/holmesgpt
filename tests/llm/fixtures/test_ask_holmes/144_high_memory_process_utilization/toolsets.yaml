@@ -1,0 +1,3 @@
+toolsets:
+  kubernetes/krew-extras:
+    enabled: true
