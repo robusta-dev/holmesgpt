@@ -210,6 +210,7 @@ class TestSmartAlertGrouper:
         # Create a group and rule
         group = AlertGroup(
             id="group-1",
+            issue_title="Application Memory Exhaustion",
             root_cause="Memory exhaustion",
             alerts=[],
             category="application",
@@ -248,6 +249,7 @@ class TestSmartAlertGrouper:
         # Create some groups
         group1 = AlertGroup(
             id="group-1",
+            issue_title="API Memory Exhaustion",
             root_cause="Memory exhaustion in API",
             alerts=sample_alerts[:2],
             category="application",
@@ -255,6 +257,7 @@ class TestSmartAlertGrouper:
         )
         group2 = AlertGroup(
             id="group-2",
+            issue_title="Database Connection Failure",
             root_cause="Database connection issues",
             alerts=[sample_alerts[2]],
             category="database",
@@ -268,6 +271,10 @@ class TestSmartAlertGrouper:
         assert "Total alerts: 3" in summary
         assert "Groups created: 2" in summary
         assert "Rules generated: 1" in summary
+        # Check for issue titles
+        assert "API Memory Exhaustion" in summary
+        assert "Database Connection Failure" in summary
+        # Check for root causes
         assert "Memory exhaustion in API" in summary
         assert "Database connection issues" in summary
         assert "✓ Rule generated" in summary

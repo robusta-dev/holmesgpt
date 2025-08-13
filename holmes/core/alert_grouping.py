@@ -166,11 +166,15 @@ class SmartAlertGrouper:
 
                 # Maybe generate a rule
                 if len(group.alerts) >= 3 and not group.has_rule:
+                    logging.info(
+                        f"Group {group.id} has {len(group.alerts)} alerts - attempting to generate rule..."
+                    )
                     generated_rule = self._generate_rule(group)
                     if generated_rule is not None:
                         self.rules.append(generated_rule)
                         group.has_rule = True
-                        logging.info(f"Generated rule for group {group.id}")
+                    else:
+                        logging.info("  No clear pattern found for rule generation")
 
                 return group
 
@@ -542,11 +546,24 @@ Only generate a rule if there's a clear pattern.
             result = json.loads(response.choices[0].message.content)
 
             if result.get("rule_generated") and result.get("conditions"):
-                return Rule(
+                rule = Rule(
                     group_id=group.id,
                     conditions=[Condition(**c) for c in result["conditions"]],
                     explanation=result["explanation"],
                 )
+
+                # Log the generated rule details
+                logging.info(f"\n✓ Rule generated for group {group.id}:")
+                logging.info(f"  Issue: {group.issue_title}")
+                logging.info(f"  Explanation: {rule.explanation}")
+                logging.info(f"  Conditions ({len(rule.conditions)}):")
+                for i, cond in enumerate(rule.conditions, 1):
+                    logging.info(f"    {i}. {cond.field} {cond.operator} {cond.value}")
+                logging.info(
+                    f"  Expected precision: {result.get('expected_precision', 'unknown')}"
+                )
+
+                return rule
         except Exception as e:
             logging.error(f"Error generating rule: {e}")
 

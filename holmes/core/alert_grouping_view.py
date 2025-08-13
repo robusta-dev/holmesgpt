@@ -455,13 +455,23 @@ class LiveAlertGrouper(SmartAlertGrouper):
 
                 # Maybe generate rule
                 if len(group.alerts) >= 3 and not group.has_rule:
+                    self.view.update(
+                        log_line="  🔍 Analyzing pattern for rule generation..."
+                    )
                     generated_rule = self._generate_rule(group)
                     if generated_rule is not None:
                         self.rules.append(generated_rule)
                         group.has_rule = True
                         self.view.update(
-                            log_line="  📝 Generated rule for faster matching"
+                            log_line=f"  ✅ Rule generated: {generated_rule.explanation[:50]}..."
                         )
+                        # Log rule details to console output
+                        rule_details = (
+                            f"Rule: {len(generated_rule.conditions)} conditions"
+                        )
+                        self.view.update(console_line=rule_details)
+                    else:
+                        self.view.update(log_line="  ℹ️ No clear pattern for rule")
 
                 return group
 
