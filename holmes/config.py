@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import yaml  # type: ignore
-from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
+from pydantic import BaseModel, ConfigDict, FilePath, SecretStr, field_validator
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -112,6 +112,28 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
+
+    # Optional filter for builtin toolsets - specifies which builtin toolsets should be loaded
+    allowed_builtin_toolsets: Optional[List[str]] = None
+
+    @field_validator("allowed_builtin_toolsets")
+    @classmethod
+    def _validate_allowed_builtin_toolsets(
+        cls, v: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate allowed_builtin_toolsets field."""
+        if v is None:
+            return v
+
+        # Filter out empty strings and whitespace-only strings
+        if isinstance(v, list):
+            filtered = [name.strip() for name in v if name and name.strip()]
+            # Important: preserve empty list as empty list (different from None)
+            # None = no filtering, [] = filter to nothing
+            return filtered
+
+        return v
+
     should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
@@ -125,6 +147,7 @@ class Config(RobustaBaseConfig):
     def toolset_manager(self) -> ToolsetManager:
         if not self._toolset_manager:
             self._toolset_manager = ToolsetManager(
+                config=self,  # Pass self as config parameter
                 toolsets=self.toolsets,
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
@@ -181,6 +204,16 @@ class Config(RobustaBaseConfig):
             config_from_file = load_model_from_file(cls, config_file)
 
         cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+
+        # Parse CLI option for allowed_builtin_toolsets if provided
+        if "allowed_builtin_toolsets" in cli_options and isinstance(
+            cli_options["allowed_builtin_toolsets"], str
+        ):
+            cli_options["allowed_builtin_toolsets"] = [
+                name.strip()
+                for name in cli_options["allowed_builtin_toolsets"].split(",")
+                if name.strip()
+            ]
 
         if config_from_file is None:
             result = cls(**cli_options)

@@ -25,12 +25,14 @@ class ToolsetManager:
 
     def __init__(
         self,
+        config: Optional[Any] = None,  # Config instance
         toolsets: Optional[dict[str, dict[str, Any]]] = None,
         mcp_servers: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
     ):
+        self._config = config  # Store config instance
         self.toolsets = toolsets
         self.toolsets = toolsets or {}
         if mcp_servers is not None:
@@ -65,6 +67,12 @@ class ToolsetManager:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
+    def _get_allowed_builtin_toolsets(self) -> Optional[List[str]]:
+        """Get allowed builtin toolsets from config."""
+        if self._config is None:
+            return None
+        return getattr(self._config, "allowed_builtin_toolsets", None)
+
     def _list_all_toolsets(
         self,
         dal: Optional[SupabaseDal] = None,
@@ -81,7 +89,9 @@ class ToolsetManager:
         3. custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
         """
         # Load built-in toolsets
-        builtin_toolsets = load_builtin_toolsets(dal)
+        builtin_toolsets = load_builtin_toolsets(
+            dal, allowed_builtin_toolsets=self._get_allowed_builtin_toolsets()
+        )
         toolsets_by_name: dict[str, Toolset] = {
             toolset.name: toolset for toolset in builtin_toolsets
         }

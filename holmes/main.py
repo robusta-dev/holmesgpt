@@ -93,6 +93,11 @@ opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     "-r",
     help="Path to a custom runbooks (can specify -r multiple times to add multiple runbooks)",
 )
+opt_allowed_builtin_toolsets: Optional[str] = typer.Option(
+    None,
+    "--allowed-builtin-toolsets",
+    help="Comma-separated list of builtin toolsets to allow (e.g., 'kubernetes/core,prometheus/core')",
+)
 opt_max_steps: Optional[int] = typer.Option(
     10,
     "--max-steps",
@@ -174,6 +179,7 @@ def ask(
     model: Optional[str] = opt_model,
     config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # semi-common options
@@ -240,6 +246,7 @@ def ask(
         model=model,
         max_steps=max_steps,
         custom_toolsets_from_cli=custom_toolsets,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
@@ -371,6 +378,7 @@ def alertmanager(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
@@ -402,6 +410,7 @@ def alertmanager(
         slack_channel=slack_channel,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
     )
 
     ai = config.create_console_issue_investigator()  # type: ignore
@@ -508,6 +517,7 @@ def jira(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
@@ -532,6 +542,7 @@ def jira(
         jira_query=jira_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
     )
     ai = config.create_console_issue_investigator()  # type: ignore
     source = config.create_jira_source()
@@ -699,6 +710,7 @@ def github(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
@@ -723,6 +735,7 @@ def github(
         github_query=github_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_github_source()
@@ -784,6 +797,7 @@ def pagerduty(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     json_output_file: Optional[str] = opt_json_output_file,
@@ -807,6 +821,7 @@ def pagerduty(
         pagerduty_incident_key=pagerduty_incident_key,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_pagerduty_source()
@@ -870,6 +885,7 @@ def opsgenie(
     config_file: Optional[Path] = opt_config_file,  # type: ignore
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     custom_runbooks: Optional[List[Path]] = opt_custom_runbooks,
+    allowed_builtin_toolsets: Optional[str] = opt_allowed_builtin_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
     # advanced options for this command
@@ -893,6 +909,7 @@ def opsgenie(
         opsgenie_query=opsgenie_query,
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
+        allowed_builtin_toolsets=allowed_builtin_toolsets,
     )
     ai = config.create_console_issue_investigator()
     source = config.create_opsgenie_source()

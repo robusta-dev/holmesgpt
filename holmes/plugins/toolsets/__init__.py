@@ -99,7 +99,18 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     return toolsets
 
 
-def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
+def load_builtin_toolsets(
+    dal: Optional[SupabaseDal] = None,
+    allowed_builtin_toolsets: Optional[List[str]] = None,
+) -> List[Toolset]:
+    """
+    Load builtin toolsets from YAML files and Python modules.
+
+    If allowed_builtin_toolsets is provided, filtering preserves the original
+    discovery order (loader order) rather than reordering by the allowlist.
+    This maintains consistent behavior where toolsets appear in the order
+    they were discovered during loading.
+    """
     all_toolsets: List[Toolset] = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
@@ -115,15 +126,36 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
         all_toolsets.extend(toolsets_from_file)
 
-    all_toolsets.extend(load_python_toolsets(dal=dal))  # type: ignore
+    all_toolsets.extend(load_python_toolsets(dal=dal))
 
-    # disable built-in toolsets by default, and the user can enable them explicitly in config.
+    # Apply filter if specified
+    if allowed_builtin_toolsets is not None:
+        # Convert to set for O(1) lookup performance
+        requested_names = set(allowed_builtin_toolsets)
+        actual_names = {toolset.name for toolset in all_toolsets}
+        invalid_names = requested_names - actual_names
+
+        if invalid_names:
+            logging.warning(
+                f"Unknown builtin toolsets specified: {sorted(invalid_names)}"
+            )
+
+        # Filter to only allowed toolsets using set for efficient lookup
+        # Note: This preserves the original discovery order rather than
+        # reordering by the allowlist
+        all_toolsets = [
+            toolset
+            for toolset in all_toolsets
+            if toolset.name in requested_names  # O(1) lookup
+        ]
+
+    # disable builtin toolsets by default, and the user can enable them explicitly in config.
     for toolset in all_toolsets:
         toolset.type = ToolsetType.BUILTIN
-        # dont' expose build-in toolsets path
+        # don't expose builtin toolsets path
         toolset.path = None
 
-    return all_toolsets  # type: ignore
+    return all_toolsets
 
 
 def is_old_toolset_config(
