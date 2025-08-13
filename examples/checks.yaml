@@ -84,6 +84,24 @@ checks:
     repeat: 5
     failure_threshold: 1
 
+# Usage Examples:
+# holmes check                           # Run all checks from this file
+# holmes check --mode monitor            # Run all checks in monitor mode (no alerts)
+# holmes check --tags critical           # Run only critical checks
+# holmes check --name "Pod Health"       # Run specific check by name
+# holmes check --parallel                # Run checks in parallel for faster execution
+# holmes check --watch --interval 300    # Run checks every 5 minutes
+
+# For inline checks without a config file:
+# holmes check -c "Are all pods running?" --mode monitor
+# holmes check -c "Is disk usage below 80%?" --mode alert \
+#   --slack-webhook "https://hooks.slack.com/..." --slack-channel "#alerts"
+
+# Tips for writing good check queries:
+# - Phrase checks so PASS means healthy (e.g., "Are all pods running?")
+# - Avoid negative phrasing (e.g., NOT "Is CPU usage above 90%?")
+# - Be specific about what constitutes healthy vs unhealthy
+
 # Future feature: Groups for organizing related checks
 # check_groups:
 #   critical_infrastructure:
