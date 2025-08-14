@@ -857,24 +857,31 @@ class PrometheusToolset(Toolset):
                 self.config = config_cls(**config)  # type: ignore
 
                 self._reload_llm_instructions()
-                return True, ""
-
-            prometheus_url = (
-                os.getenv("PROMETHEUS_URL") or self.auto_detect_prometheus_url()
+                if self.config.is_amp():
+                    # health check not ready for amp
+                    return True, ""
+                return self._is_healthy()
+        except Exception:
+            logging.exception(
+                "Failed to create prometheus config attempting to auto-discover"
             )
+        try:
+            prometheus_url = os.environ.get("PROMETHEUS_URL")
             if not prometheus_url:
-                return (
-                    False,
-                    "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
-                )
+                prometheus_url = self.auto_detect_prometheus_url()
+                if not prometheus_url:
+                    return (
+                        False,
+                        "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
+                    )
 
             self.config = PrometheusConfig(
                 prometheus_url=prometheus_url,
-                headers={},  # type: ignore
+                headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
             )
-            logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+            logging.info(f"Prometheus auto discovered at url {prometheus_url}")
             self._reload_llm_instructions()
-            return True, ""
+            return self._is_healthy()
         except Exception as e:
             logging.exception("Failed to set up prometheus")
             return False, str(e)
