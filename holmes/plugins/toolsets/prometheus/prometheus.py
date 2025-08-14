@@ -405,7 +405,7 @@ class ListPrometheusRules(BasePrometheusTool):
                 params=params,
                 auth=get_aws_auth(self.toolset.config),
                 timeout=180,
-                verify=True,
+                verify=self.toolset.config.prometheus_ssl_enabled,
                 headers=self.toolset.config.headers,
             )
             rules_response.raise_for_status()
@@ -904,7 +904,7 @@ class PrometheusToolset(Toolset):
                 headers=self.config.headers,
                 auth=get_aws_auth(self.config),
                 timeout=10,
-                verify=True,
+                verify=self.config.prometheus_ssl_enabled,
             )
 
             if response.status_code == 200:
