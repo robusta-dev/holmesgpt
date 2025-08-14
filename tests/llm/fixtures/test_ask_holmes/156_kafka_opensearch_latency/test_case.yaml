@@ -20,15 +20,28 @@ expected_output:
 - The output should specifically mention the high CPU on Opensearch to be a major issue.
 
 before_test: |
-  kubectl apply -f ./app/kafka-mock-opensearch-manifest.yaml
-  # Wait for all pods to be ready
+  # Stage 1: Deploy namespace, ZooKeeper, and OpenSearch
+  kubectl apply -f ./app/stage1-base.yaml
   kubectl wait --for=condition=ready pod -l app=zookeeper -n app-156 --timeout=120s
-  kubectl wait --for=condition=ready pod -l app=kafka -n app-156 --timeout=120s
   kubectl wait --for=condition=ready pod -l app=opensearch -n app-156 --timeout=180s
-  # Start the order and analytics services
-  kubectl wait --for=condition=ready pod -l app=order-service -n app-156 --timeout=120s
+
+  # Stage 2: Deploy Kafka (depends on ZooKeeper)
+  kubectl apply -f ./app/stage2-kafka.yaml
+  kubectl wait --for=condition=ready pod -l app=kafka -n app-156 --timeout=120s
+
+  # Stage 3: Deploy consumer (depends on Kafka and OpenSearch)
+  kubectl apply -f ./app/stage3-consumer.yaml
   kubectl wait --for=condition=ready pod -l app=analytics-service -n app-156 --timeout=120s
+
+  # Stage 4: Deploy producer (depends only on Kafka)
+  kubectl apply -f ./app/stage4-producer.yaml
+  kubectl wait --for=condition=ready pod -l app=order-service -n app-156 --timeout=120s
+
   # Verify setup (includes waiting for lag to build up)
   ./verify_setup.sh
 
-after_test: kubectl delete -f ./app/kafka-mock-opensearch-manifest.yaml
+after_test: |
+  kubectl delete -f ./app/stage4-producer.yaml || true
+  kubectl delete -f ./app/stage3-consumer.yaml || true
+  kubectl delete -f ./app/stage2-kafka.yaml || true
+  kubectl delete -f ./app/stage1-base.yaml || true
