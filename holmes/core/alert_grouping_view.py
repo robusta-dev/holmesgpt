@@ -1,252 +1,380 @@
 """
-Two-pane view for alert grouping visualization using Rich.
+Alert grouping view using prompt_toolkit for real-time keyboard navigation.
 """
 
 import uuid
 import logging
+import re
+import threading
+import time
 from io import StringIO
-from typing import List, Optional, Union
-from datetime import datetime
-from rich.console import Console, Group as RichGroup
-from rich.layout import Layout
-from rich.live import Live
-from rich.panel import Panel
-from rich.text import Text
-from rich.tree import Tree
-from rich.align import Align
-from rich import box
+from typing import List, Optional, Any
+
+from prompt_toolkit.application import Application
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.layout import Layout, HSplit, VSplit
+from prompt_toolkit.layout.containers import Window
+from prompt_toolkit.layout.controls import FormattedTextControl
+from prompt_toolkit.widgets import TextArea, Frame
+from prompt_toolkit.styles import Style
 
 from holmes.core.alert_grouping import AlertGroup, SmartAlertGrouper
 
 
-class LogCapture:
-    """Captures console and logging output."""
+class AlertGroupingLiveView:
+    """Live view for alert grouping with keyboard navigation using prompt_toolkit."""
 
     def __init__(self):
-        self.lines = []
-        self.max_lines = 10
-        self.pending_lines = []  # Buffer for batching
-
-    def write(self, text):
-        if text and text.strip():
-            # Split by newlines and add to pending
-            for line in text.split("\n"):
-                if line.strip():
-                    self.pending_lines.append(line)
-
-    def flush_pending(self):
-        """Flush pending lines to main buffer in batch."""
-        if self.pending_lines:
-            self.lines.extend(self.pending_lines)
-            # Trim to max_lines
-            if len(self.lines) > self.max_lines:
-                self.lines = self.lines[-self.max_lines :]
-            self.pending_lines = []
-
-    def flush(self):
-        pass
-
-    def get_lines(self):
-        # Include pending lines in output
-        all_lines = self.lines + self.pending_lines
-        return all_lines[-self.max_lines :]
-
-
-class AlertGroupingView:
-    """Manages a two-pane view for alert grouping visualization."""
-
-    def __init__(self, console: Console):
-        self.console = console
-        self.layout = self._create_layout()
         self.groups: List[AlertGroup] = []
         self.current_alert: Optional[str] = None
         self.total_alerts = 0
         self.processed_alerts = 0
         self.log_lines: List[str] = []
-        self.max_log_lines = 20
-        self.console_output = LogCapture()
+        self.console_lines: List[str] = []
+        self.focused_pane = 0  # 0=progress, 1=groups, 2=console
 
-    def _create_layout(self) -> Layout:
-        """Create the layout with three sections."""
-        layout = Layout()
-
-        # Create main structure
-        layout.split_column(
-            Layout(name="header", size=3),
-            Layout(name="body"),
-            Layout(name="logs", size=8),  # Console output pane
-            Layout(name="footer", size=1),
+        # Create text areas for each pane
+        self.progress_area = TextArea(
+            text="",
+            read_only=True,
+            scrollbar=True,
+            focusable=True,
+            wrap_lines=True,
         )
 
-        # Split body into two panes (make groups pane wider)
-        layout["body"].split_row(
-            Layout(name="progress", ratio=2),
-            Layout(name="groups", ratio=3),  # 3:2 ratio = groups pane is 1.5x wider
+        self.groups_area = TextArea(
+            text="",
+            read_only=True,
+            scrollbar=True,
+            focusable=True,
+            wrap_lines=True,
         )
 
-        return layout
-
-    def _create_header(self) -> Panel:
-        """Create the header panel."""
-        header_text = Text("🔍 Alert Grouping Analysis", style="bold magenta")
-        subtitle = Text(
-            f"Processing {self.processed_alerts}/{self.total_alerts} alerts",
-            style="dim",
+        self.console_area = TextArea(
+            text="",
+            read_only=True,
+            scrollbar=True,
+            focusable=True,
+            wrap_lines=True,
         )
-        content = RichGroup(Align.center(header_text), Align.center(subtitle))
-        return Panel(content, box=box.DOUBLE, style="bright_blue")
 
-    def _create_progress_panel(self) -> Panel:
-        """Create the left panel showing investigation progress."""
-        # Create a text buffer with recent log lines
-        log_content = Text()
+        # Create the application
+        self.app = self._create_application()
+        self.app_thread = None
+        self.stop_event = threading.Event()
 
-        for line in self.log_lines[-self.max_log_lines :]:
-            if "Processing" in line:
-                log_content.append(line + "\n", style="bold yellow")
-            elif "Running root cause analysis" in line:
-                log_content.append(line + "\n", style="cyan")
-            elif "→ Grouped into:" in line:
-                log_content.append(line + "\n", style="green")
-            elif "📁 Created new group:" in line:
-                log_content.append(line + "\n", style="bold green")
-            elif "Tool" in line or "Running tool" in line:
-                log_content.append(line + "\n", style="dim")
-            elif "Error" in line:
-                log_content.append(line + "\n", style="red")
+    def _create_application(self) -> Application:
+        """Create the prompt_toolkit application."""
+
+        # Create key bindings
+        kb = KeyBindings()
+
+        @kb.add("c-p")
+        def _(event):
+            """Focus progress pane."""
+            self.focused_pane = 0
+            event.app.layout.focus(self.progress_area)
+            self._update_headers()
+
+        @kb.add("c-g")
+        def _(event):
+            """Focus groups pane."""
+            self.focused_pane = 1
+            event.app.layout.focus(self.groups_area)
+            self._update_headers()
+
+        @kb.add("c-o")
+        def _(event):
+            """Focus console pane."""
+            self.focused_pane = 2
+            event.app.layout.focus(self.console_area)
+            self._update_headers()
+
+        @kb.add("tab")
+        def _(event):
+            """Cycle through panes."""
+            self.focused_pane = (self.focused_pane + 1) % 3
+            if self.focused_pane == 0:
+                event.app.layout.focus(self.progress_area)
+            elif self.focused_pane == 1:
+                event.app.layout.focus(self.groups_area)
             else:
-                log_content.append(line + "\n")
+                event.app.layout.focus(self.console_area)
+            self._update_headers()
 
-        # Add current processing status
-        if self.current_alert:
-            status = Text(
-                f"\n⚡ Currently analyzing: {self.current_alert}", style="bold cyan"
+        @kb.add("c-c")
+        @kb.add("c-q")
+        def _(event):
+            """Stop processing."""
+            self.stop_event.set()
+            event.app.exit()
+
+        # Vim navigation keys
+        @kb.add("j")
+        def _(event):
+            """Move down in current pane."""
+            if self.focused_pane == 0:
+                self.progress_area.buffer.cursor_down()
+            elif self.focused_pane == 1:
+                self.groups_area.buffer.cursor_down()
+            elif self.focused_pane == 2:
+                self.console_area.buffer.cursor_down()
+
+        @kb.add("k")
+        def _(event):
+            """Move up in current pane."""
+            if self.focused_pane == 0:
+                self.progress_area.buffer.cursor_up()
+            elif self.focused_pane == 1:
+                self.groups_area.buffer.cursor_up()
+            elif self.focused_pane == 2:
+                self.console_area.buffer.cursor_up()
+
+        @kb.add("g")
+        def _(event):
+            """Go to beginning of current pane."""
+            current_area = [self.progress_area, self.groups_area, self.console_area][
+                self.focused_pane
+            ]
+            current_area.buffer.cursor_position = 0
+
+        @kb.add("G")
+        def _(event):
+            """Go to end of current pane."""
+            current_area = [self.progress_area, self.groups_area, self.console_area][
+                self.focused_pane
+            ]
+            current_area.buffer.cursor_position = len(current_area.buffer.text)
+
+        # Page navigation
+        @kb.add("c-d")
+        def _(event):
+            """Half page down."""
+            current_area = [self.progress_area, self.groups_area, self.console_area][
+                self.focused_pane
+            ]
+            for _ in range(10):  # About half page
+                current_area.buffer.cursor_down()
+
+        @kb.add("c-u")
+        def _(event):
+            """Half page up."""
+            current_area = [self.progress_area, self.groups_area, self.console_area][
+                self.focused_pane
+            ]
+            for _ in range(10):  # About half page
+                current_area.buffer.cursor_up()
+
+        # Create frames for each pane with nice borders and shortcuts
+        self.progress_frame = Frame(
+            self.progress_area, title="📊 Investigation Progress [Ctrl+P]"
+        )
+
+        self.groups_frame = Frame(self.groups_area, title="📁 Alert Groups [Ctrl+G]")
+
+        self.console_frame = Frame(
+            self.console_area,
+            title="🖥️  Console Output [Ctrl+O]",
+            height=10,  # Taller console output
+        )
+
+        # Create thin header with title
+        self.header = Window(
+            FormattedTextControl(self._get_header_text),
+            height=1,
+            style="bold fg:#00aa00",
+        )
+
+        # Create footer with instructions
+        self.footer = Window(
+            FormattedTextControl(self._get_footer_text),
+            height=1,
+            style="fg:#888888",
+        )
+
+        # Create layout with 2 panes on top, console at bottom
+        # Use HSplit to stack vertically, VSplit to arrange horizontally
+        top_panes = VSplit(
+            [
+                self.progress_frame,  # Left pane - progress
+                Window(width=1),  # Small separator
+                self.groups_frame,  # Right pane - groups (wider)
+            ],
+            padding=0,
+        )
+
+        layout = Layout(
+            HSplit(
+                [
+                    self.header,  # Thin header at top
+                    Window(height=1),  # Small gap
+                    top_panes,  # Two panes side-by-side
+                    Window(height=1),  # Small gap
+                    self.console_frame,  # Console at bottom (smaller)
+                    self.footer,  # Footer with instructions
+                ]
             )
-            log_content.append(status)
-
-        return Panel(
-            log_content,
-            title="[bold]Investigation Progress[/bold]",
-            border_style="green",
-            box=box.ROUNDED,
-            padding=(1, 2),
         )
 
-    def _create_groups_panel(self) -> Panel:
-        """Create the right panel showing grouped alerts."""
-        content: Union[Align, Tree]
-        if not self.groups:
-            content = Align.center(
-                Text("No groups formed yet...", style="dim"), vertical="middle"
+        # Create style
+        style = Style.from_dict(
+            {
+                "frame.border": "fg:#808080",
+                "frame.title": "bold",
+            }
+        )
+
+        # Create application
+        app: Application = Application(
+            layout=layout,
+            key_bindings=kb,
+            style=style,
+            full_screen=True,
+            mouse_support=True,
+        )
+
+        return app
+
+    def _get_header_text(self):
+        """Get header text."""
+        if self.processed_alerts == 0:
+            return (
+                f"🔍 Alert Grouping Analysis  •  {self.total_alerts} alerts to process"
             )
+        elif self.processed_alerts == self.total_alerts:
+            return f"🔍 Alert Grouping Analysis  •  Completed {self.processed_alerts}/{self.total_alerts} alerts"
         else:
-            # Create a tree view of groups
-            tree = Tree("📊 Alert Groups", style="bold")
+            return f"🔍 Alert Grouping Analysis  •  Processing alert {self.processed_alerts} of {self.total_alerts}"
 
-            for i, group in enumerate(self.groups, 1):
-                # Group node with colored severity indicator
-                severity_color = self._get_severity_color(group)
-                group_label = Text(f"Group {i}: ", style="bold")
-                group_label.append(f"{group.issue_title}", style=severity_color)
-
-                group_node = tree.add(group_label)
-
-                # Add metadata
-                meta_node = group_node.add("[dim]Metadata[/dim]")
-                meta_node.add(f"📝 Category: {group.category}")
-                meta_node.add(f"📊 Alerts: {len(group.alerts)}")
-                # Add root cause as a detail (truncate if too long)
-                root_cause_text = (
-                    group.root_cause[:100] + "..."
-                    if len(group.root_cause) > 100
-                    else group.root_cause
-                )
-                meta_node.add(f"🔍 Root Cause: {root_cause_text}", style="dim")
-                if group.has_rule:
-                    meta_node.add("✅ Rule: Generated", style="green")
-                else:
-                    meta_node.add("⏳ Rule: Pending", style="yellow")
-
-                # Add alerts
-                alerts_node = group_node.add(f"[dim]Alerts ({len(group.alerts)})[/dim]")
-                for alert in group.alerts[:5]:  # Show first 5
-                    alert_text = f"• {alert.name}"
-                    alerts_node.add(alert_text, style="cyan")
-                if len(group.alerts) > 5:
-                    alerts_node.add(
-                        f"... and {len(group.alerts) - 5} more", style="dim"
-                    )
-
-            content = tree
-
-        return Panel(
-            content,
-            title="[bold]Alert Groups[/bold]",
-            border_style="blue",
-            box=box.ROUNDED,
-            padding=(1, 2),
-        )
-
-    def _create_logs_panel(self) -> Panel:
-        """Create the console output panel."""
-        log_content = Text()
-
-        # Get captured console output
-        console_lines = self.console_output.get_lines()
-
-        if console_lines:
-            for line in console_lines:
-                # Color code based on content
-                if "error" in line.lower():
-                    log_content.append(line + "\n", style="red dim")
-                elif "warning" in line.lower():
-                    log_content.append(line + "\n", style="yellow dim")
-                elif "info" in line.lower():
-                    log_content.append(line + "\n", style="blue dim")
-                elif "Running tool" in line or "Finished" in line:
-                    log_content.append(line + "\n", style="cyan dim")
-                else:
-                    log_content.append(line + "\n", style="dim")
-        else:
-            log_content.append("No console output yet...", style="dim italic")
-
-        return Panel(
-            log_content,
-            title="[bold]Console Output[/bold]",
-            border_style="dim",
-            box=box.SIMPLE,
-            padding=(0, 1),
-        )
-
-    def _create_footer(self) -> Panel:
-        """Create the footer with statistics."""
+    def _get_footer_text(self):
+        """Get footer text."""
         stats = []
-
         if self.groups:
             total_in_groups = sum(len(g.alerts) for g in self.groups)
             rules_generated = sum(1 for g in self.groups if g.has_rule)
+            stats.append(f"Groups: {len(self.groups)}")
+            stats.append(f"Alerts grouped: {total_in_groups}")
+            if rules_generated > 0:
+                stats.append(f"Rules: {rules_generated}")
 
-            stats = [
-                f"Groups: {len(self.groups)}",
-                f"Grouped Alerts: {total_in_groups}",
-                f"Rules: {rules_generated}",
-                f"Time: {datetime.now().strftime('%H:%M:%S')}",
-            ]
+        # Just show stats and basic navigation hint
+        if stats:
+            stats_str = " • ".join(stats)
+            return f"{stats_str}  |  Tab: cycle panes • j/k: scroll"
+        else:
+            # No stats yet, just show navigation
+            return "Tab: cycle panes • j/k: scroll"
 
-        footer_text = " | ".join(stats) if stats else "Initializing..."
-        return Panel(
-            Align.center(Text(footer_text, style="dim")), box=box.SIMPLE, style="dim"
-        )
+    def _update_headers(self):
+        """Update frame titles to show focus."""
+        # Update frame titles with keyboard shortcuts, bold the focused one
+        if self.focused_pane == 0:
+            self.progress_frame.title = "📊 Investigation Progress [Ctrl+P]"
+            self.progress_frame.style = "bold"
+        else:
+            self.progress_frame.title = "📊 Investigation Progress [Ctrl+P]"
+            self.progress_frame.style = ""
 
-    def _get_severity_color(self, group: AlertGroup) -> str:
-        """Get color based on group severity."""
-        # Check if any alerts in the group have critical severity
-        for alert in group.alerts:
-            if alert.raw and alert.raw.get("labels", {}).get("severity") == "critical":
-                return "red"
-            elif alert.raw and alert.raw.get("labels", {}).get("severity") == "warning":
-                return "yellow"
-        return "green"
+        if self.focused_pane == 1:
+            self.groups_frame.title = "📁 Alert Groups [Ctrl+G]"
+            self.groups_frame.style = "bold"
+        else:
+            self.groups_frame.title = "📁 Alert Groups [Ctrl+G]"
+            self.groups_frame.style = ""
+
+        if self.focused_pane == 2:
+            self.console_frame.title = "🖥️  Console Output [Ctrl+O]"
+            self.console_frame.style = "bold"
+        else:
+            self.console_frame.title = "🖥️  Console Output [Ctrl+O]"
+            self.console_frame.style = ""
+
+        if self.app:
+            self.app.invalidate()
+
+    def update_progress(self, log_line: Optional[str] = None):
+        """Update progress pane."""
+        if log_line:
+            self.log_lines.append(log_line)
+
+        # Format progress content without emojis - clean and simple
+        content_lines = []
+        for line in self.log_lines[-30:]:  # Show last 30 lines
+            content_lines.append(line)
+
+        if self.current_alert:
+            content_lines.append(f"\nCurrently analyzing: {self.current_alert}")
+
+        self.progress_area.text = "\n".join(content_lines)
+        if self.app:
+            self.app.invalidate()
+
+    def update_groups(self, groups: Optional[List[AlertGroup]] = None):
+        """Update groups pane."""
+        if groups is not None:
+            self.groups = groups
+
+        if not self.groups:
+            self.groups_area.text = "\n  No groups formed yet...\n\n  Groups will appear here as alerts are processed."
+        else:
+            lines = []
+            for i, group in enumerate(self.groups, 1):
+                # Severity indicator based on category
+                severity_emoji = {
+                    "critical": "🔴",
+                    "infrastructure": "🟠",
+                    "application": "🟡",
+                    "database": "🟣",
+                    "network": "🔵",
+                }.get(group.category, "⚪")
+
+                lines.append(f"\n{severity_emoji} Group {i}: {group.issue_title}")
+                lines.append("─" * 50)
+
+                # Show category with color
+                lines.append(f"  📂 Category: {group.category}")
+
+                # Show full root cause - no truncation
+                lines.append(f"  🔍 Root Cause: {group.root_cause}")
+
+                # Only show rule status if generated
+                if group.has_rule:
+                    lines.append("  ✅ Rule Generated")
+
+                # Show alerts more compactly
+                alert_count = len(group.alerts)
+                if alert_count == 1:
+                    # For single alert, show it inline without numbering
+                    lines.append(f"  🚨 Alert: {group.alerts[0].name}")
+                else:
+                    # For multiple alerts, show with numbering
+                    lines.append(f"  🚨 {alert_count} Alerts:")
+                    for j, alert in enumerate(group.alerts[:3], 1):
+                        lines.append(f"     {j}. {alert.name}")
+                    if alert_count > 3:
+                        lines.append(f"     ... +{alert_count - 3} more")
+
+            self.groups_area.text = "\n".join(lines)
+
+        if self.app:
+            self.app.invalidate()
+
+    def update_console(self, console_line: Optional[str] = None):
+        """Update console output pane."""
+        if console_line:
+            # Strip ANSI escape codes and clean up the line
+            # Remove ANSI escape sequences
+            ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+            clean_line = ansi_escape.sub("", console_line).strip()
+
+            if clean_line:
+                self.console_lines.append(clean_line)
+
+        # Show last 15 console lines (more lines for taller console)
+        self.console_area.text = "\n".join(self.console_lines[-15:])
+
+        if self.app:
+            self.app.invalidate()
 
     def update(
         self,
@@ -257,30 +385,48 @@ class AlertGroupingView:
         processed_alerts: Optional[int] = None,
         console_line: Optional[str] = None,
     ):
-        """Update the view with new data."""
+        """Update all view components."""
+
         if groups is not None:
-            self.groups = groups
+            self.update_groups(groups)
         if current_alert is not None:
             self.current_alert = current_alert
         if log_line:
-            self.log_lines.append(log_line)
+            self.update_progress(log_line)
         if total_alerts is not None:
             self.total_alerts = total_alerts
         if processed_alerts is not None:
             self.processed_alerts = processed_alerts
         if console_line:
-            self.console_output.write(console_line)
+            self.update_console(console_line)
 
-        # Update layout panels
-        self.layout["header"].update(self._create_header())
-        self.layout["progress"].update(self._create_progress_panel())
-        self.layout["groups"].update(self._create_groups_panel())
-        self.layout["logs"].update(self._create_logs_panel())
-        self.layout["footer"].update(self._create_footer())
+        # Refresh the app
+        if self.app:
+            self.app.invalidate()
 
-    def get_layout(self) -> Layout:
-        """Get the current layout."""
-        return self.layout
+    def start(self):
+        """Start the application in a background thread."""
+
+        def run_app():
+            try:
+                self.app.run()
+            except Exception:
+                pass  # App was stopped
+
+        self.app_thread = threading.Thread(target=run_app)
+        self.app_thread.daemon = True
+        self.app_thread.start()
+
+        # Give the app time to start
+        time.sleep(0.5)
+
+    def stop(self):
+        """Stop the application."""
+        self.stop_event.set()
+        if self.app:
+            self.app.exit()
+        if self.app_thread:
+            self.app_thread.join(timeout=2)
 
 
 class LogInterceptor(logging.Handler):
@@ -299,111 +445,119 @@ class LogInterceptor(logging.Handler):
             pass
 
 
-class LiveAlertGrouper(SmartAlertGrouper):
-    """Extended SmartAlertGrouper with live view support."""
+class PromptToolkitAlertGrouper(SmartAlertGrouper):
+    """Alert grouper with prompt_toolkit live view."""
 
     def __init__(self, ai, console, verify_first_n: int = 5):
-        # Initialize parent but we'll override console usage
         super().__init__(ai, console, verify_first_n)
-        self.view: Optional[AlertGroupingView] = None
-        self.live: Optional[Live] = None
-        # Create a separate console for investigations to capture output
+        self.view: Optional[AlertGroupingLiveView] = None
+        self.investigation_buffer = StringIO()
+        self.investigation_console: Optional[Any] = None
+
+    def process_alerts_with_view(self, alerts) -> List[AlertGroup]:
+        """Process alerts with live prompt_toolkit view."""
+        return self.process_alerts_with_live_view(alerts)
+
+    def process_alerts_with_live_view(self, alerts) -> List[AlertGroup]:
+        """Process alerts with live prompt_toolkit view."""
         from rich.console import Console
 
-        self.investigation_buffer = StringIO()
+        # Create investigation console
         self.investigation_console = Console(
             file=self.investigation_buffer, force_terminal=True, width=120
         )
 
-    def process_alerts_with_view(self, alerts) -> List[AlertGroup]:
-        """Process alerts with live two-pane view."""
-        self.view = AlertGroupingView(self.console)
-
-        # Initialize view
+        # Create and start the view
+        self.view = AlertGroupingLiveView()
         self.view.total_alerts = len(alerts)
         self.view.update()
 
-        # Replace all logging handlers with our interceptor to prevent console output
+        # Add concise initial message
+        self.view.update(log_line="Starting alert grouping analysis...")
+        self.view.update(log_line="-" * 40)
+
+        # Set up logging interceptor
         log_interceptor = LogInterceptor(self.view)
         original_handlers = logging.root.handlers.copy()
 
-        # Remove all existing handlers and add only our interceptor
         for handler in original_handlers:
             logging.root.removeHandler(handler)
         logging.root.addHandler(log_interceptor)
 
         try:
-            # Use Live display with the main console
-            with Live(
-                self.view.get_layout(),
-                console=self.console,
-                refresh_per_second=2,
-                screen=False,
-            ) as live:
-                self.live = live
+            # Start the view
+            self.view.start()
 
-                # Process each alert
-                for i, alert in enumerate(alerts):
-                    self.view.update(
-                        current_alert=alert.name,
-                        processed_alerts=i,
-                        log_line=f"[{i+1}/{len(alerts)}] Processing {alert.name}...",
-                    )
+            # Process each alert
+            for i, alert in enumerate(alerts):
+                # Check if user requested stop
+                if self.view.stop_event.is_set():
+                    self.view.update(log_line="Processing stopped by user")
+                    break
 
-                    # Clear the investigation buffer before processing
-                    self.investigation_buffer.truncate(0)
-                    self.investigation_buffer.seek(0)
-
-                    # Process the alert (using investigation_console internally)
-                    group = self._process_single_alert_with_logging(alert)
-
-                    # Get output from investigation console and batch update
-                    investigation_output = self.investigation_buffer.getvalue()
-                    if investigation_output:
-                        # Collect all lines first
-                        lines_to_add = [
-                            line.strip()
-                            for line in investigation_output.split("\n")
-                            if line.strip()
-                        ]
-                        # Update console output in one batch
-                        if lines_to_add:
-                            for line in lines_to_add:
-                                self.view.console_output.write(line)
-                            # Force a single refresh after batch update
-                            self.view.console_output.flush_pending()
-                            live.refresh()
-
-                    if group:
-                        self.view.update(
-                            groups=self.groups,
-                            log_line=f"  → Grouped into: {group.issue_title}",
-                        )
-
-                    self.view.update(processed_alerts=i + 1)
-
-                    # Force refresh the display
-                    live.refresh()
-
-                # Final update
                 self.view.update(
-                    current_alert=None, log_line="\n✅ Alert grouping complete!"
+                    current_alert=alert.name,
+                    processed_alerts=i + 1,  # Show 1-based counter
+                    log_line=f"[{i+1}/{len(alerts)}] Processing {alert.name}...",
                 )
 
-                # Keep the display for a moment
-                import time
+                # DON'T clear investigation buffer - keep console output continuous
+                # Just mark position for new output
+                buffer_start = self.investigation_buffer.tell()
 
-                time.sleep(2)
+                # Process the alert
+                group, is_new = self._process_single_alert_with_view(alert)
+
+                # Get only the new investigation output since buffer_start
+                self.investigation_buffer.seek(buffer_start)
+                new_output = self.investigation_buffer.read()
+                self.investigation_buffer.seek(0, 2)  # Go back to end for next write
+
+                if new_output:
+                    for line in new_output.split("\n"):
+                        if line.strip():
+                            self.view.update(console_line=line.strip())
+
+                if group and not is_new:
+                    # Only show "Grouped into" for existing groups
+                    self.view.update(
+                        groups=self.groups,
+                        log_line=f"  → Added to existing group: {group.issue_title}",
+                    )
+                elif group and is_new:
+                    # New group creation already logged, just update groups display
+                    self.view.update(groups=self.groups)
+
+                # Small delay to make updates visible
+                time.sleep(0.1)
+
+            # Final update
+            self.view.update(
+                current_alert=None,
+                log_line="\n✅ Alert grouping complete!",
+            )
+
+            # Keep the display running until user exits
+            self.view.update(log_line="")
+            self.view.update(log_line="Press Ctrl+C to exit and see summary...")
+
+            # Wait for user to exit
+            while not self.view.stop_event.is_set():
+                time.sleep(0.5)
+
         finally:
-            # Restore original logging handlers
+            # Stop the view
+            self.view.stop()
+
+            # Restore logging handlers
             logging.root.removeHandler(log_interceptor)
             for handler in original_handlers:
                 logging.root.addHandler(handler)
 
         return self.groups
 
-    def _process_single_alert_with_logging(self, alert):
-        """Process alert with logging to view."""
+    def _process_single_alert_with_view(self, alert):
+        """Process alert with logging to view. Returns (group, is_new) tuple."""
         # Check rules first
         for rule in self.rules:
             if self._matches_rule(alert, rule):
@@ -417,7 +571,7 @@ class LiveAlertGrouper(SmartAlertGrouper):
                         if group:
                             group.alerts.append(alert)
                             self.view.update(log_line="  ✓ Rule match verified")
-                            return group
+                            return group, False  # Not a new group
                     else:
                         self.view.update(log_line="  ✗ Rule match failed verification")
                         if verification.get("suggested_adjustment"):
@@ -431,16 +585,16 @@ class LiveAlertGrouper(SmartAlertGrouper):
                     if group:
                         group.alerts.append(alert)
                         self.view.update(log_line="  ✓ Matched by trusted rule")
-                        return group
+                        return group, False  # Not a new group
 
         # No rule matched - run RCA
         self.view.update(log_line="  Running root cause analysis...")
 
-        # Use the investigation console instead of main console
+        # Use the investigation console
         investigation = self.ai.investigate(
             issue=alert,
             prompt="builtin://generic_investigation.jinja2",
-            console=self.investigation_console,  # Use separate console
+            console=self.investigation_console,
             instructions=None,
             post_processing_prompt=None,
         )
@@ -452,6 +606,14 @@ class LiveAlertGrouper(SmartAlertGrouper):
             if self._check_root_cause_match(rca, group):
                 group.alerts.append(alert)
                 self.view.update(log_line="  ✓ Matched existing group")
+
+                # Update the group's analysis to reflect the new alert
+                old_title = group.issue_title
+                self._update_group_analysis(group, alert)
+                if group.issue_title != old_title:
+                    self.view.update(
+                        log_line=f"  📝 Updated group analysis: {group.issue_title}"
+                    )
 
                 # Maybe generate rule
                 if len(group.alerts) >= 3 and not group.has_rule:
@@ -465,20 +627,16 @@ class LiveAlertGrouper(SmartAlertGrouper):
                         self.view.update(
                             log_line=f"  ✅ Rule generated: {generated_rule.explanation[:50]}..."
                         )
-                        # Log rule details to console output
-                        rule_details = (
-                            f"Rule: {len(generated_rule.conditions)} conditions"
-                        )
-                        self.view.update(console_line=rule_details)
                     else:
                         self.view.update(log_line="  ℹ️ No clear pattern for rule")
 
-                return group
+                return group, False  # Not a new group
 
         # Create new group
         group = AlertGroup(
             id=f"group-{uuid.uuid4().hex[:8]}",
             issue_title=rca.get("issue_title", "Unknown Issue"),
+            description=rca.get("issue_title", ""),  # Start with title as description
             root_cause=rca["root_cause"],
             alerts=[alert],
             evidence=rca.get("evidence", []),
@@ -486,5 +644,5 @@ class LiveAlertGrouper(SmartAlertGrouper):
             category=rca.get("category", "unknown"),
         )
         self.groups.append(group)
-        self.view.update(log_line=f"  📁 Created new group: {group.issue_title}")
-        return group
+        self.view.update(log_line=f"  Created new group: {group.issue_title}")
+        return group, True  # This is a new group

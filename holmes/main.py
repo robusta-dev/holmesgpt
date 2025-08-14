@@ -428,10 +428,11 @@ def alertmanager(
     results: Union[Dict, List] = []  # Can be either dict (grouped) or list (individual)
 
     if group_alerts:
-        # Use the new grouping system with beautiful two-pane view
-        from holmes.core.alert_grouping_view import LiveAlertGrouper
+        # Use the grouping system with interactive keyboard navigation
+        from holmes.core.alert_grouping_view import PromptToolkitAlertGrouper
 
-        grouper = LiveAlertGrouper(ai, console, verify_first_n=5)
+        # Create grouper with interactive navigation during processing
+        grouper = PromptToolkitAlertGrouper(ai, console, verify_first_n=5)
         groups = grouper.process_alerts_with_view(issues)
 
         # Show final summary after the live view

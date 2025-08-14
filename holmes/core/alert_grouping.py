@@ -36,13 +36,15 @@ class AlertGroup(BaseModel):
 
     id: str
     issue_title: str  # Concise title describing the issue
-    root_cause: str  # Detailed root cause analysis
+    description: str = ""  # Brief description of the issue pattern
+    root_cause: str  # Detailed root cause analysis (can be updated as more alerts join)
     alerts: List[Issue] = Field(default_factory=list)
     evidence: List[str] = Field(default_factory=list)
     affected_components: List[str] = Field(default_factory=list)
     category: str = "unknown"
     has_rule: bool = False
     created_at: datetime = Field(default_factory=datetime.now)
+    last_updated: datetime = Field(default_factory=datetime.now)
 
     class Config:
         arbitrary_types_allowed = True
@@ -164,6 +166,9 @@ class SmartAlertGrouper:
                 group.alerts.append(alert)
                 logging.info(f"Alert {alert.name} → Group {group.id} (same root cause)")
 
+                # Update the group's analysis to reflect the new alert
+                self._update_group_analysis(group, alert)
+
                 # Maybe generate a rule
                 if len(group.alerts) >= 3 and not group.has_rule:
                     logging.info(
@@ -182,6 +187,7 @@ class SmartAlertGrouper:
         group = AlertGroup(
             id=f"group-{uuid.uuid4().hex[:8]}",
             issue_title=rca.get("issue_title", "Unknown Issue"),
+            description=rca.get("issue_title", ""),  # Start with title as description
             root_cause=rca["root_cause"],
             alerts=[alert],
             evidence=rca.get("evidence", []),
@@ -425,9 +431,11 @@ New alert RCA:
 {json.dumps(rca, indent=2, default=pydantic_encoder)}
 
 Existing group:
+Title: {group.issue_title}
 Root cause: {group.root_cause}
 Evidence: {json.dumps(group.evidence, indent=2, default=pydantic_encoder)}
 Affected components: {json.dumps(group.affected_components, indent=2, default=pydantic_encoder)}
+Number of alerts already in group: {len(group.alerts)}
 
 Determine if they have the same root cause.
 """
@@ -569,6 +577,94 @@ Only generate a rule if there's a clear pattern.
 
         return None
 
+    def _update_group_analysis(self, group: AlertGroup, new_alert: Issue) -> None:
+        """Update the group's title, description, and root cause when adding a new alert"""
+        # Only update if we have multiple alerts
+        if len(group.alerts) < 2:
+            return
+
+        prompt = f"""
+You have an alert group with {len(group.alerts)} alerts. A new alert was just added.
+Please update the group's analysis to reflect ALL alerts in the group.
+
+Current group analysis:
+- Title: {group.issue_title}
+- Description: {group.description or "Not set"}
+- Root Cause: {group.root_cause}
+- Category: {group.category}
+
+All alerts in the group (including the new one):
+{json.dumps([{"name": a.name, "summary": a.raw.get("annotations", {}).get("summary", "") if a.raw and isinstance(a.raw, dict) else ""} for a in group.alerts], indent=2)}
+
+Provide an updated analysis that encompasses ALL alerts in the group.
+The title should describe the common issue pattern.
+The description should briefly explain what's happening.
+The root cause should explain why ALL these alerts are firing.
+"""
+
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "updated_group_analysis",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "issue_title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "root_cause": {"type": "string"},
+                        "category": {
+                            "type": "string",
+                            "enum": [
+                                "infrastructure",
+                                "application",
+                                "database",
+                                "network",
+                                "configuration",
+                                "capacity",
+                                "unknown",
+                            ],
+                        },
+                        "should_update": {"type": "boolean"},
+                        "reasoning": {"type": "string"},
+                    },
+                    "required": [
+                        "issue_title",
+                        "description",
+                        "root_cause",
+                        "category",
+                        "should_update",
+                        "reasoning",
+                    ],
+                },
+            },
+        }
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are an expert at analyzing alert patterns and identifying common root causes.",
+            },
+            {"role": "user", "content": prompt},
+        ]
+
+        try:
+            response = self.ai.llm.completion(messages, response_format=response_format)
+            result = json.loads(response.choices[0].message.content)
+
+            if result.get("should_update", False):
+                # Update the group with new analysis
+                group.issue_title = result["issue_title"]
+                group.description = result["description"]
+                group.root_cause = result["root_cause"]
+                group.category = result["category"]
+                group.last_updated = datetime.now()
+
+                logging.info(
+                    f"Updated group {group.id} analysis: {result.get('reasoning', 'No reason provided')}"
+                )
+        except Exception as e:
+            logging.error(f"Error updating group analysis: {e}")
+
     def get_summary(self) -> str:
         """Get a summary of the grouping results"""
         if not self.groups:
@@ -584,8 +680,14 @@ Only generate a rule if there's a clear pattern.
         for group in self.groups:
             summary.append(f"\n[yellow]Group {group.id}:[/yellow]")
             summary.append(f"  Issue: {group.issue_title}")
+            if group.description:
+                summary.append(f"  Description: {group.description}")
             summary.append(f"  Root Cause: {group.root_cause}")
             summary.append(f"  Category: {group.category}")
+            if group.last_updated != group.created_at:
+                summary.append(
+                    f"  [dim]Last updated: {group.last_updated.strftime('%H:%M:%S')}[/dim]"
+                )
             summary.append(f"  Alerts ({len(group.alerts)}):")
             for alert in group.alerts[:5]:  # Show first 5
                 summary.append(f"    - {alert.name}")
