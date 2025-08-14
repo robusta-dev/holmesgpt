@@ -60,7 +60,7 @@ WAIT_INTERVAL=5
 ELAPSED=0
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-    if kubectl exec -n app-156 $OPENSEARCH_POD -c opensearch -- curl -s http://localhost:9200/_cluster/health > /dev/null 2>&1; then
+    if kubectl exec -n app-156 "$OPENSEARCH_POD" -- python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:9200/_cluster/health').read())" > /dev/null 2>&1; then
         echo "OpenSearch is ready"
         break
     fi
