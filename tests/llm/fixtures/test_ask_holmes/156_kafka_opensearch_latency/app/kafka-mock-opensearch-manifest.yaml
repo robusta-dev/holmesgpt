@@ -148,10 +148,10 @@ spec:
         - containerPort: 9200
         command: ["python", "/app/mock_opensearch.py"]
         env:
-        - name: CPU_BURN_INTENSITY
-          value: "high"  # Control CPU usage
-        - name: RESPONSE_DELAY_MS
-          value: "3000"  # 3 second delay per request
+        - name: INDEX_OPTIMIZATION_LEVEL
+          value: "aggressive"  # Index optimization setting
+        - name: BATCH_PROCESSING_INTERVAL
+          value: "3000"  # Batch processing interval in ms
         resources:
           requests:
             memory: "256Mi"
@@ -159,12 +159,6 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "200m"  # Very low CPU limit to ensure 100% usage
-        readinessProbe:
-          httpGet:
-            path: /_cluster/health
-            port: 9200
-          initialDelaySeconds: 10
-          periodSeconds: 5
         startupProbe:
           httpGet:
             path: /_cluster/health
@@ -198,8 +192,8 @@ data:
     import sys
 
     # Configuration from environment
-    CPU_BURN_INTENSITY = os.environ.get('CPU_BURN_INTENSITY', 'high')
-    RESPONSE_DELAY_MS = int(os.environ.get('RESPONSE_DELAY_MS', '2000'))
+    INDEX_OPTIMIZATION_LEVEL = os.environ.get('INDEX_OPTIMIZATION_LEVEL', 'aggressive')
+    BATCH_PROCESSING_INTERVAL = int(os.environ.get('BATCH_PROCESSING_INTERVAL', '2000'))
 
     # In-memory storage
     indices = {}
@@ -212,7 +206,7 @@ data:
 
         def burn_cpu(self):
             """Simulate CPU-intensive operations"""
-            if CPU_BURN_INTENSITY == 'high':
+            if INDEX_OPTIMIZATION_LEVEL == 'aggressive':
                 # Do some CPU-intensive work
                 start = time.time()
                 while time.time() - start < 1.0:  # Burn CPU for 1 second
@@ -304,8 +298,8 @@ data:
                 print(f"Indexing document, burning CPU...")
                 self.burn_cpu()
 
-                # Add artificial delay
-                time.sleep(RESPONSE_DELAY_MS / 1000.0)
+                # Process batch interval
+                time.sleep(BATCH_PROCESSING_INTERVAL / 1000.0)
 
                 parts = path.split('/')
                 index_name = parts[1]
@@ -349,7 +343,7 @@ data:
         """Background thread that continuously burns CPU"""
         print("Starting background CPU burner thread...", flush=True)
         while True:
-            if CPU_BURN_INTENSITY == 'high':
+            if INDEX_OPTIMIZATION_LEVEL == 'aggressive':
                 # Continuous CPU burn
                 for _ in range(100000):
                     hashlib.sha256(os.urandom(256)).hexdigest()
@@ -368,8 +362,8 @@ data:
         server_address = ('', 9200)
         httpd = HTTPServer(server_address, MockOpenSearchHandler)
         print(f"Mock OpenSearch starting on port 9200", flush=True)
-        print(f"CPU burn intensity: {CPU_BURN_INTENSITY}", flush=True)
-        print(f"Response delay: {RESPONSE_DELAY_MS}ms", flush=True)
+        print(f"Index optimization level: {INDEX_OPTIMIZATION_LEVEL}", flush=True)
+        print(f"Batch processing interval: {BATCH_PROCESSING_INTERVAL}ms", flush=True)
         sys.stdout.flush()
         httpd.serve_forever()
 
