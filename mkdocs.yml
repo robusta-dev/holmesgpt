@@ -106,6 +106,12 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: yaml-helm-values
+          class: yaml
+          format: !!python/name:docs.custom_fences.helm_tabs_fence_format
+        - name: yaml-toolset-config
+          class: yaml
+          format: !!python/name:docs.custom_fences.toolset_config_fence_format
   - pymdownx.tabbed:
       alternate_style: true
       combine_header_slug: true
