@@ -87,6 +87,8 @@ class AMPConfig(PrometheusConfig):
     aws_secret_access_key: str
     aws_region: str
     aws_service_name: str = "aps"
+    healthcheck: str = "api/v1/query?query=up"  # Override for AMP
+    prometheus_ssl_enabled: bool = False
 
     def is_amp(self) -> bool:
         return True
@@ -857,9 +859,6 @@ class PrometheusToolset(Toolset):
                 self.config = config_cls(**config)  # type: ignore
 
                 self._reload_llm_instructions()
-                if self.config.is_amp():
-                    # health check not ready for amp
-                    return True, ""
                 return self._is_healthy()
         except Exception:
             logging.exception(
