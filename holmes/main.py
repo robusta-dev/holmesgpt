@@ -449,7 +449,7 @@ def alertmanager(
             post_processing_prompt=post_processing_prompt,
         )
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-        handle_result(result, console, destination, config, issue, False, True, False)  # type: ignore
+        handle_result(result, console, destination, config, issue, False, True)  # type: ignore
 
     if json_output_file:
         write_json_file(json_output_file, results)
