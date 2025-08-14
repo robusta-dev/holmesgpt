@@ -215,6 +215,12 @@ def ask(
         "--system-prompt-additions",
         help="Additional content to append to the system prompt",
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Quiet mode: only print the AI output without additional formatting",
+    ),
 ):
     """
     Ask any question and answer using available tools
@@ -252,6 +258,7 @@ def ask(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
+        quiet=quiet,
     )
 
     if prompt_file and prompt:
@@ -280,7 +287,7 @@ def ask(
             # Only piped data, no prompt - ask what to do with it
             prompt = f"Here's some piped output:\n\n{piped_data}\n\nWhat can you tell me about this output?"
 
-    if echo_request and not interactive and prompt:
+    if echo_request and not interactive and prompt and not quiet:
         console.print(f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {prompt}")
 
     if interactive:
@@ -294,6 +301,7 @@ def ask(
             tracer,
             config.get_runbook_catalog(),
             system_prompt_additions,
+            quiet,
         )
         return
 
@@ -310,7 +318,7 @@ def ask(
         f'holmes ask "{prompt}"', span_type=SpanType.TASK
     ) as trace_span:
         trace_span.log(input=prompt, metadata={"type": "user_question"})
-        response = ai.call(messages, post_processing_prompt, trace_span=trace_span)
+        response = ai.call(messages, post_processing_prompt, trace_span=trace_span, quiet=quiet)
         trace_span.log(
             output=response.result,
         )
@@ -338,7 +346,7 @@ def ask(
         False,  # type: ignore
     )
 
-    if trace_url:
+    if trace_url and not quiet:
         console.print(f"🔍 View trace: {trace_url}")
 
 
@@ -441,7 +449,7 @@ def alertmanager(
             post_processing_prompt=post_processing_prompt,
         )
         results.append({"issue": issue.model_dump(), "result": result.model_dump()})
-        handle_result(result, console, destination, config, issue, False, True)  # type: ignore
+        handle_result(result, console, destination, config, issue, False, True, False)  # type: ignore
 
     if json_output_file:
         write_json_file(json_output_file, results)

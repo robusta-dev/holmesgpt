@@ -71,6 +71,7 @@ class ToolsetManager:
         check_prerequisites=True,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        quiet: bool = False,
     ) -> List[Toolset]:
         """
         List all built-in and custom toolsets.
@@ -128,16 +129,16 @@ class ToolsetManager:
                 enabled_toolsets.append(toolset)
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
-        self.check_toolset_prerequisites(enabled_toolsets)
+        self.check_toolset_prerequisites(enabled_toolsets, quiet=quiet)
 
         return list(toolsets_by_name.values())
 
     @classmethod
-    def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
+    def check_toolset_prerequisites(cls, toolsets: list[Toolset], quiet: bool = False):
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for toolset in toolsets:
-                futures.append(executor.submit(toolset.check_prerequisites))
+                futures.append(executor.submit(toolset.check_prerequisites, quiet))
 
             for _ in concurrent.futures.as_completed(futures):
                 pass
@@ -184,6 +185,7 @@ class ToolsetManager:
         dal: Optional[SupabaseDal] = None,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        quiet: bool = False,
     ):
         """
         Refresh the status of all toolsets and cache the status to a file.
@@ -199,6 +201,7 @@ class ToolsetManager:
             check_prerequisites=True,
             enable_all_toolsets=enable_all_toolsets,
             toolset_tags=toolset_tags,
+            quiet=quiet,
         )
 
         if self.toolset_status_location and not os.path.exists(
@@ -215,7 +218,8 @@ class ToolsetManager:
                 for toolset in all_toolsets
             ]
             json.dump(toolset_status, f, indent=2)
-        logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
+        if not quiet:
+            logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
 
     def load_toolset_with_status(
         self,
@@ -223,6 +227,7 @@ class ToolsetManager:
         refresh_status: bool = False,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        quiet: bool = False,
     ) -> List[Toolset]:
         """
         Load the toolset with status from the cache file.
@@ -232,9 +237,10 @@ class ToolsetManager:
         """
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
-            logging.info("Refreshing available datasources (toolsets)")
+            if not quiet:
+                logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
-                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
+                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags, quiet=quiet
             )
             using_cached = False
         else:
@@ -249,7 +255,7 @@ class ToolsetManager:
             cached_toolset["name"]: cached_toolset for cached_toolset in cached_toolsets
         }
         all_toolsets_with_status = self._list_all_toolsets(
-            dal=dal, check_prerequisites=False, toolset_tags=toolset_tags
+            dal=dal, check_prerequisites=False, toolset_tags=toolset_tags, quiet=quiet
         )
 
         enabled_toolsets_from_cache: List[Toolset] = []
@@ -272,7 +278,7 @@ class ToolsetManager:
                 and using_cached
             ):
                 enabled_toolsets_from_cache.append(toolset)
-        self.check_toolset_prerequisites(enabled_toolsets_from_cache)
+        self.check_toolset_prerequisites(enabled_toolsets_from_cache, quiet=quiet)
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -289,10 +295,10 @@ class ToolsetManager:
                 )
             enabled_toolsets_from_cli.append(custom_toolset_from_cli)
         # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-        self.check_toolset_prerequisites(enabled_toolsets_from_cli)
+        self.check_toolset_prerequisites(enabled_toolsets_from_cli, quiet=quiet)
 
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
-        if using_cached:
+        if using_cached and not quiet:
             num_available_toolsets = len(
                 [toolset for toolset in all_toolsets_with_status if toolset.enabled]
             )
@@ -302,7 +308,7 @@ class ToolsetManager:
         return all_toolsets_with_status
 
     def list_console_toolsets(
-        self, dal: Optional[SupabaseDal] = None, refresh_status=False
+        self, dal: Optional[SupabaseDal] = None, refresh_status=False, quiet: bool = False
     ) -> List[Toolset]:
         """
         List all enabled toolsets that cli tools can use.
@@ -315,6 +321,7 @@ class ToolsetManager:
             refresh_status=refresh_status,
             enable_all_toolsets=True,
             toolset_tags=self.cli_tool_tags,
+            quiet=quiet,
         )
         return toolsets_with_status
 

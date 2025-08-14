@@ -140,12 +140,13 @@ class Tool(ABC, BaseModel):
         )
 
     def invoke(
-        self, params: Dict, tool_number: Optional[int] = None
+        self, params: Dict, tool_number: Optional[int] = None, quiet: bool = False
     ) -> StructuredToolResult:
         tool_number_str = f"#{tool_number} " if tool_number else ""
-        logging.info(
-            f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
-        )
+        if not quiet:
+            logging.info(
+                f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
+            )
         start_time = time.time()
         result = self._invoke(params)
         elapsed = time.time() - start_time
@@ -156,9 +157,10 @@ class Tool(ABC, BaseModel):
         )
         show_hint = f"/show {tool_number}" if tool_number else "/show"
         line_count = output_str.count("\n") + 1 if output_str else 0
-        logging.info(
-            f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
-        )
+        if not quiet:
+            logging.info(
+                f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
+            )
         return result
 
     @abstractmethod
@@ -406,7 +408,7 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, quiet: bool = False):
         self.status = ToolsetStatusEnum.ENABLED
 
         for prereq in self.prerequisites:
@@ -457,11 +459,13 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(f"❌ Toolset {self.name}: {self.error}")
+                if not quiet:
+                    logging.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        logging.info(f"✅ Toolset {self.name}")
+        if not quiet:
+            logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
