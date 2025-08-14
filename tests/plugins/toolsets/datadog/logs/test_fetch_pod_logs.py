@@ -5,7 +5,10 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
     DatadogLogsConfig,
     DataDogStorageTier,
 )
-from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    FetchPodLogsParams,
+    PodLoggingTool,
+)
 
 
 class TestDatadogToolsetFetchPodLogs:
@@ -359,6 +362,194 @@ class TestDatadogToolsetFetchPodLogs:
         call_args = mock_post.call_args
         payload = call_args[1]["json"]
         query = payload["filter"]["query"]
-        assert '"ERROR"' in query
+        assert "(ERROR)" in query  # Now wrapped in parentheses
         assert "kube_namespace:test-namespace" in query
         assert "pod_name:test-pod" in query
+
+        # Verify response includes Datadog URL
+        assert "View in Datadog:" in result.data
+
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_with_complex_filter(self, mock_post):
+        """Test fetch_pod_logs with complex Datadog query syntax"""
+        # Mock response
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "data": [
+                {"attributes": {"message": "ERROR: Database error", "@level": "error"}},
+            ],
+            "meta": {"page": {}},
+        }
+
+        mock_post.return_value = response
+
+        # Set up params with complex Datadog filter
+        params = FetchPodLogsParams(
+            namespace="test-namespace",
+            pod_name="test-pod",
+            filter="(error OR warn OR fatal) AND @level:error",
+            limit=100,
+        )
+
+        # Execute
+        result = self.toolset.fetch_pod_logs(params)
+
+        # Verify
+        assert result.status == ToolResultStatus.SUCCESS
+
+        # Check the API call included the complex filter
+        call_args = mock_post.call_args
+        payload = call_args[1]["json"]
+        query = payload["filter"]["query"]
+        # The filter should be added as-is in parentheses
+        assert "((error OR warn OR fatal) AND @level:error)" in query
+
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_with_exclude_filter(self, mock_post):
+        """Test fetch_pod_logs with exclude filter using NOT syntax"""
+        # Mock response
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "data": [
+                {"attributes": {"message": "ERROR: Real error"}},
+            ],
+            "meta": {"page": {}},
+        }
+
+        mock_post.return_value = response
+
+        # Test 1: exclude_filter without NOT prefix
+        params = FetchPodLogsParams(
+            namespace="test-namespace",
+            pod_name="test-pod",
+            exclude_filter="health",
+            limit=100,
+        )
+
+        # Execute
+        self.toolset.fetch_pod_logs(params)
+
+        # Verify NOT was added automatically
+        call_args = mock_post.call_args
+        payload = call_args[1]["json"]
+        query = payload["filter"]["query"]
+        assert "NOT (health)" in query
+
+        # Test 2: exclude_filter with NOT prefix already
+        params2 = FetchPodLogsParams(
+            namespace="test-namespace",
+            pod_name="test-pod",
+            exclude_filter="NOT (info OR debug)",
+            limit=100,
+        )
+
+        # Execute
+        self.toolset.fetch_pod_logs(params2)
+
+        # Verify NOT wasn't duplicated
+        call_args2 = mock_post.call_args
+        payload2 = call_args2[1]["json"]
+        query2 = payload2["filter"]["query"]
+        assert "NOT (info OR debug)" in query2
+        assert "NOT NOT" not in query2  # Ensure NOT wasn't duplicated
+
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_with_both_filters(self, mock_post):
+        """Test fetch_pod_logs with both include and exclude filters"""
+        # Mock response
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "data": [
+                {"attributes": {"message": "ERROR: Database connection failed"}},
+            ],
+            "meta": {"page": {}},
+        }
+
+        mock_post.return_value = response
+
+        params = FetchPodLogsParams(
+            namespace="test-namespace",
+            pod_name="test-pod",
+            filter="@level:error OR @level:warn",
+            exclude_filter="@http.status_code:200",
+            limit=100,
+        )
+
+        # Execute
+        self.toolset.fetch_pod_logs(params)
+
+        # Verify both filters are in the query
+        call_args = mock_post.call_args
+        payload = call_args[1]["json"]
+        query = payload["filter"]["query"]
+        assert "(@level:error OR @level:warn)" in query
+        assert "NOT (@http.status_code:200)" in query
+
+    @patch("holmes.plugins.toolsets.datadog.datadog_api.requests.post")
+    def test_fetch_pod_logs_datadog_url_generation(self, mock_post):
+        """Test that Datadog Explorer URL is correctly generated"""
+        # Mock response
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {
+            "data": [],
+            "meta": {"page": {}},
+        }
+
+        mock_post.return_value = response
+
+        params = FetchPodLogsParams(
+            namespace="test-namespace",
+            pod_name="test-pod",
+            start_time="2024-01-01T00:00:00Z",
+            end_time="2024-01-01T12:00:00Z",
+        )
+
+        # Execute
+        result = self.toolset.fetch_pod_logs(params)
+
+        # Verify URL is in the response
+        assert result.status == ToolResultStatus.NO_DATA
+        assert "View in Datadog: https://api.datadoghq.com/logs?" in result.data
+        assert "query=kube_namespace%3Atest-namespace" in result.data
+        assert "from_ts=2024-01-01T00%3A00%3A00Z" in result.data
+        assert "to_ts=2024-01-01T12%3A00%3A00Z" in result.data
+
+
+class TestDatadogPodLoggingTool:
+    """Test the PodLoggingTool when used with Datadog"""
+
+    def test_datadog_specific_tool_parameters(self):
+        """Test that PodLoggingTool provides Datadog-specific parameter descriptions"""
+        # Create toolset
+        toolset = DatadogLogsToolset()
+        toolset.dd_config = DatadogLogsConfig(
+            dd_api_key="test-api-key",
+            dd_app_key="test-app-key",
+            site_api_url="https://api.datadoghq.com",
+        )
+
+        # Get the tool (it's created in __init__)
+        tool = toolset.tools[0]
+        assert isinstance(tool, PodLoggingTool)
+
+        # Check tool description mentions Datadog
+        assert "Datadog" in tool.description
+        assert "Datadog's query syntax" in tool.description
+
+        # Check filter parameter has Datadog-specific description
+        filter_param = tool.parameters.get("filter")
+        assert filter_param is not None
+        assert "DATADOG QUERY SYNTAX" in filter_param.description
+        assert "@level:error" in filter_param.description
+        assert "OR queries" in filter_param.description
+
+        # Check exclude_filter parameter has Datadog-specific description
+        exclude_param = tool.parameters.get("exclude_filter")
+        assert exclude_param is not None
+        assert "DATADOG EXCLUSION SYNTAX" in exclude_param.description
+        assert "NOT operator" in exclude_param.description
+        assert "NOT @level:info" in exclude_param.description

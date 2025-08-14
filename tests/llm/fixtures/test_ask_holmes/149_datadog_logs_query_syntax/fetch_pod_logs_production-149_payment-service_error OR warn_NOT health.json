@@ -1,0 +1,49 @@
+{
+  "data": [
+    {
+      "attributes": {
+        "timestamp": "2024-01-15T10:30:15.123Z",
+        "message": "ERROR: Payment gateway timeout",
+        "level": "error",
+        "service": "payment-service",
+        "endpoint": "/api/v1/process-payment",
+        "kubernetes": {
+          "pod_name": "payment-service-7cb79f8c87-z96z8",
+          "namespace": "production-149",
+          "container_name": "payment-service"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "timestamp": "2024-01-15T10:31:22.456Z",
+        "message": "WARN: High latency detected: 2.5s",
+        "level": "warn",
+        "service": "payment-service",
+        "endpoint": "/api/v1/process-payment",
+        "kubernetes": {
+          "pod_name": "payment-service-7cb79f8c87-z96z8",
+          "namespace": "production-149",
+          "container_name": "payment-service"
+        }
+      }
+    },
+    {
+      "attributes": {
+        "timestamp": "2024-01-15T10:32:45.789Z",
+        "message": "ERROR: Database connection lost",
+        "level": "error",
+        "service": "payment-service",
+        "endpoint": "/api/v1/verify-transaction",
+        "kubernetes": {
+          "pod_name": "payment-service-7cb79f8c87-z96z8",
+          "namespace": "production-149",
+          "container_name": "payment-service"
+        }
+      }
+    }
+  ],
+  "meta": {
+    "page": {}
+  }
+}

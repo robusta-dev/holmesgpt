@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: payment-service-logs-script
+  namespace: production-149
+data:
+  generate_logs.py: |
+    import json
+    import time
+    import random
+    from datetime import datetime
+
+    def generate_log(level, message, endpoint=None):
+        log = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": level,
+            "service": "payment-service",
+            "message": message
+        }
+        if endpoint:
+            log["endpoint"] = endpoint
+        print(json.dumps(log))
+
+    # Generate various log types
+    while True:
+        choice = random.randint(1, 10)
+
+        if choice <= 2:  # 20% error logs
+            errors = [
+                ("Payment gateway timeout", "/api/v1/process-payment"),
+                ("Database connection lost", "/api/v1/verify-transaction"),
+                ("Invalid card number format", "/api/v1/validate-card"),
+                ("Insufficient funds", "/api/v1/charge"),
+            ]
+            error_msg, endpoint = random.choice(errors)
+            generate_log("error", f"ERROR: {error_msg}", endpoint)
+
+        elif choice <= 4:  # 20% warning logs
+            warnings = [
+                ("High latency detected: 2.5s", "/api/v1/process-payment"),
+                ("Retry attempt 2 of 3", "/api/v1/webhook"),
+                ("Rate limit approaching", "/api/v1/transactions"),
+            ]
+            warn_msg, endpoint = random.choice(warnings)
+            generate_log("warn", f"WARN: {warn_msg}", endpoint)
+
+        elif choice <= 6:  # 20% health/metrics logs (to be excluded)
+            health_logs = [
+                ("Health check passed", "/health"),
+                ("Metrics collected", "/metrics"),
+                ("Liveness probe successful", "/healthz"),
+                ("Readiness check OK", "/ready"),
+            ]
+            health_msg, endpoint = random.choice(health_logs)
+            generate_log("info", f"INFO: {health_msg}", endpoint)
+
+        else:  # 40% normal info logs
+            info_logs = [
+                "Payment processed successfully",
+                "Transaction validated",
+                "Customer profile updated",
+                "Invoice generated",
+            ]
+            generate_log("info", f"INFO: {random.choice(info_logs)}")
+
+        time.sleep(random.uniform(0.5, 2))
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: production-149
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+      - name: payment-service
+        image: python:3.9-slim
+        command: ["python", "/app/generate_logs.py"]
+        volumeMounts:
+        - name: script
+          mountPath: /app
+          readOnly: true
+      volumes:
+      - name: script
+        configMap:
+          name: payment-service-logs-script

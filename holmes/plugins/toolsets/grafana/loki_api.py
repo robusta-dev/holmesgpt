@@ -75,7 +75,19 @@ def query_loki_logs_by_label(
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+    # Check if label_value looks like a regex pattern (contains regex metacharacters)
+    # Common regex patterns: .*, .+, ^, $, [], |, (), \w, \d, etc.
+    import re
+
+    is_regex = bool(re.search(r"[.*+?^$\[\]{}()|\\]", label_value))
+
+    if is_regex:
+        # Use regex operator =~ for pattern matching
+        query = f'{{{namespace_search_key}="{namespace}", {label}=~"{label_value}"}}'
+    else:
+        # Use exact match operator = for exact pod names
+        query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+
     if filter:
         query += f' |= "{filter}"'
     return execute_loki_query(
