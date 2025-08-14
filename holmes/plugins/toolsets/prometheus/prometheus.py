@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from urllib.parse import urljoin
 
 import requests  # type: ignore
@@ -29,7 +29,7 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT, load_bool
+from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
@@ -53,10 +53,6 @@ class PrometheusConfig(BaseModel):
     headers: Dict = Field(default_factory=dict)
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
-    aws_access_key: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
-    aws_region: Optional[str] = None
-    aws_service_name: str = "aps"
     prometheus_ssl_enabled: bool = True
 
     @field_validator("prometheus_url")
@@ -82,16 +78,29 @@ class PrometheusConfig(BaseModel):
 
         return self
 
+    def is_amp(self) -> bool:
+        return False
 
-def get_aws_auth(config: PrometheusConfig):
-    if config.aws_access_key and config.aws_secret_access_key:
-        return AWS4Auth(
-            config.aws_access_key,
-            config.aws_secret_access_key,
-            config.aws_region,
-            config.aws_service_name,
-        )
-    return None
+
+class AMPConfig(PrometheusConfig):
+    aws_access_key: str
+    aws_secret_access_key: str
+    aws_region: str
+    aws_service_name: str = "aps"
+
+    def is_amp(self) -> bool:
+        return True
+
+
+def get_aws_auth(config: Union[PrometheusConfig, AMPConfig]):
+    if not config.is_amp():
+        return None
+    return AWS4Auth(
+        config.aws_access_key,  # type: ignore
+        config.aws_secret_access_key,  # type: ignore
+        config.aws_region,  # type: ignore
+        config.aws_service_name,  # type: ignore
+    )
 
 
 class BasePrometheusTool(Tool):
@@ -365,6 +374,12 @@ class ListPrometheusRules(BasePrometheusTool):
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
+        if self.toolset.config.is_amp():
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Tool not supported in AMP",
                 params=params,
             )
         if not self._cache and self.toolset.config.rules_cache_duration_seconds:
@@ -800,6 +815,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
 
 class PrometheusToolset(Toolset):
+    config: Optional[Union[PrometheusConfig, AMPConfig]] = None
+
     def __init__(self):
         super().__init__(
             name="prometheus/metrics",
@@ -825,46 +842,42 @@ class PrometheusToolset(Toolset):
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
-        if config:
-            self.config = PrometheusConfig(**config)
-            self.config.aws_access_key = os.getenv(
-                "AWS_ACCESS_KEY", self.config.aws_access_key
-            )
-            self.config.aws_secret_access_key = os.getenv(
-                "AWS_SECRET_ACCESS_KEY", self.config.aws_secret_access_key
-            )
-            self.config.aws_region = os.getenv("AWS_REGION", self.config.aws_region)
-            self.config.aws_service_name = os.getenv(
-                "AWS_SERVICE_NAME", self.config.aws_service_name or "aps"
-            )
-            self.config.prometheus_ssl_enabled = load_bool(
-                os.getenv("PROMETHEUS_SSL_ENABLED"), True
-            )  # type: ignore
-            self._reload_llm_instructions()
-            return True, ""
+    def determine_prometheus_class(
+        self, config: dict[str, Any]
+    ) -> Type[Union[PrometheusConfig, AMPConfig]]:
+        has_aws_credentials = (
+            "aws_access_key" in config or "aws_secret_access_key" in config
+        )
+        return AMPConfig if has_aws_credentials else PrometheusConfig
 
-        prometheus_url = os.environ.get("PROMETHEUS_URL")
-        if not prometheus_url:
-            prometheus_url = self.auto_detect_prometheus_url()
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        try:
+            if config:
+                config_cls = self.determine_prometheus_class(config)
+                self.config = config_cls(**config)  # type: ignore
+
+                self._reload_llm_instructions()
+                return True, ""
+
+            prometheus_url = (
+                os.getenv("PROMETHEUS_URL") or self.auto_detect_prometheus_url()
+            )
             if not prometheus_url:
                 return (
                     False,
                     "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
                 )
 
-        self.config = PrometheusConfig(
-            prometheus_url=prometheus_url,
-            headers={},
-            aws_access_key=os.getenv("AWS_ACCESS_KEY"),
-            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-            aws_region=os.getenv("AWS_REGION"),
-            aws_service_name=os.getenv("AWS_SERVICE_NAME", "aps"),
-            prometheus_ssl_enabled=load_bool(os.getenv("PROMETHEUS_SSL_ENABLED"), True),  # type: ignore
-        )
-        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
-        self._reload_llm_instructions()
-        return True, ""
+            self.config = PrometheusConfig(
+                prometheus_url=prometheus_url,
+                headers={},  # type: ignore
+            )
+            logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
+            self._reload_llm_instructions()
+            return True, ""
+        except Exception as e:
+            logging.exception("Failed to set up prometheus")
+            return False, str(e)
 
     def auto_detect_prometheus_url(self) -> Optional[str]:
         url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
