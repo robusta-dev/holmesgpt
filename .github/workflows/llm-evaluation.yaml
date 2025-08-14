@@ -31,11 +31,74 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-root
 
+      - name: Install kubectl
+        run: |
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          kubectl version --client
+
+      - name: Install KIND
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+          kind version
+
+      - name: Create KIND cluster
+        run: |
+          cat <<EOF > kind-config.yaml
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 30000
+              hostPort: 30000
+              protocol: TCP
+            - containerPort: 30001
+              hostPort: 30001
+              protocol: TCP
+            kubeadmConfigPatches:
+            - |
+              kind: InitConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  max-pods: "200"
+            - |
+              kind: KubeProxyConfiguration
+              metricsBindAddress: "0.0.0.0:10249"
+            - |
+              kind: KubeletConfiguration
+              maxPods: 200
+          - role: worker
+            kubeadmConfigPatches:
+            - |
+              kind: JoinConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  max-pods: "200"
+            - |
+              kind: KubeletConfiguration
+              maxPods: 200
+          EOF
+
+          # Create cluster with resource limits appropriate for GitHub Actions (7GB RAM, 2 CPU)
+          kind create cluster --config kind-config.yaml --wait 5m
+
+          # Configure kubectl
+          kubectl cluster-info --context kind-kind
+          kubectl get nodes
+
+          # Wait for all system pods to be ready
+          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
+
       - name: Run tests
         id: evals
         continue-on-error: true
         shell: bash
         env:
+          RUN_LIVE: "true"
           AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
           AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
