@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 import requests  # type: ignore
 from pydantic import BaseModel, field_validator, Field, model_validator
 from requests import RequestException
+from requests_aws4auth import AWS4Auth
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -28,7 +29,7 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT
+from holmes.common.env_vars import IS_OPENSHIFT, load_bool
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
@@ -52,6 +53,11 @@ class PrometheusConfig(BaseModel):
     headers: Dict = Field(default_factory=dict)
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
+    aws_access_key: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
+    aws_region: Optional[str] = None
+    aws_service_name: str = "aps"
+    prometheus_ssl_enabled: bool = True
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
@@ -75,6 +81,17 @@ class PrometheusConfig(BaseModel):
                 self.headers["Authorization"] = f"Bearer {openshift_token}"
 
         return self
+
+
+def get_aws_auth(config: PrometheusConfig):
+    if config.aws_access_key and config.aws_secret_access_key:
+        return AWS4Auth(
+            config.aws_access_key,
+            config.aws_secret_access_key,
+            config.aws_region,
+            config.aws_service_name,
+        )
+    return None
 
 
 class BasePrometheusTool(Tool):
@@ -102,10 +119,15 @@ def filter_metrics_by_name(metrics: Dict, pattern: str) -> Dict:
 METRICS_SUFFIXES_TO_STRIP = ["_bucket", "_count", "_sum"]
 
 
-def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
+def fetch_metadata(
+    prometheus_url: str,
+    headers: Optional[Dict],
+    auth=None,
+    verify_ssl: bool = True,
+) -> Dict:
     metadata_url = urljoin(prometheus_url, "api/v1/metadata")
     metadata_response = requests.get(
-        metadata_url, headers=headers, timeout=60, verify=True
+        metadata_url, headers=headers, timeout=60, verify=verify_ssl, auth=auth
     )
 
     metadata_response.raise_for_status()
@@ -127,13 +149,17 @@ def fetch_metadata(prometheus_url: str, headers: Optional[Dict]) -> Dict:
 
 
 def fetch_metadata_with_series_api(
-    prometheus_url: str, metric_name: str, headers: Dict
+    prometheus_url: str,
+    metric_name: str,
+    headers: Dict,
+    auth=None,
+    verify_ssl: bool = True,
 ) -> Dict:
     url = urljoin(prometheus_url, "api/v1/series")
     params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
 
     response = requests.get(
-        url, headers=headers, timeout=60, params=params, verify=True
+        url, headers=headers, timeout=60, params=params, auth=auth, verify=verify_ssl
     )
     response.raise_for_status()
     metrics = response.json()["data"]
@@ -175,6 +201,8 @@ def fetch_metrics_labels_with_series_api(
     cache: Optional[TTLCache],
     metrics_labels_time_window_hrs: Union[int, None],
     metric_name: str,
+    auth=None,
+    verify_ssl: bool = True,
 ) -> dict:
     """This is a slow query. Takes 5+ seconds to run"""
     cache_key = f"metrics_labels_series_api:{metric_name}"
@@ -191,7 +219,12 @@ def fetch_metrics_labels_with_series_api(
         params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
     series_response = requests.get(
-        url=series_url, headers=headers, params=params, timeout=60, verify=True
+        url=series_url,
+        headers=headers,
+        params=params,
+        auth=auth,
+        timeout=60,
+        verify=verify_ssl,
     )
     series_response.raise_for_status()
     series = series_response.json()["data"]
@@ -217,6 +250,8 @@ def fetch_metrics_labels_with_labels_api(
     metrics_labels_time_window_hrs: Union[int, None],
     metric_names: List[str],
     headers: Dict,
+    auth=None,
+    verify_ssl: bool = True,
 ) -> dict:
     metrics_labels = {}
 
@@ -236,7 +271,12 @@ def fetch_metrics_labels_with_labels_api(
             params["start"] = params["end"] - (metrics_labels_time_window_hrs * 60 * 60)
 
         response = requests.get(
-            url=url, headers=headers, params=params, timeout=60, verify=True
+            url=url,
+            headers=headers,
+            params=params,
+            auth=auth,
+            timeout=60,
+            verify=verify_ssl,
         )
         response.raise_for_status()
         labels = response.json()["data"]
@@ -257,16 +297,27 @@ def fetch_metrics(
     should_fetch_labels_with_labels_api: bool,
     should_fetch_metadata_with_series_api: bool,
     headers: Dict,
+    auth=None,
+    verify_ssl: bool = True,
 ) -> dict:
     metrics = None
     should_fetch_labels = True
     if should_fetch_metadata_with_series_api:
         metrics = fetch_metadata_with_series_api(
-            prometheus_url=prometheus_url, metric_name=metric_name, headers=headers
+            prometheus_url=prometheus_url,
+            metric_name=metric_name,
+            headers=headers,
+            auth=auth,
+            verify_ssl=verify_ssl,
         )
         should_fetch_labels = False  # series API returns the labels
     else:
-        metrics = fetch_metadata(prometheus_url=prometheus_url, headers=headers)
+        metrics = fetch_metadata(
+            prometheus_url=prometheus_url,
+            headers=headers,
+            auth=auth,
+            verify_ssl=verify_ssl,
+        )
         metrics = filter_metrics_by_name(metrics, metric_name)
 
     if should_fetch_labels:
@@ -278,6 +329,8 @@ def fetch_metrics(
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_names=list(metrics.keys()),
                 headers=headers,
+                auth=auth,
+                verify_ssl=verify_ssl,
             )
         else:
             metrics_labels = fetch_metrics_labels_with_series_api(
@@ -286,6 +339,8 @@ def fetch_metrics(
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
                 metric_name=metric_name,
                 headers=headers,
+                auth=auth,
+                verify_ssl=verify_ssl,
             )
 
         for metric_name in metrics:
@@ -333,6 +388,7 @@ class ListPrometheusRules(BasePrometheusTool):
             rules_response = requests.get(
                 url=rules_url,
                 params=params,
+                auth=get_aws_auth(self.toolset.config),
                 timeout=180,
                 verify=True,
                 headers=self.toolset.config.headers,
@@ -427,6 +483,8 @@ class ListAvailableMetrics(BasePrometheusTool):
                 should_fetch_labels_with_labels_api=self.toolset.config.fetch_labels_with_labels_api,
                 should_fetch_metadata_with_series_api=self.toolset.config.fetch_metadata_with_series_api,
                 headers=self.toolset.config.headers,
+                auth=get_aws_auth(self.toolset.config),
+                verify_ssl=self.toolset.config.prometheus_ssl_enabled,
             )
 
             if params.get("type_filter"):
@@ -513,7 +571,11 @@ class ExecuteInstantQuery(BasePrometheusTool):
             payload = {"query": query}
 
             response = requests.post(
-                url=url, headers=self.toolset.config.headers, data=payload, timeout=60
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=get_aws_auth(self.toolset.config),
+                data=payload,
+                timeout=60,
             )
 
             if response.status_code == 200:
@@ -657,7 +719,11 @@ class ExecuteRangeQuery(BasePrometheusTool):
             }
 
             response = requests.post(
-                url=url, headers=self.toolset.config.headers, data=payload, timeout=120
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=get_aws_auth(self.toolset.config),
+                data=payload,
+                timeout=120,
             )
 
             if response.status_code == 200:
@@ -762,8 +828,21 @@ class PrometheusToolset(Toolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if config:
             self.config = PrometheusConfig(**config)
+            self.config.aws_access_key = os.getenv(
+                "AWS_ACCESS_KEY", self.config.aws_access_key
+            )
+            self.config.aws_secret_access_key = os.getenv(
+                "AWS_SECRET_ACCESS_KEY", self.config.aws_secret_access_key
+            )
+            self.config.aws_region = os.getenv("AWS_REGION", self.config.aws_region)
+            self.config.aws_service_name = os.getenv(
+                "AWS_SERVICE_NAME", self.config.aws_service_name or "aps"
+            )
+            self.config.prometheus_ssl_enabled = load_bool(
+                os.getenv("PROMETHEUS_SSL_ENABLED"), True
+            )  # type: ignore
             self._reload_llm_instructions()
-            return self._is_healthy()
+            return True, ""
 
         prometheus_url = os.environ.get("PROMETHEUS_URL")
         if not prometheus_url:
@@ -776,11 +855,16 @@ class PrometheusToolset(Toolset):
 
         self.config = PrometheusConfig(
             prometheus_url=prometheus_url,
-            headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
+            headers={},
+            aws_access_key=os.getenv("AWS_ACCESS_KEY"),
+            aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+            aws_region=os.getenv("AWS_REGION"),
+            aws_service_name=os.getenv("AWS_SERVICE_NAME", "aps"),
+            prometheus_ssl_enabled=load_bool(os.getenv("PROMETHEUS_SSL_ENABLED"), True),  # type: ignore
         )
-        logging.info(f"Prometheus auto discovered at url {prometheus_url}")
+        logging.warning(f"Prometheus auto discovered at url {prometheus_url}")
         self._reload_llm_instructions()
-        return self._is_healthy()
+        return True, ""
 
     def auto_detect_prometheus_url(self) -> Optional[str]:
         url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
@@ -803,7 +887,11 @@ class PrometheusToolset(Toolset):
         url = urljoin(self.config.prometheus_url, self.config.healthcheck)
         try:
             response = requests.get(
-                url=url, headers=self.config.headers, timeout=10, verify=True
+                url=url,
+                headers=self.config.headers,
+                auth=get_aws_auth(self.config),
+                timeout=10,
+                verify=True,
             )
 
             if response.status_code == 200:
