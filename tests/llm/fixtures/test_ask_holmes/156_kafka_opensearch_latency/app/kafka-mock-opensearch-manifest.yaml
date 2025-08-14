@@ -442,15 +442,26 @@ data:
     opensearch_host = os.environ['OPENSEARCH_HOST']
     opensearch_port = int(os.environ['OPENSEARCH_PORT'])
 
-    # Wait for services to be ready
-    print("Waiting for services to be ready...")
-    time.sleep(30)
+    # Wait for OpenSearch to be ready
+    print("Waiting for OpenSearch to be ready...")
+    client = None
+    max_attempts = 30
+    for attempt in range(max_attempts):
+        try:
+            client = OpenSearch(
+                hosts=[{'host': opensearch_host, 'port': opensearch_port}],
+                use_ssl=False
+            )
+            # Test connection
+            client.info()
+            print("OpenSearch is ready")
+            break
+        except Exception as e:
+            print(f"OpenSearch not ready yet (attempt {attempt+1}/{max_attempts}): {e}")
+            time.sleep(2)
 
-    # Connect to OpenSearch
-    client = OpenSearch(
-        hosts=[{'host': opensearch_host, 'port': opensearch_port}],
-        use_ssl=False
-    )
+    if client is None:
+        raise Exception("Failed to connect to OpenSearch after multiple attempts")
 
     # Create index if it doesn't exist
     index_name = 'kafka-messages'
