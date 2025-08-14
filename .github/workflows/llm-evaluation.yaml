@@ -88,14 +88,21 @@ jobs:
 
           # Configure kubectl
           kubectl cluster-info --context kind-kind
+
+          # Wait for all nodes to be ready
+          echo "Waiting for nodes to be ready..."
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
           kubectl get nodes
 
           # Wait for all system pods to be ready
+          echo "Waiting for system pods to be ready..."
           kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
           # Verify cluster is working by creating a test pod
+          echo "Creating test pod to verify cluster..."
           kubectl run test-pod --image=busybox:1.35 --restart=Never -- echo "Cluster is ready"
-          kubectl wait --for=condition=Ready pod/test-pod --timeout=30s
+          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
+          kubectl logs test-pod
           kubectl delete pod test-pod
 
           # Show cluster info for debugging
