@@ -101,7 +101,7 @@ jobs:
           # Verify cluster is working by creating a test pod
           echo "Creating test pod to verify cluster..."
           kubectl run test-pod --image=busybox:1.35 --restart=Never -- echo "Cluster is ready"
-          kubectl wait --for=condition=Ready pod/test-pod --timeout=120s
+          kubectl wait --for=condition=Ready pod/test-pod --timeout=60s
           kubectl logs test-pod
           kubectl delete pod test-pod
 
@@ -128,7 +128,7 @@ jobs:
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
           GENERATE_REGRESSIONS_FILE: "true"
         run: |
-          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n20 -m 'llm and easy'
+          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -s -n10 -m 'llm and easy'
       - uses: actions/github-script@v7
         if: always()
         with:
