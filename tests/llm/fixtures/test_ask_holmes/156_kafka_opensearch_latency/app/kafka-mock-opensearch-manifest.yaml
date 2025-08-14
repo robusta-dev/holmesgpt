@@ -112,7 +112,7 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 10
 ---
-# Mock OpenSearch Service
+# OpenSearch Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -125,7 +125,7 @@ spec:
   selector:
     app: opensearch
 ---
-# Mock OpenSearch Deployment
+# OpenSearch Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -146,19 +146,19 @@ spec:
         image: python:3.9-slim
         ports:
         - containerPort: 9200
-        command: ["python", "/app/mock_opensearch.py"]
+        command: ["python", "/app/opensearch_server.py"]
         env:
-        - name: INDEX_OPTIMIZATION_LEVEL
-          value: "aggressive"  # Index optimization setting
-        - name: BATCH_PROCESSING_INTERVAL
-          value: "3000"  # Batch processing interval in ms
+        - name: MERGE_POLICY
+          value: "tiered"  # Index merge policy
+        - name: REFRESH_INTERVAL
+          value: "1s"  # Index refresh interval
         resources:
           requests:
             memory: "256Mi"
             cpu: "100m"
           limits:
             memory: "512Mi"
-            cpu: "200m"  # Very low CPU limit to ensure 100% usage
+            cpu: "200m"  # Resource limit for container
         startupProbe:
           httpGet:
             path: /_cluster/health
@@ -172,16 +172,16 @@ spec:
       volumes:
       - name: mock-opensearch-script
         configMap:
-          name: mock-opensearch-script
+          name: opensearch-script
 ---
-# ConfigMap for Mock OpenSearch
+# ConfigMap for OpenSearch
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: mock-opensearch-script
+  name: opensearch-script
   namespace: app-156
 data:
-  mock_opensearch.py: |
+  opensearch_server.py: |
     import json
     import time
     import os
@@ -192,25 +192,25 @@ data:
     import sys
 
     # Configuration from environment
-    INDEX_OPTIMIZATION_LEVEL = os.environ.get('INDEX_OPTIMIZATION_LEVEL', 'aggressive')
-    BATCH_PROCESSING_INTERVAL = int(os.environ.get('BATCH_PROCESSING_INTERVAL', '2000'))
+    MERGE_POLICY = os.environ.get('MERGE_POLICY', 'tiered')
+    REFRESH_INTERVAL = os.environ.get('REFRESH_INTERVAL', '1s')
 
     # In-memory storage
     indices = {}
     documents = {}
 
-    class MockOpenSearchHandler(BaseHTTPRequestHandler):
+    class OpenSearchHandler(BaseHTTPRequestHandler):
         def log_message(self, format, *args):
             # Custom logging to include timestamps
             print(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {format % args}")
 
-        def burn_cpu(self):
-            """Simulate CPU-intensive operations"""
-            if INDEX_OPTIMIZATION_LEVEL == 'aggressive':
-                # Do some CPU-intensive work
+        def optimize_index(self):
+            """Perform index optimization operations"""
+            if MERGE_POLICY == 'tiered':
+                # Perform optimization work
                 start = time.time()
-                while time.time() - start < 1.0:  # Burn CPU for 1 second
-                    # Multiple CPU-intensive operations
+                while time.time() - start < 1.0:  # Optimization cycle duration
+                    # Multiple optimization operations
                     # 1. Calculate many hashes
                     for i in range(50000):
                         hashlib.sha256(str(i * i).encode()).hexdigest()
@@ -244,7 +244,7 @@ data:
             if path == '/_cluster/health':
                 self.send_json_response(200, {
                     'status': 'green',
-                    'cluster_name': 'mock-opensearch',
+                    'cluster_name': 'opensearch-cluster',
                     'number_of_nodes': 1
                 })
             # Index exists check
@@ -294,12 +294,12 @@ data:
 
             # Index document
             if '/_doc' in path or '/_create' in path:
-                # Simulate CPU-intensive indexing
-                print(f"Indexing document, burning CPU...")
-                self.burn_cpu()
+                # Perform indexing with optimization
+                print(f"Indexing document with optimization...")
+                self.optimize_index()
 
-                # Process batch interval
-                time.sleep(BATCH_PROCESSING_INTERVAL / 1000.0)
+                # Apply refresh interval
+                time.sleep(3.0)  # Processing time for document
 
                 parts = path.split('/')
                 index_name = parts[1]
@@ -318,19 +318,19 @@ data:
             # Refresh endpoint
             elif path.endswith('/_refresh'):
                 print(f"Refresh requested for {path}")
-                self.burn_cpu()
-                time.sleep(0.5)  # Refresh is expensive
+                self.optimize_index()
+                time.sleep(0.5)  # Refresh operation duration
                 self.send_json_response(200, {'_shards': {'successful': 1}})
             # Force merge endpoint
             elif '_forcemerge' in path:
                 print(f"Force merge requested for {path}")
-                self.burn_cpu()
-                time.sleep(1)  # Force merge is very expensive
+                self.optimize_index()
+                time.sleep(1)  # Force merge operation duration
                 self.send_json_response(200, {'_shards': {'successful': 1}})
             # Search endpoint
             elif path.endswith('/_search'):
                 print(f"Search requested for {path}")
-                self.burn_cpu()
+                self.optimize_index()
                 time.sleep(0.3)
                 self.send_json_response(200, {
                     'hits': {'total': {'value': 0}},
@@ -339,12 +339,12 @@ data:
             else:
                 self.send_json_response(400, {'error': 'bad_request'})
 
-    def background_cpu_burner():
-        """Background thread that continuously burns CPU"""
-        print("Starting background CPU burner thread...", flush=True)
+    def background_index_optimizer():
+        """Background thread that continuously optimizes indices"""
+        print("Starting background index optimization thread...", flush=True)
         while True:
-            if INDEX_OPTIMIZATION_LEVEL == 'aggressive':
-                # Continuous CPU burn
+            if MERGE_POLICY == 'tiered':
+                # Continuous index optimization
                 for _ in range(100000):
                     hashlib.sha256(os.urandom(256)).hexdigest()
                 # Very short sleep to allow other threads
@@ -353,22 +353,22 @@ data:
                 time.sleep(1)
 
     def run_server():
-        # Start multiple background CPU burner threads
-        for i in range(3):  # 3 threads to ensure CPU saturation
-            cpu_thread = threading.Thread(target=background_cpu_burner, daemon=True)
-            cpu_thread.start()
-            print(f"Started CPU burner thread {i+1}", flush=True)
+        # Start multiple background index optimizer threads
+        for i in range(3):  # 3 threads for parallel optimization
+            optimizer_thread = threading.Thread(target=background_index_optimizer, daemon=True)
+            optimizer_thread.start()
+            print(f"Started index optimizer thread {i+1}", flush=True)
 
         server_address = ('', 9200)
-        httpd = HTTPServer(server_address, MockOpenSearchHandler)
-        print(f"Mock OpenSearch starting on port 9200", flush=True)
-        print(f"Index optimization level: {INDEX_OPTIMIZATION_LEVEL}", flush=True)
-        print(f"Batch processing interval: {BATCH_PROCESSING_INTERVAL}ms", flush=True)
+        httpd = HTTPServer(server_address, OpenSearchHandler)
+        print(f"OpenSearch server starting on port 9200", flush=True)
+        print(f"Merge policy: {MERGE_POLICY}", flush=True)
+        print(f"Refresh interval: {REFRESH_INTERVAL}", flush=True)
         sys.stdout.flush()
         httpd.serve_forever()
 
     if __name__ == '__main__':
-        print("Starting Mock OpenSearch server...", flush=True)
+        print("Starting OpenSearch server...", flush=True)
         run_server()
 ---
 # Order Service ConfigMap
@@ -446,7 +446,7 @@ data:
     print("Waiting for services to be ready...")
     time.sleep(30)
 
-    # Connect to OpenSearch (mock doesn't require auth)
+    # Connect to OpenSearch
     client = OpenSearch(
         hosts=[{'host': opensearch_host, 'port': opensearch_port}],
         use_ssl=False
@@ -483,12 +483,12 @@ data:
 
         print(f"Got a new message {msg_id}. Writing to OpenSearch...")
 
-        # Write to OpenSearch (this will be slow due to CPU stress)
+        # Write to OpenSearch
         try:
             response = client.index(
                 index=index_name,
                 body=msg_data,
-                refresh=True  # Force refresh after each write (very CPU intensive)
+                refresh=True  # Force refresh after each write for consistency
             )
         except Exception as e:
             print(f"Error writing to OpenSearch: {e}")
