@@ -1,4 +1,4 @@
-user_prompt: 'What is wrong with << { "type": "pod", "name": "giant-narwhal-6958c5bdd8-69gtn" } >> ?'
+user_prompt: 'What is wrong with << { "type": "pod", "name": "giant-narwhal-6958c5bdd8-69gtn", "namespace": "app-02" } >> ?'
 expected_output:
   - The pod was killed due to it being out of memory
 
