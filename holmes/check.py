@@ -3,7 +3,8 @@
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -50,9 +51,6 @@ class Check(BaseModel):
     mode: CheckMode = CheckMode.ALERT
     destinations: List[str] = Field(default_factory=list)
     timeout: int = 30
-    repeat: int = 3
-    repeat_delay: int = 5
-    failure_threshold: int = 1
     schedule: Optional[str] = None  # cron format for future implementation
 
 
@@ -69,10 +67,10 @@ class CheckResponse(BaseModel):
     """Structured response from LLM for health checks."""
 
     passed: bool = Field(
-        description="Whether the check passed (true) or failed (false)"
+        description="Whether the check passed (true) or failed (false). IMPORTANT: If you cannot evaluate the check due to missing resources, unavailable metrics, or any error that prevents verification, you MUST return false (failed)."
     )
     rationale: str = Field(
-        description="Brief explanation of why the check passed or failed"
+        description="Brief explanation of why the check passed or failed. If unable to evaluate, explain what prevented the check from being performed."
     )
 
 
@@ -83,8 +81,7 @@ class CheckResult:
     check_name: str
     status: CheckStatus
     message: str
-    attempts: List[bool] = field(default_factory=list)
-    rationales: List[str] = field(default_factory=list)
+    query: str = ""
     duration: float = 0.0
     error: Optional[str] = None
 
@@ -167,10 +164,8 @@ class CheckRunner:
         return errors
 
     def run_single_check(self, check: Check) -> CheckResult:
-        """Run a single check with repeats and failure threshold."""
+        """Run a single check."""
         start_time = time.time()
-        attempts = []
-        rationales = []
 
         try:
             ai = self._get_ai()
@@ -184,100 +179,141 @@ class CheckRunner:
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "passed": {
-                                "type": "boolean",
-                                "description": "Whether the check passed (true) or failed (false)",
-                            },
                             "rationale": {
                                 "type": "string",
-                                "description": "Brief explanation of why the check passed or failed",
+                                "description": "First, explain what you found and your reasoning",
+                            },
+                            "passed": {
+                                "type": "boolean",
+                                "description": "Based on your rationale above, does the check pass (true) or fail (false)?",
                             },
                         },
-                        "required": ["passed", "rationale"],
+                        "required": ["rationale", "passed"],
                         "additionalProperties": False,
                     },
                 },
             }
 
-            for attempt in range(check.repeat):
-                if attempt > 0:
-                    time.sleep(check.repeat_delay)
+            try:
+                # Build messages for the check query
+                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+                system_message = f"""You are a health check system. Evaluate ONLY what the check specifically asks about.
+
+                    Current date and time: {current_time}
+
+                    INVESTIGATION APPROACH:
+                    1. Use tools to gather data about the check condition
+                    2. If initial data is incomplete, try alternative approaches:
+                       - For disk usage: Try Prometheus queries (kubelet_volume_stats_used_bytes, kubelet_volume_stats_capacity_bytes)
+                       - For pod metrics: Use kubectl top, Prometheus pod metrics
+                       - For logs: Check multiple sources (kubectl logs, Loki if available)
+                    3. Only conclude "cannot verify" after trying at least 3 different approaches
+                    4. You have access to Prometheus - use PromQL queries when kubectl doesn't provide metrics
+
+                    RESPONSE FORMAT:
+                    1. First, in 'rationale': Explain what you found and whether it indicates a problem
+                    2. Then, in 'passed': Set true if healthy/no problem, false if unhealthy/problem found
+
+                    FUNDAMENTAL PRINCIPLE:
+                    Health checks detect problems. The check PASSES when NO PROBLEM is found.
+                    - "Has error rate exceeded 100?" → If rate is 33, NO PROBLEM → PASS
+                    - "Is memory above 90%?" → If memory is 78%, NO PROBLEM → PASS
+                    - The check is asking "Is there a problem?" Answer: No → PASS
+
+                    STRICT EVALUATION RULES:
+                    1. Focus ONLY on what the check asks - ignore unrelated issues
+                    2. If checking current state, ignore historical problems unless specifically asked
+                    3. Understand the INTENT - checks are looking for problems:
+                       - "Has error rate exceeded 100?" → Checking if errors are too high
+                       - "Is memory above 90%?" → Checking if memory usage is problematic
+                       - "Are pods running?" → Checking if pods are healthy
+                    4. Return PASS when the specific condition checked is healthy/acceptable
+                    5. Return FAIL only when:
+                       - The specific problem being checked for IS present
+                       - You cannot evaluate due to missing data/resources
+
+                    Examples:
+                    - Check: "Has error rate exceeded 100?" Finding: 33 errors/min → PASS (no problem, rate is acceptable)
+                    - Check: "Is memory above 90%?" Finding: 78% with past OOMKills → PASS (current memory is acceptable)
+                    - Check: "Are pods running?" Finding: Pods running but restarted before → PASS (currently running)
+                    - Check: "Are pods running?" Finding: No pods exist → FAIL (cannot verify, problem detected)
+
+                    ENSURE CONSISTENCY:
+                    Your rationale and passed value must align:
+                    - If rationale says "below threshold" for a max limit → passed=true
+                    - If rationale says "above threshold" for a max limit → passed=false
+                    - If rationale says "cannot verify" → passed=false
+                    - Your final sentence should match your decision
+
+                    Remember: Evaluate what IS asked, not what COULD be asked.
+
+                    Examples of when to FAIL:
+                    - Namespace doesn't exist when checking pods in that namespace
+                    - Cannot retrieve metrics when checking thresholds
+                    - Pods don't exist when checking if pods are healthy
+                    - Parse errors when checking resource limits
+                    - Connection refused when checking services
+                    - When thresholds ARE exceeded (e.g., error rate > limit)
+
+                    The principle: If you cannot verify it's healthy, it's not healthy."""
+
+                investigation_hint = ""
+                if "disk" in check.query.lower() or "volume" in check.query.lower():
+                    investigation_hint = "\n\nIMPORTANT: For disk/volume usage, try these in order:\n1. kubectl describe pv\n2. PromQL: (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) * 100\n3. df command on nodes if available"
+                elif "memory" in check.query.lower() or "cpu" in check.query.lower():
+                    investigation_hint = "\n\nIMPORTANT: For resource usage, try kubectl top first, then Prometheus metrics if needed."
+
+                messages = [
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": check.query + investigation_hint},
+                ]
+
+                # Execute the check with structured output
+                response = ai.call(messages, response_format=response_format)
+
+                # Parse the structured response
+                try:
+                    result_json = json.loads(response.result or "{}")
+                    check_response = CheckResponse(**result_json)
+                    passed = check_response.passed
+                    rationale = check_response.rationale
+                except (json.JSONDecodeError, Exception) as parse_error:
+                    # Fallback if structured output fails
+                    if self.verbose:
+                        self.console.print(
+                            f"    Failed to parse structured response: {parse_error}"
+                        )
+                    passed = False
+                    rationale = f"Failed to parse response: {str(parse_error)}"
 
                 if self.verbose:
-                    self.console.print(
-                        f"  Attempt {attempt + 1}/{check.repeat} for '{check.name}'..."
-                    )
+                    status_str = "PASS" if passed else "FAIL"
+                    self.console.print(f"    Result: {status_str}")
+                    self.console.print(f"    Rationale: {rationale}")
 
-                try:
-                    # Build messages for the check query
-                    system_message = """You are a health check system. Answer the user's question with a JSON response.
-                    Determine if the check passes or fails based on the question asked.
-                    Provide a brief rationale explaining your decision."""
-
-                    messages = [
-                        {"role": "system", "content": system_message},
-                        {"role": "user", "content": check.query},
-                    ]
-
-                    # Execute the check with structured output
-                    response = ai.call(messages, response_format=response_format)
-
-                    # Parse the structured response
-                    try:
-                        result_json = json.loads(response.result or "{}")
-                        check_response = CheckResponse(**result_json)
-                        passed = check_response.passed
-                        rationale = check_response.rationale
-                    except (json.JSONDecodeError, Exception) as parse_error:
-                        # Fallback if structured output fails
-                        if self.verbose:
-                            self.console.print(
-                                f"    Failed to parse structured response: {parse_error}"
-                            )
-                        passed = False
-                        rationale = f"Failed to parse response: {str(parse_error)}"
-
-                    attempts.append(passed)
-                    rationales.append(rationale)
-
-                    if self.verbose:
-                        status_str = "PASS" if passed else "FAIL"
-                        self.console.print(f"    Result: {status_str}")
-                        self.console.print(f"    Rationale: {rationale}")
-
-                except Exception as e:
-                    attempts.append(False)
-                    rationales.append(f"Error: {str(e)}")
-                    if self.verbose:
-                        self.console.print(f"    Error: {str(e)}")
-
-            # Calculate overall pass/fail based on failure threshold
-            failure_count = sum(1 for passed in attempts if not passed)
-            overall_pass = failure_count <= check.failure_threshold
+            except Exception as e:
+                passed = False
+                rationale = f"Error: {str(e)}"
+                if self.verbose:
+                    self.console.print(f"    Error: {str(e)}")
 
             duration = time.time() - start_time
 
-            # Get the most recent rationale for the message
-            latest_rationale = (
-                rationales[-1] if rationales else "No rationale available"
-            )
-
-            if overall_pass:
+            if passed:
                 return CheckResult(
                     check_name=check.name,
                     status=CheckStatus.PASS,
-                    message=f"Check passed ({len(attempts) - failure_count}/{len(attempts)} attempts succeeded). {latest_rationale}",
-                    attempts=attempts,
-                    rationales=rationales,
+                    message=f"Check passed. {rationale}",
+                    query=check.query,
                     duration=duration,
                 )
             else:
                 return CheckResult(
                     check_name=check.name,
                     status=CheckStatus.FAIL,
-                    message=f"Check failed ({failure_count}/{len(attempts)} attempts failed, threshold: {check.failure_threshold}). {latest_rationale}",
-                    attempts=attempts,
-                    rationales=rationales,
+                    message=f"Check failed. {rationale}",
+                    query=check.query,
                     duration=duration,
                 )
 
@@ -287,8 +323,7 @@ class CheckRunner:
                 check_name=check.name,
                 status=CheckStatus.ERROR,
                 message=f"Check errored: {str(e)}",
-                attempts=attempts,
-                rationales=rationales,
+                query=check.query,
                 duration=duration,
                 error=str(e),
             )
@@ -417,8 +452,7 @@ class CheckRunner:
                                 check_name=check.name,
                                 status=CheckStatus.ERROR,
                                 message=f"Check errored: {str(e)}",
-                                attempts=[],
-                                rationales=[],
+                                query=check.query,
                                 duration=0,
                                 error=str(e),
                             )
@@ -428,8 +462,9 @@ class CheckRunner:
             results = []
             for check in filtered_checks:
                 self.console.print(f"\n[cyan]Running check: {check.name}[/cyan]")
+                self.console.print(f"  [bold]Query:[/bold] {check.query}")
                 if check.description:
-                    self.console.print(f"  {check.description}")
+                    self.console.print(f"  [dim]Description:[/dim] {check.description}")
 
                 # Override mode if specified at runtime
                 check_mode = self.mode if self.mode else check.mode
@@ -502,7 +537,6 @@ class CheckRunner:
                             "description": check.description,
                             "query": check.query,
                             "result": result.message,
-                            "attempts": result.attempts,
                             "tags": check.tags,
                         },
                         source_instance_id="holmes-check",
@@ -550,7 +584,6 @@ class CheckRunner:
                             "description": check.description,
                             "query": check.query,
                             "result": result.message,
-                            "attempts": result.attempts,
                             "tags": check.tags,
                         },
                         source_instance_id="holmes-check",
@@ -587,6 +620,9 @@ def load_checks_config(file_path: Path) -> ChecksConfig:
 
     # Apply defaults to checks
     defaults = data.get("defaults", {})
+    # Remove 'mode' from defaults if present - it should only be set via CLI or per-check
+    defaults.pop("mode", None)
+
     checks = []
 
     for check_data in data.get("checks", []):
@@ -623,7 +659,6 @@ def display_results_table(
                     "status": result.status.value,
                     "message": result.message,
                     "duration": result.duration,
-                    "attempts": result.attempts,
                     "error": result.error,
                 }
             )
@@ -632,7 +667,7 @@ def display_results_table(
         table = Table(title="Check Results")
         table.add_column("Check Name", style="cyan")
         table.add_column("Status", style="bold")
-        table.add_column("Message")
+        table.add_column("Message", max_width=80)
         table.add_column("Duration", style="dim")
 
         for result in results:
@@ -645,7 +680,7 @@ def display_results_table(
             table.add_row(
                 result.check_name,
                 f"[{status_color}]{result.status.value.upper()}[/{status_color}]",
-                result.message,
+                f"[{status_color}]{result.message}[/{status_color}]",
                 f"{result.duration:.2f}s",
             )
 
@@ -663,8 +698,6 @@ def run_check_command(
     output_format: str = "table",
     watch: bool = False,
     watch_interval: int = 60,
-    repeat_override: Optional[int] = None,
-    failure_threshold_override: Optional[int] = None,
     parallel: bool = False,
 ):
     """Main entry point for check command."""
@@ -677,14 +710,6 @@ def run_check_command(
     except Exception as e:
         console.print(f"[red]Error loading checks file: {e}[/red]")
         return 1
-
-    # Apply overrides if provided
-    if repeat_override is not None or failure_threshold_override is not None:
-        for check in checks_config.checks:
-            if repeat_override is not None:
-                check.repeat = repeat_override
-            if failure_threshold_override is not None:
-                check.failure_threshold = failure_threshold_override
 
     # Create runner
     runner = CheckRunner(config, console, mode, verbose, parallel)

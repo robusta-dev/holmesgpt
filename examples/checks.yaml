@@ -6,10 +6,8 @@ version: 1
 # Default settings for all checks
 defaults:
   timeout: 30  # seconds - max time for each check to complete
-  mode: "monitor"  # "alert" or "monitor" - monitor only logs, alert sends notifications
-  repeat: 3  # Run check this many times
-  repeat_delay: 5  # seconds between repeated runs
-  failure_threshold: 1  # Tolerate up to this many failures (e.g., 1 means 2+ failures triggers alert)
+  # Note: 'mode' should be set via CLI flag (--mode alert/monitor) not in defaults
+  # Individual checks can still override with their own mode setting
 
 # Global destinations for alerts (can be overridden per check)
 destinations:
@@ -26,27 +24,52 @@ checks:
     query: "Is the deployment 'frontend' in namespace 'production' healthy with at least 2 ready replicas?"
     destinations: ["slack", "pagerduty"]
 
-  - name: "Certificate Expiry"
-    description: "Check TLS certificates expiration"
-    tags: ["kubernetes", "security", "medium"]
-    query: "Are there any TLS certificates in the cluster expiring within the next 30 days?"
-    schedule: "0 9 * * MON"  # Optional: Only run on Mondays at 9am (future feature)
+#  - name: "Certificate Expiry"
+#    description: "Check TLS certificates expiration"
+#    tags: ["kubernetes", "security", "medium"]
+#    query: "Are there any TLS certificates in the cluster expiring within the next 30 days?"
+#    schedule: "0 9 * * MON"  # Optional: Only run on Mondays at 9am (future feature)
 
-  - name: "Disk Space"
-    description: "Check persistent volume usage"
-    tags: ["kubernetes", "storage", "high"]
-    query: "Are any persistent volumes in the cluster above 85% capacity?"
-    repeat: 1  # Check only once
+#  - name: "Disk Space"
+#    description: "Check persistent volume usage"
+#    tags: ["kubernetes", "storage", "high"]
+#    query: "Are any persistent volumes in the cluster above 85% capacity?"
+#    repeat: 1  # Check only once
 
-  - name: "Log Errors Rate"
-    description: "Check for excessive error logs"
-    tags: ["loki", "observability", "medium"]
-    query: "Has the error log rate exceeded 100 errors per minute in the last 10 minutes for any application?"
+#  - name: "Log Errors Rate"
+#    description: "Check for excessive error logs"
+#    tags: ["loki", "observability", "medium"]
+#    query: "Has the error log rate for holmes pod exceeded 100 errors per minute in the last 10 minutes?"
 
   - name: "Memory Usage"
-    description: "Check if any pod is using more than 90% of its memory limit"
+    description: "Check if any robusta-runner pod is using more than 90% of its memory limit"
     tags: ["kubernetes", "performance", "warning"]
-    query: "Are any pods in the cluster using more than 90% of their memory limits?"
+    query: "Is any pod with name containing 'robusta-runner' using more than 90% of its memory limit?"
+
+  - name: "Nodes Health"
+    description: "Verify all nodes are ready"
+    tags: ["kubernetes", "infrastructure", "gke"]
+    query: "Are all nodes in the cluster in Ready status?"
+
+  - name: "Bookstore Service Available"
+    description: "Check if bookstore service is running"
+    tags: ["kubernetes", "services", "critical"]
+    query: "Is the service 'bookstore-backend' available in the default namespace and are all backing pods healthy?"
+
+  - name: "Datadog Agent Restarts"
+    description: "Check if datadog agent has excessive restarts"
+    tags: ["monitoring", "datadog", "critical"]
+    query: "Does the datadog pod in the default namespace have fewer than 100 container restarts across all its containers?"
+
+  - name: "High Memory Node"
+    description: "Check if any node is using excessive memory"
+    tags: ["kubernetes", "resources", "performance"]
+    query: "Are all nodes in the cluster using less than 85% of their memory capacity?"
+
+  - name: "Backend API Checker Health"
+    description: "Check Java API checker pod health"
+    tags: ["application", "java", "critical"]
+    query: "Are 'java-api-checker' in the default namespace healthy?"
 
 # Usage Examples:
 # holmes check                           # Run all checks from this file

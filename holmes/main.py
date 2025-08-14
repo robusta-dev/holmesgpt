@@ -1022,16 +1022,6 @@ def check(
         "--parallel",
         help="Run checks in parallel (faster but output may be interleaved)",
     ),
-    repeat: Optional[int] = typer.Option(
-        None,
-        "--repeat",
-        help="Override repeat count for all checks",
-    ),
-    failure_threshold: Optional[int] = typer.Option(
-        None,
-        "--failure-threshold",
-        help="Override failure threshold for all checks",
-    ),
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
@@ -1058,10 +1048,6 @@ def check(
                     {
                         "name": "Inline Check",
                         "query": inline_check,
-                        "repeat": repeat if repeat is not None else 1,
-                        "failure_threshold": failure_threshold
-                        if failure_threshold is not None
-                        else 0,
                     }
                 ],
             }
@@ -1124,8 +1110,6 @@ def check(
             output_format=output,
             watch=watch,
             watch_interval=interval,
-            repeat_override=repeat,
-            failure_threshold_override=failure_threshold,
             parallel=parallel,
         )
     finally:

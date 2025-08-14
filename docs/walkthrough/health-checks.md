@@ -7,8 +7,7 @@ Monitor your infrastructure health and send alerts when checks fail using the `h
 The `holmes check` command allows you to:
 
 - Define health checks as simple yes/no questions
-- Run checks periodically with automatic retries
-- Set failure thresholds for handling transient issues
+- Run checks periodically
 - Send alerts to Slack (and other destinations) when checks fail
 - Filter checks by tags for targeted monitoring
 - Use structured output with clear pass/fail results and explanations
@@ -39,9 +38,6 @@ version: 1
 defaults:
   timeout: 30
   mode: "alert"
-  repeat: 3
-  repeat_delay: 5
-  failure_threshold: 1
 
 checks:
   - name: "Pod Health Check"
@@ -85,9 +81,6 @@ version: 1
 defaults:
   timeout: 30              # Max seconds for each check
   mode: "alert"           # "alert" or "monitor"
-  repeat: 3               # Number of attempts
-  repeat_delay: 5         # Seconds between attempts
-  failure_threshold: 1    # Max failures allowed
 
 # Alert destinations
 destinations:
@@ -104,8 +97,6 @@ checks:
     destinations: ["slack"]
     # Optional overrides:
     mode: "monitor"
-    repeat: 5
-    failure_threshold: 2
     timeout: 60
 ```
 
@@ -125,17 +116,6 @@ checks:
 | `timeout` | No | Max seconds for check | From defaults |
 
 ### Semantics
-
-#### Repeat and Failure Threshold
-
-The `repeat` and `failure_threshold` settings work together to handle transient failures:
-
-- `repeat: 5` with `failure_threshold: 2` means:
-  - Run the check 5 times
-  - If 0, 1, or 2 checks fail → Overall PASS ✅
-  - If 3, 4, or 5 checks fail → Overall FAIL ❌
-
-This provides tolerance for flaky checks while still catching real issues.
 
 #### Modes
 
@@ -189,14 +169,11 @@ holmes check --watch --interval 60  # Run every 60 seconds
 ### Override Settings
 
 ```bash
-# Override repeat count for all checks
-holmes check --repeat 5
-
-# Override failure threshold
-holmes check --failure-threshold 2
-
 # Verbose output (shows rationales)
 holmes check -v
+
+# Run in monitor mode (no alerts)
+holmes check --mode monitor
 ```
 
 ## Examples
@@ -220,8 +197,8 @@ checks:
 ```yaml
 version: 1
 defaults:
-  repeat: 5
-  failure_threshold: 2  # Allow 2 failures out of 5
+  timeout: 30
+  mode: "alert"
 
 checks:
   - name: "PostgreSQL Connection"
@@ -271,7 +248,6 @@ checks:
   - name: "Certificate Expiry"
     query: "Will any TLS certificates expire within 30 days?"
     tags: ["security", "certificates"]
-    repeat: 1  # Check once daily
 
   - name: "Exposed Services"
     query: "Are any services exposed to the internet without authentication?"
@@ -369,13 +345,12 @@ Support for additional destinations is planned:
 - "Are things working well?"
 - "Check the infrastructure"
 
-### Setting Failure Thresholds
+### Check Reliability
 
-Choose thresholds based on the check's reliability:
-
-- **Stable checks**: Use `failure_threshold: 0` (no tolerance)
-- **Network checks**: Use `failure_threshold: 1` or `2` for transient issues
-- **External services**: Higher thresholds for third-party dependencies
+For checks that might be flaky, consider:
+- Setting appropriate timeouts
+- Using more specific queries
+- Running in monitor mode first to test
 
 ### Organizing with Tags
 
@@ -426,12 +401,7 @@ tags: ["production", "frontend"]       # Environment + service
 
 ### Performance Issues
 
-1. Reduce repeat count for faster feedback:
-   ```bash
-   holmes check --repeat 1
-   ```
-
-2. Increase timeout for slow checks:
+1. Increase timeout for slow checks:
    ```yaml
    timeout: 60  # seconds
    ```
