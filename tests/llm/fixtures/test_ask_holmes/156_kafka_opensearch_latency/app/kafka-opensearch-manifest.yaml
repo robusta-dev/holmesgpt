@@ -159,16 +159,16 @@ spec:
         - name: discovery.type
           value: single-node
         - name: OPENSEARCH_JAVA_OPTS
-          value: "-Xms512m -Xmx512m"
+          value: "-Xms512m -Xmx512m -XX:ActiveProcessorCount=1"  # Force JVM to think it has only 1 CPU
         - name: DISABLE_SECURITY_PLUGIN
           value: "true"
         resources:
           requests:
             memory: "1Gi"
-            cpu: "500m"
+            cpu: "200m"
           limits:
             memory: "2Gi"
-            cpu: "1000m"
+            cpu: "300m"  # Very low CPU limit to create bottleneck
         readinessProbe:
           httpGet:
             path: /
@@ -191,9 +191,9 @@ spec:
           subPath: optimizer.sh
         resources:
           requests:
-            cpu: "200m"
+            cpu: "100m"
           limits:
-            cpu: "800m"
+            cpu: "200m"  # Also limit the optimizer
       volumes:
       - name: optimizer-script
         configMap:
@@ -230,9 +230,17 @@ data:
 
     # Continuously optimize and analyze the index
     while true; do
+      # Force index refresh (CPU intensive)
+      wget -q -O- -X POST "http://localhost:9200/kafka-messages/_refresh" > /dev/null 2>&1 &
+      wget -q -O- -X POST "http://localhost:9200/analytics-index/_refresh" > /dev/null 2>&1 &
+
+      # Force segment merge (very CPU intensive)
+      wget -q -O- -X POST "http://localhost:9200/kafka-messages/_forcemerge?max_num_segments=1" > /dev/null 2>&1 &
+
       # Run multiple aggregation queries for analytics
-      for j in $(seq 1 10); do
+      for j in $(seq 1 20); do
         (
+          # Complex nested aggregations
           wget -q -O- -X POST "http://localhost:9200/analytics-index/_search" \
             --header 'Content-Type: application/json' \
             --post-data '{
@@ -242,12 +250,17 @@ data:
                   "stats": {"field": "value"}
                 },
                 "percentiles": {
-                  "percentiles": {"field": "value"}
+                  "percentiles": {"field": "value", "percents": [1,5,10,20,30,40,50,60,70,80,90,95,99]}
                 },
                 "histogram": {
                   "histogram": {
                     "field": "value",
                     "interval": 1
+                  },
+                  "aggs": {
+                    "stats": {
+                      "stats": {"field": "value"}
+                    }
                   }
                 }
               }
@@ -255,17 +268,16 @@ data:
         ) &
       done
 
-      # Also do some term queries
+      # Also do wildcard queries (CPU intensive)
       for k in $(seq 1 10); do
         (
-          wget -q -O- -X POST "http://localhost:9200/analytics-index/_search" \
+          wget -q -O- -X POST "http://localhost:9200/_all/_search" \
             --header 'Content-Type: application/json' \
-            --post-data "{\"query\":{\"range\":{\"value\":{\"gte\":$((RANDOM % 1000))}}}}" > /dev/null 2>&1
+            --post-data '{"query":{"wildcard":{"_all":"*"}}}' > /dev/null 2>&1
         ) &
       done
 
-      # Wait a bit before next iteration
-      sleep 0.1
+      # No sleep - continuous pressure
     done
 ---
 # Order Service ConfigMap
@@ -389,10 +401,9 @@ data:
         try:
             response = client.index(
                 index=index_name,
-                body=msg_data
+                body=msg_data,
+                refresh=True  # Force refresh after each write (very CPU intensive)
             )
-            # Add a small delay to simulate processing time
-            time.sleep(0.5)
         except Exception as e:
             print(f"Error writing to OpenSearch: {e}")
 ---

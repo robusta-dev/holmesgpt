@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 
-echo "Verifying test setup..."
+# Ensure output is not buffered
+exec 1>&1 2>&2
+
+echo "=== Starting test setup verification ==="
 
 # Check namespace exists
 if ! kubectl get namespace app-156 > /dev/null 2>&1; then
@@ -79,11 +82,26 @@ ELAPSED=0
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     # Check if consumer group exists and has significant lag (at least 100 messages)
-    CONSUMER_LAG=$(kubectl exec -n app-156 $KAFKA_POD -- /opt/bitnami/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group analytics-group 2>/dev/null | grep -E "analytics-group.*messages" | awk '{print $5}' | head -1 || echo "0")
+    echo "Checking consumer lag at $ELAPSED seconds..."
+    CONSUMER_OUTPUT=$(kubectl exec -n app-156 "$KAFKA_POD" -- /opt/bitnami/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group analytics-group 2>&1 || echo "FAILED")
 
-    if [ "$CONSUMER_LAG" -ge 100 ] 2>/dev/null; then
-        echo "Significant consumer lag detected: $CONSUMER_LAG messages"
-        kubectl exec -n app-156 $KAFKA_POD -- /opt/bitnami/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group analytics-group 2>/dev/null || true
+    # Debug output
+    echo "Consumer group output:"
+    echo "$CONSUMER_OUTPUT"
+
+    # Extract lag value more reliably
+    CONSUMER_LAG=$(echo "$CONSUMER_OUTPUT" | grep -E "analytics-group.*messages" | awk '{print $5}' | grep -E '^[0-9]+$' | head -1)
+
+    # Set to 0 if empty or non-numeric
+    if [ -z "$CONSUMER_LAG" ] || ! [[ "$CONSUMER_LAG" =~ ^[0-9]+$ ]]; then
+        CONSUMER_LAG=0
+        echo "No valid lag found, setting to 0"
+    fi
+
+    echo "Current lag: $CONSUMER_LAG messages"
+
+    if [ "$CONSUMER_LAG" -ge 100 ]; then
+        echo "*** Significant consumer lag detected: $CONSUMER_LAG messages ***"
         break
     fi
 
@@ -122,4 +140,6 @@ if ! kubectl logs -n app-156 "$ANALYTICS_POD" --tail=5 | grep -q "Writing to Ope
 fi
 echo "Analytics service is processing messages"
 
-echo "Setup verification complete!"
+echo "=== Setup verification complete! ==="
+echo "Final status: All checks passed"
+exit 0
