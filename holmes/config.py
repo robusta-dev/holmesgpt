@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
+
+from holmes.core.llm import DefaultLLM
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
@@ -465,7 +467,7 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key = self.api_key.get_secret_value() if self.api_key else None
+        api_key: Optional[str] = None
         model = self.model
         model_params = {}
         if self._model_list:
@@ -477,8 +479,8 @@ class Config(RobustaBaseConfig):
             )
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
-
-        from holmes.core.llm import DefaultLLM
+        if not api_key and "robusta.dev" in model_params.get("base_url", "") and self.api_key:
+            api_key = self.api_key.get_secret_value()
 
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 
