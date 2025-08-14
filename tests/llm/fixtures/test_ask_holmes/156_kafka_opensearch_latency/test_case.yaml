@@ -13,8 +13,11 @@ tags:
   - hard
   - logs
 
-expected_output: |
-  The Kafka high latency is caused by lag in the analytics-service consumer group. The analytics service is slow because it's writing messages to OpenSearch, which is experiencing high CPU usage (100% utilization), causing writes to be extremely slow.
+expected_output:
+- The Kafka high latency is caused by lag in the analytics-service consumer group.
+- The analytics service is slow because it's writing messages to OpenSearch
+- OpenSearch high CPU usage, causing writes to be extremely slow.
+- The output should specifically mention the high CPU to be a major issue.
 
 before_test: |
   kubectl apply -f ./app/kafka-mock-opensearch-manifest.yaml
