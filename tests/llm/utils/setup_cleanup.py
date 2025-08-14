@@ -12,6 +12,7 @@ from strenum import StrEnum
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
 from tests.llm.utils.test_helpers import truncate_output
+from pathlib import Path
 
 # Configuration
 MAX_ERROR_LINES = 10
@@ -40,6 +41,46 @@ class Operation(StrEnum):
 
     SETUP = "Setup"
     CLEANUP = "Cleanup"
+
+
+def get_prometheus_alert_commands(
+    test_case: HolmesTestCase, operation: Operation
+) -> str:
+    """Generate commands for deploying/cleaning up Prometheus alerts.
+
+    Args:
+        test_case: The test case configuration
+        operation: Whether this is setup or cleanup
+
+    Returns:
+        Shell commands to handle Prometheus alerts, or empty string if not needed
+    """
+    if not test_case.prometheus_alert:
+        return ""
+
+    # Check environment variables in Python
+    create_alerts = os.environ.get("EVAL_CREATE_ALERTS", "false").lower() == "true"
+    if not create_alerts:
+        return ""
+
+    alert_file = Path(test_case.folder) / test_case.prometheus_alert
+    if not alert_file.exists():
+        return ""
+
+    prometheus_label = os.environ.get("EVAL_PROMETHEUS_LABEL", "")
+
+    if operation == Operation.SETUP:
+        # Deploy alert
+        if prometheus_label:
+            return f'sed "s/release: robusta/release: {prometheus_label}/" {test_case.prometheus_alert} | kubectl apply -f -'
+        else:
+            return f"kubectl apply -f {test_case.prometheus_alert}"
+    else:
+        # Cleanup alert
+        if prometheus_label:
+            return f'sed "s/release: robusta/release: {prometheus_label}/" {test_case.prometheus_alert} | kubectl delete -f - || true'
+        else:
+            return f"kubectl delete -f {test_case.prometheus_alert} || true"
 
 
 def run_all_test_commands(
@@ -72,14 +113,22 @@ def run_all_test_commands(
         if operation == Operation.SETUP:
             future_to_test_case = {
                 executor.submit(
-                    run_commands, test_case, test_case.before_test, operation_lower
+                    run_commands,
+                    test_case,
+                    (test_case.before_test or "")
+                    + get_prometheus_alert_commands(test_case, operation),
+                    operation_lower,
                 ): test_case
                 for test_case in test_cases
             }
         else:
             future_to_test_case = {
                 executor.submit(
-                    run_commands, test_case, test_case.after_test, operation_lower
+                    run_commands,
+                    test_case,
+                    get_prometheus_alert_commands(test_case, operation)
+                    + (test_case.after_test or ""),
+                    operation_lower,
                 ): test_case
                 for test_case in test_cases
             }

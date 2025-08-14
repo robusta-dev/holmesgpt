@@ -54,6 +54,7 @@ class HolmesTestCase(BaseModel):
     evaluation: LLMEvaluations = LLMEvaluations()
     before_test: Optional[str] = None
     after_test: Optional[str] = None
+    prometheus_alert: Optional[str] = None  # Path to prometheus alert YAML file
     conversation_history: Optional[list[dict]] = None
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution

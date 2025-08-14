@@ -5,6 +5,7 @@ expected_output:
 tags:
   - kubernetes
   - easy
+prometheus_alert: prometheus_alert.yaml
 
 # This test creates a pod that consumes memory until it gets OOMKilled
 # Using 'tail /dev/zero' which reads infinite zeros and buffers them in memory
