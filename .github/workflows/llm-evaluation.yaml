@@ -128,7 +128,7 @@ jobs:
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
           GENERATE_REGRESSIONS_FILE: "true"
         run: |
-          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n6 -m 'llm and easy'
+          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -n20 -m 'llm and easy'
       - uses: actions/github-script@v7
         if: always()
         with:
