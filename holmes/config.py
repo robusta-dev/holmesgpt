@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import yaml  # type: ignore
-from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
+from pydantic import BaseModel, ConfigDict, Field, FilePath, SecretStr
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -106,12 +106,8 @@ class Config(RobustaBaseConfig):
 
     custom_runbooks: List[FilePath] = []
 
-    # custom_toolsets is passed from config file, and be used to override built-in toolsets, provides 'stable' customized toolset.
-    # The status of custom toolsets can be cached.
-    custom_toolsets: Optional[List[FilePath]] = None
-    # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
-    # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
-    custom_toolsets_from_cli: Optional[List[FilePath]] = None
+    # Custom toolset paths from both config file and CLI
+    custom_toolset_paths: List[FilePath] = Field(default_factory=list)
     should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
@@ -120,17 +116,6 @@ class Config(RobustaBaseConfig):
     _server_tool_executor: Optional[ToolExecutor] = None
 
     _toolset_manager: Optional[ToolsetManager] = None
-
-    @property
-    def toolset_manager(self) -> ToolsetManager:
-        if not self._toolset_manager:
-            self._toolset_manager = ToolsetManager(
-                toolsets=self.toolsets,
-                mcp_servers=self.mcp_servers,
-                custom_toolsets=self.custom_toolsets,
-                custom_toolsets_from_cli=self.custom_toolsets_from_cli,
-            )
-        return self._toolset_manager
 
     def model_post_init(self, __context: Any) -> None:
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
@@ -180,13 +165,24 @@ class Config(RobustaBaseConfig):
             logging.debug(f"Loading config from {config_file}")
             config_from_file = load_model_from_file(cls, config_file)
 
-        cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+        # Extract CLI options
+        cli_options = {}
+        for k, v in kwargs.items():
+            if v is not None and v != []:
+                cli_options[k] = v
 
         if config_from_file is None:
             result = cls(**cli_options)
         else:
             logging.debug(f"Overriding config from cli options {cli_options}")
             merged_config = config_from_file.dict()
+
+            # Special handling for custom_toolset_paths - append, don't replace
+            if "custom_toolset_paths" in cli_options:
+                existing_paths = merged_config.get("custom_toolset_paths", [])
+                cli_paths = cli_options.pop("custom_toolset_paths")
+                merged_config["custom_toolset_paths"] = existing_paths + cli_paths
+
             merged_config.update(cli_options)
             result = cls(**merged_config)
 
@@ -252,7 +248,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self, refresh_status: bool = False, skip_prerequisite_check: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -263,8 +259,12 @@ class Config(RobustaBaseConfig):
         2. toolsets from config file will override and be merged into built-in toolsets with the same name.
         3. Custom toolsets from config files which can not override built-in toolsets
         """
-        cli_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=refresh_status
+        # Create CLI-specific manager
+        cli_manager = ToolsetManager.for_cli(self)
+
+        # Load toolsets with appropriate options
+        cli_toolsets = cli_manager.load(
+            use_cache=not refresh_status, include_disabled=skip_prerequisite_check
         )
         return ToolExecutor(cli_toolsets)
 
@@ -276,7 +276,13 @@ class Config(RobustaBaseConfig):
         if self._server_tool_executor:
             return self._server_tool_executor
 
-        toolsets = self.toolset_manager.list_server_toolsets(dal=dal)
+        # Create server-specific manager
+        if dal is None:
+            raise ValueError("Database access layer (dal) is required for server mode")
+        server_manager = ToolsetManager.for_server(self, dal)
+
+        # Server typically always refreshes
+        toolsets = server_manager.load(use_cache=False)
 
         self._server_tool_executor = ToolExecutor(toolsets)
 
@@ -288,11 +294,13 @@ class Config(RobustaBaseConfig):
 
     def create_console_toolcalling_llm(
         self,
-        dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        skip_prerequisite_check: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(
+            refresh_toolsets, skip_prerequisite_check
+        )
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
@@ -346,7 +354,8 @@ class Config(RobustaBaseConfig):
         from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(dal=dal)
+        # Always refresh toolsets for investigations (non-interactive)
+        tool_executor = self.create_console_tool_executor(refresh_status=True)
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(

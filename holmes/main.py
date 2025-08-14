@@ -34,8 +34,9 @@ from holmes.config import (
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.tracing import SpanType, TracingFactory
-from holmes.interactive import run_interactive_loop
+from holmes.interactive_mode import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -239,7 +240,7 @@ def ask(
         api_key=api_key,
         model=model,
         max_steps=max_steps,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
     )
@@ -248,10 +249,18 @@ def ask(
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
     tracer.start_experiment()
 
+    # Check if toolsets will be loaded from cache
+    from holmes.core.toolset_manager import cache_exists
+
+    # In non-interactive mode, always refresh toolsets for fresh results
+    # In interactive mode, use cache unless explicitly told to refresh
+    should_refresh = refresh_toolsets or not interactive
+    loaded_from_cache = interactive and not refresh_toolsets and cache_exists()
+
     ai = config.create_console_toolcalling_llm(
-        dal=None,  # type: ignore
-        refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
+        refresh_toolsets=should_refresh,  # flag to refresh the toolset status
         tracer=tracer,
+        skip_prerequisite_check=loaded_from_cache,  # Skip checks if loading from cache
     )
 
     if prompt_file and prompt:
@@ -294,6 +303,10 @@ def ask(
             tracer,
             config.get_runbook_catalog(),
             system_prompt_additions,
+            check_version=True,
+            config=config,
+            refresh_toolsets=refresh_toolsets,  # Pass whether we just refreshed
+            loaded_from_cache=loaded_from_cache,  # True if we loaded from cache
         )
         return
 
@@ -400,7 +413,7 @@ def alertmanager(
         alertmanager_file=alertmanager_file,
         slack_token=slack_token,
         slack_channel=slack_channel,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
 
@@ -530,7 +543,7 @@ def jira(
         jira_username=jira_username,
         jira_api_key=jira_api_key,
         jira_query=jira_query,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()  # type: ignore
@@ -721,7 +734,7 @@ def github(
         github_pat=github_pat,
         github_repository=github_repository,
         github_query=github_query,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -805,7 +818,7 @@ def pagerduty(
         pagerduty_api_key=pagerduty_api_key,
         pagerduty_user_email=pagerduty_user_email,
         pagerduty_incident_key=pagerduty_incident_key,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -891,7 +904,7 @@ def opsgenie(
         opsgenie_api_key=opsgenie_api_key,
         opsgenie_team_integration_key=opsgenie_team_integration_key,
         opsgenie_query=opsgenie_query,
-        custom_toolsets_from_cli=custom_toolsets,
+        custom_toolset_paths=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
     ai = config.create_console_issue_investigator()
@@ -940,7 +953,10 @@ def list_toolsets(
     """
     console = init_logging(verbose)
     config = Config.load_from_file(config_file)
-    cli_toolsets = config.toolset_manager.list_console_toolsets()
+
+    # Create toolset manager and load
+    manager = ToolsetManager.for_cli(config)
+    cli_toolsets = manager.load()
 
     pretty_print_toolset_status(cli_toolsets, console)
 
@@ -955,7 +971,10 @@ def refresh_toolsets(
     """
     console = init_logging(verbose)
     config = Config.load_from_file(config_file)
-    cli_toolsets = config.toolset_manager.list_console_toolsets(refresh_status=True)
+
+    # Create toolset manager and refresh
+    manager = ToolsetManager.for_cli(config)
+    cli_toolsets = manager.load(use_cache=False)
     pretty_print_toolset_status(cli_toolsets, console)
 
 

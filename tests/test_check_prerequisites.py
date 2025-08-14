@@ -83,8 +83,10 @@ def test_check_prerequisites_command_success(mock_subprocess_run):
         shell=True,
         check=True,
         text=True,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=10,
     )
 
 
@@ -182,8 +184,10 @@ def test_check_prerequisites_command_uses_interpolate_command(mock_subprocess_ru
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         )
     assert toolset.status == ToolsetStatusEnum.ENABLED
 
@@ -218,24 +222,30 @@ def test_check_prerequisites_multiple_all_types_success(mock_subprocess_run):
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
         call(
             "cmd2",
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
         call(
             "cmd3",
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
     ]
     mock_subprocess_run.assert_has_calls(expected_subprocess_calls, any_order=False)
@@ -269,8 +279,10 @@ def test_check_prerequisites_stops_at_first_failure_command(mock_subprocess_run)
         shell=True,
         check=True,
         text=True,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=10,
     )
     mock_callable_should_not_be_called.assert_not_called()
 
@@ -290,3 +302,23 @@ def test_check_prerequisites_with_failing_callable():
         "Prerequisite call failed unexpectedly: Failure in callable prerequisite"
     )
     assert toolset.error == expected_error_message
+
+
+@patch("subprocess.run")
+def test_check_prerequisites_command_timeout(mock_subprocess_run):
+    mock_subprocess_run.side_effect = subprocess.TimeoutExpired("slow_command", 10)
+    prereq = ToolsetCommandPrerequisite(command="slow_command")
+    toolset = SampleToolset(prerequisites=[prereq])
+    toolset.check_prerequisites()
+    assert toolset.status == ToolsetStatusEnum.FAILED
+    assert "`slow_command` timed out after 10 seconds" in toolset.error
+    mock_subprocess_run.assert_called_once_with(
+        "slow_command",
+        shell=True,
+        check=True,
+        text=True,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=10,
+    )
