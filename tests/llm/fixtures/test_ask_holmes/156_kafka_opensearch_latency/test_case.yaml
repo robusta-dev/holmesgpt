@@ -1,0 +1,24 @@
+user_prompt: "I got an alert about Kafka having high latency. Why?"
+description: "Test case where Kafka experiences high latency due to a slow analytics service that writes to OpenSearch, which is experiencing CPU bottleneck"
+tags:
+  - kafka
+  - chain-of-causation
+  - hard
+  - logs
+
+expected_output: |
+  The Kafka high latency is caused by lag in the analytics-service consumer group. The analytics service is slow because it's writing messages to OpenSearch, which is experiencing high CPU usage (100% utilization), causing writes to be extremely slow.
+
+before_test: |
+  kubectl apply -f ./app/kafka-opensearch-manifest.yaml
+  # Wait for all pods to be ready
+  kubectl wait --for=condition=ready pod -l app=zookeeper -n app-156 --timeout=120s
+  kubectl wait --for=condition=ready pod -l app=kafka -n app-156 --timeout=120s
+  kubectl wait --for=condition=ready pod -l app=opensearch -n app-156 --timeout=180s
+  # Start the order and analytics services
+  kubectl wait --for=condition=ready pod -l app=order-service -n app-156 --timeout=120s
+  kubectl wait --for=condition=ready pod -l app=analytics-service -n app-156 --timeout=120s
+  # Verify setup (includes waiting for lag to build up)
+  ./verify_setup.sh
+
+after_test: kubectl delete -f ./app/kafka-opensearch-manifest.yaml

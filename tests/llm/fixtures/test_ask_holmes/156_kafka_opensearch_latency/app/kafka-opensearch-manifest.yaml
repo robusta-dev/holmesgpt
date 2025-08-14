@@ -1,0 +1,491 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-156
+---
+# Zookeeper Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: app-156
+spec:
+  ports:
+  - port: 2181
+    name: client
+  selector:
+    app: zookeeper
+---
+# Zookeeper Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: app-156
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: bitnami/zookeeper:3.8
+        ports:
+        - containerPort: 2181
+        env:
+        - name: ALLOW_ANONYMOUS_LOGIN
+          value: "yes"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# Kafka Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: app-156
+spec:
+  ports:
+  - port: 9092
+    name: kafka
+  selector:
+    app: kafka
+---
+# Kafka Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: app-156
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: bitnami/kafka:3.5
+        ports:
+        - containerPort: 9092
+        env:
+        - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+          value: "zookeeper:2181"
+        - name: ALLOW_PLAINTEXT_LISTENER
+          value: "yes"
+        - name: KAFKA_CFG_LISTENERS
+          value: "PLAINTEXT://:9092"
+        - name: KAFKA_CFG_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:9092"
+        - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
+---
+# OpenSearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  namespace: app-156
+spec:
+  ports:
+  - port: 9200
+    name: http
+  - port: 9300
+    name: transport
+  selector:
+    app: opensearch
+---
+# OpenSearch Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch
+  namespace: app-156
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch
+  template:
+    metadata:
+      labels:
+        app: opensearch
+    spec:
+      initContainers:
+      - name: sysctl
+        image: busybox:1.36
+        command: ['sh', '-c', 'sysctl -w vm.max_map_count=262144']
+        securityContext:
+          privileged: true
+      containers:
+      - name: opensearch
+        image: opensearchproject/opensearch:2.11.0
+        ports:
+        - containerPort: 9200
+        - containerPort: 9300
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: OPENSEARCH_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        - name: DISABLE_SECURITY_PLUGIN
+          value: "true"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 9200
+          initialDelaySeconds: 90
+          periodSeconds: 20
+      # CPU stress container
+      - name: stress
+        image: busybox:1.36
+        command: ["/bin/sh", "/stress-opensearch.sh"]
+        volumeMounts:
+        - name: stress-script
+          mountPath: /stress-opensearch.sh
+          subPath: stress-opensearch.sh
+        resources:
+          requests:
+            cpu: "100m"
+          limits:
+            cpu: "500m"
+      volumes:
+      - name: stress-script
+        configMap:
+          name: stress-script
+          defaultMode: 0755
+---
+# ConfigMap for stress script
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stress-script
+  namespace: app-156
+data:
+  stress-opensearch.sh: |
+    #!/bin/sh
+    # Wait for OpenSearch to be ready
+    echo "Waiting for OpenSearch to be ready..."
+    while ! wget -q -O- http://localhost:9200/_cluster/health; do
+      sleep 5
+    done
+    echo "OpenSearch is ready. Starting CPU stress..."
+
+    # Create an index with some data
+    wget -q -O- -X PUT "http://localhost:9200/stress-index" \
+      --header 'Content-Type: application/json' \
+      --post-data '{"settings":{"number_of_shards":1,"number_of_replicas":0}}'
+
+    # Insert some documents
+    for i in $(seq 1 1000); do
+      wget -q -O- -X POST "http://localhost:9200/stress-index/_doc" \
+        --header 'Content-Type: application/json' \
+        --post-data "{\"value\":$i,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}"
+    done
+
+    # Continuously run expensive queries to stress CPU
+    while true; do
+      # Run multiple expensive aggregation queries in parallel
+      for j in $(seq 1 5); do
+        (
+          wget -q -O- -X POST "http://localhost:9200/stress-index/_search" \
+            --header 'Content-Type: application/json' \
+            --post-data '{
+              "size": 0,
+              "aggs": {
+                "stats": {
+                  "stats": {"field": "value"}
+                },
+                "percentiles": {
+                  "percentiles": {"field": "value"}
+                },
+                "histogram": {
+                  "histogram": {
+                    "field": "value",
+                    "interval": 1
+                  }
+                }
+              }
+            }' > /dev/null 2>&1
+        ) &
+      done
+
+      # Also do some term queries
+      for k in $(seq 1 10); do
+        (
+          wget -q -O- -X POST "http://localhost:9200/stress-index/_search" \
+            --header 'Content-Type: application/json' \
+            --post-data "{\"query\":{\"range\":{\"value\":{\"gte\":$((RANDOM % 1000))}}}}" > /dev/null 2>&1
+        ) &
+      done
+
+      # Wait a bit before next iteration
+      sleep 0.1
+    done
+---
+# Order Service ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-script
+  namespace: app-156
+data:
+  order_service.py: |
+    import os
+    import time
+    import json
+    from datetime import datetime
+    from kafka import KafkaProducer
+
+    # Kafka configuration
+    bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
+    topic = 'messages'
+
+    # Wait for Kafka to be ready
+    print("Waiting for Kafka to be ready...")
+    while True:
+        try:
+            producer = KafkaProducer(
+                bootstrap_servers=bootstrap_servers,
+                value_serializer=lambda v: json.dumps(v).encode('utf-8')
+            )
+            break
+        except Exception as e:
+            print(f"Kafka not ready yet: {e}")
+            time.sleep(5)
+
+    print("Connected to Kafka. Starting to produce messages...")
+
+    message_id = 1
+    while True:
+        message = {
+            'id': f'msg-{message_id}',
+            'timestamp': datetime.utcnow().isoformat(),
+            'data': f'Message content {message_id}'
+        }
+
+        producer.send(topic, value=message)
+        print(f"Sending a message msg-{message_id}")
+        producer.flush()
+
+        message_id += 1
+        time.sleep(1)  # Send one message per second
+---
+# Analytics Service ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-script
+  namespace: app-156
+data:
+  analytics_service.py: |
+    import os
+    import time
+    import json
+    from datetime import datetime
+    from kafka import KafkaConsumer
+    from opensearchpy import OpenSearch
+
+    # Kafka configuration
+    bootstrap_servers = os.environ.get('KAFKA_BOOTSTRAP_SERVERS', 'kafka:9092')
+    topic = 'messages'
+
+    # OpenSearch configuration from environment
+    opensearch_host = os.environ['OPENSEARCH_HOST']
+    opensearch_port = int(os.environ['OPENSEARCH_PORT'])
+    opensearch_username = os.environ['OPENSEARCH_USERNAME']
+    opensearch_password = os.environ['OPENSEARCH_PASSWORD']
+
+    # Wait for services to be ready
+    print("Waiting for services to be ready...")
+    time.sleep(30)
+
+    # Connect to OpenSearch
+    client = OpenSearch(
+        hosts=[{'host': opensearch_host, 'port': opensearch_port}],
+        http_auth=(opensearch_username, opensearch_password),
+        use_ssl=False,
+        verify_certs=False,
+        ssl_show_warn=False
+    )
+
+    # Create index if it doesn't exist
+    index_name = 'kafka-messages'
+    if not client.indices.exists(index=index_name):
+        client.indices.create(
+            index=index_name,
+            body={
+                'settings': {
+                    'number_of_shards': 1,
+                    'number_of_replicas': 0
+                }
+            }
+        )
+
+    # Connect to Kafka
+    consumer = KafkaConsumer(
+        topic,
+        bootstrap_servers=bootstrap_servers,
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        auto_offset_reset='earliest',
+        enable_auto_commit=True,
+        group_id='analytics-group'
+    )
+
+    print("Connected to Kafka. Starting to consume messages...")
+
+    for message in consumer:
+        msg_data = message.value
+        msg_id = msg_data['id']
+
+        print(f"Got a new message {msg_id}. Writing to OpenSearch...")
+
+        # Write to OpenSearch (this will be slow due to CPU stress)
+        try:
+            response = client.index(
+                index=index_name,
+                body=msg_data
+            )
+        except Exception as e:
+            print(f"Error writing to OpenSearch: {e}")
+---
+# Order Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: app-156
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+      - name: order-service
+        image: python:3.9-slim
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install kafka-python
+            python /app/order_service.py
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: order-service-script
+          mountPath: /app
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: order-service-script
+        configMap:
+          name: order-service-script
+---
+# Analytics Service Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: app-156
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: analytics-service
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+    spec:
+      containers:
+      - name: analytics-service
+        image: python:3.9-slim
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install kafka-python opensearch-py
+            python /app/analytics_service.py
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka:9092"
+        - name: OPENSEARCH_HOST
+          value: "opensearch"
+        - name: OPENSEARCH_PORT
+          value: "9200"
+        - name: OPENSEARCH_USERNAME
+          value: "admin"
+        - name: OPENSEARCH_PASSWORD
+          value: "admin"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: analytics-service-script
+          mountPath: /app
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: analytics-service-script
+        configMap:
+          name: analytics-service-script

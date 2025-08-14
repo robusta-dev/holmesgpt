@@ -1,0 +1,17 @@
+toolsets:
+  kubernetes/aks:
+    enabled: true
+
+  kubernetes/base:
+    enabled: true
+
+  kubernetes/logs:
+    enabled: true
+
+  kafka/kafka-python:
+    enabled: true
+    config:
+      clusters:
+        - id: main
+          name: Main Kafka Cluster
+          bootstrap_servers: kafka.app-156.svc.cluster.local:9092
