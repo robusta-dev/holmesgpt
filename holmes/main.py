@@ -219,7 +219,7 @@ def ask(
         False,
         "--quiet",
         "-q",
-        help="Quiet mode: only print the AI output without additional formatting",
+        help="Quiet mode: only print the AI output",
     ),
 ):
     """

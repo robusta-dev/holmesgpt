@@ -401,7 +401,7 @@ class ToolCallingLLM:
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
                 # Add a blank line after all tools in this batch complete
-                if tools_to_call:
+                if tools_to_call and not quiet:
                     logging.info("")
 
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
