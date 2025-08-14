@@ -181,59 +181,59 @@ spec:
             port: 9200
           initialDelaySeconds: 90
           periodSeconds: 20
-      # CPU stress container
-      - name: stress
+      # Index optimizer sidecar
+      - name: index-optimizer
         image: busybox:1.36
-        command: ["/bin/sh", "/stress-opensearch.sh"]
+        command: ["/bin/sh", "/optimizer.sh"]
         volumeMounts:
-        - name: stress-script
-          mountPath: /stress-opensearch.sh
-          subPath: stress-opensearch.sh
+        - name: optimizer-script
+          mountPath: /optimizer.sh
+          subPath: optimizer.sh
         resources:
           requests:
-            cpu: "100m"
+            cpu: "200m"
           limits:
-            cpu: "500m"
+            cpu: "800m"
       volumes:
-      - name: stress-script
+      - name: optimizer-script
         configMap:
-          name: stress-script
+          name: optimizer-config
           defaultMode: 0755
 ---
-# ConfigMap for stress script
+# ConfigMap for index optimizer
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: stress-script
+  name: optimizer-config
   namespace: app-156
 data:
-  stress-opensearch.sh: |
+  optimizer.sh: |
     #!/bin/sh
     # Wait for OpenSearch to be ready
     echo "Waiting for OpenSearch to be ready..."
     while ! wget -q -O- http://localhost:9200/_cluster/health; do
       sleep 5
     done
-    echo "OpenSearch is ready. Starting CPU stress..."
+    echo "OpenSearch is ready. Starting index optimization..."
 
     # Create an index with some data
-    wget -q -O- -X PUT "http://localhost:9200/stress-index" \
+    wget -q -O- -X PUT "http://localhost:9200/analytics-index" \
       --header 'Content-Type: application/json' \
       --post-data '{"settings":{"number_of_shards":1,"number_of_replicas":0}}'
 
     # Insert some documents
     for i in $(seq 1 1000); do
-      wget -q -O- -X POST "http://localhost:9200/stress-index/_doc" \
+      wget -q -O- -X POST "http://localhost:9200/analytics-index/_doc" \
         --header 'Content-Type: application/json' \
         --post-data "{\"value\":$i,\"timestamp\":\"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"}"
     done
 
-    # Continuously run expensive queries to stress CPU
+    # Continuously optimize and analyze the index
     while true; do
-      # Run multiple expensive aggregation queries in parallel
-      for j in $(seq 1 5); do
+      # Run multiple aggregation queries for analytics
+      for j in $(seq 1 10); do
         (
-          wget -q -O- -X POST "http://localhost:9200/stress-index/_search" \
+          wget -q -O- -X POST "http://localhost:9200/analytics-index/_search" \
             --header 'Content-Type: application/json' \
             --post-data '{
               "size": 0,
@@ -258,7 +258,7 @@ data:
       # Also do some term queries
       for k in $(seq 1 10); do
         (
-          wget -q -O- -X POST "http://localhost:9200/stress-index/_search" \
+          wget -q -O- -X POST "http://localhost:9200/analytics-index/_search" \
             --header 'Content-Type: application/json' \
             --post-data "{\"query\":{\"range\":{\"value\":{\"gte\":$((RANDOM % 1000))}}}}" > /dev/null 2>&1
         ) &
@@ -314,7 +314,7 @@ data:
         producer.flush()
 
         message_id += 1
-        time.sleep(1)  # Send one message per second
+        time.sleep(0.1)  # Send 10 messages per second
 ---
 # Analytics Service ConfigMap
 apiVersion: v1
@@ -391,6 +391,8 @@ data:
                 index=index_name,
                 body=msg_data
             )
+            # Add a small delay to simulate processing time
+            time.sleep(0.5)
         except Exception as e:
             print(f"Error writing to OpenSearch: {e}")
 ---
