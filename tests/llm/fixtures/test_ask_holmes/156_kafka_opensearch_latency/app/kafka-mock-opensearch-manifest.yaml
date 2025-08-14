@@ -165,12 +165,13 @@ spec:
             port: 9200
           initialDelaySeconds: 10
           periodSeconds: 5
-        livenessProbe:
+        startupProbe:
           httpGet:
             path: /_cluster/health
             port: 9200
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           periodSeconds: 10
+          failureThreshold: 30
         volumeMounts:
         - name: mock-opensearch-script
           mountPath: /app
