@@ -29,7 +29,23 @@ before_test: |
         requests:
           memory: "50Mi"
   EOF
-  sleep 60
+  # Wait for pod to be created and start running
+  kubectl wait --for=condition=Ready pod/giant-narwhal-6958c5bdd8-69gtn -n app-02 --timeout=30s
+  # Wait for the pod to be OOMKilled (check every 2 seconds for up to 120 seconds)
+  echo "Waiting for pod to be OOMKilled..."
+  for i in {1..60}; do
+    STATUS=$(kubectl get pod giant-narwhal-6958c5bdd8-69gtn -n app-02 -o jsonpath='{.status.containerStatuses[0].lastState.terminated.reason}' 2>/dev/null || echo "")
+    if [ "$STATUS" = "OOMKilled" ]; then
+      echo "Pod was OOMKilled successfully"
+      break
+    fi
+    if [ $i -eq 60 ]; then
+      echo "Timeout waiting for OOMKill after 120 seconds"
+      kubectl describe pod giant-narwhal-6958c5bdd8-69gtn -n app-02
+      exit 1
+    fi
+    sleep 2
+  done
 
 after_test: |
   kubectl delete namespace app-02
