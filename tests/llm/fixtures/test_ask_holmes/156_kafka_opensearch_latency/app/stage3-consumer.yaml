@@ -55,13 +55,17 @@ data:
             }
         )
 
-    # Connect to Kafka
+    # Connect to Kafka with production-ready timeout settings
     consumer = KafkaConsumer(
         topic,
         bootstrap_servers=bootstrap_servers,
         value_deserializer=lambda m: json.loads(m.decode('utf-8')),
         auto_offset_reset='earliest',
         enable_auto_commit=True,
+        max_poll_interval_ms=300000,    # Allow up to 5 minutes between polls
+        session_timeout_ms=30000,        # Consumer must heartbeat within 30 seconds
+        heartbeat_interval_ms=3000,      # Send heartbeat every 3 seconds
+        max_poll_records=10,             # Only fetch 10 records at a time to avoid overwhelming
         group_id='analytics-group'
     )
 
