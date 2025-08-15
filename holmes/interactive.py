@@ -797,6 +797,7 @@ def run_interactive_loop(
     tracer=None,
     runbooks=None,
     system_prompt_additions: Optional[str] = None,
+    quiet: bool = False,
     check_version: bool = True,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
@@ -901,11 +902,12 @@ def run_interactive_loop(
 
     input_prompt = [("class:prompt", "User: ")]
 
-    console.print(WELCOME_BANNER)
-    if initial_user_input:
-        console.print(
-            f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
-        )
+    if not quiet:
+        console.print(WELCOME_BANNER)
+        if initial_user_input:
+            console.print(
+                f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
+            )
     messages = None
     last_response = None
     all_tool_calls_history: List[
@@ -1021,6 +1023,7 @@ def run_interactive_loop(
                     post_processing_prompt,
                     trace_span=trace_span,
                     tool_number_offset=len(all_tool_calls_history),
+                    quiet=quiet,
                 )
                 trace_span.log(
                     output=response.result,

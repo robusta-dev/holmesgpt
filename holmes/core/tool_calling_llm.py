@@ -236,9 +236,10 @@ class ToolCallingLLM:
         post_process_prompt: Optional[str] = None,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         trace_span=DummySpan(),
+        quiet: bool = False,
     ) -> LLMResult:
         return self.call(
-            messages, post_process_prompt, response_format, trace_span=trace_span
+            messages, post_process_prompt, response_format, trace_span=trace_span, quiet=quiet
         )
 
     @sentry_sdk.trace
@@ -251,6 +252,7 @@ class ToolCallingLLM:
         sections: Optional[InputSectionsDataType] = None,
         trace_span=DummySpan(),
         tool_number_offset: int = 0,
+        quiet: bool = False,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
@@ -372,9 +374,10 @@ class ToolCallingLLM:
 
             if text_response and text_response.strip():
                 logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
-            logging.info(
-                f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
-            )
+            if not quiet:
+                logging.info(
+                    f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
+                )
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
@@ -387,6 +390,7 @@ class ToolCallingLLM:
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
                             tool_number=tool_number_offset + tool_index,
+                            quiet=quiet,
                         )
                     )
 
@@ -399,7 +403,7 @@ class ToolCallingLLM:
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
                 # Add a blank line after all tools in this batch complete
-                if tools_to_call:
+                if tools_to_call and not quiet:
                     logging.info("")
 
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
@@ -410,6 +414,7 @@ class ToolCallingLLM:
         previous_tool_calls: list[dict],
         trace_span=DummySpan(),
         tool_number=None,
+        quiet: bool = False,
     ) -> ToolCallResult:
         # Handle the union type - ChatCompletionMessageToolCall can be either
         # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
@@ -470,7 +475,7 @@ class ToolCallingLLM:
                 tool_calls=previous_tool_calls,
             )
             if not tool_response:
-                tool_response = tool.invoke(tool_params, tool_number=tool_number)
+                tool_response = tool.invoke(tool_params, tool_number=tool_number, quiet=quiet)
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
@@ -577,6 +582,7 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
         msgs: Optional[list[dict]] = None,
+        quiet: bool = False,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
@@ -683,6 +689,7 @@ class ToolCallingLLM:
                             previous_tool_calls=tool_calls,
                             trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
                             tool_number=tool_index,
+                            quiet=quiet,
                         )
                     )
                     yield StreamMessage(

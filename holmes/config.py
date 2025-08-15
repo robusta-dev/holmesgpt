@@ -252,7 +252,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self, dal: Optional["SupabaseDal"], refresh_status: bool = False, quiet: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -264,7 +264,7 @@ class Config(RobustaBaseConfig):
         3. Custom toolsets from config files which can not override built-in toolsets
         """
         cli_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=refresh_status
+            dal=dal, refresh_status=refresh_status, quiet=quiet
         )
         return ToolExecutor(cli_toolsets)
 
@@ -291,8 +291,9 @@ class Config(RobustaBaseConfig):
         dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        quiet: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets, quiet)
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
