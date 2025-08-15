@@ -159,7 +159,7 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_CONTENT_SIZE
 
-        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
+        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix()).lower()
         try:
             return litellm.model_cost[model_name]["max_input_tokens"]
         except Exception:
