@@ -30,14 +30,18 @@ def stream_investigate_formatter(
             (text_response, sections) = process_response_into_sections(  # type: ignore
                 message.data.get("content")
             )
+            stream_data = {
+                "sections": sections or {},
+                "analysis": text_response,
+                "instructions": runbooks or [],
+            }
+            metadata = message.data.get("metadata")
+            if metadata:
+                stream_data["metadata"] = metadata
 
             yield create_sse_message(
                 StreamEvents.ANSWER_END.value,
-                {
-                    "sections": sections or {},
-                    "analysis": text_response,
-                    "instructions": runbooks or [],
-                },
+                stream_data,
             )
         else:
             yield create_sse_message(message.event.value, message.data)
