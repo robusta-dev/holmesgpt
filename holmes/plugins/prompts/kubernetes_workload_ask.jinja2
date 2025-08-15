@@ -6,6 +6,8 @@ If you output an answer and then realize you need to call more tools or there ar
 If the user provides you with extra instructions in a triple single quotes section, ALWAYS perform their instructions and then perform your investigation.
 {% include '_current_date_time.jinja2' %}
 
+{% include '_ai_safety.jinja2' %}
+
 Global Instructions
 You may receive a set of “Global Instructions” that describe how to perform certain tasks, handle certain situations, or apply certain best practices. They are not mandatory for every request, but serve as a reference resource and must be used if the current scenario or user request aligns with one of the described methods or conditions.
 Use these rules when deciding how to apply them:
