@@ -10,6 +10,7 @@ import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
+from holmes.core.transformers import Transformer
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -72,6 +73,8 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
+    fast_model: Optional[str] = None
+    transformers: Optional[List[Transformer]] = None
     max_steps: int = 10
     cluster_name: Optional[str] = None
 
@@ -129,6 +132,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
+                global_fast_model=self.fast_model,
             )
         return self._toolset_manager
 
@@ -139,6 +143,9 @@ class Config(RobustaBaseConfig):
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
+
+        # Auto-generate transformers from CLI fast_model parameter
+        self._auto_generate_transformers()
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -159,6 +166,24 @@ class Config(RobustaBaseConfig):
 
         return True
 
+    def _auto_generate_transformers(self) -> None:
+        """
+        Auto-generate transformers from CLI fast_model parameter.
+        Only generates if fast_model is provided and transformers is not already set.
+        """
+        if self.fast_model and not self.transformers:
+            self.transformers = [
+                Transformer(
+                    name="llm_summarize",
+                    config={
+                        "fast_model": self.fast_model,
+                    },
+                )
+            ]
+            logging.debug(
+                f"Auto-generated transformer config with fast_model: {self.fast_model}"
+            )
+
     def log_useful_info(self):
         if self._model_list:
             logging.info(f"loaded models: {list(self._model_list.keys())}")
@@ -175,6 +200,11 @@ class Config(RobustaBaseConfig):
         Returns:
             Config instance with merged settings
         """
+        # Import Transformer class to resolve forward reference
+
+        # Rebuild the model to resolve forward references
+        cls.model_rebuild()
+
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -195,9 +225,15 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_env(cls):
+        # Import Transformer class to resolve forward reference
+
+        # Rebuild the model to resolve forward references
+        cls.model_rebuild()
+
         kwargs = {}
         for field_name in [
             "model",
+            "fast_model",
             "api_key",
             "max_steps",
             "alertmanager_url",
