@@ -2,10 +2,32 @@ user_prompt: "What is the issue with db-certs-authenticator?"
 expected_output:
   - The `db-certs-authenticator` pod experienced an expired SSL certificate.
 before_test: |
-  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml
-  sleep 120
+  kubectl create namespace app-18 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml -n app-18
+  # Poll for pod to crash and enter error/crashloop state in app-18 namespace
+  timeout=360
+  elapsed=0
+  while [ $elapsed -lt $timeout ]; do
+    # Check if pod exists and get its status
+    pod_status=$(kubectl get pods -n app-18 -l app=flask -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "")
+    restart_count=$(kubectl get pods -n app-18 -l app=flask -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
+    waiting_reason=$(kubectl get pods -n app-18 -l app=flask -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || echo "")
+
+    # Success if pod is in CrashLoopBackOff or has restarted at least once
+    if [ "$waiting_reason" = "CrashLoopBackOff" ] || [ "$restart_count" -gt "0" ]; then
+      echo "Pod has crashed (status: $waiting_reason, restarts: $restart_count)"
+      exit 0
+    fi
+
+    echo "Waiting for pod to crash... Status: $pod_status, Restarts: $restart_count"
+    sleep 10
+    elapsed=$((elapsed + 10))
+  done
+  echo "Timeout waiting for pod to crash"
+  exit 1
 after_test: |
-  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml
+  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod.v2/crashloop-cert-app.yaml -n app-18
+  kubectl delete namespace app-18
 tags:
   - easy
   - kubernetes
