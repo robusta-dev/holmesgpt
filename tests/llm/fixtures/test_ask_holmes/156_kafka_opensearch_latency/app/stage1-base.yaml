@@ -235,8 +235,9 @@ data:
                 print(f"Indexing document with optimization...")
                 self.optimize_index()
 
-                # Apply refresh interval
-                time.sleep(3.0)  # Processing time for document
+                # Apply refresh interval only with tiered merge policy
+                if MERGE_POLICY == 'tiered':
+                    time.sleep(3.0)  # Processing time for document with heavy optimization
 
                 parts = path.split('/')
                 index_name = parts[1]

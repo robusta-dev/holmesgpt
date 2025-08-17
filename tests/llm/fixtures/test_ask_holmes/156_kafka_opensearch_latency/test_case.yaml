@@ -22,17 +22,20 @@ expected_output:
 before_test: |
   # Stage 1: Deploy namespace, ZooKeeper, and OpenSearch
   kubectl apply -f ./app/stage1-base.yaml
-  kubectl wait --for=condition=ready pod -l app=zookeeper -n app-156 --timeout=120s
-  kubectl wait --for=condition=ready pod -l app=opensearch -n app-156 --timeout=180s
 
   # Stage 2: Deploy Kafka (depends on ZooKeeper)
   kubectl apply -f ./app/stage2-kafka.yaml
-  kubectl wait --for=condition=ready pod -l app=kafka -n app-156 --timeout=120s
 
   # Stage 3: Deploy consumer (depends on Kafka and OpenSearch)
   kubectl apply -f ./app/stage3-consumer.yaml
+
+  # waiting for all of them together as setup takes a lot of time
+  kubectl wait --for=condition=ready pod -l app=zookeeper -n app-156 --timeout=120s
+  kubectl wait --for=condition=ready pod -l app=opensearch -n app-156 --timeout=180s
+  kubectl wait --for=condition=ready pod -l app=kafka -n app-156 --timeout=120s
   kubectl wait --for=condition=ready pod -l app=analytics-service -n app-156 --timeout=120s
 
+  # deploying producer later so no lag will build up
   # Stage 4: Deploy producer (depends only on Kafka)
   kubectl apply -f ./app/stage4-producer.yaml
   kubectl wait --for=condition=ready pod -l app=order-service -n app-156 --timeout=120s
