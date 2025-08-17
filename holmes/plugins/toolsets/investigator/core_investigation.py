@@ -21,12 +21,20 @@ from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
 class TodoWriteTool(Tool):
     name: str = "TodoWrite"
-    description: str = "Save investigation tasks to break down complex problems into manageable sub-tasks"
+    description: str = "Save investigation tasks to break down complex problems into manageable sub-tasks. ALWAYS provide the COMPLETE list of all tasks, not just the ones being updated."
     parameters: Dict[str, ToolParameter] = {
         "todos": ToolParameter(
-            description="List of tasks to track during the investigation. Each task should have: id (string), content (string), status (pending/in_progress/completed)",
-            type="array[object]",
+            description="COMPLETE list of ALL tasks on the task list. Each task should have: id (string), content (string), status (pending/in_progress/completed)",
+            type="array",
             required=True,
+            items=ToolParameter(
+                type="object",
+                properties={
+                    "id": ToolParameter(type="string", required=True),
+                    "content": ToolParameter(type="string", required=True),
+                    "status": ToolParameter(type="string", required=True),
+                },
+            ),
         ),
         "investigation_id": ToolParameter(
             description="This investigation identifier. This is a uuid that represents the investigation session id.",

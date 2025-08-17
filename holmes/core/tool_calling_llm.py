@@ -265,9 +265,8 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-        print(f"\n\n####### max steps: {max_steps} \n\n")
+
         while i < max_steps:
-            print(f"\n\n####### current step: {i} \n\n")
             i += 1
             perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
