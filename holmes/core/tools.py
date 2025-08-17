@@ -137,11 +137,12 @@ class Tool(ABC, BaseModel):
         description="The URL of the icon for the tool, if None will get toolset icon",
     )
 
-    def get_openai_format(self):
+    def get_openai_format(self, target_model: str):
         return format_tool_to_open_ai_standard(
             tool_name=self.name,
             tool_description=self.description,
             tool_parameters=self.parameters,
+            target_model=target_model,
         )
 
     def invoke(
