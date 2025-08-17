@@ -959,6 +959,234 @@ def refresh_toolsets(
     pretty_print_toolset_status(cli_toolsets, console)
 
 
+@app.command("proxy-alertmanager")
+def proxy_alertmanager(
+    # Mode selection
+    mode: str = typer.Option("webhook", help="Operation mode: webhook, pull, or auto"),
+    # Proxy configuration
+    port: int = typer.Option(8080, help="Port to listen on (webhook mode)"),
+    host: str = typer.Option("0.0.0.0", help="Host to bind to (webhook mode)"),
+    # Pull mode settings
+    poll_interval: int = typer.Option(
+        30, help="Polling interval in seconds (pull mode)"
+    ),
+    auto_discover: bool = typer.Option(
+        True, help="Auto-discover AlertManager instances (pull mode)"
+    ),
+    interactive: bool = typer.Option(
+        False, help="Use interactive view with inspector (pull mode only)"
+    ),
+    max_alerts: Optional[int] = typer.Option(
+        None, "--max-alerts", "-n", help="Maximum number of alerts to fetch per poll"
+    ),
+    # LLM settings
+    enable_enrichment: bool = typer.Option(True, help="Enable AI enrichment of alerts"),
+    enrichment_model: Optional[str] = typer.Option(
+        None, help="LLM model for enrichment (defaults to config model)"
+    ),
+    enrichment_timeout: int = typer.Option(10, help="Timeout for LLM calls in seconds"),
+    # Destinations
+    slack_webhook_url: Optional[str] = typer.Option(
+        None, help="Slack webhook URL for notifications", envvar="SLACK_WEBHOOK_URL"
+    ),
+    alertmanager_url: Optional[str] = typer.Option(
+        None, help="Forward enriched alerts to AlertManager"
+    ),
+    webhook_urls: Optional[List[str]] = typer.Option(
+        None, help="Additional webhook URLs (can be specified multiple times)"
+    ),
+    # Features
+    enable_investigation: bool = typer.Option(
+        False, help="Auto-trigger HolmesGPT investigation for critical alerts"
+    ),
+    enable_grouping: bool = typer.Option(
+        True, help="Enable intelligent alert grouping"
+    ),
+    enable_caching: bool = typer.Option(
+        True, help="Cache similar alerts to reduce LLM calls"
+    ),
+    cache_ttl: int = typer.Option(300, help="Cache TTL in seconds"),
+    # Filters
+    enrich_only_firing: bool = typer.Option(
+        True, help="Only enrich firing alerts (not resolved)"
+    ),
+    severity_filter: Optional[List[str]] = typer.Option(
+        ["critical", "warning"], help="Only enrich these severities"
+    ),
+    # Custom columns for testing
+    custom_columns: Optional[List[str]] = typer.Option(
+        None, help="Add custom labels to alerts (format: key=value)"
+    ),
+    # AI-generated custom columns
+    ai_columns: Optional[List[str]] = typer.Option(
+        None,
+        "--ai-column",
+        help="AI-generated columns (e.g., 'related_resource', 'affected_team')",
+    ),
+    skip_default_enrichment: bool = typer.Option(
+        False, help="Skip default enrichment, only generate custom AI columns"
+    ),
+    # Common options
+    api_key: Optional[str] = opt_api_key,
+    model: Optional[str] = opt_model,
+    config_file: Optional[Path] = opt_config_file,  # type: ignore
+    verbose: Optional[List[bool]] = opt_verbose,
+):
+    """
+    Run an AI-powered AlertManager proxy that enriches alerts with LLM-generated insights.
+
+    Supports two modes:
+    - webhook: Receives AlertManager webhooks (requires AlertManager configuration)
+    - pull: Polls AlertManager for alerts (no configuration needed!)
+    - auto: Auto-discover AlertManager and choose best mode
+
+    Example usage:
+
+        # Pull mode - no AlertManager config needed!
+        holmes proxy-alertmanager --mode pull --slack-webhook-url $SLACK_WEBHOOK
+
+        # Auto-discover and choose best mode
+        holmes proxy-alertmanager --mode auto --slack-webhook-url $SLACK_WEBHOOK
+
+        # Traditional webhook mode
+        holmes proxy-alertmanager --mode webhook --port 8080 --slack-webhook-url $SLACK_WEBHOOK
+
+        # Pull mode with custom AlertManager URL
+        holmes proxy-alertmanager --mode pull \\
+            --alertmanager-url http://alertmanager:9093 \\
+            --slack-webhook-url $SLACK_WEBHOOK
+
+    In webhook mode, configure AlertManager to send webhooks to http://your-host:8080/webhook
+    In pull mode, the proxy discovers and polls AlertManager automatically!
+    """
+    import asyncio
+    from holmes.alert_proxy import AlertProxyServer
+    from holmes.alert_proxy.models import ProxyConfig, ProxyMode
+
+    console = init_logging(verbose)
+
+    # Load base configuration
+    config = Config.load_from_file(
+        config_file,
+        api_key=api_key,
+        model=model,
+    )
+
+    # Validate mode
+    try:
+        proxy_mode = ProxyMode(mode.lower())
+    except ValueError:
+        console.print(
+            f"[bold red]Error:[/bold red] Invalid mode '{mode}'. Must be one of: webhook, pull, auto"
+        )
+        raise typer.Exit(1)
+
+    # Create proxy configuration
+    proxy_config = ProxyConfig(
+        mode=proxy_mode,
+        port=port,
+        host=host,
+        poll_interval=poll_interval,
+        auto_discover=auto_discover,
+        max_alerts=max_alerts,
+        model=enrichment_model or config.model or "gpt-4o-mini",
+        enable_enrichment=enable_enrichment,
+        enrichment_timeout=enrichment_timeout,
+        slack_webhook_url=slack_webhook_url,
+        alertmanager_url=alertmanager_url,
+        webhook_urls=list(webhook_urls) if webhook_urls else [],
+        enable_investigation=enable_investigation,
+        enable_grouping=enable_grouping,
+        enable_caching=enable_caching,
+        cache_ttl=cache_ttl,
+        enrich_only_firing=enrich_only_firing,
+        severity_filter=list(severity_filter) if severity_filter else [],
+        custom_columns=list(custom_columns) if custom_columns else [],
+        ai_custom_columns=list(ai_columns) if ai_columns else [],
+        skip_default_enrichment=skip_default_enrichment,
+        interactive=interactive,
+    )
+
+    # Validate configuration - in pull mode, console output is enough
+    if proxy_mode != ProxyMode.PULL and not any(
+        [slack_webhook_url, alertmanager_url, webhook_urls]
+    ):
+        console.print(
+            "[bold red]Error:[/bold red] At least one destination must be configured"
+        )
+        console.print("Use --slack-webhook-url, --alertmanager-url, or --webhook-urls")
+        raise typer.Exit(1)
+
+    # Create and run server
+    console.print("[bold green]Starting HolmesGPT Alert Proxy[/bold green]")
+    console.print(f"Mode: [cyan]{proxy_mode.value}[/cyan]")
+
+    if proxy_mode == ProxyMode.WEBHOOK:
+        console.print(f"Listening on {host}:{port}")
+        console.print(
+            f"Webhook endpoint: http://{host if host != '0.0.0.0' else 'localhost'}:{port}/webhook"
+        )
+    elif proxy_mode == ProxyMode.PULL:
+        console.print(f"Polling interval: {poll_interval} seconds")
+        if max_alerts:
+            console.print(f"Max alerts per poll: [cyan]{max_alerts}[/cyan]")
+        if interactive:
+            console.print("Interactive mode: [green]Enabled[/green]")
+            console.print("[dim]Starting interactive view...[/dim]")
+        if auto_discover:
+            console.print("Auto-discovery: [green]Enabled[/green]")
+        if alertmanager_url:
+            console.print(f"AlertManager URL: {alertmanager_url}")
+
+    if enable_enrichment:
+        console.print(
+            f"AI Enrichment: [green]Enabled[/green] (Model: {proxy_config.model})"
+        )
+    else:
+        console.print("AI Enrichment: [yellow]Disabled[/yellow]")
+
+    destinations = []
+    if slack_webhook_url:
+        destinations.append("Slack")
+    if alertmanager_url:
+        destinations.append(f"AlertManager ({alertmanager_url})")
+    if webhook_urls:
+        destinations.append(f"{len(webhook_urls)} webhook(s)")
+    if enable_investigation:
+        destinations.append("HolmesGPT Investigation")
+
+    # In pull mode with no destinations, we output to console
+    if not destinations and proxy_mode == ProxyMode.PULL:
+        destinations.append("Console (terminal output)")
+
+    console.print(f"Destinations: {', '.join(destinations)}")
+
+    if proxy_mode == ProxyMode.WEBHOOK:
+        console.print(
+            "\n[bold]Configure AlertManager to send webhooks to the endpoint above.[/bold]"
+        )
+    elif proxy_mode == ProxyMode.PULL:
+        console.print(
+            "\n[bold]No AlertManager configuration needed! Polling for alerts...[/bold]"
+        )
+
+    console.print("[dim]Press Ctrl+C to stop the proxy.[/dim]\n")
+
+    server = AlertProxyServer(config, proxy_config)
+
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Shutting down proxy...[/yellow]")
+        # Clean shutdown
+        loop = asyncio.get_event_loop()
+        if server.destinations.session:
+            loop.run_until_complete(server.destinations.close())
+    except Exception as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
+
+
 @app.command()
 def version() -> None:
     typer.echo(get_version())
