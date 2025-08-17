@@ -659,6 +659,8 @@ class ToolCallingLLM:
                 ]
                 messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
+            else:
+                metadata["truncations"] = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:

@@ -30,18 +30,15 @@ def stream_investigate_formatter(
             (text_response, sections) = process_response_into_sections(  # type: ignore
                 message.data.get("content")
             )
-            stream_data = {
-                "sections": sections or {},
-                "analysis": text_response,
-                "instructions": runbooks or [],
-            }
-            metadata = message.data.get("metadata")
-            if metadata:
-                stream_data["metadata"] = metadata
 
             yield create_sse_message(
                 StreamEvents.ANSWER_END.value,
-                stream_data,
+                {
+                    "sections": sections or {},
+                    "analysis": text_response,
+                    "instructions": runbooks or [],
+                    "metadata": message.data.get("metadata") or {},
+                },
             )
         else:
             yield create_sse_message(message.event.value, message.data)
@@ -59,6 +56,7 @@ def stream_chat_formatter(
                     "analysis": message.data.get("content"),
                     "conversation_history": message.data.get("messages"),
                     "follow_up_actions": followups,
+                    "metadata": message.data.get("metadata") or {},
                 },
             )
         else:
