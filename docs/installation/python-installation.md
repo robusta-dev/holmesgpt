@@ -353,7 +353,10 @@ export GOOGLE_API_KEY="your-google-key"
 # Optional: Custom configuration
 export HOLMES_CONFIG_PATH="/path/to/config.yaml"
 export HOLMES_LOG_LEVEL="INFO"
+
 ```
+
+> **📚 See Also:** Check the [Environment Variables Reference](../reference/environment-variables.md) for complete documentation of all available environment variables.
 
 **Usage with environment variables:**
 ```python
