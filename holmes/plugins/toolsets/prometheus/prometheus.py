@@ -81,6 +81,9 @@ class PrometheusConfig(BaseModel):
     def is_amp(self) -> bool:
         return False
 
+    def get_auth(self) -> Any:
+        return None
+
 
 class AMPConfig(PrometheusConfig):
     aws_access_key: str
@@ -93,16 +96,13 @@ class AMPConfig(PrometheusConfig):
     def is_amp(self) -> bool:
         return True
 
-
-def get_aws_auth(config: Union[PrometheusConfig, AMPConfig]):
-    if not config.is_amp():
-        return None
-    return AWS4Auth(
-        config.aws_access_key,  # type: ignore
-        config.aws_secret_access_key,  # type: ignore
-        config.aws_region,  # type: ignore
-        config.aws_service_name,  # type: ignore
-    )
+    def get_auth(self):
+        return AWS4Auth(
+            self.aws_access_key,  # type: ignore
+            self.aws_secret_access_key,  # type: ignore
+            self.aws_region,  # type: ignore
+            self.aws_service_name,  # type: ignore
+        )
 
 
 class BasePrometheusTool(Tool):
@@ -405,7 +405,7 @@ class ListPrometheusRules(BasePrometheusTool):
             rules_response = requests.get(
                 url=rules_url,
                 params=params,
-                auth=get_aws_auth(self.toolset.config),
+                auth=self.toolset.config.get_auth(),
                 timeout=180,
                 verify=self.toolset.config.prometheus_ssl_enabled,
                 headers=self.toolset.config.headers,
@@ -500,7 +500,7 @@ class ListAvailableMetrics(BasePrometheusTool):
                 should_fetch_labels_with_labels_api=self.toolset.config.fetch_labels_with_labels_api,
                 should_fetch_metadata_with_series_api=self.toolset.config.fetch_metadata_with_series_api,
                 headers=self.toolset.config.headers,
-                auth=get_aws_auth(self.toolset.config),
+                auth=self.toolset.config.get_auth(),
                 verify_ssl=self.toolset.config.prometheus_ssl_enabled,
             )
 
@@ -590,7 +590,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             response = requests.post(
                 url=url,
                 headers=self.toolset.config.headers,
-                auth=get_aws_auth(self.toolset.config),
+                auth=self.toolset.config.get_auth(),
                 data=payload,
                 timeout=60,
             )
@@ -738,7 +738,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             response = requests.post(
                 url=url,
                 headers=self.toolset.config.headers,
-                auth=get_aws_auth(self.toolset.config),
+                auth=self.toolset.config.get_auth(),
                 data=payload,
                 timeout=120,
             )
@@ -861,9 +861,8 @@ class PrometheusToolset(Toolset):
                 self._reload_llm_instructions()
                 return self._is_healthy()
         except Exception:
-            logging.exception(
-                "Failed to create prometheus config attempting to auto-discover"
-            )
+            logging.exception("Failed to create prometheus config")
+            return False, "Failed to create prometheus config"
         try:
             prometheus_url = os.environ.get("PROMETHEUS_URL")
             if not prometheus_url:
@@ -908,7 +907,7 @@ class PrometheusToolset(Toolset):
             response = requests.get(
                 url=url,
                 headers=self.config.headers,
-                auth=get_aws_auth(self.config),
+                auth=self.config.get_auth(),
                 timeout=10,
                 verify=self.config.prometheus_ssl_enabled,
             )
