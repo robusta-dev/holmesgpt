@@ -161,7 +161,7 @@ def truncate_messages_to_fit_context(
         remaining_space -= allocated_space
 
     return TruncationResult(
-        truncated_messages=messages_except_tools + tool_call_messages,
+        truncated_messages=messages,
         truncations=truncations,
     )
 
