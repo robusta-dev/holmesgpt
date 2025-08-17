@@ -302,6 +302,7 @@ def ask(
         prompt,  # type: ignore
         include_file,
         ai.tool_executor,
+        ai.investigation_id,
         config.get_runbook_catalog(),
         system_prompt_additions,
     )

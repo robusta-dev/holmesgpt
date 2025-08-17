@@ -1,10 +1,8 @@
 from holmes.core.todo_manager import (
     TodoListManager,
     get_todo_manager,
-    set_current_session_id,
-    get_session_id_from_context,
 )
-from holmes.core.tools import Task, TaskStatus
+from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
 
 class TestTodoListManager:
@@ -98,11 +96,3 @@ class TestTodoListManager:
         manager1 = get_todo_manager()
         manager2 = get_todo_manager()
         assert manager1 is manager2
-
-    def test_session_id_management(self):
-        """Test session ID context management."""
-        test_session_id = "context-test-session"
-        set_current_session_id(test_session_id)
-
-        retrieved_session_id = get_session_id_from_context()
-        assert retrieved_session_id == test_session_id

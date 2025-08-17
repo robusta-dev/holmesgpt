@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 import logging
 import textwrap
+import uuid
 from typing import Dict, List, Optional, Type, Union
 
 import sentry_sdk
@@ -38,6 +39,9 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
+from holmes.core.todo_manager import (
+    get_todo_manager,
+)
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -204,9 +208,10 @@ class ToolCallingLLM:
         self, tool_executor: ToolExecutor, max_steps: int, llm: LLM, tracer=None
     ):
         self.tool_executor = tool_executor
-        self.max_steps = 40  ## TODO Arik - remove this
+        self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
+        self.investigation_id = str(uuid.uuid4())
 
     def prompt_call(
         self,
@@ -776,15 +781,8 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
 
-        # Add TodoList context to prompt
-        from holmes.core.todo_manager import (
-            get_todo_manager,
-            get_session_id_from_context,
-        )
-
         todo_manager = get_todo_manager()
-        session_id = get_session_id_from_context()
-        todo_context = todo_manager.format_tasks_for_prompt(session_id)
+        todo_context = todo_manager.format_tasks_for_prompt(self.investigation_id)
 
         system_prompt = load_and_render_prompt(
             prompt,
@@ -795,6 +793,7 @@ class IssueInvestigator(ToolCallingLLM):
                 "toolsets": self.tool_executor.toolsets,
                 "cluster_name": self.cluster_name,
                 "todo_list": todo_context,
+                "investigation_id": self.investigation_id,
             },
         )
 

@@ -1,3 +1,8 @@
+{% if investigation_id %}
+# Investigation ID for this session
+Investigation id: {{ investigation_id }}
+{% endif %}
+
 CRITICAL: For multi-step questions, you MUST start by calling the TodoWrite tool with a `todos` parameter containing an array of task objects. Each task must have:
 - `id`: unique identifier (string)
 - `content`: specific task description (string)

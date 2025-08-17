@@ -1,4 +1,6 @@
-from holmes.core.tools import TodoWriteTool, ToolResultStatus, TaskStatus, TaskPriority
+from holmes.core.tools import ToolResultStatus
+from holmes.plugins.toolsets.investigator.core_investigation import TodoWriteTool
+from holmes.plugins.toolsets.investigator.model import TaskStatus
 
 
 class TestTodoWriteTool:
@@ -100,12 +102,6 @@ class TestTodoWriteTool:
         assert TaskStatus.IN_PROGRESS == "in_progress"
         assert TaskStatus.COMPLETED == "completed"
 
-    def test_task_priority_enum(self):
-        """Test TaskPriority enum values."""
-        assert TaskPriority.HIGH == "high"
-        assert TaskPriority.MEDIUM == "medium"
-        assert TaskPriority.LOW == "low"
-
     def test_openai_format(self):
         """Test that the tool generates correct OpenAI format."""
         tool = TodoWriteTool()
@@ -128,56 +124,3 @@ class TestTodoWriteTool:
 
         # Check required fields
         assert "todos" in params["required"]
-
-    def test_session_storage_functionality(self):
-        """Test that the tool stores tasks in session storage."""
-        from holmes.core.todo_manager import get_todo_manager, set_current_session_id
-
-        tool = TodoWriteTool()
-        session_id = "test-session-456"
-        set_current_session_id(session_id)
-
-        params = {
-            "todos": [
-                {
-                    "id": "1",
-                    "content": "Task 1",
-                    "status": "pending",
-                    "priority": "high",
-                },
-                {
-                    "id": "2",
-                    "content": "Task 2",
-                    "status": "completed",
-                    "priority": "low",
-                },
-            ]
-        }
-
-        result = tool._invoke(params)
-
-        assert result.status == ToolResultStatus.SUCCESS
-        assert "2 tasks" in result.data
-        assert "Investigation plan updated" in result.data
-
-        # Check that the pretty printed TodoList is included in the response
-        assert "CURRENT INVESTIGATION TASKS" in result.data
-        assert "Task 1" in result.data
-        assert "Task 2" in result.data
-        assert "[ ]" in result.data  # pending indicator
-        assert "[✓]" in result.data  # completed indicator
-        assert "(HIGH)" in result.data  # priority indicator
-        assert "(LOW)" in result.data  # priority indicator
-
-        # Check session storage
-        manager = get_todo_manager()
-        stored_tasks = manager.get_session_tasks(session_id)
-        assert len(stored_tasks) == 2
-        assert stored_tasks[0].content == "Task 1"
-        assert stored_tasks[1].content == "Task 2"
-
-        # Check prompt formatting matches what's in the response
-        prompt_context = manager.format_tasks_for_prompt(session_id)
-        assert (
-            prompt_context in result.data
-        )  # The formatted tasks should be part of the response

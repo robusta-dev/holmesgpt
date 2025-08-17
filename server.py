@@ -216,6 +216,7 @@ def workload_health_check(request: WorkloadHealthRequest):
                 "toolsets": ai.tool_executor.toolsets,
                 "response_format": workload_health_structured_output,
                 "cluster_name": config.cluster_name,
+                "investigation_id": ai.investigation_id,
             },
         )
 

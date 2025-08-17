@@ -30,6 +30,7 @@ def build_initial_ask_messages(
     initial_user_prompt: str,
     file_paths: Optional[List[Path]],
     tool_executor: Any,  # ToolExecutor type
+    investigation_id: str,
     runbooks: Union[RunbookCatalog, Dict, None] = None,
     system_prompt_additions: Optional[str] = None,
 ) -> List[Dict]:
@@ -49,6 +50,7 @@ def build_initial_ask_messages(
         "toolsets": tool_executor.toolsets,
         "runbooks": runbooks or {},
         "system_prompt_additions": system_prompt_additions or "",
+        "investigation_id": investigation_id,
     }
     system_prompt_rendered = load_and_render_prompt(
         system_prompt_template, template_context

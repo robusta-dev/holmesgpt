@@ -2,7 +2,125 @@ import logging
 import os
 from typing import Any, Dict
 
-from holmes.core.tools import TodoWriteTool, Toolset, ToolsetTag, ToolsetStatusEnum
+from uuid import uuid4
+from holmes.core.todo_manager import (
+    get_todo_manager,
+)
+
+from holmes.core.tools import (
+    Toolset,
+    ToolsetTag,
+    ToolsetStatusEnum,
+    ToolParameter,
+    Tool,
+    StructuredToolResult,
+    ToolResultStatus,
+)
+from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
+
+
+class TodoWriteTool(Tool):
+    name: str = "TodoWrite"
+    description: str = "Save investigation tasks to break down complex problems into manageable sub-tasks"
+    parameters: Dict[str, ToolParameter] = {
+        "todos": ToolParameter(
+            description="List of tasks to track during the investigation. Each task should have: id (string), content (string), status (pending/in_progress/completed)",
+            type="array[object]",
+            required=True,
+        ),
+        "investigation_id": ToolParameter(
+            description="This investigation identifier. This is a uuid that represents the investigation session id.",
+            type="string",
+            required=True,
+        ),
+    }
+
+    # Print a nice table to console/log
+    def print_tasks_table(self, tasks):
+        if not tasks:
+            logging.info("No tasks in the investigation plan.")
+            return
+
+        max_id_width = max(len(str(task.id)) for task in tasks)
+        max_content_width = max(len(task.content) for task in tasks)
+        max_status_width = max(len(task.status.value) for task in tasks)
+
+        id_width = max(max_id_width, 2)
+        content_width = max(max_content_width, 7)
+        status_width = max(max_status_width, 6)
+
+        status_icons = {
+            "pending": "[ ]",
+            "in_progress": "[~]",
+            "completed": "[✓]",
+        }
+
+        # Build table
+        separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"
+        header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} |"
+
+        # Log the table
+        logging.info("Updated Investigation Tasks:")
+        logging.info(separator)
+        logging.info(header)
+        logging.info(separator)
+
+        for task in tasks:
+            status_display = f"{status_icons[task.status.value]} {task.status.value}"
+            row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} |"
+            logging.info(row)
+
+        logging.info(separator)
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            todos_data = params.get("todos", [])
+
+            tasks = []
+
+            for todo_item in todos_data:
+                if isinstance(todo_item, dict):
+                    task = Task(
+                        id=todo_item.get("id", str(uuid4())),
+                        content=todo_item.get("content", ""),
+                        status=TaskStatus(todo_item.get("status", "pending")),
+                    )
+                    tasks.append(task)
+
+            logging.info(f"Tasks: {len(tasks)}")
+
+            # Store tasks in session storage
+            todo_manager = get_todo_manager()
+            session_id = params.get("investigation_id", "")
+            todo_manager.update_session_tasks(session_id, tasks)
+
+            self.print_tasks_table(tasks)
+
+            formatted_tasks = todo_manager.format_tasks_for_prompt(session_id)
+
+            response_data = f"✅ Investigation plan updated with {len(tasks)} tasks. Tasks are now stored in session and will appear in subsequent prompts.\n\n"
+            if formatted_tasks:
+                response_data += formatted_tasks
+            else:
+                response_data += "No tasks currently in the investigation plan."
+
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=response_data,
+                params=params,
+            )
+
+        except Exception as e:
+            logging.exception("error using todowrite tool")
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to process tasks: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        todos = params.get("todos", [])
+        return f"Write {todos} investigation tasks"
 
 
 class CoreInvestigationToolset(Toolset):
@@ -17,7 +135,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        # Override the default DISABLED status to ENABLED since this is a core toolset
         self.status = ToolsetStatusEnum.ENABLED
         logging.info("Core investigation toolset loaded")
 
@@ -25,7 +142,6 @@ class CoreInvestigationToolset(Toolset):
         return {}
 
     def _reload_instructions(self):
-        """Load Datadog metrics specific troubleshooting instructions."""
         template_file_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "investigator_instructions.jinja2")
         )

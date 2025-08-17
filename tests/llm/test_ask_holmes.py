@@ -322,6 +322,7 @@ def ask_holmes(
                 test_case.user_prompt,
                 None,
                 ai.tool_executor,
+                ai.investigation_id,
                 runbooks,
             )
     else:
