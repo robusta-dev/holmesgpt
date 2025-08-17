@@ -3,6 +3,9 @@
 Investigation id: {{ investigation_id }}
 {% endif %}
 
+CLARIFICATION REQUIREMENT: Before starting ANY investigation, if the user's question is ambiguous or lacks critical details, you MUST ask for clarification first. Do NOT create TodoWrite tasks for unclear questions.
+Only proceed with TodoWrite and investigation AFTER you have clear, specific requirements.
+
 CRITICAL: For multi-step questions, you MUST start by calling the TodoWrite tool with a `todos` parameter containing an array of task objects. Each task must have:
 - `id`: unique identifier (string)
 - `content`: specific task description (string)

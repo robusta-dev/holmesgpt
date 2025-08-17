@@ -296,7 +296,7 @@ def ask_holmes(
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
-        max_steps=10,
+        max_steps=40,
         llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
     )
 

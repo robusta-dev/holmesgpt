@@ -72,7 +72,7 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
-    max_steps: int = 10
+    max_steps: int = 40
     cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
