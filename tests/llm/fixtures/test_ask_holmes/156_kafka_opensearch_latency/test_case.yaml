@@ -3,8 +3,8 @@ description: |
   Test case demonstrating a chain of causation for Kafka latency:
   1. Order service produces messages to Kafka topic
   2. Analytics service consumes messages and writes them to OpenSearch
-  3. OpenSearch has an "index optimizer" sidecar running continuous aggregation queries
-  4. These queries consume excessive CPU, making OpenSearch writes slow
+  3. OpenSearch has aggressive index optimization enabled with background threads continuously optimizing indices
+  4. These optimization operations consume excessive CPU, making OpenSearch writes slow
   5. Slow writes cause the analytics service to lag behind in consuming messages
   6. This consumer lag manifests as Kafka high latency alerts
 tags:
