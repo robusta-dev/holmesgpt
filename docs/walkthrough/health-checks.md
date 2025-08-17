@@ -110,9 +110,6 @@ checks:
 | `tags` | No | List of tags for filtering | `[]` |
 | `destinations` | No | Alert destinations when check fails | `[]` |
 | `mode` | No | "alert" or "monitor" | From defaults |
-| `repeat` | No | Number of attempts | From defaults |
-| `repeat_delay` | No | Seconds between attempts | From defaults |
-| `failure_threshold` | No | Max failures before overall fail | From defaults |
 | `timeout` | No | Max seconds for check | From defaults |
 
 ### Semantics
@@ -365,7 +362,6 @@ tags: ["production", "frontend"]       # Environment + service
 ### Performance Considerations
 
 - Set appropriate timeouts for long-running checks
-- Use `repeat_delay` to avoid overwhelming systems
 - Consider using `--watch` mode instead of cron for continuous monitoring
 - Filter checks with tags to run subsets when needed
 

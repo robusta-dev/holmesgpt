@@ -204,12 +204,8 @@ class CheckRunner:
 
                     INVESTIGATION APPROACH:
                     1. Use tools to gather data about the check condition
-                    2. If initial data is incomplete, try alternative approaches:
-                       - For disk usage: Try Prometheus queries (kubelet_volume_stats_used_bytes, kubelet_volume_stats_capacity_bytes)
-                       - For pod metrics: Use kubectl top, Prometheus pod metrics
-                       - For logs: Check multiple sources (kubectl logs, Loki if available)
+                    2. If initial data is incomplete, try alternative approaches
                     3. Only conclude "cannot verify" after trying at least 3 different approaches
-                    4. You have access to Prometheus - use PromQL queries when kubectl doesn't provide metrics
 
                     RESPONSE FORMAT:
                     1. First, in 'rationale': Explain what you found and whether it indicates a problem
@@ -258,15 +254,9 @@ class CheckRunner:
 
                     The principle: If you cannot verify it's healthy, it's not healthy."""
 
-                investigation_hint = ""
-                if "disk" in check.query.lower() or "volume" in check.query.lower():
-                    investigation_hint = "\n\nIMPORTANT: For disk/volume usage, try these in order:\n1. kubectl describe pv\n2. PromQL: (kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes) * 100\n3. df command on nodes if available"
-                elif "memory" in check.query.lower() or "cpu" in check.query.lower():
-                    investigation_hint = "\n\nIMPORTANT: For resource usage, try kubectl top first, then Prometheus metrics if needed."
-
                 messages = [
                     {"role": "system", "content": system_message},
-                    {"role": "user", "content": check.query + investigation_hint},
+                    {"role": "user", "content": check.query},
                 ]
 
                 # Execute the check with structured output
