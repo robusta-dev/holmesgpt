@@ -1,7 +1,8 @@
 from holmes.plugins.toolsets.investigator.core_investigation import (
     CoreInvestigationToolset,
+    TodoWriteTool,
 )
-from holmes.core.tools import ToolsetStatusEnum, ToolsetTag, TodoWriteTool
+from holmes.core.tools import ToolsetStatusEnum, ToolsetTag
 
 
 class TestCoreInvestigationToolset:
