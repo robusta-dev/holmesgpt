@@ -162,8 +162,15 @@ def load_toolsets_from_config(
     for name, config in toolsets.items():
         try:
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
-            # MCP server is not a built-in toolset, so we need to set the type explicitly
+
+            # Resolve env var placeholders before creating the Toolset.
+            # If done after, .override_with() will overwrite resolved values with placeholders
+            # because model_dump() returns the original, unprocessed config from YAML.
+            if config:
+                config = env_utils.replace_env_vars_values(config)
+
             validated_toolset: Optional[Toolset] = None
+            # MCP server is not a built-in toolset, so we need to set the type explicitly
             if toolset_type == ToolsetType.MCP.value:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
@@ -173,10 +180,6 @@ def load_toolsets_from_config(
                     **config, name=name
                 )
 
-            if validated_toolset.config:
-                validated_toolset.config = env_utils.replace_env_vars_values(
-                    validated_toolset.config
-                )
             loaded_toolsets.append(validated_toolset)
         except ValidationError as e:
             logging.warning(f"Toolset '{name}' is invalid: {e}")

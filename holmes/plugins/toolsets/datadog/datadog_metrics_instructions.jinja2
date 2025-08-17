@@ -1,8 +1,11 @@
 ## Datadog Metrics Tools Usage Guide
 
 Before running metrics queries:
-** ALWAYS use kubectl_find_resource to find the resource you are being asked about!
+
+** You are often (but not always) running in a kubernetes environment. So users might ask you questions about kubernetes workloads without explicitly stating their type.
+** When getting ambiguous questions, use kubectl_find_resource to find the resource you are being asked about!
 ** Find the involved resource name and kind
+** If you can't figure out what is the type of the resource, ask the user for more information and don't guess
 
 
 When investigating metrics-related issues:
@@ -13,7 +16,6 @@ When investigating metrics-related issues:
 
 2. **Use `query_datadog_metrics`** to fetch actual metric data
    - Query syntax: `metric_name{tag:value}`
-   - Example: `system.cpu.user{host:myhost}`
    - Returns timeseries data with timestamps and values
 
 3. **Use `get_datadog_metric_metadata`** to understand metric properties
