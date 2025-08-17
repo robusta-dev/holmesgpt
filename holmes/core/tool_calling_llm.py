@@ -256,7 +256,9 @@ class ToolCallingLLM:
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
-        tools = self.tool_executor.get_all_tools_openai_format()
+        tools = self.tool_executor.get_all_tools_openai_format(
+            target_model=self.llm.model
+        )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
@@ -595,7 +597,9 @@ class ToolCallingLLM:
             messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls: list[dict] = []
-        tools = self.tool_executor.get_all_tools_openai_format()
+        tools = self.tool_executor.get_all_tools_openai_format(
+            target_model=self.llm.model
+        )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
