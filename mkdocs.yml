@@ -11,6 +11,7 @@ exclude_docs: |
 
 theme:
   name: material
+  custom_dir: docs/overrides
   features:
     - announce.dismiss
     - content.action.edit
@@ -116,6 +117,9 @@ markdown_extensions:
       custom_checkbox: true
   - pymdownx.tilde
 
+extra_css:
+  - stylesheets/extra.css
+
 extra:
   social:
     - icon: fontawesome/brands/github
@@ -200,3 +204,5 @@ nav:
       - HTTP API: reference/http-api.md
       - Slash Commands: reference/slash-commands.md
       - Troubleshooting: reference/troubleshooting.md
+
+  - Community: community.md
