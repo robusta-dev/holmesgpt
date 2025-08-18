@@ -7,6 +7,7 @@ Fences available:
 """
 
 import html
+import uuid
 
 
 def toolset_config_fence_format(source, language, css_class, options, md, **kwargs):
@@ -14,6 +15,13 @@ def toolset_config_fence_format(source, language, css_class, options, md, **kwar
     Format YAML content into Holmes CLI, Holmes Helm Chart, and Robusta Helm Chart tabs for toolset configuration.
     This fence does NOT process Jinja2, so {{ env.VAR }} stays as-is.
     """
+    # Generate unique IDs for this tab group to prevent conflicts
+    tab_group_id = str(uuid.uuid4()).replace("-", "_")
+    tab_id_1 = f"__tabbed_{tab_group_id}_1"
+    tab_id_2 = f"__tabbed_{tab_group_id}_2"
+    tab_id_3 = f"__tabbed_{tab_group_id}_3"
+    group_name = f"__tabbed_{tab_group_id}"
+
     # Escape HTML in the source to prevent XSS
     escaped_source = html.escape(source)
 
@@ -29,13 +37,13 @@ def toolset_config_fence_format(source, language, css_class, options, md, **kwar
     # Build the tabbed HTML structure for CLI, Holmes Helm, and Robusta
     tabs_html = f"""
 <div class="tabbed-set" data-tabs="1:3">
-<input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio">
-<input id="__tabbed_1_2" name="__tabbed_1" type="radio">
-<input id="__tabbed_1_3" name="__tabbed_1" type="radio">
+<input checked="checked" id="{tab_id_1}" name="{group_name}" type="radio">
+<input id="{tab_id_2}" name="{group_name}" type="radio">
+<input id="{tab_id_3}" name="{group_name}" type="radio">
 <div class="tabbed-labels">
-<label for="__tabbed_1_1">Holmes CLI</label>
-<label for="__tabbed_1_2">Holmes Helm Chart</label>
-<label for="__tabbed_1_3">Robusta Helm Chart</label>
+<label for="{tab_id_1}">Holmes CLI</label>
+<label for="{tab_id_2}">Holmes Helm Chart</label>
+<label for="{tab_id_3}">Robusta Helm Chart</label>
 </div>
 <div class="tabbed-content">
 <div class="tabbed-block">
@@ -66,6 +74,12 @@ def helm_tabs_fence_format(source, language, css_class, options, md, **kwargs):
     Format YAML content into Holmes and Robusta Helm Chart tabs.
     This fence does NOT process Jinja2, so {{ env.VAR }} stays as-is.
     """
+    # Generate unique IDs for this tab group to prevent conflicts
+    tab_group_id = str(uuid.uuid4()).replace("-", "_")
+    tab_id_1 = f"__tabbed_{tab_group_id}_1"
+    tab_id_2 = f"__tabbed_{tab_group_id}_2"
+    group_name = f"__tabbed_{tab_group_id}"
+
     # Escape HTML in the source to prevent XSS
     escaped_source = html.escape(source)
 
@@ -81,11 +95,11 @@ def helm_tabs_fence_format(source, language, css_class, options, md, **kwargs):
     # Build the tabbed HTML structure
     tabs_html = f"""
 <div class="tabbed-set" data-tabs="1:2">
-<input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio">
-<input id="__tabbed_1_2" name="__tabbed_1" type="radio">
+<input checked="checked" id="{tab_id_1}" name="{group_name}" type="radio">
+<input id="{tab_id_2}" name="{group_name}" type="radio">
 <div class="tabbed-labels">
-<label for="__tabbed_1_1">Holmes Helm Chart</label>
-<label for="__tabbed_1_2">Robusta Helm Chart</label>
+<label for="{tab_id_1}">Holmes Helm Chart</label>
+<label for="{tab_id_2}">Robusta Helm Chart</label>
 </div>
 <div class="tabbed-content">
 <div class="tabbed-block">
