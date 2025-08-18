@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
+import requests  # type: ignore
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
@@ -24,7 +25,6 @@ from holmes.plugins.runbooks import (
 # Source plugin imports moved to their respective create methods to speed up startup
 if TYPE_CHECKING:
     from holmes.core.llm import LLM
-    from holmes.core.supabase_dal import SupabaseDal
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
@@ -136,8 +137,28 @@ class Config(RobustaBaseConfig):
 
     def model_post_init(self, __context: Any) -> None:
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        if self._should_load_robusta_ai():
-            logging.info("Loading Robusta AI model")
+        if not self._should_load_robusta_ai() or not self.cluster_name:
+            return
+        try:
+            dal = SupabaseDal(self.cluster_name)
+            account_id, token = dal.get_ai_credentials()
+            session_request = {"session_token": token, "account_id": account_id}
+            resp = requests.post(
+                f"{ROBUSTA_API_ENDPOINT}/api/llm/models",
+                json=session_request,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            response_json = resp.json()
+            models = response_json.get("models", [ROBUSTA_AI_MODEL_NAME])
+            for model in models:
+                logging.info("Loading Robusta AI model")
+                self._model_list[model] = {
+                    "base_url": ROBUSTA_API_ENDPOINT + f"/deployments/{model}",
+                }
+        except Exception:
+            logging.exception("Failed to get robusta models")
+            # defaulting to previous behavior
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
