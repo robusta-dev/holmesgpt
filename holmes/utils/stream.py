@@ -4,6 +4,7 @@ from typing import Generator, Optional, List
 import litellm
 from pydantic import BaseModel, Field
 from holmes.core.investigation_structured_output import process_response_into_sections
+from functools import partial
 
 
 class StreamEvents(str, Enum):
@@ -22,6 +23,25 @@ def create_sse_message(event_type: str, data: Optional[dict] = None):
     if data is None:
         data = {}
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+
+def create_sse_error_message(description: str, error_code: int, msg: str):
+    return create_sse_message(
+        StreamEvents.ERROR.value,
+        {
+            "description": description,
+            "error_code": error_code,
+            "msg": msg,
+            "success": False,
+        },
+    )
+
+
+create_rate_limit_error_message = partial(
+    create_sse_error_message,
+    error_code=5204,
+    msg="Rate limit exceeded",
+)
 
 
 def stream_investigate_formatter(
@@ -45,13 +65,7 @@ def stream_investigate_formatter(
             else:
                 yield create_sse_message(message.event.value, message.data)
     except litellm.exceptions.RateLimitError as e:
-        yield create_sse_message(
-            StreamEvents.ERROR.value,
-            {
-                "error": str(e),
-                "error_type": "rate_limit",
-            },
-        )
+        yield create_rate_limit_error_message(str(e))
 
 
 def stream_chat_formatter(
@@ -72,10 +86,4 @@ def stream_chat_formatter(
             else:
                 yield create_sse_message(message.event.value, message.data)
     except litellm.exceptions.RateLimitError as e:
-        yield create_sse_message(
-            StreamEvents.ERROR.value,
-            {
-                "error": str(e),
-                "error_type": "rate_limit",
-            },
-        )
+        yield create_rate_limit_error_message(str(e))
