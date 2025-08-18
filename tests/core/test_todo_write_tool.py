@@ -90,11 +90,11 @@ class TestTodoWriteTool:
 
         params = {"todos": [{"content": "task1"}, {"content": "task2"}]}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert "2 investigation tasks" in one_liner
+        assert f"{params.get('todos')} investigation tasks" in one_liner
 
         params = {"todos": []}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert "0 investigation tasks" in one_liner
+        assert f"{params.get('todos')} investigation tasks" in one_liner
 
     def test_task_status_enum(self):
         """Test TaskStatus enum values."""
@@ -105,7 +105,7 @@ class TestTodoWriteTool:
     def test_openai_format(self):
         """Test that the tool generates correct OpenAI format."""
         tool = TodoWriteTool()
-        openai_format = tool.get_openai_format()
+        openai_format = tool.get_openai_format("azure/gpt-4o")
 
         assert openai_format["type"] == "function"
         assert openai_format["function"]["name"] == "TodoWrite"

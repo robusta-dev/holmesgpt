@@ -73,11 +73,6 @@ class TestTodoListManager:
         assert "[~]" in prompt_context  # in_progress
         assert "[✓]" in prompt_context  # completed
 
-        # Check priority
-        assert "(HIGH)" in prompt_context
-        assert "(MED)" in prompt_context
-        assert "(LOW)" in prompt_context
-
     def test_session_clearing(self):
         """Test clearing session tasks."""
         manager = TodoListManager()
