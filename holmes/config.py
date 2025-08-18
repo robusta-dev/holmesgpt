@@ -137,12 +137,21 @@ class Config(RobustaBaseConfig):
 
     def model_post_init(self, __context: Any) -> None:
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        if not self._should_load_robusta_ai() or not self.cluster_name:
+
+        if not self._should_load_robusta_ai():
             return
+
+        self._load_robusta_ai_models()
+
+    def _load_robusta_ai_models(self) -> None:
         try:
+            if not self.cluster_name:
+                return
+
             dal = SupabaseDal(self.cluster_name)
             account_id, token = dal.get_ai_credentials()
             session_request = {"session_token": token, "account_id": account_id}
+
             resp = requests.post(
                 f"{ROBUSTA_API_ENDPOINT}/api/llm/models",
                 json=session_request,
@@ -150,15 +159,18 @@ class Config(RobustaBaseConfig):
             )
             resp.raise_for_status()
             response_json = resp.json()
+
             models = response_json.get("models", [ROBUSTA_AI_MODEL_NAME])
             for model in models:
-                logging.info("Loading Robusta AI model")
+                logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
-                    "base_url": ROBUSTA_API_ENDPOINT + f"/deployments/{model}",
+                    "base_url": f"{ROBUSTA_API_ENDPOINT}/deployments/{model}",
                 }
+
         except Exception:
-            logging.exception("Failed to get robusta models")
-            # defaulting to previous behavior
+            logging.exception("Failed to get all robusta models")
+            # fallback to default behavior
+            logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
             }
