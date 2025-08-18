@@ -4,9 +4,17 @@ Join us for our regular community meetings to discuss the HolmesGPT roadmap and 
 
 ## Community Meeting
 
-**📅 First HolmesGPT Community Meeting**
-**🕐 When:** TBD
-**📍 Where:** Google Meet (link will be shared)
+📅 **HolmesGPT Community Meetup**
+
+**🗓️ Date:** Thursday, August 21, 2025
+
+**📍 Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
+
+| Local Date & Time | Time Zone |
+|------------------|-----------|
+| Thursday, Aug 21 · 8:00 - 9:00 AM | PT (Pacific Time) |
+| Thursday, Aug 21 · 11:00 AM - 12:00 PM | ET (Eastern Time) |
+| Thursday, Aug 21 · 8:30 - 9:30 PM | IST (India Standard Time) |
 
 ### Agenda
 - [📋 HolmesGPT Roadmap](https://github.com/orgs/robusta-dev/projects/2) - Review and discuss upcoming features
@@ -15,8 +23,8 @@ Join us for our regular community meetings to discuss the HolmesGPT roadmap and 
 
 **Links:**
 
-- [🔗 Google Meet](#) (link will be added)
-- [📝 Meeting Notes](#) (Google Doc link will be added)
+- [🔗 Google Meet](https://meet.google.com/jxc-ujyf-xwy)
+- [📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0)
 - [📋 Roadmap](https://github.com/orgs/robusta-dev/projects/2)
 
 ## Get Involved
