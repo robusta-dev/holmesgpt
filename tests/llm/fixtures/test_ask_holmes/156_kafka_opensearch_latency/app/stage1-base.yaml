@@ -44,10 +44,9 @@ spec:
         resources:
           requests:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "50m"
           limits:
             memory: "512Mi"
-            cpu: "500m"
 ---
 # OpenSearch Service
 apiVersion: v1
@@ -95,7 +94,7 @@ spec:
             cpu: "100m"
           limits:
             memory: "512Mi"
-            cpu: "200m"  # Resource limit for container
+            cpu: "200m"
         startupProbe:
           httpGet:
             path: /_cluster/health
