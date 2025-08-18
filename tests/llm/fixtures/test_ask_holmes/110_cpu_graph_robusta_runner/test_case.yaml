@@ -1,7 +1,5 @@
 user_prompt:
-  - "can you show me a graph of the node exporter"
-  - "can you show me a memory graph of the node exporter"
-  - "can you show me a graph of the running node exporter"
+  - "generate me a graph of robusta-runner"
   - "Show me robusta-runner memory usage over the last 24 hours"
   - "Graph robusta-runner memory consumption trends for the past week"
   - "Display hourly memory usage pattern for robusta-runner over the last 3 days"
@@ -21,6 +19,6 @@ expected_output: |
   Output must contain 1 or more embeds in the following format
     <<{"type": "datadogql", "tool_name": "query_datadog_metrics", "random_key": "iD8G"}>>
 
-  random_key may be different than the above example, but all other parameters (type and tool_name) must be as described
+  random_key may be different than the above example so long as its a random looking key, but all other parameters (type and tool_name) must be as described
 
   Output must NOT tell the user it doesn't have access to metrics or that they should use another tool

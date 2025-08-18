@@ -5,7 +5,7 @@ expected_output:
   - Should use Redis Sets or Hashes for efficient session lookups
   - SCAN command or proper data structures would prevent the timeouts
 tags:
-  - medium
+  - hard
   - database
 description: |
   This eval demonstrates a common Redis anti-pattern - using KEYS command in production.

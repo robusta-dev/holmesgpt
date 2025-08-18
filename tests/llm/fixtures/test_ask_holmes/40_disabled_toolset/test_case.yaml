@@ -8,3 +8,6 @@ tags:
   # we should be able to fix this with a bit more work
   - medium
   - transparency
+
+skip: true
+skip_reason: "Holmes is now intelligent enough to investigate RabbitMQ using Kubernetes toolset alone, making this test ineffective. The LLM can discover RabbitMQ pods and check their status without the dedicated RabbitMQ toolset, defeating the purpose of testing disabled toolset behavior. Replaced by test 111 with a more appropriate scenario."

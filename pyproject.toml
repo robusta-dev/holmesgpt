@@ -60,6 +60,9 @@ azure-mgmt-alertsmanagement = "^1.0.0"
 azure-mgmt-resource = "^23.3.0"
 protobuf = ">=6.31.1"
 tenacity = "^9.1.2"
+# Due to a bug in the postgrest package, we need to pin the version to 0.16.8 until we will upgrade selfhost supabase versions.
+postgrest = "0.16.8"
+requests-aws4auth = "^1.3.1"
 
 [tool.poetry.group.dev.dependencies]
 mkdocs-material = "^9.5.39"
@@ -115,7 +118,8 @@ markers = [
     "port-forward: Tests requiring port forwarding to local services (automatically added to tests with port_forwards in test_case.yaml)",
     "toolset-limitation: Tests that cannot be solved no matter how smart the model, unless we improve the underlying toolsets themselves",
     "ask-for-clarification: Tests where Holmes should ask the user for clarification",
-    "database: Tests involving database interactions"
+    "database: Tests involving database interactions",
+    "datadog: DataDog toolset"
 ]
 
 addopts = [
