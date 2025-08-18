@@ -49,19 +49,22 @@ class TodoWriteTool(Tool):
             logging.info("No tasks in the investigation plan.")
             return
 
-        max_id_width = max(len(str(task.id)) for task in tasks)
-        max_content_width = max(len(task.content) for task in tasks)
-        max_status_width = max(len(task.status.value) for task in tasks)
-
-        id_width = max(max_id_width, 2)
-        content_width = max(max_content_width, 7)
-        status_width = max(max_status_width, 6)
-
         status_icons = {
             "pending": "[ ]",
             "in_progress": "[~]",
             "completed": "[✓]",
         }
+
+        max_id_width = max(len(str(task.id)) for task in tasks)
+        max_content_width = max(len(task.content) for task in tasks)
+        max_status_display_width = max(
+            len(f"{status_icons[task.status.value]} {task.status.value}")
+            for task in tasks
+        )
+
+        id_width = max(max_id_width, len("ID"))
+        content_width = max(max_content_width, len("Content"))
+        status_width = max(max_status_display_width, len("Status"))
 
         # Build table
         separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"

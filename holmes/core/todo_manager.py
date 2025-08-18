@@ -12,7 +12,7 @@ class TodoListManager:
 
     def __init__(self):
         self._sessions: Dict[str, List[Task]] = {}
-        self._lock = Lock()
+        self._lock: Lock = Lock()
 
     def get_session_tasks(self, session_id: str) -> List[Task]:
         with self._lock:
