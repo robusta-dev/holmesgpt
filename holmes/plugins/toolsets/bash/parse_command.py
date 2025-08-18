@@ -27,7 +27,7 @@ def stringify_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
     if command.cmd == "kubectl":
-        return stringify_kubectl_command(command, config)
+        return stringify_kubectl_command(command, original_command, config)
     elif command.cmd == "grep":
         return stringify_grep_command(command)
     else:

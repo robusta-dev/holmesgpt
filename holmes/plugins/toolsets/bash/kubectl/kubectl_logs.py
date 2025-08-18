@@ -1,6 +1,8 @@
 import argparse
 from typing import Any
 
+from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
+
 
 def create_kubectl_logs_parser(kubectl_parser: Any):
     parser = kubectl_parser.add_parser(
@@ -15,6 +17,8 @@ def create_kubectl_logs_parser(kubectl_parser: Any):
 
 
 def stringify_logs_command(cmd: Any) -> str:
-    raise ValueError(
-        "Use the tool `fetch_pod_logs` to fetch logs instead of running `kubectl logs` commands"
-    )
+    parts = ["kubectl", "logs", cmd.resource_type]
+
+    parts += cmd.options
+
+    return " ".join(escape_shell_args(parts))
