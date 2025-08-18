@@ -78,7 +78,8 @@ class TestTruncateMessagesToFitContext:
             maximum_output_token,
             simple_token_counter,
         )
-        verify_truncation_result(messages_case1, result1)
+        messages = result1.truncated_messages
+        verify_truncation_result(messages_case1, messages)
 
         # Test Case 2: One big tool and two small tools
         messages_case2 = create_test_messages(["X" * 8000, "Y" * 100, "Z" * 200])
@@ -88,7 +89,8 @@ class TestTruncateMessagesToFitContext:
             maximum_output_token,
             simple_token_counter,
         )
-        verify_truncation_result(messages_case2, result2)
+        messages = result2.truncated_messages
+        verify_truncation_result(messages_case2, messages)
 
     def test_no_truncation_when_messages_fit(self):
         """Test that messages are not truncated when they fit within context."""
@@ -126,7 +128,7 @@ class TestTruncateMessagesToFitContext:
         )
 
         # Messages should remain unchanged
-        assert result == original_messages
+        assert result.truncated_messages == original_messages
 
     def test_raises_exception_when_non_tool_messages_too_large(self):
         """Test that exception is raised when non-tool messages exceed context."""
@@ -168,7 +170,7 @@ class TestTruncateMessagesToFitContext:
         )
 
         # Should return unchanged when no tool messages
-        assert result == original_messages
+        assert result.truncated_messages == original_messages
 
 
 class TestTruncateMessagesToFitContextEdgeCases:
@@ -199,7 +201,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        messages = result.truncated_messages
+        tool_msg = [m for m in messages if m["role"] == "tool"][0]
         assert tool_msg["content"] == truncation_notice
 
     def test_truncation_notice_larger_than_allocation(self):
@@ -228,7 +231,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        messages = result.truncated_messages
+        tool_msg = [m for m in messages if m["role"] == "tool"][0]
         # Should be the first 5 chars of the truncation notice
         assert tool_msg["content"] == truncation_notice[:5]
 
@@ -264,7 +268,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msgs = [m for m in result if m["role"] == "tool"]
+        messages = result.truncated_messages
+        tool_msgs = [m for m in messages if m["role"] == "tool"]
         # Each tool should get 30 chars (60 // 2)
         for msg in tool_msgs:
             assert len(msg["content"]) == 30
