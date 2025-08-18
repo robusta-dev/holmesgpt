@@ -10,6 +10,7 @@ import holmes.utils.env as env_utils
 from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
+
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
@@ -67,6 +68,7 @@ def load_toolsets_from_file(
 
 def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
+
     toolsets: list[Toolset] = [
         InternetToolset(),
         RobustaToolset(dal),

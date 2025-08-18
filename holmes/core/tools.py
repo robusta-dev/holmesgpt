@@ -413,7 +413,7 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, quiet: bool = False):
         self.status = ToolsetStatusEnum.ENABLED
 
         for prereq in self.prerequisites:
@@ -425,8 +425,10 @@ class Toolset(BaseModel):
                         shell=True,
                         check=True,
                         text=True,
+                        stdin=subprocess.DEVNULL,  # Prevent interactive prompts
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        timeout=10,  # 10 second timeout for prerequisite checks
                     )
                     if (
                         prereq.expected_output
@@ -434,6 +436,9 @@ class Toolset(BaseModel):
                     ):
                         self.status = ToolsetStatusEnum.FAILED
                         self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
+                except subprocess.TimeoutExpired:
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` timed out after 10 seconds"
                 except subprocess.CalledProcessError as e:
                     self.status = ToolsetStatusEnum.FAILED
                     self.error = f"`{prereq.command}` returned {e.returncode}"
@@ -451,7 +456,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
-                    (enabled, error_message) = prereq.callable(self.config)
+                    (enabled, error_message) = prereq.callable(self.config or {})
                     if not enabled:
                         self.status = ToolsetStatusEnum.FAILED
                     if error_message:
@@ -464,11 +469,13 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logging.info(f"❌ Toolset {self.name}: {self.error}")
+                if not quiet:
+                    logging.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        logging.info(f"✅ Toolset {self.name}")
+        if not quiet:
+            logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
