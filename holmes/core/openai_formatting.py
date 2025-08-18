@@ -53,10 +53,9 @@ def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str
         if match.group("inner_type"):
             inner_type = match.group("inner_type")
             if inner_type == "object":
-                items_obj: dict[str, Any] = {"type": "object"}
-                if strict_mode:
-                    items_obj["additionalProperties"] = False
-                type_obj = {"type": "array", "items": items_obj}
+                raise ValueError(
+                    "object inner type must have schema. Use ToolParameter.items"
+                )
             else:
                 type_obj = {"type": "array", "items": {"type": inner_type}}
         else:
