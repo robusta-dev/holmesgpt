@@ -14,7 +14,7 @@ from holmes.clients.robusta_client import fetch_robusta_models
 from holmes.core.llm import DefaultLLM
 from holmes.common.env_vars import (
     ROBUSTA_AI,
-    ROBUSTA_ALL_AI_MODELS,
+    LOAD_ALL_ROBUSTA_MODELS,
     ROBUSTA_API_ENDPOINT,
     ROBUSTA_CONFIG_PATH,
 )
@@ -152,7 +152,7 @@ class Config(RobustaBaseConfig):
         if not self.api_key:
             return
         try:
-            if not self.cluster_name or not ROBUSTA_ALL_AI_MODELS:
+            if not self.cluster_name or not LOAD_ALL_ROBUSTA_MODELS:
                 self._load_default_robusta_config()
                 return
 
