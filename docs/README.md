@@ -22,14 +22,14 @@ poetry install --with=dev
 To serve the documentation locally with live reload:
 
 ```bash
-# From the repository root
-poetry run mkdocs serve
+# From the repository root (serves on http://127.0.0.1:7000)
+poetry run mkdocs serve --dev-addr=127.0.0.1:7000
 
 # Or specify a different port
 poetry run mkdocs serve --dev-addr=127.0.0.1:8001
 ```
 
-The documentation will be available at `http://127.0.0.1:8000` (or the port you specified).
+The documentation will be available at `http://127.0.0.1:7000` (or the port you specified).
 
 ### Build Static Site
 
