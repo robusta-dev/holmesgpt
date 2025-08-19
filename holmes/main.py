@@ -94,7 +94,7 @@ opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     help="Path to a custom runbooks (can specify -r multiple times to add multiple runbooks)",
 )
 opt_max_steps: Optional[int] = typer.Option(
-    10,
+    40,
     "--max-steps",
     help="Advanced. Maximum number of steps the LLM can take to investigate the issue",
 )
@@ -310,6 +310,7 @@ def ask(
         prompt,  # type: ignore
         include_file,
         ai.tool_executor,
+        ai.investigation_id,
         config.get_runbook_catalog(),
         system_prompt_additions,
     )

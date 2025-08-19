@@ -24,6 +24,26 @@ def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str
         type_obj = {"type": "object"}
         if strict_mode:
             type_obj["additionalProperties"] = False
+
+        # Use explicit properties if provided
+        if hasattr(param_attributes, "properties") and param_attributes.properties:
+            type_obj["properties"] = {
+                name: type_to_open_ai_schema(prop, strict_mode)
+                for name, prop in param_attributes.properties.items()
+            }
+            if strict_mode:
+                type_obj["required"] = list(param_attributes.properties.keys())
+
+    elif param_type == "array":
+        # Handle arrays with explicit item schemas
+        if hasattr(param_attributes, "items") and param_attributes.items:
+            items_schema = type_to_open_ai_schema(param_attributes.items, strict_mode)
+            type_obj = {"type": "array", "items": items_schema}
+        else:
+            # Fallback for arrays without explicit item schema
+            type_obj = {"type": "array", "items": {"type": "object"}}
+            if strict_mode:
+                type_obj["items"]["additionalProperties"] = False
     else:
         match = re.match(pattern, param_type)
 
@@ -33,10 +53,9 @@ def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str
         if match.group("inner_type"):
             inner_type = match.group("inner_type")
             if inner_type == "object":
-                items_obj: dict[str, Any] = {"type": "object"}
-                if strict_mode:
-                    items_obj["additionalProperties"] = False
-                type_obj = {"type": "array", "items": items_obj}
+                raise ValueError(
+                    "object inner type must have schema. Use ToolParameter.items"
+                )
             else:
                 type_obj = {"type": "array", "items": {"type": inner_type}}
         else:

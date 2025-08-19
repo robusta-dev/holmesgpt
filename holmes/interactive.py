@@ -1004,6 +1004,7 @@ def run_interactive_loop(
                     user_input,
                     include_files,
                     ai.tool_executor,
+                    ai.investigation_id,
                     runbooks,
                     system_prompt_additions,
                 )

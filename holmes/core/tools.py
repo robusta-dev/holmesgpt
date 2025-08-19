@@ -122,6 +122,8 @@ class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
+    properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
+    items: Optional["ToolParameter"] = None  # For array item schemas
 
 
 class Tool(ABC, BaseModel):
