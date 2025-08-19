@@ -7,3 +7,4 @@ def load_robusta_api_key(dal: SupabaseDal, config: Config):
     if ROBUSTA_AI:
         account_id, token = dal.get_ai_credentials()
         config.api_key = SecretStr(f"{account_id} {token}")
+        config.configure_robusta_ai_model()
