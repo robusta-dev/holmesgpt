@@ -3,13 +3,9 @@ from typing import Any
 
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import (
-    regex_validator,
     whitelist_validator,
 )
 from holmes.plugins.toolsets.bash.kubectl.constants import (
-    SAFE_NAME_PATTERN,
-    SAFE_NAMESPACE_PATTERN,
-    SAFE_SELECTOR_PATTERN,
     VALID_RESOURCE_TYPES,
 )
 
@@ -28,7 +24,6 @@ def create_kubectl_describe_parser(kubectl_parser: Any):
         nargs=argparse.REMAINDER,  # Captures all remaining arguments
         default=[],  # Default to an empty list
     )
-
 
 
 def stringify_describe_command(cmd: Any) -> str:

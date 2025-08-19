@@ -79,7 +79,9 @@ def validate_kubectl_command(cmd: Any) -> None:
             raise ValueError("Label selector too long")
 
 
-def stringify_kubectl_command(command: Any, original_command:str, config: Optional[BashExecutorConfig]):
+def stringify_kubectl_command(
+    command: Any, original_command: str, config: Optional[BashExecutorConfig]
+):
     if command.cmd == "kubectl":
         validate_kubectl_command(command)
         if command.action == "get":

@@ -12,7 +12,10 @@ from holmes.plugins.toolsets.bash.kubectl import (
 
 def create_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Parser for commands", exit_on_error=False
+        prog="command_parser",  # Set explicit program name
+        description="Parser for commands",
+        exit_on_error=False,
+        add_help=False,  # Disable help to avoid conflicts with -h in subcommands
     )
     commands_parser = parser.add_subparsers(
         dest="cmd", required=True, help="The tool to command (e.g., kubectl)"
@@ -100,4 +103,6 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
         # This ideally should be captured differently by ensuring all possible args
         # are accounted for in the implementation for each command.
         # When falling back, we raise a generic error
-        raise ValueError("The command failed to be parsed for safety") from None
+        raise ValueError(
+            f"The following command failed to be parsed for safety: {command_str}"
+        ) from None

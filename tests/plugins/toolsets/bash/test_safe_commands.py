@@ -102,16 +102,16 @@ class TestKubectlIntegration:
             ("kubectl top pod my-pod", "kubectl top pod my-pod"),
             # Basic kubectl events commands
             ("kubectl events", "kubectl events"),
-            ("kubectl events -n default", "kubectl events --namespace default"),
+            ("kubectl events -n default", "kubectl events -n default"),
             (
                 "kubectl events --namespace=kube-system",
-                "kubectl events --namespace kube-system",
+                "kubectl events --namespace=kube-system",
             ),
-            ("kubectl events --for=pod/my-pod", "kubectl events --for pod/my-pod"),
-            ("kubectl events --types=Normal", "kubectl events --types Normal"),
+            ("kubectl events --for=pod/my-pod", "kubectl events --for=pod/my-pod"),
+            ("kubectl events --types=Normal", "kubectl events --types=Normal"),
             (
                 "kubectl events --types=Normal,Warning",
-                "kubectl events --types Normal,Warning",
+                "kubectl events --types=Normal,Warning",
             ),
             ("kubectl events --watch", "kubectl events --watch"),
             # kubectl get with grep
@@ -156,11 +156,11 @@ class TestKubectlIntegration:
             ("kubectl events | grep Failed", "kubectl events | grep Failed"),
             (
                 "kubectl events -n default | grep 'Warning'",
-                "kubectl events -n default | grep 'Warning'",
+                "kubectl events -n default | grep Warning",
             ),
             (
                 "kubectl events --for=pod/my-pod | grep Error",
-                "kubectl events --for pod/my-pod | grep Error",
+                "kubectl events --for=pod/my-pod | grep Error",
             ),
             # Complex kubectl get commands
             (
@@ -200,7 +200,7 @@ class TestKubectlIntegration:
             # Complex kubectl events commands
             (
                 "kubectl events -n default --for=deployment/my-app --types=Warning,Normal",
-                "kubectl events --namespace default --for deployment/my-app --types Warning,Normal",
+                "kubectl events -n default --for=deployment/my-app --types=Warning,Normal",
             ),
             (
                 "kubectl events --namespace=kube-system --types=Warning --watch",

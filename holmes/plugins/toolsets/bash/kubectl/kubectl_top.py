@@ -2,12 +2,6 @@ import argparse
 from typing import Any
 
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
-from holmes.plugins.toolsets.bash.common.validators import regex_validator
-from holmes.plugins.toolsets.bash.kubectl.constants import (
-    SAFE_NAME_PATTERN,
-    SAFE_NAMESPACE_PATTERN,
-    SAFE_SELECTOR_PATTERN,
-)
 
 
 def create_kubectl_top_parser(kubectl_parser: Any):
@@ -34,4 +28,3 @@ def stringify_top_command(cmd: Any) -> str:
     parts += cmd.options
 
     return " ".join(escape_shell_args(parts))
-

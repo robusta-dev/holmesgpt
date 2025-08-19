@@ -9,12 +9,14 @@ def create_kubectl_events_parser(kubectl_parser: Any):
         "events",
         help="List events",
         exit_on_error=False,  # Important for library use
+        add_help=False,
+        prefix_chars="\x00",  # Use null character as prefix to disable option parsing
     )
 
     parser.add_argument(
         "options",
-        nargs=argparse.REMAINDER,  # Captures all remaining arguments
-        default=[],  # Default to an empty list
+        nargs=argparse.REMAINDER,  # Now REMAINDER works because it comes after a positional
+        default=[],
     )
 
 

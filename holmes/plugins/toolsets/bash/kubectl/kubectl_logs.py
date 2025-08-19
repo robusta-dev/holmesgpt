@@ -17,7 +17,7 @@ def create_kubectl_logs_parser(kubectl_parser: Any):
 
 
 def stringify_logs_command(cmd: Any) -> str:
-    parts = ["kubectl", "logs", cmd.resource_type]
+    parts = ["kubectl", "logs"]
 
     parts += cmd.options
 
