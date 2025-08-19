@@ -6,13 +6,18 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
-import requests  # type: ignore
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
 
+from holmes.clients.robusta_client import fetch_robusta_models
 from holmes.core.llm import DefaultLLM
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
+from holmes.common.env_vars import (
+    ROBUSTA_AI,
+    ROBUSTA_ALL_AI_MODELS,
+    ROBUSTA_API_ENDPOINT,
+    ROBUSTA_CONFIG_PATH,
+)
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -141,31 +146,28 @@ class Config(RobustaBaseConfig):
         if not self._should_load_robusta_ai():
             return
 
-        self._load_robusta_ai_models()
+        self.configure_robusta_ai_model()
 
-    def _load_robusta_ai_models(self) -> None:
+    def configure_robusta_ai_model(self) -> None:
+        if not self.api_key:
+            return
         try:
-            if not self.cluster_name:
+            if not self.cluster_name or not ROBUSTA_ALL_AI_MODELS:
                 self._load_default_robusta_config()
                 return
 
             dal = SupabaseDal(self.cluster_name)
             account_id, token = dal.get_ai_credentials()
-            session_request = {"session_token": token, "account_id": account_id}
+            models = fetch_robusta_models(account_id, token)
+            if not models:
+                self._load_default_robusta_config()
+                return
 
-            resp = requests.post(
-                f"{ROBUSTA_API_ENDPOINT}/api/llm/models",
-                json=session_request,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            response_json = resp.json()
-
-            models = response_json.get("models", [ROBUSTA_AI_MODEL_NAME])
             for model in models:
                 logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
-                    "base_url": f"{ROBUSTA_API_ENDPOINT}/deployments/{model}",
+                    "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
+                    "api_key": self.api_key.get_secret_value(),
                 }
 
         except Exception:
@@ -174,14 +176,8 @@ class Config(RobustaBaseConfig):
             self._load_default_robusta_config()
 
     def _load_default_robusta_config(self):
-        logging.info("Loading default Robusta AI model")
-        self._model_list[ROBUSTA_AI_MODEL_NAME] = {
-            "base_url": ROBUSTA_API_ENDPOINT,
-        }
-
-    def configure_robusta_ai_model(self) -> None:
         if self._should_load_robusta_ai() and self.api_key:
-            logging.info("Loading Robusta AI model")
+            logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "api_key": self.api_key.get_secret_value(),

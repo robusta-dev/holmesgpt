@@ -81,6 +81,7 @@ dal = SupabaseDal(config.cluster_name)
 
 
 def sync_before_server_start():
+    load_robusta_api_key(dal=dal, config=config)
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
