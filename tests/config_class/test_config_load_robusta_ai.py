@@ -41,7 +41,12 @@ def test_server_not_loads_robusta_ai_when_false(monkeypatch):
 
 
 @patch("holmes.config.ROBUSTA_AI", True)
-@patch("holmes.config.LOAD_ALL_ROBUSTA_MODELS", False)
+@patch("holmes.config.api_key", "test")
+@patch("holmes.config.cluster_name", "test")
+@patch(
+    "holmes.client.robusta_client.fetch_robusta_models",
+    return_value=["Robusta/test"],
+)
 @patch(
     "holmes.config.parse_models_file",
     return_value={"existing_model": {"base_url": "http://foo"}},
