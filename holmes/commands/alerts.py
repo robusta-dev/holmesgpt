@@ -121,7 +121,6 @@ def view_alerts(
         # Create and start interactive view using component-based approach
         console.print("[cyan]Starting interactive alert viewer...[/cyan]")
         console.print("[dim]Press Ctrl+C to exit[/dim]\n")
-        console.print("[yellow]Loading...[/yellow]")
 
         # Create the components needed for interactive view
         from holmes.alert_proxy.alert_enrichment import AlertEnricher
@@ -137,12 +136,11 @@ def view_alerts(
         # Create and run the interactive UI (it will create its own AlertManager)
         ui = AlertUIController(config, alert_config, enricher)
 
-        import asyncio
-
-        asyncio.run(ui.run())
+        ui.run()
 
     except KeyboardInterrupt:
-        console.print("\n[yellow]Alert viewer stopped by user[/yellow]")
+        # Print shutdown message after UI has fully exited
+        console.print("\n[yellow]Alert viewer stopped[/yellow]")
     except Exception as e:
         logger.error(f"Error running alert viewer: {e}")
         console.print(f"[red]Error: {e}[/red]")

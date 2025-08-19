@@ -3,7 +3,16 @@
 HolmesGPT provides two ways to investigate Prometheus/AlertManager alerts:
 
 1. **Interactive Viewer** - Real-time monitoring and AI enrichment in a terminal UI
+
+```
+holmes alerts view
+```
+
 2. **Command-line Investigation** - One-time investigation of specific alerts
+
+```
+holmes investigate alertmanager
+```
 
 ![Single Alert Investigation](../assets/alertmanager-single-alert-investigation.gif)
 
@@ -43,14 +52,16 @@ The interactive viewer includes:
 - **Real-time Updates** - Polls AlertManager every 30 seconds
 - **Auto-discovery** - Automatically finds AlertManager instances in Kubernetes
 - **Three-pane Layout**:
-  - Alert list with status and AI enrichment
-  - Inspector for detailed alert information
-  - Console for enrichment logs
+
+    - Alert list with status and AI enrichment
+    - Inspector for detailed alert information
+    - Console for enrichment logs
+
 - **Vim-style Navigation** - Keyboard shortcuts for efficient browsing
 - **AI Enrichment** - Two modes:
 
-  - Manual: Press 'e' to enrich selected alert or 'E' for all alerts
-  - Automatic: Use `--enable-enrichment` flag to enrich all alerts on startup
+    - Manual: Press 'e' to enrich selected alert or 'E' for all alerts
+    - Automatic: Use `--enable-enrichment` flag to enrich all alerts on startup
 
 ### Keyboard Shortcuts
 
@@ -98,18 +109,11 @@ holmes alerts list --severity critical
 holmes alerts list --label "namespace=production"
 ```
 
-This command is useful for:
-
-- Quick status checks in scripts
-- Piping to other tools (`holmes alerts list --format json | jq`)
-- Integration with monitoring dashboards
-- CI/CD pipelines
-
 ### Investigate Alerts
 
 For one-time investigation of specific alerts without the interactive UI, use the `investigate` command.
 
-### Step 1: Access AlertManager
+#### Step 1: Access AlertManager
 
 If AlertManager isn't publicly accessible, forward it to your local machine:
 
@@ -117,7 +121,7 @@ If AlertManager isn't publicly accessible, forward it to your local machine:
 kubectl port-forward svc/<Your-Alertmanager-Service> 9093:9093
 ```
 
-### Step 2: Create a Test Alert (Optional)
+#### Step 2: Create a Test Alert (Optional)
 
 Deploy a crashing workload and create a test alert:
 
@@ -148,7 +152,7 @@ curl -X POST http://localhost:9093/api/v1/alerts \
   ]'
 ```
 
-### Step 3: Run Investigation
+#### Step 3: Run Investigation
 
 Investigate all alerts or specific ones:
 
@@ -164,7 +168,7 @@ holmes investigate alertmanager \
 
 ![AlertManager Alert Investigation](../assets/alertmanager-all-alert-investigation.png)
 
-## Filtering Alerts
+#### Filtering Alerts
 
 The `holmes investigate alertmanager` command supports many flags. For example, to investigate only critical alerts or alerts in a specific namespace, you can use the `--alertmanager-label` flag:
 

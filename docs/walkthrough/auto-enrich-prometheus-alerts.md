@@ -54,12 +54,13 @@ route:
 ### 3. Done!
 
 Every alert now includes:
+
 - **Business Impact** - "Affecting 1,200 checkout users"
 - **Root Cause** - "Memory leak from unclosed DB connections"
 - **Suggested Fix** - "Restart pod or scale replicas"
 - **Related Issues** - Links to correlated alerts
 
-## Real Examples
+## Examples
 
 ### Example: OOM Kill Alert
 

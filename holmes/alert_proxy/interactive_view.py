@@ -845,7 +845,11 @@ UI:
     def _quit_app(self, event):
         """Quit the application."""
         self.stop_event.set()
-        event.app.exit()
+        try:
+            event.app.exit()
+        except Exception:
+            # App might already be exiting, that's fine
+            pass
 
     # Update methods
     def _update_list(self):
@@ -934,7 +938,11 @@ UI:
     def stop(self):
         """Stop the interactive view."""
         self.stop_event.set()
-        self.app.exit()
+        try:
+            self.app.exit()
+        except Exception:
+            # App might already be stopped, that's fine
+            pass
 
     def set_model(self, model):
         """Set the model reference."""
