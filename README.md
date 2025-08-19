@@ -192,7 +192,7 @@ Join our community meetings to discuss the HolmesGPT roadmap and share feedback:
 - **Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
 - **Agenda:** [Roadmap discussion](https://github.com/orgs/robusta-dev/projects/2), community feedback, and Q&A
 
-[📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Full Details](https://robusta-dev.github.io/holmesgpt/community/)
+[📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Full Details](https://holmesgpt.dev/community/)
 
 ## Support
 
