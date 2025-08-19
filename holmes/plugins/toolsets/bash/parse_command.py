@@ -20,6 +20,14 @@ from holmes.plugins.toolsets.bash.argocd import (
     create_argocd_parser,
     stringify_argocd_command,
 )
+from holmes.plugins.toolsets.bash.docker import (
+    create_docker_parser,
+    stringify_docker_command,
+)
+from holmes.plugins.toolsets.bash.helm import (
+    create_helm_parser,
+    stringify_helm_command,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -38,6 +46,8 @@ def create_parser() -> argparse.ArgumentParser:
     create_aws_parser(commands_parser)
     create_azure_parser(commands_parser)
     create_argocd_parser(commands_parser)
+    create_docker_parser(commands_parser)
+    create_helm_parser(commands_parser)
     return parser
 
 
@@ -54,10 +64,14 @@ def stringify_command(
         return stringify_azure_command(command, original_command, config)
     elif command.cmd == "argocd":
         return stringify_argocd_command(command, original_command, config)
+    elif command.cmd == "docker":
+        return stringify_docker_command(command, original_command, config)
+    elif command.cmd == "helm":
+        return stringify_helm_command(command, original_command, config)
     else:
         # This code path should not happen b/c the parsing of the command should catch an unsupported command
         raise ValueError(
-            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep, aws, az, argocd"
+            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep, aws, az, argocd, docker, helm"
         )
 
 

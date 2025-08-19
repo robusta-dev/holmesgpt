@@ -466,6 +466,8 @@ class TestMultiCLIIntegration:
             ),
             ("az vm list | grep production", "az vm list | grep production"),
             ("argocd app list | grep web", "argocd app list | grep web"),
+            ("docker ps | grep nginx", "docker ps | grep nginx"),
+            ("helm list | grep myrelease", "helm list | grep myrelease"),
             # Commands with various output formats
             ("kubectl get pods -o json", "kubectl get pods -o json"),
             (
@@ -474,9 +476,93 @@ class TestMultiCLIIntegration:
             ),
             ("az vm list --output table", "az vm list --output table"),
             ("argocd app list --output wide", "argocd app list --output wide"),
+            ("docker ps --format json", "docker ps --format json"),
+            ("helm list --output yaml", "helm list --output yaml"),
         ],
     )
     def test_multi_cli_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestDockerIntegration:
+    """Integration tests for Docker CLI commands through parse -> stringify pipeline."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Basic Docker commands
+            ("docker ps", "docker ps"),
+            ("docker ps -a", "docker ps -a"),
+            ("docker ps --format json", "docker ps --format json"),
+            ("docker images", "docker images"),
+            ("docker images -q", "docker images -q"),
+            ("docker container ls", "docker container ls"),
+            ("docker container inspect mycontainer", "docker container inspect mycontainer"),
+            ("docker container logs mycontainer", "docker container logs mycontainer"),
+            ("docker container logs mycontainer --tail 100", "docker container logs mycontainer --tail 100"),
+            ("docker container stats", "docker container stats"),
+            ("docker image ls", "docker image ls"),
+            ("docker image inspect nginx", "docker image inspect nginx"),
+            ("docker image history nginx", "docker image history nginx"),
+            ("docker network ls", "docker network ls"),
+            ("docker network inspect bridge", "docker network inspect bridge"),
+            ("docker volume ls", "docker volume ls"),
+            ("docker volume inspect myvolume", "docker volume inspect myvolume"),
+            ("docker version", "docker version"),
+            ("docker info", "docker info"),
+            ("docker system df", "docker system df"),
+            ("docker search nginx", "docker search nginx"),
+            # Docker with grep
+            ("docker ps | grep nginx", "docker ps | grep nginx"),
+            ("docker images | grep latest", "docker images | grep latest"),
+            # Docker with complex filters
+            ("docker ps --filter status=running --format table", "docker ps --filter status=running --format table"),
+        ],
+    )
+    def test_docker_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestHelmIntegration:
+    """Integration tests for Helm CLI commands through parse -> stringify pipeline."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Basic Helm commands
+            ("helm list", "helm list"),
+            ("helm ls", "helm ls"),
+            ("helm list --output json", "helm list --output json"),
+            ("helm list --namespace production", "helm list --namespace production"),
+            ("helm list -n production", "helm list -n production"),
+            ("helm list --all-namespaces", "helm list --all-namespaces"),
+            ("helm get all myrelease", "helm get all myrelease"),
+            ("helm get values myrelease", "helm get values myrelease"),
+            ("helm get manifest myrelease", "helm get manifest myrelease"),
+            ("helm status myrelease", "helm status myrelease"),
+            ("helm history myrelease", "helm history myrelease"),
+            ("helm show chart nginx", "helm show chart nginx"),
+            ("helm show values nginx", "helm show values nginx"),
+            ("helm search repo nginx", "helm search repo nginx"),
+            ("helm template myrelease nginx", "helm template myrelease nginx"),
+            ("helm template myrelease nginx --dry-run", "helm template myrelease nginx --dry-run"),
+            ("helm lint ./mychart", "helm lint ./mychart"),
+            ("helm verify mychart-1.0.0.tgz", "helm verify mychart-1.0.0.tgz"),
+            ("helm dependency list ./mychart", "helm dependency list ./mychart"),
+            ("helm repo list", "helm repo list"),
+            ("helm plugin list", "helm plugin list"),
+            ("helm version", "helm version"),
+            ("helm env", "helm env"),
+            # Helm with grep
+            ("helm list | grep myrelease", "helm list | grep myrelease"),
+            ("helm search repo nginx | grep stable", "helm search repo nginx | grep stable"),
+            # Helm with complex parameters
+            ("helm template myrelease nginx --namespace production --values values.yaml --set replicas=3", "helm template myrelease nginx --namespace production --values values.yaml --set replicas=3"),
+        ],
+    )
+    def test_helm_round_trip(self, input_command: str, expected_output: str):
         output_command = make_command_safe(input_command, config=TEST_CONFIG)
         assert output_command == expected_output
 
