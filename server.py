@@ -2,6 +2,7 @@
 import os
 from typing import List, Optional
 
+import litellm
 import sentry_sdk
 from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
@@ -148,6 +149,8 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/investigate: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -217,6 +220,7 @@ def workload_health_check(request: WorkloadHealthRequest):
                 "toolsets": ai.tool_executor.toolsets,
                 "response_format": workload_health_structured_output,
                 "cluster_name": config.cluster_name,
+                "investigation_id": ai.investigation_id,
             },
         )
 
@@ -236,6 +240,8 @@ def workload_health_check(request: WorkloadHealthRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.exception(f"Error in /api/workload_health_check: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -265,6 +271,8 @@ def workload_health_conversation(
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/workload_health_chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -292,6 +300,8 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/issue_chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -362,6 +372,8 @@ def chat(chat_request: ChatRequest):
             )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
