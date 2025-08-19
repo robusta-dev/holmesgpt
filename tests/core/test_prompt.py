@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from unittest.mock import Mock
 from rich.console import Console
@@ -6,6 +8,7 @@ from holmes.core.prompt import (
     build_initial_ask_messages,
     append_file_to_user_prompt,
     append_all_files_to_user_prompt,
+    get_tasks_management_system_reminder,
 )
 
 
@@ -28,6 +31,7 @@ def test_build_initial_ask_messages_basic(console, mock_tool_executor):
         "Test prompt",
         None,
         mock_tool_executor,
+        str(uuid.uuid4()),
         None,
         None,
     )
@@ -35,7 +39,9 @@ def test_build_initial_ask_messages_basic(console, mock_tool_executor):
     assert len(messages) == 2
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
-    assert messages[1]["content"] == "Test prompt"
+    assert (
+        messages[1]["content"] == "Test prompt" + get_tasks_management_system_reminder()
+    )
 
 
 def test_build_initial_ask_messages_with_system_prompt_additions(
@@ -48,6 +54,7 @@ def test_build_initial_ask_messages_with_system_prompt_additions(
         "Test prompt",
         None,
         mock_tool_executor,
+        str(uuid.uuid4()),
         None,
         system_additions,
     )
@@ -57,7 +64,9 @@ def test_build_initial_ask_messages_with_system_prompt_additions(
     # Check for unique word from the system additions
     assert "Additional" in messages[0]["content"]
     assert messages[1]["role"] == "user"
-    assert messages[1]["content"] == "Test prompt"
+    assert (
+        messages[1]["content"] == "Test prompt" + get_tasks_management_system_reminder()
+    )
 
 
 def test_build_initial_ask_messages_with_file(console, mock_tool_executor, tmp_path):
@@ -71,6 +80,7 @@ def test_build_initial_ask_messages_with_file(console, mock_tool_executor, tmp_p
         "Test prompt",
         [test_file],
         mock_tool_executor,
+        str(uuid.uuid4()),
         None,
         None,
     )
@@ -95,6 +105,7 @@ def test_build_initial_ask_messages_with_runbooks(console, mock_tool_executor):
         "Test prompt",
         None,
         mock_tool_executor,
+        str(uuid.uuid4()),
         runbooks,
         None,
     )
@@ -103,7 +114,9 @@ def test_build_initial_ask_messages_with_runbooks(console, mock_tool_executor):
     assert messages[0]["role"] == "system"
     # The runbook should be passed to the template context
     assert messages[1]["role"] == "user"
-    assert messages[1]["content"] == "Test prompt"
+    assert (
+        messages[1]["content"] == "Test prompt" + get_tasks_management_system_reminder()
+    )
 
 
 def test_build_initial_ask_messages_all_parameters(
@@ -122,6 +135,7 @@ def test_build_initial_ask_messages_all_parameters(
         "Test prompt",
         [test_file],
         mock_tool_executor,
+        str(uuid.uuid4()),
         runbooks,
         system_additions,
     )
