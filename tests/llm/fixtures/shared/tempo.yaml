@@ -103,12 +103,9 @@ data:
       frontend_worker:
         frontend_address: 127.0.0.1:9095
       max_concurrent_queries: 10
-      search:
-        max_duration: 17520h  # 2 years
 
     query_frontend:
-      search:
-        max_duration: 17520h  # 2 years
+      max_batch_size: 5
 
     overrides:
       max_traces_per_user: 10000
