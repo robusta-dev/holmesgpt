@@ -156,9 +156,7 @@ class Config(RobustaBaseConfig):
                 self._load_default_robusta_config()
                 return
 
-            dal = SupabaseDal(self.cluster_name)
-            account_id, token = dal.get_ai_credentials()
-            models = fetch_robusta_models(account_id, token)
+            models = fetch_robusta_models(self.cluster_name)
             if not models:
                 self._load_default_robusta_config()
                 return
