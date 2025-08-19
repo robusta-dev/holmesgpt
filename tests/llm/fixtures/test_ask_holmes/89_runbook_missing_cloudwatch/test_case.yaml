@@ -2,7 +2,7 @@ user_prompt: "My AWS Lambda function 'payment-processor' in us-east-1 has high l
 tags:
   - runbooks
   - transparency
-  - easy
+  - medium
 
 expected_output: |
   - Finds Lambda performance troubleshooting runbook
