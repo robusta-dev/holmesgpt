@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.table import Table
 
 from tests.llm.utils.test_results import TestStatus, TestResult
+from holmes.common.env_vars import RECOMMENDED_OPENAI_MODEL
 
 
 def handle_console_output(sorted_results: List[dict], terminalreporter=None) -> None:
@@ -158,7 +159,7 @@ def _get_llm_analysis(result: TestResult) -> str:
 
     try:
         response = completion(
-            model="gpt-4o",
+            model=RECOMMENDED_OPENAI_MODEL,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=200,
             temperature=0.1,

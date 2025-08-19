@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
+from holmes.common.env_vars import (
+    DEFAULT_MODEL,
+    ROBUSTA_AI,
+    ROBUSTA_API_ENDPOINT,
+    ROBUSTA_CONFIG_PATH,
+)
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -71,7 +76,7 @@ class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
-    model: Optional[str] = "gpt-4o"
+    model: Optional[str] = DEFAULT_MODEL
     max_steps: int = 10
     cluster_name: Optional[str] = None
 

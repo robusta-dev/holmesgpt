@@ -28,7 +28,7 @@ poetry install --with=dev
 ### Basic Commands
 
 ```bash
-# Run all easy evals - these should always pass assuming you have a kubernetes cluster with sufficient resources and a 'good enough model' (e.g. gpt-4o)
+# Run all easy evals - these should always pass assuming you have a kubernetes cluster with sufficient resources and a 'good enough model' (e.g. gpt-4.1, claude-opus-4-1)
 RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
 
 # Run a specific eval
@@ -43,12 +43,12 @@ RUN_LIVE=true poetry run pytest -m "llm and logs" --no-cov
 The `MODEL` environment variable is equivalent to the `--model` flag on the `holmes ask` CLI command. You can test HolmesGPT with different LLM providers:
 
 ```bash
-# Test with GPT-4 (default)
-RUN_LIVE=true MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+# Test with GPT-4.1 (default)
+RUN_LIVE=true MODEL=gpt-4.1 poetry run pytest -m 'llm and easy'
 
 # Test with Claude
 # Note: CLASSIFIER_MODEL must be set to OpenAI or Azure as Anthropic models are not currently supported for classification
-RUN_LIVE=true MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+RUN_LIVE=true MODEL=anthropic/claude-opus-4-1-20250805 CLASSIFIER_MODEL=gpt-4.1 poetry run pytest -m 'llm and easy'
 
 # Test with Azure OpenAI
 # Set required Azure environment variables for your deployment
@@ -90,8 +90,8 @@ Essential variables for controlling test behavior:
 |----------|---------|---------|
 | `RUN_LIVE` | Use real tools instead of mocks | `RUN_LIVE=true` |
 | `ITERATIONS` | Run each test N times | `ITERATIONS=10` |
-| `MODEL` | LLM to test | `MODEL=gpt-4o` |
-| `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
+| `MODEL` | LLM to test | `MODEL=gpt-4.1` |
+| `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4.1` |
 | `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
 
 ### ASK_HOLMES_TEST_TYPE Details
@@ -150,11 +150,11 @@ RUN_LIVE=true pytest -k "test" --skip-setup
 Track performance across different models:
 
 ```bash
-# 1. Baseline with GPT-4
-RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 10 tests/llm/
+# 1. Baseline with GPT-4.1
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt41 MODEL=gpt-4.1 pytest -n 10 tests/llm/
 
 # 2. Compare with Claude
-RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude_opus41 MODEL=anthropic/claude-opus-4-1-20250805 CLASSIFIER_MODEL=gpt-4.1 pytest -n 10 tests/llm/
 
 # 3. Results will be tracked if BRAINTRUST_API_KEY is set
 export BRAINTRUST_API_KEY=your-key

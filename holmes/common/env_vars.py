@@ -2,6 +2,13 @@ import os
 import json
 from typing import Optional
 
+# Recommended models for different providers
+RECOMMENDED_OPENAI_MODEL = "gpt-4.1"
+RECOMMENDED_ANTHROPIC_MODEL = "anthropic/claude-opus-4-1-20250805"
+
+# Default model for HolmesGPT
+DEFAULT_MODEL = RECOMMENDED_OPENAI_MODEL
+
 
 def load_bool(env_var, default: Optional[bool]) -> Optional[bool]:
     env_value = os.environ.get(env_var)

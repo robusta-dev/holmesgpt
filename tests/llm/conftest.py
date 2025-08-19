@@ -10,6 +10,7 @@ from pytest_shared_session_scope import (
 
 from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
+from holmes.common.env_vars import DEFAULT_MODEL
 from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
     MockMode,
     MockGenerationConfig,
@@ -232,7 +233,7 @@ def check_llm_api_with_test_call():
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
         classifier_model = os.environ.get(
-            "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
+            "CLASSIFIER_MODEL", os.environ.get("MODEL", DEFAULT_MODEL)
         )
 
         if azure_base:

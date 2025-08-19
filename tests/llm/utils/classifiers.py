@@ -4,10 +4,13 @@ from braintrust.oai import wrap_openai
 import openai
 import os
 from braintrust import Span, SpanTypeAttribute
+from holmes.common.env_vars import DEFAULT_MODEL
 
 import logging
 
-classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
+classifier_model = os.environ.get(
+    "CLASSIFIER_MODEL", os.environ.get("MODEL", DEFAULT_MODEL)
+)
 api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
 base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)

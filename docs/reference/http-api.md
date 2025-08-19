@@ -76,7 +76,7 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
     "subject": {"namespace": "default", "pod": "my-pod"},
     "context": {},
     "include_tool_calls": true,
-    "model": "gpt-4o"
+    "model": "gpt-4.1"
   }'
 ```
 
@@ -123,7 +123,7 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
     "subject": {"namespace": "default", "pod": "my-pod"},
     "context": {},
     "include_tool_calls": true,
-    "model": "gpt-4o"
+    "model": "gpt-4.1"
   }'
 ```
 
@@ -317,6 +317,6 @@ curl http://<HOLMES-URL>/api/model
 **Example** Response
 ```json
 {
-  "model_name": ["gpt-4o", "azure/gpt-4o", "robusta"]
+  "model_name": ["gpt-4.1", "azure/gpt-4.1", "robusta"]
 }
 ```

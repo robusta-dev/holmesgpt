@@ -11,6 +11,7 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
 from holmes.core.tracing import TracingFactory, SpanType
 from holmes.config import Config
+from holmes.common.env_vars import DEFAULT_MODEL
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
@@ -95,7 +96,7 @@ def test_investigate(
 
     tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
-    config.model = os.environ.get("MODEL", "gpt-4o")
+    config.model = os.environ.get("MODEL", DEFAULT_MODEL)
     metadata = {"model": config.model or "Unknown"}
     tracer.start_experiment(additional_metadata=metadata)
 

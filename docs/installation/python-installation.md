@@ -27,7 +27,7 @@ print("🚀 Initializing HolmesGPT...")
 print("Creating configuration...")
 config = Config(
     api_key=os.getenv("OPENAI_API_KEY"),
-    model="gpt-4o",
+    model="gpt-4.1",
     max_steps=10
 )
 print(f"✅ Configuration created with model: {config.model}")
@@ -83,7 +83,7 @@ def main():
     # Create configuration
     config = Config(
         api_key=api_key,
-        model="gpt-4o",
+        model="gpt-4.1",
         max_steps=10
     )
     print(f"✅ Configuration created with model: {config.model}")
@@ -203,7 +203,7 @@ def main():
     # Create configuration
     config = Config(
         api_key=os.getenv("OPENAI_API_KEY"),
-        model="gpt-4o",
+        model="gpt-4.1",
         max_steps=10
     )
 
@@ -279,7 +279,7 @@ from holmes.config import Config
 # Basic configuration example
 config = Config(
     api_key="your-api-key",
-    model="gpt-4o",  # or "claude-3-sonnet", "gpt-3.5-turbo", etc.
+    model="gpt-4.1",  # or "anthropic/claude-opus-4-1-20250805" (recommended), "gpt-5", etc.
     max_steps=10
 )
 
@@ -299,7 +299,7 @@ from holmes.config import Config
 config = Config(
     # LLM settings
     api_key="your-api-key",
-    model="gpt-4o",
+    model="gpt-4.1",
     max_steps=10,
 
     # Custom toolsets and runbooks
@@ -317,7 +317,7 @@ Main configuration class for HolmesGPT.
 **Constructor Parameters:**
 
 - `api_key` (str, optional) - LLM API key (can also use environment variables)
-- `model` (str, optional) - Model to use (default: "gpt-4o")
+- `model` (str, optional) - Model to use (default: "gpt-4.1")
 - `max_steps` (int, optional) - Maximum investigation steps (default: 10)
 - `custom_toolsets` (list, optional) - Custom toolset file paths
 - `custom_runbooks` (list, optional) - Custom runbook file paths

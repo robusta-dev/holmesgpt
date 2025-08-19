@@ -11,6 +11,7 @@ from rich.console import Console
 from holmes.core.models import ChatRequest
 from holmes.core.tracing import TracingFactory
 from holmes.config import Config
+from holmes.common.env_vars import DEFAULT_MODEL
 from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
@@ -297,7 +298,7 @@ def ask_holmes(
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
+        llm=DefaultLLM(os.environ.get("MODEL", DEFAULT_MODEL), tracer=tracer),
     )
 
     test_type = (

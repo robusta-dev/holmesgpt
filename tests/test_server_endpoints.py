@@ -45,7 +45,7 @@ def test_api_chat_all_fields(
         "conversation_history": [
             {"role": "system", "content": "You are a helpful assistant."}
         ],
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
     }
     response = client.post("/api/chat", json=payload)
     assert response.status_code == 200
@@ -251,7 +251,7 @@ def test_api_workload_health_check(
         "instructions": ["Check CPU usage", "Check memory usage"],
         "stored_instructions": True,
         "ask": "Check the workload health.",
-        "model": "gpt-4o",
+        "model": "gpt-4.1",
     }
     response = client.post("/api/workload_health_check", json=payload)
     assert response.status_code == 200

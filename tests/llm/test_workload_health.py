@@ -10,6 +10,7 @@ from server import workload_health_check
 from holmes.core.tracing import SpanType, TracingFactory
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.config import Config
+from holmes.common.env_vars import DEFAULT_MODEL
 
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
@@ -88,7 +89,7 @@ def test_health_check(
     tracer.start_experiment()
 
     config = MockConfig(test_case, tracer, mock_generation_config, request)
-    config.model = os.environ.get("MODEL", "gpt-4o")
+    config.model = os.environ.get("MODEL", DEFAULT_MODEL)
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
