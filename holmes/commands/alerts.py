@@ -138,9 +138,6 @@ def view_alerts(
 
         ui.run()
 
-    except KeyboardInterrupt:
-        # Print shutdown message after UI has fully exited
-        console.print("\n[yellow]Alert viewer stopped[/yellow]")
     except Exception as e:
         logger.error(f"Error running alert viewer: {e}")
         console.print(f"[red]Error: {e}[/red]")
