@@ -66,8 +66,8 @@ class MongoDBAtlasToolset(Toolset):
                 {"Accept": "application/vnd.atlas.2025-03-12+json"}
             )
             self._session.auth = HTTPDigestAuth(
-                self.config.get("public_key"),
-                self.config.get("private_key"),
+                self.config.get("public_key"),  # type: ignore[arg-type]
+                self.config.get("private_key"),  # type: ignore[arg-type]
             )
             return True, ""
         except Exception:

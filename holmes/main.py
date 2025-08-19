@@ -68,6 +68,13 @@ toolset_app = typer.Typer(
 )
 app.add_typer(toolset_app, name="toolset")
 
+# Import and add new commands
+from holmes.commands.alerts import alerts_app
+from holmes.commands.alertmanager_proxy import proxy_app
+
+app.add_typer(alerts_app, name="alerts")
+app.add_typer(proxy_app, name="alertmanager-proxy")
+
 
 # Common cli options
 # The defaults for options that are also in the config file MUST be None or else the cli defaults will override settings in the config file
