@@ -146,6 +146,7 @@ class Config(RobustaBaseConfig):
     def _load_robusta_ai_models(self) -> None:
         try:
             if not self.cluster_name:
+                self._load_default_robusta_config()
                 return
 
             dal = SupabaseDal(self.cluster_name)
@@ -170,10 +171,13 @@ class Config(RobustaBaseConfig):
         except Exception:
             logging.exception("Failed to get all robusta models")
             # fallback to default behavior
-            logging.info("Loading default Robusta AI model")
-            self._model_list[ROBUSTA_AI_MODEL_NAME] = {
-                "base_url": ROBUSTA_API_ENDPOINT,
-            }
+            self._load_default_robusta_config()
+
+    def _load_default_robusta_config(self):
+        logging.info("Loading default Robusta AI model")
+        self._model_list[ROBUSTA_AI_MODEL_NAME] = {
+            "base_url": ROBUSTA_API_ENDPOINT,
+        }
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
