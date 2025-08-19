@@ -244,7 +244,11 @@ class ToolCallingLLM:
         quiet: bool = False,
     ) -> LLMResult:
         return self.call(
-            messages, post_process_prompt, response_format, trace_span=trace_span, quiet=quiet
+            messages,
+            post_process_prompt,
+            response_format,
+            trace_span=trace_span,
+            quiet=quiet,
         )
 
     @sentry_sdk.trace
@@ -480,7 +484,9 @@ class ToolCallingLLM:
                 tool_calls=previous_tool_calls,
             )
             if not tool_response:
-                tool_response = tool.invoke(tool_params, tool_number=tool_number, quiet=quiet)
+                tool_response = tool.invoke(
+                    tool_params, tool_number=tool_number, quiet=quiet
+                )
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type

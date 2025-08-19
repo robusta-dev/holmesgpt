@@ -219,7 +219,9 @@ class ToolsetManager:
             ]
             json.dump(toolset_status, f, indent=2)
         if not quiet:
-            logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
+            logging.info(
+                f"Toolset statuses are cached to {self.toolset_status_location}"
+            )
 
     def load_toolset_with_status(
         self,
@@ -240,7 +242,10 @@ class ToolsetManager:
             if not quiet:
                 logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
-                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags, quiet=quiet
+                dal,
+                enable_all_toolsets=enable_all_toolsets,
+                toolset_tags=toolset_tags,
+                quiet=quiet,
             )
             using_cached = False
         else:
@@ -308,7 +313,10 @@ class ToolsetManager:
         return all_toolsets_with_status
 
     def list_console_toolsets(
-        self, dal: Optional[SupabaseDal] = None, refresh_status=False, quiet: bool = False
+        self,
+        dal: Optional[SupabaseDal] = None,
+        refresh_status=False,
+        quiet: bool = False,
     ) -> List[Toolset]:
         """
         List all enabled toolsets that cli tools can use.

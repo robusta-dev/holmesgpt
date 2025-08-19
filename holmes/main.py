@@ -319,7 +319,9 @@ def ask(
         f'holmes ask "{prompt}"', span_type=SpanType.TASK
     ) as trace_span:
         trace_span.log(input=prompt, metadata={"type": "user_question"})
-        response = ai.call(messages, post_processing_prompt, trace_span=trace_span, quiet=quiet)
+        response = ai.call(
+            messages, post_processing_prompt, trace_span=trace_span, quiet=quiet
+        )
         trace_span.log(
             output=response.result,
         )
