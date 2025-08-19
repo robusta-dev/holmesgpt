@@ -10,7 +10,6 @@ from holmes.core.todo_manager import (
 from holmes.core.tools import (
     Toolset,
     ToolsetTag,
-    ToolsetStatusEnum,
     ToolParameter,
     Tool,
     StructuredToolResult,
@@ -146,7 +145,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        self.status = ToolsetStatusEnum.ENABLED
         logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:

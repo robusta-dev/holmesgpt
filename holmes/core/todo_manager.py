@@ -41,11 +41,15 @@ class TodoListManager:
         if not tasks:
             return ""
 
-        status_order = {"pending": 0, "in_progress": 1, "completed": 2}
+        status_order = {
+            TaskStatus.PENDING: 0,
+            TaskStatus.IN_PROGRESS: 1,
+            TaskStatus.COMPLETED: 2,
+        }
 
         sorted_tasks = sorted(
             tasks,
-            key=lambda t: (status_order.get(t.status.value, 3),),
+            key=lambda t: (status_order.get(t.status, 3),),
         )
 
         lines = ["# CURRENT INVESTIGATION TASKS"]
@@ -62,10 +66,10 @@ class TodoListManager:
 
         for task in sorted_tasks:
             status_indicator = {
-                "pending": "[ ]",
-                "in_progress": "[~]",
-                "completed": "[✓]",
-            }.get(task.status.value, "[?]")
+                TaskStatus.PENDING: "[ ]",
+                TaskStatus.IN_PROGRESS: "[~]",
+                TaskStatus.COMPLETED: "[✓]",
+            }.get(task.status, "[?]")
 
             lines.append(f"{status_indicator} [{task.id}] {task.content}")
 
