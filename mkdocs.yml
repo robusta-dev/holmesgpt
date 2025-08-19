@@ -11,6 +11,7 @@ exclude_docs: |
 
 theme:
   name: material
+  custom_dir: docs/overrides
   features:
     - announce.dismiss
     - content.action.edit
@@ -106,6 +107,12 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
+        - name: yaml-helm-values
+          class: yaml
+          format: !!python/name:docs.custom_fences.helm_tabs_fence_format
+        - name: yaml-toolset-config
+          class: yaml
+          format: !!python/name:docs.custom_fences.toolset_config_fence_format
   - pymdownx.tabbed:
       alternate_style: true
       combine_header_slug: true
@@ -115,6 +122,9 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+
+extra_css:
+  - stylesheets/extra.css
 
 extra:
   social:
@@ -195,7 +205,10 @@ nav:
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
+      - Environment Variables: reference/environment-variables.md
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
       - Slash Commands: reference/slash-commands.md
       - Troubleshooting: reference/troubleshooting.md
+
+  - Community: community.md
