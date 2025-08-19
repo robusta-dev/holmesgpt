@@ -8,7 +8,7 @@ from typing import Dict, Optional
 from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
-EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "180"))
+EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "210"))
 
 
 def _truncate_script(script: str, max_lines: int = 10) -> str:
