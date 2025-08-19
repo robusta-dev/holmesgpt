@@ -183,6 +183,17 @@ Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluati
 Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
 <!-- Change License -->
 
+## Community
+
+Join our community meetings to discuss the HolmesGPT roadmap and share feedback:
+
+📅 **First Community Meeting:** Thursday, August 21, 2025
+- **Time:** 8:00-9:00 AM PT / 11:00 AM-12:00 PM ET / 8:30-9:30 PM IST
+- **Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
+- **Agenda:** [Roadmap discussion](https://github.com/orgs/robusta-dev/projects/2), community feedback, and Q&A
+
+[📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Full Details](https://robusta-dev.github.io/holmesgpt/community/)
+
 ## Support
 
 If you have any questions, feel free to message us on [robustacommunity.slack.com](https://bit.ly/robusta-slack)
