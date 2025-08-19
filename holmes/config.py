@@ -481,11 +481,10 @@ class Config(RobustaBaseConfig):
             model = model_params.pop("model", model)
         if (
             not api_key
-            and "robusta.dev" in model_params.get("base_url", "")
+            and ROBUSTA_API_ENDPOINT in model_params.get("base_url", "")
             and self.api_key
         ):
             api_key = self.api_key.get_secret_value()
-
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
