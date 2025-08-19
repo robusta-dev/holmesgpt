@@ -156,8 +156,9 @@ RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 
 # 2. Compare with Claude
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
 
-# 3. Results will be tracked if BRAINTRUST_API_KEY is set
+# 3. Results will be tracked if both BRAINTRUST_API_KEY and BRAINTRUST_ORG are set
 export BRAINTRUST_API_KEY=your-key
+export BRAINTRUST_ORG=your-org
 ```
 
 ## Test Markers
