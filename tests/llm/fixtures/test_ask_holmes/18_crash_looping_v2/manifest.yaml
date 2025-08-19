@@ -4,11 +4,12 @@ metadata:
   name: app-18
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: flask-app-code
   namespace: app-18
-data:
+type: Opaque
+stringData:
   app.py: |
     #!/usr/bin/env python3
     import logging
@@ -106,103 +107,10 @@ data:
         # Keep the main thread alive
         server_thread.join()
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: db-certs-config
-  namespace: app-18
-type: Opaque
-stringData:
-  certificate.pem: |
-    -----BEGIN CERTIFICATE-----
-    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
-    -----END CERTIFICATE-----
-  key.pem: |
-    -----BEGIN PRIVATE KEY-----
-    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
-    admqkDkna+swqOW5BXU8Th65/KGiUZc=
-    -----END PRIVATE KEY-----
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: db-certs-authenticator
+  name: golden-eagle
   namespace: app-18
   labels:
     app: flask
@@ -233,8 +141,8 @@ spec:
           subPath: key.pem
       volumes:
       - name: app-code
-        configMap:
-          name: flask-app-code
+        secret:
+          secretName: flask-app-code
       - name: cert-volume
         secret:
           secretName: db-certs-config
