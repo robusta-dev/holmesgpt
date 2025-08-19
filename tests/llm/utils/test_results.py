@@ -73,7 +73,12 @@ class TestStatus:
 
     @property
     def is_regression(self) -> bool:
-        if self.is_skipped or self.passed or self.is_mock_failure:
+        if (
+            self.is_skipped
+            or self.passed
+            or self.is_mock_failure
+            or self.is_setup_failure
+        ):
             return False
         # Known failure (expected to fail)
         if self.actual_score == 0 and self.expected_score == 0:
