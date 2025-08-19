@@ -56,9 +56,10 @@ class StatusBar:
         if focused_pane == 0:  # Alert list
             shortcuts = [
                 "Move=j/k",
-                "Inspector=i",
                 "Enrich=e",
                 "Enrich all=E",
+                "Copy=y",
+                "Export=x",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",
@@ -66,8 +67,6 @@ class StatusBar:
         elif focused_pane == 1:  # Inspector
             shortcuts = [
                 "Scroll=j/k",
-                "Hide=i",
-                "List=l",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",
@@ -75,9 +74,6 @@ class StatusBar:
         elif focused_pane == 2:  # Console
             shortcuts = [
                 "Scroll=j/k",
-                "Hide=o",
-                "List=l",
-                "Inspector=i",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",

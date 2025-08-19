@@ -30,6 +30,24 @@ class AlertEnricher:
 
     def enrich_alert(self, alert: Alert) -> EnrichedAlert:
         """Enrich a single alert with AI insights."""
+        # Check severity filter
+        alert_severity = alert.labels.get("severity", "").lower()
+        if self.enrichment_config.severity_filter:
+            if alert_severity not in self.enrichment_config.severity_filter:
+                logger.info(
+                    f"Skipping enrichment for alert with severity '{alert_severity}' (not in filter: {self.enrichment_config.severity_filter})"
+                )
+                # Return alert without enrichment
+                return EnrichedAlert(
+                    original=alert,
+                    enrichment=AIEnrichment(
+                        enrichment_metadata={
+                            "enriched": False,
+                            "reason": "severity_filter",
+                        }
+                    ),
+                )
+
         try:
             enrichment = self._generate_enrichment(alert)
             return EnrichedAlert(original=alert, enrichment=enrichment)

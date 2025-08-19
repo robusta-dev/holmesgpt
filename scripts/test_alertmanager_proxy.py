@@ -25,9 +25,9 @@ import requests
 
 
 def send_test_alert(url="http://localhost:8080/webhook"):
-    """Send a test AlertManager webhook to the proxy."""
+    """Send a test AlertManager webhook to the proxy with mixed severity levels."""
 
-    # Example AlertManager webhook payload
+    # Example AlertManager webhook payload with mixed severities
     webhook_payload = {
         "receiver": "default",
         "status": "firing",
@@ -35,8 +35,26 @@ def send_test_alert(url="http://localhost:8080/webhook"):
             {
                 "status": "firing",
                 "labels": {
+                    "alertname": "InfoNotification",
+                    "severity": "info",  # LOW SEVERITY - should be skipped by default
+                    "namespace": "production",
+                    "pod": "api-server-7b9c5d4f6-x2n4m",
+                    "container": "api",
+                    "cluster": "prod-cluster-1",
+                },
+                "annotations": {
+                    "description": "Informational: New deployment version detected",
+                    "summary": "Deployment updated to v2.3.1",
+                },
+                "startsAt": datetime.utcnow().isoformat() + "Z",
+                "generatorURL": "http://prometheus:9090/",
+                "fingerprint": f"test-info-{int(time.time())}",
+            },
+            {
+                "status": "firing",
+                "labels": {
                     "alertname": "HighMemoryUsage",
-                    "severity": "warning",
+                    "severity": "warning",  # HIGHER SEVERITY - should be enriched
                     "namespace": "production",
                     "pod": "api-server-7b9c5d4f6-x2n4m",
                     "container": "api",
@@ -49,35 +67,33 @@ def send_test_alert(url="http://localhost:8080/webhook"):
                 },
                 "startsAt": datetime.utcnow().isoformat() + "Z",
                 "generatorURL": "http://prometheus:9090/graph?g0.expr=container_memory_usage",
-                "fingerprint": f"test-{int(time.time())}",
+                "fingerprint": f"test-memory-{int(time.time())}",
             },
             {
                 "status": "firing",
                 "labels": {
-                    "alertname": "HighCPUUsage",
-                    "severity": "warning",
+                    "alertname": "ServiceDown",
+                    "severity": "critical",  # HIGHER SEVERITY - should be enriched
                     "namespace": "production",
-                    "pod": "api-server-7b9c5d4f6-x2n4m",
-                    "container": "api",
+                    "service": "payment-api",
                     "cluster": "prod-cluster-1",
                 },
                 "annotations": {
-                    "description": "CPU usage is above 80% for pod api-server-7b9c5d4f6-x2n4m",
-                    "summary": "High CPU usage detected",
+                    "description": "Payment API service is not responding to health checks",
+                    "summary": "Critical service outage detected",
+                    "impact": "Customers unable to complete transactions",
                 },
                 "startsAt": datetime.utcnow().isoformat() + "Z",
-                "generatorURL": "http://prometheus:9090/graph?g0.expr=container_cpu_usage",
-                "fingerprint": f"test-cpu-{int(time.time())}",
+                "generatorURL": "http://prometheus:9090/graph?g0.expr=up",
+                "fingerprint": f"test-critical-{int(time.time())}",
             },
         ],
         "groupLabels": {
             "namespace": "production",
-            "pod": "api-server-7b9c5d4f6-x2n4m",
         },
         "commonLabels": {
             "namespace": "production",
             "cluster": "prod-cluster-1",
-            "severity": "warning",
         },
         "commonAnnotations": {},
         "externalURL": "http://alertmanager:9093",
@@ -87,6 +103,9 @@ def send_test_alert(url="http://localhost:8080/webhook"):
 
     print(f"Sending test alert to {url}")
     print(f"Alert details: {len(webhook_payload['alerts'])} alerts")
+    print("  - 1 info alert (should be skipped by default severity filter)")
+    print("  - 1 warning alert (should be enriched)")
+    print("  - 1 critical alert (should be enriched)")
 
     try:
         response = requests.post(
@@ -100,8 +119,17 @@ def send_test_alert(url="http://localhost:8080/webhook"):
         print(f"Response body: {json.dumps(response.json(), indent=2)}")
 
         if response.status_code == 200:
-            print("\n✅ Alert successfully processed and enriched!")
-            print("Check your Slack channel for the enriched notification.")
+            response_data = response.json()
+            print("\n✅ Alert successfully processed!")
+            print(f"   Alerts received: {response_data.get('alerts_received', 0)}")
+            print(f"   Alerts enriched: {response_data.get('alerts_enriched', 0)}")
+            print("\n📊 Expected behavior based on severity filter:")
+            print("   - Default (critical,warning): 2 alerts enriched, 1 skipped")
+            print("   - Only critical: 1 alert enriched, 2 skipped")
+            print("   - All severities: 3 alerts enriched, 0 skipped")
+            print(
+                "\nCheck your Slack channel or configured destinations for enriched notifications."
+            )
         else:
             print(f"\n❌ Error: {response.text}")
 
@@ -190,12 +218,22 @@ if __name__ == "__main__":
 
     proxy_url = "http://localhost:8083"
 
-    print("🔍 Checking proxy status...")
+    print("🚀 AlertManager Proxy Test Script")
+    print("=" * 50)
+    print("\n📝 To test the severity filter, start the proxy with:")
+    print("\n   # Enrich only critical and warning alerts (default):")
+    print("   holmes alertmanager-proxy serve --port 8083")
+    print("\n   # Enrich only critical alerts:")
+    print("   holmes alertmanager-proxy serve --port 8083 --severity critical")
+    print("\n   # Enrich all severity levels:")
+    print(
+        "   holmes alertmanager-proxy serve --port 8083 --severity critical,warning,info"
+    )
+    print("\n" + "=" * 50)
+
+    print("\n🔍 Checking proxy status...")
     if not check_proxy_health(proxy_url):
-        print("\n❌ Proxy is not running. Start it with:")
-        print(
-            "   holmes alertmanager-proxy serve --port 8083 --slack-webhook-url $SLACK_WEBHOOK"
-        )
+        print("\n❌ Proxy is not running. Start it with one of the commands above.")
         sys.exit(1)
 
     print("\n" + "=" * 50)

@@ -5,7 +5,9 @@ Right pane: Inspector for selected alert details
 Bottom: Console output with captured logs
 """
 
+import json
 import threading
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from prompt_toolkit.application import Application
@@ -20,6 +22,7 @@ from holmes.alert_proxy.console_logger import ConsoleLogger, LogInterceptor
 from holmes.alert_proxy.keybindings import KeybindingsManager
 from holmes.alert_proxy.search_manager import SearchManager
 from holmes.alert_proxy.ui_components import StatusBar, CollapsedPaneIndicators
+from holmes.alert_proxy.models import EnrichmentStatus
 
 if TYPE_CHECKING:
     from holmes.alert_proxy.models import InteractiveModeConfig
@@ -161,6 +164,7 @@ class AlertUIView:
             page_up=self._page_up,
             page_down=self._page_down,
             switch_pane=self._switch_pane,
+            focus_list=lambda: self._focus_pane(0),  # Focus alert list (pane 0)
         )
 
         # Add UI toggle bindings
@@ -174,6 +178,8 @@ class AlertUIView:
             refresh=self._refresh_alerts,
             enrich_current=lambda: self._enrich_alerts(all_alerts=False),
             enrich_all=lambda: self._enrich_alerts(all_alerts=True),
+            copy_current=self._copy_alert,
+            export_current=self._export_alert,
         )
 
         # Add search bindings
@@ -708,6 +714,98 @@ class AlertUIView:
         # Don't sync cursor here - the model will trigger a refresh which will handle it
         # The immediate sync was causing the jump because it happened before the UI text was updated
 
+    def _copy_alert(self):
+        """Copy current alert details to clipboard."""
+        import pyperclip
+
+        if not self.model:
+            return
+
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            return
+
+        # Get visible alerts
+        visible_alerts, visible_indices = self.search_manager.get_filtered_alerts(
+            alerts
+        )
+        if not visible_alerts or self.selected_index >= len(visible_indices):
+            return
+
+        # Get the actual alert
+        original_index = visible_indices[self.selected_index]
+        alert = alerts[original_index]
+
+        # Format alert details
+        alert_text = f"""Alert: {alert.original.labels.get('alertname', 'Unknown')}
+Status: {alert.original.status}
+Severity: {alert.original.labels.get('severity', 'unknown')}
+Namespace: {alert.original.labels.get('namespace', 'default')}
+
+Labels:
+{json.dumps(alert.original.labels, indent=2)}
+
+Annotations:
+{json.dumps(alert.original.annotations, indent=2)}
+
+Started: {alert.original.startsAt}"""
+
+        if alert.enrichment and alert.enrichment_status == EnrichmentStatus.COMPLETED:
+            alert_text += f"""
+
+AI Enrichment:
+Business Impact: {alert.enrichment.business_impact or 'N/A'}
+Root Cause: {alert.enrichment.root_cause or 'N/A'}
+Suggested Action: {alert.enrichment.suggested_action or 'N/A'}"""
+
+        try:
+            pyperclip.copy(alert_text)
+            self.console.add_line("✅ Alert details copied to clipboard")
+        except Exception as e:
+            self.console.add_line(f"❌ Failed to copy: {e}")
+
+    def _export_alert(self):
+        """Export current alert to JSON file."""
+        if not self.model:
+            return
+
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            return
+
+        # Get visible alerts
+        visible_alerts, visible_indices = self.search_manager.get_filtered_alerts(
+            alerts
+        )
+        if not visible_alerts or self.selected_index >= len(visible_indices):
+            return
+
+        # Get the actual alert
+        original_index = visible_indices[self.selected_index]
+        alert = alerts[original_index]
+
+        # Create filename
+        alert_name = alert.original.labels.get("alertname", "unknown")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"alert_{alert_name}_{timestamp}.json"
+
+        # Export data
+        export_data = {
+            "alert": alert.original.model_dump(mode="json"),
+            "enrichment": alert.enrichment.model_dump(mode="json")
+            if alert.enrichment
+            else None,
+            "enrichment_status": alert.enrichment_status.value,
+            "enriched_at": alert.enriched_at.isoformat() if alert.enriched_at else None,
+        }
+
+        try:
+            with open(filename, "w") as f:
+                json.dump(export_data, f, indent=2, default=str)
+            self.console.add_line(f"✅ Alert exported to {filename}")
+        except Exception as e:
+            self.console.add_line(f"❌ Failed to export: {e}")
+
     def _get_help_text(self) -> str:
         """Get help text for keybindings."""
         return """
@@ -725,7 +823,7 @@ Actions:
   e           Enrich current alert
   E           Enrich all alerts
   y           Copy alert details
-  s           Export current alert
+  x           Export current alert
 
 UI:
   i           Toggle inspector

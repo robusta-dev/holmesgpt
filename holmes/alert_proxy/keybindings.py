@@ -24,6 +24,7 @@ class KeybindingsManager:
         page_up: Callable,
         page_down: Callable,
         switch_pane: Callable,
+        focus_list: Optional[Callable] = None,
     ):
         """Add navigation keybindings."""
 
@@ -55,6 +56,12 @@ class KeybindingsManager:
         def _switch_pane(event):
             """Switch focus between panes."""
             switch_pane()
+
+        @self.kb.add("l", filter=self.not_searching_filter)
+        def _focus_list(event):
+            """Focus alert list pane."""
+            if focus_list:
+                focus_list()
 
         @self.kb.add("g", "g", filter=self.not_searching_filter)
         def _go_to_top(event):
@@ -138,7 +145,7 @@ class KeybindingsManager:
             self.kb.add("y", filter=self.not_searching_filter)(_copy_current)
 
         if export_current:
-            self.kb.add("s", filter=self.not_searching_filter)(_export_current)
+            self.kb.add("x", filter=self.not_searching_filter)(_export_current)
 
     def add_search_bindings(
         self,
@@ -185,7 +192,7 @@ class KeybindingsManager:
         @self.kb.add("c-c")
         def _quit(event):
             """Quit application."""
-            quit_app()
+            quit_app(event)
 
     def get_bindings(self) -> KeyBindings:
         """Get the configured keybindings."""

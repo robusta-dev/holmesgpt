@@ -202,6 +202,22 @@ class DestinationManager:
             section_text = alert_header + "\n" + "\n".join(details_lines)
             sections.append(section_text)
 
+        # Build footer with model info if available
+        footer = None
+        if any(a.enrichment for a in alerts):
+            # Try to get model from enrichment metadata
+            model = None
+            for alert in alerts:
+                if alert.enrichment and alert.enrichment.enrichment_metadata:
+                    model = alert.enrichment.enrichment_metadata.get("model")
+                    if model:
+                        break
+
+            if model:
+                footer = f"⚡ AI-enriched by Holmes ({model})"
+            else:
+                footer = "⚡ AI-enriched by Holmes"
+
         # Build Slack message using attachments (like default AlertManager)
         payload = {
             "username": "AlertManager",
@@ -211,9 +227,7 @@ class DestinationManager:
                     "color": "danger" if firing_alerts else "good",
                     "text": "\n\n".join(sections),
                     "mrkdwn_in": ["text"],
-                    "footer": "⚡ AI-enriched by Holmes"
-                    if any(a.enrichment for a in alerts)
-                    else None,
+                    "footer": footer,
                 }
             ],
         }

@@ -16,7 +16,7 @@ class SearchManager:
     This class only handles search/filter functionality.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize search manager."""
         self.search_active = False  # True when typing search
         self.search_filter = ""  # Applied search filter (persists after Enter)

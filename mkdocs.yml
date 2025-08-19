@@ -138,6 +138,7 @@ nav:
       - Interactive Mode: walkthrough/interactive-mode.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
+      - Auto-Enrich Prometheus Alerts: walkthrough/auto-enrich-prometheus-alerts.md
 
   - AI Providers:
       - ai-providers/index.md

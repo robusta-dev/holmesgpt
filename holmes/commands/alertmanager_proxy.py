@@ -56,6 +56,11 @@ def serve(
         "--ai-column",
         help="AI-generated column in format: name or name=description (can be repeated)",
     ),
+    severity: Optional[str] = typer.Option(
+        None,
+        "--severity",
+        help="Only enrich alerts with these severities (comma-separated, e.g., critical,warning)",
+    ),
 ):
     """
     Run AlertManager webhook proxy server with AI enrichment.
@@ -98,6 +103,14 @@ def serve(
                     # Just column name without description
                     custom_columns[col_spec] = f"Extract {col_spec.replace('_', ' ')}"
 
+        # Parse severity filter if provided
+        severity_filter = []
+        if severity:
+            severity_filter = [s.strip().lower() for s in severity.split(",")]
+            console.print(
+                f"[yellow]Filtering alerts by severity: {severity_filter}[/yellow]"
+            )
+
         # Create enrichment config
         enrichment_config = AlertEnrichmentConfig(
             model=model,
@@ -106,6 +119,9 @@ def serve(
             skip_default_enrichment=False,  # Always include default enrichment
             enrichment_timeout=90,
             enrich_only_firing=True,
+            severity_filter=severity_filter
+            if severity_filter
+            else ["critical", "warning"],
             enable_grouping=True,
             enable_caching=True,
             cache_ttl=300,

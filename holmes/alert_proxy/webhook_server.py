@@ -42,6 +42,8 @@ class AlertWebhookServer:
             "total_alerts": 0,
             "enriched_alerts": 0,
             "failed_enrichments": 0,
+            "total_enrichment_time": 0.0,
+            "avg_enrichment_time": 0.0,
         }
 
         # Server will be created in run()
@@ -101,12 +103,29 @@ class AlertWebhookServer:
                         )
 
                         # Process alerts with AI enrichment (now synchronous)
+                        import time
+
+                        start_time = time.time()
                         enriched_alerts = server_instance.enricher.enrich_webhook(
                             webhook
                         )
-                        server_instance._stats["enriched_alerts"] += len(
+                        enrichment_time = time.time() - start_time
+
+                        # Update statistics
+                        enriched_count = len(
                             [a for a in enriched_alerts if a.enrichment]
                         )
+                        server_instance._stats["enriched_alerts"] += enriched_count
+                        server_instance._stats["total_enrichment_time"] += (
+                            enrichment_time
+                        )
+
+                        # Calculate average enrichment time
+                        if server_instance._stats["enriched_alerts"] > 0:
+                            server_instance._stats["avg_enrichment_time"] = (
+                                server_instance._stats["total_enrichment_time"]
+                                / server_instance._stats["enriched_alerts"]
+                            )
 
                         # Forward to destinations (now synchronous)
                         server_instance.destinations.forward_alerts(

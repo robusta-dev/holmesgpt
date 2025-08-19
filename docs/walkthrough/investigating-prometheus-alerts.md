@@ -1,6 +1,9 @@
 # Investigating Prometheus Alerts
 
-You can investigate Prometheus/AlertManager alerts using HolmesGPT by connecting it to your AlertManager instance. This allows you to run investigations on all active alerts or a specific alert.
+HolmesGPT provides two ways to investigate Prometheus/AlertManager alerts:
+
+1. **Interactive Viewer** - Real-time monitoring and AI enrichment in a terminal UI
+2. **Command-line Investigation** - One-time investigation of specific alerts
 
 ![Single Alert Investigation](../assets/alertmanager-single-alert-investigation.gif)
 
@@ -8,29 +11,121 @@ You can investigate Prometheus/AlertManager alerts using HolmesGPT by connecting
 
 - HolmesGPT CLI installed ([installation guide](../installation/cli-installation.md))
 - An AI provider API key configured ([setup guide](../ai-providers/index.md))
-- Access to your AlertManager instance
+- Access to your AlertManager instance (auto-discovery works in Kubernetes)
 
-## Investigating a Prometheus Alert Using HolmesGPT
+## Interactive Alert Viewer
 
+The interactive viewer provides a real-time dashboard for monitoring and enriching alerts with AI insights.
 
-### Step 1: Forward AlertManager
+### Quick Start
 
-First, you need to forward the AlertManager service to your local machine so HolmesGPT can connect to it. Run the following command in your terminal:
+```bash
+# Auto-discover AlertManager in your cluster - no configuration needed!
+holmes alerts view
+
+# View alerts from a specific AlertManager
+holmes alerts view --alertmanager-url http://localhost:9093
+
+# Enrich ALL alerts with AI on startup (may be expensive!)
+# Without this flag, you can manually enrich individual alerts with 'e' key
+holmes alerts view --enable-enrichment
+
+# Add custom AI columns for analysis
+holmes alerts view \
+  --ai-column "root_cause=identify the technical root cause" \
+  --ai-column "affected_team=which team owns this service"
+```
+
+### Features
+
+The interactive viewer includes:
+
+- **Real-time Updates** - Polls AlertManager every 30 seconds
+- **Auto-discovery** - Automatically finds AlertManager instances in Kubernetes
+- **Three-pane Layout**:
+  - Alert list with status and AI enrichment
+  - Inspector for detailed alert information
+  - Console for enrichment logs
+- **Vim-style Navigation** - Keyboard shortcuts for efficient browsing
+- **AI Enrichment** - Two modes:
+
+  - Manual: Press 'e' to enrich selected alert or 'E' for all alerts
+  - Automatic: Use `--enable-enrichment` flag to enrich all alerts on startup
+
+### Keyboard Shortcuts
+
+**Navigation:**
+
+- `j/k` - Move down/up in the current pane
+- `g/G` - Go to top/bottom of current pane
+- `PgUp/PgDn` - Page up/down
+- `Tab` - Switch between panes
+- `l` - Focus alert list
+- `i` - Toggle inspector pane
+- `o` - Toggle console output
+
+**Actions:**
+
+- `e` - Enrich selected alert with AI
+- `E` - Enrich all alerts
+- `r` - Refresh alerts
+- `/` - Start search
+- `Enter` - Apply search filter
+- `Esc` - Cancel search/clear filter
+- `?` - Show help
+- `q` - Quit
+
+## Command-line Tools
+
+### List Alerts
+
+Quickly list all current alerts in table or JSON format:
+
+```bash
+# List all alerts in a table
+holmes alerts list
+
+# List alerts from specific AlertManager
+holmes alerts list --alertmanager-url http://localhost:9093
+
+# Output as JSON for scripting
+holmes alerts list --format json
+
+# Filter by severity
+holmes alerts list --severity critical
+
+# Filter by specific label
+holmes alerts list --label "namespace=production"
+```
+
+This command is useful for:
+
+- Quick status checks in scripts
+- Piping to other tools (`holmes alerts list --format json | jq`)
+- Integration with monitoring dashboards
+- CI/CD pipelines
+
+### Investigate Alerts
+
+For one-time investigation of specific alerts without the interactive UI, use the `investigate` command.
+
+### Step 1: Access AlertManager
+
+If AlertManager isn't publicly accessible, forward it to your local machine:
 
 ```bash
 kubectl port-forward svc/<Your-Alertmanager-Service> 9093:9093
 ```
 
-### Step 2: Create a Test Alert
+### Step 2: Create a Test Alert (Optional)
 
-Now we'll deploy a crashing workload and simulate an alert from AlertManager.
+Deploy a crashing workload and create a test alert:
 
 ```bash
+# Deploy broken pod
 kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
-```
-Since it takes some time for the alert to be generated, we will manually send a `KubePodCrashLooping` alert to AlertManager for testing purposes. To do this run:
-```bash
-# Send a KubePodCrashLooping alert directly to AlertManager
+
+# Send test alert to AlertManager
 curl -X POST http://localhost:9093/api/v1/alerts \
   -H "Content-Type: application/json" \
   -d '[
@@ -52,24 +147,22 @@ curl -X POST http://localhost:9093/api/v1/alerts \
     }
   ]'
 ```
-You should now see the `KubePodCrashLooping` alert in your AlertManager UI at `http://localhost:9093`.
 
-### Step 3: Investigate Alerts
+### Step 3: Run Investigation
 
-Finally let's use the HolmesGPT `investigate` subcommand to investigate the alerts. Run the following command:
+Investigate all alerts or specific ones:
 
 ```bash
+# Investigate all active alerts
 holmes investigate alertmanager --alertmanager-url http://localhost:9093
+
+# Investigate specific alert by name
+holmes investigate alertmanager \
+  --alertmanager-url http://localhost:9093 \
+  --alertmanager-alertname "KubePodCrashLooping"
 ```
+
 ![AlertManager Alert Investigation](../assets/alertmanager-all-alert-investigation.png)
-
-By default, HolmesGPT will fetch all active alerts from AlertManager and investigate them.
-
-For our investigation, we will use the `--alertmanager-alertname` flag to focus on the specific `KubePodCrashLooping` alert we created earlier.
-```bash
-holmes investigate alertmanager --alertmanager-url http://localhost:9093 --alertmanager-alertname "KubePodCrashLooping"
-```
-Once the investigation is complete, HolmesGPT will provide the potential Root Cause, next steps, and more.
 
 ## Filtering Alerts
 
