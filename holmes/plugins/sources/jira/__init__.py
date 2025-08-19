@@ -37,7 +37,9 @@ class JiraSource(SourcePlugin):
             raise ConnectionError("Failed to fetch data from Jira.") from e
 
     def convert_to_issue(self, jira_issue, description: Optional[str] = None):
-        description = self.extract_description(jira_issue)
+        # If a description was provided, use it. Otherwise extract from the jira issue.
+        if description is None:
+            description = self.extract_description(jira_issue)
         return Issue(
             id=jira_issue["id"],
             name=jira_issue["fields"]["summary"],
@@ -54,10 +56,27 @@ class JiraSource(SourcePlugin):
         """
         Extracts and formats the issue description.
         """
-        description_blocks = (
-            jira_issue.get("fields", {}).get("description", {}).get("content", [])
-        )
+        # Defensive handling: Jira may return a plain string for the description
+        # or a dict with a `content` structure. Also guard if jira_issue isn't a dict.
         description_text = []
+
+        if not isinstance(jira_issue, dict):
+            # Unexpected shape, return the string representation
+            return str(jira_issue)
+
+        fields = jira_issue.get("fields", {}) or {}
+        desc = fields.get("description")
+
+        # If description is a plain string, return it directly
+        if isinstance(desc, str):
+            return desc
+
+        # If description is missing or falsy, return default
+        if not desc:
+            return "No description available."
+
+        # Otherwise assume it's the newer Atlassian rich text structure
+        description_blocks = desc.get("content", []) if isinstance(desc, dict) else []
 
         for block in description_blocks:
             if block["type"] == "paragraph":
