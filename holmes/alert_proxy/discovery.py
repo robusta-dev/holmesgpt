@@ -1,13 +1,14 @@
 """Service discovery for AlertManager instances."""
 
 import logging
+import os
 import re
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-import requests
 from kubernetes import client, config as k8s_config
 from kubernetes.client.rest import ApiException
 from holmes.alert_proxy.kube_proxy import KubeProxy
+from holmes.alert_proxy.models import AlertManagerInstance
 
 logger = logging.getLogger(__name__)
 
@@ -51,19 +52,19 @@ class AlertManagerDiscovery:
             logger.warning(f"Kubernetes API not available: {e}")
             self.k8s_available = False
 
-    async def discover_all(self) -> List[Dict[str, str]]:
+    def discover_all(self) -> List[AlertManagerInstance]:
         """Discover all AlertManager instances using multiple methods."""
         discovered = []
 
         if self.k8s_available:
             # Method 1: Service discovery
-            discovered.extend(await self.discover_via_services())
+            discovered.extend(self.discover_via_services())
 
             # Method 2: StatefulSet/Deployment discovery
-            discovered.extend(await self.discover_via_workloads())
+            discovered.extend(self.discover_via_workloads())
 
             # Method 3: Pod label discovery
-            discovered.extend(await self.discover_via_pod_labels())
+            discovered.extend(self.discover_via_pod_labels())
 
         # Method 4: Environment variables or config
         discovered.extend(self.discover_via_env())
@@ -72,7 +73,7 @@ class AlertManagerDiscovery:
         seen_keys = set()
         unique = []
         for am in discovered:
-            key = f"{am.get('namespace', 'unknown')}/{am.get('name', 'unknown')}"
+            key = f"{am.namespace}/{am.name}"
             if key not in seen_keys:
                 unique.append(am)
                 seen_keys.add(key)
@@ -80,7 +81,7 @@ class AlertManagerDiscovery:
         logger.info(f"Discovered {len(unique)} AlertManager instance(s)")
         return unique
 
-    async def discover_via_services(self) -> List[Dict[str, str]]:
+    def discover_via_services(self) -> List[AlertManagerInstance]:
         """Discover AlertManager via Kubernetes services."""
         discovered = []
 
@@ -116,16 +117,31 @@ class AlertManagerDiscovery:
                         # Find the right port
                         port = self._find_alertmanager_port(svc)
                         if port:
+                            # Build AlertManager instance
+                            use_proxy = bool(
+                                self.use_proxy
+                                and self.kube_proxy
+                                and self.kube_proxy.available
+                            )
+
+                            # If we can use proxy, set the URL to the proxy URL
+                            if use_proxy and self.kube_proxy:
+                                url = self.kube_proxy.get_service_proxy_url(
+                                    svc.metadata.name, svc.metadata.namespace, port
+                                )
+                            else:
+                                # Direct cluster URL
+                                url = f"http://{svc.metadata.name}.{svc.metadata.namespace}.svc.cluster.local:{port}"
+
                             discovered.append(
-                                {
-                                    "name": svc.metadata.name,
-                                    "namespace": svc.metadata.namespace,
-                                    "port": port,
-                                    "source": "service",
-                                    "use_proxy": self.use_proxy
-                                    and self.kube_proxy
-                                    and self.kube_proxy.available,
-                                }
+                                AlertManagerInstance(
+                                    name=svc.metadata.name,
+                                    namespace=svc.metadata.namespace,
+                                    url=url,
+                                    port=port,
+                                    source="service",
+                                    use_proxy=use_proxy,
+                                )
                             )
                             logger.info(
                                 f"Found AlertManager service: {svc.metadata.name} in {svc.metadata.namespace}:{port}"
@@ -136,7 +152,7 @@ class AlertManagerDiscovery:
 
         return discovered
 
-    async def discover_via_workloads(self) -> List[Dict[str, str]]:
+    def discover_via_workloads(self) -> List[AlertManagerInstance]:
         """Discover AlertManager via StatefulSets and Deployments."""
         discovered = []
 
@@ -149,12 +165,12 @@ class AlertManagerDiscovery:
                     url = self._construct_url_from_workload(sts, "statefulset")
                     if url:
                         discovered.append(
-                            {
-                                "name": sts.metadata.name,
-                                "namespace": sts.metadata.namespace,
-                                "url": url,
-                                "source": "statefulset",
-                            }
+                            AlertManagerInstance(
+                                name=sts.metadata.name,
+                                namespace=sts.metadata.namespace,
+                                url=url,
+                                source="statefulset",
+                            )
                         )
 
             # Check Deployments
@@ -164,19 +180,19 @@ class AlertManagerDiscovery:
                     url = self._construct_url_from_workload(dep, "deployment")
                     if url:
                         discovered.append(
-                            {
-                                "name": dep.metadata.name,
-                                "namespace": dep.metadata.namespace,
-                                "url": url,
-                                "source": "deployment",
-                            }
+                            AlertManagerInstance(
+                                name=dep.metadata.name,
+                                namespace=dep.metadata.namespace,
+                                url=url,
+                                source="deployment",
+                            )
                         )
         except ApiException as e:
             logger.error(f"Failed to list workloads: {e}")
 
         return discovered
 
-    async def discover_via_pod_labels(self) -> List[Dict[str, str]]:
+    def discover_via_pod_labels(self) -> List[AlertManagerInstance]:
         """Discover AlertManager via pod labels."""
         discovered = []
 
@@ -197,12 +213,12 @@ class AlertManagerDiscovery:
                                 if port.container_port in self.ALERTMANAGER_PORTS:
                                     url = f"http://{pod.status.pod_ip}:{port.container_port}"
                                     discovered.append(
-                                        {
-                                            "name": pod.metadata.name,
-                                            "namespace": pod.metadata.namespace,
-                                            "url": url,
-                                            "source": "pod",
-                                        }
+                                        AlertManagerInstance(
+                                            name=pod.metadata.name,
+                                            namespace=pod.metadata.namespace,
+                                            url=url,
+                                            source="pod",
+                                        )
                                     )
                                     break
         except ApiException as e:
@@ -210,9 +226,8 @@ class AlertManagerDiscovery:
 
         return discovered
 
-    def discover_via_env(self) -> List[Dict[str, str]]:
+    def discover_via_env(self) -> List[AlertManagerInstance]:
         """Discover AlertManager via environment variables."""
-        import os
 
         discovered = []
 
@@ -220,12 +235,12 @@ class AlertManagerDiscovery:
         alertmanager_url = os.getenv("ALERTMANAGER_URL")
         if alertmanager_url:
             discovered.append(
-                {
-                    "name": "env-configured",
-                    "namespace": "unknown",
-                    "url": alertmanager_url,
-                    "source": "environment",
-                }
+                AlertManagerInstance(
+                    name="env-configured",
+                    namespace="unknown",
+                    url=alertmanager_url,
+                    source="environment",
+                )
             )
 
         return discovered
@@ -269,50 +284,3 @@ class AlertManagerDiscovery:
 
         # For Deployments, harder to guess service name
         return None
-
-    def _get_proxy_url(self, service_name: str, namespace: str, port: int) -> str:
-        """Get the Kubernetes API proxy URL for a service."""
-        # Try to get the API server URL from kubeconfig
-        try:
-            from kubernetes.client import Configuration
-
-            config = Configuration.get_default_copy()
-            host = config.host
-
-            # Use the Kubernetes API proxy endpoint
-            # This allows access to services from outside the cluster
-            proxy_path = (
-                f"/api/v1/namespaces/{namespace}/services/{service_name}:{port}/proxy"
-            )
-            return f"{host}{proxy_path}"
-        except Exception as e:
-            logger.debug(f"Could not build proxy URL: {e}")
-            # Fallback to direct cluster URL (works only in-cluster)
-            return f"http://{service_name}.{namespace}.svc.cluster.local:{port}"
-
-    async def verify_alertmanager(self, url: str) -> bool:
-        """Verify that an AlertManager instance is accessible."""
-        try:
-            # Special handling for proxy URLs
-            if "/proxy" in url:
-                # For proxy URLs, we need to use the kubeconfig auth
-                from kubernetes.client import ApiClient
-
-                api_client = ApiClient()
-
-                # Make request with auth
-                response = api_client.call_api(
-                    f"{url}/api/v2/status",
-                    "GET",
-                    response_type="object",
-                    _return_http_data_only=True,
-                    _preload_content=False,
-                )
-                return True
-            else:
-                # Regular HTTP request
-                response = requests.get(f"{url}/api/v2/status", timeout=5)
-                return response.status_code == 200
-        except Exception as e:
-            logger.debug(f"Failed to verify AlertManager at {url}: {e}")
-            return False

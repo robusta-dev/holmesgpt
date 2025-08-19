@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 """
-Example demonstrating the HolmesGPT Alert Proxy.
+Test script for the HolmesGPT AlertManager Proxy.
 
-This example shows how to:
-1. Start the proxy server
-2. Send test alerts to it
-3. See the enriched output
+This script is used for testing and development of the AlertManager proxy feature.
+It sends test alerts to verify the proxy is working correctly.
 
-To run this example:
+To run this test:
 1. Start the proxy in one terminal:
-   holmes proxy-alertmanager --port 8080 --slack-webhook-url $SLACK_WEBHOOK
+   holmes alertmanager-proxy serve --port 8080 --slack-webhook-url $SLACK_WEBHOOK
 
 2. Run this script in another terminal:
-   python examples/alert_proxy_example.py
+   python scripts/test_alertmanager_proxy.py
 
 3. Or use curl to send a test alert:
    curl -X POST http://localhost:8080/webhook \
      -H "Content-Type: application/json" \
-     -d @examples/test_alert.json
+     -d '{"alerts": [...]}'
 """
 
 import json
@@ -95,7 +93,7 @@ def send_test_alert(url="http://localhost:8080/webhook"):
             url,
             json=webhook_payload,
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=60,
         )
 
         print(f"Response status: {response.status_code}")
@@ -110,7 +108,7 @@ def send_test_alert(url="http://localhost:8080/webhook"):
     except requests.exceptions.ConnectionError:
         print("\n❌ Could not connect to proxy. Make sure it's running:")
         print(
-            "   holmes proxy-alertmanager --port 8080 --slack-webhook-url $SLACK_WEBHOOK"
+            "   holmes alertmanager-proxy serve --port 8080 --slack-webhook-url $SLACK_WEBHOOK"
         )
     except Exception as e:
         print(f"\n❌ Error sending alert: {e}")
@@ -157,7 +155,7 @@ def send_critical_alert(url="http://localhost:8080/webhook"):
             url,
             json=webhook_payload,
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=60,
         )
 
         print(f"Response status: {response.status_code}")
@@ -190,13 +188,13 @@ def check_proxy_health(url="http://localhost:8080"):
 if __name__ == "__main__":
     import sys
 
-    proxy_url = "http://localhost:8080"
+    proxy_url = "http://localhost:8083"
 
     print("🔍 Checking proxy status...")
     if not check_proxy_health(proxy_url):
         print("\n❌ Proxy is not running. Start it with:")
         print(
-            "   holmes proxy-alertmanager --port 8080 --slack-webhook-url $SLACK_WEBHOOK"
+            "   holmes alertmanager-proxy serve --port 8083 --slack-webhook-url $SLACK_WEBHOOK"
         )
         sys.exit(1)
 

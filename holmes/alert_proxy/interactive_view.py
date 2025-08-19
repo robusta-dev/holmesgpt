@@ -5,43 +5,67 @@ Right pane: Inspector for selected alert details
 Bottom: Console output with captured logs
 """
 
-import asyncio
-import logging
-import re
 import threading
-import time
-from datetime import datetime
-from typing import List
+from typing import TYPE_CHECKING
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout, HSplit, VSplit
 from prompt_toolkit.layout.containers import Window
-from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import TextArea, Frame
 from prompt_toolkit.styles import Style
+from holmes.alert_proxy.alert_inspector import AlertInspector
+from holmes.alert_proxy.alert_list_renderer import AlertListRenderer
+from holmes.alert_proxy.console_logger import ConsoleLogger, LogInterceptor
+from holmes.alert_proxy.keybindings import KeybindingsManager
+from holmes.alert_proxy.search_manager import SearchManager
+from holmes.alert_proxy.ui_components import StatusBar, CollapsedPaneIndicators
 
-from holmes.alert_proxy.models import EnrichedAlert, AlertStatus
+if TYPE_CHECKING:
+    from holmes.alert_proxy.models import InteractiveModeConfig
+
+# UI Constants
+CONSOLE_MAX_LINES = 1000
+INSPECTOR_WIDTH = 60
+CONSOLE_HEIGHT = 12
+PAGE_SIZE = 10
+BOTTOM_DETECTION_OFFSET = 10
+REFRESH_POLL_INTERVAL = 0.1
 
 
-class AlertInteractiveView:
-    """Interactive view for alerts with inspector and console output."""
+class AlertUIView:
+    """View for alerts with inspector and console output."""
 
-    def __init__(self, proxy_config):
-        self.proxy_config = proxy_config
-        self.alerts: List[EnrichedAlert] = []
-        self.selected_index = 0
-        self.console_lines: List[str] = []
-        self.focused_pane = 0  # 0=list, 1=inspector, 2=console
-        self.processing_status = "Starting..."
-        self.last_update = datetime.utcnow()
+    def __init__(self, alert_config: "InteractiveModeConfig"):
+        self.alert_config = alert_config
+        self.model = None  # Will be set by the model
+        self._selected_index = 0  # View owns the selection state
+        self._focused_pane = 0  # 0=list, 1=inspector, 2=console
         self.inspector_collapsed = False
         self.console_collapsed = False
+        self.initial_load_complete = False  # Track if we've done first fetch
+        self.refresh_requested = threading.Event()  # For model to signal refresh
+
+        # Initialize helper modules
+        self.search_manager = SearchManager()
+        self.list_renderer = AlertListRenderer(alert_config)
+        self.inspector = AlertInspector()
+        self.console = ConsoleLogger(max_lines=CONSOLE_MAX_LINES)
+        self.console.set_update_callback(self._update_console)
+
+        # Initialize status bar
+        self.status_bar = StatusBar(
+            get_alerts=lambda: self.model.get_alerts_for_display()
+            if self.model
+            else [],
+            get_status=lambda: self.processing_status,
+            get_focused_pane=lambda: self.focused_pane,
+        )
+        self.status_bar.alert_config = alert_config
 
         # Create text areas for each pane
-        # Use regular TextArea for simplicity
         self.list_area = TextArea(
-            text="",
+            text="\n Loading alerts...",
             read_only=True,
             scrollbar=True,
             focusable=True,
@@ -54,10 +78,8 @@ class AlertInteractiveView:
             scrollbar=True,
             focusable=True,
             wrap_lines=True,
-            lexer=None,  # Will use rich for formatting
         )
-        # Hide cursor in inspector too
-        self.inspector_area.control.show_cursor = False
+        # Disable cursor in inspector (read-only)
 
         self.console_area = TextArea(
             text="",
@@ -66,358 +88,162 @@ class AlertInteractiveView:
             focusable=True,
             wrap_lines=True,
         )
-        # Hide cursor in console too
-        self.console_area.control.show_cursor = False
+        # Enable cursor for navigation in console
+        # Enable cursor in console for visibility
 
         # Create the application
         self.app = self._create_application()
         self.app_thread = None
         self.stop_event = threading.Event()
+        self.refresh_thread = None
+
+    @property
+    def selected_index(self) -> int:
+        """Get selected index (view state, not model state)."""
+        return self._selected_index
+
+    @selected_index.setter
+    def selected_index(self, value: int) -> None:
+        """Set selected index with validation."""
+        if self.model:
+            alerts = self.model.get_alerts_for_display()
+            alert_count = len(alerts) if alerts else 0
+            if alert_count == 0:
+                self._selected_index = 0
+            else:
+                self._selected_index = max(0, min(value, alert_count - 1))
+        else:
+            self._selected_index = 0
+
+    @property
+    def focused_pane(self) -> int:
+        """Get current focused pane."""
+        return self._focused_pane
+
+    @focused_pane.setter
+    def focused_pane(self, value: int) -> None:
+        """Set focused pane with validation."""
+        # Prevent setting to collapsed pane, fall back to list
+        if value == 1 and self.inspector_collapsed:
+            self._focused_pane = 0
+        elif value == 2 and self.console_collapsed:
+            self._focused_pane = 0
+        else:
+            self._focused_pane = value
+
+    @property
+    def processing_status(self) -> str:
+        """Derive processing status from current state."""
+        # Check search state first
+        search_status = self.search_manager.get_search_status()
+        if search_status:
+            return search_status
+
+        # Default status based on alerts
+        if self.model:
+            alerts = self.model.get_alerts_for_display()
+            if alerts:
+                return f"Showing {len(alerts)} alerts"
+            else:
+                return "No active alerts"
+        return "Loading..."
 
     def _create_application(self) -> Application:
         """Create the prompt_toolkit application."""
+        # Create keybinding manager
+        kb_manager = KeybindingsManager()
+        kb_manager.view = self  # type: ignore  # Pass reference to view for search state checking
 
-        # Create key bindings
-        kb = KeyBindings()
-
-        @kb.add("c-l")
-        def _(event):
-            """Focus alert list pane."""
-            if self.focused_pane == 0:
-                # Already on list, can't collapse it (main pane)
-                pass
-            else:
-                self.focused_pane = 0
-                event.app.layout.focus(self.list_area)
-                self._update_headers()
-                self._rebuild_layout()
-
-        @kb.add("c-e")
-        def _(event):
-            """Toggle inspector pane visibility."""
-            # Always toggle the collapse state
-            self.inspector_collapsed = not self.inspector_collapsed
-            self._rebuild_layout()
-
-            # If we're expanding, focus the inspector
-            if not self.inspector_collapsed:
-                self.focused_pane = 1
-                # Focus will be set in _rebuild_layout
-            # If collapsing and we were on inspector, focus goes to list (handled in _rebuild_layout)
-
-        @kb.add("c-o")
-        def _(event):
-            """Toggle console pane visibility."""
-            # Always toggle the collapse state
-            self.console_collapsed = not self.console_collapsed
-            self._rebuild_layout()
-
-            # If we're expanding, focus the console
-            if not self.console_collapsed:
-                self.focused_pane = 2
-                # Focus will be set in _rebuild_layout
-            # If collapsing and we were on console, focus goes to list (handled in _rebuild_layout)
-
-        @kb.add("tab")
-        def _(event):
-            """Cycle through panes."""
-            # Find next available pane
-            for _ in range(3):  # Max 3 attempts
-                self.focused_pane = (self.focused_pane + 1) % 3
-
-                # Skip collapsed panes
-                if self.focused_pane == 1 and self.inspector_collapsed:
-                    continue
-                if self.focused_pane == 2 and self.console_collapsed:
-                    continue
-
-                # Focus the pane
-                if self.focused_pane == 0:
-                    event.app.layout.focus(self.list_area)
-                elif self.focused_pane == 1:
-                    event.app.layout.focus(self.inspector_area)
-                elif self.focused_pane == 2:
-                    event.app.layout.focus(self.console_area)
-                self._update_headers()
-                break
-            else:
-                # All panes collapsed except list, stay on list
-                self.focused_pane = 0
-                event.app.layout.focus(self.list_area)
-                self._update_headers()
-
-        @kb.add("c-c")
-        @kb.add("c-q")
-        def _(event):
-            """Exit application."""
-            self.stop_event.set()
-            event.app.exit()
-
-        # Vim-style navigation
-        @kb.add("j")
-        def _(event):
-            """Move down in current pane or select next alert."""
-            if self.focused_pane == 0:
-                # In list pane, select next alert
-                if self.selected_index < len(self.alerts) - 1:
-                    self.selected_index += 1
-                    self._update_list()
-                    self._update_inspector()
-            elif self.focused_pane == 1:
-                self.inspector_area.buffer.cursor_down()
-            elif self.focused_pane == 2:
-                self.console_area.buffer.cursor_down()
-
-        @kb.add("down")
-        def _(event):
-            """Move down in current pane or select next alert."""
-            if self.focused_pane == 0:
-                # In list pane, select next alert
-                if self.selected_index < len(self.alerts) - 1:
-                    self.selected_index += 1
-                    self._update_list()
-                    self._update_inspector()
-            elif self.focused_pane == 1:
-                self.inspector_area.buffer.cursor_down()
-            elif self.focused_pane == 2:
-                self.console_area.buffer.cursor_down()
-
-        @kb.add("k")
-        def _(event):
-            """Move up in current pane or select previous alert."""
-            if self.focused_pane == 0:
-                # In list pane, select previous alert
-                if self.selected_index > 0:
-                    self.selected_index -= 1
-                    self._update_list()
-                    self._update_inspector()
-            elif self.focused_pane == 1:
-                self.inspector_area.buffer.cursor_up()
-            elif self.focused_pane == 2:
-                self.console_area.buffer.cursor_up()
-
-        @kb.add("up")
-        def _(event):
-            """Move up in current pane or select previous alert."""
-            if self.focused_pane == 0:
-                # In list pane, select previous alert
-                if self.selected_index > 0:
-                    self.selected_index -= 1
-                    self._update_list()
-                    self._update_inspector()
-            elif self.focused_pane == 1:
-                self.inspector_area.buffer.cursor_up()
-            elif self.focused_pane == 2:
-                self.console_area.buffer.cursor_up()
-
-        @kb.add("h")
-        def _(event):
-            """Move left in current pane."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            current_area.buffer.cursor_left()
-
-        @kb.add("l")
-        def _(event):
-            """Move right in current pane."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            current_area.buffer.cursor_right()
-
-        @kb.add("0")
-        def _(event):
-            """Move to beginning of line."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            # Move to start of current line
-            text = current_area.buffer.text
-            cursor_pos = current_area.buffer.cursor_position
-            line_start = text.rfind("\n", 0, cursor_pos)
-            if line_start == -1:
-                current_area.buffer.cursor_position = 0
-            else:
-                current_area.buffer.cursor_position = line_start + 1
-
-        @kb.add("$")
-        def _(event):
-            """Move to end of line."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            # Move to end of current line
-            text = current_area.buffer.text
-            cursor_pos = current_area.buffer.cursor_position
-            line_end = text.find("\n", cursor_pos)
-            if line_end == -1:
-                current_area.buffer.cursor_position = len(text)
-            else:
-                current_area.buffer.cursor_position = line_end
-
-        @kb.add("^")
-        def _(event):
-            """Move to first non-whitespace character of line."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            text = current_area.buffer.text
-            cursor_pos = current_area.buffer.cursor_position
-            # Find start of line
-            line_start = text.rfind("\n", 0, cursor_pos)
-            if line_start == -1:
-                line_start = 0
-            else:
-                line_start += 1
-            # Find first non-whitespace
-            line_end = text.find("\n", line_start)
-            if line_end == -1:
-                line_end = len(text)
-            line_text = text[line_start:line_end]
-            stripped = line_text.lstrip()
-            if stripped:
-                offset = len(line_text) - len(stripped)
-                current_area.buffer.cursor_position = line_start + offset
-
-        @kb.add("w")
-        def _(event):
-            """Move to next word."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            text = current_area.buffer.text
-            pos = current_area.buffer.cursor_position
-            # Skip current word
-            while pos < len(text) and text[pos].isalnum():
-                pos += 1
-            # Skip whitespace
-            while pos < len(text) and not text[pos].isalnum():
-                pos += 1
-            current_area.buffer.cursor_position = pos
-
-        @kb.add("b")
-        def _(event):
-            """Move to previous word."""
-            current_area = [self.list_area, self.inspector_area, self.console_area][
-                self.focused_pane
-            ]
-            text = current_area.buffer.text
-            pos = current_area.buffer.cursor_position
-            if pos > 0:
-                pos -= 1
-                # Skip whitespace backward
-                while pos > 0 and not text[pos].isalnum():
-                    pos -= 1
-                # Move to beginning of word
-                while pos > 0 and text[pos - 1].isalnum():
-                    pos -= 1
-            current_area.buffer.cursor_position = pos
-
-        @kb.add("enter")
-        def _(event):
-            """Open selected alert in inspector."""
-            if self.focused_pane == 0 and self.alerts:
-                self.focused_pane = 1
-                event.app.layout.focus(self.inspector_area)
-                self._update_headers()
-
-        @kb.add("g")
-        def _(event):
-            """Go to beginning of current pane."""
-            if self.focused_pane == 0:
-                self.selected_index = 0
-                self._update_list()
-                self._update_inspector()
-            else:
-                current_area = [self.list_area, self.inspector_area, self.console_area][
-                    self.focused_pane
-                ]
-                current_area.buffer.cursor_position = 0
-
-        @kb.add("G")
-        def _(event):
-            """Go to end of current pane."""
-            if self.focused_pane == 0:
-                if self.alerts:
-                    self.selected_index = len(self.alerts) - 1
-                    self._update_list()
-                    self._update_inspector()
-            else:
-                current_area = [self.list_area, self.inspector_area, self.console_area][
-                    self.focused_pane
-                ]
-                current_area.buffer.cursor_position = len(current_area.buffer.text)
-
-        @kb.add("c-d")
-        def _(event):
-            """Page down."""
-            if self.focused_pane == 0:
-                # Jump 5 alerts down
-                new_index = min(self.selected_index + 5, len(self.alerts) - 1)
-                if new_index != self.selected_index:
-                    self.selected_index = new_index
-                    self._update_list()
-                    self._update_inspector()
-            else:
-                current_area = [self.list_area, self.inspector_area, self.console_area][
-                    self.focused_pane
-                ]
-                for _ in range(10):
-                    current_area.buffer.cursor_down()
-
-        @kb.add("c-u")
-        def _(event):
-            """Page up."""
-            if self.focused_pane == 0:
-                # Jump 5 alerts up
-                new_index = max(self.selected_index - 5, 0)
-                if new_index != self.selected_index:
-                    self.selected_index = new_index
-                    self._update_list()
-                    self._update_inspector()
-            else:
-                current_area = [self.list_area, self.inspector_area, self.console_area][
-                    self.focused_pane
-                ]
-                for _ in range(10):
-                    current_area.buffer.cursor_up()
-
-        @kb.add("r")
-        def _(event):
-            """Refresh view."""
-            self._update_list()
-            self._update_inspector()
-            self._update_console()
-
-        # Create frames (these will be recreated in _build_layout)
-        self.list_frame = None
-        self.inspector_frame = None
-        self.console_frame = None
-
-        # Create header
-        self.header = Window(
-            FormattedTextControl(self._get_header_text),
-            height=1,
-            style="bold fg:#00aa00",
+        # Add navigation bindings
+        kb_manager.add_navigation_bindings(
+            move_up=self._move_up,
+            move_down=self._move_down,
+            page_up=self._page_up,
+            page_down=self._page_down,
+            switch_pane=self._switch_pane,
         )
 
-        # Create footer
-        self.footer = Window(
-            FormattedTextControl(self._get_footer_text),
-            height=1,
-            style="fg:#888888",
+        # Add UI toggle bindings
+        kb_manager.add_ui_bindings(
+            toggle_inspector=self._toggle_inspector,
+            toggle_console=self._toggle_console,
         )
 
-        # Build initial layout
-        self._build_layout()
-        layout = self._get_layout()
+        # Add action bindings
+        kb_manager.add_action_bindings(
+            refresh=self._refresh_alerts,
+            enrich_current=lambda: self._enrich_alerts(all_alerts=False),
+            enrich_all=lambda: self._enrich_alerts(all_alerts=True),
+        )
 
-        # Create style
+        # Add search bindings
+        kb_manager.add_search_bindings(
+            start_search=self._start_search,
+            cancel_search=self._cancel_search,
+        )
+
+        # Add help binding
+        kb_manager.add_help_binding(self._show_help)
+
+        # Add quit binding
+        kb_manager.add_quit_binding(self._quit_app)
+
+        # Get the configured keybindings
+        kb = kb_manager.get_bindings()
+
+        # Create a separate KeyBindings instance for search mode that takes priority
+        search_kb = KeyBindings()
+
+        # Import Condition for creating filters
+        from prompt_toolkit.filters import Condition
+
+        # Create filter conditions
+        is_searching = Condition(lambda: self.search_manager.is_active())
+        not_searching = Condition(lambda: not self.search_manager.is_active())
+
+        # Handle text input during search - register with higher priority
+        @search_kb.add("<any>", filter=is_searching)
+        def _(event):
+            """Handle character input during search."""
+            char = event.data
+            if char and char.isprintable():
+                self.search_manager.add_character(char)
+                self._update_search()
+
+        # Handle backspace during search
+        @search_kb.add("backspace", filter=is_searching)
+        def _(event):
+            """Handle backspace during search."""
+            self.search_manager.remove_character()
+            self._update_search()
+
+        # Handle Enter during search - apply filter and exit search mode
+        @search_kb.add("enter", filter=is_searching)
+        def _(event):
+            """Apply search filter and exit search mode."""
+            self._apply_search_filter()
+
+        # Add Tab key for switching panes (only when not searching)
+        @kb.add("tab", filter=not_searching)
+        def _(event):
+            """Switch to next pane."""
+            self._switch_pane()
+
+        # Merge the search keybindings with higher priority
+        from prompt_toolkit.key_binding import merge_key_bindings
+
+        kb = merge_key_bindings([search_kb, kb])  # type: ignore
+
+        # Create layout
+        layout = self._create_layout()
+
+        # Create style with better colors
         style = Style.from_dict(
             {
                 "frame.border": "fg:#808080",
                 "frame.title": "bold",
+                "status": "reverse",
+                "selected": "reverse",
                 "firing": "fg:#ff0000 bold",
                 "resolved": "fg:#00ff00",
                 "critical": "fg:#ff0000",
@@ -426,8 +252,7 @@ class AlertInteractiveView:
             }
         )
 
-        # Create application
-        app: Application = Application(
+        return Application(
             layout=layout,
             key_bindings=kb,
             style=style,
@@ -435,645 +260,608 @@ class AlertInteractiveView:
             mouse_support=False,  # Disabled - interferes with terminal text selection
         )
 
-        return app
-
-    def _get_header_text(self):
-        """Get header text."""
-        firing_count = sum(
-            1 for a in self.alerts if a.original.status == AlertStatus.FIRING
+    def _create_layout(self):
+        """Create the application layout."""
+        # Alert list (left pane) with title showing shortcut
+        list_frame = Frame(
+            self.list_area,
+            title="Alert List [l to focus]",
+            style="bold" if self.focused_pane == 0 else "",
         )
-        resolved_count = len(self.alerts) - firing_count
 
-        status_parts = []
-        if firing_count > 0:
-            status_parts.append(f"🔥 {firing_count} firing")
-        if resolved_count > 0:
-            status_parts.append(f"✅ {resolved_count} resolved")
-
-        if status_parts:
-            status_str = " • ".join(status_parts)
-            return f"🚨 HolmesGPT Alert Proxy  •  {status_str}  •  {self.processing_status}"
-        else:
-            return f"🚨 HolmesGPT Alert Proxy  •  {self.processing_status}"
-
-    def _build_layout(self):
-        """Build the frames based on current collapse state."""
-        # Alert list frame (always visible)
-        self.list_frame = Frame(self.list_area, title=self._get_list_title())
-
-        # Inspector frame
-        if self.inspector_collapsed:
-            # Collapsed inspector - create a narrow indicator bar with vertical text
-            def get_collapsed_text():
-                lines = []
-                # Create a visual sidebar indicator
-                lines.extend(
-                    [
-                        "◀",  # Arrow pointing left
-                        "━",  # Heavy horizontal line
-                        " ",
-                        "C",
-                        "t",
-                        "r",
-                        "l",
-                        " ",
-                        "+",
-                        " ",
-                        "E",
-                        " ",
-                        "━",
-                        " ",
-                        "E",
-                        "x",
-                        "p",
-                        "a",
-                        "n",
-                        "d",
-                        " ",
-                        "━",
-                    ]
-                )
-                # Fill remaining with subtle line
-                for _ in range(10):
-                    lines.append("┊")  # Dotted vertical line
-                lines.append("◀")
-                return "\n".join(lines)
-
-            self.inspector_frame = Window(
-                FormattedTextControl(get_collapsed_text),
-                width=1,
-                style="fg:#505050",  # Subtle gray, no bold for cleaner look
-            )
-        else:
-            # Expanded case - frame will be created in _get_layout
-            self.inspector_frame = None
-
-        # Console frame
-        if not self.console_collapsed:
-            self.console_frame = Frame(
-                self.console_area,
-                title=self._get_console_title(),
-                height=12,
-            )
-        else:
-            # Collapsed console - create a narrow horizontal indicator bar
-            def get_collapsed_console_text():
-                return " Console (Ctrl+O to expand) "
-
-            self.console_frame = Window(
-                FormattedTextControl(get_collapsed_console_text),
-                height=1,
-                style="fg:#606060 bold",
-            )
-
-    def _get_layout(self):
-        """Get the current layout."""
-        # Always show both panes, but inspector might be collapsed to a narrow bar
-        # Adjust the split ratio - list gets more space
+        # Inspector (right pane) with dynamic title
         if not self.inspector_collapsed:
-            # When inspector is expanded, give list 65% and inspector 35%
-            top_panes = VSplit(
+            inspector_frame = Frame(
+                self.inspector_area,
+                title="Alert Inspector [i to toggle]",
+                width=INSPECTOR_WIDTH,  # Fixed width for inspector
+                style="bold" if self.focused_pane == 1 else "",
+            )
+            # Main content with separator
+            main_content = VSplit(
                 [
-                    self.list_frame,  # Takes available space
+                    list_frame,
                     Window(width=1),  # Separator
-                    Frame(
-                        self.inspector_area, title=self._get_inspector_title(), width=50
-                    ),  # Fixed width inspector
-                ],
-                padding=0,
+                    inspector_frame,
+                ]
             )
         else:
-            # When collapsed, use the narrow indicator
-            top_panes = VSplit(
+            # Collapsed inspector indicator
+            collapsed_inspector = CollapsedPaneIndicators.get_collapsed_inspector()
+            main_content = VSplit(
                 [
-                    self.list_frame,
+                    list_frame,
                     Window(width=1),  # Separator
-                    self.inspector_frame,  # This is the narrow indicator
-                ],
-                padding=0,
+                    collapsed_inspector,
+                ]
             )
 
-        # Build the full layout
-        components = [self.header]
+        # Console (bottom pane) with dynamic title
+        if not self.console_collapsed:
+            console_frame = Frame(
+                self.console_area,
+                title="Console Output [o to toggle]",
+                height=CONSOLE_HEIGHT,
+                style="bold" if self.focused_pane == 2 else "",
+            )
+            console_component = console_frame
+        else:
+            # Collapsed console indicator
+            console_component = CollapsedPaneIndicators.get_collapsed_console()
 
-        # Add spacing
-        components.append(Window(height=1, char=" "))
+        # Build full layout with header and footer
+        root_container = HSplit(
+            [
+                self.status_bar.header,  # Header at top
+                main_content,  # Main content
+                console_component,  # Console (may be collapsed)
+                self.status_bar.footer,  # Footer at bottom
+            ]
+        )
 
-        # Add main content
-        components.append(top_panes)
+        return Layout(root_container)
 
-        # Always add console (might be collapsed to single line)
-        components.append(Window(height=1, char=" "))
-        components.append(self.console_frame)
+    # Helper methods for safe index handling
+    def _get_visible_or_all_indices(self, alerts) -> tuple:
+        """Get visible indices from filter, or all indices if no matches."""
+        if not alerts:
+            return ([], [])
 
-        # Add footer
-        components.append(self.footer)
+        visible_alerts, visible_indices = self.search_manager.get_filtered_alerts(
+            alerts
+        )
+        if not visible_indices and alerts:
+            # No matches but alerts exist - return all
+            return (alerts, list(range(len(alerts))))
+        return (visible_alerts, visible_indices)
 
-        return Layout(HSplit(components))
+    def _alert_list_navigate(self, direction: str, amount: int = 1):
+        """Generic alert list navigation helper.
 
-    def _rebuild_layout(self):
-        """Rebuild the layout when panes are collapsed/expanded."""
-        self._build_layout()
-        new_layout = self._get_layout()
+        Args:
+            direction: 'up', 'down', 'page_up', 'page_down', 'top', 'bottom'
+            amount: Number of items to move (1 for single, PAGE_SIZE for page)
+        """
+        if not self.model:
+            return False
 
-        if self.app:
-            self.app.layout = new_layout
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            return False
 
-            # Restore focus to the appropriate area
-            # If a pane is collapsed and was focused, move focus to list
-            if self.focused_pane == 0:
-                self.app.layout.focus(self.list_area)
-            elif self.focused_pane == 1:
-                if not self.inspector_collapsed:
-                    self.app.layout.focus(self.inspector_area)
+        _, visible_indices = self._get_visible_or_all_indices(alerts)
+        if not visible_indices:
+            return False
+
+        # Find current position in visible list
+        if self.selected_index in visible_indices:
+            current_pos = visible_indices.index(self.selected_index)
+        else:
+            # Not in visible list, jump to first
+            self.selected_index = visible_indices[0]
+            self._refresh_ui()
+            return True
+
+        # Calculate new position based on direction
+        if direction == "up":
+            new_pos = max(0, current_pos - amount)
+        elif direction == "down":
+            new_pos = min(len(visible_indices) - 1, current_pos + amount)
+        elif direction == "page_up":
+            new_pos = max(0, current_pos - PAGE_SIZE)
+        elif direction == "page_down":
+            new_pos = min(len(visible_indices) - 1, current_pos + PAGE_SIZE)
+        elif direction == "top":
+            new_pos = 0
+        elif direction == "bottom":
+            new_pos = len(visible_indices) - 1
+        else:
+            return False
+
+        # Update selection if position changed
+        if new_pos != current_pos:
+            self.selected_index = visible_indices[new_pos]
+            self._refresh_ui()
+            return True
+
+        return False
+
+    def _console_navigate(self, direction: str, amount: int = 1):
+        """Generic console navigation helper.
+
+        Args:
+            direction: 'up', 'down', 'top', 'bottom', 'page_up', 'page_down'
+            amount: Number of lines to move (for line movements) or pages
+        """
+        buffer = self.console_area.buffer
+        text = buffer.text
+        pos = buffer.cursor_position
+
+        if direction == "top":
+            buffer.cursor_position = 0
+        elif direction == "bottom":
+            buffer.cursor_position = len(text)
+        elif direction == "up":
+            # Simple line-by-line up movement
+            for _ in range(amount):
+                # Find start of current line
+                line_start = text.rfind("\n", 0, pos)
+                if line_start == -1:
+                    # We're on the first line
+                    buffer.cursor_position = 0
+                    break
                 else:
-                    # Inspector collapsed, move focus to list
-                    self.focused_pane = 0
-                    self.app.layout.focus(self.list_area)
-            elif self.focused_pane == 2:
-                if not self.console_collapsed:
-                    self.app.layout.focus(self.console_area)
+                    # Move to previous line
+                    pos = line_start - 1 if line_start > 0 else 0
+                    # Find start of that line
+                    prev_line_start = text.rfind("\n", 0, pos)
+                    pos = prev_line_start + 1 if prev_line_start != -1 else 0
+            buffer.cursor_position = pos
+        elif direction == "down":
+            # Simple line-by-line down movement
+            for _ in range(amount):
+                # Find next newline
+                next_newline = text.find("\n", pos)
+                if next_newline != -1 and next_newline < len(text) - 1:
+                    # Move to start of next line
+                    pos = next_newline + 1
                 else:
-                    # Console collapsed, move focus to list
-                    self.focused_pane = 0
-                    self.app.layout.focus(self.list_area)
+                    # No more lines
+                    break
+            buffer.cursor_position = pos
+        elif direction == "page_up":
+            # Move up by page
+            for _ in range(PAGE_SIZE):
+                line_start = text.rfind("\n", 0, pos)
+                if line_start == -1:
+                    buffer.cursor_position = 0
+                    break
+                else:
+                    pos = line_start - 1 if line_start > 0 else 0
+                    prev_line_start = text.rfind("\n", 0, pos)
+                    pos = prev_line_start + 1 if prev_line_start != -1 else 0
+            buffer.cursor_position = pos
+        elif direction == "page_down":
+            # Move down by page
+            for _ in range(PAGE_SIZE):
+                next_newline = text.find("\n", pos)
+                if next_newline != -1 and next_newline < len(text) - 1:
+                    pos = next_newline + 1
+                else:
+                    break
+            buffer.cursor_position = pos
 
-            self._update_headers()
-            self.app.invalidate()
+        self.app.invalidate()
 
-    def _get_list_title(self):
-        """Get title for list frame."""
-        return "Alert List [Ctrl+L]"
+    # Navigation methods
+    def _move_up(self):
+        """Move up - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("up")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Scroll inspector up
+            self.inspector_area.buffer.cursor_up()
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("up")
 
-    def _get_inspector_title(self):
-        """Get title for inspector frame."""
-        if self.inspector_collapsed:
-            return "[Collapsed - Ctrl+E to expand]"
-        return "Alert Inspector [Ctrl+E to hide]"
+    def _move_down(self):
+        """Move down - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("down")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Scroll inspector down
+            self.inspector_area.buffer.cursor_down()
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("down")
 
-    def _get_console_title(self):
-        """Get title for console frame."""
-        if self.console_collapsed:
-            return "Console [Collapsed - Ctrl+O to expand]"
-        return "Console Output [Ctrl+O to hide]"
+    def _page_up(self):
+        """Page up - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("page_up")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Scroll inspector up by page
+            self.inspector_area.buffer.cursor_up(count=PAGE_SIZE)
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("page_up")
 
-    def _get_footer_text(self):
-        """Get footer text."""
-        shortcuts = []
+    def _page_down(self):
+        """Page down - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("page_down")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Scroll inspector down by page
+            self.inspector_area.buffer.cursor_down(count=PAGE_SIZE)
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("page_down")
 
-        # Show collapse state indicators (only for inspector, console has its own bar)
-        if self.inspector_collapsed:
-            shortcuts.append("Inspector (Ctrl+E)")
+    def _go_to_top(self):
+        """Go to top - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("top")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Go to top of inspector
+            self.inspector_area.buffer.cursor_position = 0
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("top")
 
-        # Context-specific shortcuts
-        if self.focused_pane == 0:
-            shortcuts.extend(["j/k: select", "0/$: line start/end", "Enter: inspect"])
-        elif self.focused_pane == 1 and not self.inspector_collapsed:
-            shortcuts.extend(["j/k: scroll", "0/$: line", "w/b: word", "Ctrl+E: hide"])
-        elif self.focused_pane == 2 and not self.console_collapsed:
-            shortcuts.extend(["j/k: scroll", "0/$: line", "w/b: word", "Ctrl+O: hide"])
+    def _go_to_bottom(self):
+        """Go to bottom - context aware based on focused pane."""
+        if self.focused_pane == 0:  # Alert list
+            self._alert_list_navigate("bottom")
+        elif self.focused_pane == 1 and not self.inspector_collapsed:  # Inspector
+            # Go to bottom of inspector
+            self.inspector_area.buffer.cursor_position = len(self.inspector_area.text)
+        elif self.focused_pane == 2:  # Console
+            self._console_navigate("bottom")
 
-        # Add enrichment status
-        if self.proxy_config.enable_enrichment and self.alerts:
-            enriched_count = sum(1 for a in self.alerts if a.enrichment)
-            if enriched_count > 0:
-                shortcuts.append(f"AI: {enriched_count}/{len(self.alerts)}")
+    # Pane management
+    def _focus_pane(self, pane: int):
+        """Focus a specific pane."""
+        self.focused_pane = pane
+        self._update_focus()
 
-        shortcuts.append("Tab: cycle")
-        shortcuts.append("Ctrl+Q: quit")
+    def _switch_pane(self):
+        """Switch to next pane in cycle, skipping collapsed panes."""
+        available_panes = [0]  # Alert list is always available
+        if not self.inspector_collapsed:
+            available_panes.append(1)
+        if not self.console_collapsed:
+            available_panes.append(2)
 
-        return " • ".join(shortcuts)
+        current_idx = available_panes.index(self.focused_pane)
+        next_idx = (current_idx + 1) % len(available_panes)
+        self.focused_pane = available_panes[next_idx]
+        self._update_focus()
 
-    def _update_headers(self):
-        """Update frame titles to show focus."""
-        # Update titles
-        if self.list_frame and hasattr(self.list_frame, "title"):
-            self.list_frame.title = self._get_list_title()
-            self.list_frame.style = "bold" if self.focused_pane == 0 else ""
-
-        if self.inspector_frame and hasattr(self.inspector_frame, "title"):
-            self.inspector_frame.title = self._get_inspector_title()
-            self.inspector_frame.style = "bold" if self.focused_pane == 1 else ""
-
-        if self.console_frame and hasattr(self.console_frame, "title"):
-            self.console_frame.title = self._get_console_title()
-            self.console_frame.style = "bold" if self.focused_pane == 2 else ""
-
-        if self.app:
-            self.app.invalidate()
-
-    def _update_list(self):
-        """Update alert list pane."""
-        # Save current scroll position (not used currently, but kept for future)
-        # try:
-        #     saved_position = self.list_area.buffer.cursor_position
-        # except Exception:
-        #     saved_position = 0
-
-        if not self.alerts:
-            self.list_area.text = "\n  No alerts yet...\n\n  Alerts will appear here as they are received."
+    def _sync_cursor_to_selection(self):
+        """Sync TextArea cursor position to match the selected alert index."""
+        if not self.list_area.text:
             return
 
-        # Debug: ensure selected_index is valid
-        if self.selected_index >= len(self.alerts):
+        # Get the filtered view to find position in displayed list
+        if self.model:
+            alerts = self.model.get_alerts_for_display()
+            if alerts:
+                _, visible_indices = self.search_manager.get_filtered_alerts(alerts)
+                # Find position of selected_index in the visible list
+                try:
+                    display_position = visible_indices.index(self.selected_index)
+                except ValueError:
+                    display_position = 0
+            else:
+                display_position = 0
+        else:
+            display_position = 0
+
+        position = self.list_renderer.calculate_cursor_position(
+            display_position, self.list_area.text
+        )
+        self.list_area.buffer.cursor_position = position
+
+    def _update_focus(self):
+        """Update focus to match focused_pane and refresh display."""
+        if self.focused_pane == 0:
+            self.app.layout.focus(self.list_area)
+            # Sync cursor position with selected index
+            self._sync_cursor_to_selection()
+        elif self.focused_pane == 1:
+            self.app.layout.focus(self.inspector_area)
+        elif self.focused_pane == 2:
+            self.app.layout.focus(self.console_area)
+
+        # Always invalidate after focus change
+        self.app.invalidate()
+
+    def _toggle_inspector(self):
+        """Toggle inspector pane."""
+        self.inspector_collapsed = not self.inspector_collapsed
+        # If collapsing and inspector was focused, move focus to list
+        if self.inspector_collapsed and self.focused_pane == 1:
+            self.focused_pane = 0
+        self.app.layout = self._create_layout()
+        self._update_focus()
+
+    def _toggle_console(self):
+        """Toggle console pane."""
+        self.console_collapsed = not self.console_collapsed
+        # If collapsing and console was focused, move focus to list
+        if self.console_collapsed and self.focused_pane == 2:
+            self.focused_pane = 0
+        self.app.layout = self._create_layout()
+        self._update_focus()
+
+    # Single UI update path
+    def _refresh_ui(self, update_inspector=True, sync_cursor=True):
+        """Single method for all UI updates to ensure consistency."""
+
+        # Update components
+        self._update_list()
+        if update_inspector:
+            self._update_inspector()
+
+        # Sync cursor position if needed (but not during enrichment)
+        if sync_cursor and self.focused_pane == 0:
+            self._sync_cursor_to_selection()
+
+        # Single invalidate at the end
+        self.app.invalidate()
+
+    # Search functionality
+    def _start_search(self):
+        """Start search mode."""
+        if not self.model:
+            return
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            return
+
+        self.search_manager.start_search()
+        self._update_search()  # Update matches immediately
+        self.app.invalidate()
+
+    def _cancel_search(self):
+        """Cancel search and clear all filters."""
+        self.search_manager.cancel_search()
+
+        # Single UI refresh handles everything
+        self._refresh_ui(update_inspector=True)
+
+        # Ensure layout is reset for immediate visual update
+        if self.app.layout:
+            self.app.layout.reset()
+
+    def _apply_search_filter(self):
+        """Apply search as a persistent filter and exit search mode."""
+        status, has_filter = self.search_manager.apply_filter()
+        self._refresh_ui()
+
+    def _update_search(self):
+        """Update search results based on current query."""
+        if not self.model:
+            return
+
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            return
+
+        query = self.search_manager.search_query
+        matches, first_match = self.search_manager.update_search(query, alerts)
+
+        # Jump to first match
+        if first_match is not None:
+            self.selected_index = first_match
+
+        self._refresh_ui()
+
+    # Actions
+    def _refresh_alerts(self):
+        """Refresh alert list."""
+        self.console.add_line("🔄 Refreshing alerts...")
+        # Just trigger refresh - status is derived
+        self._refresh_ui()
+
+    def _enrich_alerts(self, all_alerts=False):
+        """Request enrichment of alerts via the model."""
+        if not self.model:
+            self.console.add_line("⚠️ Model not connected")
+            return
+
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            self.console.add_line("⚠️ No alerts available")
+            return
+
+        # Determine which alerts to enrich
+        if all_alerts:
+            from holmes.alert_proxy.models import EnrichmentStatus
+
+            fingerprints_to_enrich = [
+                a.original.fingerprint
+                for a in alerts
+                if a.enrichment_status != EnrichmentStatus.COMPLETED
+                and a.original.fingerprint
+            ]
+            if not fingerprints_to_enrich:
+                return
+        else:
+            # Use selected_index to find the alert (it's an index into the full list)
+            try:
+                # The selected_index should be valid in the full alert list
+                if 0 <= self.selected_index < len(alerts):
+                    alert = alerts[self.selected_index]
+                else:
+                    self.console.add_line("⚠️ Invalid selection")
+                    return
+
+                if not alert.original.fingerprint:
+                    self.console.add_line("⚠️ Alert has no fingerprint")
+                    return
+
+                fingerprints_to_enrich = [alert.original.fingerprint]
+            except (IndexError, ValueError) as e:
+                self.console.add_line(f"⚠️ Error selecting alert: {e}")
+                return
+
+        # Request enrichment from model (the model will log the actual enrichment start)
+        self.model.enrich_alerts(fingerprints_to_enrich)
+
+        # Don't sync cursor here - the model will trigger a refresh which will handle it
+        # The immediate sync was causing the jump because it happened before the UI text was updated
+
+    def _get_help_text(self) -> str:
+        """Get help text for keybindings."""
+        return """
+Navigation:
+  ↑/k         Move up
+  ↓/j         Move down
+  PgUp/Ctrl-B Page up
+  PgDn/Ctrl-F Page down
+  gg          Go to top
+  G           Go to bottom
+  Tab         Switch pane
+
+Actions:
+  r           Refresh alerts
+  e           Enrich current alert
+  E           Enrich all alerts
+  y           Copy alert details
+  s           Export current alert
+
+UI:
+  i           Toggle inspector
+  o           Toggle console
+  /           Search
+  Esc         Clear search
+  ?/h         Show this help
+  q/Ctrl-C    Quit
+"""
+
+    def _show_help(self):
+        """Show help text."""
+        help_text = self._get_help_text()
+        self.console.add_header("Help")
+        for line in help_text.split("\n"):
+            self.console.add_line(line, timestamp=False)
+        self._update_console()
+
+    def _quit_app(self, event):
+        """Quit the application."""
+        self.stop_event.set()
+        event.app.exit()
+
+    # Update methods
+    def _update_list(self):
+        """Update the alert list display."""
+        if not self.model:
+            self.list_area.text = "\n Model not connected..."
+            return
+
+        alerts = self.model.get_alerts_for_display()
+        if not alerts:
+            self.list_area.text = self.list_renderer.render_empty_state()
+            return
+
+        # Get filtered alerts from search manager
+        visible_alerts, visible_indices = self.search_manager.get_filtered_alerts(
+            alerts
+        )
+
+        if not visible_alerts:
+            active_filter = self.search_manager.get_current_filter()
+            self.list_area.text = self.list_renderer.render_no_matches(active_filter)
+            return
+
+        # Ensure selected_index is valid within visible alerts
+        if visible_indices and self.selected_index not in visible_indices:
+            self.selected_index = visible_indices[0]
+        elif not visible_indices:
             self.selected_index = 0
 
-        lines = []
-
-        # Build header row
-        header_parts = [
-            "",
-            "Alert",
-            "Status",
-            "Severity",
-            "AI",
-        ]  # First column is for selector
-
-        # No common label columns - keep it simple
-
-        # Add custom AI columns if configured
-        custom_columns = []
-        if self.proxy_config.ai_custom_columns:
-            for col in self.proxy_config.ai_custom_columns[:2]:  # Show max 2 in list
-                col_display = " ".join(word.capitalize() for word in col.split("_"))
-                header_parts.append(col_display)
-                custom_columns.append(col)
-
-        # Format header with fixed widths
-        header = self._format_row(header_parts, is_header=True)
-        lines.append(header)
-        lines.append("─" * len(header))  # Match header length
-
-        # Add alerts
-        for i, alert in enumerate(self.alerts):
-            # Determine if this row is selected
-            is_selected = i == self.selected_index
-
-            # Build row data
-            row_parts = []
-
-            # Selection indicator - ALWAYS add it
-            selector = "▶" if is_selected else " "
-            row_parts.append(selector)
-
-            # Alert name (truncated if needed)
-            alert_name = alert.original.labels.get("alertname", "Unknown")
-            if len(alert_name) > 25:
-                alert_name = alert_name[:22] + "..."
-            row_parts.append(alert_name)
-
-            # Status
-            if alert.original.status == AlertStatus.FIRING:
-                row_parts.append("🔥 FIRING")
-            else:
-                row_parts.append("✅ RESOLVED")
-
-            # Severity
-            severity = alert.original.labels.get("severity", "unknown").lower()
-            severity_icons = {
-                "critical": "🔴",
-                "warning": "🟡",
-                "info": "🔵",
-            }
-            row_parts.append(f"{severity_icons.get(severity, '⚪')} {severity}")
-
-            # AI Enrichment status
-            enrichment_status = getattr(alert, "enrichment_status", "unknown")
-            status_icon = {
-                "pending": "⏳",
-                "in_progress": "🔄",
-                "completed": "✅",
-                "failed": "❌",
-                "skipped": "⊘",
-            }.get(enrichment_status, "❓")
-            row_parts.append(f"{status_icon} {enrichment_status}")
-
-            # Add custom column values
-            for col in custom_columns:
-                if alert.enrichment and alert.enrichment.enrichment_metadata:
-                    value = alert.enrichment.enrichment_metadata.get(col, "-")
-                    if value and len(str(value)) > 15:
-                        value = str(value)[:12] + "..."
-                    row_parts.append(str(value) if value else "-")
-                else:
-                    row_parts.append("-")
-
-            # Format row
-            row = self._format_row(row_parts, is_selected=is_selected)
-            lines.append(row)
-
-        # Join lines and set text
-        full_text = "\n".join(lines)
-        self.list_area.text = full_text
-
-        # Debug: Log first line to see if selector is there
-        if lines and len(lines) > 2:
-            first_data_line = lines[2] if len(lines) > 2 else ""
-            if first_data_line and first_data_line[0] == "▶":
-                pass  # Selector is present in the text
-
-        # Move cursor to the selected line
-        try:
-            if self.selected_index < len(self.alerts):
-                # Calculate line position (header + separator + selected index)
-                line_num = 2 + self.selected_index
-                # Find the position in text for this line
-                lines_before = lines[:line_num] if line_num < len(lines) else lines
-                cursor_pos = sum(
-                    len(line) + 1 for line in lines_before
-                )  # +1 for newline
-                self.list_area.buffer.cursor_position = min(cursor_pos, len(full_text))
-        except Exception:
-            # If there's an issue, just ignore
-            pass
-
-    def _format_row(
-        self, parts: List[str], is_header: bool = False, is_selected: bool = False
-    ) -> str:
-        """Format a row with fixed column widths."""
-        widths = [2, 25, 10, 12, 15, 30, 30]  # Shorter alert name, tighter columns
-
-        formatted_parts = []
-        for i, part in enumerate(parts):
-            if i < len(widths):
-                # Truncate or pad to fit width
-                width = widths[i]
-                if len(part) > width:
-                    part = part[: width - 1] + "…"
-                formatted_parts.append(part.ljust(width))
-            else:
-                formatted_parts.append(part)
-
-        row = "|".join(formatted_parts)  # Use | separator for tighter spacing
-
-        # Don't use [selected] tags - just return the row
-        # Selection is shown with the ▶ indicator
-        return row
+        # Render the alert list
+        self.list_area.text = self.list_renderer.render_with_filter(
+            alerts,
+            visible_alerts,
+            visible_indices,
+            self.selected_index,
+            self.search_manager.get_current_filter(),
+        )
 
     def _update_inspector(self):
-        """Update inspector pane with selected alert details."""
-        if not self.alerts or self.selected_index >= len(self.alerts):
-            self.inspector_area.text = "\n  Select an alert to inspect its details..."
+        """Update the inspector pane."""
+        if not self.model:
+            self.inspector_area.text = self.inspector.format_alert_details(None)
             return
-
-        alert = self.alerts[self.selected_index]
-        lines = []
-
-        # Alert name and status
-        # Inspector width is 50, so headers should be 48 chars (50 - 2 for borders)
-        lines.append("╔══ Alert Details ═════════════════════════╗")
-        lines.append("")
-        lines.append(f"  Alert: {alert.original.labels.get('alertname', 'Unknown')}")
-
-        status_text = (
-            "FIRING" if alert.original.status == AlertStatus.FIRING else "RESOLVED"
-        )
-        lines.append(f"  Status: {status_text}")
-
-        # Timing
-        lines.append(
-            f"  Started: {alert.original.startsAt.strftime('%Y-%m-%d %H:%M:%S UTC')}"
-        )
-        if alert.original.endsAt:
-            lines.append(
-                f"  Ended: {alert.original.endsAt.strftime('%Y-%m-%d %H:%M:%S UTC')}"
-            )
-
-        # AI Enrichment section - MOVED BEFORE LABELS
-        enrichment_status = getattr(alert, "enrichment_status", "unknown")
-        if enrichment_status != "pending" and enrichment_status != "unknown":
-            # Truncate status if needed to fit in 48 chars
-            status_display = (
-                enrichment_status[:10]
-                if len(enrichment_status) > 10
-                else enrichment_status
-            )
-            header = f"╔══ AI Analysis ({status_display}) "
-            padding = "═" * (48 - len(header) - 1)
-            lines.append(f"\n{header}{padding}╗")
-
-        if alert.enrichment:
-            if not (enrichment_status != "pending" and enrichment_status != "unknown"):
-                lines.append("\n╔══ AI ANALYSIS ═══════════════════════════╗")
-
-            # Skip summary - removed
-
-            if alert.enrichment.root_cause:
-                lines.append("\n  Root Cause:")
-                for line in alert.enrichment.root_cause.split("\n"):
-                    lines.append(f"     {line}")
-
-            if alert.enrichment.business_impact:
-                lines.append("\n  Business Impact:")
-                for line in alert.enrichment.business_impact.split("\n"):
-                    lines.append(f"     {line}")
-
-            if alert.enrichment.suggested_action:
-                lines.append("\n  Suggested Action:")
-                for line in alert.enrichment.suggested_action.split("\n"):
-                    lines.append(f"     {line}")
-
-            # Skip priority score - removed
-
-            if alert.enrichment.affected_services:
-                lines.append("\n  Affected Services:")
-                for service in alert.enrichment.affected_services:
-                    lines.append(f"     • {service}")
-
-            # Custom AI columns - HIGHLIGHT THESE
-            if alert.enrichment.enrichment_metadata:
-                custom_fields = {
-                    k: v
-                    for k, v in alert.enrichment.enrichment_metadata.items()
-                    if k not in ["model", "parse_error", "raw_response", "enriched"]
-                }
-                if custom_fields:
-                    lines.append("\n  ⭐ AI-GENERATED FIELDS ⭐")
-                    for key, value in custom_fields.items():
-                        display_key = " ".join(
-                            word.capitalize() for word in key.split("_")
-                        )
-                        lines.append(f"     • {display_key}: {value}")
-
-        # Labels section (MOVED AFTER AI ANALYSIS)
-        lines.append("\n╔══ Labels ═══════════════════════════════╗")
-        for key, value in sorted(alert.original.labels.items()):
-            if key not in ["__name__"]:
-                # Format label nicely
-                lines.append(f"  {key:20s} : {value}")
-
-        # Annotations section
-        if alert.original.annotations:
-            lines.append("\n╔══ Annotations ═══════════════════════════╗")
-            for key, value in sorted(alert.original.annotations.items()):
-                # Handle multi-line annotations
-                if "\n" in value:
-                    lines.append(f"  {key}:")
-                    for line in value.split("\n"):
-                        lines.append(f"    {line}")
-                else:
-                    lines.append(f"  {key:20s} : {value}")
-
-        # Metadata section
-        if alert.original.fingerprint or alert.original.generatorURL:
-            lines.append("\n╔══ Metadata ══════════════════════════════╗")
-            if alert.original.fingerprint:
-                lines.append(f"  Fingerprint: {alert.original.fingerprint}")
-            if alert.original.generatorURL:
-                lines.append(f"  Generator URL: {alert.original.generatorURL}")
-
-        self.inspector_area.text = "\n".join(lines)
+        alerts = self.model.get_alerts_for_display()
+        if not alerts or self.selected_index >= len(alerts):
+            self.inspector_area.text = self.inspector.format_alert_details(None)
+        else:
+            alert = alerts[self.selected_index]
+            self.inspector_area.text = self.inspector.format_alert_details(alert)
 
     def _update_console(self):
-        """Update console output pane."""
-        # Remember if we were at the bottom before update
+        """Update the console pane."""
+        # Remember if we were at the bottom
         was_at_bottom = False
-        if self.console_area.buffer.cursor_position >= len(self.console_area.text) - 10:
-            # Consider "at bottom" if within 10 chars of the end
+        if (
+            self.console_area.buffer.cursor_position
+            >= len(self.console_area.text) - BOTTOM_DETECTION_OFFSET
+        ):
             was_at_bottom = True
 
-        # Show ALL console lines - the TextArea is scrollable
-        self.console_area.text = "\n".join(self.console_lines)
+        # Update text
+        self.console_area.text = self.console.get_text()
 
-        # Only auto-scroll to bottom if we were already at the bottom
-        if self.console_lines and was_at_bottom:
+        # Auto-scroll if we were at bottom
+        if self.console.get_lines() and was_at_bottom:
             self.console_area.buffer.cursor_position = len(self.console_area.text)
 
-    def update_alerts(self, alerts: List[EnrichedAlert]):
-        """Update the alerts list."""
-        self.alerts = alerts
-        self.last_update = datetime.utcnow()
-
-        # Debug: log the update
-        self.add_console_line(f"View received {len(alerts)} alerts for display")
-
-        # Update selected index if needed
-        if self.selected_index >= len(self.alerts):
-            self.selected_index = max(0, len(self.alerts) - 1)
-
-        self._update_list()
-        self._update_inspector()
-
-        if self.app:
-            self.app.invalidate()
-
-    def add_console_line(self, line: str):
-        """Add a line to console output."""
-        # Strip ANSI escape codes
-        ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-        clean_line = ansi_escape.sub("", line).strip()
-
-        if clean_line:
-            # Add timestamp
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            self.console_lines.append(f"[{timestamp}] {clean_line}")
-
-            # No limit - keep all console lines forever
-            # User can scroll through entire history
-
-            self._update_console()
-
-        if self.app:
-            self.app.invalidate()
-
-    def update_status(self, status: str):
-        """Update processing status."""
-        self.processing_status = status
-        if self.app:
-            self.app.invalidate()
-
+    # Public methods
     def start(self):
-        """Start the application in a background thread."""
-
-        def run_app():
-            try:
-                self.app.run()
-            except Exception as e:
-                import traceback
-                import sys
-
-                print(f"Error in interactive view: {e}", file=sys.stderr)
-                traceback.print_exc()
-
-        self.app_thread = threading.Thread(target=run_app)
-        self.app_thread.daemon = True
+        """Start the interactive view in a separate thread."""
+        self.app_thread = threading.Thread(target=self.app.run, daemon=True)
         self.app_thread.start()
 
-        # Give the app time to start
-        time.sleep(0.5)
+        # Start refresh monitoring thread
+        def monitor_refresh():
+            """Monitor for refresh requests from model."""
+            while not self.stop_event.is_set():
+                if self.refresh_requested.wait(timeout=REFRESH_POLL_INTERVAL):
+                    self.refresh_requested.clear()
+                    # Refresh UI from polling thread
+                    self._refresh_ui()
+
+        self.refresh_thread = threading.Thread(target=monitor_refresh, daemon=True)
+        self.refresh_thread.start()
 
     def stop(self):
-        """Stop the application."""
+        """Stop the interactive view."""
         self.stop_event.set()
-        if self.app:
-            self.app.exit()
-        if self.app_thread:
-            self.app_thread.join(timeout=2)
+        self.app.exit()
 
-    def wait_for_exit(self):
-        """Wait for user to exit the application."""
-        while not self.stop_event.is_set():
-            time.sleep(0.5)
+    def set_model(self, model):
+        """Set the model reference."""
+        self.model = model
+
+    def request_refresh(self):
+        """Request a UI refresh (called by model when data changes)."""
+        # Simply set the flag for the monitor thread to handle
+        self.refresh_requested.set()
+
+    def update_status(self, status: str):
+        """Update status - kept for compatibility but status is now derived."""
+        # Status is now derived from state, just trigger UI update
+        self.app.invalidate()
+
+    def mark_initial_load_complete(self):
+        """Mark that the initial load is complete."""
+        self.initial_load_complete = True
+        self.list_renderer.mark_initial_load_complete()
+        self.app.invalidate()
+
+    def add_console_line(self, message: str):
+        """Add a line to the console output."""
+        self.console.add_line(message)
 
 
-class LogInterceptor(logging.Handler):
-    """Intercepts logging output for the interactive view."""
-
-    def __init__(self, view: AlertInteractiveView):
-        super().__init__()
-        self.view = view
-
-    def emit(self, record):
-        try:
-            msg = self.format(record)
-            if msg and msg.strip():
-                self.view.add_console_line(msg)
-        except Exception:
-            pass
-
-
-async def run_interactive_view(enriched_alerts: List[EnrichedAlert], proxy_config):
-    """Run the interactive alert view."""
-    view = AlertInteractiveView(proxy_config)
-
-    # Set up logging interceptor
-    log_interceptor = LogInterceptor(view)
-    original_handlers = logging.root.handlers.copy()
-
-    for handler in original_handlers:
-        logging.root.removeHandler(handler)
-    logging.root.addHandler(log_interceptor)
-
-    try:
-        # Start the view
-        view.start()
-
-        # Update with initial alerts
-        view.update_alerts(enriched_alerts)
-        view.update_status(f"Showing {len(enriched_alerts)} alerts")
-
-        # Add initial console message
-        view.add_console_line(
-            "Interactive view started. Use j/k to navigate, Enter to inspect, Tab to switch panes, Ctrl+E to toggle inspector."
-        )
-        view.add_console_line(f"Loaded {len(enriched_alerts)} alerts from AlertManager")
-
-        # Simulate periodic updates (in real usage, this would be from alert polling)
-        update_count = 0
-        while not view.stop_event.is_set():
-            await asyncio.sleep(5)
-
-            # Update status to show it's live
-            update_count += 1
-            view.update_status(f"Last update: {datetime.now().strftime('%H:%M:%S')}")
-
-            # Could add new alerts here if polling
-
-    finally:
-        # Stop the view
-        view.stop()
-
-        # Restore logging handlers
-        logging.root.removeHandler(log_interceptor)
-        for handler in original_handlers:
-            logging.root.addHandler(handler)
+# LogInterceptor is re-exported from console_logger
+__all__ = ["AlertUIView", "LogInterceptor"]

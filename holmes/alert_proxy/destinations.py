@@ -1,10 +1,10 @@
 """Destination handlers for forwarding enriched alerts."""
 
-import asyncio
 import logging
 from typing import List, Optional
+import json
 
-import aiohttp
+import requests
 from rich.console import Console
 from rich.table import Table
 from holmes.config import Config
@@ -12,7 +12,7 @@ from holmes.alert_proxy.models import (
     AlertmanagerWebhook,
     AlertStatus,
     EnrichedAlert,
-    ProxyConfig,
+    WebhookModeConfig,
 )
 
 logger = logging.getLogger(__name__)
@@ -21,150 +21,225 @@ logger = logging.getLogger(__name__)
 class DestinationManager:
     """Manages forwarding enriched alerts to various destinations."""
 
-    def __init__(self, config: Config, proxy_config: ProxyConfig):
+    def __init__(self, config: Config, webhook_config: WebhookModeConfig):
         self.config = config
-        self.proxy_config = proxy_config
-        self.session: Optional[aiohttp.ClientSession] = None
+        self.webhook_config = webhook_config
+        self.session: Optional[requests.Session] = None
         self.console = Console()
 
-    async def _ensure_session(self):
-        """Ensure we have an aiohttp session."""
+    def _ensure_session(self):
+        """Ensure we have a requests session."""
         if not self.session:
-            self.session = aiohttp.ClientSession()
+            self.session = requests.Session()
 
-    async def forward_alerts(
+    def get_configured_destinations(self) -> List[str]:
+        """Get list of configured destinations."""
+        destinations = []
+        if self.webhook_config.slack_webhook_url:
+            destinations.append("slack")
+        if self.webhook_config.alertmanager_url:
+            destinations.append("alertmanager")
+        for url in self.webhook_config.webhook_urls:
+            destinations.append(f"webhook:{url}")
+        return destinations
+
+    def forward_alerts(
         self,
         enriched_alerts: List[EnrichedAlert],
         original_webhook: AlertmanagerWebhook,
     ):
         """Forward enriched alerts to all configured destinations."""
-        await self._ensure_session()
+        self._ensure_session()
 
         # Always show in console if no other destinations configured
         has_destinations = any(
             [
-                self.proxy_config.slack_webhook_url,
-                self.proxy_config.alertmanager_url,
-                self.proxy_config.webhook_urls,
+                self.webhook_config.slack_webhook_url,
+                self.webhook_config.alertmanager_url,
+                self.webhook_config.webhook_urls,
             ]
         )
 
         if not has_destinations:
             # Console-only mode
-            await self._print_to_console(enriched_alerts)
+            self._print_to_console(enriched_alerts)
 
-        tasks = []
+        # Process destinations sequentially
+        errors = []
 
         # Slack
-        if self.proxy_config.slack_webhook_url:
-            tasks.append(self._send_to_slack(enriched_alerts))
+        if self.webhook_config.slack_webhook_url:
+            try:
+                self._send_to_slack(enriched_alerts)
+            except Exception as e:
+                errors.append(f"Slack: {e}")
+                logger.error(f"Failed to send to Slack: {e}")
 
         # AlertManager (forward original with enriched annotations)
-        if self.proxy_config.alertmanager_url:
-            tasks.append(
+        if self.webhook_config.alertmanager_url:
+            try:
                 self._forward_to_alertmanager(enriched_alerts, original_webhook)
-            )
+            except Exception as e:
+                errors.append(f"AlertManager: {e}")
+                logger.error(f"Failed to forward to AlertManager: {e}")
 
         # Additional webhooks
-        for url in self.proxy_config.webhook_urls:
-            tasks.append(self._send_to_webhook(url, enriched_alerts))
+        for url in self.webhook_config.webhook_urls:
+            try:
+                self._send_to_webhook(url, enriched_alerts)
+            except Exception as e:
+                errors.append(f"Webhook {url}: {e}")
+                logger.error(f"Failed to send to webhook {url}: {e}")
 
-        # HolmesGPT investigation
-        if self.proxy_config.enable_investigation:
-            tasks.append(self._trigger_investigation(enriched_alerts))
+        if errors:
+            logger.error(f"Some destinations failed: {errors}")
 
-        if tasks:
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for i, result in enumerate(results):
-                if isinstance(result, Exception):
-                    logger.error(f"Destination {i} failed: {result}")
-
-    async def _send_to_slack(self, alerts: List[EnrichedAlert]):
-        """Send enriched alerts to Slack."""
+    def _send_to_slack(self, alerts: List[EnrichedAlert]):
+        """Send enriched alerts to Slack in default AlertManager format."""
         if not alerts:
             return
 
-        # Group alerts by priority
-        critical_alerts = [
-            a for a in alerts if a.original.labels.get("severity") == "critical"
-        ]
-        warning_alerts = [
-            a for a in alerts if a.original.labels.get("severity") == "warning"
-        ]
-        other_alerts = [
-            a for a in alerts if a not in critical_alerts and a not in warning_alerts
-        ]
+        # Group alerts by status
+        firing_alerts = [a for a in alerts if a.original.status == "firing"]
+        resolved_alerts = [a for a in alerts if a.original.status == "resolved"]
 
-        # Build Slack message
-        blocks = []
+        # Build status header like default AlertManager
+        status_parts = []
+        if firing_alerts:
+            status_parts.append(f"FIRING:{len(firing_alerts)}")
+        if resolved_alerts:
+            status_parts.append(f"RESOLVED:{len(resolved_alerts)}")
 
-        # Add header
-        alert_count = len(alerts)
-        firing_count = sum(1 for a in alerts if a.original.status == "firing")
+        # Group by alertname and severity for the title
+        alert_groups: dict[tuple[str, str], list] = {}
+        for alert in alerts:
+            alert_name = alert.original.labels.get("alertname", "Unknown")
+            severity = alert.original.labels.get("severity", "")
+            key = (alert_name, severity)
+            if key not in alert_groups:
+                alert_groups[key] = []
+            alert_groups[key].append(alert)
 
-        if firing_count > 0:
-            header_text = (
-                f"🚨 {firing_count} Alert{'s' if firing_count != 1 else ''} Firing"
-            )
-        else:
-            header_text = (
-                f"✅ {alert_count} Alert{'s' if alert_count != 1 else ''} Resolved"
-            )
+        # Build title - show first alertname (bold)
+        first_alert = alerts[0]
+        title_alert_name = first_alert.original.labels.get("alertname", "Alert")
 
-        blocks.append(
-            {"type": "header", "text": {"type": "plain_text", "text": header_text}}
-        )
+        # Simple bold title like AlertManager default
+        title = f"*[{', '.join(status_parts)}] {title_alert_name}*"
 
-        # Add summary if multiple alerts
-        if alert_count > 1:
-            summary_parts = []
-            if critical_alerts:
-                summary_parts.append(f"🔴 {len(critical_alerts)} critical")
-            if warning_alerts:
-                summary_parts.append(f"🟡 {len(warning_alerts)} warning")
-            if other_alerts:
-                summary_parts.append(f"🔵 {len(other_alerts)} other")
+        # Build message sections for each alert
+        sections = []
 
-            blocks.append(
+        for alert in alerts:
+            alert_name = alert.original.labels.get("alertname", "Unknown")
+            severity = alert.original.labels.get("severity", "")
+
+            # Build alert header
+            alert_header = f"*Alert:* {alert.original.labels.get('alertname', 'Alert')}"
+            if alert.original.labels.get("instance"):
+                alert_header += f" {alert.original.labels.get('instance')}"
+            if alert.original.status == "resolved":
+                alert_header += " - ✅ resolved"
+            else:
+                alert_header += f" - {severity}" if severity else ""
+
+            # Build description
+            description = alert.original.annotations.get(
+                "description"
+            ) or alert.original.annotations.get("summary", "")
+
+            # Build details section with key labels
+            details_lines = []
+            if description:
+                details_lines.append(f"*Description:* {description}")
+
+            details_lines.append("*Details:*")
+
+            # Add important labels as bullet points
+            for label_key in [
+                "alertname",
+                "instance",
+                "job",
+                "severity",
+                "namespace",
+                "pod",
+                "service",
+            ]:
+                if value := alert.original.labels.get(label_key):
+                    details_lines.append(f"  • *{label_key}:* `{value}`")
+
+            # Add AI enrichment as additional detail items
+            if alert.enrichment:
+                # Check if using custom columns only or default enrichment
+                if alert.enrichment.enrichment_metadata:
+                    # Custom columns mode - show all custom fields
+                    for meta_key, value in alert.enrichment.enrichment_metadata.items():
+                        if (
+                            meta_key not in ["model", "parse_error", "raw_response"]
+                            and value
+                        ):
+                            # Use the original key with ai_ prefix for consistency
+                            details_lines.append(f"  • *ai_{meta_key}⚡:* {str(value)}")
+
+                # Also show default fields if they exist (when not skipping default)
+                if alert.enrichment.root_cause:
+                    details_lines.append(
+                        f"  • *ai_analysis⚡:* {alert.enrichment.root_cause}"
+                    )
+
+                if alert.enrichment.suggested_action:
+                    details_lines.append(
+                        f"  • *ai_suggested_action⚡:* {alert.enrichment.suggested_action}"
+                    )
+
+                # Show business impact if available
+                if alert.enrichment.business_impact:
+                    details_lines.append(
+                        f"  • *ai_business_impact⚡:* {alert.enrichment.business_impact}"
+                    )
+
+            # Combine into section text
+            section_text = alert_header + "\n" + "\n".join(details_lines)
+            sections.append(section_text)
+
+        # Build Slack message using attachments (like default AlertManager)
+        payload = {
+            "username": "AlertManager",
+            "text": title,
+            "attachments": [
                 {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": " • ".join(summary_parts)},
+                    "color": "danger" if firing_alerts else "good",
+                    "text": "\n\n".join(sections),
+                    "mrkdwn_in": ["text"],
+                    "footer": "⚡ AI-enriched by Holmes"
+                    if any(a.enrichment for a in alerts)
+                    else None,
                 }
-            )
-            blocks.append({"type": "divider"})
-
-        # Add top 3 most important alerts (skip sorting by deprecated priority_score)
-        # Just use the first 3 alerts in order
-        sorted_alerts = alerts
-        for alert in sorted_alerts[:3]:
-            blocks.extend(alert.to_slack_blocks())
-            if alert != sorted_alerts[min(2, len(sorted_alerts) - 1)]:
-                blocks.append({"type": "divider"})
-
-        # Send to Slack
-        payload = {"blocks": blocks}
+            ],
+        }
 
         try:
             if not self.session:
                 logger.error("No session available for Slack webhook")
                 return
-            if not self.proxy_config.slack_webhook_url:
+            if not self.webhook_config.slack_webhook_url:
                 logger.error("No Slack webhook URL configured")
                 return
-            async with self.session.post(
-                self.proxy_config.slack_webhook_url,
+            response = self.session.post(
+                self.webhook_config.slack_webhook_url,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status != 200:
-                    text = await response.text()
-                    logger.error(f"Slack webhook failed: {response.status} - {text}")
-                else:
-                    logger.info(f"Sent {alert_count} alerts to Slack")
+                timeout=10,
+            )
+            if response.status_code != 200:
+                logger.error(
+                    f"Slack webhook failed: {response.status_code} - {response.text}"
+                )
+            else:
+                logger.info(f"Sent {len(alerts)} alerts to Slack")
         except Exception as e:
             logger.error(f"Failed to send to Slack: {e}")
 
-    async def _forward_to_alertmanager(
+    def _forward_to_alertmanager(
         self,
         enriched_alerts: List[EnrichedAlert],
         original_webhook: AlertmanagerWebhook,
@@ -176,51 +251,51 @@ class DestinationManager:
         for i, alert in enumerate(modified_webhook.alerts):
             if i < len(enriched_alerts):
                 enriched = enriched_alerts[i]
-                # Add AI-generated annotations (check enrichment exists first)
-                if enriched.enrichment:
-                    # Skip deprecated summary field
-                    if enriched.enrichment.business_impact:
-                        alert.annotations["ai_business_impact"] = (
-                            enriched.enrichment.business_impact
-                        )
-                    if enriched.enrichment.root_cause:
-                        alert.annotations["ai_root_cause"] = (
-                            enriched.enrichment.root_cause
-                        )
-                    if enriched.enrichment.suggested_action:
-                        alert.annotations["ai_suggested_action"] = (
-                            enriched.enrichment.suggested_action
-                        )
-                    # Skip deprecated priority_score field - no routing by priority
 
-                if enriched.enrichment and enriched.enrichment.affected_services:
-                    alert.labels["ai_affected_services"] = ",".join(
-                        enriched.enrichment.affected_services
-                    )
+                # Add ALL enrichment fields as annotations generically
+                if enriched.enrichment:
+                    enrichment_dict = enriched.enrichment.model_dump(exclude_none=True)
+
+                    # Add each non-empty field as an annotation
+                    for field_name, field_value in enrichment_dict.items():
+                        # Convert lists to comma-separated strings
+                        if isinstance(field_value, list):
+                            if field_value:  # Only add if list is not empty
+                                alert.annotations[f"ai_{field_name}"] = ",".join(
+                                    str(v) for v in field_value
+                                )
+                        # Add dictionaries as JSON strings
+                        elif isinstance(field_value, dict):
+                            if field_value:  # Only add if dict is not empty
+                                alert.annotations[f"ai_{field_name}"] = json.dumps(
+                                    field_value
+                                )
+                        # Add other types directly
+                        elif field_value:
+                            alert.annotations[f"ai_{field_name}"] = str(field_value)
 
         # Forward to AlertManager
         try:
             if not self.session:
                 logger.error("No session available for AlertManager forward")
                 return
-            async with self.session.post(
-                f"{self.proxy_config.alertmanager_url}/api/v1/alerts",
+            response = self.session.post(
+                f"{self.webhook_config.alertmanager_url}/api/v1/alerts",
                 json=[alert.model_dump() for alert in modified_webhook.alerts],
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status not in (200, 202):
-                    text = await response.text()
-                    logger.error(
-                        f"AlertManager forward failed: {response.status} - {text}"
-                    )
-                else:
-                    logger.info(
-                        f"Forwarded {len(modified_webhook.alerts)} alerts to AlertManager"
-                    )
+                timeout=10,
+            )
+            if response.status_code not in (200, 202):
+                logger.error(
+                    f"AlertManager forward failed: {response.status_code} - {response.text}"
+                )
+            else:
+                logger.info(
+                    f"Forwarded {len(modified_webhook.alerts)} alerts to AlertManager"
+                )
         except Exception as e:
             logger.error(f"Failed to forward to AlertManager: {e}")
 
-    async def _send_to_webhook(self, url: str, alerts: List[EnrichedAlert]):
+    def _send_to_webhook(self, url: str, alerts: List[EnrichedAlert]):
         """Send enriched alerts to a generic webhook."""
         payload = {
             "alerts": [
@@ -239,56 +314,17 @@ class DestinationManager:
             if not self.session:
                 logger.error("No session available for webhook forward")
                 return
-            async with self.session.post(
-                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                if response.status not in (200, 201, 202):
-                    text = await response.text()
-                    logger.error(f"Webhook {url} failed: {response.status} - {text}")
-                else:
-                    logger.info(f"Sent {len(alerts)} alerts to {url}")
+            response = self.session.post(url, json=payload, timeout=10)
+            if response.status_code not in (200, 201, 202):
+                logger.error(
+                    f"Webhook {url} failed: {response.status_code} - {response.text}"
+                )
+            else:
+                logger.info(f"Sent {len(alerts)} alerts to {url}")
         except Exception as e:
             logger.error(f"Failed to send to webhook {url}: {e}")
 
-    async def _trigger_investigation(self, alerts: List[EnrichedAlert]):
-        """Trigger HolmesGPT investigation for critical alerts."""
-        # Only investigate critical firing alerts
-        critical_alerts = [
-            a
-            for a in alerts
-            if a.original.status == "firing"
-            and a.original.labels.get("severity") == "critical"
-        ]
-
-        if not critical_alerts:
-            return
-
-        for alert in critical_alerts[:1]:  # Investigate top priority alert
-            try:
-                # Build investigation command
-                namespace = alert.original.labels.get("namespace", "default")
-                alert_name = alert.original.labels.get("alertname", "Unknown")
-
-                # This would integrate with HolmesGPT's investigation API
-                # For now, we just log it
-                investigation_query = (
-                    f"Investigate {alert_name} in namespace {namespace}"
-                )
-
-                logger.info(f"Would trigger investigation: {investigation_query}")
-
-                # In real implementation:
-                # from holmes.core.investigation import investigate_issue
-                # await investigate_issue(investigation_query, namespace=namespace)
-
-                # Update the enrichment with investigation URL if enrichment exists
-                if alert.enrichment:
-                    alert.enrichment.investigation_url = f"http://holmes.local/investigations/{alert.original.fingerprint}"
-
-            except Exception as e:
-                logger.error(f"Failed to trigger investigation: {e}")
-
-    async def _print_to_console(self, alerts: List[EnrichedAlert]):
+    def _print_to_console(self, alerts: List[EnrichedAlert]):
         """Print enriched alerts to console in a table format."""
         from rich.text import Text
         from rich import box
@@ -327,7 +363,9 @@ class DestinationManager:
             table.add_column(col_display, overflow="fold", max_width=30)
 
         # Only add default columns if not skipping default enrichment
-        if not (custom_columns and self.proxy_config.skip_default_enrichment):
+        if not (
+            custom_columns and self.webhook_config.enrichment.skip_default_enrichment
+        ):
             table.add_column("AI Summary", overflow="fold", max_width=45)
             table.add_column("Suggested Action", overflow="fold", max_width=35)
 
@@ -385,8 +423,11 @@ class DestinationManager:
                     row_data.append(Text("-", style="dim"))
 
             # Add default columns if not skipping
-            if not (custom_columns and self.proxy_config.skip_default_enrichment):
-                # AI analysis (skip deprecated summary/priority fields)
+            if not (
+                custom_columns
+                and self.webhook_config.enrichment.skip_default_enrichment
+            ):
+                # AI analysis
                 if alert.enrichment and alert.enrichment.root_cause:
                     summary = Text(alert.enrichment.root_cause[:100], style="cyan")
                 else:
@@ -407,25 +448,7 @@ class DestinationManager:
         self.console.print(table)
         self.console.print()  # Empty line after table
 
-    def get_configured_destinations(self) -> List[str]:
-        """Get list of configured destinations."""
-        destinations = []
-        if self.proxy_config.slack_webhook_url:
-            destinations.append("slack")
-        if self.proxy_config.alertmanager_url:
-            destinations.append("alertmanager")
-        if self.proxy_config.webhook_urls:
-            destinations.append(f"{len(self.proxy_config.webhook_urls)} webhooks")
-        if self.proxy_config.enable_investigation:
-            destinations.append("holmes-investigation")
-
-        # If no destinations, we're in console mode
-        if not destinations:
-            destinations.append("console")
-
-        return destinations
-
-    async def close(self):
-        """Close the aiohttp session."""
+    def close(self):
+        """Close the requests session."""
         if self.session:
-            await self.session.close()
+            self.session.close()

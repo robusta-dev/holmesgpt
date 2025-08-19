@@ -2,7 +2,7 @@
 
 import logging
 from typing import Optional, Dict, Any
-import aiohttp
+import requests
 from kubernetes import client, config as k8s_config
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class KubeProxy:
         )
         return f"{self.api_host}{proxy_path}"
 
-    async def proxy_request(
+    def proxy_request(
         self,
         service_name: str,
         namespace: str,
@@ -92,67 +92,74 @@ class KubeProxy:
 
         url = f"{base_url}/{path}" if path else base_url
 
-        # Configure SSL
-        ssl_context = None
-        if not self.verify_ssl:
-            import ssl
+        # Configure SSL for requests library
+        verify_param = False  # Default to no verification
+        cert_param = None
 
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
-        elif self.ca_cert:
-            import ssl
+        if self.verify_ssl and self.ca_cert:
+            # Use CA cert file for verification
+            verify_param = self.ca_cert
+        elif not self.verify_ssl:
+            # Disable SSL verification
+            verify_param = False
 
-            ssl_context = ssl.create_default_context(cafile=self.ca_cert)
-            if self.cert:
-                ssl_context.load_cert_chain(self.cert)
+        # Handle client certificate if provided
+        if self.cert:
+            cert_param = self.cert
 
         # Make the request via API proxy
-        async with aiohttp.ClientSession() as session:
-            try:
-                async with session.request(
-                    method=method,
-                    url=url,
-                    headers=self.headers,
-                    ssl=ssl_context if ssl_context else False,
-                    **kwargs,
-                ) as response:
-                    if response.status == 200:
-                        return await response.json()
-                    elif response.status == 503:
-                        # Service unavailable - likely no endpoints/pods
-                        logger.debug(
-                            f"Service {service_name} has no available endpoints"
-                        )
-                        return {}  # Return empty dict instead of None
-                    else:
-                        text = await response.text()
-                        logger.warning(
-                            f"Proxy request failed for {service_name} ({response.status}): {text}"
-                        )
-                        return {}  # Return empty dict instead of None
+        try:
+            logger.debug(f"Making proxy request to {url}")
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=self.headers,
+                verify=verify_param,
+                cert=cert_param,
+                timeout=10,
+                **kwargs,
+            )
+            if response.status_code == 200:
+                data = response.json()
+                logger.debug(
+                    f"Proxy request successful, got {len(data) if isinstance(data, list) else 'dict'} items"
+                )
+                return data
+            elif response.status_code == 503:
+                # Service unavailable - likely no endpoints/pods
+                logger.warning(
+                    f"Service {service_name} has no available endpoints (503)"
+                )
+                return {}  # Return empty dict instead of None
+            else:
+                logger.warning(
+                    f"Proxy request failed for {service_name} ({response.status_code}): {response.text[:200]}"
+                )
+                return {}  # Return empty dict instead of None
 
-            except Exception as e:
-                logger.error(f"Error making proxy request to {service_name}: {e}")
-                return {}
+        except Exception as e:
+            logger.error(f"Error making proxy request to {service_name}: {e}")
+            return {}
 
-    async def get_alertmanager_alerts(
+    def get_alertmanager_alerts(
         self, service_name: str, namespace: str, port: int = 9093
     ) -> Optional[Dict[str, Any]]:
         """Get alerts from AlertManager via Kubernetes API proxy."""
-        return await self.proxy_request(
+        result = self.proxy_request(
             service_name=service_name,
             namespace=namespace,
             port=port,
             path="/api/v2/alerts",
         )
+        # Return None for empty dict to make it clearer
+        return result if result and result != {} else None
 
-    async def verify_alertmanager(
+    def verify_alertmanager(
         self, service_name: str, namespace: str, port: int = 9093
     ) -> bool:
         """Verify AlertManager is accessible via proxy."""
         try:
-            result = await self.proxy_request(
+            result = self.proxy_request(
                 service_name=service_name,
                 namespace=namespace,
                 port=port,
