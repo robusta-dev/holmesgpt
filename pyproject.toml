@@ -11,7 +11,7 @@ holmes = "holmes.main:run"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-openai = "^1.6.1"
+openai = ">=1.6.1,<1.100.0"
 slack-bolt = "^1.18.1"
 pydantic-settings = "^2.1.0"
 pyyaml = "^6.0.1"
