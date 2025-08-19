@@ -3,6 +3,8 @@ Tests for dangerous commands that should be rejected by make_command_safe().
 
 These tests verify that the make_command_safe() function properly rejects
 potentially dangerous or unauthorized commands by raising ArgumentError.
+
+Covers kubectl, AWS CLI, Azure CLI, and Argo CD CLI unsafe commands.
 """
 
 import re
@@ -263,3 +265,128 @@ class TestIncorrectCommands:
         """Test that command with only pipe character returns empty string."""
         assert make_command_safe("|", config=TEST_CONFIG) == ""
         assert make_command_safe("| |", config=TEST_CONFIG) == ""
+
+
+class TestNewCLIsUnsafeCommands:
+    """Test unsafe commands for the newly added CLIs (AWS, Azure, Argo CD)."""
+
+    @pytest.mark.parametrize(
+        "command,expected_exception,partial_error_message_content",
+        [
+            # AWS CLI unsafe commands
+            ("aws configure list", ValueError, "not in the allowlist"),
+            ("aws sts get-caller-identity", ValueError, "not in the allowlist"),
+            ("aws ec2 run-instances --image-id ami-12345", ValueError, "blocked"),
+            (
+                "aws ec2 terminate-instances --instance-ids i-12345",
+                ValueError,
+                "blocked",
+            ),
+            ("aws s3 rm s3://bucket/file", ValueError, "blocked"),
+            ("aws lambda invoke --function-name test", ValueError, "blocked"),
+            (
+                "aws secretsmanager get-secret-value --secret-id test",
+                ValueError,
+                "not in the allowlist",
+            ),
+            ("aws ec2 describe-instances --output invalid", ValueError, "not allowed"),
+            (
+                "aws ec2 describe-instances --region invalid-region",
+                ValueError,
+                "Invalid AWS region format",
+            ),
+            # Azure CLI unsafe commands
+            ("az login", ValueError, "blocked operation"),
+            (
+                "az vm create --name test --resource-group mygroup",
+                ValueError,
+                "blocked operation",
+            ),
+            (
+                "az vm delete --name test --resource-group mygroup",
+                ValueError,
+                "blocked operation",
+            ),
+            (
+                "az vm start --name test --resource-group mygroup",
+                ValueError,
+                "blocked operation",
+            ),
+            ("az storage account delete --name test", ValueError, "blocked operation"),
+            (
+                "az aks get-credentials --name test --resource-group mygroup",
+                ValueError,
+                "blocked operation",
+            ),
+            (
+                "az keyvault secret show --name test --vault-name myvault",
+                ValueError,
+                "blocked operation",
+            ),
+            ("az vm list --output invalid", ValueError, "not allowed"),
+            (
+                "az vm list --location invalid-location",
+                ValueError,
+                "Invalid or unknown Azure location",
+            ),
+            (
+                "az vm list --resource-group 'invalid@name'",
+                ValueError,
+                "Invalid resource group name format",
+            ),
+            # Argo CD CLI unsafe commands
+            ("argocd login argocd.example.com", ValueError, "blocked operation"),
+            ("argocd app create myapp", ValueError, "blocked operation"),
+            ("argocd app delete myapp", ValueError, "blocked operation"),
+            ("argocd app sync myapp", ValueError, "blocked operation"),
+            ("argocd cluster add mycluster", ValueError, "blocked operation"),
+            ("argocd proj create myproject", ValueError, "blocked operation"),
+            (
+                "argocd repo add https://github.com/test/repo",
+                ValueError,
+                "blocked operation",
+            ),
+            ("argocd account generate-token", ValueError, "blocked operation"),
+            ("argocd app list --output invalid", ValueError, "not allowed"),
+            (
+                "argocd app list --app-namespace 'Invalid@Namespace'",
+                ValueError,
+                "Invalid namespace format",
+            ),
+            (
+                "argocd app list --project 'Invalid@Project'",
+                ValueError,
+                "Invalid project name format",
+            ),
+            # Mixed unsafe commands with new CLIs
+            (
+                "aws ec2 run-instances --image-id ami-123 | grep success",
+                ValueError,
+                "blocked",
+            ),
+            (
+                "az vm create --name test | grep created",
+                ValueError,
+                "blocked operation",
+            ),
+            ("argocd app create myapp | grep success", ValueError, "blocked operation"),
+            # Invalid CLI commands
+            ("invalidcli command", argparse.ArgumentError, "invalid choice"),
+        ],
+    )
+    def test_new_clis_unsafe_commands(
+        self,
+        command: str,
+        expected_exception: type,
+        partial_error_message_content: str,
+    ):
+        """Test that unsafe commands for new CLIs are properly rejected."""
+        config = TEST_CONFIG
+
+        if partial_error_message_content:
+            with pytest.raises(expected_exception) as exc_info:
+                make_command_safe(command, config=config)
+            assert partial_error_message_content in str(exc_info.value)
+        else:
+            with pytest.raises(expected_exception):
+                make_command_safe(command, config=config)

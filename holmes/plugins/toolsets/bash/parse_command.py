@@ -8,6 +8,18 @@ from holmes.plugins.toolsets.bash.kubectl import (
     create_kubectl_parser,
     stringify_kubectl_command,
 )
+from holmes.plugins.toolsets.bash.aws import (
+    create_aws_parser,
+    stringify_aws_command,
+)
+from holmes.plugins.toolsets.bash.azure import (
+    create_azure_parser,
+    stringify_azure_command,
+)
+from holmes.plugins.toolsets.bash.argocd import (
+    create_argocd_parser,
+    stringify_argocd_command,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -23,6 +35,9 @@ def create_parser() -> argparse.ArgumentParser:
 
     create_kubectl_parser(commands_parser)
     create_grep_parser(commands_parser)
+    create_aws_parser(commands_parser)
+    create_azure_parser(commands_parser)
+    create_argocd_parser(commands_parser)
     return parser
 
 
@@ -33,10 +48,16 @@ def stringify_command(
         return stringify_kubectl_command(command, original_command, config)
     elif command.cmd == "grep":
         return stringify_grep_command(command)
+    elif command.cmd == "aws":
+        return stringify_aws_command(command, original_command, config)
+    elif command.cmd == "az":
+        return stringify_azure_command(command, original_command, config)
+    elif command.cmd == "argocd":
+        return stringify_argocd_command(command, original_command, config)
     else:
         # This code path should not happen b/c the parsing of the command should catch an unsupported command
         raise ValueError(
-            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep"
+            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep, aws, az, argocd"
         )
 
 

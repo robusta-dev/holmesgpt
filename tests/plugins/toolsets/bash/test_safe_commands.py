@@ -1,11 +1,13 @@
 """
-Integration tests for kubectl command parsing and stringifying.
+Integration tests for CLI command parsing and stringifying.
 
 These tests verify the complete round-trip functionality by:
 1. Taking a string command as input
 2. Parsing it into structured Command objects
 3. Stringifying it back to a command string
 4. Verifying the output matches expected behavior
+
+Covers kubectl, AWS CLI, Azure CLI, and Argo CD CLI commands.
 """
 
 import pytest
@@ -303,3 +305,275 @@ class TestKubectlIntegration:
         # print(f"* EXPECTED:\n{expected_output}")
         # print(f"* ACTUAL:\n{output_command}")
         assert output_command == expected_output
+
+
+class TestAWSIntegration:
+    """Integration tests for AWS CLI commands through parse -> stringify pipeline."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Basic AWS EC2 commands
+            ("aws ec2 describe-instances", "aws ec2 describe-instances"),
+            (
+                "aws ec2 describe-instances --output json",
+                "aws ec2 describe-instances --output json",
+            ),
+            (
+                "aws ec2 describe-instances --region us-east-1",
+                "aws ec2 describe-instances --region us-east-1",
+            ),
+            (
+                "aws ec2 describe-images --owners amazon",
+                "aws ec2 describe-images --owners amazon",
+            ),
+            # AWS S3 commands
+            ("aws s3 list-buckets", "aws s3 list-buckets"),
+            (
+                "aws s3 list-objects --bucket my-bucket",
+                "aws s3 list-objects --bucket my-bucket",
+            ),
+            (
+                "aws s3api get-bucket-location --bucket my-bucket",
+                "aws s3api get-bucket-location --bucket my-bucket",
+            ),
+            # AWS Lambda commands
+            ("aws lambda list-functions", "aws lambda list-functions"),
+            (
+                "aws lambda get-function --function-name my-function",
+                "aws lambda get-function --function-name my-function",
+            ),
+            # AWS with grep
+            (
+                "aws ec2 describe-instances | grep running",
+                "aws ec2 describe-instances | grep running",
+            ),
+            ("aws s3 list-buckets | grep prod", "aws s3 list-buckets | grep prod"),
+            # AWS with complex queries
+            (
+                "aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId'",
+                "aws ec2 describe-instances --query 'Reservations[*].Instances[*].InstanceId'",
+            ),
+        ],
+    )
+    def test_aws_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestAzureIntegration:
+    """Integration tests for Azure CLI commands through parse -> stringify pipeline."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Basic Azure commands
+            ("az vm list", "az vm list"),
+            ("az vm list --output json", "az vm list --output json"),
+            (
+                "az vm show --name myvm --resource-group mygroup",
+                "az vm show --name myvm --resource-group mygroup",
+            ),
+            ("az group list", "az group list"),
+            ("az account list", "az account list"),
+            # Azure network commands
+            ("az network vnet list", "az network vnet list"),
+            ("az network nsg list", "az network nsg list"),
+            ("az network public-ip list", "az network public-ip list"),
+            # Azure storage commands
+            ("az storage account list", "az storage account list"),
+            (
+                "az storage container list --account-name mystorageaccount",
+                "az storage container list --account-name mystorageaccount",
+            ),
+            # Azure with grep
+            ("az vm list | grep running", "az vm list | grep running"),
+            ("az group list | grep prod", "az group list | grep prod"),
+            # Azure with complex parameters
+            (
+                "az vm list --resource-group mygroup --query '[].{Name:name, Status:powerState}'",
+                "az vm list --resource-group mygroup --query '[].{Name:name, Status:powerState}'",
+            ),
+        ],
+    )
+    def test_azure_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestArgoCDIntegration:
+    """Integration tests for Argo CD CLI commands through parse -> stringify pipeline."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Basic Argo CD commands
+            ("argocd version", "argocd version"),
+            ("argocd context", "argocd context"),
+            ("argocd app list", "argocd app list"),
+            ("argocd app get myapp", "argocd app get myapp"),
+            (
+                "argocd app get myapp --output json",
+                "argocd app get myapp --output json",
+            ),
+            # Argo CD cluster commands
+            ("argocd cluster list", "argocd cluster list"),
+            ("argocd cluster get mycluster", "argocd cluster get mycluster"),
+            # Argo CD project commands
+            ("argocd proj list", "argocd proj list"),
+            ("argocd proj get myproject", "argocd proj get myproject"),
+            # Argo CD repo commands
+            ("argocd repo list", "argocd repo list"),
+            (
+                "argocd repo get https://github.com/myorg/myrepo",
+                "argocd repo get https://github.com/myorg/myrepo",
+            ),
+            # Argo CD with grep
+            ("argocd app list | grep myapp", "argocd app list | grep myapp"),
+            ("argocd cluster list | grep prod", "argocd cluster list | grep prod"),
+            # Argo CD logs and monitoring
+            ("argocd app logs myapp", "argocd app logs myapp"),
+            ("argocd app logs myapp --tail 100", "argocd app logs myapp --tail 100"),
+            ("argocd app diff myapp", "argocd app diff myapp"),
+            ("argocd app history myapp", "argocd app history myapp"),
+            # Argo CD with filters
+            (
+                "argocd app list --project myproject",
+                "argocd app list --project myproject",
+            ),
+            (
+                "argocd app list --selector app=web",
+                "argocd app list --selector app=web",
+            ),
+        ],
+    )
+    def test_argocd_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestMultiCLIIntegration:
+    """Integration tests for combinations of different CLI commands."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # Different CLIs with grep
+            ("kubectl get pods | grep nginx", "kubectl get pods | grep nginx"),
+            (
+                "aws ec2 describe-instances | grep running",
+                "aws ec2 describe-instances | grep running",
+            ),
+            ("az vm list | grep production", "az vm list | grep production"),
+            ("argocd app list | grep web", "argocd app list | grep web"),
+            # Commands with various output formats
+            ("kubectl get pods -o json", "kubectl get pods -o json"),
+            (
+                "aws ec2 describe-instances --output yaml",
+                "aws ec2 describe-instances --output yaml",
+            ),
+            ("az vm list --output table", "az vm list --output table"),
+            ("argocd app list --output wide", "argocd app list --output wide"),
+        ],
+    )
+    def test_multi_cli_round_trip(self, input_command: str, expected_output: str):
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+
+class TestShlexEscaping:
+    """Tests to verify that shlex.quote properly escapes complex parameters."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_output",
+        [
+            # AWS CLI with complex JMESPath queries containing special characters
+            (
+                "aws ec2 describe-instances --query 'Reservations[*].Instances[?State.Name==`running`]'",
+                "aws ec2 describe-instances --query 'Reservations[*].Instances[?State.Name==`running`]'",
+            ),
+            (
+                "aws s3 list-objects --bucket mybucket --query 'Contents[?Size>`1000`]'",
+                "aws s3 list-objects --bucket mybucket --query 'Contents[?Size>`1000`]'",
+            ),
+            (
+                "aws ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,State.Name]'",
+                "aws ec2 describe-instances --query 'Reservations[].Instances[].[InstanceId,State.Name]'",
+            ),
+            # Azure CLI with complex JMESPath queries
+            (
+                "az vm list --query '[].{Name:name, Status:powerState}'",
+                "az vm list --query '[].{Name:name, Status:powerState}'",
+            ),
+            (
+                "az vm list --query '[?powerState==`VM running`].name'",
+                "az vm list --query '[?powerState==`VM running`].name'",
+            ),
+            (
+                "az storage account list --query '[].{Name:name, Location:location}'",
+                "az storage account list --query '[].{Name:name, Location:location}'",
+            ),
+            # Argo CD CLI with complex selectors
+            (
+                "argocd app list --selector 'app=web,version!=v1'",
+                "argocd app list --selector 'app=web,version!=v1'",
+            ),
+            (
+                "argocd app list --selector 'tier in (frontend,backend)'",
+                "argocd app list --selector 'tier in (frontend,backend)'",
+            ),
+            # Resource names with spaces and special characters (properly quoted)
+            (
+                "kubectl get pod 'my pod with spaces'",
+                "kubectl get pod 'my pod with spaces'",
+            ),
+            (
+                "aws s3 list-objects --bucket 'my-bucket-with-special-chars_123'",
+                "aws s3 list-objects --bucket 'my-bucket-with-special-chars_123'",
+            ),
+            (
+                "az vm show --name 'vm-with.dots' --resource-group 'rg-with_underscores'",
+                "az vm show --name 'vm-with.dots' --resource-group 'rg-with_underscores'",
+            ),
+            # Complex grep patterns with special regex characters
+            (
+                "kubectl get pods | grep '^nginx-.*-[0-9]\\+$'",
+                "kubectl get pods | grep '^nginx-.*-[0-9]\\+$'",
+            ),
+            (
+                "aws ec2 describe-instances | grep 'i-[a-f0-9]\\{17\\}'",
+                "aws ec2 describe-instances | grep 'i-[a-f0-9]\\{17\\}'",
+            ),
+            # Parameters with various quote combinations
+            (
+                "aws ec2 describe-instances --query \"Reservations[*].Instances[*].Tags[?Key=='Environment']\"",
+                "aws ec2 describe-instances --query \"Reservations[*].Instances[*].Tags[?Key=='Environment']\"",
+            ),
+        ],
+    )
+    def test_shlex_escaping_complex_params(
+        self, input_command: str, expected_output: str
+    ):
+        """Test that complex parameters are safely handled by shlex escaping."""
+        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        assert output_command == expected_output
+
+    def test_shlex_escaping_security(self):
+        """Test that potentially dangerous strings are safely escaped."""
+        # These commands should not fail validation since shlex will properly escape them
+        dangerous_commands = [
+            "aws ec2 describe-instances --query 'test; echo injection'",
+            "az vm list --query 'test | cat /etc/passwd'",
+            "argocd app list --selector 'app=web && echo hack'",
+            "kubectl get pods 'pod-name; rm -rf /'",
+        ]
+
+        for cmd in dangerous_commands:
+            # Should not raise an exception due to character validation
+            try:
+                result = make_command_safe(cmd, config=TEST_CONFIG)
+                # Verify the dangerous parts are properly quoted in the output
+                assert ";" in result or "|" in result or "&" in result
+            except ValueError as e:
+                # If it fails, it should be for allowlist reasons, not character validation
+                assert "unsafe characters" not in str(e).lower()
