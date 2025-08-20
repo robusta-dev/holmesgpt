@@ -51,6 +51,7 @@ class StructuredToolResult(BaseModel):
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None
+    icon_url: Optional[str] = None
 
     def get_stringified_data(self) -> str:
         if self.data is None:
@@ -121,6 +122,8 @@ class ToolParameter(BaseModel):
     description: Optional[str] = None
     type: str = "string"
     required: bool = True
+    properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
+    items: Optional["ToolParameter"] = None  # For array item schemas
 
 
 class Tool(ABC, BaseModel):
@@ -131,12 +134,17 @@ class Tool(ABC, BaseModel):
         None  # templated string to show to the user describing this tool invocation (not seen by llm)
     )
     additional_instructions: Optional[str] = None
+    icon_url: Optional[str] = Field(
+        default=None,
+        description="The URL of the icon for the tool, if None will get toolset icon",
+    )
 
-    def get_openai_format(self):
+    def get_openai_format(self, target_model: str):
         return format_tool_to_open_ai_standard(
             tool_name=self.name,
             tool_description=self.description,
             tool_parameters=self.parameters,
+            target_model=target_model,
         )
 
     def invoke(
@@ -148,6 +156,7 @@ class Tool(ABC, BaseModel):
         )
         start_time = time.time()
         result = self._invoke(params)
+        result.icon_url = self.icon_url
         elapsed = time.time() - start_time
         output_str = (
             result.get_stringified_data()

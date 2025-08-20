@@ -10,6 +10,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tracing import DummySpan, SpanType
 from holmes.utils.global_instructions import add_global_instructions_to_user_prompt
 from holmes.utils.robusta import load_robusta_api_key
+from holmes.core.todo_manager import get_todo_manager
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -133,6 +134,9 @@ def get_investigation_context(
     else:
         logging.info("Structured output is disabled for this request")
 
+    todo_manager = get_todo_manager()
+    todo_context = todo_manager.format_tasks_for_prompt(ai.investigation_id)
+
     system_prompt = load_and_render_prompt(
         investigate_request.prompt_template,
         {
@@ -141,6 +145,8 @@ def get_investigation_context(
             "structured_output": request_structured_output_from_llm,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "todo_list": todo_context,
+            "investigation_id": ai.investigation_id,
         },
     )
 

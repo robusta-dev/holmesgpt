@@ -2,6 +2,7 @@ import concurrent.futures
 import json
 import logging
 import textwrap
+import uuid
 from typing import Dict, List, Optional, Type, Union
 
 import sentry_sdk
@@ -38,6 +39,9 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
+from holmes.core.todo_manager import (
+    get_todo_manager,
+)
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -207,6 +211,7 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
+        self.investigation_id = str(uuid.uuid4())
 
     def prompt_call(
         self,
@@ -254,7 +259,9 @@ class ToolCallingLLM:
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
-        tools = self.tool_executor.get_all_tools_openai_format()
+        tools = self.tool_executor.get_all_tools_openai_format(
+            target_model=self.llm.model
+        )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
@@ -589,7 +596,9 @@ class ToolCallingLLM:
             messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls: list[dict] = []
-        tools = self.tool_executor.get_all_tools_openai_format()
+        tools = self.tool_executor.get_all_tools_openai_format(
+            target_model=self.llm.model
+        )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
@@ -776,6 +785,9 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
 
+        todo_manager = get_todo_manager()
+        todo_context = todo_manager.format_tasks_for_prompt(self.investigation_id)
+
         system_prompt = load_and_render_prompt(
             prompt,
             {
@@ -784,6 +796,8 @@ class IssueInvestigator(ToolCallingLLM):
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
                 "cluster_name": self.cluster_name,
+                "todo_list": todo_context,
+                "investigation_id": self.investigation_id,
             },
         )
 

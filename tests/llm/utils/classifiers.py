@@ -8,17 +8,20 @@ from braintrust import Span, SpanTypeAttribute
 import logging
 
 classifier_model = os.environ.get("CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o"))
-api_key = os.environ.get("AZURE_API_KEY", os.environ.get("OPENAI_API_KEY", None))
+api_key = os.environ.get("OPENAI_API_KEY", None)
+azure_api_key = os.environ.get("AZURE_API_KEY", None)
 base_url = os.environ.get("AZURE_API_BASE", None)
 api_version = os.environ.get("AZURE_API_VERSION", None)
 
 
 def create_llm_client():
     """Create OpenAI/Azure client with same logic used by tests"""
-    if not api_key:
+    if not api_key and not azure_api_key:
         raise ValueError("No API key found (AZURE_API_KEY or OPENAI_API_KEY)")
 
     if base_url:
+        if not azure_api_key:
+            raise ValueError("No AZURE_API_KEY")
         if classifier_model.startswith("azure"):
             if len(classifier_model.split("/")) != 2:
                 raise ValueError(
@@ -32,11 +35,13 @@ def create_llm_client():
             azure_endpoint=base_url,
             azure_deployment=deployment,
             api_version=api_version,
-            api_key=api_key,
+            api_key=azure_api_key,
         )
         # For Azure, return the deployment name for API calls
         model_for_api = deployment
     else:
+        if not api_key:
+            raise ValueError("No OPENAI_API_KEY")
         client = openai.OpenAI(api_key=api_key)
         # For OpenAI, return the full model name
         model_for_api = classifier_model

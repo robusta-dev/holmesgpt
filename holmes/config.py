@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
+
+from holmes.core.llm import DefaultLLM
 from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
@@ -73,7 +75,7 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
-    max_steps: int = 10
+    max_steps: int = 40
     cluster_name: Optional[str] = None
     since: Optional[str] = (
         None  # Time period for fetching historical data (e.g., '7d', '24h')
@@ -157,6 +159,14 @@ class Config(RobustaBaseConfig):
                 )
             except ValueError as e:
                 logging.warning(f"Invalid since in config: {e}")
+                
+    def configure_robusta_ai_model(self) -> None:
+        if self._should_load_robusta_ai() and self.api_key:
+            logging.info("Loading Robusta AI model")
+            self._model_list[ROBUSTA_AI_MODEL_NAME] = {
+                "base_url": ROBUSTA_API_ENDPOINT,
+                "api_key": self.api_key.get_secret_value(),
+            }
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -483,7 +493,7 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key = self.api_key.get_secret_value() if self.api_key else None
+        api_key: Optional[str] = None
         model = self.model
         model_params = {}
         if self._model_list:
@@ -495,8 +505,6 @@ class Config(RobustaBaseConfig):
             )
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
-
-        from holmes.core.llm import DefaultLLM
 
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 

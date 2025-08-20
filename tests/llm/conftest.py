@@ -1,6 +1,6 @@
 import os
 from contextlib import contextmanager
-
+import traceback
 import pytest
 from pytest_shared_session_scope import (
     shared_session_scope_json,
@@ -235,11 +235,24 @@ def check_llm_api_with_test_call():
             "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
         )
 
+        # Build provider-specific message
         if azure_base:
-            error_msg = f"Exception: {type(e).__name__}: {str(e)} - Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
-
+            provider_msg = (
+                f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set. "
+                "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
+            )
         else:
-            error_msg = f"Exception: {type(e).__name__}: {str(e)} - Tried to use OpenAI (model: {classifier_model}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+            provider_msg = (
+                f"Tried to use OpenAI (model: {classifier_model}). "
+                "Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+            )
+
+        # Add error info + stacktrace
+        error_msg = (
+            f"Exception: {type(e).__name__}: {e}\n"
+            f"{traceback.format_exc()}\n"
+            f"{provider_msg}"
+        )
 
         return False, error_msg
 
