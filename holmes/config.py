@@ -79,6 +79,9 @@ class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
+    account_id: Optional[str] = None
+    session_token: Optional[SecretStr] = None
+
     model: Optional[str] = "gpt-4o"
     max_steps: int = 40
     cluster_name: Optional[str] = None
@@ -149,14 +152,22 @@ class Config(RobustaBaseConfig):
         self.configure_robusta_ai_model()
 
     def configure_robusta_ai_model(self) -> None:
-        if not self.api_key:
-            return
         try:
             if not self.cluster_name or not LOAD_ALL_ROBUSTA_MODELS:
                 self._load_default_robusta_config()
                 return
 
-            models = fetch_robusta_models(self.cluster_name)
+            if not self.api_key:
+                dal = SupabaseDal(self.cluster_name)
+                self.load_robusta_api_key(dal)
+
+            if not self.account_id or not self.session_token:
+                self._load_default_robusta_config()
+                return
+
+            models = fetch_robusta_models(
+                self.account_id, self.session_token.get_secret_value()
+            )
             if not models:
                 self._load_default_robusta_config()
                 return
@@ -165,7 +176,7 @@ class Config(RobustaBaseConfig):
                 logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
                     "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
-                    "api_key": self.api_key.get_secret_value(),
+                    "api_key": self.api_key.get_secret_value(),  # type: ignore
                 }
 
         except Exception:
@@ -526,6 +537,13 @@ class Config(RobustaBaseConfig):
             return json.dumps(list(self._model_list.keys()))  # type: ignore
 
         return json.dumps([self.model])  # type: ignore
+
+    def load_robusta_api_key(self, dal: SupabaseDal):
+        if ROBUSTA_AI:
+            account_id, token = dal.get_ai_credentials()
+            self.api_key = SecretStr(f"{account_id} {token}")
+            self.account_id = account_id
+            self.session_token = SecretStr(token)
 
 
 class TicketSource(BaseModel):
