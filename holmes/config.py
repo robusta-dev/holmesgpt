@@ -74,6 +74,8 @@ class Config(RobustaBaseConfig):
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
     model: Optional[str] = "gpt-4o"
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
     max_steps: int = 40
     cluster_name: Optional[str] = None
 
@@ -209,6 +211,8 @@ class Config(RobustaBaseConfig):
         for field_name in [
             "model",
             "api_key",
+            "api_base",
+            "api_version",
             "max_steps",
             "alertmanager_url",
             "alertmanager_username",
@@ -475,8 +479,10 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key: Optional[str] = None
+        api_key = self.api_key
         model = self.model
+        api_base = self.api_base
+        api_version = self.api_version
         model_params = {}
         if self._model_list:
             # get requested model or the first credentials if no model requested.
@@ -487,8 +493,11 @@ class Config(RobustaBaseConfig):
             )
             api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
+            # It's ok if the model does not have api base and api version, which are defaults to None.
+            api_base = model_params.pop("api_base", api_base)
+            api_version = model_params.pop("api_version", api_version)
 
-        return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
+        return DefaultLLM(model, api_key, api_base, api_version, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:

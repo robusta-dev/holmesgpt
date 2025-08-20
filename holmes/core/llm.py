@@ -61,31 +61,40 @@ class LLM:
 class DefaultLLM(LLM):
     model: str
     api_key: Optional[str]
-    base_url: Optional[str]
+    api_base: Optional[str]
+    api_version: Optional[str]
     args: Dict
 
     def __init__(
         self,
         model: str,
         api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
+        api_version: Optional[str] = None,
         args: Optional[Dict] = None,
         tracer=None,
     ):
         self.model = model
         self.api_key = api_key
+        self.api_base = api_base
+        self.api_version = api_version
         self.args = args or {}
         self.tracer = tracer
 
-        if not self.args:
-            self.check_llm(self.model, self.api_key)
+        self.check_llm(
+            self.model, self.api_key, self.api_base, self.api_version, self.args
+        )
 
-    def check_llm(self, model: str, api_key: Optional[str]):
+    def check_llm(
+        self,
+        model: str,
+        api_key: Optional[str],
+        api_base: Optional[str],
+        api_version: Optional[str],
+        args: Optional[Dict],
+    ):
         logging.debug(f"Checking LiteLLM model {model}")
-        # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment
-        # so without this hack it always complains that the environment variable for the api key is missing
-        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
-        # TODO: we can now handle this better - see https://github.com/BerriAI/litellm/issues/4375#issuecomment-2223684750
-        lookup = litellm.get_llm_provider(self.model)
+        lookup = litellm.get_llm_provider(model)
         if not lookup:
             raise Exception(f"Unknown provider for model {model}")
         provider = lookup[1]
@@ -122,11 +131,22 @@ class DefaultLLM(LLM):
         elif provider == "bedrock" and os.environ.get("AWS_PROFILE"):
             model_requirements = {"keys_in_environment": True, "missing_keys": []}
         else:
-            #
-            api_key_env_var = f"{provider.upper()}_API_KEY"
-            if api_key:
-                os.environ[api_key_env_var] = api_key
-            model_requirements = litellm.validate_environment(model=model)
+            model_requirements = litellm.validate_environment(
+                model=model, api_key=api_key, api_base=api_base
+            )
+            # validate_environment does not accept api_version, and as a special case, when all the other AZURE
+            # environments are set expect AZURE_API_VERSION, validate_environment complains the missing of it
+            # even after the api_version is set.
+            # TODO: There's an open PR in litellm to accept api_version in validate_environment, we can leverage this
+            # change if accepted to ignore the following check.
+            # https://github.com/BerriAI/litellm/pull/13808
+            if (
+                provider == "azure"
+                and ["AZURE_API_VERSION"] == model_requirements["missing_keys"]
+                and api_version is not None
+            ):
+                model_requirements["missing_keys"] = []
+                model_requirements["keys_in_environment"] = True
 
         if not model_requirements["keys_in_environment"]:
             raise Exception(
@@ -233,6 +253,8 @@ class DefaultLLM(LLM):
         result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
+            base_url=self.api_base,
+            api_version=self.api_version,
             messages=messages,
             response_format=response_format,
             drop_params=drop_params,
