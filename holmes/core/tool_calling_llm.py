@@ -677,6 +677,14 @@ class ToolCallingLLM:
                 )
                 return
 
+            reasoning = getattr(response_message, "reasoning_content", None)
+            message = response_message.content
+            if reasoning or message:
+                yield StreamMessage(
+                    event=StreamEvents.AI_MESSAGE,
+                    data={"content": message, "reasoning": reasoning},
+                )
+
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
