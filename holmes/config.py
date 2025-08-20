@@ -176,7 +176,7 @@ class Config(RobustaBaseConfig):
                 logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
                     "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
-                    "api_key": self.api_key.get_secret_value(),  # type: ignore
+                    "is_robusta_model": True,
                 }
 
         except Exception:
@@ -189,7 +189,7 @@ class Config(RobustaBaseConfig):
             logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
-                "api_key": self.api_key.get_secret_value(),
+                "is_robusta_model": True,
             }
 
     def _should_load_robusta_ai(self) -> bool:
@@ -527,7 +527,10 @@ class Config(RobustaBaseConfig):
                 if model_key
                 else next(iter(self._model_list.values())).copy()
             )
-            api_key = model_params.pop("api_key", api_key)
+            if model_params.get("is_robusta_model") and self.api_key:
+                api_key = self.api_key.get_secret_value()
+            else:
+                api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
 
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
