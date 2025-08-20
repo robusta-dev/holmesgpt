@@ -342,7 +342,8 @@ class ToolCallingLLM:
                 hasattr(response_message, "reasoning_content")
                 and response_message.reasoning_content
             ):
-                logging.debug(
+                reasoning_logger = logging.getLogger("holmes.reasoning")
+                reasoning_logger.info(
                     f"[bold {AI_COLOR}]AI (reasoning) 🤔:[/bold {AI_COLOR}] {response_message.reasoning_content}\n"
                 )
 
