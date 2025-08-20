@@ -698,9 +698,21 @@ class ToolCallingLLM:
                             tool_number=tool_index,
                         )
                     )
+                    tool_params = (
+                        json.loads(t.function.arguments) if t.function.arguments else {}
+                    )
+                    tool = self.tool_executor.get_tool_by_name(t.function.name)
+                    description = (
+                        tool.get_parameterized_one_liner(tool_params) if tool else None
+                    )
                     yield StreamMessage(
                         event=StreamEvents.START_TOOL,
-                        data={"tool_name": t.function.name, "id": t.id},
+                        data={
+                            "tool_name": t.function.name,
+                            "id": t.id,
+                            "params": tool_params,
+                            "description": description,
+                        },
                     )
 
                 for future in concurrent.futures.as_completed(futures):
