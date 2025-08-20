@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import argparse
 from enum import Enum
-from os import error
 from typing import Any, Optional, Union
 
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
@@ -11,17 +10,19 @@ from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 class BashCommand(ABC):
     """Abstract base class for bash command implementations."""
 
-    def __init__(self, name:str):
+    def __init__(self, name: str):
         super().__init__()
         self.name = name
-    
+
     @abstractmethod
-    def add_parser(self, parent_parser:Any):
+    def add_parser(self, parent_parser: Any):
         """Return the argument parser for this command."""
         pass
 
     @abstractmethod
-    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
         """
         Validate the parsed command to ensure it's safe.
         Raises ValueError if validation fails.
@@ -29,54 +30,62 @@ class BashCommand(ABC):
         pass
 
     @abstractmethod
-    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
         """
         Convert the parsed command back to a safe command string.
         """
         pass
 
 
-
 class StandardValidation(Enum):
     NO_FILE_OPTION = 0
 
+
 STANDARD_CHECKS = {
-    StandardValidation.NO_FILE_OPTION: lambda option: "File arguments are not allowed" if not option.startswith('-') and '=' not in option else None
+    StandardValidation.NO_FILE_OPTION: lambda option: "File arguments are not allowed"
+    if not option.startswith("-") and "=" not in option
+    else None
 }
 
 
 class SimpleBashCommand(BashCommand):
-
-    def __init__(self, name:str, allowed_options: list[Union[str, StandardValidation]] = [], denied_options: list[Union[str, StandardValidation]] = []):
+    def __init__(
+        self,
+        name: str,
+        allowed_options: list[Union[str, StandardValidation]] = [],
+        denied_options: list[Union[str, StandardValidation]] = [],
+    ):
         """
-          A simple bash command that works with a whitelist/blacklist of options
-          If allowed_options is not empty, an option MUST be present in the allowed_options to be allowed
-          If denied_options is not empty, an option MUST NOT be present in the denied_options to be allowed
+        A simple bash command that works with a whitelist/blacklist of options
+        If allowed_options is not empty, an option MUST be present in the allowed_options to be allowed
+        If denied_options is not empty, an option MUST NOT be present in the denied_options to be allowed
         """
         super().__init__(name)
         self.allowed_options = allowed_options
         self.denied_options = denied_options
 
-    def add_parser(self, parent_parser:Any):
+    def add_parser(self, parent_parser: Any):
         parser = parent_parser.add_parser(
-            self.name, exit_on_error=False,
+            self.name,
+            exit_on_error=False,
             add_help=False,  # Disable help to avoid conflicts
-            prefix_chars="\x00"  # Use null character as prefix to disable option parsing
+            prefix_chars="\x00",  # Use null character as prefix to disable option parsing
         )
-        
+
         parser.add_argument(
             "options",
             nargs=argparse.REMAINDER,
             default=[],
         )
         return parser
-    
-    def validate_command(self, command, original_command, config):
 
+    def validate_command(self, command, original_command, config):
         for option in command.options:
-            error_messages:list[str] = []
+            error_messages: list[str] = []
             allowed = False if self.allowed_options else True
-            
+
             # Check allowed options
             for allowed_option in self.allowed_options:
                 if isinstance(allowed_option, StandardValidation):
@@ -89,7 +98,7 @@ class SimpleBashCommand(BashCommand):
                 elif option == allowed_option:
                     allowed = True
                     break
-            
+
             # Check denied options
             denied = False
             denied_error_message = None
@@ -102,25 +111,27 @@ class SimpleBashCommand(BashCommand):
                         break
                 elif option == denied_option:
                     denied = True
-                    denied_error_message = f"Option {option} is not allowed for security reasons"
+                    denied_error_message = (
+                        f"Option {option} is not allowed for security reasons"
+                    )
                     break
-            
+
             # Raise errors with appropriate messages
             if denied:
                 raise ValueError(denied_error_message)
             elif not allowed:
-                error_msg = ". ".join(error_messages) if error_messages else f"option {option} is not part of the allowed options: {self.allowed_options}"
+                error_msg = (
+                    ". ".join(error_messages)
+                    if error_messages
+                    else f"option {option} is not part of the allowed options: {self.allowed_options}"
+                )
                 raise ValueError(error_msg)
-
-
-        
 
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> str:
-
         parts = [self.name]
-        
+
         parts.extend(command.options)
-        
+
         return " ".join(escape_shell_args(parts))

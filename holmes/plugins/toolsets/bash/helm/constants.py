@@ -1,14 +1,12 @@
-
 # Safe Helm commands - read-only and inspection operations
 SAFE_HELM_COMMANDS = {
     # Release management (read-only)
     "list",
-    "ls", 
+    "ls",
     "get",
     "status",
     "history",
     "diff",
-    
     # Chart operations (read-only)
     "show",
     "inspect",
@@ -18,20 +16,16 @@ SAFE_HELM_COMMANDS = {
     "verify",
     "dependency list",
     "dependency build --dry-run",
-    
     # Repository operations (read-only)
     "repo list",
     "repo index --dry-run",
     "search repo",
-    
     # Help and information
     "help",
     "version",
     "env",
-    
     # Plugin operations (read-only)
     "plugin list",
-    
     # Completion
     "completion",
 }
@@ -40,13 +34,13 @@ SAFE_HELM_COMMANDS = {
 SAFE_HELM_GET_SUBCOMMANDS = {
     "all",
     "hooks",
-    "manifest", 
+    "manifest",
     "notes",
     "values",
     "metadata",
 }
 
-# Safe Helm show subcommands  
+# Safe Helm show subcommands
 SAFE_HELM_SHOW_SUBCOMMANDS = {
     "all",
     "chart",
@@ -59,19 +53,17 @@ SAFE_HELM_SHOW_SUBCOMMANDS = {
 BLOCKED_HELM_OPERATIONS = {
     # Release lifecycle operations
     "install",
-    "upgrade", 
+    "upgrade",
     "uninstall",
     "delete",
     "rollback",
     "test",
-    
     # Repository management
     "repo add",
-    "repo remove", 
+    "repo remove",
     "repo rm",
     "repo update",
     "repo index",
-    
     # Chart packaging and publishing
     "create",
     "package",
@@ -80,23 +72,18 @@ BLOCKED_HELM_OPERATIONS = {
     "fetch",
     "dependency update",
     "dependency build",
-    
     # Plugin management
     "plugin install",
     "plugin uninstall",
     "plugin update",
-    
     # Registry operations
     "registry login",
     "registry logout",
-    
     # Environment modification
     "env set",
     "env unset",
-    
-    # Configuration modification  
+    # Configuration modification
     "config",
-    
     # Mapkubeapis operations
     "mapkubeapis",
 }

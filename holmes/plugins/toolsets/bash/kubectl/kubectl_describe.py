@@ -13,7 +13,6 @@ from holmes.plugins.toolsets.bash.kubectl.constants import (
 
 
 class KubectlDescribeCommand(BashCommand):
-
     def __init__(self):
         super().__init__("describe")
 
@@ -24,7 +23,8 @@ class KubectlDescribeCommand(BashCommand):
             exit_on_error=False,  # Important for library use
         )
         parser.add_argument(
-            "resource_type", type=whitelist_validator("resource type", VALID_RESOURCE_TYPES)
+            "resource_type",
+            type=whitelist_validator("resource type", VALID_RESOURCE_TYPES),
         )
         parser.add_argument(
             "options",
@@ -33,13 +33,16 @@ class KubectlDescribeCommand(BashCommand):
         )
         return parser
 
-    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
         pass
 
-    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
         parts = ["kubectl", "describe", command.resource_type]
 
         parts += command.options
 
         return " ".join(escape_shell_args(parts))
-

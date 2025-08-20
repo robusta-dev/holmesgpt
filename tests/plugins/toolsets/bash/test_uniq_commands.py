@@ -16,7 +16,6 @@ class TestUniqCliSafeCommands:
             ("uniq", "uniq"),
             ("uniq -c", "uniq -c"),
             ("uniq --count", "uniq --count"),
-            
             # Show only duplicates or unique lines
             ("uniq -d", "uniq -d"),
             ("uniq --repeated", "uniq --repeated"),
@@ -24,11 +23,9 @@ class TestUniqCliSafeCommands:
             ("uniq --all-repeated", "uniq --all-repeated"),
             ("uniq -u", "uniq -u"),
             ("uniq --unique", "uniq --unique"),
-            
             # Case sensitivity
             ("uniq -i", "uniq -i"),
             ("uniq --ignore-case", "uniq --ignore-case"),
-            
             # Field and character skipping
             ("uniq -f2", "uniq -f2"),
             ("uniq --skip-fields=2", "uniq --skip-fields=2"),
@@ -36,20 +33,20 @@ class TestUniqCliSafeCommands:
             ("uniq --skip-chars=5", "uniq --skip-chars=5"),
             ("uniq -w10", "uniq -w10"),
             ("uniq --check-chars=10", "uniq --check-chars=10"),
-            
             # Line termination
             ("uniq -z", "uniq -z"),
             ("uniq --zero-terminated", "uniq --zero-terminated"),
-            
             # Combined options
             ("uniq -ci", "uniq -ci"),
             ("uniq -f1 -s2 -w5", "uniq -f1 -s2 -w5"),
-            ("uniq --count --ignore-case --repeated", "uniq --count --ignore-case --repeated"),
-            
+            (
+                "uniq --count --ignore-case --repeated",
+                "uniq --count --ignore-case --repeated",
+            ),
             # Help and version
             ("uniq --help", "uniq --help"),
             ("uniq --version", "uniq --version"),
-        ]
+        ],
     )
     def test_safe_uniq_commands(self, input_command, expected_output):
         """Test that safe uniq commands are parsed and stringified correctly."""
@@ -67,7 +64,7 @@ class TestUniqCliUnsafeCommands:
             ("uniq file1.txt", "File arguments are not allowed"),
             ("uniq input.txt output.txt", "File arguments are not allowed"),
             ("uniq -c file.txt", "File arguments are not allowed"),
-        ]
+        ],
     )
     def test_unsafe_uniq_commands(self, input_command, expected_error_message):
         """Test that unsafe uniq commands are blocked with appropriate error messages."""

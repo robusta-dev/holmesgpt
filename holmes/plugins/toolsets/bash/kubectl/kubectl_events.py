@@ -7,6 +7,8 @@ from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 
 
 class KubectlEventsCommand(BashCommand):
+    def __init__(self):
+        super().__init__("events")
 
     def add_parser(self, parent_parser: Any):
         parser = parent_parser.add_parser(
@@ -23,10 +25,14 @@ class KubectlEventsCommand(BashCommand):
             default=[],
         )
 
-    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
         pass
 
-    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
         parts = ["kubectl", "events"]
 
         parts += command.options

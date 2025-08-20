@@ -18,14 +18,12 @@ class TestSortCliSafeCommands:
             ("sort --numeric-sort", "sort --numeric-sort"),
             ("sort -r", "sort -r"),
             ("sort --reverse", "sort --reverse"),
-            
             # Key-based sorting
             ("sort -k1,1", "sort -k1,1"),
             ("sort -k2,2n", "sort -k2,2n"),
             ("sort --key=1,1", "sort --key=1,1"),
             ("sort -t: -k1,1", "sort -t: -k1,1"),
             ("sort --field-separator=: -k1,1", "sort --field-separator=: -k1,1"),
-            
             # Sort modes
             ("sort -u", "sort -u"),
             ("sort --unique", "sort --unique"),
@@ -37,7 +35,6 @@ class TestSortCliSafeCommands:
             ("sort --human-numeric-sort", "sort --human-numeric-sort"),
             ("sort -R", "sort -R"),
             ("sort --random-sort", "sort --random-sort"),
-            
             # Additional options
             ("sort -b", "sort -b"),
             ("sort --ignore-leading-blanks", "sort --ignore-leading-blanks"),
@@ -47,15 +44,13 @@ class TestSortCliSafeCommands:
             ("sort --stable", "sort --stable"),
             ("sort -z", "sort -z"),
             ("sort --zero-terminated", "sort --zero-terminated"),
-            
             # Combined options
             ("sort -nr", "sort -nr"),
             ("sort -t, -k2,2n -r", "sort -t, -k2,2n -r"),
-            
             # Help and version
             ("sort --help", "sort --help"),
             ("sort --version", "sort --version"),
-        ]
+        ],
     )
     def test_safe_sort_commands(self, input_command, expected_output):
         """Test that safe sort commands are parsed and stringified correctly."""
@@ -71,12 +66,14 @@ class TestSortCliUnsafeCommands:
         [
             # Temporary directory options are blocked
             ("sort -T /tmp", "Option -T is not allowed for security reasons"),
-            ("sort --temporary-directory=/tmp", "Option --temporary-directory is not allowed for security reasons"),
-            
+            (
+                "sort --temporary-directory=/tmp",
+                "Option --temporary-directory is not allowed for security reasons",
+            ),
             # File arguments are not allowed
             ("sort file1.txt", "File arguments are not allowed"),
             ("sort -n file1.txt file2.txt", "File arguments are not allowed"),
-        ]
+        ],
     )
     def test_unsafe_sort_commands(self, input_command, expected_error_message):
         """Test that unsafe sort commands are blocked with appropriate error messages."""

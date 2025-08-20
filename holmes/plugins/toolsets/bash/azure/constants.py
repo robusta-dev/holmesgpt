@@ -1,4 +1,3 @@
-
 # Safe Azure CLI commands - simplified flat structure
 SAFE_AZURE_COMMANDS = {
     # Basic account and resource management

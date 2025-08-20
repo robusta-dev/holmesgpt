@@ -14,9 +14,7 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_top import KubectlTopCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_get import KubectlGetCommand
 
 
-
 class KubectlCommand(BashCommand):
-
     def __init__(self):
         super().__init__("kubectl")
 
@@ -25,9 +23,9 @@ class KubectlCommand(BashCommand):
             KubectlEventsCommand(),
             KubectlLogsCommand(),
             KubectlTopCommand(),
-            KubectlGetCommand()
+            KubectlGetCommand(),
         ]
-    
+
     def add_parser(self, parent_parser: Any):
         kubectl_parser = parent_parser.add_parser(
             "kubectl", help="Kubernetes command-line tool", exit_on_error=False
@@ -41,8 +39,9 @@ class KubectlCommand(BashCommand):
         for sub_command in self.sub_commands:
             sub_command.add_parser(action_subparsers)
 
-
-    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
         """
         Validate common kubectl command fields to prevent injection attacks.
         Raises ValueError if validation fails.
@@ -76,13 +75,17 @@ class KubectlCommand(BashCommand):
             if len(command.selector) > 1000:
                 raise ValueError("Label selector too long")
 
-    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
-
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
         if command.cmd == "kubectl":
-
             for sub_command in self.sub_commands:
                 if command.action == sub_command.name:
-                    return sub_command.stringify_command(command=command, original_command=original_command, config=config)
+                    return sub_command.stringify_command(
+                        command=command,
+                        original_command=original_command,
+                        config=config,
+                    )
             raise ValueError(
                 f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"
             )

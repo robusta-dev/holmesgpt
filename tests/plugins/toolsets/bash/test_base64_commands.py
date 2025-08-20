@@ -14,29 +14,24 @@ class TestBase64CliSafeCommands:
         [
             # Basic encoding (default)
             ("base64", "base64"),
-            
             # Decoding
             ("base64 -d", "base64 -d"),
             ("base64 --decode", "base64 --decode"),
-            
             # Ignore garbage characters
             ("base64 -i", "base64 -i"),
             ("base64 --ignore-garbage", "base64 --ignore-garbage"),
-            
             # Line wrapping
             ("base64 -w 0", "base64 -w 0"),
             ("base64 --wrap=76", "base64 --wrap=76"),
             ("base64 -w 64", "base64 -w 64"),
-            
             # Combined options
             ("base64 -d -i", "base64 -d -i"),
             ("base64 --decode --ignore-garbage", "base64 --decode --ignore-garbage"),
             ("base64 -w 0", "base64 -w 0"),
-            
             # Help and version
             ("base64 --help", "base64 --help"),
             ("base64 --version", "base64 --version"),
-        ]
+        ],
     )
     def test_safe_base64_commands(self, input_command, expected_output):
         """Test that safe base64 commands are parsed and stringified correctly."""
@@ -54,7 +49,7 @@ class TestBase64CliUnsafeCommands:
             ("base64 file.txt", "File arguments are not allowed"),
             ("base64 -d encoded.txt", "File arguments are not allowed"),
             ("base64 input.txt output.txt", "File arguments are not allowed"),
-        ]
+        ],
     )
     def test_unsafe_base64_commands(self, input_command, expected_error_message):
         """Test that unsafe base64 commands are blocked with appropriate error messages."""

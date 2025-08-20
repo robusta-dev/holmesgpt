@@ -1,4 +1,3 @@
-
 # Safe Argo CD CLI commands and their allowed operations
 SAFE_ARGOCD_COMMANDS = {
     # Application management (read-only)

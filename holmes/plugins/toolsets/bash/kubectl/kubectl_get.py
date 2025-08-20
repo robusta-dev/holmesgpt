@@ -1,4 +1,3 @@
-
 from typing import Any, Optional
 
 import argparse
@@ -15,7 +14,6 @@ from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 
 
 class KubectlGetCommand(BashCommand):
-
     def __init__(self):
         super().__init__("get")
 
@@ -26,7 +24,8 @@ class KubectlGetCommand(BashCommand):
             exit_on_error=False,  # Important for library use
         )
         parser.add_argument(
-            "resource_type", type=whitelist_validator("resource type", VALID_RESOURCE_TYPES)
+            "resource_type",
+            type=whitelist_validator("resource type", VALID_RESOURCE_TYPES),
         )
         parser.add_argument(
             "options",
@@ -34,16 +33,16 @@ class KubectlGetCommand(BashCommand):
             default=[],  # Default to an empty list
         )
 
-
-    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
         pass
 
-    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
         parts = ["kubectl", "get", command.resource_type]
 
         parts += command.options
 
         return " ".join(escape_shell_args(parts))
-
-
-

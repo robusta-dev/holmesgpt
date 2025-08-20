@@ -17,7 +17,6 @@ class TestJqCliSafeCommands:
             ("jq '.name'", "jq .name"),
             ("jq '.items[]'", "jq '.items[]'"),
             ("jq '.[] | .name'", "jq '.[] | .name'"),
-            
             # Output formatting
             ("jq -c .", "jq -c ."),
             ("jq --compact-output .", "jq --compact-output ."),
@@ -25,13 +24,11 @@ class TestJqCliSafeCommands:
             ("jq --raw-output .name", "jq --raw-output .name"),
             ("jq -R .", "jq -R ."),
             ("jq --raw-input .", "jq --raw-input ."),
-            
             # Input processing
             ("jq -s .", "jq -s ."),
             ("jq --slurp .", "jq --slurp ."),
             ("jq -n '{}'", "jq -n {}"),
             ("jq --null-input '{}'", "jq --null-input {}"),
-            
             # Sorting and colors
             ("jq -S .", "jq -S ."),
             ("jq --sort-keys .", "jq --sort-keys ."),
@@ -39,11 +36,15 @@ class TestJqCliSafeCommands:
             ("jq --color-output .", "jq --color-output ."),
             ("jq -M .", "jq -M ."),
             ("jq --monochrome-output .", "jq --monochrome-output ."),
-            
             # Variables and arguments
-            ("jq --arg name value '.name = $name'", "jq --arg name value .name = $name"),
-            ("jq --argjson count 42 '.count = $count'", "jq --argjson count 42 .count = $count"),
-            
+            (
+                "jq --arg name value '.name = $name'",
+                "jq --arg name value .name = $name",
+            ),
+            (
+                "jq --argjson count 42 '.count = $count'",
+                "jq --argjson count 42 .count = $count",
+            ),
             # Other options
             ("jq -a .", "jq -a ."),
             ("jq --ascii-output .", "jq --ascii-output ."),
@@ -51,15 +52,16 @@ class TestJqCliSafeCommands:
             ("jq --join-output .", "jq --join-output ."),
             ("jq --tab .", "jq --tab ."),
             ("jq --unbuffered .", "jq --unbuffered ."),
-            
             # Complex filters
             ("jq 'map(select(.active == true))'", "jq 'map(select(.active == true))'"),
-            ("jq '.users | group_by(.department)'", "jq '.users | group_by(.department)'"),
-            
+            (
+                "jq '.users | group_by(.department)'",
+                "jq '.users | group_by(.department)'",
+            ),
             # Help and version
             ("jq --help", "jq --help"),
             ("jq --version", "jq --version"),
-        ]
+        ],
     )
     def test_safe_jq_commands(self, input_command, expected_output):
         """Test that safe jq commands are parsed and stringified correctly."""
@@ -74,9 +76,15 @@ class TestJqCliUnsafeCommands:
         "input_command,expected_error_message",
         [
             # File reading options are blocked
-            ("jq --slurpfile data.json '.'", "Option --slurpfile is not allowed for security reasons"),
-            ("jq --rawfile content.txt '.'", "Option --rawfile is not allowed for security reasons"),
-        ]
+            (
+                "jq --slurpfile data.json '.'",
+                "Option --slurpfile is not allowed for security reasons",
+            ),
+            (
+                "jq --rawfile content.txt '.'",
+                "Option --rawfile is not allowed for security reasons",
+            ),
+        ],
     )
     def test_unsafe_jq_commands(self, input_command, expected_error_message):
         """Test that unsafe jq commands are blocked with appropriate error messages."""

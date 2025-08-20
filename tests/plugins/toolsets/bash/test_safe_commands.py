@@ -498,9 +498,15 @@ class TestDockerIntegration:
             ("docker images", "docker images"),
             ("docker images -q", "docker images -q"),
             ("docker container ls", "docker container ls"),
-            ("docker container inspect mycontainer", "docker container inspect mycontainer"),
+            (
+                "docker container inspect mycontainer",
+                "docker container inspect mycontainer",
+            ),
             ("docker container logs mycontainer", "docker container logs mycontainer"),
-            ("docker container logs mycontainer --tail 100", "docker container logs mycontainer --tail 100"),
+            (
+                "docker container logs mycontainer --tail 100",
+                "docker container logs mycontainer --tail 100",
+            ),
             ("docker container stats", "docker container stats"),
             ("docker image ls", "docker image ls"),
             ("docker image inspect nginx", "docker image inspect nginx"),
@@ -517,7 +523,10 @@ class TestDockerIntegration:
             ("docker ps | grep nginx", "docker ps | grep nginx"),
             ("docker images | grep latest", "docker images | grep latest"),
             # Docker with complex filters
-            ("docker ps --filter status=running --format table", "docker ps --filter status=running --format table"),
+            (
+                "docker ps --filter status=running --format table",
+                "docker ps --filter status=running --format table",
+            ),
         ],
     )
     def test_docker_round_trip(self, input_command: str, expected_output: str):
@@ -547,7 +556,10 @@ class TestHelmIntegration:
             ("helm show values nginx", "helm show values nginx"),
             ("helm search repo nginx", "helm search repo nginx"),
             ("helm template myrelease nginx", "helm template myrelease nginx"),
-            ("helm template myrelease nginx --dry-run", "helm template myrelease nginx --dry-run"),
+            (
+                "helm template myrelease nginx --dry-run",
+                "helm template myrelease nginx --dry-run",
+            ),
             ("helm lint ./mychart", "helm lint ./mychart"),
             ("helm verify mychart-1.0.0.tgz", "helm verify mychart-1.0.0.tgz"),
             ("helm dependency list ./mychart", "helm dependency list ./mychart"),
@@ -557,9 +569,15 @@ class TestHelmIntegration:
             ("helm env", "helm env"),
             # Helm with grep
             ("helm list | grep myrelease", "helm list | grep myrelease"),
-            ("helm search repo nginx | grep stable", "helm search repo nginx | grep stable"),
+            (
+                "helm search repo nginx | grep stable",
+                "helm search repo nginx | grep stable",
+            ),
             # Helm with complex parameters
-            ("helm template myrelease nginx --namespace production --values values.yaml --set replicas=3", "helm template myrelease nginx --namespace production --values values.yaml --set replicas=3"),
+            (
+                "helm template myrelease nginx --namespace production --values values.yaml --set replicas=3",
+                "helm template myrelease nginx --namespace production --values values.yaml --set replicas=3",
+            ),
         ],
     )
     def test_helm_round_trip(self, input_command: str, expected_output: str):
@@ -615,11 +633,11 @@ class TestShlexEscaping:
             ),
             (
                 "aws s3 list-objects --bucket 'my-bucket-with-special-chars_123'",
-                "aws s3 list-objects --bucket 'my-bucket-with-special-chars_123'",
+                "aws s3 list-objects --bucket my-bucket-with-special-chars_123",
             ),
             (
                 "az vm show --name 'vm-with.dots' --resource-group 'rg-with_underscores'",
-                "az vm show --name 'vm-with.dots' --resource-group 'rg-with_underscores'",
+                "az vm show --name vm-with.dots --resource-group rg-with_underscores",
             ),
             # Complex grep patterns with special regex characters
             (

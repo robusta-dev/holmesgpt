@@ -14,7 +14,6 @@ class TestWcCliSafeCommands:
         [
             # Basic usage
             ("wc", "wc"),
-            
             # Count types - all options should be allowed since allowed_options is empty
             ("wc -l", "wc -l"),
             ("wc --lines", "wc --lines"),
@@ -26,15 +25,13 @@ class TestWcCliSafeCommands:
             ("wc --chars", "wc --chars"),
             ("wc -L", "wc -L"),
             ("wc --max-line-length", "wc --max-line-length"),
-            
             # Combined count types
             ("wc -lwc", "wc -lwc"),
             ("wc --lines --words --chars", "wc --lines --words --chars"),
-            
             # Help and version
             ("wc --help", "wc --help"),
             ("wc --version", "wc --version"),
-        ]
+        ],
     )
     def test_safe_wc_commands(self, input_command, expected_output):
         """Test that safe wc commands are parsed and stringified correctly."""
@@ -49,14 +46,16 @@ class TestWcCliUnsafeCommands:
         "input_command,expected_error_message",
         [
             # Explicitly denied option
-            ("wc --files0-from /dev/stdin", "Option --files0-from is not allowed for security reasons"),
-            
+            (
+                "wc --files0-from /dev/stdin",
+                "Option --files0-from is not allowed for security reasons",
+            ),
             # File arguments are blocked by StandardValidation.NO_FILE_OPTION
             ("wc file.txt", "File arguments are not allowed"),
             ("wc -l file1.txt file2.txt", "File arguments are not allowed"),
             ("wc /path/to/file", "File arguments are not allowed"),
             ("wc -w document.txt", "File arguments are not allowed"),
-        ]
+        ],
     )
     def test_unsafe_wc_commands(self, input_command, expected_error_message):
         """Test that unsafe wc commands are blocked with appropriate error messages."""

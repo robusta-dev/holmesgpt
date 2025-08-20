@@ -371,15 +371,34 @@ class TestNewCLIsUnsafeCommands:
             ("docker push myimage", ValueError, "blocked operation 'push'"),
             ("docker login", ValueError, "blocked operation 'login'"),
             ("docker logout", ValueError, "blocked operation 'logout'"),
-            ("docker network create mynetwork", ValueError, "blocked operation 'network create'"),
-            ("docker volume create myvolume", ValueError, "blocked operation 'volume create'"),
+            (
+                "docker network create mynetwork",
+                ValueError,
+                "blocked operation 'network create'",
+            ),
+            (
+                "docker volume create myvolume",
+                ValueError,
+                "blocked operation 'volume create'",
+            ),
             ("docker system prune", ValueError, "blocked operation 'system prune'"),
             ("docker ps --format invalid", ValueError, "not allowed"),
-            ("docker container inspect 'invalid@name#'", ValueError, "Invalid Docker resource name format"),
-            ("docker network inspect 'invalid network name'", ValueError, "Invalid Docker network name format"),
-            ("docker volume inspect 'invalid@volume'", ValueError, "Invalid Docker volume name format"),
+            (
+                "docker container inspect 'invalid@name#'",
+                ValueError,
+                "Invalid Docker resource name format",
+            ),
+            (
+                "docker network inspect 'invalid network name'",
+                ValueError,
+                "Invalid Docker network name format",
+            ),
+            (
+                "docker volume inspect 'invalid@volume'",
+                ValueError,
+                "Invalid Docker volume name format",
+            ),
             ("docker ps --malicious-flag", ValueError, "Unknown or unsafe"),
-            
             # Helm CLI unsafe commands
             ("helm install myrelease nginx", ValueError, "blocked operation 'install'"),
             ("helm upgrade myrelease nginx", ValueError, "blocked operation 'upgrade'"),
@@ -387,23 +406,50 @@ class TestNewCLIsUnsafeCommands:
             ("helm delete myrelease", ValueError, "blocked operation 'delete'"),
             ("helm rollback myrelease 1", ValueError, "blocked operation 'rollback'"),
             ("helm test myrelease", ValueError, "blocked operation 'test'"),
-            ("helm repo add stable https://charts.helm.sh/stable", ValueError, "blocked operation 'repo add'"),
+            (
+                "helm repo add stable https://charts.helm.sh/stable",
+                ValueError,
+                "blocked operation 'repo add'",
+            ),
             ("helm repo remove stable", ValueError, "blocked operation 'repo remove'"),
             ("helm repo update", ValueError, "blocked operation 'repo update'"),
             ("helm create mychart", ValueError, "blocked operation 'create'"),
             ("helm package mychart", ValueError, "blocked operation 'package'"),
-            ("helm push mychart.tgz oci://registry.example.com", ValueError, "blocked operation 'push'"),
+            (
+                "helm push mychart.tgz oci://registry.example.com",
+                ValueError,
+                "blocked operation 'push'",
+            ),
             ("helm pull bitnami/nginx", ValueError, "blocked operation 'pull'"),
-            ("helm plugin install https://github.com/example/helm-plugin", ValueError, "blocked operation 'plugin install'"),
-            ("helm registry login registry.example.com", ValueError, "blocked operation 'registry login'"),
+            (
+                "helm plugin install https://github.com/example/helm-plugin",
+                ValueError,
+                "blocked operation 'plugin install'",
+            ),
+            (
+                "helm registry login registry.example.com",
+                ValueError,
+                "blocked operation 'registry login'",
+            ),
             ("helm list --output invalid", ValueError, "not allowed"),
-            ("helm list --namespace 'Invalid-Namespace!'", ValueError, "Invalid Helm namespace format"),
-            ("helm template 'Invalid-Release-Name!' nginx", ValueError, "Invalid Helm release name format"),
-            ("helm repo index charts --url ftp://invalid.com", ValueError, "Invalid Helm repository URL format"),
+            (
+                "helm list --namespace 'Invalid-Namespace!'",
+                ValueError,
+                "Invalid Helm namespace format",
+            ),
+            (
+                "helm template 'Invalid-Release-Name!' nginx",
+                ValueError,
+                "Invalid Helm release name format",
+            ),
+            (
+                "helm repo index charts --url ftp://invalid.com",
+                ValueError,
+                "Invalid Helm repository URL format",
+            ),
             ("helm get invalid myrelease", ValueError, "not allowed"),
             ("helm show invalid nginx", ValueError, "not allowed"),
             ("helm list --malicious-flag value", ValueError, "Unknown or unsafe"),
-            
             # Mixed unsafe commands with new CLIs
             (
                 "aws ec2 run-instances --image-id ami-123 | grep success",
@@ -417,7 +463,11 @@ class TestNewCLIsUnsafeCommands:
             ),
             ("argocd app create myapp | grep success", ValueError, "blocked operation"),
             ("docker run nginx | grep success", ValueError, "blocked operation 'run'"),
-            ("helm install myrelease nginx | grep success", ValueError, "blocked operation 'install'"),
+            (
+                "helm install myrelease nginx | grep success",
+                ValueError,
+                "blocked operation 'install'",
+            ),
             # Invalid CLI commands
             ("invalidcli command", argparse.ArgumentError, "invalid choice"),
         ],

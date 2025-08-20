@@ -1,6 +1,7 @@
 import argparse
 from typing import Any, Optional
 
+from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.argocd.constants import (
@@ -9,24 +10,50 @@ from holmes.plugins.toolsets.bash.argocd.constants import (
 )
 
 
+class ArgocdCommand(BashCommand):
+    def __init__(self):
+        super().__init__("argocd")
+
+    def add_parser(self, parent_parser: Any):
+        """Create Argo CD CLI parser with safe command validation."""
+        argocd_parser = parent_parser.add_parser(
+            "argocd", help="Argo CD Command Line Interface", exit_on_error=False
+        )
+
+        # Add command subparser
+        argocd_parser.add_argument(
+            "command", help="Argo CD command (e.g., app, cluster, proj, repo)"
+        )
+
+        # Capture remaining arguments
+        argocd_parser.add_argument(
+            "options",
+            nargs=argparse.REMAINDER,
+            default=[],
+            help="Argo CD CLI subcommands, operations, and options",
+        )
+        return argocd_parser
+
+    def validate_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> None:
+        validate_argocd_command(command)
+
+    def stringify_command(
+        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+    ) -> str:
+        """Convert parsed Argo CD command back to safe command string."""
+        parts = ["argocd", command.command]
+
+        if hasattr(command, "options") and command.options:
+            parts.extend(command.options)
+
+        return " ".join(escape_shell_args(parts))
+
+
 def create_argocd_parser(parent_parser: Any):
-    """Create Argo CD CLI parser with safe command validation."""
-    argocd_parser = parent_parser.add_parser(
-        "argocd", help="Argo CD Command Line Interface", exit_on_error=False
-    )
-
-    # Add command subparser
-    argocd_parser.add_argument(
-        "command", help="Argo CD command (e.g., app, cluster, proj, repo)"
-    )
-
-    # Capture remaining arguments
-    argocd_parser.add_argument(
-        "options",
-        nargs=argparse.REMAINDER,
-        default=[],
-        help="Argo CD CLI subcommands, operations, and options",
-    )
+    argocd_command = ArgocdCommand()
+    return argocd_command.add_parser(parent_parser)
 
 
 def validate_argocd_command_and_operation(command: str, options: list[str]) -> None:
@@ -95,11 +122,5 @@ def validate_argocd_command(cmd: Any) -> None:
 def stringify_argocd_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
-    """Convert parsed Argo CD command back to safe command string."""
-
-    parts = ["argocd", command.command]
-
-    if hasattr(command, "options") and command.options:
-        parts.extend(command.options)
-
-    return " ".join(escape_shell_args(parts))
+    argocd_command = ArgocdCommand()
+    return argocd_command.stringify_command(command, original_command, config)

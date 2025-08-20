@@ -80,7 +80,7 @@ class RunBashCommand(BaseBashTool):
         command_to_execute = command_str
         try:
             command_to_execute = make_command_safe(command_str, self.toolset.config)
-        
+
         except (argparse.ArgumentError, ValueError) as e:
             if not BASH_TOOL_UNSAFE_ALLOW_ALL:
                 logging.info(f"Refusing LLM tool call {command_str}")
