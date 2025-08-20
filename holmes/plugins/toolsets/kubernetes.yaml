@@ -19,12 +19,70 @@ toolsets:
         command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_get_by_name"
-        description: "Run `kubectl get <kind> <name> --show-labels`"
-        command: "kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
+        description: "Run `kubectl get <kind> <name> --show-labels`. Supports regex filtering with include_pattern and exclude_pattern."
+        script: |
+          output=$(kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} 2>&1)
+          exit_code=$?
+
+          if [ $exit_code -ne 0 ]; then
+            echo "$output"
+            exit $exit_code
+          fi
+
+          # Apply filters if provided
+          filtered_output="$output"
+
+          {% if include_pattern %}
+          # Apply include pattern (keep lines matching the pattern)
+          filtered_output=$(echo "$filtered_output" | grep -E "{{ include_pattern }}" || echo "No matches found for include pattern: {{ include_pattern }}")
+          {% endif %}
+
+          {% if exclude_pattern %}
+          # Apply exclude pattern (remove lines matching the pattern)
+          filtered_output=$(echo "$filtered_output" | grep -vE "{{ exclude_pattern }}" || echo "$filtered_output")
+          {% endif %}
+
+          echo "$filtered_output"
 
       - name: "kubectl_get_by_kind_in_namespace"
-        description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
-        command: "kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}"
+        description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace. Supports regex filtering with include_pattern and exclude_pattern."
+        script: |
+          output=$(kubectl get --show-labels -o wide {{ kind }} -n {{namespace}} 2>&1)
+          exit_code=$?
+
+          if [ $exit_code -ne 0 ]; then
+            echo "$output"
+            exit $exit_code
+          fi
+
+          # Save header line
+          header=$(echo "$output" | head -n 1)
+          body=$(echo "$output" | tail -n +2)
+
+          # Apply filters if provided
+          filtered_body="$body"
+
+          {% if include_pattern %}
+          # Apply include pattern (keep lines matching the pattern)
+          filtered_body=$(echo "$filtered_body" | grep -E "{{ include_pattern }}" || echo "")
+          if [ -z "$filtered_body" ]; then
+            echo "$header"
+            echo "No matches found for include pattern: {{ include_pattern }}"
+            exit 0
+          fi
+          {% endif %}
+
+          {% if exclude_pattern %}
+          # Apply exclude pattern (remove lines matching the pattern)
+          temp=$(echo "$filtered_body" | grep -vE "{{ exclude_pattern }}" || echo "")
+          if [ -n "$temp" ]; then
+            filtered_body="$temp"
+          fi
+          {% endif %}
+
+          # Output header and filtered body
+          echo "$header"
+          echo "$filtered_body"
 
       - name: "kubectl_get_by_kind_in_cluster"
         description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
