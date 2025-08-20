@@ -5,12 +5,8 @@ from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.aws.constants import (
     SAFE_AWS_SERVICES,
-    SAFE_AWS_OUTPUT_FORMATS,
-    SAFE_AWS_GLOBAL_FLAGS,
-    SAFE_AWS_SERVICE_FLAGS,
     BLOCKED_AWS_SERVICES,
     BLOCKED_AWS_OPERATIONS,
-    SAFE_AWS_REGION_PATTERN,
 )
 
 
@@ -83,101 +79,6 @@ def validate_aws_operation(service: str, operation: str) -> str:
     return operation
 
 
-def validate_aws_options(options: list[str]) -> list[str]:
-    """Validate AWS CLI options to ensure they are safe."""
-    validated_options = []
-    i = 0
-
-    while i < len(options):
-        option = options[i]
-
-        # Handle flags that take values
-        if option in {
-            "--output",
-            "--region",
-            "--profile",
-            "--query",
-            "--endpoint-url",
-            "--cli-read-timeout",
-            "--cli-connect-timeout",
-            "--page-size",
-            "--max-items",
-            "--starting-token",
-            "--color",
-            "--cli-binary-format",
-        } or (
-            option in SAFE_AWS_SERVICE_FLAGS
-            and not option.startswith("--no-")
-            and not option.startswith("--dry-run")
-            and not option.startswith("--include-")
-            and not option.startswith("--fetch-")
-            and not option.startswith("--recursive")
-            and not option.startswith("--with-decryption")
-            and not option.startswith("--only-")
-        ):
-            if option == "--output":
-                # Validate output format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                output_format = options[i + 1]
-                if output_format not in SAFE_AWS_OUTPUT_FORMATS:
-                    allowed_formats = ", ".join(sorted(SAFE_AWS_OUTPUT_FORMATS))
-                    raise ValueError(
-                        f"Output format '{output_format}' is not allowed. "
-                        f"Allowed formats: {allowed_formats}"
-                    )
-                validated_options.extend([option, output_format])
-                i += 2
-                continue
-
-            elif option == "--region":
-                # Validate region format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                region = options[i + 1]
-                if not SAFE_AWS_REGION_PATTERN.match(region):
-                    raise ValueError(f"Invalid AWS region format: {region}")
-                validated_options.extend([option, region])
-                i += 2
-                continue
-
-            elif option == "--query":
-                # JMESPath queries are safe when properly quoted by shlex
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                query = options[i + 1]
-                validated_options.extend([option, query])
-                i += 2
-                continue
-
-            else:
-                # For other options with values, add both
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                validated_options.extend([option, options[i + 1]])
-                i += 2
-                continue
-
-        # Handle boolean flags
-        elif option in SAFE_AWS_GLOBAL_FLAGS or option in SAFE_AWS_SERVICE_FLAGS:
-            validated_options.append(option)
-            i += 1
-            continue
-
-        # Handle resource names and other parameters
-        elif not option.startswith("--"):
-            # Resource names and parameters - shlex will handle proper escaping
-            validated_options.append(option)
-            i += 1
-            continue
-
-        else:
-            # Unknown option
-            raise ValueError(f"Unknown or unsafe AWS CLI option: {option}")
-
-    return validated_options
-
-
 def validate_aws_command(cmd: Any) -> None:
     """
     Validate AWS command to prevent injection attacks and ensure safety.
@@ -190,12 +91,8 @@ def validate_aws_command(cmd: Any) -> None:
     if cmd.service not in SAFE_AWS_SERVICES:
         raise ValueError(f"AWS service '{cmd.service}' is not allowed")
 
-    # Validate operation
     validate_aws_operation(cmd.service, cmd.operation)
 
-    # Validate options
-    if hasattr(cmd, "options") and cmd.options:
-        validate_aws_options(cmd.options)
 
 
 def stringify_aws_command(
@@ -211,9 +108,7 @@ def stringify_aws_command(
     # Build command parts
     parts = ["aws", command.service, command.operation]
 
-    # Add validated options
     if hasattr(command, "options") and command.options:
-        validated_options = validate_aws_options(command.options)
-        parts.extend(validated_options)
+        parts.extend(command.options)
 
     return " ".join(escape_shell_args(parts))

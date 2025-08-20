@@ -4,6 +4,7 @@ import os
 from typing import Dict, Any, Optional
 
 
+from holmes.common.env_vars import BASH_TOOL_UNSAFE_ALLOW_ALL
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
@@ -75,18 +76,23 @@ class RunBashCommand(BaseBashTool):
                 error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
                 params=params,
             )
+
+        command_to_execute = command_str
         try:
-            safe_command_str = make_command_safe(command_str, self.toolset.config)
-            return execute_bash_command(
-                cmd=safe_command_str, timeout=timeout, params=params
-            )
+            command_to_execute = make_command_safe(command_str, self.toolset.config)
+        
         except (argparse.ArgumentError, ValueError) as e:
-            logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
-                params=params,
-            )
+            if not BASH_TOOL_UNSAFE_ALLOW_ALL:
+                logging.info(f"Refusing LLM tool call {command_str}")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
+                    params=params,
+                )
+
+        return execute_bash_command(
+            cmd=command_to_execute, timeout=timeout, params=params
+        )
 
     def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
         command = params.get("command", "N/A")

@@ -2,77 +2,49 @@ import argparse
 import shlex
 from typing import Any, Optional
 
+from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.grep import create_grep_parser, stringify_grep_command
-from holmes.plugins.toolsets.bash.kubectl import (
-    create_kubectl_parser,
-    stringify_kubectl_command,
-)
-from holmes.plugins.toolsets.bash.aws import (
-    create_aws_parser,
-    stringify_aws_command,
-)
-from holmes.plugins.toolsets.bash.azure import (
-    create_azure_parser,
-    stringify_azure_command,
-)
-from holmes.plugins.toolsets.bash.argocd import (
-    create_argocd_parser,
-    stringify_argocd_command,
-)
-from holmes.plugins.toolsets.bash.docker import (
-    create_docker_parser,
-    stringify_docker_command,
-)
-from holmes.plugins.toolsets.bash.helm import (
-    create_helm_parser,
-    stringify_helm_command,
-)
+from holmes.plugins.toolsets.bash.kubectl import KubectlCommand
+from holmes.plugins.toolsets.bash.aws import AWSCommand
+from holmes.plugins.toolsets.bash.azure import Azurecommand
+from holmes.plugins.toolsets.bash.argocd import ArgocdCommand
+from holmes.plugins.toolsets.bash.docker import DockerCommand
+from holmes.plugins.toolsets.bash.helm import HelmCommand
 # Utilities imports
-from holmes.plugins.toolsets.bash.utilities.cut import (
-    create_cut_parser,
-    stringify_cut_command,
-)
-from holmes.plugins.toolsets.bash.utilities.sort import (
-    create_sort_parser,
-    stringify_sort_command,
-)
-from holmes.plugins.toolsets.bash.utilities.uniq import (
-    create_uniq_parser,
-    stringify_uniq_command,
-)
-from holmes.plugins.toolsets.bash.utilities.head import (
-    create_head_parser,
-    stringify_head_command,
-)
-from holmes.plugins.toolsets.bash.utilities.tail import (
-    create_tail_parser,
-    stringify_tail_command,
-)
-from holmes.plugins.toolsets.bash.utilities.wc import (
-    create_wc_parser,
-    stringify_wc_command,
-)
-from holmes.plugins.toolsets.bash.utilities.tr import (
-    create_tr_parser,
-    stringify_tr_command,
-)
-from holmes.plugins.toolsets.bash.utilities.base64_util import (
-    create_base64_parser,
-    stringify_base64_command,
-)
-from holmes.plugins.toolsets.bash.utilities.jq import (
-    create_jq_parser,
-    stringify_jq_command,
-)
-from holmes.plugins.toolsets.bash.utilities.awk import (
-    create_awk_parser,
-    stringify_awk_command,
-)
-from holmes.plugins.toolsets.bash.utilities.sed import (
-    create_sed_parser,
-    stringify_sed_command,
-)
+from holmes.plugins.toolsets.bash.utilities.cut import CutCommand
+from holmes.plugins.toolsets.bash.utilities.sort import SortCommand
+from holmes.plugins.toolsets.bash.utilities.uniq import UniqCommand
+from holmes.plugins.toolsets.bash.utilities.head import HeadCommand
+from holmes.plugins.toolsets.bash.utilities.tail import TailCommand
+from holmes.plugins.toolsets.bash.utilities.wc import WCCommand
+from holmes.plugins.toolsets.bash.utilities.tr import TrCommand
+from holmes.plugins.toolsets.bash.utilities.base64_util import Base64Command
+from holmes.plugins.toolsets.bash.utilities.jq import JqCommand
+from holmes.plugins.toolsets.bash.utilities.awk import AwkCommand
+from holmes.plugins.toolsets.bash.utilities.sed import SedCommand
+
+
+commands:list[BashCommand] = [
+    WCCommand(),
+    KubectlCommand(), 
+    AWSCommand(),
+    Azurecommand(),
+    ArgocdCommand(),
+    DockerCommand(),
+    HelmCommand(),
+    CutCommand(),
+    SortCommand(),
+    UniqCommand(),
+    HeadCommand(),
+    TailCommand(),
+    TrCommand(),
+    Base64Command(),
+    JqCommand(),
+    AwkCommand(),
+    SedCommand()
+]
+
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -86,33 +58,23 @@ def create_parser() -> argparse.ArgumentParser:
         dest="cmd", required=True, help="The tool to command (e.g., kubectl)"
     )
 
-    create_kubectl_parser(commands_parser)
-    create_grep_parser(commands_parser)
-    create_aws_parser(commands_parser)
-    create_azure_parser(commands_parser)
-    create_argocd_parser(commands_parser)
-    create_docker_parser(commands_parser)
-    create_helm_parser(commands_parser)
-    # Add utilities
-    create_cut_parser(commands_parser)
-    create_sort_parser(commands_parser)
-    create_uniq_parser(commands_parser)
-    create_head_parser(commands_parser)
-    create_tail_parser(commands_parser)
-    create_wc_parser(commands_parser)
-    create_tr_parser(commands_parser)
-    create_base64_parser(commands_parser)
-    create_jq_parser(commands_parser)
-    create_awk_parser(commands_parser)
-    create_sed_parser(commands_parser)
+    for command in commands:
+        command.add_parser(commands_parser)
+
     return parser
 
+def validate_command(command: Any, original_command: str, config: Optional[BashExecutorConfig]):
+
+    pass
 
 def stringify_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
-    if command.cmd == "kubectl":
-        return stringify_kubectl_command(command, original_command, config)
+    
+    bash_command_instance = next((cmd for cmd in commands if cmd.name == command.cmd), None)
+
+    if bash_command_instance:
+        return bash_command_instance.st (command, original_command, config)
     elif command.cmd == "grep":
         return stringify_grep_command(command)
     elif command.cmd == "aws":
@@ -137,7 +99,7 @@ def stringify_command(
     elif command.cmd == "tail":
         return stringify_tail_command(command, original_command, config)
     elif command.cmd == "wc":
-        return stringify_wc_command(command, original_command, config)
+        return wc_command.stringify_command(command, original_command, config)
     elif command.cmd == "tr":
         return stringify_tr_command(command, original_command, config)
     elif command.cmd == "base64":
@@ -200,6 +162,11 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
     commands = split_into_separate_commands(command_str)
 
     try:
+        parsed_commands = [
+            command_parser.parse_args(command_parts) for command_parts in commands
+        ]
+
+
         safe_commands = [
             command_parser.parse_args(command_parts) for command_parts in commands
         ]

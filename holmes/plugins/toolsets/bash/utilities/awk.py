@@ -103,14 +103,7 @@ def validate_awk_command(cmd: Any) -> None:
 def stringify_awk_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
-    """Convert parsed awk command back to safe command string."""
-    if command.cmd != "awk":
-        raise ValueError(f"Expected awk command, got {command.cmd}")
-    
-    # Validate the command
-    validate_awk_command(command)
-    
-    # Build command parts
+
     parts = ["awk"]
     
     # Add validated options

@@ -15,7 +15,7 @@ class TestWcCliSafeCommands:
             # Basic usage
             ("wc", "wc"),
             
-            # Count types
+            # Count types - all options should be allowed since allowed_options is empty
             ("wc -l", "wc -l"),
             ("wc --lines", "wc --lines"),
             ("wc -w", "wc -w"),
@@ -48,12 +48,14 @@ class TestWcCliUnsafeCommands:
     @pytest.mark.parametrize(
         "input_command,expected_error_message",
         [
-            # File reading options are blocked
+            # Explicitly denied option
             ("wc --files0-from /dev/stdin", "Option --files0-from is not allowed for security reasons"),
             
-            # File arguments are not allowed
+            # File arguments are blocked by StandardValidation.NO_FILE_OPTION
             ("wc file.txt", "File arguments are not allowed"),
             ("wc -l file1.txt file2.txt", "File arguments are not allowed"),
+            ("wc /path/to/file", "File arguments are not allowed"),
+            ("wc -w document.txt", "File arguments are not allowed"),
         ]
     )
     def test_unsafe_wc_commands(self, input_command, expected_error_message):

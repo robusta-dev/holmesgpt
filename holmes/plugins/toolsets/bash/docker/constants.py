@@ -1,11 +1,3 @@
-import re
-
-# Regex patterns for validating Docker CLI parameters
-SAFE_DOCKER_CONTAINER_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
-SAFE_DOCKER_IMAGE_NAME_PATTERN = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[a-zA-Z0-9._-]+)?$")
-SAFE_DOCKER_TAG_PATTERN = re.compile(r"^[a-zA-Z0-9._-]+$")
-SAFE_DOCKER_NETWORK_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
-SAFE_DOCKER_VOLUME_NAME_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]*$")
 
 # Safe Docker commands - read-only and inspection operations
 SAFE_DOCKER_COMMANDS = {
@@ -97,88 +89,6 @@ SAFE_DOCKER_OUTPUT_FORMATS = {
     "wide",
 }
 
-# Safe global Docker CLI options/flags
-SAFE_DOCKER_GLOBAL_FLAGS = {
-    "--help", "-h",
-    "--version", "-v", 
-    "--format", "-f",
-    "--filter",
-    "--quiet", "-q",
-    "--no-trunc",
-    "--size", "-s",
-    "--all", "-a",
-    "--latest", "-l",
-    "--since",
-    "--until",
-    "--follow",
-    "--tail",
-    "--timestamps", "-t",
-    "--details",
-}
-
-# Additional safe flags for specific Docker commands
-SAFE_DOCKER_COMMAND_FLAGS = {
-    # Container-specific flags
-    "--container",
-    "--name",
-    "--id",
-    
-    # Image-specific flags  
-    "--repository",
-    "--tag",
-    "--digest",
-    "--reference",
-    
-    # Network-specific flags
-    "--network",
-    "--driver",
-    
-    # Volume-specific flags
-    "--volume",
-    "--mount",
-    "--mountpoint",
-    
-    # System flags
-    "--type",
-    "--dangling",
-    "--label",
-    
-    # Registry flags
-    "--limit",
-    "--stars",
-    "--automated", 
-    "--official",
-    
-    # Swarm flags
-    "--node",
-    "--service",
-    "--task",
-    "--slot",
-    
-    # Plugin flags
-    "--plugin",
-    "--capability",
-    
-    # Logging flags
-    "--lines",
-    "--grep",
-    
-    # Stats flags
-    "--no-stream",
-    "--format-progress",
-    
-    # Export/save flags
-    "--output", "-o",
-    
-    # Time-related flags
-    "--time",
-    "--timeout",
-    
-    # Display flags
-    "--human", 
-    "--verbose",
-    "--tree",
-}
 
 # Blocked Docker operations (state-modifying or dangerous)
 BLOCKED_DOCKER_OPERATIONS = {
@@ -310,20 +220,4 @@ BLOCKED_DOCKER_OPERATIONS = {
     
     # Manifest operations
     "manifest",
-}
-
-# Common Docker registries and image patterns for validation
-SAFE_DOCKER_REGISTRIES = {
-    "docker.io",
-    "registry-1.docker.io", 
-    "gcr.io",
-    "eu.gcr.io",
-    "us.gcr.io",
-    "asia.gcr.io",
-    "quay.io",
-    "registry.redhat.io",
-    "mcr.microsoft.com",
-    "public.ecr.aws",
-    "ghcr.io",
-    "localhost",
 }

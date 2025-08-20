@@ -5,15 +5,7 @@ from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.azure.constants import (
     SAFE_AZURE_COMMANDS,
-    SAFE_AZURE_OUTPUT_FORMATS,
-    SAFE_AZURE_GLOBAL_FLAGS,
-    SAFE_AZURE_SERVICE_FLAGS,
     BLOCKED_AZURE_OPERATIONS,
-    AZURE_LOCATIONS,
-    SAFE_AZURE_RESOURCE_NAME_PATTERN,
-    SAFE_AZURE_RESOURCE_GROUP_PATTERN,
-    SAFE_AZURE_SUBSCRIPTION_PATTERN,
-    SAFE_AZURE_LOCATION_PATTERN,
 )
 
 
@@ -84,150 +76,6 @@ def validate_azure_service_and_operation(service: str, options: list[str]) -> No
             )
 
 
-def validate_azure_options(options: list[str]) -> list[str]:
-    """Validate Azure CLI options to ensure they are safe."""
-    validated_options = []
-    i = 0
-
-    while i < len(options):
-        option = options[i]
-
-        # Skip non-flag arguments (these are handled as command parts)
-        if not option.startswith("-"):
-            validated_options.append(option)
-            i += 1
-            continue
-
-        # Handle flags that take values
-        if option in {
-            "--output",
-            "-o",
-            "--subscription",
-            "-s",
-            "--resource-group",
-            "-g",
-            "--location",
-            "-l",
-            "--name",
-            "-n",
-            "--query",
-            "--tag",
-            "--sku",
-            "--start-time",
-            "--end-time",
-            "--interval",
-            "--aggregation",
-            "--metrics",
-            "--namespace",
-            "--dimension",
-            "--filter",
-            "--orderby",
-            "--top",
-            "--max-items",
-            "--skip-token",
-        }:
-            if option in {"--output", "-o"}:
-                # Validate output format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                output_format = options[i + 1]
-                if output_format not in SAFE_AZURE_OUTPUT_FORMATS:
-                    allowed_formats = ", ".join(sorted(SAFE_AZURE_OUTPUT_FORMATS))
-                    raise ValueError(
-                        f"Output format '{output_format}' is not allowed. "
-                        f"Allowed formats: {allowed_formats}"
-                    )
-                validated_options.extend([option, output_format])
-                i += 2
-                continue
-
-            elif option in {"--location", "-l"}:
-                # Validate location format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                location = options[i + 1]
-                if (
-                    not SAFE_AZURE_LOCATION_PATTERN.match(location)
-                    or location not in AZURE_LOCATIONS
-                ):
-                    allowed_locations = (
-                        ", ".join(sorted(list(AZURE_LOCATIONS)[:10])) + "..."
-                    )
-                    raise ValueError(
-                        f"Invalid or unknown Azure location: {location}. "
-                        f"Common locations: {allowed_locations}"
-                    )
-                validated_options.extend([option, location])
-                i += 2
-                continue
-
-            elif option in {"--resource-group", "-g"}:
-                # Validate resource group name format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                rg_name = options[i + 1]
-                if not SAFE_AZURE_RESOURCE_GROUP_PATTERN.match(rg_name):
-                    raise ValueError(f"Invalid resource group name format: {rg_name}")
-                validated_options.extend([option, rg_name])
-                i += 2
-                continue
-
-            elif option in {"--subscription", "-s"}:
-                # Validate subscription ID format (if it looks like a GUID)
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                subscription = options[i + 1]
-                # Allow subscription names or validate GUID format
-                if len(
-                    subscription
-                ) == 36 and not SAFE_AZURE_SUBSCRIPTION_PATTERN.match(subscription):
-                    raise ValueError(f"Invalid subscription ID format: {subscription}")
-                validated_options.extend([option, subscription])
-                i += 2
-                continue
-
-            elif option in {"--name", "-n"}:
-                # Validate resource name format
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                name = options[i + 1]
-                if not SAFE_AZURE_RESOURCE_NAME_PATTERN.match(name):
-                    raise ValueError(f"Invalid resource name format: {name}")
-                validated_options.extend([option, name])
-                i += 2
-                continue
-
-            elif option == "--query":
-                # JMESPath queries are safe when properly quoted by shlex
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                query = options[i + 1]
-                validated_options.extend([option, query])
-                i += 2
-                continue
-
-            else:
-                # For other options with values, add both - shlex will handle proper escaping
-                if i + 1 >= len(options):
-                    raise ValueError(f"Option {option} requires a value")
-                value = options[i + 1]
-                validated_options.extend([option, value])
-                i += 2
-                continue
-
-        # Handle boolean flags
-        elif option in SAFE_AZURE_GLOBAL_FLAGS or option in SAFE_AZURE_SERVICE_FLAGS:
-            validated_options.append(option)
-            i += 1
-            continue
-
-        else:
-            # Unknown option
-            raise ValueError(f"Unknown or unsafe Azure CLI option: {option}")
-
-    return validated_options
-
-
 def validate_azure_command(cmd: Any) -> None:
     """
     Validate Azure command to prevent injection attacks and ensure safety.
@@ -237,8 +85,6 @@ def validate_azure_command(cmd: Any) -> None:
     if hasattr(cmd, "options") and cmd.options:
         validate_azure_service_and_operation(cmd.service, cmd.options)
 
-        # Validate options
-        validate_azure_options(cmd.options)
 
 
 def stringify_azure_command(
@@ -254,9 +100,7 @@ def stringify_azure_command(
     # Build command parts
     parts = ["az", command.service]
 
-    # Add validated options (which include subcommands and flags)
     if hasattr(command, "options") and command.options:
-        validated_options = validate_azure_options(command.options)
-        parts.extend(validated_options)
+        parts.extend(command.options)
 
     return " ".join(escape_shell_args(parts))

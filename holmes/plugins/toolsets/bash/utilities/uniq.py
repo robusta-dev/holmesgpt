@@ -41,19 +41,11 @@ def validate_uniq_command(cmd: Any) -> None:
 def stringify_uniq_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
-    """Convert parsed uniq command back to safe command string."""
-    if command.cmd != "uniq":
-        raise ValueError(f"Expected uniq command, got {command.cmd}")
-    
-    # Validate the command
-    validate_uniq_command(command)
-    
-    # Build command parts
+
     parts = ["uniq"]
     
     # Add validated options
     if hasattr(command, 'options') and command.options:
-        validated_options = validate_uniq_options(command.options)
-        parts.extend(validated_options)
+        parts.extend(command.options)
     
     return " ".join(escape_shell_args(parts))

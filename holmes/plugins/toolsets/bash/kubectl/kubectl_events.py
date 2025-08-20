@@ -1,28 +1,34 @@
 import argparse
-from typing import Any
+from typing import Any, Optional
 
+from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
+from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 
 
-def create_kubectl_events_parser(kubectl_parser: Any):
-    parser = kubectl_parser.add_parser(
-        "events",
-        help="List events",
-        exit_on_error=False,  # Important for library use
-        add_help=False,
-        prefix_chars="\x00",  # Use null character as prefix to disable option parsing
-    )
+class KubectlEventsCommand(BashCommand):
 
-    parser.add_argument(
-        "options",
-        nargs=argparse.REMAINDER,  # Now REMAINDER works because it comes after a positional
-        default=[],
-    )
+    def add_parser(self, parent_parser: Any):
+        parser = parent_parser.add_parser(
+            "events",
+            help="List events",
+            exit_on_error=False,  # Important for library use
+            add_help=False,
+            prefix_chars="\x00",  # Use null character as prefix to disable option parsing
+        )
 
+        parser.add_argument(
+            "options",
+            nargs=argparse.REMAINDER,  # Now REMAINDER works because it comes after a positional
+            default=[],
+        )
 
-def stringify_events_command(cmd: Any) -> str:
-    parts = ["kubectl", "events"]
+    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+        pass
 
-    parts += cmd.options
+    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+        parts = ["kubectl", "events"]
 
-    return " ".join(escape_shell_args(parts))
+        parts += command.options
+
+        return " ".join(escape_shell_args(parts))

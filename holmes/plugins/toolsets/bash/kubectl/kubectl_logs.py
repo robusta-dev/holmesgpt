@@ -1,24 +1,33 @@
 import argparse
-from typing import Any
+from typing import Any, Optional
 
+from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
+from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 
 
-def create_kubectl_logs_parser(kubectl_parser: Any):
-    parser = kubectl_parser.add_parser(
-        "logs",
-        exit_on_error=False,
-    )
-    parser.add_argument(
-        "options",
-        nargs=argparse.REMAINDER,  # Captures all remaining arguments
-        default=[],  # Default to an empty list
-    )
+class KubectlLogsCommand(BashCommand):
 
+    def __init__(self):
+        super().__init__("logs")
 
-def stringify_logs_command(cmd: Any) -> str:
-    parts = ["kubectl", "logs"]
+    def add_parser(self, parent_parser: Any):
+        parser = parent_parser.add_parser(
+            "logs",
+            exit_on_error=False,
+        )
+        parser.add_argument(
+            "options",
+            nargs=argparse.REMAINDER,  # Captures all remaining arguments
+            default=[],  # Default to an empty list
+        )
 
-    parts += cmd.options
+    def validate_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> None:
+        pass
 
-    return " ".join(escape_shell_args(parts))
+    def stringify_command(self, command: Any, original_command: str, config: Optional[BashExecutorConfig]) -> str:
+        parts = ["kubectl", "logs"]
+
+        parts += command.options
+
+        return " ".join(escape_shell_args(parts))
