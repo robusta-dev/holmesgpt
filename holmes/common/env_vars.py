@@ -27,6 +27,7 @@ STORE_EMAIL = os.environ.get("STORE_EMAIL", "")
 STORE_PASSWORD = os.environ.get("STORE_PASSWORD", "")
 HOLMES_POST_PROCESSING_PROMPT = os.environ.get("HOLMES_POST_PROCESSING_PROMPT", "")
 ROBUSTA_AI = load_bool("ROBUSTA_AI", None)
+LOAD_ALL_ROBUSTA_MODELS = load_bool("LOAD_ALL_ROBUSTA_MODELS", True)
 ROBUSTA_API_ENDPOINT = os.environ.get("ROBUSTA_API_ENDPOINT", "https://api.robusta.dev")
 
 LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
