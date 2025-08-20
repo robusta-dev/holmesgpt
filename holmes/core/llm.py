@@ -133,25 +133,6 @@ class DefaultLLM(LLM):
                 f"model {model} requires the following environment variables: {model_requirements['missing_keys']}"
             )
 
-    def _strip_model_prefix(self) -> str:
-        """
-        Helper function to strip 'openai/' prefix from model name if it exists.
-        model cost is taken from here which does not have the openai prefix
-        https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
-        """
-        model_name = self.model
-        prefixes = ["openai/", "bedrock/", "vertex_ai/", "anthropic/"]
-
-        for prefix in prefixes:
-            if model_name.startswith(prefix):
-                return model_name[len(prefix) :]
-
-        return model_name
-
-        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name
-        # if not litellm.supports_function_calling(model=model):
-        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
-
     def get_context_window_size(self) -> int:
         if OVERRIDE_MAX_CONTENT_SIZE:
             logging.debug(
@@ -159,14 +140,31 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_CONTENT_SIZE
 
-        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
+        # Try with full model name first
         try:
-            return litellm.model_cost[model_name]["max_input_tokens"]
+            return litellm.model_cost[self.model]["max_input_tokens"]
         except Exception:
-            logging.warning(
-                f"Couldn't find model's name {model_name} in litellm's model list, fallback to 128k tokens for max_input_tokens"
-            )
-            return 128000
+            pass
+
+        # If that fails, try stripping any prefix before '/'
+        if "/" in self.model:
+            base_model = self.model.split("/", 1)[1]
+            try:
+                return litellm.model_cost[base_model]["max_input_tokens"]
+            except Exception:
+                pass
+
+        # Log which lookups we tried (but use debug for ollama models as this is expected)
+        tried_names = [self.model]
+        if "/" in self.model:
+            tried_names.append(self.model.split("/", 1)[1])
+
+        logging.warning(
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(tried_names)}), "
+            f"using default 128k tokens for max_input_tokens. "
+            f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
+        )
+        return 128000
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
@@ -256,11 +254,28 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_OUTPUT_TOKEN
 
-        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
+        # Try with full model name first
         try:
-            return litellm.model_cost[model_name]["max_output_tokens"]
+            return litellm.model_cost[self.model]["max_output_tokens"]
         except Exception:
-            logging.warning(
-                f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens"
-            )
-            return 4096
+            pass
+
+        # If that fails, try stripping any prefix before '/'
+        if "/" in self.model:
+            base_model = self.model.split("/", 1)[1]
+            try:
+                return litellm.model_cost[base_model]["max_output_tokens"]
+            except Exception:
+                pass
+
+        # Log which lookups we tried (but use debug for ollama models as this is expected)
+        tried_names = [self.model]
+        if "/" in self.model:
+            tried_names.append(self.model.split("/", 1)[1])
+
+        logging.warning(
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(tried_names)}), "
+            f"using default 4096 tokens for max_output_tokens. "
+            f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
+        )
+        return 4096
