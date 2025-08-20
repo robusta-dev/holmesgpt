@@ -28,6 +28,51 @@ from holmes.plugins.toolsets.bash.helm import (
     create_helm_parser,
     stringify_helm_command,
 )
+# Utilities imports
+from holmes.plugins.toolsets.bash.utilities.cut import (
+    create_cut_parser,
+    stringify_cut_command,
+)
+from holmes.plugins.toolsets.bash.utilities.sort import (
+    create_sort_parser,
+    stringify_sort_command,
+)
+from holmes.plugins.toolsets.bash.utilities.uniq import (
+    create_uniq_parser,
+    stringify_uniq_command,
+)
+from holmes.plugins.toolsets.bash.utilities.head import (
+    create_head_parser,
+    stringify_head_command,
+)
+from holmes.plugins.toolsets.bash.utilities.tail import (
+    create_tail_parser,
+    stringify_tail_command,
+)
+from holmes.plugins.toolsets.bash.utilities.wc import (
+    create_wc_parser,
+    stringify_wc_command,
+)
+from holmes.plugins.toolsets.bash.utilities.tr import (
+    create_tr_parser,
+    stringify_tr_command,
+)
+from holmes.plugins.toolsets.bash.utilities.base64_util import (
+    create_base64_parser,
+    stringify_base64_command,
+)
+from holmes.plugins.toolsets.bash.utilities.jq import (
+    create_jq_parser,
+    stringify_jq_command,
+)
+from holmes.plugins.toolsets.bash.utilities.awk import (
+    create_awk_parser,
+    stringify_awk_command,
+)
+from holmes.plugins.toolsets.bash.utilities.sed import (
+    create_sed_parser,
+    stringify_sed_command,
+)
 
 
 def create_parser() -> argparse.ArgumentParser:
@@ -48,6 +93,18 @@ def create_parser() -> argparse.ArgumentParser:
     create_argocd_parser(commands_parser)
     create_docker_parser(commands_parser)
     create_helm_parser(commands_parser)
+    # Add utilities
+    create_cut_parser(commands_parser)
+    create_sort_parser(commands_parser)
+    create_uniq_parser(commands_parser)
+    create_head_parser(commands_parser)
+    create_tail_parser(commands_parser)
+    create_wc_parser(commands_parser)
+    create_tr_parser(commands_parser)
+    create_base64_parser(commands_parser)
+    create_jq_parser(commands_parser)
+    create_awk_parser(commands_parser)
+    create_sed_parser(commands_parser)
     return parser
 
 
@@ -68,10 +125,33 @@ def stringify_command(
         return stringify_docker_command(command, original_command, config)
     elif command.cmd == "helm":
         return stringify_helm_command(command, original_command, config)
+    # Handle utilities
+    elif command.cmd == "cut":
+        return stringify_cut_command(command, original_command, config)
+    elif command.cmd == "sort":
+        return stringify_sort_command(command, original_command, config)
+    elif command.cmd == "uniq":
+        return stringify_uniq_command(command, original_command, config)
+    elif command.cmd == "head":
+        return stringify_head_command(command, original_command, config)
+    elif command.cmd == "tail":
+        return stringify_tail_command(command, original_command, config)
+    elif command.cmd == "wc":
+        return stringify_wc_command(command, original_command, config)
+    elif command.cmd == "tr":
+        return stringify_tr_command(command, original_command, config)
+    elif command.cmd == "base64":
+        return stringify_base64_command(command, original_command, config)
+    elif command.cmd == "jq":
+        return stringify_jq_command(command, original_command, config)
+    elif command.cmd == "awk":
+        return stringify_awk_command(command, original_command, config)
+    elif command.cmd == "sed":
+        return stringify_sed_command(command, original_command, config)
     else:
         # This code path should not happen b/c the parsing of the command should catch an unsupported command
         raise ValueError(
-            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep, aws, az, argocd, docker, helm"
+            f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: kubectl, grep, aws, az, argocd, docker, helm, cut, sort, uniq, head, tail, wc, tr, base64, jq, awk, sed"
         )
 
 
