@@ -133,6 +133,21 @@ class DefaultLLM(LLM):
                 f"model {model} requires the following environment variables: {model_requirements['missing_keys']}"
             )
 
+    def _get_model_name_variants_for_lookup(self) -> list[str]:
+        """
+        Generate model name variants to try when looking up in litellm.model_cost.
+        Returns a list of names to try in order: exact, lowercase, without prefix, etc.
+        """
+        names_to_try = [self.model, self.model.lower()]
+
+        # If there's a prefix, also try without it
+        if "/" in self.model:
+            base_model = self.model.split("/", 1)[1]
+            names_to_try.extend([base_model, base_model.lower()])
+
+        # Remove duplicates while preserving order (dict.fromkeys maintains insertion order in Python 3.7+)
+        return list(dict.fromkeys(names_to_try))
+
     def get_context_window_size(self) -> int:
         if OVERRIDE_MAX_CONTENT_SIZE:
             logging.debug(
@@ -140,27 +155,16 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_CONTENT_SIZE
 
-        # Try with full model name first
-        try:
-            return litellm.model_cost[self.model]["max_input_tokens"]
-        except Exception:
-            pass
-
-        # If that fails, try stripping any prefix before '/'
-        if "/" in self.model:
-            base_model = self.model.split("/", 1)[1]
+        # Try each name variant
+        for name in self._get_model_name_variants_for_lookup():
             try:
-                return litellm.model_cost[base_model]["max_input_tokens"]
+                return litellm.model_cost[name]["max_input_tokens"]
             except Exception:
-                pass
+                continue
 
-        # Log which lookups we tried (but use debug for ollama models as this is expected)
-        tried_names = [self.model]
-        if "/" in self.model:
-            tried_names.append(self.model.split("/", 1)[1])
-
+        # Log which lookups we tried
         logging.warning(
-            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(tried_names)}), "
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
             f"using default 128k tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
@@ -254,27 +258,16 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_OUTPUT_TOKEN
 
-        # Try with full model name first
-        try:
-            return litellm.model_cost[self.model]["max_output_tokens"]
-        except Exception:
-            pass
-
-        # If that fails, try stripping any prefix before '/'
-        if "/" in self.model:
-            base_model = self.model.split("/", 1)[1]
+        # Try each name variant
+        for name in self._get_model_name_variants_for_lookup():
             try:
-                return litellm.model_cost[base_model]["max_output_tokens"]
+                return litellm.model_cost[name]["max_output_tokens"]
             except Exception:
-                pass
+                continue
 
-        # Log which lookups we tried (but use debug for ollama models as this is expected)
-        tried_names = [self.model]
-        if "/" in self.model:
-            tried_names.append(self.model.split("/", 1)[1])
-
+        # Log which lookups we tried
         logging.warning(
-            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(tried_names)}), "
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
             f"using default 4096 tokens for max_output_tokens. "
             f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
         )
