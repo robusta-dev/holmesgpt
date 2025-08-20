@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Set
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import timezone
 from holmes.core.tools import (
     StructuredToolResult,
@@ -43,6 +43,14 @@ class FetchPodLogsParams(BaseModel):
     filter: Optional[str] = None
     exclude_filter: Optional[str] = None
     limit: Optional[int] = None
+
+    @field_validator("start_time", mode="before")
+    @classmethod
+    def convert_start_time_to_string(cls, v):
+        """Convert integer start_time values to strings."""
+        if v is not None and isinstance(v, int):
+            return str(v)
+        return v
 
 
 class BasePodLoggingToolset(Toolset, ABC):
