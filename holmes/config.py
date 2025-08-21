@@ -125,7 +125,8 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    should_try_robusta_ai: bool = False
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
@@ -542,7 +543,7 @@ class Config(RobustaBaseConfig):
             api_base = model_params.pop("api_base", api_base)
             api_version = model_params.pop("api_version", api_version)
 
-        return DefaultLLM(model, api_key, api_base, api_version, tracer)  # type: ignore
+        return DefaultLLM(model, api_key, api_base, api_version, model_params, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
