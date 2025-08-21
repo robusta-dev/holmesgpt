@@ -1,4 +1,4 @@
-ALLOWED_ARGOCD_COMMANDS = {
+ALLOWED_ARGOCD_COMMANDS: dict[str, dict] = {
     # Application management (read-only)
     "app": {
         "list": {},
@@ -43,7 +43,7 @@ ALLOWED_ARGOCD_COMMANDS = {
     },
 }
 
-DENIED_ARGOCD_COMMANDS = {
+DENIED_ARGOCD_COMMANDS: dict[str, dict] = {
     # Authentication operations (sensitive)
     "login": {},
     "logout": {},

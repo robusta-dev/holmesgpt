@@ -3,7 +3,7 @@ from holmes.plugins.toolsets.bash.common.validators import (
     validate_command_and_operations,
 )
 
-ALLOWED_COMMANDS = {
+ALLOWED_COMMANDS: dict[str, dict] = {
     "list": {},
     "ls": {},
     "plugin": {"list": {}, "common-wildcard-*": {}},
@@ -17,7 +17,7 @@ ALLOWED_COMMANDS = {
     },
 }
 
-DENIED_COMMANDS = {
+DENIED_COMMANDS: dict[str, dict] = {
     # Repository management
     "repo": {
         "add": {},

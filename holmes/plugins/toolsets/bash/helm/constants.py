@@ -1,4 +1,4 @@
-ALLOWED_HELM_COMMANDS = {
+ALLOWED_HELM_COMMANDS: dict[str, dict] = {
     # Release management (read-only)
     "list": {},
     "ls": {},
@@ -41,7 +41,7 @@ ALLOWED_HELM_COMMANDS = {
 }
 
 # Blocked Helm operations (state-modifying or dangerous)
-DENIED_HELM_COMMANDS = {
+DENIED_HELM_COMMANDS: dict[str, dict] = {
     # Release lifecycle operations
     "install": {},
     "upgrade": {},

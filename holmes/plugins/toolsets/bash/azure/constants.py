@@ -1,4 +1,4 @@
-ALLOWED_AZURE_COMMANDS = {
+ALLOWED_AZURE_COMMANDS: dict[str, dict] = {
     # Basic account and resource management (read-only)
     "account": {"list": {}, "show": {}, "list-locations": {}, "tenant": {"list": {}}},
     "group": {"list": {}, "show": {}, "exists": {}},
@@ -151,7 +151,7 @@ ALLOWED_AZURE_COMMANDS = {
 }
 
 # Blocked Azure operations (state-modifying or dangerous)
-DENIED_AZURE_COMMANDS = {
+DENIED_AZURE_COMMANDS: dict[str, dict] = {
     # Account and subscription management
     "account": {
         "set": {},

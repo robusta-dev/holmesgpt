@@ -1,4 +1,4 @@
-ALLOWED_DOCKER_COMMANDS = {
+ALLOWED_DOCKER_COMMANDS: dict[str, dict] = {
     # Container management (read-only)
     "ps": {},
     "container": {
@@ -91,7 +91,7 @@ ALLOWED_DOCKER_COMMANDS = {
 }
 
 # Blocked Docker operations (state-modifying or dangerous)
-DENIED_DOCKER_COMMANDS = {
+DENIED_DOCKER_COMMANDS: dict[str, dict] = {
     # Container lifecycle operations
     "run": {},
     "create": {},

@@ -1,4 +1,4 @@
-ALLOWED_AWS_COMMANDS = {
+ALLOWED_AWS_COMMANDS: dict[str, dict] = {
     # Compute services (read-only)
     "ec2": {
         "describe-instances": {},
@@ -430,7 +430,7 @@ ALLOWED_AWS_COMMANDS = {
 }
 
 
-DENIED_AWS_COMMANDS = {
+DENIED_AWS_COMMANDS: dict[str, dict] = {
     # Services that modify state or access sensitive data
     "configure": {},
     "deploy": {},
