@@ -11,7 +11,8 @@ from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 # - Environment variable access: $VAR, ${VAR}, $(command)
 # - Command substitution: `command`, $(command)
 # - Process substitution: <(command), >(command)
-UNSAFE_GREP_PATTERN = re.compile(r"[\$`<>]|\$\{|\$\(")
+# But allows: $ at end of line (regex anchor), $ inside character classes [...]
+UNSAFE_GREP_PATTERN = re.compile(r"\$[A-Za-z_][A-Za-z0-9_]*|\$\{|\$\(|`|<\(|>\(")
 
 
 def validate_grep_keyword(value: str) -> str:

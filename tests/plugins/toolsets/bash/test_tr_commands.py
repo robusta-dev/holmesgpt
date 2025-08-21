@@ -54,7 +54,7 @@ class TestTrCliEdgeCases:
         assert result == "tr '\\n' ' '"
 
         result = make_command_safe("tr '\\t' ','", None)
-        assert result == "tr '\\t' ','"
+        assert result == "tr '\\t' ,"
 
     def test_tr_with_character_classes(self):
         """Test tr with POSIX character classes."""

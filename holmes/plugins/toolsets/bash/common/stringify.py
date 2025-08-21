@@ -1,6 +1,10 @@
 import shlex
+import re
 
 SAFE_SHELL_CHARS = frozenset(".-_=/,:")
+
+# POSIX character class pattern for tr command
+POSIX_CHAR_CLASS_PATTERN = re.compile(r"^\[:[-\w]+:\]$")
 
 
 def escape_shell_args(args: list[str]) -> list[str]:
@@ -18,6 +22,14 @@ def escape_shell_args(args: list[str]) -> list[str]:
         # If argument starts with -- or - (flag), no escaping needed
         elif arg.startswith("-"):
             escaped_args.append(arg)
+        # POSIX character classes for tr command (e.g., [:lower:], [:upper:], [:digit:])
+        elif POSIX_CHAR_CLASS_PATTERN.match(arg):
+            escaped_args.append(arg)
+        # Avoid using shlex in case as it does not handle nested quotes well. e.g. "foo='bar'"
+        elif "'" not in arg:
+            escaped_args.append("'" + arg + "'")
+        elif '"' not in arg:
+            escaped_args.append('"' + arg + '"')
         # For everything else, use shlex.quote for proper escaping
         else:
             escaped_args.append(shlex.quote(arg))

@@ -56,26 +56,3 @@ class TestSortCliSafeCommands:
         """Test that safe sort commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
-
-
-class TestSortCliUnsafeCommands:
-    """Test sort CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # Temporary directory options are blocked
-            ("sort -T /tmp", "Option -T is not allowed for security reasons"),
-            (
-                "sort --temporary-directory=/tmp",
-                "Option --temporary-directory is not allowed for security reasons",
-            ),
-            # File arguments are not allowed
-            ("sort file1.txt", "File arguments are not allowed"),
-            ("sort -n file1.txt file2.txt", "File arguments are not allowed"),
-        ],
-    )
-    def test_unsafe_sort_commands(self, input_command, expected_error_message):
-        """Test that unsafe sort commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)

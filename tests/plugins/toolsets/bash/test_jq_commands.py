@@ -27,8 +27,8 @@ class TestJqCliSafeCommands:
             # Input processing
             ("jq -s .", "jq -s ."),
             ("jq --slurp .", "jq --slurp ."),
-            ("jq -n '{}'", "jq -n {}"),
-            ("jq --null-input '{}'", "jq --null-input {}"),
+            ("jq -n '{}'", "jq -n '{}'"),
+            ("jq --null-input '{}'", "jq --null-input '{}'"),
             # Sorting and colors
             ("jq -S .", "jq -S ."),
             ("jq --sort-keys .", "jq --sort-keys ."),
@@ -39,11 +39,11 @@ class TestJqCliSafeCommands:
             # Variables and arguments
             (
                 "jq --arg name value '.name = $name'",
-                "jq --arg name value .name = $name",
+                "jq --arg name value '.name = $name'",
             ),
             (
                 "jq --argjson count 42 '.count = $count'",
-                "jq --argjson count 42 .count = $count",
+                "jq --argjson count 42 '.count = $count'",
             ),
             # Other options
             ("jq -a .", "jq -a ."),

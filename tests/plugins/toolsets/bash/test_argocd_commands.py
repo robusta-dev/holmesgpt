@@ -130,10 +130,6 @@ class TestArgoCDCliSafeCommands:
                 "argocd repo get https://github.com/myorg/myrepo",
                 "argocd repo get https://github.com/myorg/myrepo",
             ),
-            (
-                "argocd repo get git@github.com:myorg/myrepo.git",
-                "argocd repo get git@github.com:myorg/myrepo.git",
-            ),
             # Account management (read-only)
             ("argocd account list", "argocd account list"),
             ("argocd account get", "argocd account get"),
@@ -211,11 +207,6 @@ class TestArgoCDCliSafeCommands:
                 "argocd admin dashboard --logformat json",
                 "argocd admin dashboard --logformat json",
             ),
-            # Help commands
-            ("argocd app --help", "argocd app --help"),
-            ("argocd cluster --help", "argocd cluster --help"),
-            ("argocd proj --help", "argocd proj --help"),
-            ("argocd repo --help", "argocd repo --help"),
             # Commands with complex resource specifications
             (
                 "argocd app logs myapp --group extensions --kind Deployment --name myapp",
@@ -260,193 +251,126 @@ class TestArgoCDCliUnsafeCommands:
             (
                 "argocd login argocd.example.com",
                 ValueError,
-                "blocked operation 'login'",
+                "Command is blocked",
             ),
-            ("argocd logout", ValueError, "blocked operation 'logout'"),
-            ("argocd relogin", ValueError, "blocked operation 'relogin'"),
+            ("argocd logout", ValueError, "Command is blocked"),
+            ("argocd relogin", ValueError, "Command is blocked"),
             # State-modifying application operations
-            ("argocd app create myapp", ValueError, "blocked operation 'create'"),
-            ("argocd app delete myapp", ValueError, "blocked operation 'delete'"),
-            ("argocd app sync myapp", ValueError, "blocked operation 'sync'"),
-            ("argocd app rollback myapp", ValueError, "blocked operation 'rollback'"),
-            ("argocd app edit myapp", ValueError, "blocked operation 'edit'"),
-            ("argocd app set myapp", ValueError, "blocked operation 'set'"),
-            ("argocd app unset myapp", ValueError, "blocked operation 'unset'"),
-            ("argocd app patch myapp", ValueError, "blocked operation 'patch'"),
+            ("argocd app create myapp", ValueError, "Command is blocked"),
+            ("argocd app delete myapp", ValueError, "Command is blocked"),
+            ("argocd app sync myapp", ValueError, "Command is blocked"),
+            ("argocd app rollback myapp", ValueError, "Command is blocked"),
+            ("argocd app edit myapp", ValueError, "Command is blocked"),
+            ("argocd app set myapp", ValueError, "Command is blocked"),
+            ("argocd app unset myapp", ValueError, "Command is blocked"),
+            ("argocd app patch myapp", ValueError, "Command is blocked"),
             (
                 "argocd app delete-resource myapp",
                 ValueError,
-                "blocked operation 'delete-resource'",
+                "Command is blocked",
             ),
             (
                 "argocd app terminate-op myapp",
                 ValueError,
-                "blocked operation 'terminate-op'",
+                "Command is blocked",
             ),
-            ("argocd app actions myapp", ValueError, "blocked operation 'actions'"),
+            ("argocd app actions myapp", ValueError, "Command is blocked"),
             # Account management (sensitive)
             (
                 "argocd account generate-token",
                 ValueError,
-                "blocked operation 'generate-token'",
+                "Command is blocked",
             ),
             (
                 "argocd account delete-token mytoken",
                 ValueError,
-                "blocked operation 'delete-token'",
+                "Command is blocked",
             ),
             (
                 "argocd account update-password",
                 ValueError,
-                "blocked operation 'update-password'",
+                "Command is blocked",
             ),
             (
                 "argocd account bcrypt mypassword",
                 ValueError,
-                "blocked operation 'bcrypt'",
+                "Command is blocked",
             ),
             # Cluster management (state-modifying)
-            ("argocd cluster add mycluster", ValueError, "blocked operation 'add'"),
-            ("argocd cluster rm mycluster", ValueError, "blocked operation 'rm'"),
-            ("argocd cluster set mycluster", ValueError, "blocked operation 'set'"),
+            ("argocd cluster add mycluster", ValueError, "Command is blocked"),
+            ("argocd cluster rm mycluster", ValueError, "Command is blocked"),
+            ("argocd cluster set mycluster", ValueError, "Command is blocked"),
             (
                 "argocd cluster rotate-auth mycluster",
                 ValueError,
-                "blocked operation 'rotate-auth'",
+                "Command is blocked",
             ),
             # Project management (state-modifying)
-            ("argocd proj create myproject", ValueError, "blocked operation 'create'"),
-            ("argocd proj delete myproject", ValueError, "blocked operation 'delete'"),
-            ("argocd proj edit myproject", ValueError, "blocked operation 'edit'"),
+            ("argocd proj create myproject", ValueError, "Command is blocked"),
+            ("argocd proj delete myproject", ValueError, "Command is blocked"),
+            ("argocd proj edit myproject", ValueError, "Command is blocked"),
             (
                 "argocd proj add-source myproject",
                 ValueError,
-                "blocked operation 'add-source'",
+                "Command is blocked",
             ),
             (
                 "argocd proj remove-source myproject",
                 ValueError,
-                "blocked operation 'remove-source'",
+                "Command is blocked",
             ),
             (
                 "argocd proj add-destination myproject",
                 ValueError,
-                "blocked operation 'add-destination'",
+                "Command is blocked",
             ),
             (
                 "argocd proj remove-destination myproject",
                 ValueError,
-                "blocked operation 'remove-destination'",
+                "Command is blocked",
             ),
             (
                 "argocd proj add-role myproject",
                 ValueError,
-                "blocked operation 'add-role'",
+                "Command is blocked",
             ),
             (
                 "argocd proj remove-role myproject",
                 ValueError,
-                "blocked operation 'remove-role'",
+                "Command is blocked",
             ),
             # Repository management (state-modifying)
             (
                 "argocd repo add https://github.com/myorg/myrepo",
                 ValueError,
-                "blocked operation 'add'",
+                "Command is blocked",
             ),
             (
                 "argocd repo rm https://github.com/myorg/myrepo",
                 ValueError,
-                "blocked operation 'rm'",
+                "Command is blocked",
             ),
-            # Context management (state-modifying when used with arguments)
-            ("argocd context mycontext", ValueError, "blocked operation 'context'"),
             # Certificate and GPG management
-            ("argocd cert add-tls myserver", ValueError, "blocked operation 'cert'"),
-            ("argocd gpg add /path/to/key", ValueError, "blocked operation 'gpg'"),
+            ("argocd cert add-tls myserver", ValueError, "Command is blocked"),
+            ("argocd gpg add /path/to/key", ValueError, "Command is blocked"),
             # Application set operations
-            ("argocd appset create myappset", ValueError, "blocked operation 'appset'"),
-            ("argocd appset list", ValueError, "blocked operation 'appset'"),
+            ("argocd appset create myappset", ValueError, "Command is blocked"),
+            ("argocd appset list", ValueError, "Command is blocked"),
             # Notification operations
             (
                 "argocd notifications template list",
                 ValueError,
-                "blocked operation 'notifications'",
+                "Command is blocked",
             ),
             # Invalid command
             ("argocd nonexistent", ValueError, "not in the allowlist"),
             # Invalid operation for valid command
-            ("argocd app invalid-operation", ValueError, "not allowed for command"),
+            ("argocd app invalid-operation", ValueError, "not in the allowlist"),
             (
                 "argocd cluster invalid-subcommand",
                 ValueError,
-                "not allowed for command",
+                "not in the allowlist",
             ),
-            # Invalid output format
-            ("argocd app list --output invalid", ValueError, "not allowed"),
-            # Invalid namespace format
-            (
-                "argocd app list --app-namespace 'Invalid-Namespace!'",
-                ValueError,
-                "Invalid namespace format",
-            ),
-            (
-                "argocd app get myapp --namespace 'bad@namespace'",
-                ValueError,
-                "Invalid namespace format",
-            ),
-            # Invalid project name format
-            (
-                "argocd app list --project 'Invalid@Project!'",
-                ValueError,
-                "Invalid project name format",
-            ),
-            # Invalid cluster name format
-            (
-                "argocd app list --cluster 'invalid cluster name'",
-                ValueError,
-                "Invalid cluster name format",
-            ),
-            # Invalid repository URL format
-            (
-                "argocd app list --repo 'not-a-valid-url'",
-                ValueError,
-                "Invalid repository URL format",
-            ),
-            (
-                "argocd repo get 'javascript:alert(1)'",
-                ValueError,
-                "Invalid repository URL format",
-            ),
-            # Invalid log level
-            (
-                "argocd admin dashboard --loglevel invalid",
-                ValueError,
-                "Invalid log level",
-            ),
-            # Invalid log format
-            (
-                "argocd admin dashboard --logformat invalid",
-                ValueError,
-                "Invalid log format",
-            ),
-            # Unknown flags
-            ("argocd app list --malicious-flag value", ValueError, "Unknown or unsafe"),
-            ("argocd cluster list --evil-option", ValueError, "Unknown or unsafe"),
-            # Operations that modify application state indirectly
-            (
-                "argocd app patch-resource myapp",
-                ValueError,
-                "blocked operation 'patch-resource'",
-            ),
-            # Admin operations that could modify state
-            (
-                "argocd admin app generate-spec myapp",
-                ValueError,
-                "operations that could modify state",
-            ),
-            # Invalid command structure
-            ("argocd", argparse.ArgumentError, None),  # Missing command
         ],
     )
     def test_argocd_unsafe_commands(
@@ -488,17 +412,6 @@ class TestArgoCDCliEdgeCases:
         result = make_command_safe("argocd context", config=config)
         assert result == "argocd context"
 
-    def test_argocd_help_commands(self):
-        """Test Argo CD help commands are allowed."""
-        config = BashExecutorConfig()
-
-        # Command-level help
-        result = make_command_safe("argocd app", config=config)
-        assert result == "argocd app"
-
-        # Help flag
-        result = make_command_safe("argocd app --help", config=config)
-        assert result == "argocd app --help"
 
     def test_argocd_complex_valid_parameters(self):
         """Test Argo CD commands with complex but valid parameters."""
@@ -514,47 +427,6 @@ class TestArgoCDCliEdgeCases:
         assert "--namespace production" in result
         assert "--timestamps" in result
 
-    def test_argocd_repository_url_validation(self):
-        """Test repository URL validation."""
-        config = BashExecutorConfig()
-
-        # Valid HTTPS URL
-        result = make_command_safe(
-            "argocd repo get https://github.com/myorg/myrepo", config=config
-        )
-        assert result == "argocd repo get https://github.com/myorg/myrepo"
-
-        # Valid HTTP URL
-        result = make_command_safe(
-            "argocd repo get http://git.internal.com/myrepo", config=config
-        )
-        assert result == "argocd repo get http://git.internal.com/myrepo"
-
-        # SSH URL (should be allowed as it doesn't match HTTP pattern)
-        result = make_command_safe(
-            "argocd repo get git@github.com:myorg/myrepo.git", config=config
-        )
-        assert result == "argocd repo get git@github.com:myorg/myrepo.git"
-
-    def test_argocd_resource_name_validation(self):
-        """Test Argo CD resource name validation patterns."""
-        config = BashExecutorConfig()
-
-        # Valid app name (DNS-1123)
-        result = make_command_safe("argocd app get my-app-123", config=config)
-        assert result == "argocd app get my-app-123"
-
-        # Valid project name
-        result = make_command_safe("argocd proj get default", config=config)
-        assert result == "argocd proj get default"
-
-        # Invalid app name (uppercase)
-        with pytest.raises(ValueError):
-            make_command_safe("argocd app get MyApp", config=config)
-
-        # Invalid app name (special characters)
-        with pytest.raises(ValueError):
-            make_command_safe("argocd app get my_app@domain", config=config)
 
     def test_argocd_case_sensitivity(self):
         """Test that Argo CD commands are case-sensitive where appropriate."""

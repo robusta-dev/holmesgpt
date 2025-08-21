@@ -34,7 +34,7 @@ class AzureCommand(BashCommand):
     def validate_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> None:
-        if hasattr(command, "options") and command.options:
+        if hasattr(command, "options"):
             validate_azure_service_and_operation(command.service, command.options)
 
     def stringify_command(
@@ -55,6 +55,12 @@ def create_azure_parser(parent_parser: Any):
 
 
 def validate_azure_service_and_operation(service: str, options: list[str]) -> None:
+    # Check if service itself is a blocked operation first (top-level commands like "login")
+    if service in BLOCKED_AZURE_OPERATIONS:
+        raise ValueError(
+            f"Azure command contains blocked operation '{service}': {service}"
+        )
+
     # If no options provided, this is just listing the service help
     if not options:
         return
@@ -69,6 +75,13 @@ def validate_azure_service_and_operation(service: str, options: list[str]) -> No
         command_parts = options
 
     full_command = " ".join([service] + command_parts)
+
+    # Check for blocked operations in subcommands before allowlist check
+    for blocked_op in BLOCKED_AZURE_OPERATIONS:
+        if blocked_op in command_parts:
+            raise ValueError(
+                f"Azure command contains blocked operation '{blocked_op}': {full_command}"
+            )
 
     if full_command not in SAFE_AZURE_COMMANDS:
         # Try to provide helpful error message
@@ -86,10 +99,4 @@ def validate_azure_service_and_operation(service: str, options: list[str]) -> No
         else:
             raise ValueError(
                 f"Azure service '{service}' is not supported or command '{full_command}' is not allowed"
-            )
-
-    for blocked_op in BLOCKED_AZURE_OPERATIONS:
-        if blocked_op in full_command:
-            raise ValueError(
-                f"Azure command contains blocked operation '{blocked_op}': {full_command}"
             )

@@ -17,8 +17,8 @@ class TestTailCliSafeCommands:
             ("tail -10", "tail -10"),
             ("tail -n 10", "tail -n 10"),
             ("tail --lines=10", "tail --lines=10"),
-            ("tail +5", "tail +5"),
-            ("tail -n +5", "tail -n +5"),
+            ("tail +5", "tail '+5'"),
+            ("tail -n +5", "tail -n '+5'"),
             # Byte counting
             ("tail -c 100", "tail -c 100"),
             ("tail --bytes=100", "tail --bytes=100"),
@@ -56,22 +56,3 @@ class TestTailCliSafeCommands:
         """Test that safe tail commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
-
-
-class TestTailCliUnsafeCommands:
-    """Test tail CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # File arguments are not allowed
-            ("tail file.txt", "File arguments are not allowed"),
-            ("tail -n 10 file.txt", "File arguments are not allowed"),
-            ("tail -f file.txt", "File arguments are not allowed"),
-            ("tail file1.txt file2.txt", "File arguments are not allowed"),
-        ],
-    )
-    def test_unsafe_tail_commands(self, input_command, expected_error_message):
-        """Test that unsafe tail commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)

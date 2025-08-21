@@ -1,6 +1,5 @@
 from holmes.plugins.toolsets.bash.common.bash_command import (
     SimpleBashCommand,
-    StandardValidation,
 )
 
 
@@ -12,6 +11,5 @@ class SortCommand(SimpleBashCommand):
             denied_options=[
                 "-T",
                 "--temporary-directory",
-                StandardValidation.NO_FILE_OPTION,
             ],
         )

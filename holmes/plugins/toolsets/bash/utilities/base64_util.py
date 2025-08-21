@@ -1,6 +1,5 @@
 from holmes.plugins.toolsets.bash.common.bash_command import (
     SimpleBashCommand,
-    StandardValidation,
 )
 
 
@@ -9,5 +8,5 @@ class Base64Command(SimpleBashCommand):
         super().__init__(
             name="base64",
             allowed_options=[],  # Allow all options except file operations
-            denied_options=[StandardValidation.NO_FILE_OPTION],
+            denied_options=[],
         )

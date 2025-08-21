@@ -25,7 +25,6 @@ class AWSCommand(BashCommand):
 
         aws_parser.add_argument(
             "service",
-            type=validate_aws_service,
             help="AWS service name (e.g., ec2, s3, lambda)",
         )
 
@@ -111,10 +110,11 @@ def validate_aws_command(cmd: Any) -> None:
     Validate AWS command to prevent injection attacks and ensure safety.
     Raises ValueError if validation fails.
     """
-    if cmd.service in BLOCKED_AWS_SERVICES:
-        raise ValueError(f"AWS service '{cmd.service}' is blocked")
-
     if cmd.service not in SAFE_AWS_SERVICES:
-        raise ValueError(f"AWS service '{cmd.service}' is not allowed")
+        allowed_services = ", ".join(sorted(SAFE_AWS_SERVICES.keys()))
+        raise ValueError(
+            f"AWS service '{cmd.service}' is not in the allowlist. "
+            f"Allowed services: {allowed_services}"
+        )
 
     validate_aws_operation(cmd.service, cmd.operation)

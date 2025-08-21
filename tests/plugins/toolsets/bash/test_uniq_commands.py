@@ -52,21 +52,3 @@ class TestUniqCliSafeCommands:
         """Test that safe uniq commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
-
-
-class TestUniqCliUnsafeCommands:
-    """Test uniq CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # File arguments are not allowed
-            ("uniq file1.txt", "File arguments are not allowed"),
-            ("uniq input.txt output.txt", "File arguments are not allowed"),
-            ("uniq -c file.txt", "File arguments are not allowed"),
-        ],
-    )
-    def test_unsafe_uniq_commands(self, input_command, expected_error_message):
-        """Test that unsafe uniq commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)

@@ -138,28 +138,29 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
 def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) -> str:
     commands = split_into_separate_commands(command_str)
 
-    try:
-        parsed_commands = [
-            command_parser.parse_args(command_parts) for command_parts in commands
-        ]
-        for command in parsed_commands:
-            validate_command(
-                command=command, original_command=command_str, config=config
-            )
+    parsed_commands = []
+    for individual_command in commands:
+        try:
+            parsed_commands.append(command_parser.parse_args(individual_command))
+        
+        except SystemExit:
+            # argparse throws a SystemExit error when it can't parse command or arguments
+            # This ideally should be captured differently by ensuring all possible args
+            # are accounted for in the implementation for each command.
+            # When falling back, we raise a generic error
+            raise ValueError(
+                f"The following command failed to be parsed for safety: {command_str}"
+            ) from None
+    for command in parsed_commands:
+        validate_command(
+            command=command, original_command=command_str, config=config
+        )
 
-        safe_commands_str = [
-            stringify_command(
-                command=command, original_command=command_str, config=config
-            )
-            for command in parsed_commands
-        ]
+    safe_commands_str = [
+        stringify_command(
+            command=command, original_command=command_str, config=config
+        )
+        for command in parsed_commands
+    ]
 
-        return " | ".join(safe_commands_str)
-    except SystemExit:
-        # argparse throws a SystemExit error when it can't parse command or arguments
-        # This ideally should be captured differently by ensuring all possible args
-        # are accounted for in the implementation for each command.
-        # When falling back, we raise a generic error
-        raise ValueError(
-            f"The following command failed to be parsed for safety: {command_str}"
-        ) from None
+    return " | ".join(safe_commands_str)

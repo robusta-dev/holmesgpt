@@ -50,11 +50,6 @@ class TestWcCliUnsafeCommands:
                 "wc --files0-from /dev/stdin",
                 "Option --files0-from is not allowed for security reasons",
             ),
-            # File arguments are blocked by StandardValidation.NO_FILE_OPTION
-            ("wc file.txt", "File arguments are not allowed"),
-            ("wc -l file1.txt file2.txt", "File arguments are not allowed"),
-            ("wc /path/to/file", "File arguments are not allowed"),
-            ("wc -w document.txt", "File arguments are not allowed"),
         ],
     )
     def test_unsafe_wc_commands(self, input_command, expected_error_message):

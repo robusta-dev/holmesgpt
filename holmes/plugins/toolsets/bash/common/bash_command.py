@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 import argparse
-from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
@@ -39,23 +38,12 @@ class BashCommand(ABC):
         pass
 
 
-class StandardValidation(Enum):
-    NO_FILE_OPTION = 0
-
-
-STANDARD_CHECKS = {
-    StandardValidation.NO_FILE_OPTION: lambda option: "File arguments are not allowed"
-    if not option.startswith("-") and "=" not in option
-    else None
-}
-
-
 class SimpleBashCommand(BashCommand):
     def __init__(
         self,
         name: str,
-        allowed_options: list[Union[str, StandardValidation]] = [],
-        denied_options: list[Union[str, StandardValidation]] = [],
+        allowed_options: list[str] = [],
+        denied_options: list[str] = [],
     ):
         """
         A simple bash command that works with a whitelist/blacklist of options
@@ -82,20 +70,13 @@ class SimpleBashCommand(BashCommand):
         return parser
 
     def validate_command(self, command, original_command, config):
-        for option in command.options:
+        for i, option in enumerate(command.options):
             error_messages: list[str] = []
             allowed = False if self.allowed_options else True
 
             # Check allowed options
             for allowed_option in self.allowed_options:
-                if isinstance(allowed_option, StandardValidation):
-                    error_message = STANDARD_CHECKS[allowed_option](option)
-                    if not error_message:
-                        allowed = True
-                        break
-                    else:
-                        error_messages.append(error_message)
-                elif option == allowed_option:
+                if option == allowed_option:
                     allowed = True
                     break
 
@@ -103,13 +84,7 @@ class SimpleBashCommand(BashCommand):
             denied = False
             denied_error_message = None
             for denied_option in self.denied_options:
-                if isinstance(denied_option, StandardValidation):
-                    error_message = STANDARD_CHECKS[denied_option](option)
-                    if error_message:
-                        denied = True
-                        denied_error_message = error_message
-                        break
-                elif option == denied_option:
+                if option == denied_option:
                     denied = True
                     denied_error_message = (
                         f"Option {option} is not allowed for security reasons"
