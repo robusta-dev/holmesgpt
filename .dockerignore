@@ -119,3 +119,71 @@ node_modules/
 # Holmes specific
 ~/.holmes/
 .holmes/
+
+# Additional items from .gitignore
+playwright.png
+.deepeval*
+pyrightconfig.json
+evals_report.txt
+evals_report.md
+config_toolsets.yaml
+**/.claude/settings.local.json
+.claude-trace/
+
+# Testing coverage
+htmlcov/
+.nox/
+*.py,cover
+cover/
+
+# Additional Python
+share/python-wheels/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Framework specific
+*.mo
+*.pot
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+instance/
+.webassets-cache
+.scrapy
+
+# Build tools
+.pybuilder/
+target/
+__pypackages__/
+
+# Task scheduling
+celerybeat-schedule
+celerybeat.pid
+
+# Sage
+*.sage.py
+
+# Project settings
+.spyderproject
+.spyproject
+.ropeproject
+
+# MkDocs
+/site
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Debug
+cython_debug/
+
+# Jupyter
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
