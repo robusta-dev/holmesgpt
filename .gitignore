@@ -179,16 +179,30 @@ config_toolsets.yaml
 
 # API Keys & Secrets
 *_API_KEY*
-*api_key*
+api_key
+.api_key
+API_KEY
 *_TOKEN*
-*token*
+token
+.token
+TOKEN
 *.key
 *.pem
 *.crt
 .secrets
 secrets/
 credentials/
-
+.npmrc
+.yarnrc.yml
+.pypirc
+# common cert/key formats used for auth
+*.p12
+*.pfx
+*.p8
+*.der
+# keep placeholder files if we want directories present
+!secrets/.gitkeep
+!credentials/.gitkeep
 # Claude Instructions
 CLAUDE.local.md
 
