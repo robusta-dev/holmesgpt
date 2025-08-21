@@ -95,10 +95,7 @@ credentials/
 CLAUDE.md
 CLAUDE.local.md
 CLAUDE*.md
-*_API_KEY*
-*api_key*
-*_TOKEN*
-*token*
+.secrets
 .secrets
 config.yaml
 ~/.holmes/config.yaml
