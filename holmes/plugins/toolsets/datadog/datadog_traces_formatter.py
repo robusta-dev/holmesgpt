@@ -282,6 +282,36 @@ def format_spans_search(
             if status and status != "ok":
                 output_lines.append(f"  │  status: {status}")
 
+            # Check for custom error information
+            custom = attrs.get("custom", {})
+            error_info = custom.get("error", {})
+            if error_info:
+                output_lines.append(f"  │  error:")
+                
+                # Extract error fields
+                error_id = error_info.get("id")
+                error_file = error_info.get("file")
+                error_stack = error_info.get("stack")
+                error_message = error_info.get("message")
+                error_type = error_info.get("type")
+                
+                if error_id:
+                    output_lines.append(f"  │    id: {error_id}")
+                if error_file:
+                    output_lines.append(f"  │    file: {error_file}")
+                if error_message:
+                    output_lines.append(f"  │    message: {error_message}")
+                if error_type:
+                    output_lines.append(f"  │    type: {error_type}")
+                if error_stack:
+                    # Truncate stack trace for readability
+                    stack_lines = error_stack.split('\n')[:5]  # Show first 5 lines
+                    output_lines.append(f"  │    stack: {stack_lines[0]}")
+                    for stack_line in stack_lines[1:]:
+                        output_lines.append(f"  │           {stack_line}")
+                    if len(error_stack.split('\n')) > 5:
+                        output_lines.append(f"  │           ... (truncated)")
+
             # Show important tags
             tags = attrs.get("tags", [])
             important_tags = {}
