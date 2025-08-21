@@ -1,4 +1,5 @@
-from typing import Optional
+import logging
+from typing import List, Optional
 import requests  # type: ignore
 from functools import cache
 from pydantic import BaseModel, ConfigDict
@@ -11,6 +12,23 @@ TIMEOUT = 0.5
 class HolmesInfo(BaseModel):
     model_config = ConfigDict(extra="ignore")
     latest_version: Optional[str] = None
+
+
+@cache
+def fetch_robusta_models(account_id, token) -> Optional[List[str]]:
+    try:
+        session_request = {"session_token": token, "account_id": account_id}
+        resp = requests.post(
+            f"{ROBUSTA_API_ENDPOINT}/api/llm/models",
+            json=session_request,
+            timeout=10,
+        )
+        resp.raise_for_status()
+        response_json = resp.json()
+        return response_json.get("models")
+    except Exception:
+        logging.exception("Failed to fetch robusta models")
+        return None
 
 
 @cache
