@@ -283,18 +283,20 @@ def format_spans_search(
                 output_lines.append(f"  │  status: {status}")
 
             # Check for custom error information
-            custom = attrs.get("custom", {})
-            error_info = custom.get("error", {})
-            if error_info:
-                output_lines.append(f"  │  error:")
-                
+            custom = attrs.get("custom") or {}
+            if not isinstance(custom, dict):
+                custom = {}
+            error_info = custom.get("error")
+            if isinstance(error_info, dict) and error_info:
+                output_lines.append("  │  error:")
+
                 # Extract error fields
                 error_id = error_info.get("id")
                 error_file = error_info.get("file")
                 error_stack = error_info.get("stack")
                 error_message = error_info.get("message")
                 error_type = error_info.get("type")
-                
+
                 if error_id:
                     output_lines.append(f"  │    id: {error_id}")
                 if error_file:
@@ -304,13 +306,17 @@ def format_spans_search(
                 if error_type:
                     output_lines.append(f"  │    type: {error_type}")
                 if error_stack:
-                    # Truncate stack trace for readability
-                    stack_lines = error_stack.split('\n')[:5]  # Show first 5 lines
+                    # Truncate stack trace for readability and support list inputs
+                    if isinstance(error_stack, list):
+                        lines = [str(x) for x in error_stack]
+                    else:
+                        lines = str(error_stack).splitlines()
+                    stack_lines = lines[:5]
                     output_lines.append(f"  │    stack: {stack_lines[0]}")
                     for stack_line in stack_lines[1:]:
                         output_lines.append(f"  │           {stack_line}")
-                    if len(error_stack.split('\n')) > 5:
-                        output_lines.append(f"  │           ... (truncated)")
+                    if len(lines) > 5:
+                        output_lines.append("  │           ... (truncated)")
 
             # Show important tags
             tags = attrs.get("tags", [])
