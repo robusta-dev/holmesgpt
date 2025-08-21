@@ -7,3 +7,7 @@ Available commands:
 - `grep|cut|sort|uniq|head|tail|wc|tr|base64|jq|sed [options]`
 
 Commands can be piped with `|`. No `&&` support.
+
+
+The tool `kubectl_run_image` will run an image:
+- `kubectl run <name> --image=<image> --rm --attach --restart=Never --i --tty -- <command>`
