@@ -1,4 +1,5 @@
 import argparse
+import fnmatch
 import re
 from typing import Union
 
@@ -24,45 +25,89 @@ def whitelist_validator(field_name: str, whitelisted_values: set[str]):
     return validate_value
 
 
+def validate_command_and_operations(
+    command: str,
+    options: list[str],
+    allowed_commands: dict[str, dict],
+    denied_commands: dict[str, dict],
+) -> None:
+    """Validate that the command and operation combination is safe, with wildcard support."""
 
-def validate_command_and_operations(command: str, options: list[str], allowed_commands:dict[str, dict], denied_commands:dict[str, dict]) -> None:
-    """Validate that the Helm command and operation combination is safe."""
-    # Check if command itself is a blocked operation first (top-level commands like "install")
+    # Check denied commands first (including wildcards)
+    _check_denied_command_with_wildcards(
+        command=command, options=options, denied_commands=denied_commands
+    )
 
-    command_str_for_error_message = command
+    # Check allowed commands (including wildcards)
+    _check_allowed_command_with_wildcards(
+        command=command, options=options, allowed_commands=allowed_commands
+    )
 
-    denied_command = denied_commands.get(command, None)
-    if denied_command == {}:
-        raise ValueError(
-            f"Command is blocked: {command_str_for_error_message}"
-        )
-    elif denied_command is not None:
-        for option in options:
-            command_str_for_error_message += " " + option
-            denied_command = denied_command.get(option, None)
-            if denied_command is None:
-                break
-            elif denied_command == {}:
-                raise ValueError(
-                    f"Command is blocked: {command_str_for_error_message}"
+
+def _check_options_against_denied_commands(
+    command: str, options: list[str], denied_commands: dict
+):
+    for idx, option in enumerate(options):
+        command += " " + option
+        for potential_command, children in denied_commands.items():
+            option_does_match = fnmatch.fnmatchcase(option, potential_command)
+            if option_does_match and children == {}:
+                raise ValueError(f"Command is blocked: {command}")
+            elif option_does_match:
+                _check_options_against_denied_commands(
+                    command=command,
+                    options=options[idx + 1 :],
+                    denied_commands=children,
                 )
-            
-    allowed_command = allowed_commands.get(command, None)
-    if allowed_command == {}:
-        return
-    elif allowed_command is not None:
-        
-        for option in options:
-            command_str_for_error_message += " " + option
-            allowed_command = allowed_command.get(option, None)
-            if allowed_command is None:
-                raise ValueError(
-                    f"Command '{command_str_for_error_message}' is not in the allowlist"
+
+
+def _check_denied_command_with_wildcards(
+    command: str, options: list[str], denied_commands: dict[str, dict]
+) -> None:
+    # Check exact command match first
+    for potential_command, children in denied_commands.items():
+        command_does_match = fnmatch.fnmatchcase(command, potential_command)
+        if command_does_match and children == {}:
+            raise ValueError(f"Command is blocked: {command}")
+        elif command_does_match:
+            _check_options_against_denied_commands(
+                command=command, options=options, denied_commands=children
+            )
+
+
+def _do_options_match_an_allowed_command(
+    command: str, options: list[str], allowed_commands: dict
+) -> bool:
+    for idx, option in enumerate(options):
+        command += " " + option
+        for potential_command, children in allowed_commands.items():
+            option_does_match = fnmatch.fnmatchcase(option, potential_command)
+            if option_does_match and children == {}:
+                return True
+            elif option_does_match:
+                is_allowed = _do_options_match_an_allowed_command(
+                    command=command, options=options[idx:], allowed_commands=children
                 )
-            elif allowed_command == {}:
+                if is_allowed:
+                    return True
+
+    return False
+
+
+def _check_allowed_command_with_wildcards(
+    command: str, options: list[str], allowed_commands: dict[str, dict]
+):
+    for potential_command, children in allowed_commands.items():
+        cursor_does_match = fnmatch.fnmatchcase(command, potential_command)
+        if cursor_does_match and children == {}:
+            return
+        elif cursor_does_match:
+            is_allowed = _do_options_match_an_allowed_command(
+                command=command, options=options, allowed_commands=children
+            )
+            if is_allowed:
                 return
 
-
     raise ValueError(
-        f"Command '{command_str_for_error_message}' is not in the allowlist"
+        f"Command is not in the allowlist: {command + ' ' + ' '.join(options)}"
     )

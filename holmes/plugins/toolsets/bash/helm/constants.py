@@ -25,13 +25,9 @@ ALLOWED_HELM_COMMANDS = {
     "search": {},
     "lint": {},
     "verify": {},
-    "dependency": {
-        "list": {}
-    },
+    "dependency": {"list": {}},
     # Repository operations (read-only)
-    "repo": {
-        "list": {}
-    },
+    "repo": {"list": {}},
     "search repo": {},
     # Help and information
     "help": {},
@@ -71,7 +67,6 @@ DENIED_HELM_COMMANDS = {
         "update": {},
         "build": {},
     },
-    
     # Plugin management
     "plugin": {
         "install": {},

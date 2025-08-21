@@ -4,10 +4,12 @@ from typing import Any, Optional
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
+from holmes.plugins.toolsets.bash.common.validators import (
+    validate_command_and_operations,
+)
 from holmes.plugins.toolsets.bash.aws.constants import (
-    SAFE_AWS_SERVICES,
-    BLOCKED_AWS_SERVICES,
-    BLOCKED_AWS_OPERATIONS,
+    ALLOWED_AWS_COMMANDS,
+    DENIED_AWS_COMMANDS,
 )
 
 
@@ -41,7 +43,16 @@ class AWSCommand(BashCommand):
     def validate_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> None:
-        validate_aws_command(command)
+        # Build options list with operation and remaining arguments
+        options = [command.operation] + (
+            command.options if hasattr(command, "options") else []
+        )
+        validate_command_and_operations(
+            command=command.service,
+            options=options,
+            allowed_commands=ALLOWED_AWS_COMMANDS,
+            denied_commands=DENIED_AWS_COMMANDS,
+        )
 
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
@@ -53,68 +64,3 @@ class AWSCommand(BashCommand):
             parts.extend(command.options)
 
         return " ".join(escape_shell_args(parts))
-
-
-# Keep old functions for backward compatibility temporarily
-def create_aws_parser(parent_parser: Any):
-    aws_command = AWSCommand()
-    return aws_command.add_parser(parent_parser)
-
-
-def validate_aws_service(service: str) -> str:
-    """Validate that the AWS service is in the allowlist and not blocked."""
-    if service in BLOCKED_AWS_SERVICES:
-        raise argparse.ArgumentTypeError(
-            f"AWS service '{service}' is not allowed for security reasons"
-        )
-
-    if service not in SAFE_AWS_SERVICES:
-        allowed_services = ", ".join(sorted(SAFE_AWS_SERVICES.keys()))
-        raise argparse.ArgumentTypeError(
-            f"AWS service '{service}' is not in the allowlist. "
-            f"Allowed services: {allowed_services}"
-        )
-
-    return service
-
-
-def validate_aws_operation(service: str, operation: str) -> str:
-    """Validate that the AWS operation is safe for the given service."""
-    # Check if operation matches any blocked patterns
-    for blocked_pattern in BLOCKED_AWS_OPERATIONS:
-        if blocked_pattern.endswith("*"):
-            prefix = blocked_pattern[:-1]
-            if operation.startswith(prefix):
-                raise ValueError(
-                    f"AWS operation '{operation}' is blocked (matches pattern '{blocked_pattern}')"
-                )
-        elif operation == blocked_pattern:
-            raise ValueError(f"AWS operation '{operation}' is blocked")
-
-    # Check if operation is in the allowlist for this service
-    allowed_operations = SAFE_AWS_SERVICES.get(service, set())
-    if operation not in allowed_operations:
-        allowed_ops_str = (
-            ", ".join(sorted(allowed_operations)) if allowed_operations else "none"
-        )
-        raise ValueError(
-            f"AWS operation '{operation}' is not allowed for service '{service}'. "
-            f"Allowed operations: {allowed_ops_str}"
-        )
-
-    return operation
-
-
-def validate_aws_command(cmd: Any) -> None:
-    """
-    Validate AWS command to prevent injection attacks and ensure safety.
-    Raises ValueError if validation fails.
-    """
-    if cmd.service not in SAFE_AWS_SERVICES:
-        allowed_services = ", ".join(sorted(SAFE_AWS_SERVICES.keys()))
-        raise ValueError(
-            f"AWS service '{cmd.service}' is not in the allowlist. "
-            f"Allowed services: {allowed_services}"
-        )
-
-    validate_aws_operation(cmd.service, cmd.operation)

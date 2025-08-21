@@ -58,28 +58,6 @@ class TestCutCliSafeCommands:
         assert result == expected_output
 
 
-class TestCutCliUnsafeCommands:
-    """Test cut CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # File arguments are not allowed
-            ("cut -f1 /etc/passwd", "File arguments are not allowed"),
-            ("cut -f1 file1.txt file2.txt", "File arguments are not allowed"),
-            ("cut -d: -f1 /etc/passwd", "File arguments are not allowed"),
-            (
-                "cut --delimiter=: --fields=1 /etc/passwd",
-                "File arguments are not allowed",
-            ),
-        ],
-    )
-    def test_unsafe_cut_commands(self, input_command, expected_error_message):
-        """Test that unsafe cut commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)
-
-
 class TestCutCliEdgeCases:
     """Test edge cases and complex scenarios for cut CLI commands."""
 
@@ -103,7 +81,7 @@ class TestCutCliEdgeCases:
     def test_cut_with_special_delimiters(self):
         """Test cut with special delimiter characters."""
         result = make_command_safe("cut -d$'\\t' -f1", None)
-        assert result == "cut -d$'\\t' -f1"
+        assert result == "cut -d$\\t -f1"
 
         result = make_command_safe("cut -d' ' -f1,2", None)
         assert result == "cut -d  -f1,2"

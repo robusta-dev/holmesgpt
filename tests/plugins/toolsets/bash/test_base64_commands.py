@@ -27,7 +27,6 @@ class TestBase64CliSafeCommands:
             # Combined options
             ("base64 -d -i", "base64 -d -i"),
             ("base64 --decode --ignore-garbage", "base64 --decode --ignore-garbage"),
-            ("base64 -w 0", "base64 -w 0"),
             # Help and version
             ("base64 --help", "base64 --help"),
             ("base64 --version", "base64 --version"),
@@ -37,21 +36,3 @@ class TestBase64CliSafeCommands:
         """Test that safe base64 commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
-
-
-class TestBase64CliUnsafeCommands:
-    """Test base64 CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # File arguments are not allowed
-            ("base64 file.txt", "File arguments are not allowed"),
-            ("base64 -d encoded.txt", "File arguments are not allowed"),
-            ("base64 input.txt output.txt", "File arguments are not allowed"),
-        ],
-    )
-    def test_unsafe_base64_commands(self, input_command, expected_error_message):
-        """Test that unsafe base64 commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)

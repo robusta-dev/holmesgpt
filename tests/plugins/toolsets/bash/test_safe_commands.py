@@ -307,17 +307,6 @@ class TestKubectlIntegration:
         assert output_command == expected_output
 
 
-
-
-
-
-
-
-
-
-
-
-
 class TestShlexEscaping:
     """Tests to verify that shlex.quote properly escapes complex parameters."""
 

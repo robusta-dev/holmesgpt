@@ -8,7 +8,6 @@ This module tests the Helm CLI integration in the bash toolset, ensuring:
 4. Commands are properly stringified back to safe command strings
 """
 
-import argparse
 import pytest
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
@@ -365,7 +364,11 @@ class TestHelmCliUnsafeCommands:
                 "Command is blocked",
             ),
             # Operations that could modify cluster state
-            ("helm template myrelease nginx --atomic", ValueError, "Command is blocked"),
+            (
+                "helm template myrelease nginx --atomic",
+                ValueError,
+                "Command is blocked",
+            ),
             ("helm template myrelease nginx --wait", ValueError, "Command is blocked"),
             ("helm template myrelease nginx --force", ValueError, "Command is blocked"),
         ],
@@ -380,4 +383,3 @@ class TestHelmCliUnsafeCommands:
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)
-

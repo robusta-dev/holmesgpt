@@ -22,7 +22,6 @@ from holmes.plugins.toolsets.bash.utilities.tail import TailCommand
 from holmes.plugins.toolsets.bash.utilities.tr import TrCommand
 from holmes.plugins.toolsets.bash.utilities.base64_util import Base64Command
 from holmes.plugins.toolsets.bash.utilities.jq import JqCommand
-from holmes.plugins.toolsets.bash.utilities.awk import AwkCommand
 from holmes.plugins.toolsets.bash.utilities.sed import SedCommand
 
 
@@ -44,7 +43,6 @@ commands: list[BashCommand] = [
     TrCommand(),
     Base64Command(),
     JqCommand(),
-    AwkCommand(),
     SedCommand(),
 ]
 
@@ -142,7 +140,7 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
     for individual_command in commands:
         try:
             parsed_commands.append(command_parser.parse_args(individual_command))
-        
+
         except SystemExit:
             # argparse throws a SystemExit error when it can't parse command or arguments
             # This ideally should be captured differently by ensuring all possible args
@@ -152,14 +150,10 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
                 f"The following command failed to be parsed for safety: {command_str}"
             ) from None
     for command in parsed_commands:
-        validate_command(
-            command=command, original_command=command_str, config=config
-        )
+        validate_command(command=command, original_command=command_str, config=config)
 
     safe_commands_str = [
-        stringify_command(
-            command=command, original_command=command_str, config=config
-        )
+        stringify_command(command=command, original_command=command_str, config=config)
         for command in parsed_commands
     ]
 

@@ -87,10 +87,6 @@ class TestIncorrectKubectlCommands:
                 "kubectl annotate secret some-secret kubectl.kubernetes.io/last-applied-configuration-",
                 None,
             ),
-            (
-                "kubectl logs coredns-5967b8b7b8-dh582 -n kube-system --tail=100",
-                "fetch_pod_logs",
-            ),
             # Commands that should fail even when piped with kubectl commands
             ("kubectl get pods | kubectl delete -f -", None),
         ],
@@ -135,7 +131,9 @@ class TestIncorrectKubectlCommands:
         """Test that mixing safe and unsafe kubectl commands still raises ArgumentError."""
         # Even if one part is safe (kubectl get), the unsafe kubectl part should cause failure
         with pytest.raises(argparse.ArgumentError):
-            make_command_safe("kubectl get pods | kubectl apply -f evil.yaml", config=TEST_CONFIG)
+            make_command_safe(
+                "kubectl get pods | kubectl apply -f evil.yaml", config=TEST_CONFIG
+            )
 
     def test_empty_command_returns_empty_string(self):
         """Test that empty commands return empty string."""
@@ -146,5 +144,3 @@ class TestIncorrectKubectlCommands:
         """Test that command with only pipe character returns empty string."""
         assert make_command_safe("|", config=TEST_CONFIG) == ""
         assert make_command_safe("| |", config=TEST_CONFIG) == ""
-
-

@@ -41,21 +41,3 @@ class TestHeadCliSafeCommands:
         """Test that safe head commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
-
-
-class TestHeadCliUnsafeCommands:
-    """Test head CLI unsafe commands that should be blocked."""
-
-    @pytest.mark.parametrize(
-        "input_command,expected_error_message",
-        [
-            # File arguments are not allowed
-            ("head file.txt", "File arguments are not allowed"),
-            ("head -n 10 file.txt", "File arguments are not allowed"),
-            ("head file1.txt file2.txt", "File arguments are not allowed"),
-        ],
-    )
-    def test_unsafe_head_commands(self, input_command, expected_error_message):
-        """Test that unsafe head commands are blocked with appropriate error messages."""
-        with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)

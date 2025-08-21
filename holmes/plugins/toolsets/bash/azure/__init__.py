@@ -4,9 +4,12 @@ from typing import Any, Optional
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
+from holmes.plugins.toolsets.bash.common.validators import (
+    validate_command_and_operations,
+)
 from holmes.plugins.toolsets.bash.azure.constants import (
-    SAFE_AZURE_COMMANDS,
-    BLOCKED_AZURE_OPERATIONS,
+    ALLOWED_AZURE_COMMANDS,
+    DENIED_AZURE_COMMANDS,
 )
 
 
@@ -35,7 +38,12 @@ class AzureCommand(BashCommand):
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> None:
         if hasattr(command, "options"):
-            validate_azure_service_and_operation(command.service, command.options)
+            validate_command_and_operations(
+                command=command.service,
+                options=command.options,
+                allowed_commands=ALLOWED_AZURE_COMMANDS,
+                denied_commands=DENIED_AZURE_COMMANDS,
+            )
 
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
@@ -46,57 +54,3 @@ class AzureCommand(BashCommand):
             parts.extend(command.options)
 
         return " ".join(escape_shell_args(parts))
-
-
-# Keep old functions for backward compatibility temporarily
-def create_azure_parser(parent_parser: Any):
-    azure_command = AzureCommand()
-    return azure_command.add_parser(parent_parser)
-
-
-def validate_azure_service_and_operation(service: str, options: list[str]) -> None:
-    # Check if service itself is a blocked operation first (top-level commands like "login")
-    if service in BLOCKED_AZURE_OPERATIONS:
-        raise ValueError(
-            f"Azure command contains blocked operation '{service}': {service}"
-        )
-
-    # If no options provided, this is just listing the service help
-    if not options:
-        return
-
-    command_parts = []
-
-    for i, option in enumerate(options):
-        if option.startswith("-"):
-            break
-        command_parts.append(option)
-    else:
-        command_parts = options
-
-    full_command = " ".join([service] + command_parts)
-
-    # Check for blocked operations in subcommands before allowlist check
-    for blocked_op in BLOCKED_AZURE_OPERATIONS:
-        if blocked_op in command_parts:
-            raise ValueError(
-                f"Azure command contains blocked operation '{blocked_op}': {full_command}"
-            )
-
-    if full_command not in SAFE_AZURE_COMMANDS:
-        # Try to provide helpful error message
-        matching_commands = [
-            cmd for cmd in SAFE_AZURE_COMMANDS if cmd.startswith(service)
-        ]
-        if matching_commands:
-            sample_commands = ", ".join(sorted(matching_commands)[:5])
-            if len(matching_commands) > 5:
-                sample_commands += f" (and {len(matching_commands) - 5} more)"
-            raise ValueError(
-                f"Azure command '{full_command}' is not in the allowlist. "
-                f"Sample allowed commands for '{service}': {sample_commands}"
-            )
-        else:
-            raise ValueError(
-                f"Azure service '{service}' is not supported or command '{full_command}' is not allowed"
-            )

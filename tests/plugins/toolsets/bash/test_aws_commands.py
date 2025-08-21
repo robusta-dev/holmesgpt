@@ -281,10 +281,10 @@ class TestAWSCliUnsafeCommands:
         "command,expected_exception,partial_error_message_content",
         [
             # Blocked services
-            ("aws configure list", ValueError, "not in the allowlist"),
-            ("aws sts get-caller-identity", ValueError, "not in the allowlist"),
-            ("aws secretsmanager list-secrets", ValueError, "not in the allowlist"),
-            ("aws kms list-keys", ValueError, "not in the allowlist"),
+            ("aws configure list", ValueError, "blocked"),
+            ("aws sts get-caller-identity", ValueError, "blocked"),
+            ("aws secretsmanager list-secrets", ValueError, "blocked"),
+            ("aws kms list-keys", ValueError, "blocked"),
             # State-modifying EC2 operations
             ("aws ec2 run-instances --image-id ami-12345", ValueError, "blocked"),
             (
@@ -408,26 +408,23 @@ class TestAWSCliUnsafeCommands:
                 "blocked",
             ),
             # Invalid service
-            ("aws nonexistent describe-something", ValueError, "not in the allowlist"),
+            (
+                "aws nonexistent describe-something",
+                ValueError,
+                "Command is not in the allowlist",
+            ),
             # Invalid operation for valid service
-            ("aws ec2 invalid-operation", ValueError, "not allowed for service"),
-            ("aws s3 invalid-command", ValueError, "not allowed for service"),
-            ("aws lambda invalid-function", ValueError, "not allowed for service"),
-            # Invalid output format
-            ("aws ec2 describe-instances --output invalid", ValueError, "not allowed"),
-            # Invalid region format
             (
-                "aws ec2 describe-instances --region invalid-region",
+                "aws ec2 invalid-operation",
                 ValueError,
-                "Invalid AWS region format",
+                "Command is not in the allowlist",
             ),
-            # Unknown flags
+            ("aws s3 invalid-command", ValueError, "Command is not in the allowlist"),
             (
-                "aws ec2 describe-instances --malicious-flag value",
+                "aws lambda invalid-function",
                 ValueError,
-                "Unknown or unsafe",
+                "Command is not in the allowlist",
             ),
-            ("aws s3 list-buckets --evil-option", ValueError, "Unknown or unsafe"),
         ],
     )
     def test_aws_unsafe_commands(

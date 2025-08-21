@@ -4,10 +4,12 @@ from typing import Any, Optional
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
-from holmes.plugins.toolsets.bash.common.validators import validate_command_and_operations
+from holmes.plugins.toolsets.bash.common.validators import (
+    validate_command_and_operations,
+)
 from holmes.plugins.toolsets.bash.helm.constants import (
     ALLOWED_HELM_COMMANDS,
-    DENIED_HELM_COMMANDS
+    DENIED_HELM_COMMANDS,
 )
 
 
@@ -39,7 +41,12 @@ class HelmCommand(BashCommand):
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> None:
         if hasattr(command, "options"):
-            validate_command_and_operations(command=command.command, options=command.options, allowed_commands=ALLOWED_HELM_COMMANDS, denied_commands=DENIED_HELM_COMMANDS)
+            validate_command_and_operations(
+                command=command.command,
+                options=command.options,
+                allowed_commands=ALLOWED_HELM_COMMANDS,
+                denied_commands=DENIED_HELM_COMMANDS,
+            )
 
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]

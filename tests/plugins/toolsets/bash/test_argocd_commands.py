@@ -8,7 +8,6 @@ These tests verify:
 """
 
 import pytest
-import argparse
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
@@ -412,7 +411,6 @@ class TestArgoCDCliEdgeCases:
         result = make_command_safe("argocd context", config=config)
         assert result == "argocd context"
 
-
     def test_argocd_complex_valid_parameters(self):
         """Test Argo CD commands with complex but valid parameters."""
         config = BashExecutorConfig()
@@ -426,7 +424,6 @@ class TestArgoCDCliEdgeCases:
         assert "--container web" in result
         assert "--namespace production" in result
         assert "--timestamps" in result
-
 
     def test_argocd_case_sensitivity(self):
         """Test that Argo CD commands are case-sensitive where appropriate."""
