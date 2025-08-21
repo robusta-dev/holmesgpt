@@ -535,7 +535,7 @@ class Config(RobustaBaseConfig):
                 else next(iter(self._model_list.values())).copy()
             )
             if model_params.get("is_robusta_model") and self.api_key:
-                api_key = self.api_key.get_secret_value()
+                api_key = self.api_key.get_secret_value()  # type: ignore
             else:
                 api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
