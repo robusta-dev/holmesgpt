@@ -1,10 +1,10 @@
 import argparse
+import logging
 import shlex
 from typing import Any, Optional
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
-from holmes.plugins.toolsets.bash.grep import GrepCommand
 from holmes.plugins.toolsets.bash.kubectl import KubectlCommand
 from holmes.plugins.toolsets.bash.aws import AWSCommand
 from holmes.plugins.toolsets.bash.azure import AzureCommand
@@ -23,6 +23,7 @@ from holmes.plugins.toolsets.bash.utilities.tr import TrCommand
 from holmes.plugins.toolsets.bash.utilities.base64_util import Base64Command
 from holmes.plugins.toolsets.bash.utilities.jq import JqCommand
 from holmes.plugins.toolsets.bash.utilities.sed import SedCommand
+from holmes.plugins.toolsets.bash.utilities.grep import GrepCommand
 
 
 # All commands now use BashCommand classes
@@ -47,8 +48,21 @@ commands: list[BashCommand] = [
 ]
 
 
+class QuietArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _print_message(self, message, file=None):
+        if message:
+            logging.debug(message.strip())
+
+    def error(self, message):
+        logging.debug(f"Error: {message}")
+        self.exit(2)
+
+
 def create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = QuietArgumentParser(
         prog="command_parser",  # Set explicit program name
         description="Parser for commands",
         exit_on_error=False,
