@@ -383,15 +383,29 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for tool_index, t in enumerate(tools_to_call, 1):
+                non_todo_write_count = 0
+                for t in tools_to_call:
                     logging.debug(f"Tool to call: {t}")
+                    # Check if this is a TodoWrite tool
+                    tool_name = (
+                        t.function.name if hasattr(t, "function") else t.custom.name
+                    )
+                    is_todo_write = tool_name == "TodoWrite"
+
+                    # Only assign a tool number to non-TodoWrite tools
+                    if not is_todo_write:
+                        non_todo_write_count += 1
+                        tool_num = tool_number_offset + non_todo_write_count
+                    else:
+                        tool_num = None
+
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
-                            tool_number=tool_number_offset + tool_index,
+                            tool_number=tool_num,
                         )
                     )
 
@@ -403,8 +417,8 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                # Update the tool number offset for the next iteration
-                tool_number_offset += len(tools_to_call)
+                # Update the tool number offset only for non-TodoWrite tools
+                tool_number_offset += non_todo_write_count
 
                 # Add a blank line after all tools in this batch complete
                 if tools_to_call:
@@ -692,19 +706,33 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
-                for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
+                non_todo_write_count = 0
+                for t in tools_to_call:  # type: ignore
+                    # Check if this is a TodoWrite tool
+                    tool_name = (
+                        t.function.name if hasattr(t, "function") else t.custom.name
+                    )
+                    is_todo_write = tool_name == "TodoWrite"
+
+                    # Only assign a tool number to non-TodoWrite tools
+                    if not is_todo_write:
+                        non_todo_write_count += 1
+                        tool_num = tool_number_offset + non_todo_write_count
+                    else:
+                        tool_num = None
+
                     futures.append(
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
                             trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
-                            tool_number=tool_number_offset + tool_index,
+                            tool_number=tool_num,
                         )
                     )
                     yield StreamMessage(
                         event=StreamEvents.START_TOOL,
-                        data={"tool_name": t.function.name, "id": t.id},
+                        data={"tool_name": tool_name, "id": t.id},
                     )
 
                 for future in concurrent.futures.as_completed(futures):
@@ -720,8 +748,8 @@ class ToolCallingLLM:
                         data=tool_call_result.as_streaming_tool_result_response(),
                     )
 
-                # Update the tool number offset for the next iteration
-                tool_number_offset += len(tools_to_call)
+                # Update the tool number offset only for non-TodoWrite tools
+                tool_number_offset += non_todo_write_count
 
         raise Exception(
             f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"

@@ -745,10 +745,23 @@ def handle_last_command(
         )
         return
 
+    # Filter out TodoWrite tools from display
+    non_todo_write_tools = [
+        tool_call
+        for tool_call in last_response.tool_calls
+        if tool_call.tool_name != "TodoWrite"
+    ]
+
+    if not non_todo_write_tools:
+        console.print(
+            f"[bold {ERROR_COLOR}]No displayable tool calls from the last response (TodoWrite calls are hidden).[/bold {ERROR_COLOR}]"
+        )
+        return
+
     console.print(
-        f"[bold {TOOLS_COLOR}]Used {len(last_response.tool_calls)} tools[/bold {TOOLS_COLOR}]"
+        f"[bold {TOOLS_COLOR}]Used {len(non_todo_write_tools)} tools[/bold {TOOLS_COLOR}]"
     )
-    for tool_call in last_response.tool_calls:
+    for tool_call in non_todo_write_tools:
         tool_index = find_tool_index_in_history(tool_call, all_tool_calls_history)
         preview_output = format_tool_call_output(tool_call, tool_index)
         title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
@@ -769,22 +782,28 @@ def display_recent_tool_outputs(
     all_tool_calls_history: List[ToolCallResult],
 ) -> None:
     """Display recent tool outputs in rich panels (for auto-display after responses)."""
-    console.print(
-        f"[bold {TOOLS_COLOR}]Used {len(tool_calls)} tools[/bold {TOOLS_COLOR}]"
-    )
-    for tool_call in tool_calls:
-        tool_index = find_tool_index_in_history(tool_call, all_tool_calls_history)
-        preview_output = format_tool_call_output(tool_call, tool_index)
-        title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
+    # Filter out TodoWrite tools from display
+    non_todo_write_tools = [
+        tool_call for tool_call in tool_calls if tool_call.tool_name != "TodoWrite"
+    ]
 
+    if non_todo_write_tools:
         console.print(
-            Panel(
-                preview_output,
-                padding=(1, 2),
-                border_style=TOOLS_COLOR,
-                title=title,
-            )
+            f"[bold {TOOLS_COLOR}]Used {len(non_todo_write_tools)} tools[/bold {TOOLS_COLOR}]"
         )
+        for tool_call in non_todo_write_tools:
+            tool_index = find_tool_index_in_history(tool_call, all_tool_calls_history)
+            preview_output = format_tool_call_output(tool_call, tool_index)
+            title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
+
+            console.print(
+                Panel(
+                    preview_output,
+                    padding=(1, 2),
+                    border_style=TOOLS_COLOR,
+                    title=title,
+                )
+            )
 
 
 def run_interactive_loop(
@@ -1032,7 +1051,13 @@ def run_interactive_loop(
             last_response = response
 
             if response.tool_calls:
-                all_tool_calls_history.extend(response.tool_calls)
+                # Filter out TodoWrite tools from the history used for /show command
+                non_todo_write_tools = [
+                    tool_call
+                    for tool_call in response.tool_calls
+                    if tool_call.tool_name != "TodoWrite"
+                ]
+                all_tool_calls_history.extend(non_todo_write_tools)
                 # Update the show completer with the latest tool call history
                 show_completer.update_history(all_tool_calls_history)
 
