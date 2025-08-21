@@ -231,7 +231,7 @@ class SupabaseDal:
             return None
 
     def get_configuration_changes(
-        self, start_datetime: str, end_datetime: str
+        self,namespace: str, start_datetime: str, end_datetime: str
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
@@ -245,6 +245,7 @@ class SupabaseDal:
                 .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
+                .eq("subject_namespace", namespace) # in this order for indexing purposes
                 .execute()
             )
             if not len(changes_response.data):
