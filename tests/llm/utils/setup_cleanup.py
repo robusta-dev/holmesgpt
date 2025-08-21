@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import sys
 import time
 import warnings
@@ -205,7 +206,7 @@ def extract_llm_test_cases(session) -> List[HolmesTestCase]:
     Returns:
         List of unique HolmesTestCase instances (excluding skipped tests)
     """
-    seen_ids = set()
+    seen_base_ids = set()
     test_cases = []
 
     for item in session.items:
@@ -215,12 +216,13 @@ def extract_llm_test_cases(session) -> List[HolmesTestCase]:
             and "test_case" in item.callspec.params
         ):
             test_case = item.callspec.params["test_case"]
-            if (
-                isinstance(test_case, HolmesTestCase)
-                and test_case.id not in seen_ids
-                and not test_case.skip  # Don't include skipped tests
-            ):
-                test_cases.append(test_case)
-                seen_ids.add(test_case.id)
+            if isinstance(test_case, HolmesTestCase) and not test_case.skip:
+                # Extract base test name by removing variant suffix [0], [1], etc.
+                base_id = re.sub(r"\[\d+\]$", "", test_case.id)
+
+                # Only add if we haven't seen this base test before
+                if base_id not in seen_base_ids:
+                    test_cases.append(test_case)
+                    seen_base_ids.add(base_id)
 
     return test_cases

@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: producer-script
+  namespace: app-144
+type: Opaque
+stringData:
+  producer.py: |
+    import json
+    import time
+    import random
+    from datetime import datetime, timedelta
+    from kafka import KafkaProducer
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Wait for Kafka to be ready
+    time.sleep(10)
+
+    producer = KafkaProducer(
+        bootstrap_servers=['kafka.app-144.svc.cluster.local:9092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        retries=5,
+        retry_backoff_ms=1000
+    )
+
+    def generate_order(order_id):
+        """Generate order message - some with legacy format that will cause issues"""
+
+        # 15% of messages are "poison pills" with legacy date format
+        if random.random() < 0.15:
+            # Legacy system uses different date format that will cause parsing issues
+            return {
+                "order_id": f"LEGACY-{order_id:05d}",
+                "customer_id": f"CUST{random.randint(1000, 9999)}",
+                "order_date": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),  # DD/MM/YYYY format
+                "amount": round(random.uniform(10.0, 500.0), 2),
+                "items": random.randint(1, 10),
+                "status": "pending",
+                "source_system": "legacy_erp"
+            }
+        else:
+            # Normal order with ISO format
+            return {
+                "order_id": f"ORD-{order_id:05d}",
+                "customer_id": f"CUST{random.randint(1000, 9999)}",
+                "order_date": datetime.now().isoformat(),  # ISO format
+                "amount": round(random.uniform(10.0, 500.0), 2),
+                "items": random.randint(1, 10),
+                "status": "pending",
+                "source_system": "web_portal"
+            }
+
+    # Create topic if it doesn't exist
+    from kafka.admin import KafkaAdminClient, NewTopic
+    from kafka.errors import TopicAlreadyExistsError
+
+    admin = KafkaAdminClient(
+        bootstrap_servers=['kafka.app-144.svc.cluster.local:9092'],
+        client_id='producer'
+    )
+
+    try:
+        topic = NewTopic(name='customer-orders', num_partitions=3, replication_factor=1)
+        admin.create_topics(new_topics=[topic], validate_only=False)
+        logger.info("Created topic 'customer-orders'")
+    except TopicAlreadyExistsError:
+        logger.info("Topic 'customer-orders' already exists")
+
+    admin.close()
+
+    # Produce messages continuously
+    order_id = 1
+    while True:
+        try:
+            order = generate_order(order_id)
+            producer.send('customer-orders', value=order)
+
+            if order["order_id"].startswith("LEGACY"):
+                logger.info(f"Produced legacy order: {order['order_id']} with date format: {order['order_date']}")
+            else:
+                logger.info(f"Produced order: {order['order_id']}")
+
+            order_id += 1
+
+            # Variable rate to simulate traffic patterns
+            if random.random() < 0.2:
+                time.sleep(0.1)  # Burst
+            else:
+                time.sleep(0.5)  # Normal rate
+
+        except Exception as e:
+            logger.error(f"Error producing message: {e}")
+            time.sleep(1)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-producer
+  namespace: app-144
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-producer
+  template:
+    metadata:
+      labels:
+        app: order-producer
+    spec:
+      containers:
+        - name: producer
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/producer.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: script
+          secret:
+            secretName: producer-script

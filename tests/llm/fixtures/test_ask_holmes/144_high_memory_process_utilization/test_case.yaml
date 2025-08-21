@@ -1,0 +1,75 @@
+user_prompt: "My pod memory-hog is using a lot of memory. Can you identify which process is consuming the most resources?"
+expected_output:
+  - The result identifies that the python3 or python process is consuming memory
+  - The result mentions specific memory usage values
+  - The result analyzes memory consumption in the pod
+  - The result mentions the container memory limit of 100Mi or discusses memory usage
+tags:
+  - kubernetes
+
+before_test: |
+  kubectl create namespace app-144
+
+  # First encode the startup script using Python to consume memory
+  cat > /tmp/startup-144.sh <<'SCRIPT'
+  #!/bin/bash
+  # Run a Python process that consumes memory
+  python3 -c '
+  import time
+
+  # Allocate 50MB of memory
+  data = bytearray(50 * 1024 * 1024)
+  print("Data processor initialized with 50MB buffer", flush=True)
+
+  # Keep the process running
+  while True:
+      time.sleep(10)
+  '
+  SCRIPT
+
+  # Create secret with the startup script
+  kubectl create secret generic app-code \
+    --from-file=startup.sh=/tmp/startup-144.sh \
+    -n app-144
+
+  rm /tmp/startup-144.sh
+
+  # Create deployment using the secret
+  cat <<EOF | kubectl apply -f -
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: memory-hog
+    namespace: app-144
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: memory-hog
+    template:
+      metadata:
+        labels:
+          app: memory-hog
+      spec:
+        containers:
+        - name: python-app
+          image: python:3.9-slim
+          command: ["/bin/bash", "/app/startup.sh"]
+          volumeMounts:
+          - name: app-code
+            mountPath: /app
+          resources:
+            limits:
+              memory: "100Mi"
+            requests:
+              memory: "100Mi"
+        volumes:
+        - name: app-code
+          secret:
+            secretName: app-code
+            defaultMode: 0755
+  EOF
+  sleep 30
+
+after_test: |
+  kubectl delete namespace app-144 --force --grace-period=0

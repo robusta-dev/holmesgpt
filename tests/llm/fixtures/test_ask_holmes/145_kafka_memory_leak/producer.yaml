@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: producer-script
+  namespace: app-145
+type: Opaque
+stringData:
+  producer.py: |
+    import json
+    import time
+    import random
+    import uuid
+    from datetime import datetime
+    from kafka import KafkaProducer
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Wait for Kafka to be ready
+    time.sleep(10)
+
+    producer = KafkaProducer(
+        bootstrap_servers=['kafka.app-145.svc.cluster.local:9092'],
+        value_serializer=lambda v: json.dumps(v).encode('utf-8'),
+        retries=5,
+        retry_backoff_ms=1000
+    )
+
+    def generate_user_event():
+        """Generate realistic user analytics event with variable payload size"""
+
+        event_types = ['page_view', 'click', 'scroll', 'form_submit', 'video_play', 'search']
+        pages = ['/home', '/products', '/checkout', '/profile', '/search', '/category/electronics']
+
+        # Generate event with varying data sizes to accelerate memory growth
+        base_event = {
+            "event_id": str(uuid.uuid4()),
+            "user_id": f"user_{random.randint(1000, 50000)}",
+            "session_id": str(uuid.uuid4()),
+            "event_type": random.choice(event_types),
+            "timestamp": datetime.now().isoformat(),
+            "page": random.choice(pages),
+            "device": random.choice(['mobile', 'desktop', 'tablet']),
+            "browser": random.choice(['chrome', 'firefox', 'safari', 'edge']),
+            "country": random.choice(['US', 'UK', 'DE', 'FR', 'JP'])
+        }
+
+        # Add variable amount of metadata to increase memory pressure
+        if random.random() < 0.3:  # 30% of events have large payloads
+            # Add user behavior tracking data
+            base_event["behavior_data"] = {
+                "mouse_movements": [
+                    {"x": random.randint(0, 1920), "y": random.randint(0, 1080), "t": i}
+                    for i in range(random.randint(50, 200))
+                ],
+                "clicks": [
+                    {"element": f"button_{i}", "timestamp": i * 1000}
+                    for i in range(random.randint(10, 50))
+                ],
+                "form_fields": {
+                    f"field_{i}": f"value_{random.randint(1000, 9999)}"
+                    for i in range(random.randint(5, 20))
+                }
+            }
+
+        if random.random() < 0.2:  # 20% have product recommendations
+            base_event["recommendations"] = [
+                {
+                    "product_id": f"PROD{random.randint(10000, 99999)}",
+                    "score": random.random(),
+                    "category": random.choice(['electronics', 'clothing', 'books']),
+                    "price": round(random.uniform(10.0, 500.0), 2)
+                }
+                for _ in range(random.randint(10, 30))
+            ]
+
+        return base_event
+
+    # Create topic
+    from kafka.admin import KafkaAdminClient, NewTopic
+    from kafka.errors import TopicAlreadyExistsError
+
+    admin = KafkaAdminClient(
+        bootstrap_servers=['kafka.app-145.svc.cluster.local:9092'],
+        client_id='producer'
+    )
+
+    try:
+        topic = NewTopic(name='user-events', num_partitions=3, replication_factor=1)
+        admin.create_topics(new_topics=[topic], validate_only=False)
+        logger.info("Created topic 'user-events'")
+    except TopicAlreadyExistsError:
+        logger.info("Topic 'user-events' already exists")
+
+    admin.close()
+
+    # Produce messages at high rate to trigger memory issues faster
+    event_count = 0
+    while True:
+        try:
+            event = generate_user_event()
+            producer.send('user-events', value=event)
+
+            event_count += 1
+            if event_count % 100 == 0:
+                logger.info(f"Produced {event_count} events")
+
+            # High rate to cause memory accumulation
+            time.sleep(0.01)  # 100 events per second
+
+        except Exception as e:
+            logger.error(f"Error producing message: {e}")
+            time.sleep(1)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: event-producer
+  namespace: app-145
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: event-producer
+  template:
+    metadata:
+      labels:
+        app: event-producer
+    spec:
+      containers:
+        - name: producer
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/producer.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+      volumes:
+        - name: script
+          secret:
+            secretName: producer-script

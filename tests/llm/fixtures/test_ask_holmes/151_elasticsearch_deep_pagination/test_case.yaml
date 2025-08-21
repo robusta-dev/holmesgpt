@@ -1,0 +1,55 @@
+user_prompt: "The analytics-api service in namespace app-151 is experiencing high CPU usage and slow response times. Users are complaining about dashboard timeouts. What's causing this?"
+
+expected_output:
+  - The high CPU usage is caused by deep pagination queries in Elasticsearch
+  - Queries are using large "from" parameters (e.g., from=10000, from=50000) which forces Elasticsearch to load and sort massive amounts of data
+  - The analytics-api is making paginated requests with increasingly large offsets to export data
+  - Solution is to use search_after or scroll API instead of deep pagination with from/size
+
+tags:
+  - database
+  - kubernetes
+  - medium
+
+port_forwards:
+  - namespace: app-151
+    service: elasticsearch
+    local_port: 9200
+    remote_port: 9200
+
+before_test: |
+  # Create namespace
+  kubectl create namespace app-151 || true
+
+  # Deploy Elasticsearch (single node for testing)
+  kubectl apply -f elasticsearch.yaml -n app-151
+
+  # Create secret for analytics-api script
+  kubectl create secret generic analytics-api-script \
+    --from-file=app.py=./app.py \
+    -n app-151 --dry-run=client -o yaml | kubectl apply -f -
+
+  # Wait for Elasticsearch to be ready
+  kubectl wait --for=condition=ready pod -l app=elasticsearch -n app-151 --timeout=120s
+
+  # Wait for Elasticsearch to be fully initialized
+  for i in {1..60}; do
+    if kubectl exec -n app-151 deployment/elasticsearch -- curl -s http://localhost:9200/_cluster/health | grep -q '"status":"green\|yellow"'; then
+      echo "Elasticsearch is ready"
+      break
+    fi
+    [ $i -eq 60 ] && echo "ERROR: Elasticsearch not ready" && exit 1
+    sleep 2
+  done
+
+  # Deploy analytics-api
+  kubectl apply -f analytics-api.yaml -n app-151
+
+  # Wait for analytics-api pod to be ready
+  kubectl wait --for=condition=ready pod -l app=analytics-api -n app-151 --timeout=60s
+
+  # Let the application generate some load
+  sleep 10
+
+after_test: |
+  kubectl delete namespace app-151 || true

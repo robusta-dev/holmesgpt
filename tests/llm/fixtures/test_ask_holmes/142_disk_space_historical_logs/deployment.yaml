@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline
+  namespace: app-142
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline
+    spec:
+      containers:
+      - name: ml-pipeline
+        image: python:3.9
+        command: ["sh", "-c", "pip install numpy && python /scripts/training_pipeline.py"]
+        env:
+        - name: DEBUG_MODE
+          value: "true"
+        volumeMounts:
+        - name: log-storage
+          mountPath: /var/log/aggregated
+        - name: script-volume
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: log-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: script-volume
+        secret:
+          secretName: ml-pipeline-script
+          defaultMode: 0755
+      restartPolicy: Always

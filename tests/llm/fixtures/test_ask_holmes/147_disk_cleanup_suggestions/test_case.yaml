@@ -1,0 +1,72 @@
+user_prompt: "The pod data-processor is running out of disk space. What should I do to resolve this?"
+expected_output:
+  - The result identifies old log files and temporary data consuming disk space
+  - The result suggests deleting or rotating old log files
+  - The result mentions log rotation configuration or cleanup scripts
+  - The result may suggest expanding disk space or using persistent volumes
+  - The result identifies specific directories (/data/tmp/processing, /data/var/cache) that can be cleaned
+tags:
+  - kubernetes
+
+before_test: |
+  kubectl create namespace app-147
+  cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: data-processor
+    namespace: app-147
+    labels:
+      app: data-processor
+  spec:
+    containers:
+    - name: processor
+      image: busybox:1.35
+      command: ["sh", "-c"]
+      args:
+        - |
+          # Create directory structure
+          mkdir -p /data/tmp/processing /data/var/cache /data/var/log/app
+
+          # Create old log files (30 days old pattern)
+          for i in {1..30}; do
+            dd if=/dev/zero of=/data/var/log/app/app-2024-01-$(printf "%02d" $i).log bs=1M count=500 2>/dev/null
+          done
+
+          # Create temporary processing files
+          for i in {1..100}; do
+            dd if=/dev/zero of=/data/tmp/processing/temp-$i.dat bs=1M count=50 2>/dev/null
+          done
+
+          # Create cache files
+          dd if=/dev/zero of=/data/var/cache/large-cache.db bs=1M count=5000 2>/dev/null
+
+          # Create current log file (smaller)
+          dd if=/dev/zero of=/data/var/log/app/current.log bs=1M count=100 2>/dev/null
+
+          # Show disk usage
+          echo "Disk usage report:"
+          df -h /data
+          echo ""
+          echo "Directory sizes:"
+          du -sh /data/var/log/app /data/tmp/processing /data/var/cache 2>/dev/null
+
+          echo "Data processor running with 95% disk usage"
+          sleep 3600
+      volumeMounts:
+      - name: data-storage
+        mountPath: /data
+      resources:
+        limits:
+          memory: "1Gi"
+        requests:
+          memory: "1Gi"
+    volumes:
+    - name: data-storage
+      emptyDir:
+        sizeLimit: 30Gi
+  EOF
+  sleep 90
+
+after_test: |
+  kubectl delete namespace app-147 --force --grace-period=0

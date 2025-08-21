@@ -1,0 +1,145 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: monitoring-script
+  namespace: app-144
+type: Opaque
+stringData:
+  monitor.py: |
+    import json
+    import time
+    import logging
+    from kafka import KafkaAdminClient, KafkaConsumer
+    from kafka.structs import TopicPartition
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
+    # Wait for everything to start
+    time.sleep(30)
+
+    def get_consumer_lag():
+        """Get consumer group lag information"""
+        try:
+            admin = KafkaAdminClient(
+                bootstrap_servers=['kafka.app-144.svc.cluster.local:9092'],
+                client_id='monitor'
+            )
+
+            # Create a consumer to get committed offsets
+            consumer = KafkaConsumer(
+                bootstrap_servers=['kafka.app-144.svc.cluster.local:9092'],
+                group_id='monitor-temp',
+                enable_auto_commit=False
+            )
+
+            # Get partitions for topic
+            partitions = consumer.partitions_for_topic('customer-orders')
+            if not partitions:
+                logger.warning("No partitions found for topic")
+                return
+
+            total_lag = 0
+            partition_info = []
+
+            for partition_id in partitions:
+                tp = TopicPartition('customer-orders', partition_id)
+
+                # Get committed offset for consumer group
+                committed = consumer.committed(tp)
+
+                # Get latest offset
+                consumer.seek_to_end(tp)
+                latest = consumer.position(tp)
+
+                if committed is not None:
+                    lag = latest - committed
+                    total_lag += lag
+                    partition_info.append({
+                        'partition': partition_id,
+                        'committed': committed,
+                        'latest': latest,
+                        'lag': lag
+                    })
+
+            consumer.close()
+            admin.close()
+
+            return total_lag, partition_info
+
+        except Exception as e:
+            logger.error(f"Error getting lag: {e}")
+            return None, None
+
+    # Monitor loop
+    logger.info("Starting Kafka lag monitoring for consumer group 'order-processor'")
+    high_lag_count = 0
+
+    while True:
+        try:
+            total_lag, partitions = get_consumer_lag()
+
+            if total_lag is not None:
+                logger.info(f"[METRICS] Total lag: {total_lag} messages")
+
+                if total_lag > 50:
+                    high_lag_count += 1
+                    logger.warning(f"[ALERT] High lag detected: {total_lag} messages (occurrence #{high_lag_count})")
+
+                    if partitions:
+                        for p in partitions:
+                            if p['lag'] > 10:
+                                logger.warning(f"  Partition {p['partition']}: lag={p['lag']}, committed={p['committed']}, latest={p['latest']}")
+                else:
+                    high_lag_count = 0
+
+                # Log partition details periodically
+                if partitions and total_lag > 0:
+                    logger.info("[PARTITION_DETAILS] " + json.dumps(partitions))
+
+            time.sleep(10)
+
+        except Exception as e:
+            logger.error(f"Monitor error: {e}")
+            time.sleep(5)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-monitor
+  namespace: app-144
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-monitor
+  template:
+    metadata:
+      labels:
+        app: kafka-monitor
+    spec:
+      containers:
+        - name: monitor
+          image: python:3.11-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              pip install kafka-python
+              python /app/monitor.py
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: script
+          secret:
+            secretName: monitoring-script

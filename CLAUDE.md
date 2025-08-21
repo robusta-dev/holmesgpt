@@ -240,6 +240,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - **ALWAYS use `RUN_LIVE=true`** when testing evals to ensure tests match real-world behavior
 - Use `--skip-cleanup` when troubleshooting setup issues (resources remain after test)
 - Use `--skip-setup` if you are debugging the eval itself
+- **NEVER use port-forwards in before_test scripts** - they can leave orphaned processes if setup times out. Port-forwards should only be defined in the `port_forwards` section of test_case.yaml. Use `kubectl exec` for verification instead
 - Test cases can specify custom runbooks by adding a `runbooks` field in test_case.yaml:
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory

@@ -1,0 +1,320 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: consumer-script
+  namespace: app-146
+type: Opaque
+stringData:
+  PaymentProcessor.java: |
+    import org.apache.kafka.clients.consumer.*;
+    import org.apache.kafka.common.serialization.StringDeserializer;
+    import com.fasterxml.jackson.databind.ObjectMapper;
+    import com.fasterxml.jackson.databind.JsonNode;
+    import java.util.*;
+    import java.time.Duration;
+    import java.util.concurrent.ConcurrentHashMap;
+    import java.security.MessageDigest;
+    import java.nio.charset.StandardCharsets;
+
+    public class PaymentProcessor {
+        private static final String TOPIC = "payment-requests";
+        private static final String GROUP_ID = "payment-processor";
+        private static final ObjectMapper mapper = new ObjectMapper();
+        private static long processedCount = 0;
+        private static long startTime = System.currentTimeMillis();
+
+        public static void main(String[] args) throws InterruptedException {
+            // Wait for Kafka to be ready
+            Thread.sleep(20000);
+
+            Properties props = new Properties();
+            props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "kafka.app-146.svc.cluster.local:9092");
+            props.put(ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID);
+            props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+            props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+            props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+            props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 50);
+
+            KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
+            consumer.subscribe(Arrays.asList(TOPIC));
+
+            System.out.println("Payment processor started, consuming from topic: " + TOPIC);
+
+            while (true) {
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
+
+                for (ConsumerRecord<String, String> record : records) {
+                    processPayment(record.value());
+                }
+
+                if (processedCount % 50 == 0 && processedCount > 0) {
+                    long elapsed = System.currentTimeMillis() - startTime;
+                    double throughput = (processedCount * 1000.0) / elapsed;
+                    System.out.println(String.format("Processed %d payments, throughput: %.2f msg/sec",
+                        processedCount, throughput));
+
+                    // Log GC stats hint
+                    Runtime runtime = Runtime.getRuntime();
+                    long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                    long maxMemory = runtime.maxMemory() / 1024 / 1024;
+                    System.out.println(String.format("Memory usage: %d MB / %d MB", usedMemory, maxMemory));
+                }
+            }
+        }
+
+        private static void processPayment(String paymentJson) {
+            try {
+                // CAUSE OF GC PRESSURE: Creating many temporary objects
+
+                // 1. Parse JSON - creates object tree
+                JsonNode payment = mapper.readTree(paymentJson);
+                String transactionId = payment.get("transaction_id").asText();
+
+                // 2. Create multiple string concatenations (creates temporary strings)
+                String validationKey = "VALIDATE_" + transactionId + "_" + System.currentTimeMillis();
+                String auditLog = "Processing payment: " + transactionId + " at " + new Date().toString();
+                String merchantInfo = "Merchant: " + payment.path("merchant").path("name").asText() +
+                                    " (" + payment.path("merchant").path("id").asText() + ")";
+
+                // 3. Complex validation creating many temporary objects
+                Map<String, Object> validationResult = validatePayment(payment);
+                Map<String, String> riskFactors = extractRiskFactors(payment);
+                List<String> auditTrail = buildAuditTrail(payment, validationResult);
+
+                // 4. String formatting creating more temporary objects
+                for (int i = 0; i < 10; i++) {
+                    String tempCheck = String.format("Check_%d: %s_%s_%d",
+                        i, transactionId, UUID.randomUUID().toString(), System.nanoTime());
+                    tempCheck = tempCheck.toUpperCase().toLowerCase().trim();
+                }
+
+                // 5. Create hash multiple times (more temporary byte arrays)
+                for (int i = 0; i < 5; i++) {
+                    String toHash = transactionId + i + System.currentTimeMillis();
+                    byte[] hashBytes = MessageDigest.getInstance("SHA-256").digest(toHash.getBytes());
+                    String hashStr = Base64.getEncoder().encodeToString(hashBytes);
+                }
+
+                // 6. Build response objects that get immediately discarded
+                Map<String, Object> response = new HashMap<>();
+                response.put("transaction_id", transactionId);
+                response.put("status", "processed");
+                response.put("validation", validationResult);
+                response.put("risk", riskFactors);
+                response.put("audit", auditTrail);
+                response.put("timestamp", new Date().toString());
+
+                // Simulate some processing work
+                Thread.sleep(5);
+
+                processedCount++;
+
+            } catch (Exception e) {
+                System.err.println("Error processing payment: " + e.getMessage());
+            }
+        }
+
+        private static Map<String, Object> validatePayment(JsonNode payment) {
+            Map<String, Object> result = new HashMap<>();
+
+            // Create many temporary objects during validation
+            for (int i = 0; i < 20; i++) {
+                String fieldName = "validation_" + i;
+                List<String> checks = new ArrayList<>();
+                for (int j = 0; j < 10; j++) {
+                    checks.add("Check_" + i + "_" + j + ": " + UUID.randomUUID().toString());
+                }
+                result.put(fieldName, checks);
+            }
+
+            // More string concatenation
+            String amount = payment.path("amount").asText();
+            String currency = payment.path("currency").asText();
+            result.put("amount_check", "Amount: " + amount + " " + currency + " validated at " + new Date());
+
+            return result;
+        }
+
+        private static Map<String, String> extractRiskFactors(JsonNode payment) {
+            Map<String, String> factors = new HashMap<>();
+
+            // Extract and transform risk data, creating temporary objects
+            JsonNode riskNode = payment.path("risk_assessment");
+            if (!riskNode.isMissingNode()) {
+                JsonNode factorsArray = riskNode.path("factors");
+                for (JsonNode factor : factorsArray) {
+                    String type = factor.path("type").asText();
+                    String value = factor.path("value").asText();
+
+                    // Create formatted strings
+                    String formatted = String.format("Risk_%s: %.2f (evaluated at %s)",
+                        type.toUpperCase(), Double.parseDouble(value), new Date().toString());
+                    factors.put(type, formatted);
+
+                    // Create and discard more objects
+                    for (int i = 0; i < 5; i++) {
+                        String temp = type + "_" + i + "_" + System.currentTimeMillis();
+                        temp = temp.replaceAll("_", "-").toUpperCase().toLowerCase();
+                    }
+                }
+            }
+
+            return factors;
+        }
+
+        private static List<String> buildAuditTrail(JsonNode payment, Map<String, Object> validation) {
+            List<String> trail = new ArrayList<>();
+
+            // Build audit trail with many string operations
+            String transactionId = payment.get("transaction_id").asText();
+
+            for (int i = 0; i < 30; i++) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("Step ").append(i).append(": ");
+                sb.append("Transaction ").append(transactionId);
+                sb.append(" validated with ").append(validation.size()).append(" checks");
+                sb.append(" at ").append(System.currentTimeMillis());
+
+                // More string manipulations
+                String entry = sb.toString();
+                entry = entry.replaceAll(" ", "_");
+                entry = entry.toUpperCase();
+                entry = entry.toLowerCase();
+                entry = entry.trim();
+
+                trail.add(entry);
+            }
+
+            return trail;
+        }
+    }
+  consumer.py: |
+    # Fallback Python consumer in case Java setup fails
+    import json
+    import time
+    import logging
+    import random
+    import hashlib
+    import base64
+    from datetime import datetime
+    from kafka import KafkaConsumer
+
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    time.sleep(20)
+
+    consumer = KafkaConsumer(
+        'payment-requests',
+        bootstrap_servers=['kafka.app-146.svc.cluster.local:9092'],
+        group_id='payment-processor',
+        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+        auto_offset_reset='earliest',
+        max_poll_records=50
+    )
+
+    processed = 0
+    start_time = time.time()
+
+    logger.info("Payment processor (Python) started")
+
+    for message in consumer:
+        payment = message.value
+
+        # Simulate GC pressure by creating many temporary objects
+        for i in range(100):
+            temp_str = f"validation_{i}_{payment['transaction_id']}_{datetime.now()}"
+            temp_upper = temp_str.upper()
+            temp_lower = temp_str.lower()
+            temp_hash = hashlib.sha256(temp_str.encode()).hexdigest()
+            temp_b64 = base64.b64encode(temp_str.encode()).decode()
+
+            # Create and discard dictionaries
+            temp_dict = {
+                f"key_{j}": f"value_{j}_{temp_hash[:10]}"
+                for j in range(50)
+            }
+
+            # String concatenation
+            result = ""
+            for j in range(20):
+                result += f"_{j}"
+
+        processed += 1
+
+        if processed % 50 == 0:
+            elapsed = time.time() - start_time
+            throughput = processed / elapsed
+            logger.info(f"Processed {processed} payments, throughput: {throughput:.2f} msg/sec")
+
+            # Hint at GC issues
+            import gc
+            logger.info(f"GC stats: {gc.get_count()}")
+
+        time.sleep(0.005)  # Small delay
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-consumer
+  namespace: app-146
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-consumer
+  template:
+    metadata:
+      labels:
+        app: payment-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: openjdk:11-jre-slim
+          command: ["sh", "-c"]
+          args:
+            - |
+              # Try to run Java version (with GC pressure)
+              apt-get update && apt-get install -y wget
+
+              # Download Kafka client and Jackson libraries
+              wget -q https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.5.0/kafka-clients-3.5.0.jar
+              wget -q https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.15.2/jackson-databind-2.15.2.jar
+              wget -q https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-core/2.15.2/jackson-core-2.15.2.jar
+              wget -q https://repo1.maven.org/maven2/com/fasterxml/jackson/core/jackson-annotations/2.15.2/jackson-annotations-2.15.2.jar
+              wget -q https://repo1.maven.org/maven2/org/slf4j/slf4j-api/1.7.36/slf4j-api-1.7.36.jar
+              wget -q https://repo1.maven.org/maven2/org/slf4j/slf4j-simple/1.7.36/slf4j-simple-1.7.36.jar
+
+              # Compile and run with constrained heap to trigger GC pressure
+              javac -cp "*.jar:." /app/PaymentProcessor.java
+
+              # Run with small heap to trigger GC pressure
+              # Using Serial GC with verbose output to make GC issues visible
+              java -Xmx192m -Xms128m \
+                   -XX:+UseSerialGC \
+                   -XX:+PrintGCDetails \
+                   -XX:+PrintGCDateStamps \
+                   -verbose:gc \
+                   -cp "*.jar:." \
+                   PaymentProcessor || \
+              (echo "Java consumer failed, falling back to Python" && \
+               apt-get install -y python3 python3-pip && \
+               pip3 install kafka-python && \
+               python3 /app/consumer.py)
+          volumeMounts:
+            - name: script
+              mountPath: /app
+          env:
+            - name: JAVA_OPTS
+              value: "-Xmx192m -Xms128m"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "384Mi"  # Enough to not OOM but constrained for GC pressure
+              cpu: "500m"
+      volumes:
+        - name: script
+          secret:
+            secretName: consumer-script

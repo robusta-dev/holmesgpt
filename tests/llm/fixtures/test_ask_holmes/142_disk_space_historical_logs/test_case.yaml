@@ -1,0 +1,31 @@
+user_prompt: "The ml-pipeline pod disappeared from the cluster. It was running our model training pipeline fine until 2 days ago. What happened?"
+
+expected_output:
+  - The ml-pipeline pod crashed due to running out of disk space
+  - The pod was writing to /var/log/aggregated and the disk filled up to 100%
+  - Disk usage gradually increased from 82% to 100% over several hours
+  - The ML pipeline was saving model checkpoints without cleanup/retention policy
+  - Debug mode was enabled (DEBUG_MODE=true) causing additional gradient and activation files to be saved
+  - Each checkpoint saved 3 files (model, gradients, activations) totaling ~24MB per epoch
+  - Temporary batch processing files were not cleaned up on errors (every 50th batch failed)
+  - Found 24 checkpoint files consuming 576MB and 42 temporary files
+  - Checkpoint files grew to 1.2GB and temporary files to 420MB
+  - The service failed with "[Errno 28] No space left on device" when saving checkpoints
+  - The pod exited after being unable to write to disk
+  - Implement checkpoint retention policy, disable debug mode in production, fix temp file cleanup in error handling, increase volume size
+
+tags:
+  - logs
+  - kubernetes
+
+before_test: |
+  kubectl create namespace app-142 || true
+  kubectl create secret generic ml-pipeline-script \
+    --from-file=training_pipeline.py=./training_pipeline.py \
+    -n app-142 --dry-run=client -o yaml | kubectl apply -f -
+  kubectl apply -f deployment.yaml -n app-142
+  sleep 15
+  kubectl delete pod -l app=ml-pipeline -n app-142 --force --grace-period=0 || true
+
+after_test: |
+  kubectl delete namespace app-142 --force --grace-period=0 || true
