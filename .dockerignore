@@ -45,6 +45,9 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
++.mypy_cache/
++__pypackages__/
++.ruff_cache/
 
 # Documentation
 docs/
