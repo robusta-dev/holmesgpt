@@ -97,9 +97,10 @@ CLAUDE.local.md
 CLAUDE*.md
 .secrets
 .secrets
-config.yaml
-~/.holmes/config.yaml
-
+.secrets
+# Keep repo config; ignore only local overrides
+config.local.yaml
+config.*.local.yaml
 # Common mistakes
 .vscode/settings.json
 .idea/workspace.xml
