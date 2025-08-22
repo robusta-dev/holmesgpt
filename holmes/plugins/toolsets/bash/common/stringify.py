@@ -10,7 +10,8 @@ POSIX_CHAR_CLASS_PATTERN = re.compile(r"^\[:[-\w]+:\]$")
 def escape_shell_args(args: list[str]) -> list[str]:
     """
     Escape shell arguments to prevent injection.
-    Uses shlex.quote for safe shell argument quoting.
+    Uses manual quoting with single/double quotes as the primary approach,
+    falling back to shlex.quote for complex cases with nested quotes.
     """
     escaped_args = []
 
@@ -24,7 +25,7 @@ def escape_shell_args(args: list[str]) -> list[str]:
             escaped_args.append(arg)
         # POSIX character classes for tr command (e.g., [:lower:], [:upper:], [:digit:])
         elif POSIX_CHAR_CLASS_PATTERN.match(arg):
-            escaped_args.append(arg)
+            escaped_args.append("'" + arg + "'")
         # Avoid using shlex in case as it does not handle nested quotes well. e.g. "foo='bar'"
         elif "'" not in arg:
             escaped_args.append("'" + arg + "'")

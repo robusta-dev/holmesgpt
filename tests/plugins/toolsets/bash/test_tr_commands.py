@@ -15,24 +15,24 @@ class TestTrCliSafeCommands:
             # Character translation
             ("tr a-z A-Z", "tr a-z A-Z"),
             ("tr 'a-z' 'A-Z'", "tr a-z A-Z"),
-            ("tr [:lower:] [:upper:]", "tr [:lower:] [:upper:]"),
+            ("tr [:lower:] [:upper:]", "tr '[:lower:]' '[:upper:]'"),
             ("tr '0-9' '*'", "tr 0-9 '*'"),
             # Character deletion
             ("tr -d '\n'", "tr -d '\n'"),
             ("tr --delete 'aeiou'", "tr --delete aeiou"),
-            ("tr -d '[:punct:]'", "tr -d [:punct:]"),
+            ("tr -d '[:punct:]'", "tr -d '[:punct:]'"),
             # Squeeze repeating characters
             ("tr -s ' '", "tr -s ' '"),
             ("tr --squeeze-repeats ' '", "tr --squeeze-repeats ' '"),
             ("tr -s 'a-z'", "tr -s a-z"),
             # Complement sets
             ("tr -c 'a-zA-Z0-9' '_'", "tr -c a-zA-Z0-9 _"),
-            ("tr --complement [:alpha:] '*'", "tr --complement [:alpha:] '*'"),
+            ("tr --complement [:alpha:] '*'", "tr --complement '[:alpha:]' '*'"),
             # Truncate set1
             ("tr -t 'abc' '123'", "tr -t abc 123"),
             ("tr --truncate-set1 'hello' 'world'", "tr --truncate-set1 hello world"),
             # Combined options
-            ("tr -ds '[:space:]' ''", "tr -ds [:space:] ''"),
+            ("tr -ds '[:space:]' ''", "tr -ds '[:space:]' ''"),
             ("tr -cs 'a-zA-Z' '\n'", "tr -cs a-zA-Z '\n'"),
             # Help and version
             ("tr --help", "tr --help"),
@@ -59,7 +59,7 @@ class TestTrCliEdgeCases:
     def test_tr_with_character_classes(self):
         """Test tr with POSIX character classes."""
         result = make_command_safe("tr '[:digit:]' '*'", None)
-        assert result == "tr [:digit:] '*'"
+        assert result == "tr '[:digit:]' '*'"
 
         result = make_command_safe("tr '[:space:]' '_'", None)
-        assert result == "tr [:space:] _"
+        assert result == "tr '[:space:]' _"
