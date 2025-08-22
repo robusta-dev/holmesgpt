@@ -86,7 +86,7 @@ def _do_options_match_an_allowed_command(
                 return True
             elif option_does_match:
                 is_allowed = _do_options_match_an_allowed_command(
-                    command=new_command, options=options[idx:], allowed_commands=children
+                    command=new_command, options=options[idx + 1:], allowed_commands=children
                 )
                 if is_allowed:
                     return True
