@@ -75,6 +75,14 @@ class KubectlCommand(BashCommand):
             if len(command.selector) > 1000:
                 raise ValueError("Label selector too long")
 
+        # Delegate to sub-command-specific validation
+        if hasattr(command, "action"):
+            for sub_command in self.sub_commands:
+                if command.action == sub_command.name:
+                    if hasattr(sub_command, "validate_command"):
+                        sub_command.validate_command(command, original_command, config)
+                    break
+
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
     ) -> str:
