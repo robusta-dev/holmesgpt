@@ -48,14 +48,14 @@ def _check_options_against_denied_commands(
     command: str, options: list[str], denied_commands: dict
 ):
     for idx, option in enumerate(options):
-        command += " " + option
+        new_command = command + " " + option
         for potential_command, children in denied_commands.items():
             option_does_match = fnmatch.fnmatchcase(option, potential_command)
             if option_does_match and children == {}:
-                raise ValueError(f"Command is blocked: {command}")
+                raise ValueError(f"Command is blocked: {new_command}")
             elif option_does_match:
                 _check_options_against_denied_commands(
-                    command=command,
+                    command=new_command,
                     options=options[idx + 1 :],
                     denied_commands=children,
                 )
@@ -79,14 +79,14 @@ def _do_options_match_an_allowed_command(
     command: str, options: list[str], allowed_commands: dict
 ) -> bool:
     for idx, option in enumerate(options):
-        command += " " + option
+        new_command = command + " " + option
         for potential_command, children in allowed_commands.items():
             option_does_match = fnmatch.fnmatchcase(option, potential_command)
             if option_does_match and children == {}:
                 return True
             elif option_does_match:
                 is_allowed = _do_options_match_an_allowed_command(
-                    command=command, options=options[idx:], allowed_commands=children
+                    command=new_command, options=options[idx:], allowed_commands=children
                 )
                 if is_allowed:
                     return True
