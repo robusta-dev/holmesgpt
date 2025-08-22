@@ -91,16 +91,22 @@ class SimpleBashCommand(BashCommand):
                     )
                     break
                 # Check for long option equals-form variant (--option=value)
-                elif denied_option.startswith("--") and option.startswith(denied_option + "="):
+                elif denied_option.startswith("--") and option.startswith(
+                    denied_option + "="
+                ):
                     denied = True
                     denied_error_message = (
                         f"Option {option} is not allowed for security reasons"
                     )
                     break
                 # Check for short option with attached value (-Tvalue)
-                elif (denied_option.startswith("-") and not denied_option.startswith("--") 
-                      and len(denied_option) == 2 and option.startswith(denied_option) 
-                      and len(option) > 2):
+                elif (
+                    denied_option.startswith("-")
+                    and not denied_option.startswith("--")
+                    and len(denied_option) == 2
+                    and option.startswith(denied_option)
+                    and len(option) > 2
+                ):
                     denied = True
                     denied_error_message = (
                         f"Option {option} is not allowed for security reasons"

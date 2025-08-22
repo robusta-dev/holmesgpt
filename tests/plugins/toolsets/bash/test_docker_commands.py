@@ -318,7 +318,11 @@ class TestDockerCliUnsafeCommands:
             ("docker update mycontainer", ValueError, "Command is blocked"),
             # Container export operations (filesystem exfiltration risk)
             ("docker container export mycontainer", ValueError, "Command is blocked"),
-            ("docker container export mycontainer --output container.tar", ValueError, "Command is blocked"),
+            (
+                "docker container export mycontainer --output container.tar",
+                ValueError,
+                "Command is blocked",
+            ),
             (
                 "docker rename mycontainer newname",
                 ValueError,

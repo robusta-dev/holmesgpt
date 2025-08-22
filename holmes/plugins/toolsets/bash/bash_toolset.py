@@ -101,16 +101,18 @@ class KubectlRunImageCommand(BaseBashTool):
             )
         except ValueError as e:
             # Report unsafe kubectl run command attempt to Sentry
-            sentry_sdk.capture_event({
-                "message": f"Unsafe kubectl run command attempted: {image}",
-                "level": "warning",
-                "extra": {
-                    "image": image,
-                    "command": command_str,
-                    "namespace": namespace,
-                    "error": str(e),
-                },
-            })
+            sentry_sdk.capture_event(
+                {
+                    "message": f"Unsafe kubectl run command attempted: {image}",
+                    "level": "warning",
+                    "extra": {
+                        "image": image,
+                        "command": command_str,
+                        "namespace": namespace,
+                        "error": str(e),
+                    },
+                }
+            )
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=str(e),

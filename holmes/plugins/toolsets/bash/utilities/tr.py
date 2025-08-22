@@ -34,13 +34,17 @@ class TrCommand(BashCommand):
         # tr is allowed to have character set arguments, but not file paths
         # Block absolute paths, home-relative paths, relative paths, and common file extensions
         blocked_extensions = (".txt", ".log", ".py", ".js", ".json")
-        
+
         for option in command.options:
             if not option.startswith("-"):
                 # Allow character sets but block obvious file paths
-                if (option.startswith("/") or option.startswith("~") or 
-                    option.startswith("./") or option.startswith("../") or 
-                    option.endswith(blocked_extensions)):
+                if (
+                    option.startswith("/")
+                    or option.startswith("~")
+                    or option.startswith("./")
+                    or option.startswith("../")
+                    or option.endswith(blocked_extensions)
+                ):
                     raise ValueError(
                         "File arguments are not allowed - tr can only process piped input"
                     )

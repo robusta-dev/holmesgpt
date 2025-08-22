@@ -90,10 +90,18 @@ def validate_sed_options(options: list[str]) -> list[str]:
         option = options[i]
 
         # Check for attached/inlined forms of blocked options
-        if (option.startswith("-i") and len(option) > 2) or option.startswith("--in-place="):
-            raise ValueError(f"Attached in-place option {option} is not allowed for security reasons")
-        elif (option.startswith("-f") and len(option) > 2) or option.startswith("--file="):
-            raise ValueError(f"Attached file option {option} is not allowed for security reasons")
+        if (option.startswith("-i") and len(option) > 2) or option.startswith(
+            "--in-place="
+        ):
+            raise ValueError(
+                f"Attached in-place option {option} is not allowed for security reasons"
+            )
+        elif (option.startswith("-f") and len(option) > 2) or option.startswith(
+            "--file="
+        ):
+            raise ValueError(
+                f"Attached file option {option} is not allowed for security reasons"
+            )
 
         # Block file reading and in-place editing for security
         elif option in {"-f", "--file", "-i", "--in-place"}:
