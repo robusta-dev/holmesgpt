@@ -7,7 +7,7 @@ class SortCommand(SimpleBashCommand):
     def __init__(self):
         super().__init__(
             name="sort",
-            allowed_options=[],  # Allow all options except dangerous ones
+            allowed_options=[],
             denied_options=[
                 "-T",
                 "--temporary-directory",

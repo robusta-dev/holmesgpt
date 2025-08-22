@@ -83,7 +83,24 @@ class SimpleBashCommand(BashCommand):
             denied = False
             denied_error_message = None
             for denied_option in self.denied_options:
+                # Check for exact match
                 if option == denied_option:
+                    denied = True
+                    denied_error_message = (
+                        f"Option {option} is not allowed for security reasons"
+                    )
+                    break
+                # Check for long option equals-form variant (--option=value)
+                elif denied_option.startswith("--") and option.startswith(denied_option + "="):
+                    denied = True
+                    denied_error_message = (
+                        f"Option {option} is not allowed for security reasons"
+                    )
+                    break
+                # Check for short option with attached value (-Tvalue)
+                elif (denied_option.startswith("-") and not denied_option.startswith("--") 
+                      and len(denied_option) == 2 and option.startswith(denied_option) 
+                      and len(option) > 2):
                     denied = True
                     denied_error_message = (
                         f"Option {option} is not allowed for security reasons"

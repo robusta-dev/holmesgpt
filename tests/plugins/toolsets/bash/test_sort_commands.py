@@ -56,3 +56,46 @@ class TestSortCliSafeCommands:
         """Test that safe sort commands are parsed and stringified correctly."""
         result = make_command_safe(input_command, None)
         assert result == expected_output
+
+
+class TestSortCliUnsafeCommands:
+    """Test sort CLI unsafe commands that should be blocked."""
+
+    @pytest.mark.parametrize(
+        "input_command,expected_error_message",
+        [
+            # Exact denied options
+            (
+                "sort -T /tmp",
+                "Option -T is not allowed for security reasons",
+            ),
+            (
+                "sort --temporary-directory /tmp",
+                "Option --temporary-directory is not allowed for security reasons",
+            ),
+            # Attached-value forms that should also be blocked
+            # TODO: This test currently fails because -T/tmp bypasses validation
+            # Short option with attached value requires additional parsing logic
+            (
+                "sort -T/tmp",
+                "Option -T/tmp is not allowed for security reasons",
+            ),
+            (
+                "sort --temporary-directory=/tmp",
+                "Option --temporary-directory=/tmp is not allowed for security reasons",
+            ),
+            (
+                "sort --temporary-directory=/var/tmp/sort",
+                "Option --temporary-directory=/var/tmp/sort is not allowed for security reasons",
+            ),
+            # Empty attached value should also be blocked
+            (
+                "sort --temporary-directory=",
+                "Option --temporary-directory= is not allowed for security reasons",
+            ),
+        ],
+    )
+    def test_unsafe_sort_commands(self, input_command, expected_error_message):
+        """Test that unsafe sort commands are blocked with appropriate error messages."""
+        with pytest.raises(ValueError, match=expected_error_message):
+            make_command_safe(input_command, None)
