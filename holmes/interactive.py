@@ -61,6 +61,7 @@ class SlashCommands(Enum):
     )
     CONTEXT = ("/context", "Show conversation context size and token count")
     SHOW = ("/show", "Show specific tool output in scrollable view")
+    MODEL = ("/model", "Show current LLM model being used")
 
     def __init__(self, command, description):
         self.command = command
@@ -457,6 +458,13 @@ def show_tool_output_modal(tool_call: ToolCallResult, console: Console) -> None:
         console.print(format_tool_call_output(tool_call))
 
 
+def handle_model_command(ai: ToolCallingLLM, console: Console) -> None:
+    """Handle the /model command to show current LLM model information."""
+    console.print(
+        f"[bold {STATUS_COLOR}]Current Model:[/bold {STATUS_COLOR}] {ai.llm.model}"
+    )
+
+
 def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> None:
     """Handle the /context command to show conversation context statistics."""
     if messages is None:
@@ -489,6 +497,7 @@ def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> No
 
     # Display context information
     console.print(f"[bold {STATUS_COLOR}]Conversation Context:[/bold {STATUS_COLOR}]")
+    console.print(f"  Model: {ai.llm.model}")
     console.print(
         f"  Context used: {total_tokens:,} / {max_context_size:,} tokens ({(total_tokens / max_context_size) * 100:.1f}%)"
     )
@@ -969,6 +978,9 @@ def run_interactive_loop(
                     continue
                 elif command == SlashCommands.CONTEXT.command:
                     handle_context_command(messages, ai, console)
+                    continue
+                elif command == SlashCommands.MODEL.command:
+                    handle_model_command(ai, console)
                     continue
                 elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
