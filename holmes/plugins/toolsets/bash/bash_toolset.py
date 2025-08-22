@@ -116,7 +116,6 @@ class KubectlRunImageCommand(BaseBashTool):
                 error=str(e),
                 params=params,
             )
- 
 
         pod_name = (
             "holmesgpt-debug-pod-"

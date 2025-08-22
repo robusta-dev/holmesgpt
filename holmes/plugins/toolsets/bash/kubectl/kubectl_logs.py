@@ -23,7 +23,6 @@ class KubectlLogsCommand(BashCommand):
             nargs=argparse.REMAINDER,
             default=[],
         )
-    
 
     def validate_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]

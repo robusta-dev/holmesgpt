@@ -98,7 +98,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
     if is_official_release() or DEVELOPMENT_MODE:
         environment = "production" if is_official_release() else "development"
         logging.info(f"Initializing sentry for {environment} environment...")
-        
+
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             send_default_pii=False,
@@ -116,7 +116,9 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
             }
         )
     else:
-        logging.info("Skipping sentry initialization - not an official release and DEVELOPMENT_MODE not enabled")
+        logging.info(
+            "Skipping sentry initialization - not an official release and DEVELOPMENT_MODE not enabled"
+        )
 
 app = FastAPI()
 
