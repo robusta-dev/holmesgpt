@@ -42,8 +42,8 @@ class SimpleBashCommand(BashCommand):
     def __init__(
         self,
         name: str,
-        allowed_options: list[str] = [],
-        denied_options: list[str] = [],
+        allowed_options: Optional[list[str]] = None,
+        denied_options: Optional[list[str]] = None,
     ):
         """
         A simple bash command that works with a whitelist/blacklist of options
@@ -51,8 +51,8 @@ class SimpleBashCommand(BashCommand):
         If denied_options is not empty, an option MUST NOT be present in the denied_options to be allowed
         """
         super().__init__(name)
-        self.allowed_options = allowed_options
-        self.denied_options = denied_options
+        self.allowed_options = allowed_options or []
+        self.denied_options = denied_options or []
 
     def add_parser(self, parent_parser: Any):
         parser = parent_parser.add_parser(
