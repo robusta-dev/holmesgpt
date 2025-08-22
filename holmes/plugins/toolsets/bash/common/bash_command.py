@@ -70,8 +70,7 @@ class SimpleBashCommand(BashCommand):
         return parser
 
     def validate_command(self, command, original_command, config):
-        for i, option in enumerate(command.options):
-            error_messages: list[str] = []
+        for option in command.options:
             allowed = False if self.allowed_options else True
 
             # Check allowed options
@@ -95,12 +94,9 @@ class SimpleBashCommand(BashCommand):
             if denied:
                 raise ValueError(denied_error_message)
             elif not allowed:
-                error_msg = (
-                    ". ".join(error_messages)
-                    if error_messages
-                    else f"option {option} is not part of the allowed options: {self.allowed_options}"
+                raise ValueError(
+                    f"option {option} is not part of the allowed options: {self.allowed_options}"
                 )
-                raise ValueError(error_msg)
 
     def stringify_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
