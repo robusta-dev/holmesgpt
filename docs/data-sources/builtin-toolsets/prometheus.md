@@ -97,21 +97,55 @@ This will print all possible Prometheus service URLs in your cluster. Pick the o
 
 You can further customize the Prometheus toolset with the following options:
 
-```yaml
-toolsets:
-  prometheus/metrics:
-    enabled: true
-    config:
-      prometheus_url: http://<prometheus-host>:9090
-      healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
-      headers:
-        Authorization: "Basic <base_64_encoded_string>"
-      metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
-      metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
-      fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
-      fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
-      tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
-```
+=== "HolmesGPT Helm Chart"
+
+    ```yaml
+    holmes:
+      toolsets:
+        prometheus/metrics:
+          enabled: true
+          config:
+            prometheus_url: http://<prometheus-host>:9090
+            healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
+            headers:
+              Authorization: "Basic <base_64_encoded_string>"
+            metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
+            metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
+            fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
+            fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
+            tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    runner:
+      additional_env_hubble:
+        PROMETHEUS_URL: http://<prometheus-host>:9090
+      customClusterRoleRules:
+        - apiGroups: [""]
+          resources: ["services"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["apps"]
+          resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
+          verbs: ["get", "list", "watch"]
+
+    # Or use toolsets configuration (if supported in your Robusta version)
+    globalConfig:
+      custom_toolsets:
+        prometheus/metrics:
+          enabled: true
+          config:
+            prometheus_url: http://<prometheus-host>:9090
+            healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
+            headers:
+              Authorization: "Basic <base_64_encoded_string>"
+            metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
+            metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
+            fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
+            fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
+            tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
+    ```
 
 **Config option explanations:**
 
@@ -134,6 +168,8 @@ To use a Coralogix PromQL endpoint with HolmesGPT:
 2. In Coralogix, create an API key with permissions to query metrics (Data Flow → API Keys).
 3. Create a Kubernetes secret for the API key and expose it as an environment variable in your Helm values:
 
+=== "HolmesGPT Helm Chart"
+
     ```yaml
     holmes:
       additionalEnvVars:
@@ -144,11 +180,44 @@ To use a Coralogix PromQL endpoint with HolmesGPT:
               key: CORALOGIX_API_KEY
     ```
 
+=== "Robusta Helm Chart"
+
+    ```yaml
+    runner:
+      additional_env_hubble:
+        CORALOGIX_API_KEY:
+          valueFrom:
+            secretKeyRef:
+              name: coralogix-api-key
+              key: CORALOGIX_API_KEY
+    ```
+
 4. Add the following under your toolsets in the Helm chart:
+
+=== "HolmesGPT Helm Chart"
 
     ```yaml
     holmes:
       toolsets:
+        prometheus/metrics:
+          enabled: true
+          config:
+            healthcheck: "/api/v1/query?query=up"  # This is important for Coralogix
+            prometheus_url: "https://prom-api.eu2.coralogix.com"  # Use your region's endpoint
+            headers:
+              token: "{{ env.CORALOGIX_API_KEY }}"
+            metrics_labels_time_window_hrs: 72
+            metrics_labels_cache_duration_hrs: 12
+            fetch_labels_with_labels_api: true
+            tool_calls_return_data: true
+            fetch_metadata_with_series_api: true
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    globalConfig:
+      custom_toolsets:
         prometheus/metrics:
           enabled: true
           config:
