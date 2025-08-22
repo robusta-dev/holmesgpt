@@ -27,6 +27,7 @@ class LoggingCapability(str, Enum):
 
     REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
     EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
+    POD_NAME_REGEX = "pod_name_regex"  # If supported, pod_name can be a regex pattern
 
 
 class LoggingConfig(BaseModel):
@@ -73,21 +74,31 @@ class BasePodLoggingToolset(Toolset, ABC):
 class PodLoggingTool(Tool):
     """Common tool for fetching pod logs across different logging backends"""
 
-    def __init__(self, toolset: BasePodLoggingToolset):
+    def __init__(
+        self, toolset: BasePodLoggingToolset, toolset_name: Optional[str] = None
+    ):
+        # Store the toolset name for provider-specific behavior
+        self._toolset_name = toolset_name
+
         # Get parameters dynamically based on what the toolset supports
         parameters = self._get_tool_parameters(toolset)
 
-        # Build description based on capabilities
-        description = "Fetch logs for a Kubernetes pod"
-        capabilities = toolset.supported_capabilities
+        # Build description based on provider
+        if self._toolset_name == "datadog/logs":
+            description = "Fetch logs for a Kubernetes pod from Datadog using Datadog's query syntax"
+        else:
+            description = "Fetch logs for a Kubernetes pod"
+            capabilities = toolset.supported_capabilities
 
-        if (
-            LoggingCapability.REGEX_FILTER in capabilities
-            and LoggingCapability.EXCLUDE_FILTER in capabilities
-        ):
-            description += " with support for regex filtering and exclusion patterns"
-        elif LoggingCapability.REGEX_FILTER in capabilities:
-            description += " with support for regex filtering"
+            if (
+                LoggingCapability.REGEX_FILTER in capabilities
+                and LoggingCapability.EXCLUDE_FILTER in capabilities
+            ):
+                description += (
+                    " with support for regex filtering and exclusion patterns"
+                )
+            elif LoggingCapability.REGEX_FILTER in capabilities:
+                description += " with support for regex filtering"
 
         # Add default information
         description += f". Defaults: Fetches last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days of logs, limited to {DEFAULT_LOG_LIMIT} most recent entries"
@@ -102,9 +113,17 @@ class PodLoggingTool(Tool):
     def _get_tool_parameters(self, toolset: BasePodLoggingToolset) -> dict:
         """Generate parameters based on what this provider supports"""
         # Base parameters always available
+        capabilities = toolset.supported_capabilities
+
+        # Determine pod_name description based on capabilities
+        if LoggingCapability.POD_NAME_REGEX in capabilities:
+            pod_name_desc = "Kubernetes pod name or regex pattern (e.g., 'payment-api.*' to match any pod starting with 'payment-api')"
+        else:
+            pod_name_desc = "The exact kubernetes pod name"
+
         params = {
             "pod_name": ToolParameter(
-                description="The exact kubernetes pod name",
+                description=pod_name_desc,
                 type="string",
                 required=True,
             ),
@@ -128,8 +147,27 @@ class PodLoggingTool(Tool):
             ),
         }
 
-        # Add filter - description changes based on regex support
-        if LoggingCapability.REGEX_FILTER in toolset.supported_capabilities:
+        # Add filter - description changes based on provider
+        if self._toolset_name == "datadog/logs":
+            # Datadog-specific description
+            params["filter"] = ToolParameter(
+                description="""DATADOG QUERY SYNTAX - This filter uses Datadog's native query language:
+- Simple text search: filter='error'
+- OR queries: filter='(error OR warn OR fatal)'
+- AND queries: filter='error AND database'
+- Field searches: filter='@level:error' or filter='@http.status_code:500'
+- Wildcards: filter='error*' or filter='*timeout*'
+- Phrases: filter='"connection refused"'
+- Complex queries: filter='(@level:error OR @level:fatal) AND service:api'
+
+Common patterns:
+- Errors: filter='(error OR ERROR OR err OR fail OR fatal OR exception OR panic OR crash)'
+- HTTP errors: filter='(@http.status_code:5* OR @http.status_code:404)'
+- Timeouts: filter='(timeout OR "timed out" OR "deadline exceeded")'""",
+                type="string",
+                required=False,
+            )
+        elif LoggingCapability.REGEX_FILTER in toolset.supported_capabilities:
             params["filter"] = ToolParameter(
                 description="""An optional filter for logs - can be a simple keyword/phrase or a regex pattern (case-insensitive).
 Examples of useful filters:
@@ -149,8 +187,22 @@ If you get no results with a filter, try a broader pattern or drop the filter.""
                 required=False,
             )
 
-        # ONLY add exclude_filter if supported - otherwise it doesn't exist
-        if LoggingCapability.EXCLUDE_FILTER in toolset.supported_capabilities:
+        # Add exclude_filter based on provider or capability
+        if self._toolset_name == "datadog/logs":
+            # Datadog always supports exclude via NOT operator
+            params["exclude_filter"] = ToolParameter(
+                description="""DATADOG EXCLUSION SYNTAX - Use NOT operator to exclude logs:
+- Exclude keyword: exclude_filter='NOT info'
+- Exclude multiple: exclude_filter='NOT (info OR debug OR trace)'
+- Exclude field values: exclude_filter='NOT @level:info'
+- Exclude HTTP 200s: exclude_filter='NOT @http.status_code:200'
+- Complex exclusions: exclude_filter='NOT (@level:info OR @http.status_code:200 OR health)'
+
+Note: If your exclude_filter doesn't start with 'NOT', it will be added automatically.""",
+                type="string",
+                required=False,
+            )
+        elif LoggingCapability.EXCLUDE_FILTER in toolset.supported_capabilities:
             params["exclude_filter"] = ToolParameter(
                 description="""An optional exclusion filter - logs matching this pattern will be excluded. Can be a simple keyword or regex pattern (case-insensitive).
 Examples of useful exclude filters:

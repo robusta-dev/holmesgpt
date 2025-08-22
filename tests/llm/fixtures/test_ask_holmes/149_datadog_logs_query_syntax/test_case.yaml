@@ -1,0 +1,17 @@
+user_prompt: "Find all error and warning logs from the payment-service pod in production namespace, but exclude any health check or metrics endpoints"
+tags:
+  - logs
+  - medium
+expected_output: |
+  The assistant should:
+  1. Use Datadog query syntax for filtering logs
+  2. Find errors and warnings using field-based queries or OR operators
+  3. Exclude health/metrics using NOT operator
+  4. Return relevant error/warning logs that aren't health checks
+before_test: |
+  kubectl create namespace production-149 || true
+  kubectl apply -f ./manifest.yaml
+  sleep 20
+after_test: |
+  kubectl delete -f ./manifest.yaml --ignore-not-found
+  kubectl delete namespace production-149 --ignore-not-found
