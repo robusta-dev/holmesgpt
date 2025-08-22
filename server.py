@@ -31,6 +31,7 @@ from holmes.common.env_vars import (
     LOG_PERFORMANCE,
     SENTRY_DSN,
     ENABLE_TELEMETRY,
+    DEVELOPMENT_MODE,
     SENTRY_TRACES_SAMPLE_RATE,
 )
 from holmes.core.supabase_dal import SupabaseDal
@@ -93,13 +94,17 @@ def sync_before_server_start():
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    if is_official_release():
-        logging.info("Initializing sentry...")
+    # Initialize Sentry for official releases or when development mode is enabled
+    if is_official_release() or DEVELOPMENT_MODE:
+        environment = "production" if is_official_release() else "development"
+        logging.info(f"Initializing sentry for {environment} environment...")
+        
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             send_default_pii=False,
             traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
             profiles_sample_rate=0,
+            environment=environment,
         )
         sentry_sdk.set_tags(
             {
@@ -107,10 +112,11 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
                 "cluster_name": config.cluster_name,
                 "model_name": config.model,
                 "version": get_version(),
+                "environment": environment,
             }
         )
     else:
-        logging.info("Skipping sentry initialization for custom version")
+        logging.info("Skipping sentry initialization - not an official release and DEVELOPMENT_MODE not enabled")
 
 app = FastAPI()
 

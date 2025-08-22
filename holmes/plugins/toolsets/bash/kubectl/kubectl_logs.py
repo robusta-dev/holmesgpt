@@ -14,12 +14,16 @@ class KubectlLogsCommand(BashCommand):
         parser = parent_parser.add_parser(
             "logs",
             exit_on_error=False,
+            add_help=False,  # Disable help to avoid conflicts
+            prefix_chars="\x00",  # Use null character as prefix to disable option parsing
         )
+
         parser.add_argument(
             "options",
-            nargs=argparse.REMAINDER,  # Captures all remaining arguments
-            default=[],  # Default to an empty list
+            nargs=argparse.REMAINDER,
+            default=[],
         )
+    
 
     def validate_command(
         self, command: Any, original_command: str, config: Optional[BashExecutorConfig]

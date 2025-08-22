@@ -111,8 +111,12 @@ class KubectlRunImageCommand(BaseBashTool):
                     "error": str(e),
                 },
             )
-            # Re-raise the exception to maintain existing behavior
-            raise
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+ 
 
         pod_name = (
             "holmesgpt-debug-pod-"
@@ -210,7 +214,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
             name="bash",
-            enabled=False,
+            enabled=True,
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
                 "WARNING: This toolset provides powerful capabilities and should be "
@@ -222,7 +226,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[RunBashCommand(self), KubectlRunImageCommand(self)],
             tags=[ToolsetTag.CORE],
-            is_default=False,
+            is_default=True,
         )
 
         self._reload_llm_instructions()

@@ -295,6 +295,10 @@ class TestKubectlIntegration:
                 "kubectl get pods --namespace default",
                 "kubectl get pods --namespace default",
             ),
+            (
+                "kubectl logs -n app-27b arctic-fox --previous --all-containers=true",
+                "kubectl logs -n app-27b arctic-fox --previous --all-containers=true"
+            ),
             # Quote normalization in grep
             ('kubectl get pods | grep "nginx"', "kubectl get pods | grep nginx"),
             ("kubectl get pods | grep 'nginx'", "kubectl get pods | grep nginx"),

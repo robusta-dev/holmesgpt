@@ -97,8 +97,8 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         AzureSQLToolset(),
         ServiceNowToolset(),
     ]
-    if not USE_LEGACY_KUBERNETES_LOGS:
-        toolsets.append(KubernetesLogsToolset())
+    # if not USE_LEGACY_KUBERNETES_LOGS:
+    #     toolsets.append(KubernetesLogsToolset())
 
     return toolsets
 
@@ -108,16 +108,16 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
     # Handle YAML toolsets
-    for filename in os.listdir(THIS_DIR):
-        if not filename.endswith(".yaml"):
-            continue
+    # for filename in os.listdir(THIS_DIR):
+    #     if not filename.endswith(".yaml"):
+    #         continue
 
-        if filename == "kubernetes_logs.yaml" and not USE_LEGACY_KUBERNETES_LOGS:
-            continue
+    #     if filename == "kubernetes_logs.yaml" and not USE_LEGACY_KUBERNETES_LOGS:
+    #         continue
 
-        path = os.path.join(THIS_DIR, filename)
-        toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
-        all_toolsets.extend(toolsets_from_file)
+    #     path = os.path.join(THIS_DIR, filename)
+    #     toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
+    #     all_toolsets.extend(toolsets_from_file)
 
     all_toolsets.extend(load_python_toolsets(dal=dal))  # type: ignore
 
