@@ -225,6 +225,44 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     > **Note:** Only LiteLLM supported Ollama models work with HolmesGPT. Check the [LiteLLM Ollama documentation](https://docs.litellm.ai/docs/providers/ollama#ollama-models){:target="_blank"} for supported models.
 
+## CLI Options
+
+### Common Options
+
+The `holmes ask` command supports several options to customize investigations:
+
+- **`--model`**: Specify which AI model to use (e.g., `gpt-4o`, `anthropic/claude-3-5-sonnet`)
+- **`--since`**: Control how far back to fetch historical data (logs, metrics, etc.)
+  - Relative formats: `2w` (2 weeks), `7d` (7 days), `24h` (24 hours), `30m` (30 minutes)
+  - Absolute formats: `2024-01-15` (since date), `2024-01-15T10:30:00` (since datetime), `14:30` (since time today/yesterday)
+  - Default: 7 days
+- **`--help`**: Show all available options
+
+### Configuration File
+
+You can set default values in `~/.holmes/config.yaml`:
+
+```yaml
+# Set default AI model
+model: gpt-4o
+
+# Set default lookback period for all investigations
+since: 3d  # Fetch 3 days of historical data by default
+
+# Configure data sources
+toolsets:
+  kubernetes:
+    enabled: true
+  prometheus:
+    enabled: true
+    config:
+      url: http://prometheus.monitoring.svc.cluster.local
+```
+
+Priority order: CLI flags > Config file > Environment variables > Defaults
+
+See [Environment Variables Reference](../reference/environment-variables.md) for a complete list of supported environment variables.
+
 ## Next Steps
 
 - **[Add Data Sources](../data-sources/index.md)** - Use built-in toolsets to connect with ArgoCD, Confluence, and monitoring tools
