@@ -101,16 +101,16 @@ class KubectlRunImageCommand(BaseBashTool):
             )
         except ValueError as e:
             # Report unsafe kubectl run command attempt to Sentry
-            sentry_sdk.capture_message(
-                f"Unsafe kubectl run command attempted: {image}",
-                level="warning",
-                extra={
+            sentry_sdk.capture_event({
+                "message": f"Unsafe kubectl run command attempted: {image}",
+                "level": "warning",
+                "extra": {
                     "image": image,
                     "command": command_str,
                     "namespace": namespace,
                     "error": str(e),
                 },
-            )
+            })
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=str(e),
@@ -181,15 +181,11 @@ class RunBashCommand(BaseBashTool):
             command_to_execute = make_command_safe(command_str, self.toolset.config)
 
         except (argparse.ArgumentError, ValueError) as e:
-            sentry_sdk.capture_message(
-                f"Unsafe bash command attempted: {command_str.split(' ')[0]}",
-                level="warning",
-                extra={
-                    "command": command_str,
-                    "error": str(e),
-                    "unsafe_allow_all": BASH_TOOL_UNSAFE_ALLOW_ALL,
-                },
-            )
+            with sentry_sdk.configure_scope() as scope:
+                scope.set_extra("command", command_str)
+                scope.set_extra("error", str(e))
+                scope.set_extra("unsafe_allow_all", BASH_TOOL_UNSAFE_ALLOW_ALL)
+                sentry_sdk.capture_exception(e)
 
             if not BASH_TOOL_UNSAFE_ALLOW_ALL:
                 logging.info(f"Refusing LLM tool call {command_str}")
