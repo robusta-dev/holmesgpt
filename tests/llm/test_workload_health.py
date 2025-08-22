@@ -63,9 +63,17 @@ def get_workload_health_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
+def get_models():
+    """Get list of models to test from MODELS env var."""
+    models_str = os.environ.get("MODELS", "gpt-4o")
+    return models_str.split(",")
+
+
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_workload_health_test_cases())
 def test_health_check(
+    model: str,
     test_case: HealthCheckTestCase,
     caplog,
     request,
@@ -74,6 +82,11 @@ def test_health_check(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Add model to user properties for reporting
+    request.node.user_properties.append(("model", model))
+    # Add clean test case ID (without model suffix)
+    request.node.user_properties.append(("clean_test_case_id", test_case.id))
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
@@ -85,10 +98,11 @@ def test_health_check(
         pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment()
+    metadata = {"model": model}
+    tracer.start_experiment(additional_metadata=metadata)
 
     config = MockConfig(test_case, tracer, mock_generation_config, request)
-    config.model = os.environ.get("MODEL", "gpt-4o")
+    config.model = model
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
@@ -100,7 +114,9 @@ def test_health_check(
     input = test_case.workload_health_request
     expected = test_case.expected_output
 
-    with tracer.start_trace(name=test_case.id, span_type=SpanType.EVAL) as eval_span:
+    with tracer.start_trace(
+        name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
+    ) as eval_span:
         # Store span info in user properties for conftest to access
         if hasattr(eval_span, "id"):
             request.node.user_properties.append(
@@ -121,6 +137,8 @@ def test_health_check(
 
         assert result, "No result returned by workload_health_check()"
         # check that analysis is json parsable otherwise failed.
+        print(f"\n🧪 TEST: {test_case.id}")
+        print(f"   • Model: {model}")
         print(f"** ANALYSIS **\n-  {result.analysis}")
         json.loads(result.analysis)
         output = result.analysis
@@ -143,13 +161,18 @@ def test_health_check(
 
         # Log evaluation results directly to the span
         if eval_span:
+            # Prepare tags with model
+            tags = (test_case.tags or []).copy()
+            tags.append(f"model:{model}")
+
             eval_span.log(
                 input=input,
                 output=output or "",
                 expected=str(expected),
                 dataset_record_id=test_case.id,
                 scores=scores,
-                metadata={"tags": test_case.tags},
+                metadata={"model": model},
+                tags=tags,
             )
 
         tools_called = [t.tool_name for t in result.tool_calls]

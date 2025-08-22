@@ -72,9 +72,17 @@ def get_investigate_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
+def get_models():
+    """Get list of models to test from MODELS env var."""
+    models_str = os.environ.get("MODELS", "gpt-4o")
+    return models_str.split(",")
+
+
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_investigate_test_cases())
 def test_investigate(
+    model: str,
     test_case: InvestigateTestCase,
     caplog,
     request,
@@ -83,6 +91,11 @@ def test_investigate(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Add model to user properties for reporting
+    request.node.user_properties.append(("model", model))
+    # Add clean test case ID (without model suffix)
+    request.node.user_properties.append(("clean_test_case_id", test_case.id))
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
@@ -95,8 +108,8 @@ def test_investigate(
 
     tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
-    config.model = os.environ.get("MODEL", "gpt-4o")
-    metadata = {"model": config.model or "Unknown"}
+    config.model = model
+    metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
@@ -118,7 +131,7 @@ def test_investigate(
         os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
     ):
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.EVAL
+            name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -156,6 +169,8 @@ def test_investigate(
 
     debug_expected = "\n-  ".join(expected)
 
+    print(f"\n🧪 TEST: {test_case.id}")
+    print(f"   • Model: {model}")
     print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(
         output=output,
@@ -180,13 +195,18 @@ def test_investigate(
 
     # Log evaluation results directly to the span
     if eval_span:
+        # Prepare tags with model
+        tags = (test_case.tags or []).copy()
+        tags.append(f"model:{model}")
+
         eval_span.log(
             input=input,
             output=output or "",
             expected=str(expected),
             dataset_record_id=test_case.id,
             scores=scores,
-            tags=test_case.tags,
+            metadata={"model": model},
+            tags=tags,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")

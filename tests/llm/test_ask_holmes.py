@@ -54,9 +54,17 @@ def get_ask_holmes_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
+def get_models():
+    """Get list of models to test from MODELS env var."""
+    models_str = os.environ.get("MODELS", "gpt-4o")
+    return models_str.split(",")
+
+
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_ask_holmes_test_cases())
 def test_ask_holmes(
+    model: str,
     test_case: AskHolmesTestCase,
     caplog,
     request,
@@ -65,6 +73,11 @@ def test_ask_holmes(
 ):
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case)
+
+    # Add model to user properties for reporting
+    request.node.user_properties.append(("model", model))
+    # Add clean test case ID (without model suffix)
+    request.node.user_properties.append(("clean_test_case_id", test_case.id))
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
@@ -80,6 +93,7 @@ def test_ask_holmes(
     print(
         f"   • Mode: {'⚪️ MOCKED' if mock_generation_config.mode == MockMode.MOCK else '🔥 LIVE'}, Generate Mocks: {mock_generation_config.generate_mocks}"
     )
+    print(f"   • Model: {model}")
     print(f"   • User Prompt: {test_case.user_prompt}")
     print(f"   • Expected Output: {test_case.expected_output}")
     if test_case.before_test:
@@ -99,13 +113,14 @@ def test_ask_holmes(
             print(f"   • After Test: {test_case.after_test}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment()
+    metadata = {"model": model}
+    tracer.start_experiment(additional_metadata=metadata)
 
     result: Optional[LLMResult] = None
 
     try:
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.EVAL
+            name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -132,6 +147,7 @@ def test_ask_holmes(
                     with set_test_env_vars(test_case):
                         result = ask_holmes(
                             test_case=test_case,
+                            model=model,
                             tracer=tracer,
                             eval_span=eval_span,
                             mock_generation_config=mock_generation_config,
@@ -141,6 +157,7 @@ def test_ask_holmes(
                 with set_test_env_vars(test_case):
                     result = ask_holmes(
                         test_case=test_case,
+                        model=model,
                         tracer=tracer,
                         eval_span=eval_span,
                         mock_generation_config=mock_generation_config,
@@ -151,13 +168,17 @@ def test_ask_holmes(
         # Log error to span if available
         try:
             if "eval_span" in locals():
+                # Prepare tags with model
+                tags = (test_case.tags or []).copy()
+                tags.append(f"model:{model}")
+
                 eval_span.log(
                     input=test_case.user_prompt,
                     output=result.result if result else str(e),
                     expected=test_case.expected_output,
                     dataset_record_id=test_case.id,
                     scores={},
-                    tags=test_case.tags or [],
+                    tags=tags,
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
@@ -215,14 +236,18 @@ def test_ask_holmes(
 
     # Log evaluation results directly to the span
     if eval_span:
+        # Prepare tags with model
+        tags = (test_case.tags or []).copy()
+        tags.append(f"model:{model}")
+
         eval_span.log(
             input=input,
             output=output or "",
             expected=str(expected),
             dataset_record_id=test_case.id,
             scores=scores,
-            metadata={"system_prompt": prompt},
-            tags=test_case.tags or [],
+            metadata={"system_prompt": prompt, "model": model},
+            tags=tags,
         )
 
     # Print tool calls summary
@@ -272,6 +297,7 @@ def test_ask_holmes(
 # TODO: can this call real ask_holmes so more of the logic is captured
 def ask_holmes(
     test_case: AskHolmesTestCase,
+    model: str,
     tracer,
     eval_span,
     mock_generation_config,
@@ -297,7 +323,7 @@ def ask_holmes(
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
         max_steps=40,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
+        llm=DefaultLLM(model, tracer=tracer),
     )
 
     test_type = (
