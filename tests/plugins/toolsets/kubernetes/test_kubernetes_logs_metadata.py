@@ -263,7 +263,11 @@ class TestKubernetesLogsMetadata:
 
         # Verify container info
         assert "Container(s): Multiple containers" in result.data
-        assert "Display: Showing all 200 logs" in result.data
+        # Since no limit was specified, the default limit of 100 is applied to 200 total logs
+        assert (
+            "Display: Showing latest 100 (default) of 200 filtered logs (100 omitted)"
+            in result.data
+        )
 
     @patch("subprocess.run")
     @patch("holmes.plugins.toolsets.kubernetes_logs.datetime")
