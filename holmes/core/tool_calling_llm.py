@@ -403,6 +403,9 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
+                # Update the tool number offset for the next iteration
+                tool_number_offset += len(tools_to_call)
+
                 # Add a blank line after all tools in this batch complete
                 if tools_to_call:
                     logging.info("")
@@ -602,6 +605,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
+        tool_number_offset = 0
 
         while i < max_steps:
             i += 1
@@ -677,6 +681,14 @@ class ToolCallingLLM:
                 )
                 return
 
+            reasoning = getattr(response_message, "reasoning_content", None)
+            message = response_message.content
+            if reasoning or message:
+                yield StreamMessage(
+                    event=StreamEvents.AI_MESSAGE,
+                    data={"content": message, "reasoning": reasoning},
+                )
+
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
@@ -687,7 +699,7 @@ class ToolCallingLLM:
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
                             trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
-                            tool_number=tool_index,
+                            tool_number=tool_number_offset + tool_index,
                         )
                     )
                     yield StreamMessage(
@@ -707,6 +719,9 @@ class ToolCallingLLM:
                         event=StreamEvents.TOOL_RESULT,
                         data=tool_call_result.as_streaming_tool_result_response(),
                     )
+
+                # Update the tool number offset for the next iteration
+                tool_number_offset += len(tools_to_call)
 
         raise Exception(
             f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"
