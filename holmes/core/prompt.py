@@ -54,6 +54,9 @@ def build_initial_ask_messages(
         runbooks: Optional runbook catalog
         system_prompt_additions: Optional additional system prompt content
     """
+    # Check if todos are enabled by looking for core_investigation toolset
+    has_todos = any(ts.name == "core_investigation" for ts in tool_executor.toolsets)
+
     # Load and render system prompt internally
     system_prompt_template = "builtin://generic_ask.jinja2"
     template_context = {
@@ -61,6 +64,7 @@ def build_initial_ask_messages(
         "runbooks": runbooks or {},
         "system_prompt_additions": system_prompt_additions or "",
         "investigation_id": investigation_id,
+        "has_todos": has_todos,
     }
     system_prompt_rendered = load_and_render_prompt(
         system_prompt_template, template_context

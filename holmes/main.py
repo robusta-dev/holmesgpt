@@ -215,6 +215,11 @@ def ask(
         "--system-prompt-additions",
         help="Additional content to append to the system prompt",
     ),
+    fast: bool = typer.Option(
+        False,
+        "--fast",
+        help="Fast mode: disables todos tool for quicker responses",
+    ),
 ):
     """
     Ask any question and answer using available tools
@@ -252,6 +257,7 @@ def ask(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
+        disable_todos=fast,  # disable todos tool when --fast is used
     )
 
     if prompt_file and prompt:
