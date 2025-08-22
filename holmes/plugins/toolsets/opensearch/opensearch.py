@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from opensearchpy import OpenSearch
 from pydantic import BaseModel, ConfigDict
 
 from holmes.core.tools import (
@@ -15,6 +14,7 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+from holmes.plugins.toolsets.lazy_imports import get_opensearch
 
 
 class OpenSearchHttpAuth(BaseModel):
@@ -53,6 +53,8 @@ class OpenSearchClient:
                 )
         # Initialize OpenSearch client
         self.hosts = [host.get("host") for host in kwargs.get("hosts", [])]
+        # Lazy import OpenSearch
+        OpenSearch = get_opensearch().OpenSearch
         self.client = OpenSearch(**kwargs)
 
 

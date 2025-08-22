@@ -7,17 +7,15 @@ from holmes.core.tools import (
     CallablePrerequisite,
 )
 
-from typing import Dict, Any, List, Optional
-from mcp.client.session import ClientSession
-from mcp.client.sse import sse_client
-
-from mcp.types import Tool as MCP_Tool
-from mcp.types import CallToolResult
-
+from typing import Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 import asyncio
 from pydantic import Field, AnyUrl, field_validator
-from typing import Tuple
 import logging
+
+from holmes.plugins.toolsets.lazy_imports import get_mcp_client
+
+if TYPE_CHECKING:
+    pass
 
 
 class RemoteMCPTool(Tool):
@@ -36,10 +34,18 @@ class RemoteMCPTool(Tool):
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
+        # Lazy load MCP modules on first use
+        mcp = get_mcp_client()
+        ClientSession = mcp["session"].ClientSession
+        sse_client = mcp["sse"].sse_client
+        # CallToolResult = mcp["types"].CallToolResult  # Not used directly, just for type info
+
         async with sse_client(self.url, self.headers) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 _ = await session.initialize()
-                tool_result: CallToolResult = await session.call_tool(self.name, params)
+                tool_result: Any = await session.call_tool(
+                    self.name, params
+                )  # CallToolResult
 
                 merged_text = " ".join(
                     c.text for c in tool_result.content if c.type == "text"
@@ -56,7 +62,7 @@ class RemoteMCPTool(Tool):
                 )
 
     @classmethod
-    def create(cls, url: str, tool: MCP_Tool, headers: Optional[Dict[str, str]] = None):
+    def create(cls, url: str, tool: Any, headers: Optional[Dict[str, str]] = None):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
             url=url,
@@ -123,6 +129,11 @@ class RemoteMCPToolset(Toolset):
             )
 
     async def _get_server_tools(self):
+        # Lazy load MCP modules on first use
+        mcp = get_mcp_client()
+        ClientSession = mcp["session"].ClientSession
+        sse_client = mcp["sse"].sse_client
+
         async with sse_client(str(self.url), headers=self.get_headers()) as (
             read_stream,
             write_stream,
