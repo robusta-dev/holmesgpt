@@ -89,17 +89,49 @@ def validate_sed_options(options: list[str]) -> list[str]:
     while i < len(options):
         option = options[i]
 
+        # Check for attached/inlined forms of blocked options
+        if (option.startswith("-i") and len(option) > 2) or option.startswith("--in-place="):
+            raise ValueError(f"Attached in-place option {option} is not allowed for security reasons")
+        elif (option.startswith("-f") and len(option) > 2) or option.startswith("--file="):
+            raise ValueError(f"Attached file option {option} is not allowed for security reasons")
+
         # Block file reading and in-place editing for security
-        if option in {"-f", "--file", "-i", "--in-place"}:
+        elif option in {"-f", "--file", "-i", "--in-place"}:
             raise ValueError(f"Option {option} is not allowed for security reasons")
 
-        # Handle option-value pairs
-        elif option in {"-e", "--expression"} and i + 1 < len(options):
+        # Handle -e and --expression with attached scripts
+        elif option.startswith("-e") and len(option) > 2:
+            # Handle -eSCRIPT form
+            script = option[2:]  # Extract script after "-e"
+            validate_sed_script(script)
+            script_found = True
+            i += 1
+            continue
+        elif option.startswith("--expression="):
+            # Handle --expression=SCRIPT form
+            script = option[13:]  # Extract script after "--expression="
+            validate_sed_script(script)
+            script_found = True
+            i += 1
+            continue
+
+        # Handle -e and --expression with separate arguments
+        elif option in {"-e", "--expression"}:
+            if i + 1 >= len(options) or options[i + 1].startswith("-"):
+                raise ValueError(f"Option {option} requires a script argument")
             script = options[i + 1]
             validate_sed_script(script)
             script_found = True
             i += 2
             continue
+
+        # Handle long options with values (--opt=val)
+        elif "=" in option and option.startswith("--"):
+            # Long option with attached value, skip as single unit
+            i += 1
+            continue
+
+        # Handle other long options with separate values
         elif (
             option.startswith("--")
             and i + 1 < len(options)
@@ -113,6 +145,9 @@ def validate_sed_options(options: list[str]) -> list[str]:
             if not script_found:
                 validate_sed_script(option)
                 script_found = True
+            else:
+                # Multiple scripts not allowed
+                pass
             i += 1
             continue
 
