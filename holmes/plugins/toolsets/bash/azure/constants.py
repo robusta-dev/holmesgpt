@@ -76,7 +76,6 @@ ALLOWED_AZURE_COMMANDS: dict[str, dict] = {
                 "list": {},
                 "show": {},
                 "get-schema": {},
-                "get-shared-keys": {},
             },
             "query": {},
         },
@@ -302,6 +301,14 @@ DENIED_AZURE_COMMANDS: dict[str, dict] = {
     "artifacts": {},
     "boards": {},
     "pipelines": {},
+    # Monitoring operations that expose credentials
+    "monitor": {
+        "log-analytics": {
+            "workspace": {
+                "get-shared-keys": {},  # Exposes sensitive workspace keys
+            },
+        },
+    },
     # Service-specific risky operations
     "invoke": {},  # Function invocation
     "execute": {},  # Command execution

@@ -543,6 +543,12 @@ class TestAzureCliUnsafeCommands:
                 ValueError,
                 "Command is blocked: pipelines",
             ),
+            # Credential-revealing operations
+            (
+                "az monitor log-analytics workspace get-shared-keys --workspace-name myworkspace --resource-group mygroup",
+                ValueError,
+                "Command is blocked: monitor log-analytics workspace get-shared-keys",
+            ),
         ],
     )
     def test_azure_unsafe_commands(
