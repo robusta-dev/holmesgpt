@@ -37,6 +37,10 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #     secretKeyRef:
         #       name: holmes-secrets
         #       key: openai-api-key
+
+        # OPTIONAL: Set default model to avoid specifying it in each request
+        # config:
+        #   model: "gpt-4o-mini"
         ```
 
     === "Anthropic"
@@ -51,6 +55,10 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #     secretKeyRef:
         #       name: holmes-secrets
         #       key: anthropic-api-key
+
+        # OPTIONAL: Set default model to avoid specifying it in each request
+        # config:
+        #   model: "anthropic/claude-3-5-sonnet-20241022"
         ```
 
     === "Azure OpenAI"
@@ -74,6 +82,11 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #     secretKeyRef:
         #       name: holmes-secrets
         #       key: azure-api-base
+
+        # OPTIONAL: Set default model to avoid specifying it in each request
+        # Replace "your-deployment-name" with your actual Azure OpenAI deployment name
+        # config:
+        #   model: "azure/your-deployment-name"
         ```
 
     === "Other AI Providers"
@@ -96,6 +109,12 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #     secretKeyRef:
         #       name: holmes-secrets
         #       key: gemini-api-key
+
+        # OPTIONAL: Set default model to avoid specifying it in each request
+        # config:
+        #   model: "gemini/gemini-1.5-pro"
+        #   # or for AWS Bedrock:
+        #   model: "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0"
         ```
 
         > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above. For a complete list of all environment variables, see the [Environment Variables Reference](../reference/environment-variables.md).
@@ -118,6 +137,11 @@ kubectl port-forward svc/holmesgpt-holmes 8080:80
 # kubectl port-forward svc/{your-release-name}-holmes 8080:80 -n {your-namespace}
 
 # Test with a basic question
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"ask": "list pods in namespace default?", "model": "gpt-4o-mini"}'
+
+# Without the model parameter, uses config.model from Helm values (defaults to gpt-4o)
 curl -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
   -d '{"ask": "list pods in namespace default?"}'
