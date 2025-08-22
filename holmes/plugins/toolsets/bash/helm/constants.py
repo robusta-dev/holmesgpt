@@ -22,13 +22,14 @@ ALLOWED_HELM_COMMANDS: dict[str, dict] = {
         "crds": {},
     },
     "inspect": {},
-    "search": {},
+    "search": {
+        "repo": {},
+    },
     "lint": {},
     "verify": {},
     "dependency": {"list": {}},
     # Repository operations (read-only)
     "repo": {"list": {}},
-    "search repo": {},
     # Help and information
     "help": {},
     "version": {},
