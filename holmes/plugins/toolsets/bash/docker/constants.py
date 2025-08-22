@@ -10,7 +10,6 @@ ALLOWED_DOCKER_COMMANDS: dict[str, dict] = {
         "top": {},
         "port": {},
         "diff": {},
-        "export": {},
     },
     # Image management (read-only)
     "images": {},
@@ -128,6 +127,7 @@ DENIED_DOCKER_COMMANDS: dict[str, dict] = {
         "rename": {},
         "wait": {},
         "prune": {},
+        "export": {},  # Can exfiltrate full filesystem
     },
     # Image operations
     "build": {},

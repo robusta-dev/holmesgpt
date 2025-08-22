@@ -83,14 +83,6 @@ class TestDockerCliSafeCommands:
                 "docker container port mycontainer 80",
             ),
             ("docker container diff mycontainer", "docker container diff mycontainer"),
-            (
-                "docker container export mycontainer",
-                "docker container export mycontainer",
-            ),
-            (
-                "docker container export mycontainer --output container.tar",
-                "docker container export mycontainer --output container.tar",
-            ),
             # Image listing and inspection
             ("docker images", "docker images"),
             ("docker images -a", "docker images -a"),
@@ -324,6 +316,9 @@ class TestDockerCliUnsafeCommands:
             ("docker cp mycontainer:/file .", ValueError, "Command is blocked"),
             ("docker commit mycontainer", ValueError, "Command is blocked"),
             ("docker update mycontainer", ValueError, "Command is blocked"),
+            # Container export operations (filesystem exfiltration risk)
+            ("docker container export mycontainer", ValueError, "Command is blocked"),
+            ("docker container export mycontainer --output container.tar", ValueError, "Command is blocked"),
             (
                 "docker rename mycontainer newname",
                 ValueError,
