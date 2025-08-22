@@ -471,8 +471,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
-                    config = self.config if self.config is not None else {}
-                    (enabled, error_message) = prereq.callable(config)
+                    (enabled, error_message) = prereq.callable(self.config)
                     if not enabled:
                         self.status = ToolsetStatusEnum.FAILED
                     if error_message:
