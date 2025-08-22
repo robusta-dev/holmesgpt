@@ -4,6 +4,7 @@
 {%- set k8s_yaml_ts = toolsets | selectattr("name", "equalto", "kubernetes/logs") | rejectattr("fetch_pod_logs", "defined") | first -%}
 {%- set opensearch_ts = toolsets | selectattr("name", "equalto", "opensearch/logs") | first -%}
 {%- set datadog_ts = toolsets | selectattr("name", "equalto", "datadog/logs") | first -%}
+{%- set bash_ts = toolsets | selectattr("name", "equalto", "bash") | first -%}
 
 ## Logs
 
@@ -44,6 +45,9 @@ Tools to search and fetch logs from Kubernetes.
 * Check both kubectl_logs and kubectl_previous_logs because a pod restart mean kubectl_logs may not have relevant logs
 {%- elif opensearch_ts and opensearch_ts.status == "enabled" -%}
 {% include '_default_log_prompt.jinja2' %}
+{%- elif bash_ts and bash_ts.status == "enabled" -%}
+Use the tool `run_bash_command` to run `kubectl logs` commands and fetch any relevant pod logs.
+Avoid using `--tail` when calling `kubectl logs` because you may miss critical information.
 {%- else -%}
 * You have not been given access to tools to fetch kubernetes logs for nodes, pods, services or apps. This is likely a misconfiguration.
 * If you need logs to answer questions or investigate issues, tell the user to configure the documentation and enable one of these toolsets:

@@ -1,4 +1,3 @@
-
 from holmes.plugins.toolsets.bash.common.bash_command import SimpleBashCommand
 
 
