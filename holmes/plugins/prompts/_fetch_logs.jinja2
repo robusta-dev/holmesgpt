@@ -47,7 +47,7 @@ Tools to search and fetch logs from Kubernetes.
 {% include '_default_log_prompt.jinja2' %}
 {%- elif bash_ts and bash_ts.status == "enabled" -%}
 Use the tool `run_bash_command` to run `kubectl logs` commands and fetch any relevant pod logs.
-Avoid using `--tail` when calling `kubectl logs` because you may miss critical information.
+DO NOT use `--tail` or `| tail` when calling `kubectl logs` because you may miss critical information.
 {%- else -%}
 * You have not been given access to tools to fetch kubernetes logs for nodes, pods, services or apps. This is likely a misconfiguration.
 * If you need logs to answer questions or investigate issues, tell the user to configure the documentation and enable one of these toolsets:
