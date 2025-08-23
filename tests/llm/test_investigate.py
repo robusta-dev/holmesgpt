@@ -23,8 +23,13 @@ from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
     InvestigateTestCase,
     check_and_skip_test,
+    get_models,
 )
-from tests.llm.utils.property_manager import set_initial_properties, update_test_results
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    update_test_results,
+    handle_test_error,
+)
 from os import path
 from unittest.mock import patch
 
@@ -73,12 +78,6 @@ def get_investigate_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
-def get_models():
-    """Get list of models to test from MODELS env var."""
-    models_str = os.environ.get("MODELS", "gpt-4o")
-    return models_str.split(",")
-
-
 @pytest.mark.llm
 @pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_investigate_test_cases())
@@ -91,23 +90,10 @@ def test_investigate(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
+    set_initial_properties(request, test_case, model)
 
-    # Add model to user properties for reporting
-    request.node.user_properties.append(("model", model))
-    # Add clean test case ID (without model suffix)
-    request.node.user_properties.append(("clean_test_case_id", test_case.id))
-    # Add tags for tag-based performance analysis
-    request.node.user_properties.append(("tags", test_case.tags or []))
-
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
-
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+    # Check if test should be skipped or has setup failures
+    check_and_skip_test(test_case, request, shared_test_infrastructure)
 
     tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
@@ -167,43 +153,15 @@ def test_investigate(
                     # Log duration directly to eval_span
                     eval_span.log(metadata={"holmes_duration": holmes_duration})
     except Exception as e:
-        # Log error to span if available
-        try:
-            if "eval_span" in locals():
-                log_to_braintrust(
-                    eval_span=eval_span,
-                    test_case=test_case,
-                    model=model,
-                    result=result,
-                    error=e,
-                    mock_generation_config=mock_generation_config,
-                )
-        except Exception:
-            pass  # Don't fail the test due to logging issues
-
-        # Store error information in user_properties for reporting
-        error_type = type(e).__name__
-        error_message = str(e)
-        request.node.user_properties.append(("error_type", error_type))
-        request.node.user_properties.append(("error_message", error_message))
-
-        # Store partial result if available
-        if result and hasattr(result, "analysis"):
-            request.node.user_properties.append(
-                ("partial_output", result.analysis or "")
-            )
-
-        # Check if this is a MockDataError
-        is_mock_error = "MockDataError" in error_type or any(
-            "MockData" in base.__name__ for base in type(e).__mro__
+        handle_test_error(
+            request=request,
+            error=e,
+            eval_span=eval_span if "eval_span" in locals() else None,
+            test_case=test_case,
+            model=model,
+            result=result,
+            mock_generation_config=mock_generation_config,
         )
-
-        if is_mock_error:
-            # Update properties for mock error (would need to import update_mock_error)
-            from tests.llm.utils.property_manager import update_mock_error
-
-            update_mock_error(request, e)
-
         raise
 
     assert result, "No result returned by investigate_issues()"
@@ -212,20 +170,12 @@ def test_investigate(
 
     scores = {}
 
-    debug_expected = "\n-  ".join(expected)
-
-    print(f"\n🧪 TEST: {test_case.id}")
-    print(f"   • Model: {model}")
-    print(f"** EXPECTED **\n-  {debug_expected}")
     correctness_eval = evaluate_correctness(
         output=output,
         expected_elements=expected,
         parent_span=eval_span,
         caplog=caplog,
         evaluation_type="strict",
-    )
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
     )
     scores["correctness"] = correctness_eval.score
 
@@ -249,12 +199,7 @@ def test_investigate(
             mock_generation_config=mock_generation_config,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
-    print(f"\n** TOOLS CALLED **\n{tools_called}")
-    print(f"\n** OUTPUT **\n{output}")
-    print(f"\n** SCORES **\n{scores}")
 
-    # Store data for summary plugin
-    # Update test results (including cost tracking)
     update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"

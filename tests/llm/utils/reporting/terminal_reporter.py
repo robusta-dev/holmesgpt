@@ -883,12 +883,6 @@ def _print_model_comparison_table(sorted_results: List[dict], console: Console) 
 
     console.print(comparison_table)
 
-    # Print summary
-    total_tests = len(stats.test_cases)
-    console.print(
-        f"\n[dim]Compared {len(stats.models)} models across {total_tests} test cases[/dim]"
-    )
-
     # Find best performing model(s)
     best_models = []
     best_pass_pct = 0.0
@@ -1014,11 +1008,6 @@ def _print_tag_performance_table(sorted_results: List[dict], console: Console) -
     tag_table.add_row(*overall_row)
 
     console.print(tag_table)
-
-    # Print summary
-    console.print(
-        f"\n[dim]Tag performance across {len(tags)} tags and {len(stats.models)} models[/dim]"
-    )
 
 
 def _print_model_comparison_if_multiple(

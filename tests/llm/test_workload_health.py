@@ -1,5 +1,4 @@
 # type: ignore
-import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -21,8 +20,13 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     HealthCheckTestCase,
     check_and_skip_test,
+    get_models,
 )
-from tests.llm.utils.property_manager import set_initial_properties, update_test_results
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    update_test_results,
+    handle_test_error,
+)
 from os import path
 from unittest.mock import patch
 
@@ -63,11 +67,6 @@ def get_workload_health_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
-def get_models() -> list[str]:
-    """Get list of models to test from MODELS env var (comma-separated)."""
-    models_str = os.environ.get("MODELS", "gpt-4o")
-    return [m.strip() for m in models_str.split(",") if m.strip()]
-
 @pytest.mark.llm
 @pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_workload_health_test_cases())
@@ -80,21 +79,10 @@ def test_health_check(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
+    set_initial_properties(request, test_case, model)
 
-    # Add model to user properties for reporting
-    request.node.user_properties.append(("model", model))
-    # Add clean test case ID (without model suffix)
-    request.node.user_properties.append(("clean_test_case_id", test_case.id))
-
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
-
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+    # Check if test should be skipped or has setup failures
+    check_and_skip_test(test_case, request, shared_test_infrastructure)
 
     tracer = TracingFactory.create_tracer("braintrust")
     metadata = {"model": model}
@@ -113,6 +101,7 @@ def test_health_check(
     input = test_case.workload_health_request
     expected = test_case.expected_output
 
+    result = None
     with tracer.start_trace(
         name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
     ) as eval_span:
@@ -126,61 +115,75 @@ def test_health_check(
                 ("braintrust_root_span_id", str(eval_span.root_span_id))
             )
 
-        with patch.multiple("server", dal=mock_dal, config=config):
-            # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
-            with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
-                start_time = time.time()
-                result = workload_health_check(request=input)
-                holmes_duration = time.time() - start_time
-                eval_span.log(metadata={"Holmes Duration": holmes_duration})
+        try:
+            with patch.multiple("server", dal=mock_dal, config=config):
+                # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
+                with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
+                    start_time = time.time()
+                    result = workload_health_check(request=input)
+                    holmes_duration = time.time() - start_time
+                    eval_span.log(metadata={"Holmes Duration": holmes_duration})
 
-        assert result, "No result returned by workload_health_check()"
-        # check that analysis is json parsable otherwise failed.
-        print(f"\n🧪 TEST: {test_case.id}")
-        print(f"   • Model: {model}")
-        print(f"** ANALYSIS **\n-  {result.analysis}")
-        json.loads(result.analysis)
-        output = result.analysis
+            assert result, "No result returned by workload_health_check()"
 
-        debug_expected = "\n-  ".join(expected)
+            # check that analysis is json parsable otherwise failed.
+            print(f"\n🧪 TEST: {test_case.id}")
+            print(f"   • Model: {model}")
+            print(f"** ANALYSIS **\n-  {result.analysis}")
+            json.loads(result.analysis)
+            output = result.analysis
 
-        print(f"** EXPECTED **\n-  {debug_expected}")
-        correctness_eval = evaluate_correctness(
-            output=output,
-            expected_elements=expected,
-            parent_span=eval_span,
-            caplog=caplog,
-            evaluation_type="strict",
-        )
-        print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-        )
-        scores = {}
-        scores["correctness"] = correctness_eval.score
+            debug_expected = "\n-  ".join(expected)
 
-        # Log evaluation results directly to the span
-        if eval_span:
-            # Prepare tags with model
-            tags = (test_case.tags or []).copy()
-            tags.append(f"model:{model}")
-
-            eval_span.log(
-                input=input,
-                output=output or "",
-                expected=str(expected),
-                dataset_record_id=test_case.id,
-                scores=scores,
-                metadata={"model": model},
-                tags=tags,
+            print(f"** EXPECTED **\n-  {debug_expected}")
+            correctness_eval = evaluate_correctness(
+                output=output,
+                expected_elements=expected,
+                parent_span=eval_span,
+                caplog=caplog,
+                evaluation_type="strict",
             )
+            print(
+                f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
+            )
+            scores = {}
+            scores["correctness"] = correctness_eval.score
 
-        tools_called = [t.tool_name for t in result.tool_calls]
-        print(f"\n** TOOLS CALLED **\n{tools_called}")
-        print(f"\n** OUTPUT **\n{output}")
-        print(f"\n** SCORES **\n{scores}")
+            # Log evaluation results directly to the span
+            if eval_span:
+                # Prepare tags with model
+                tags = (test_case.tags or []).copy()
+                tags.append(f"model:{model}")
 
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+                eval_span.log(
+                    input=input,
+                    output=output or "",
+                    expected=str(expected),
+                    dataset_record_id=test_case.id,
+                    scores=scores,
+                    metadata={"model": model},
+                    tags=tags,
+                )
+
+            tools_called = [t.tool_name for t in result.tool_calls]
+            print(f"\n** TOOLS CALLED **\n{tools_called}")
+            print(f"\n** OUTPUT **\n{output}")
+            print(f"\n** SCORES **\n{scores}")
+
+            # Update test results
+            update_test_results(request, output, tools_called, scores, result)
+
+        except Exception as e:
+            handle_test_error(
+                request=request,
+                error=e,
+                eval_span=eval_span,
+                test_case=test_case,
+                model=model,
+                result=result,
+                mock_generation_config=mock_generation_config,
+            )
+            raise
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness
