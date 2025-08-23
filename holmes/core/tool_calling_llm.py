@@ -47,6 +47,15 @@ from holmes.core.todo_manager import (
 cost_logger = logging.getLogger("holmes.costs")
 
 
+class LLMCosts(BaseModel):
+    """Tracks cost and token usage for LLM calls."""
+
+    total_cost: float = 0.0
+    total_tokens: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
 def _extract_cost_from_response(full_response) -> float:
     """Extract cost value from LLM response.
 
@@ -95,13 +104,13 @@ def _log_cost_info(full_response, log_prefix: str = "LLM call") -> None:
 
 
 def _extract_and_update_costs(
-    full_response, result: "LLMResult", log_prefix: str = "LLM call"
+    full_response, costs: LLMCosts, log_prefix: str = "LLM call"
 ) -> None:
-    """Extract cost and token information from LLM response and update result.
+    """Extract cost and token information from LLM response and update costs.
 
     Args:
         full_response: The raw LLM response object
-        result: The LLMResult to update with cost information
+        costs: The LLMCosts to update with cost information
         log_prefix: Prefix for logging messages (e.g., "LLM call", "Post-processing")
     """
     try:
@@ -116,15 +125,15 @@ def _extract_and_update_costs(
                 f"{log_prefix} cost: ${cost:.6f} | Tokens: {prompt_toks} prompt + {completion_toks} completion = {total_toks} total"
             )
             # Accumulate costs and tokens
-            result.total_cost += cost
-            result.prompt_tokens += prompt_toks
-            result.completion_tokens += completion_toks
-            result.total_tokens += total_toks
+            costs.total_cost += cost
+            costs.prompt_tokens += prompt_toks
+            costs.completion_tokens += completion_toks
+            costs.total_tokens += total_toks
         elif cost > 0:
             cost_logger.debug(
                 f"{log_prefix} cost: ${cost:.6f} | Token usage not available"
             )
-            result.total_cost += cost
+            costs.total_cost += cost
     except Exception as e:
         logging.debug(f"Could not extract cost information: {e}")
 
@@ -273,7 +282,7 @@ class ToolCallResult(BaseModel):
         }
 
 
-class LLMResult(BaseModel):
+class LLMResult(LLMCosts):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
@@ -282,10 +291,6 @@ class LLMResult(BaseModel):
         None  # somewhat redundant with messages, can likely be removed
     )
     messages: Optional[List[dict]] = None
-    total_cost: float = 0.0
-    total_tokens: int = 0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
 
 
 class ToolCallingLLM:
@@ -345,8 +350,9 @@ class ToolCallingLLM:
         tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        # Initialize result object that we'll populate throughout execution
-        result = LLMResult()
+        tool_calls: list[dict] = []
+        # Use LLMCosts object to accumulate costs
+        costs = LLMCosts()
 
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
@@ -389,7 +395,7 @@ class ToolCallingLLM:
                 logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                 # Extract and accumulate cost information
-                _extract_and_update_costs(full_response, result, "LLM call")
+                _extract_and_update_costs(full_response, costs, "LLM call")
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -451,20 +457,26 @@ class ToolCallingLLM:
                             user_prompt=post_process_prompt,
                         )
                     )
-                    result.total_cost += post_processing_cost
+                    costs.total_cost += post_processing_cost
 
                     perf_timing.end(f"- completed in {i} iterations -")
-                    result.result = post_processed_response
-                    result.unprocessed_result = raw_response
-                    result.prompt = json.dumps(messages, indent=2)
-                    result.messages = messages
-                    return result
+                    return LLMResult(
+                        result=post_processed_response,
+                        unprocessed_result=raw_response,
+                        tool_calls=tool_calls,  # type: ignore  # Pydantic converts dicts to ToolCallResult
+                        prompt=json.dumps(messages, indent=2),
+                        messages=messages,
+                        **costs.model_dump(),  # Include all cost fields
+                    )
 
                 perf_timing.end(f"- completed in {i} iterations -")
-                result.result = text_response
-                result.prompt = json.dumps(messages, indent=2)
-                result.messages = messages
-                return result
+                return LLMResult(
+                    result=text_response,
+                    tool_calls=tool_calls,  # type: ignore  # Pydantic converts dicts to ToolCallResult
+                    prompt=json.dumps(messages, indent=2),
+                    messages=messages,
+                    **costs.model_dump(),  # Include all cost fields
+                )
 
             if text_response and text_response.strip():
                 logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
@@ -480,7 +492,7 @@ class ToolCallingLLM:
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,
-                            previous_tool_calls=result.tool_calls or [],
+                            previous_tool_calls=tool_calls,
                             trace_span=trace_span,
                             tool_number=tool_number_offset + tool_index,
                         )
@@ -489,9 +501,7 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    if result.tool_calls is None:
-                        result.tool_calls = []
-                    result.tool_calls.append(tool_call_result)
+                    tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
@@ -508,7 +518,7 @@ class ToolCallingLLM:
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
-        previous_tool_calls: List[ToolCallResult],
+        previous_tool_calls: list[dict],
         trace_span=DummySpan(),
         tool_number=None,
     ) -> ToolCallResult:
@@ -565,15 +575,10 @@ class ToolCallingLLM:
         tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
-            # Convert ToolCallResult objects to dicts for safeguard checking
-            tool_calls_as_dicts = [
-                tc.as_tool_result_response() if isinstance(tc, ToolCallResult) else tc
-                for tc in previous_tool_calls
-            ]
             tool_response = prevent_overly_repeated_tool_call(
                 tool_name=tool.name,
                 tool_params=tool_params,
-                tool_calls=tool_calls_as_dicts,
+                tool_calls=previous_tool_calls,
             )
             if not tool_response:
                 tool_response = tool.invoke(tool_params, tool_number=tool_number)
@@ -704,7 +709,7 @@ class ToolCallingLLM:
         if msgs:
             messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: List[ToolCallResult] = []
+        tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
@@ -820,7 +825,7 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_calls.append(tool_call_result)
+                    tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
