@@ -200,7 +200,7 @@ def test_investigate(
         )
         raise
 
-    tools_called = [t.tool_name for t in result.tool_calls]
+    tools_called = [t.tool_name for t in result.tool_calls] if result.tool_calls else []
     update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"

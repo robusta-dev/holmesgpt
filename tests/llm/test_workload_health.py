@@ -165,7 +165,9 @@ def test_health_check(
                     tags=tags,
                 )
 
-            tools_called = [t.tool_name for t in result.tool_calls]
+            tools_called = (
+                [t.tool_name for t in result.tool_calls] if result.tool_calls else []
+            )
             print(f"\n** TOOLS CALLED **\n{tools_called}")
             print(f"\n** OUTPUT **\n{output}")
             print(f"\n** SCORES **\n{scores}")
