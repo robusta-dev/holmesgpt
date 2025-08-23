@@ -425,7 +425,7 @@ holmes:
   image:
     repository: your-registry/holmes-custom
     tag: latest
-  customToolsets:
+  custom_toolsets:
     # Your custom toolset configuration
 ```
 
