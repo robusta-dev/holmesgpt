@@ -10,7 +10,7 @@ from openai import BadRequestError
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rich.console import Console
 
 from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
@@ -148,7 +148,9 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: StructuredToolResult
-    size: Optional[int] = None
+    size: Optional[int] = (
+        None  # TODO: currently unused - remove it? need to verify this doesn't break clients
+    )
 
     def as_tool_call_message(self):
         content = format_tool_result_data(self.result)
@@ -190,23 +192,18 @@ class ToolCallResult(BaseModel):
 
 
 class LLMResult(BaseModel):
-    tool_calls: Optional[List[ToolCallResult]] = None
+    tool_calls: Optional[List[dict]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
-    instructions: List[str] = []
-    # TODO: clean up these two
-    prompt: Optional[str] = None
+    instructions: List[str] = Field(default_factory=list)
+    prompt: Optional[str] = (
+        None  # somewhat redundant with messages, can likely be removed
+    )
     messages: Optional[List[dict]] = None
-    # Cost tracking
     total_cost: float = 0.0
     total_tokens: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
-
-    def get_tool_usage_summary(self):
-        return "AI used info from issue and " + ",".join(
-            [f"`{tool_call.description}`" for tool_call in self.tool_calls]
-        )
 
 
 class ToolCallingLLM:
@@ -266,18 +263,15 @@ class ToolCallingLLM:
         tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls = []  # type: ignore
+        # Initialize result object that we'll populate throughout execution
+        result = LLMResult()
+
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-        # Initialize cost tracking
-        total_cost = 0.0
-        total_tokens = 0
-        prompt_tokens_total = 0
-        completion_tokens_total = 0
 
         while i < max_steps:
             i += 1
@@ -287,12 +281,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
+            message_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
+            if (message_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -330,15 +324,15 @@ class ToolCallingLLM:
                             f"LLM call cost: ${cost:.6f} | Tokens: {prompt_toks} prompt + {completion_toks} completion = {total_toks} total"
                         )
                         # Accumulate costs
-                        total_cost += cost
-                        prompt_tokens_total += prompt_toks
-                        completion_tokens_total += completion_toks
-                        total_tokens += total_toks
+                        result.total_cost += cost
+                        result.prompt_tokens += prompt_toks
+                        result.completion_tokens += completion_toks
+                        result.total_tokens += total_toks
                     elif cost > 0:
                         cost_logger.debug(
                             f"LLM call cost: ${cost:.6f} | Token usage not available"
                         )
-                        total_cost += cost
+                        result.total_cost += cost
                 except Exception as e:
                     logging.debug(f"Could not extract cost information: {e}")
 
@@ -395,36 +389,27 @@ class ToolCallingLLM:
                 if post_process_prompt and user_prompt:
                     logging.info("Running post processing on investigation.")
                     raw_response = text_response
-                    post_processed_response = self._post_processing_call(
-                        prompt=user_prompt,
-                        investigation=raw_response,
-                        user_prompt=post_process_prompt,
+                    post_processed_response, post_processing_cost = (
+                        self._post_processing_call(
+                            prompt=user_prompt,
+                            investigation=raw_response,
+                            user_prompt=post_process_prompt,
+                        )
                     )
+                    result.total_cost += post_processing_cost
 
                     perf_timing.end(f"- completed in {i} iterations -")
-                    return LLMResult(
-                        result=post_processed_response,
-                        unprocessed_result=raw_response,
-                        tool_calls=tool_calls,
-                        prompt=json.dumps(messages, indent=2),
-                        messages=messages,
-                        total_cost=total_cost,
-                        total_tokens=total_tokens,
-                        prompt_tokens=prompt_tokens_total,
-                        completion_tokens=completion_tokens_total,
-                    )
+                    result.result = post_processed_response
+                    result.unprocessed_result = raw_response
+                    result.prompt = json.dumps(messages, indent=2)
+                    result.messages = messages
+                    return result
 
                 perf_timing.end(f"- completed in {i} iterations -")
-                return LLMResult(
-                    result=text_response,
-                    tool_calls=tool_calls,
-                    prompt=json.dumps(messages, indent=2),
-                    messages=messages,
-                    total_cost=total_cost,
-                    total_tokens=total_tokens,
-                    prompt_tokens=prompt_tokens_total,
-                    completion_tokens=completion_tokens_total,
-                )
+                result.result = text_response
+                result.prompt = json.dumps(messages, indent=2)
+                result.messages = messages
+                return result
 
             if text_response and text_response.strip():
                 logging.info(f"[bold {AI_COLOR}]AI:[/bold {AI_COLOR}] {text_response}")
@@ -440,7 +425,7 @@ class ToolCallingLLM:
                         executor.submit(
                             self._invoke_tool,
                             tool_to_call=t,
-                            previous_tool_calls=tool_calls,
+                            previous_tool_calls=result.tool_calls or [],
                             trace_span=trace_span,
                             tool_number=tool_number_offset + tool_index,
                         )
@@ -449,7 +434,9 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    if result.tool_calls is None:
+                        result.tool_calls = []
+                    result.tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
@@ -594,7 +581,7 @@ class ToolCallingLLM:
         investigation,
         user_prompt: Optional[str] = None,
         system_prompt: str = "You are an AI assistant summarizing Kubernetes issues.",
-    ) -> Optional[str]:
+    ) -> tuple[Optional[str], float]:
         try:
             user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(
                 prompt, investigation, user_prompt
@@ -615,6 +602,7 @@ class ToolCallingLLM:
             logging.debug(f"Post processing response {full_response}")
 
             # Log cost information for post-processing
+            post_processing_cost = 0.0
             try:
                 cost_value = (
                     full_response._hidden_params.get("response_cost", 0)
@@ -622,16 +610,20 @@ class ToolCallingLLM:
                     else 0
                 )
                 # Ensure cost is a float
-                cost = float(cost_value) if cost_value is not None else 0.0
-                if cost > 0:
-                    cost_logger.debug(f"Post-processing LLM cost: ${cost:.6f}")
+                post_processing_cost = (
+                    float(cost_value) if cost_value is not None else 0.0
+                )
+                if post_processing_cost > 0:
+                    cost_logger.debug(
+                        f"Post-processing LLM cost: ${post_processing_cost:.6f}"
+                    )
             except Exception:
                 pass  # Silent fail for cost logging
 
-            return full_response.choices[0].message.content  # type: ignore
+            return full_response.choices[0].message.content, post_processing_cost  # type: ignore
         except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
-            return investigation
+            return investigation, 0.0
 
     @sentry_sdk.trace
     def truncate_messages_to_fit_context(
@@ -681,12 +673,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            message_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
+            if (message_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
