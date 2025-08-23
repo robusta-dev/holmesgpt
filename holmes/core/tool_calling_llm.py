@@ -274,7 +274,7 @@ class ToolCallResult(BaseModel):
 
 
 class LLMResult(BaseModel):
-    tool_calls: Optional[List[dict]] = None
+    tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
     instructions: List[str] = Field(default_factory=list)
@@ -491,7 +491,7 @@ class ToolCallingLLM:
 
                     if result.tool_calls is None:
                         result.tool_calls = []
-                    result.tool_calls.append(tool_call_result.as_tool_result_response())
+                    result.tool_calls.append(tool_call_result)
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
@@ -508,7 +508,7 @@ class ToolCallingLLM:
     def _invoke_tool(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
-        previous_tool_calls: list[dict],
+        previous_tool_calls: List[ToolCallResult],
         trace_span=DummySpan(),
         tool_number=None,
     ) -> ToolCallResult:
@@ -565,10 +565,15 @@ class ToolCallingLLM:
         tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
+            # Convert ToolCallResult objects to dicts for safeguard checking
+            tool_calls_as_dicts = [
+                tc.as_tool_result_response() if isinstance(tc, ToolCallResult) else tc
+                for tc in previous_tool_calls
+            ]
             tool_response = prevent_overly_repeated_tool_call(
                 tool_name=tool.name,
                 tool_params=tool_params,
-                tool_calls=previous_tool_calls,
+                tool_calls=tool_calls_as_dicts,
             )
             if not tool_response:
                 tool_response = tool.invoke(tool_params, tool_number=tool_number)
@@ -699,7 +704,7 @@ class ToolCallingLLM:
         if msgs:
             messages.extend(msgs)
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: list[dict] = []
+        tool_calls: List[ToolCallResult] = []
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
@@ -815,7 +820,7 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    tool_calls.append(tool_call_result)
                     messages.append(tool_call_result.as_tool_call_message())
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")

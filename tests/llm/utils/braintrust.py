@@ -259,7 +259,7 @@ def log_to_braintrust(
     # Add tool usage metrics if available
     if result and getattr(result, "tool_calls", None):
         metadata["tool_call_count"] = len(result.tool_calls)
-        metadata["tools_used"] = list({tc["tool_name"] for tc in result.tool_calls})
+        metadata["tools_used"] = list({tc.tool_name for tc in result.tool_calls})
         # Note: holmes_duration is logged separately directly to eval_span in ask_holmes()
 
     # Add error information if present
