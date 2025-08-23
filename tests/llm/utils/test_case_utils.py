@@ -15,6 +15,12 @@ from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
 
 
+def get_models():
+    """Get list of models to test from MODEL env var (supports comma-separated list)."""
+    models_str = os.environ.get("MODEL", "gpt-4o")
+    return models_str.split(",")
+
+
 def read_file(file_path: Path):
     with open(file_path, "r", encoding="utf-8") as file:
         return file.read().strip()
@@ -101,14 +107,26 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     request: Any = None
 
 
-def check_and_skip_test(test_case: HolmesTestCase) -> None:
-    """Check if test should be skipped and raise pytest.skip if needed.
+def check_and_skip_test(
+    test_case: HolmesTestCase, request=None, shared_test_infrastructure=None
+) -> None:
+    """Check if test should be skipped or has setup failures, and raise appropriate pytest exceptions.
 
     Args:
         test_case: A HolmesTestCase or any of its subclasses
+        request: The pytest request object (optional, needed for setup failure tracking)
+        shared_test_infrastructure: Shared test infrastructure dict (optional, needed for setup failure checking)
     """
+    # Check if test should be skipped
     if test_case.skip:
         pytest.skip(test_case.skip_reason or "Test skipped")
+
+    # Check for setup failures if infrastructure is provided
+    if shared_test_infrastructure is not None and request is not None:
+        setup_failures = shared_test_infrastructure.get("setup_failures", {})
+        if test_case.id in setup_failures:
+            request.node.user_properties.append(("is_setup_failure", True))
+            pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
 
 
 class MockHelper:

@@ -11,7 +11,6 @@ from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
-from tests.llm.utils.test_helpers import truncate_output
 
 # Configuration
 MAX_ERROR_LINES = 10
@@ -30,9 +29,20 @@ def log(msg):
         logging.info(msg)
 
 
+def _truncate_output(data: str, max_lines: int = 10, label: str = "lines") -> str:
+    """Truncate output to max_lines for readability."""
+    lines = data.split("\n")
+    if len(lines) > max_lines:
+        preview_lines = lines[:max_lines]
+        remaining = len(lines) - max_lines
+        preview_lines.append(f"... [TRUNCATED: {remaining} more {label} not shown]")
+        return "\n".join(preview_lines)
+    return data
+
+
 def format_error_output(error_details: str) -> str:
     """Format error details with truncation if needed."""
-    return truncate_output(error_details, max_lines=MAX_ERROR_LINES)
+    return _truncate_output(error_details, max_lines=MAX_ERROR_LINES)
 
 
 class Operation(StrEnum):

@@ -23,12 +23,18 @@ from tests.llm.utils.mock_toolset import MockToolsetManager
 from tests.llm.utils.test_case_utils import (
     InvestigateTestCase,
     check_and_skip_test,
+    get_models,
 )
-from tests.llm.utils.property_manager import set_initial_properties, update_test_results
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    update_test_results,
+    handle_test_error,
+)
 from os import path
 from unittest.mock import patch
 
 from tests.llm.utils.iteration_utils import get_test_cases
+from tests.llm.utils.braintrust import log_to_braintrust
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -73,8 +79,10 @@ def get_investigate_test_cases():
 
 
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_investigate_test_cases())
 def test_investigate(
+    model: str,
     test_case: InvestigateTestCase,
     caplog,
     request,
@@ -82,21 +90,15 @@ def test_investigate(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
+    set_initial_properties(request, test_case, model)
 
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
-
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+    # Check if test should be skipped or has setup failures
+    check_and_skip_test(test_case, request, shared_test_infrastructure)
 
     tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
-    config.model = os.environ.get("MODEL", "gpt-4o")
-    metadata = {"model": config.model or "Unknown"}
+    config.model = model
+    metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
@@ -109,93 +111,97 @@ def test_investigate(
     input = test_case.investigate_request
     expected = test_case.expected_output
     result = None
+    output = None
+    scores = {}
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
 
-    with patch.dict(
-        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
-    ):
-        with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.EVAL
-        ) as eval_span:
-            # Store span info in user properties for conftest to access
-            if hasattr(eval_span, "id"):
-                request.node.user_properties.append(
-                    ("braintrust_span_id", str(eval_span.id))
-                )
-            if hasattr(eval_span, "root_span_id"):
-                request.node.user_properties.append(
-                    ("braintrust_root_span_id", str(eval_span.root_span_id))
-                )
-
-            with set_test_env_vars(test_case):
-                with eval_span.start_span(
-                    "Caching tools executor for create_issue_investigator",
-                    type=SpanType.TASK.value,
-                ):
-                    config.create_tool_executor(mock_dal)
-                with eval_span.start_span(
-                    "Holmes Run", type=SpanType.TASK.value
-                ) as holmes_span:
-                    start_time = time.time()
-                    result = investigate_issues(
-                        investigate_request=investigate_request,
-                        config=config,
-                        dal=mock_dal,
-                        trace_span=holmes_span,
+    try:
+        with patch.dict(
+            os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
+        ):
+            with tracer.start_trace(
+                name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
+            ) as eval_span:
+                # Store span info in user properties for conftest to access
+                if hasattr(eval_span, "id"):
+                    request.node.user_properties.append(
+                        ("braintrust_span_id", str(eval_span.id))
                     )
-                    holmes_duration = time.time() - start_time
-                eval_span.log(metadata={"Holmes Duration": holmes_duration})
-    assert result, "No result returned by investigate_issues()"
+                if hasattr(eval_span, "root_span_id"):
+                    request.node.user_properties.append(
+                        ("braintrust_root_span_id", str(eval_span.root_span_id))
+                    )
 
-    output = result.analysis
+                with set_test_env_vars(test_case):
+                    with eval_span.start_span(
+                        "Caching tools executor for create_issue_investigator",
+                        type=SpanType.TASK.value,
+                    ):
+                        config.create_tool_executor(mock_dal)
+                    with eval_span.start_span(
+                        "Holmes Run", type=SpanType.TASK.value
+                    ) as holmes_span:
+                        start_time = time.time()
+                        result = investigate_issues(
+                            investigate_request=investigate_request,
+                            config=config,
+                            dal=mock_dal,
+                            trace_span=holmes_span,
+                        )
+                        holmes_duration = time.time() - start_time
+                    # Log duration directly to eval_span
+                    eval_span.log(metadata={"holmes_duration": holmes_duration})
 
-    scores = {}
+                # Evaluate and log results inside the span context
+                assert result, "No result returned by investigate_issues()"
 
-    debug_expected = "\n-  ".join(expected)
+                output = result.analysis
 
-    print(f"** EXPECTED **\n-  {debug_expected}")
-    correctness_eval = evaluate_correctness(
-        output=output,
-        expected_elements=expected,
-        parent_span=eval_span,
-        caplog=caplog,
-        evaluation_type="strict",
-    )
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
-    scores["correctness"] = correctness_eval.score
+                correctness_eval = evaluate_correctness(
+                    output=output,
+                    expected_elements=expected,
+                    parent_span=eval_span,
+                    caplog=caplog,
+                    evaluation_type="strict",
+                )
+                scores["correctness"] = correctness_eval.score
 
-    if test_case.expected_sections:
-        sections = {
-            key: bool(value) for key, value in test_case.expected_sections.items()
-        }
-        sections_eval = evaluate_sections(
-            sections=sections, output=output, parent_span=eval_span
+                if test_case.expected_sections:
+                    sections = {
+                        key: bool(value)
+                        for key, value in test_case.expected_sections.items()
+                    }
+                    sections_eval = evaluate_sections(
+                        sections=sections, output=output, parent_span=eval_span
+                    )
+                    scores["sections"] = sections_eval.score
+
+                # Log evaluation results to the span
+                log_to_braintrust(
+                    eval_span=eval_span,
+                    test_case=test_case,
+                    model=model,
+                    result=result,
+                    scores=scores,
+                    mock_generation_config=mock_generation_config,
+                )
+    except Exception as e:
+        handle_test_error(
+            request=request,
+            error=e,
+            eval_span=eval_span if "eval_span" in locals() else None,
+            test_case=test_case,
+            model=model,
+            result=result,
+            mock_generation_config=mock_generation_config,
         )
-        scores["sections"] = sections_eval.score
+        raise
 
-    # Log evaluation results directly to the span
-    if eval_span:
-        eval_span.log(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            dataset_record_id=test_case.id,
-            scores=scores,
-            tags=test_case.tags,
-        )
-    tools_called = [t.tool_name for t in result.tool_calls]
-    print(f"\n** TOOLS CALLED **\n{tools_called}")
-    print(f"\n** OUTPUT **\n{output}")
-    print(f"\n** SCORES **\n{scores}")
-
-    # Store data for summary plugin
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+    tools_called = [t.tool_name for t in result.tool_calls] if result.tool_calls else []
+    update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"
     assert (
