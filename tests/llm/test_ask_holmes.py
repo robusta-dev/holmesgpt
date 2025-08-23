@@ -135,7 +135,7 @@ def test_ask_holmes(
     scores = update_test_results(
         request=request,
         output=output,
-        tools_called=[tc.description for tc in result.tool_calls]
+        tools_called=[tc["description"] for tc in result.tool_calls]
         if result.tool_calls
         else [],
         scores=None,  # Let it calculate

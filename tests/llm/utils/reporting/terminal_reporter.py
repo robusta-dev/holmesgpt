@@ -1132,8 +1132,9 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     summary_table.add_row(*separator_row, style="dim")
 
     # Add totals row
-    total_actual_runs = total_runs
-    total_pass_pct = _calculate_pass_percentage(total_pass, total_actual_runs)
+    # Calculate valid runs (exclude skipped and setup-failed runs)
+    total_valid_runs = total_runs - total_skip - total_setup_fail
+    total_pass_pct = _calculate_pass_percentage(total_pass, total_valid_runs)
 
     # Format total pass percentage with color (no emoji)
     # For totals, always show indicators if any failures exist
@@ -1177,11 +1178,11 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
 
         total_failures = total_fail + total_setup_fail + total_mock_fail
         console.print(
-            f"\n[bold red]FAIL[/bold red] {total_failures} out of {total_actual_runs} tests failed ({', '.join(failure_parts)})"
+            f"\n[bold red]FAIL[/bold red] {total_failures} out of {total_valid_runs} tests failed ({', '.join(failure_parts)})"
         )
     else:
         console.print(
-            f"\n[bold green]SUCCESS[/bold green] All {total_actual_runs} tests passed!"
+            f"\n[bold green]SUCCESS[/bold green] All {total_valid_runs} tests passed!"
         )
 
     # Print skip info if any

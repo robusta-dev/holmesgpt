@@ -257,15 +257,9 @@ def log_to_braintrust(
         metadata["has_custom_runbooks"] = True
 
     # Add tool usage metrics if available
-    if result:
-        if hasattr(result, "tool_calls") and result.tool_calls:
-            metadata["tool_call_count"] = len(result.tool_calls)
-            metadata["tools_used"] = list(
-                {
-                    tc.tool_name if hasattr(tc, "tool_name") else tc.description
-                    for tc in result.tool_calls
-                }
-            )
+    if result and getattr(result, "tool_calls", None):
+        metadata["tool_call_count"] = len(result.tool_calls)
+        metadata["tools_used"] = list({tc["tool_name"] for tc in result.tool_calls})
         # Note: holmes_duration is logged separately directly to eval_span in ask_holmes()
 
     # Add error information if present

@@ -111,6 +111,8 @@ def test_investigate(
     input = test_case.investigate_request
     expected = test_case.expected_output
     result = None
+    output = None
+    scores = {}
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
@@ -152,6 +154,40 @@ def test_investigate(
                         holmes_duration = time.time() - start_time
                     # Log duration directly to eval_span
                     eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+                # Evaluate and log results inside the span context
+                assert result, "No result returned by investigate_issues()"
+
+                output = result.analysis
+
+                correctness_eval = evaluate_correctness(
+                    output=output,
+                    expected_elements=expected,
+                    parent_span=eval_span,
+                    caplog=caplog,
+                    evaluation_type="strict",
+                )
+                scores["correctness"] = correctness_eval.score
+
+                if test_case.expected_sections:
+                    sections = {
+                        key: bool(value)
+                        for key, value in test_case.expected_sections.items()
+                    }
+                    sections_eval = evaluate_sections(
+                        sections=sections, output=output, parent_span=eval_span
+                    )
+                    scores["sections"] = sections_eval.score
+
+                # Log evaluation results to the span
+                log_to_braintrust(
+                    eval_span=eval_span,
+                    test_case=test_case,
+                    model=model,
+                    result=result,
+                    scores=scores,
+                    mock_generation_config=mock_generation_config,
+                )
     except Exception as e:
         handle_test_error(
             request=request,
@@ -164,42 +200,7 @@ def test_investigate(
         )
         raise
 
-    assert result, "No result returned by investigate_issues()"
-
-    output = result.analysis
-
-    scores = {}
-
-    correctness_eval = evaluate_correctness(
-        output=output,
-        expected_elements=expected,
-        parent_span=eval_span,
-        caplog=caplog,
-        evaluation_type="strict",
-    )
-    scores["correctness"] = correctness_eval.score
-
-    if test_case.expected_sections:
-        sections = {
-            key: bool(value) for key, value in test_case.expected_sections.items()
-        }
-        sections_eval = evaluate_sections(
-            sections=sections, output=output, parent_span=eval_span
-        )
-        scores["sections"] = sections_eval.score
-
-    # Log evaluation results directly to the span
-    if eval_span:
-        log_to_braintrust(
-            eval_span=eval_span,
-            test_case=test_case,
-            model=model,
-            result=result,
-            scores=scores,
-            mock_generation_config=mock_generation_config,
-        )
-    tools_called = [t.tool_name for t in result.tool_calls]
-
+    tools_called = [t["tool_name"] for t in result.tool_calls]
     update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"

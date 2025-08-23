@@ -1,4 +1,3 @@
-import logging
 from typing import List, Any, Union, Optional, Dict
 from tests.llm.utils.test_case_utils import Evaluation, HolmesTestCase  # type: ignore[attr-defined]
 
@@ -141,23 +140,14 @@ def update_test_results(
     if not result:
         return scores
 
-    # Check for cost tracking in LLMResult (from ask_holmes tests)
-    if hasattr(result, "total_cost") and result.total_cost > 0:
-        test_case_id = None
-        model = None
-        # Extract test_case_id and model from user_properties
-        for key, value in request.node.user_properties:
-            if key == "clean_test_case_id":
-                test_case_id = value
-            elif key == "model":
-                model = value
-
-        if test_case_id and model:
-            logging.info(
-                f"Test {test_case_id} with {model} - Total cost: ${result.total_cost:.6f}, Total tokens: {result.total_tokens if hasattr(result, 'total_tokens') else 'N/A'}"
-            )
-
-        request.node.user_properties.append(("cost", result.total_cost))
+    # Track cost and token usage from LLMResult
+    # Tokens are useful even when cost is 0 (e.g., local or free-tier runs)
+    # Record token counts when present regardless of total_cost
+    if hasattr(result, "total_cost") or hasattr(result, "total_tokens"):
+        # Always record cost if present (even if 0)
+        if hasattr(result, "total_cost"):
+            request.node.user_properties.append(("cost", result.total_cost))
+        # Always record tokens if present
         if hasattr(result, "total_tokens"):
             request.node.user_properties.append(("total_tokens", result.total_tokens))
         if hasattr(result, "prompt_tokens"):
