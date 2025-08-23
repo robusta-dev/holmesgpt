@@ -77,40 +77,16 @@ def _extract_cost_from_response(full_response) -> float:
         return 0.0
 
 
-def _log_cost_info(full_response, log_prefix: str = "LLM call") -> None:
-    """Log cost and token information from LLM response.
-
-    Args:
-        full_response: The raw LLM response object
-        log_prefix: Prefix for logging messages
-    """
-    try:
-        cost = _extract_cost_from_response(full_response)
-        usage = getattr(full_response, "usage", {})
-
-        if usage:
-            prompt_toks = usage.get("prompt_tokens", 0)
-            completion_toks = usage.get("completion_tokens", 0)
-            total_toks = usage.get("total_tokens", 0)
-            cost_logger.debug(
-                f"{log_prefix} cost: ${cost:.6f} | Tokens: {prompt_toks} prompt + {completion_toks} completion = {total_toks} total"
-            )
-        elif cost > 0:
-            cost_logger.debug(
-                f"{log_prefix} cost: ${cost:.6f} | Token usage not available"
-            )
-    except Exception as e:
-        logging.debug(f"Could not extract cost information: {e}")
-
-
-def _extract_and_update_costs(
-    full_response, costs: LLMCosts, log_prefix: str = "LLM call"
+def _process_cost_info(
+    full_response, costs: Optional[LLMCosts] = None, log_prefix: str = "LLM call"
 ) -> None:
-    """Extract cost and token information from LLM response and update costs.
+    """Process cost and token information from LLM response.
+
+    Logs the cost information and optionally accumulates it into a costs object.
 
     Args:
         full_response: The raw LLM response object
-        costs: The LLMCosts to update with cost information
+        costs: Optional LLMCosts object to accumulate costs into
         log_prefix: Prefix for logging messages (e.g., "LLM call", "Post-processing")
     """
     try:
@@ -124,16 +100,18 @@ def _extract_and_update_costs(
             cost_logger.debug(
                 f"{log_prefix} cost: ${cost:.6f} | Tokens: {prompt_toks} prompt + {completion_toks} completion = {total_toks} total"
             )
-            # Accumulate costs and tokens
-            costs.total_cost += cost
-            costs.prompt_tokens += prompt_toks
-            costs.completion_tokens += completion_toks
-            costs.total_tokens += total_toks
+            # Accumulate costs and tokens if costs object provided
+            if costs:
+                costs.total_cost += cost
+                costs.prompt_tokens += prompt_toks
+                costs.completion_tokens += completion_toks
+                costs.total_tokens += total_toks
         elif cost > 0:
             cost_logger.debug(
                 f"{log_prefix} cost: ${cost:.6f} | Token usage not available"
             )
-            costs.total_cost += cost
+            if costs:
+                costs.total_cost += cost
     except Exception as e:
         logging.debug(f"Could not extract cost information: {e}")
 
@@ -239,9 +217,7 @@ class ToolCallResult(BaseModel):
     tool_name: str
     description: str
     result: StructuredToolResult
-    size: Optional[int] = (
-        None  # TODO: currently unused - remove it? need to verify this doesn't break clients
-    )
+    size: Optional[int] = None
 
     def as_tool_call_message(self):
         content = format_tool_result_data(self.result)
@@ -287,10 +263,14 @@ class LLMResult(LLMCosts):
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
     instructions: List[str] = Field(default_factory=list)
-    prompt: Optional[str] = (
-        None  # somewhat redundant with messages, can likely be removed
-    )
+    # TODO: clean up these two
+    prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
+
+    def get_tool_usage_summary(self):
+        return "AI used info from issue and " + ",".join(
+            [f"`{tool_call.description}`" for tool_call in self.tool_calls]
+        )
 
 
 class ToolCallingLLM:
@@ -350,8 +330,7 @@ class ToolCallingLLM:
         tool_number_offset: int = 0,
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls: list[dict] = []
-        # Use LLMCosts object to accumulate costs
+        tool_calls = []  # type: ignore
         costs = LLMCosts()
 
         tools = self.tool_executor.get_all_tools_openai_format(
@@ -369,12 +348,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            message_tokens = self.llm.count_tokens_for_message(messages)
+            total_tokens = self.llm.count_tokens_for_message(messages)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (message_tokens + maximum_output_token) > max_context_size:
+            if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -395,7 +374,7 @@ class ToolCallingLLM:
                 logging.debug(f"got response {full_response.to_json()}")  # type: ignore
 
                 # Extract and accumulate cost information
-                _extract_and_update_costs(full_response, costs, "LLM call")
+                _process_cost_info(full_response, costs, "LLM call")
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -463,7 +442,7 @@ class ToolCallingLLM:
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
-                        tool_calls=tool_calls,  # type: ignore  # Pydantic converts dicts to ToolCallResult
+                        tool_calls=tool_calls,
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                         **costs.model_dump(),  # Include all cost fields
@@ -472,7 +451,7 @@ class ToolCallingLLM:
                 perf_timing.end(f"- completed in {i} iterations -")
                 return LLMResult(
                     result=text_response,
-                    tool_calls=tool_calls,  # type: ignore  # Pydantic converts dicts to ToolCallResult
+                    tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                     **costs.model_dump(),  # Include all cost fields
@@ -726,12 +705,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            message_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (message_tokens + maximum_output_token) > max_context_size:
+            if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 messages = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -751,7 +730,7 @@ class ToolCallingLLM:
                 )
 
                 # Log cost information for this iteration (no accumulation in streaming)
-                _log_cost_info(full_response, "LLM iteration")
+                _process_cost_info(full_response, log_prefix="LLM iteration")
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
