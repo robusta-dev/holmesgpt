@@ -63,11 +63,10 @@ def get_workload_health_test_cases():
     return get_test_cases(TEST_CASES_FOLDER)
 
 
-def get_models():
-    """Get list of models to test from MODELS env var."""
+def get_models() -> list[str]:
+    """Get list of models to test from MODELS env var (comma-separated)."""
     models_str = os.environ.get("MODELS", "gpt-4o")
-    return models_str.split(",")
-
+    return [m.strip() for m in models_str.split(",") if m.strip()]
 
 @pytest.mark.llm
 @pytest.mark.parametrize("model", get_models())
