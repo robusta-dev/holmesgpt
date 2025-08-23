@@ -3,22 +3,16 @@ checks:
     description: "Check if deployment has ready replicas"
     query: "Does the deployment 'test-app' in namespace 'app-03' have at least 2 ready replicas?"
     tags: ["kubernetes", "deployment"]
-    repeat: 1
-    failure_threshold: 0
 
   - name: "Service Exists"
     description: "Check if service exists"
     query: "Is there a service named 'test-app-service' in namespace 'app-03'?"
     tags: ["kubernetes", "service"]
-    repeat: 1
-    failure_threshold: 0
 
   - name: "No Pod Errors"
     description: "Check for pod errors"
     query: "Are there any pods in namespace 'app-03' that are in Error or CrashLoopBackOff state?"
     tags: ["kubernetes", "errors"]
-    repeat: 1
-    failure_threshold: 0
 
 expected_results:
   "Deployment Ready": "pass"

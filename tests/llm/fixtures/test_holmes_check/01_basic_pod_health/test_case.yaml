@@ -3,8 +3,6 @@ checks:
     description: "Check if nginx pod is running"
     query: "Is there a pod named 'nginx' in the default namespace that is in Running state?"
     tags: ["kubernetes", "easy"]
-    repeat: 1
-    failure_threshold: 0
 
 expected_results:
   "Pod Running Check": "pass"

@@ -1031,7 +1031,7 @@ def check(
     """
     Run health checks and optionally send alerts
     """
-    from holmes.check import CheckMode, run_check_command
+    from holmes.checks import CheckMode, run_check_command
     import tempfile
     import yaml
 

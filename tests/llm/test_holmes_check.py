@@ -10,7 +10,7 @@ import tempfile
 from rich.console import Console
 from holmes.core.tracing import TracingFactory
 from holmes.config import Config
-from holmes.check import (
+from holmes.checks import (
     CheckRunner,
     CheckMode,
     load_checks_config,

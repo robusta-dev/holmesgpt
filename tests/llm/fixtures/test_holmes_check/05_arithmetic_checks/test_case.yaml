@@ -11,22 +11,16 @@ checks:
     description: "Simple arithmetic check"
     query: "Does 2 + 2 equal 4?"
     tags: ["math", "simple"]
-    repeat: 1
-    failure_threshold: 0
 
   - name: "Wrong Math Check"
     description: "Intentionally wrong arithmetic"
     query: "Does 3 + 3 equal 7?"
     tags: ["math", "wrong"]
-    repeat: 1
-    failure_threshold: 0
 
   - name: "Multiplication Check"
     description: "Check multiplication"
     query: "Is 6 times 7 equal to 42?"
     tags: ["math", "multiplication"]
-    repeat: 1
-    failure_threshold: 0
 
 expected_results:
   "Basic Math Check": "pass"

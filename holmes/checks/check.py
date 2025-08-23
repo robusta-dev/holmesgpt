@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+from jinja2 import Template
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.table import Table
@@ -195,64 +196,15 @@ class CheckRunner:
             }
 
             try:
-                # Build messages for the check query
+                # Load and render the system prompt template
                 current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
 
-                system_message = f"""You are a health check system. Evaluate ONLY what the check specifically asks about.
+                # Load template from file
+                template_path = Path(__file__).parent / "check_system_prompt.jinja2"
+                with open(template_path, "r") as f:
+                    template = Template(f.read())
 
-                    Current date and time: {current_time}
-
-                    INVESTIGATION APPROACH:
-                    1. Use tools to gather data about the check condition
-                    2. If initial data is incomplete, try alternative approaches
-                    3. Only conclude "cannot verify" after trying at least 3 different approaches
-
-                    RESPONSE FORMAT:
-                    1. First, in 'rationale': Explain what you found and whether it indicates a problem
-                    2. Then, in 'passed': Set true if healthy/no problem, false if unhealthy/problem found
-
-                    FUNDAMENTAL PRINCIPLE:
-                    Health checks detect problems. The check PASSES when NO PROBLEM is found.
-                    - "Has error rate exceeded 100?" → If rate is 33, NO PROBLEM → PASS
-                    - "Is memory above 90%?" → If memory is 78%, NO PROBLEM → PASS
-                    - The check is asking "Is there a problem?" Answer: No → PASS
-
-                    STRICT EVALUATION RULES:
-                    1. Focus ONLY on what the check asks - ignore unrelated issues
-                    2. If checking current state, ignore historical problems unless specifically asked
-                    3. Understand the INTENT - checks are looking for problems:
-                       - "Has error rate exceeded 100?" → Checking if errors are too high
-                       - "Is memory above 90%?" → Checking if memory usage is problematic
-                       - "Are pods running?" → Checking if pods are healthy
-                    4. Return PASS when the specific condition checked is healthy/acceptable
-                    5. Return FAIL only when:
-                       - The specific problem being checked for IS present
-                       - You cannot evaluate due to missing data/resources
-
-                    Examples:
-                    - Check: "Has error rate exceeded 100?" Finding: 33 errors/min → PASS (no problem, rate is acceptable)
-                    - Check: "Is memory above 90%?" Finding: 78% with past OOMKills → PASS (current memory is acceptable)
-                    - Check: "Are pods running?" Finding: Pods running but restarted before → PASS (currently running)
-                    - Check: "Are pods running?" Finding: No pods exist → FAIL (cannot verify, problem detected)
-
-                    ENSURE CONSISTENCY:
-                    Your rationale and passed value must align:
-                    - If rationale says "below threshold" for a max limit → passed=true
-                    - If rationale says "above threshold" for a max limit → passed=false
-                    - If rationale says "cannot verify" → passed=false
-                    - Your final sentence should match your decision
-
-                    Remember: Evaluate what IS asked, not what COULD be asked.
-
-                    Examples of when to FAIL:
-                    - Namespace doesn't exist when checking pods in that namespace
-                    - Cannot retrieve metrics when checking thresholds
-                    - Pods don't exist when checking if pods are healthy
-                    - Parse errors when checking resource limits
-                    - Connection refused when checking services
-                    - When thresholds ARE exceeded (e.g., error rate > limit)
-
-                    The principle: If you cannot verify it's healthy, it's not healthy."""
+                system_message = template.render(current_time=current_time)
 
                 messages = [
                     {"role": "system", "content": system_message},

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
-from holmes.check import (
+from holmes.checks import (
     Check,
     CheckMode,
     CheckResponse,
@@ -27,9 +27,6 @@ def sample_checks_config():
         "defaults": {
             "timeout": 30,
             "mode": "alert",
-            "repeat": 3,
-            "repeat_delay": 5,
-            "failure_threshold": 1,
         },
         "destinations": {
             "slack": {
@@ -51,8 +48,6 @@ def sample_checks_config():
                 "tags": ["test", "monitoring"],
                 "query": "Are all services running?",
                 "mode": "monitor",
-                "repeat": 5,
-                "failure_threshold": 2,
             },
         ],
     }
@@ -79,9 +74,6 @@ def test_load_checks_config(temp_checks_file):
     assert len(config.checks) == 2
     assert config.checks[0].name == "Test Check 1"
     assert config.checks[0].mode == CheckMode.ALERT
-    assert config.checks[0].repeat == 3  # From defaults
-    assert config.checks[1].repeat == 5  # Override
-    assert config.checks[1].failure_threshold == 2  # Override
 
 
 def test_check_model():
@@ -91,14 +83,10 @@ def test_check_model():
         query="Is the service healthy?",
         tags=["test"],
         mode=CheckMode.MONITOR,
-        repeat=5,
-        failure_threshold=2,
     )
 
     assert check.name == "Test Check"
     assert check.mode == CheckMode.MONITOR
-    assert check.repeat == 5
-    assert check.failure_threshold == 2
     assert check.timeout == 30  # Default
 
 
@@ -108,15 +96,11 @@ def test_check_result():
         check_name="Test Check",
         status=CheckStatus.PASS,
         message="Check passed",
-        attempts=[True, True, False],
-        rationales=["Good", "Good", "Bad"],
         duration=5.5,
     )
 
     assert result.check_name == "Test Check"
     assert result.status == CheckStatus.PASS
-    assert len(result.attempts) == 3
-    assert len(result.rationales) == 3
     assert result.duration == 5.5
 
 
@@ -154,9 +138,6 @@ def test_check_runner_single_check_pass():
     check = Check(
         name="Test Check",
         query="Is everything healthy?",
-        repeat=3,
-        failure_threshold=1,
-        repeat_delay=0,  # No delay for tests
     )
 
     result = runner.run_single_check(check)
@@ -164,9 +145,6 @@ def test_check_runner_single_check_pass():
     assert result.status == CheckStatus.PASS
     assert "Check passed" in result.message
     assert "Everything is healthy and operational" in result.message
-    assert len(result.attempts) == 3
-    assert all(result.attempts)  # All attempts should pass
-    assert len(result.rationales) == 3
 
 
 def test_check_runner_single_check_fail():
@@ -190,9 +168,6 @@ def test_check_runner_single_check_fail():
     check = Check(
         name="Test Check",
         query="Is everything healthy?",
-        repeat=3,
-        failure_threshold=1,
-        repeat_delay=0,  # No delay for tests
     )
 
     result = runner.run_single_check(check)
@@ -200,46 +175,6 @@ def test_check_runner_single_check_fail():
     assert result.status == CheckStatus.FAIL
     assert "Check failed" in result.message
     assert "Critical errors detected" in result.message
-    assert len(result.attempts) == 3
-    assert not any(result.attempts)  # All attempts should fail
-    assert len(result.rationales) == 3
-
-
-def test_check_runner_with_failure_threshold():
-    """Test check with failure threshold allowing some failures."""
-    config = MagicMock(spec=Config)
-    config.get_runbook_catalog.return_value = []
-    console = MagicMock()
-
-    # Mock AI to return mixed results with structured JSON
-    mock_ai = MagicMock()
-    mock_ai.tool_executor = MagicMock()
-    responses = [
-        '{"passed": true, "rationale": "System is healthy"}',
-        '{"passed": false, "rationale": "Error detected"}',
-        '{"passed": true, "rationale": "System is operational"}',
-        '{"passed": true, "rationale": "All good"}',
-        '{"passed": false, "rationale": "Problem found"}',
-    ]
-    mock_ai.call.side_effect = [MagicMock(result=r) for r in responses]
-
-    runner = CheckRunner(config, console, CheckMode.MONITOR, verbose=False)
-    runner.ai = mock_ai  # Directly set the AI instance
-
-    check = Check(
-        name="Test Check",
-        query="Is everything healthy?",
-        repeat=5,
-        failure_threshold=2,  # Allow up to 2 failures
-        repeat_delay=0,  # No delay for tests
-    )
-
-    result = runner.run_single_check(check)
-
-    # 3 pass, 2 fail - should pass overall with threshold of 2
-    assert result.status == CheckStatus.PASS
-    assert len(result.attempts) == 5
-    assert len(result.rationales) == 5
 
 
 def test_check_runner_filters():
@@ -303,7 +238,6 @@ def test_check_runner_alert_sending():
             check_name="Test Check",
             status=CheckStatus.FAIL,
             message="Check failed",
-            attempts=[False, False, False],
         )
 
         runner._send_alerts(check, result)

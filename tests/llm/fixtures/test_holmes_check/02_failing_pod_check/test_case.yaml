@@ -3,8 +3,6 @@ checks:
     description: "Check if pod is healthy (it's not - it's crashing)"
     query: "Is the pod named 'crash-pod' in the default namespace healthy and running without errors?"
     tags: ["kubernetes", "failure"]
-    repeat: 1
-    failure_threshold: 0
 
 expected_results:
   "CrashLooping Pod Check": "fail"
