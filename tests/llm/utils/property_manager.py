@@ -50,9 +50,21 @@ def update_property(request, key: str, value: Any) -> None:
 
 
 def update_test_results(
-    request, output: str, tools_called: Union[List[str], str], scores: dict
+    request,
+    output: str,
+    tools_called: Union[List[str], str],
+    scores: dict,
+    result: Any = None,
 ) -> None:
-    """Update test result properties after test execution."""
+    """Update test result properties after test execution.
+
+    Args:
+        request: The pytest request object
+        output: The test output string
+        tools_called: List of tools called or a string description
+        scores: Dictionary of scores (e.g., correctness)
+        result: Optional result object (LLMResult or InvestigationResult) containing cost info
+    """
     update_property(request, "actual", output or "")
     update_property(
         request,
@@ -60,6 +72,40 @@ def update_test_results(
         tools_called if isinstance(tools_called, list) else [str(tools_called)],
     )
     update_property(request, "actual_correctness_score", scores.get("correctness", 0))
+
+    # Log test cost information and add to user properties if available
+    if result:
+        import logging
+
+        # Check for cost tracking in LLMResult (from ask_holmes tests)
+        if hasattr(result, "total_cost") and result.total_cost > 0:
+            test_case_id = None
+            model = None
+            # Extract test_case_id and model from user_properties
+            for key, value in request.node.user_properties:
+                if key == "clean_test_case_id":
+                    test_case_id = value
+                elif key == "model":
+                    model = value
+
+            if test_case_id and model:
+                logging.info(
+                    f"Test {test_case_id} with {model} - Total cost: ${result.total_cost:.6f}, Total tokens: {result.total_tokens if hasattr(result, 'total_tokens') else 'N/A'}"
+                )
+
+            request.node.user_properties.append(("cost", result.total_cost))
+            if hasattr(result, "total_tokens"):
+                request.node.user_properties.append(
+                    ("total_tokens", result.total_tokens)
+                )
+            if hasattr(result, "prompt_tokens"):
+                request.node.user_properties.append(
+                    ("prompt_tokens", result.prompt_tokens)
+                )
+            if hasattr(result, "completion_tokens"):
+                request.node.user_properties.append(
+                    ("completion_tokens", result.completion_tokens)
+                )
 
 
 def update_mock_error(request, error: Exception) -> None:

@@ -29,6 +29,7 @@ from os import path
 from unittest.mock import patch
 
 from tests.llm.utils.iteration_utils import get_test_cases
+from tests.llm.utils.braintrust import log_to_braintrust
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -96,6 +97,8 @@ def test_investigate(
     request.node.user_properties.append(("model", model))
     # Add clean test case ID (without model suffix)
     request.node.user_properties.append(("clean_test_case_id", test_case.id))
+    # Add tags for tag-based performance analysis
+    request.node.user_properties.append(("tags", test_case.tags or []))
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
@@ -127,40 +130,82 @@ def test_investigate(
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
 
-    with patch.dict(
-        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
-    ):
-        with tracer.start_trace(
-            name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
-        ) as eval_span:
-            # Store span info in user properties for conftest to access
-            if hasattr(eval_span, "id"):
-                request.node.user_properties.append(
-                    ("braintrust_span_id", str(eval_span.id))
-                )
-            if hasattr(eval_span, "root_span_id"):
-                request.node.user_properties.append(
-                    ("braintrust_root_span_id", str(eval_span.root_span_id))
-                )
-
-            with set_test_env_vars(test_case):
-                with eval_span.start_span(
-                    "Caching tools executor for create_issue_investigator",
-                    type=SpanType.TASK.value,
-                ):
-                    config.create_tool_executor(mock_dal)
-                with eval_span.start_span(
-                    "Holmes Run", type=SpanType.TASK.value
-                ) as holmes_span:
-                    start_time = time.time()
-                    result = investigate_issues(
-                        investigate_request=investigate_request,
-                        config=config,
-                        dal=mock_dal,
-                        trace_span=holmes_span,
+    try:
+        with patch.dict(
+            os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
+        ):
+            with tracer.start_trace(
+                name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
+            ) as eval_span:
+                # Store span info in user properties for conftest to access
+                if hasattr(eval_span, "id"):
+                    request.node.user_properties.append(
+                        ("braintrust_span_id", str(eval_span.id))
                     )
-                    holmes_duration = time.time() - start_time
-                eval_span.log(metadata={"Holmes Duration": holmes_duration})
+                if hasattr(eval_span, "root_span_id"):
+                    request.node.user_properties.append(
+                        ("braintrust_root_span_id", str(eval_span.root_span_id))
+                    )
+
+                with set_test_env_vars(test_case):
+                    with eval_span.start_span(
+                        "Caching tools executor for create_issue_investigator",
+                        type=SpanType.TASK.value,
+                    ):
+                        config.create_tool_executor(mock_dal)
+                    with eval_span.start_span(
+                        "Holmes Run", type=SpanType.TASK.value
+                    ) as holmes_span:
+                        start_time = time.time()
+                        result = investigate_issues(
+                            investigate_request=investigate_request,
+                            config=config,
+                            dal=mock_dal,
+                            trace_span=holmes_span,
+                        )
+                        holmes_duration = time.time() - start_time
+                    # Log duration directly to eval_span
+                    eval_span.log(metadata={"holmes_duration": holmes_duration})
+    except Exception as e:
+        # Log error to span if available
+        try:
+            if "eval_span" in locals():
+                log_to_braintrust(
+                    eval_span=eval_span,
+                    test_case=test_case,
+                    model=model,
+                    result=result,
+                    error=e,
+                    mock_generation_config=mock_generation_config,
+                )
+        except Exception:
+            pass  # Don't fail the test due to logging issues
+
+        # Store error information in user_properties for reporting
+        error_type = type(e).__name__
+        error_message = str(e)
+        request.node.user_properties.append(("error_type", error_type))
+        request.node.user_properties.append(("error_message", error_message))
+
+        # Store partial result if available
+        if result and hasattr(result, "analysis"):
+            request.node.user_properties.append(
+                ("partial_output", result.analysis or "")
+            )
+
+        # Check if this is a MockDataError
+        is_mock_error = "MockDataError" in error_type or any(
+            "MockData" in base.__name__ for base in type(e).__mro__
+        )
+
+        if is_mock_error:
+            # Update properties for mock error (would need to import update_mock_error)
+            from tests.llm.utils.property_manager import update_mock_error
+
+            update_mock_error(request, e)
+
+        raise
+
     assert result, "No result returned by investigate_issues()"
 
     output = result.analysis
@@ -195,18 +240,13 @@ def test_investigate(
 
     # Log evaluation results directly to the span
     if eval_span:
-        # Prepare tags with model
-        tags = (test_case.tags or []).copy()
-        tags.append(f"model:{model}")
-
-        eval_span.log(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            dataset_record_id=test_case.id,
+        log_to_braintrust(
+            eval_span=eval_span,
+            test_case=test_case,
+            model=model,
+            result=result,
             scores=scores,
-            metadata={"model": model},
-            tags=tags,
+            mock_generation_config=mock_generation_config,
         )
     tools_called = [t.tool_name for t in result.tool_calls]
     print(f"\n** TOOLS CALLED **\n{tools_called}")
@@ -214,8 +254,8 @@ def test_investigate(
     print(f"\n** SCORES **\n{scores}")
 
     # Store data for summary plugin
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+    # Update test results (including cost tracking)
+    update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"
     assert (

@@ -535,12 +535,28 @@ def _collect_test_results_from_stats(terminalreporter):
             else:
                 test_type = "unknown"
 
+            # Handle error cases - if there's an error, show it instead of generic message
+            actual_output = user_props.get("actual", "Unknown")
+            if actual_output in ["Test not executed", "Unknown"]:
+                # Check if we have error information
+                error_type = user_props.get("error_type")
+                error_message = user_props.get("error_message")
+                if error_type and error_message:
+                    # Format error for display - keep it concise for table
+                    if len(error_message) > 80:
+                        # Truncate long error messages but keep the important part
+                        actual_output = f"{error_type}: {error_message[:80]}..."
+                    else:
+                        actual_output = f"{error_type}: {error_message}"
+                elif error_type:
+                    actual_output = f"Error: {error_type}"
+
             # Store result (use nodeid as key to avoid duplicates)
             test_results[nodeid] = {
                 "nodeid": nodeid,
                 "test_type": test_type,
                 "expected": user_props.get("expected", "Unknown"),
-                "actual": user_props.get("actual", "Unknown"),
+                "actual": actual_output,
                 "tools_called": user_props.get("tools_called", []),
                 "expected_correctness_score": float(
                     user_props.get("expected_correctness_score", 1.0)
@@ -556,11 +572,23 @@ def _collect_test_results_from_stats(terminalreporter):
                 "is_setup_failure": user_props.get("is_setup_failure", False),
                 "model": user_props.get("model", "Unknown"),
                 "clean_test_case_id": user_props.get("clean_test_case_id"),
-                "error_message": str(report.longrepr)
-                if hasattr(report, "longrepr") and report.longrepr
-                else None,
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
+                # Cost tracking
+                "cost": user_props.get("cost", 0.0),
+                "total_tokens": user_props.get("total_tokens", 0),
+                "prompt_tokens": user_props.get("prompt_tokens", 0),
+                "completion_tokens": user_props.get("completion_tokens", 0),
+                # Tag tracking for performance analysis
+                "tags": user_props.get("tags", []),
+                # Error tracking for better reporting
+                "error_type": user_props.get("error_type"),
+                "error_message": user_props.get(
+                    "error_message",
+                    str(report.longrepr)
+                    if hasattr(report, "longrepr") and report.longrepr
+                    else None,
+                ),
             }
 
     # Extract test case names for all results

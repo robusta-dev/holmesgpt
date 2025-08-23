@@ -44,6 +44,7 @@ from tests.llm.utils.test_helpers import (
     print_tool_calls_detailed,
 )
 from tests.llm.utils.iteration_utils import get_test_cases
+from tests.llm.utils.braintrust import log_to_braintrust
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -78,6 +79,8 @@ def test_ask_holmes(
     request.node.user_properties.append(("model", model))
     # Add clean test case ID (without model suffix)
     request.node.user_properties.append(("clean_test_case_id", test_case.id))
+    # Add tags for tag-based performance analysis
+    request.node.user_properties.append(("tags", test_case.tags or []))
 
     # Check if test should be skipped
     check_and_skip_test(test_case)
@@ -168,23 +171,29 @@ def test_ask_holmes(
         # Log error to span if available
         try:
             if "eval_span" in locals():
-                # Prepare tags with model
-                tags = (test_case.tags or []).copy()
-                tags.append(f"model:{model}")
-
-                eval_span.log(
-                    input=test_case.user_prompt,
-                    output=result.result if result else str(e),
-                    expected=test_case.expected_output,
-                    dataset_record_id=test_case.id,
-                    scores={},
-                    tags=tags,
+                log_to_braintrust(
+                    eval_span=eval_span,
+                    test_case=test_case,
+                    model=model,
+                    result=result,
+                    error=e,
+                    mock_generation_config=mock_generation_config,
                 )
         except Exception:
             pass  # Don't fail the test due to logging issues
 
+        # Store error information in user_properties for reporting
+        error_type = type(e).__name__
+        error_message = str(e)
+        request.node.user_properties.append(("error_type", error_type))
+        request.node.user_properties.append(("error_message", error_message))
+
+        # Store partial result if available
+        if result:
+            request.node.user_properties.append(("partial_output", result.result or ""))
+
         # Check if this is a MockDataError
-        is_mock_error = "MockDataError" in type(e).__name__ or any(
+        is_mock_error = "MockDataError" in error_type or any(
             "MockData" in base.__name__ for base in type(e).__mro__
         )
 
@@ -236,18 +245,13 @@ def test_ask_holmes(
 
     # Log evaluation results directly to the span
     if eval_span:
-        # Prepare tags with model
-        tags = (test_case.tags or []).copy()
-        tags.append(f"model:{model}")
-
-        eval_span.log(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            dataset_record_id=test_case.id,
+        log_to_braintrust(
+            eval_span=eval_span,
+            test_case=test_case,
+            model=model,
+            result=result,
             scores=scores,
-            metadata={"system_prompt": prompt, "model": model},
-            tags=tags,
+            mock_generation_config=mock_generation_config,
         )
 
     # Print tool calls summary
@@ -261,8 +265,8 @@ def test_ask_holmes(
     # Print detailed tool output
     print_tool_calls_detailed(result.tool_calls)
 
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+    # Update test results (including cost tracking)
+    update_test_results(request, output, tools_called, scores, result)
 
     # Check if the output contains MockDataError (indicating a mock failure)
     if output and any(
@@ -369,5 +373,6 @@ def ask_holmes(
         start_time = time.time()
         result = ai.messages_call(messages=messages, trace_span=llm_span)
         holmes_duration = time.time() - start_time
-        eval_span.log(metadata={"Holmes Duration": holmes_duration})
+        # Log duration directly to eval_span
+        eval_span.log(metadata={"holmes_duration": holmes_duration})
     return result
