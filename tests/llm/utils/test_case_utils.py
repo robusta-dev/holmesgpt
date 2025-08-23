@@ -16,8 +16,8 @@ from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
 
 
 def get_models():
-    """Get list of models to test from MODELS env var."""
-    models_str = os.environ.get("MODELS", "gpt-4o")
+    """Get list of models to test from MODEL env var (supports comma-separated list)."""
+    models_str = os.environ.get("MODEL", "gpt-4o")
     return models_str.split(",")
 
 

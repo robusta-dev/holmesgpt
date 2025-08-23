@@ -71,18 +71,18 @@ HolmesGPT supports running evaluations across multiple models simultaneously to 
 ```bash
 # Test multiple models in a single run
 # Models are specified as comma-separated list
-RUN_LIVE=true MODELS=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' --no-cov
 
 # Run with multiple iterations for statistically significant results
 RUN_LIVE=true ITERATIONS=10 \
-  MODELS=gpt-4o,anthropic/claude-3-5-sonnet-20241022 \
+  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' -n 10
 
 # Test specific scenario across models
-RUN_LIVE=true MODELS=gpt-4o,gpt-4o-mini \
+RUN_LIVE=true MODEL=gpt-4o,gpt-4o-mini \
   poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pods"
 ```
 
@@ -177,12 +177,12 @@ RUN_LIVE=true pytest -k "test" --skip-setup
 
 ### Recommended: Multi-Model Testing (Single Run)
 
-**Use the `MODELS` environment variable to test multiple models in a single run:**
+**Use the `MODEL` environment variable to test multiple models in a single run:**
 
 ```bash
 # Compare multiple models simultaneously - RECOMMENDED approach
 RUN_LIVE=true ITERATIONS=10 \
-  MODELS=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' -n 10
 
@@ -221,7 +221,7 @@ export BRAINTRUST_API_KEY=your-key
 export BRAINTRUST_ORG=your-org
 
 # Then run any evaluation command - results will be tracked automatically
-RUN_LIVE=true MODELS=gpt-4o,anthropic/claude-3-5-sonnet-20241022 pytest -m 'llm and easy'
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 pytest -m 'llm and easy'
 ```
 
 ## Test Markers
