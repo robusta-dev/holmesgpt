@@ -13,16 +13,20 @@ Configure HolmesGPT to use local models with Ollama.
 
 ## Configuration
 
+### Using Environment Variables
+
 ```bash
 export OLLAMA_API_BASE="http://localhost:11434"
-holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
+export MODEL="ollama_chat/<your-ollama-model>"
+holmes ask "what pods are failing?"
 ```
 
-## Using CLI Parameters
+### Using CLI Parameters
 
 You can also specify the model directly as a command-line parameter:
 
 ```bash
+export OLLAMA_API_BASE="http://localhost:11434"
 holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
 ```
 
