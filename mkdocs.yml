@@ -1,6 +1,6 @@
 site_name: HolmesGPT Documentation
 site_description: AI-powered root cause analysis for DevOps and SRE teams
-site_url: https://robusta-dev.github.io/holmesgpt/
+site_url: https://holmesgpt.dev/
 repo_url: https://github.com/robusta-dev/holmesgpt
 repo_name: robusta-dev/holmesgpt
 edit_uri: edit/master/docs/

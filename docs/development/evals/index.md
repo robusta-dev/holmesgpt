@@ -64,6 +64,34 @@ RUN_LIVE=true MODEL=azure/your-deployment-name CLASSIFIER_MODEL=azure/your-deplo
 - For any model provider, ensure you have the necessary API keys and environment variables set (e.g., `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `AZURE_API_KEY`)
 - The model specified here is passed directly to LiteLLM, so any model supported by LiteLLM can be used
 
+### Multi-Model Benchmarking
+
+HolmesGPT supports running evaluations across multiple models simultaneously to compare their performance:
+
+```bash
+# Test multiple models in a single run
+# Models are specified as comma-separated list
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+  CLASSIFIER_MODEL=gpt-4o \
+  poetry run pytest -m 'llm and easy' --no-cov
+
+# Run with multiple iterations for statistically significant results
+RUN_LIVE=true ITERATIONS=10 \
+  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 \
+  CLASSIFIER_MODEL=gpt-4o \
+  poetry run pytest -m 'llm and easy' -n 10
+
+# Test specific scenario across models
+RUN_LIVE=true MODEL=gpt-4o,gpt-4o-mini \
+  poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pods"
+```
+
+When running multi-model benchmarks:
+- Results will show a **Model Comparison Table** with side-by-side performance metrics
+- Each model's pass rate, execution times, and P90 percentiles are displayed
+- Tests are parameterized by model, so you'll see separate results for each model/test combination
+- Use `CLASSIFIER_MODEL` to ensure consistent scoring across all models
+
 ### Running Evals with Multiple Iterations
 
 LLMs are non-deterministic - they produce different outputs for the same input. **10 iterations is a good rule of thumb** for reliable results.
@@ -147,18 +175,53 @@ RUN_LIVE=true pytest -k "test" --skip-setup
 
 ## Model Comparison Workflow
 
-Track performance across different models:
+### Recommended: Multi-Model Testing (Single Run)
+
+**Use the `MODEL` environment variable to test multiple models in a single run:**
 
 ```bash
+# Compare multiple models simultaneously - RECOMMENDED approach
+RUN_LIVE=true ITERATIONS=10 \
+  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+  CLASSIFIER_MODEL=gpt-4o \
+  poetry run pytest -m 'llm and easy' -n 10
+
+# This will generate a comparison table showing:
+# - Side-by-side pass rates for each model
+# - Execution time comparisons
+# - Cost comparisons
+# - Best performing models summary
+```
+
+### Alternative: Single-Model Testing (Separate Runs)
+
+For cases where you need separate experiments or different configurations per model:
+
+```bash
+# Run separate experiments for each model
+# Useful when you need different settings or want to track experiments separately
+
 # 1. Baseline with GPT-4
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 10 tests/llm/
 
-# 2. Compare with Claude
-RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
+# 2. Compare with Claude (using GPT-4 as classifier since Anthropic models can't classify)
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
 
-# 3. Results will be tracked if both BRAINTRUST_API_KEY and BRAINTRUST_ORG are set
+# 3. Test a smaller model
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=gpt4o_mini MODEL=gpt-4o-mini pytest -n 10 tests/llm/
+```
+
+### Braintrust Integration
+
+Results are automatically tracked if Braintrust is configured:
+
+```bash
+# Set these once in your environment
 export BRAINTRUST_API_KEY=your-key
 export BRAINTRUST_ORG=your-org
+
+# Then run any evaluation command - results will be tracked automatically
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 pytest -m 'llm and easy'
 ```
 
 ## Test Markers
