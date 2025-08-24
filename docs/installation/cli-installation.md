@@ -143,7 +143,7 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
         ```
 
-        **Note**: You must install `boto3>=1.28.57` and replace `<your-model-name>` with an actual model name like `anthropic.claude-3-5-sonnet-20240620-v1:0`. See [Finding Available Models](../ai-providers/aws-bedrock.md#finding-available-models) for instructions.
+        **Note**: You must install `boto3>=1.28.57` and replace `<your-model-name>` with an actual model name like `anthropic.claude-sonnet-4-20250514-v1:0`. See [Finding Available Models](../ai-providers/aws-bedrock.md#finding-available-models) for instructions.
 
     Ask follow-up questions to refine your investigation
 

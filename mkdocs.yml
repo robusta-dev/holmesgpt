@@ -197,6 +197,10 @@ nav:
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
       - Adding Permissions for Additional Resources: data-sources/permissions.md
 
+  - Benchmarks:
+      - benchmarks/index.md
+      - Latest Results: benchmarks/latest-results.md
+
   - Development:
       - development/index.md
       - Evaluations:

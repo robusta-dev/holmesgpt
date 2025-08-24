@@ -127,7 +127,7 @@ RUN_LIVE=true poetry run pytest tests/llm/ -n 6
 
 # Test with different models
 # Note: When using Anthropic models, set CLASSIFIER_MODEL to OpenAI (Anthropic not supported as classifier)
-RUN_LIVE=true MODEL=anthropic/claude-3.5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
+RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
 ```
 
 ### Evaluation CLI Reference
@@ -137,7 +137,7 @@ RUN_LIVE=true MODEL=anthropic/claude-3.5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o
 - `--skip-cleanup`: Skip after_test commands (useful for debugging)
 
 **Environment Variables**:
-- `MODEL`: LLM model to use (e.g., `gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
+- `MODEL`: LLM model(s) to use - supports comma-separated list (e.g., `gpt-4o` or `gpt-4o,anthropic/claude-sonnet-4-20250514`)
 - `CLASSIFIER_MODEL`: Model for scoring answers (defaults to MODEL)
 - `RUN_LIVE=true`: Execute real commands (recommended for all tests)
 - `ITERATIONS=<number>`: Run each test multiple times
@@ -156,7 +156,7 @@ RUN_LIVE=true ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "
 
 # Model comparison workflow
 RUN_LIVE=true EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
-RUN_LIVE=true EXPERIMENT_ID=claude35_test MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=claude4_test MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
 
 # Debug with verbose output
 RUN_LIVE=true poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
@@ -195,7 +195,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 
 **Environment Variables**:
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: LLM API keys
-- `MODEL`: Override default model
+- `MODEL`: Override default model(s) - supports comma-separated list
 - `RUN_LIVE`: Use live tools in tests (strongly recommended)
 - `BRAINTRUST_API_KEY`: For test result tracking and CI/CD report generation
 - `BRAINTRUST_ORG`: Braintrust organization name (default: "robustadev")
