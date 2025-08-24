@@ -23,6 +23,10 @@ rules:
   resources: ["configmaps"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # For kopf's internal state management
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+  # For kopf to discover CRDs
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

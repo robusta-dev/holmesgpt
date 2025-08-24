@@ -136,50 +136,42 @@ def execute_check(
             },
         }
 
+        # Load and render the system prompt template
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+        # Load template from file
+        template_path = Path(__file__).parent / "check_system_prompt.jinja2"
+        with open(template_path, "r") as f:
+            template = Template(f.read())
+
+        system_message = template.render(current_time=current_time)
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": check.query},
+        ]
+
+        # Execute the check with structured output
+        response = ai.call(messages, response_format=response_format)
+
+        # Parse the structured response
         try:
-            # Load and render the system prompt template
-            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-
-            # Load template from file
-            template_path = Path(__file__).parent / "check_system_prompt.jinja2"
-            with open(template_path, "r") as f:
-                template = Template(f.read())
-
-            system_message = template.render(current_time=current_time)
-
-            messages = [
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": check.query},
-            ]
-
-            # Execute the check with structured output
-            response = ai.call(messages, response_format=response_format)
-
-            # Parse the structured response
-            try:
-                result_json = json.loads(response.result or "{}")
-                check_response = CheckResponse(**result_json)
-                passed = check_response.passed
-                rationale = check_response.rationale
-            except (json.JSONDecodeError, Exception) as parse_error:
-                # Fallback if structured output fails
-                if verbose and console:
-                    console.print(
-                        f"    Failed to parse structured response: {parse_error}"
-                    )
-                passed = False
-                rationale = f"Failed to parse response: {str(parse_error)}"
-
+            result_json = json.loads(response.result or "{}")
+            check_response = CheckResponse(**result_json)
+            passed = check_response.passed
+            rationale = check_response.rationale
+        except (json.JSONDecodeError, Exception) as parse_error:
+            # Fallback if structured output fails - this is still a check failure not an error
+            # because the LLM ran but returned unparseable output
             if verbose and console:
-                status_str = "PASS" if passed else "FAIL"
-                console.print(f"    Result: {status_str}")
-                console.print(f"    Rationale: {rationale}")
-
-        except Exception as e:
+                console.print(f"    Failed to parse structured response: {parse_error}")
             passed = False
-            rationale = f"Error: {str(e)}"
-            if verbose and console:
-                console.print(f"    Error: {str(e)}")
+            rationale = f"Failed to parse response: {str(parse_error)}"
+
+        if verbose and console:
+            status_str = "PASS" if passed else "FAIL"
+            console.print(f"    Result: {status_str}")
+            console.print(f"    Rationale: {rationale}")
 
         duration = time.time() - start_time
 

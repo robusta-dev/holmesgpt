@@ -7,7 +7,7 @@ metadata:
   namespace: holmes-system
 spec:
   query: "Are all pods in deployment 'nginx-test' in namespace 'test-app' healthy and running?"
-  schedule: "*/2 * * * *"  # Every 2 minutes
+  schedule: "0 * * * *"  # Every hour at :00
   timeout: 30
   mode: monitor  # Just log, don't alert
   enabled: true
@@ -19,7 +19,7 @@ metadata:
   namespace: holmes-system
 spec:
   query: "Are all pods in deployment 'broken-app' in namespace 'test-app' running without crashes?"
-  schedule: "*/3 * * * *"  # Every 3 minutes
+  schedule: "30 * * * *"  # Every hour at :30
   timeout: 30
   mode: monitor
   enabled: true
@@ -31,7 +31,7 @@ metadata:
   namespace: holmes-system
 spec:
   query: "Are all pods in namespace 'test-app' using less than 80% of their memory limits?"
-  schedule: "*/5 * * * *"  # Every 5 minutes
+  schedule: "0 */2 * * *"  # Every 2 hours
   timeout: 45
   mode: monitor
   enabled: true
@@ -43,7 +43,7 @@ metadata:
   namespace: holmes-system
 spec:
   query: "Are all nodes in the cluster in Ready state?"
-  schedule: "*/10 * * * *"  # Every 10 minutes
+  schedule: "0 */6 * * *"  # Every 6 hours
   timeout: 20
   mode: monitor
   enabled: true
@@ -56,7 +56,7 @@ metadata:
   namespace: holmes-system
 spec:
   query: "This check should not run because it's disabled"
-  schedule: "* * * * *"  # Would run every minute if enabled
+  schedule: "0 */12 * * *"  # Would run every 12 hours if enabled
   timeout: 30
   mode: monitor
   enabled: false  # This check is disabled
@@ -73,5 +73,20 @@ spec:
   query: "Is the nginx-service in namespace 'test-app' accessible?"
   schedule: "0 0 * * *"  # Daily at midnight (but we'll trigger manually)
   timeout: 15
+  mode: monitor
+  enabled: true
+---
+# One-time check example (no schedule)
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: one-time-check
+  namespace: holmes-system
+  annotations:
+    description: "One-time check - trigger with: kubectl annotate healthcheck one-time-check holmes.robusta.dev/run-now=true"
+spec:
+  query: "Check if the database connection is working properly"
+  # No schedule field - this check will only run when manually triggered
+  timeout: 30
   mode: monitor
   enabled: true

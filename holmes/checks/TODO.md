@@ -1,5 +1,26 @@
 # TODO for Holmes Check Feature
 
+## Architecture Considerations
+
+### CRD Design Pattern
+Consider splitting into two CRDs following K8s Job/CronJob pattern:
+- **HealthCheck CRD**: For one-time execution checks (like K8s Job)
+- **ScheduledHealthCheck CRD**: For recurring checks with cron schedule (like K8s CronJob)
+
+**Current approach (single HealthCheck CRD):**
+- Simpler, fewer resources to manage
+- Schedule field is optional - if missing, it's a one-time check
+- Works well for current use case
+
+**Two CRDs approach benefits:**
+- More explicit - follows established K8s patterns
+- Clear separation of concerns
+- HealthCheck = one-time execution
+- ScheduledHealthCheck = recurring execution with schedule
+- Could share common spec fields through composition
+
+For now, the single CRD with optional schedule works fine. If migrating to two CRDs later, it would provide cleaner separation but adds complexity.
+
 ## Dropped Features (Removed from implementation)
 
 The following features were originally planned but have been dropped from the current implementation:

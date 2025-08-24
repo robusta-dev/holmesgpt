@@ -6,16 +6,15 @@ This operator manages HealthCheck CRDs and schedules their execution
 by calling the Holmes API servers.
 """
 
-import asyncio
 import hashlib
 import logging
 import os
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import aiohttp
 import kopf
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import requests  # type: ignore
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from kubernetes import client, config as k8s_config
 
@@ -32,25 +31,16 @@ class HolmesCheckOperator:
 
     def __init__(self):
         """Initialize the operator with scheduler and configuration."""
-        self.scheduler = AsyncIOScheduler()
+        self.scheduler = BackgroundScheduler()
         self.scheduler.start()
         self.holmes_api_url = os.getenv("HOLMES_API_URL", "http://holmes-api:8080")
-        self.session: Optional[aiohttp.ClientSession] = None
 
         # Track active jobs
         self.active_jobs: Dict[str, str] = {}  # job_id -> check_name
 
         logger.info(f"Holmes operator initialized with API URL: {self.holmes_api_url}")
 
-    async def get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
-        if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession()
-        return self.session
-
-    async def execute_check(
-        self, name: str, namespace: str, spec: Dict[str, Any]
-    ) -> None:
+    def execute_check(self, name: str, namespace: str, spec: Dict[str, Any]) -> None:
         """
         Execute a health check by calling the Holmes API.
 
@@ -62,8 +52,6 @@ class HolmesCheckOperator:
         check_identifier = f"{namespace}/{name}"
         logger.info(f"Executing check: {check_identifier}")
 
-        session = await self.get_session()
-
         # Prepare the request
         check_request = {
             "query": spec["query"],
@@ -74,25 +62,26 @@ class HolmesCheckOperator:
 
         try:
             # Call Holmes API
-            async with session.post(
+            response = requests.post(
                 f"{self.holmes_api_url}/api/check/execute",
                 json=check_request,
                 headers={"X-Check-Name": check_identifier},
-                timeout=aiohttp.ClientTimeout(total=spec.get("timeout", 30) + 10),
-            ) as response:
-                result = await response.json()
+                timeout=spec.get("timeout", 30) + 10,
+            )
+            response.raise_for_status()
+            result = response.json()
 
-                # Log the result
-                logger.info(
-                    f"Check {check_identifier} completed: {result.get('status', 'unknown')}"
-                )
+            # Log the result
+            logger.info(
+                f"Check {check_identifier} completed: {result.get('status', 'unknown')}"
+            )
 
-                # Update CRD status
-                await self.update_status(name, namespace, result)
+            # Update CRD status
+            self.update_status(name, namespace, result)
 
-        except asyncio.TimeoutError:
+        except requests.Timeout:
             logger.error(f"Check {check_identifier} timed out")
-            await self.update_status(
+            self.update_status(
                 name,
                 namespace,
                 {
@@ -103,7 +92,7 @@ class HolmesCheckOperator:
             )
         except Exception as e:
             logger.error(f"Error executing check {check_identifier}: {e}")
-            await self.update_status(
+            self.update_status(
                 name,
                 namespace,
                 {
@@ -113,9 +102,7 @@ class HolmesCheckOperator:
                 },
             )
 
-    async def update_status(
-        self, name: str, namespace: str, result: Dict[str, Any]
-    ) -> None:
+    def update_status(self, name: str, namespace: str, result: Dict[str, Any]) -> None:
         """
         Update the HealthCheck CRD status with execution results.
 
@@ -270,11 +257,9 @@ class HolmesCheckOperator:
             except Exception as e:
                 logger.error(f"Failed to unschedule job {job_id}: {e}")
 
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up resources."""
-        if self.session and not self.session.closed:
-            await self.session.close()
-        self.scheduler.shutdown()
+        self.scheduler.shutdown(wait=False)
 
 
 # Create global operator instance
@@ -282,7 +267,7 @@ operator = HolmesCheckOperator()
 
 
 @kopf.on.startup()
-async def startup_handler(**kwargs):
+def startup_handler(**kwargs):
     """Initialize operator on startup."""
     logger.info("Holmes operator starting up...")
 
@@ -296,15 +281,15 @@ async def startup_handler(**kwargs):
 
 
 @kopf.on.cleanup()
-async def cleanup_handler(**kwargs):
+def cleanup_handler(**kwargs):
     """Clean up on shutdown."""
     logger.info("Holmes operator shutting down...")
-    await operator.cleanup()
+    operator.cleanup()
 
 
 @kopf.on.create("holmes.robusta.dev", "v1alpha1", "healthchecks")
 @kopf.on.update("holmes.robusta.dev", "v1alpha1", "healthchecks")
-async def handle_healthcheck(spec: Dict, name: str, namespace: str, **kwargs):
+def handle_healthcheck(spec: Dict, name: str, namespace: str, **kwargs):
     """
     Handle HealthCheck CRD create/update events.
 
@@ -320,7 +305,7 @@ async def handle_healthcheck(spec: Dict, name: str, namespace: str, **kwargs):
 
 
 @kopf.on.delete("holmes.robusta.dev", "v1alpha1", "healthchecks")
-async def delete_healthcheck(name: str, namespace: str, **kwargs):
+def delete_healthcheck(name: str, namespace: str, **kwargs):
     """
     Handle HealthCheck deletion.
 
@@ -331,9 +316,7 @@ async def delete_healthcheck(name: str, namespace: str, **kwargs):
 
 
 @kopf.on.field("holmes.robusta.dev", "v1alpha1", "healthchecks", field="spec.enabled")
-async def handle_enabled_change(
-    old, new, name: str, namespace: str, spec: Dict, **kwargs
-):
+def handle_enabled_change(old, new, name: str, namespace: str, spec: Dict, **kwargs):
     """
     Handle changes to the enabled field.
 
@@ -360,14 +343,14 @@ async def handle_enabled_change(
     "healthchecks",
     annotations={"holmes.robusta.dev/run-now": kopf.PRESENT},
 )
-async def run_check_now(name: str, namespace: str, spec: Dict, **kwargs):
+def run_check_now(name: str, namespace: str, spec: Dict, **kwargs):
     """
     Run a check immediately when the run-now annotation is added.
 
     This is useful for testing or forcing an immediate check execution.
     """
     logger.info(f"Running check immediately: {namespace}/{name}")
-    await operator.execute_check(name, namespace, spec)
+    operator.execute_check(name, namespace, spec)
 
     # Remove the annotation after execution
     api = client.CustomObjectsApi()
