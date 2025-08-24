@@ -3,9 +3,10 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from holmes.core.tools import Toolset
+from holmes.version import get_version
 
 
 class ToolsetStatusCache:
@@ -60,9 +61,18 @@ class ToolsetStatusCache:
         with open(self.cache_path, "w") as f:
             json.dump(cache_data, f, indent=2)
 
-    def get_content_hash(self, config: Dict, custom_paths: List[Path]) -> str:
+    def get_content_hash(
+        self,
+        config: Dict,
+        custom_paths: List[Path],
+        builtin_toolsets_dir: Optional[Path] = None,
+    ) -> str:
         """Calculate hash of all file contents that contribute to toolsets"""
         content_parts = []
+
+        # Include Holmes version in hash
+        version = get_version()
+        content_parts.append(f"holmes_version:{version}")
 
         # Include config in hash (for overrides)
         if config:
@@ -76,6 +86,25 @@ class ToolsetStatusCache:
                 except (OSError, IOError):
                     # If we can't read, include path only
                     content_parts.append(str(path))
+
+        # Include builtin toolset file checksums
+        if builtin_toolsets_dir and builtin_toolsets_dir.exists():
+            try:
+                # Get all YAML files in builtin toolsets directory
+                yaml_files = sorted(builtin_toolsets_dir.glob("*.yaml"))
+                # Also check for subdirectories with YAML files
+                for subdir in sorted(builtin_toolsets_dir.iterdir()):
+                    if subdir.is_dir():
+                        yaml_files.extend(sorted(subdir.glob("*.yaml")))
+
+                # Add file modification times and sizes (cheaper than full content hash)
+                for yaml_file in yaml_files:
+                    stat = yaml_file.stat()
+                    content_parts.append(
+                        f"builtin:{yaml_file.name}:{stat.st_mtime}:{stat.st_size}"
+                    )
+            except (OSError, IOError) as e:
+                logging.debug(f"Could not check builtin toolsets for cache: {e}")
 
         # Hash all content together
         combined = "\n".join(content_parts)

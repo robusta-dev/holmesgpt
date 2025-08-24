@@ -19,6 +19,7 @@ from holmes.plugins.toolsets import (
     load_builtin_toolsets,
     load_toolsets_from_config,
     load_mcp_servers,
+    THIS_DIR as BUILTIN_TOOLSETS_DIR,
 )
 from holmes.utils.definitions import CUSTOM_TOOLSET_DIR
 from holmes.utils.dict_utils import deep_merge
@@ -347,7 +348,7 @@ class ToolsetManager:
 
         # Calculate content hash for cache validation
         content_hash = self.status_cache.get_content_hash(
-            self.config, self.custom_paths
+            self.config, self.custom_paths, Path(BUILTIN_TOOLSETS_DIR)
         )
 
         # Either use cache or check prerequisites
