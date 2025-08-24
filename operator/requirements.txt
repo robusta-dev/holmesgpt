@@ -1,0 +1,5 @@
+# Requirements for Holmes Operator
+kopf==1.37.2
+kubernetes==32.0.1
+apscheduler==3.10.4
+aiohttp==3.10.2

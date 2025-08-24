@@ -1,0 +1,107 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: holmes-operator
+build:
+  local:
+    push: true
+    useBuildkit: true
+  platforms: ["linux/amd64"]
+  artifacts:
+    - image: me-west1-docker.pkg.dev/robusta-development/development/holmes-dev
+      docker:
+        dockerfile: Dockerfile
+    - image: me-west1-docker.pkg.dev/robusta-development/development/holmes-operator-dev
+      context: operator
+      docker:
+        dockerfile: Dockerfile
+  tagPolicy:
+    inputDigest: {}
+manifests:
+  kustomize:
+    paths:
+      - operator/test
+deploy:
+  helm:
+    releases:
+      - name: holmes
+        chartPath: helm/holmes
+        valuesFiles:
+          - helm/holmes/values.dev.yaml
+        # Override image values - Skaffold will replace these
+        # with the built images automatically
+        setValues:
+          image: me-west1-docker.pkg.dev/robusta-development/development/holmes-dev
+          operator.image: me-west1-docker.pkg.dev/robusta-development/development/holmes-operator-dev
+        createNamespace: true
+        namespace: holmes-system
+        wait: true
+  kubectl: {}  # Also deploy manifests from kustomize
+portForward:
+  - resourceType: service
+    resourceName: holmes-holmes-api
+    namespace: holmes-system
+    port: 8080
+    localPort: 9090
+  - resourceType: deployment
+    resourceName: holmes-holmes-operator
+    namespace: holmes-system
+    port: 8080
+    localPort: 9091  # Kopf health endpoint
+verify:
+  - name: verify-operator
+    container:
+      name: verify-operator
+      image: alpine/k8s:1.28.3
+      command: ["sh"]
+      args:
+        - -c
+        - |
+          echo "Waiting for operator..."
+          kubectl wait --for=condition=available deployment/holmes-holmes-operator -n holmes-system --timeout=60s
+          echo "Operator is ready!"
+  - name: verify-api
+    container:
+      name: verify-api
+      image: alpine/k8s:1.28.3
+      command: ["sh"]
+      args:
+        - -c
+        - |
+          kubectl wait --for=condition=available deployment/holmes-holmes -n holmes-system --timeout=60s
+          echo "API is ready!"
+profiles:
+  # Profile for development with hot reload
+  - name: dev
+    activation:
+      - command: dev
+    build:
+      local:
+        push: false
+    deploy:
+      helm:
+        releases:
+          - name: holmes
+            setValues:
+              # Development overrides
+              logLevel: DEBUG
+              operator.logLevel: DEBUG
+              # Skip service account creation if testing locally
+              createServiceAccount: true
+    portForward:
+      - resourceType: deployment
+        resourceName: holmes-holmes-operator
+        namespace: holmes-system
+        port: 8080  # Kopf health endpoint
+        localPort: 9091
+
+  # Profile for testing without operator
+  - name: no-operator
+    activation:
+      - env: SKIP_OPERATOR=true
+    deploy:
+      helm:
+        releases:
+          - name: holmes
+            setValues:
+              operator.enabled: false

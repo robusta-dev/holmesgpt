@@ -1,0 +1,118 @@
+# Example HealthCheck resources for Holmes operator
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: frontend-deployment-health
+  namespace: default
+spec:
+  # The health check query - phrase it so PASS means healthy
+  query: "Does the deployment 'frontend' in namespace 'default' have at least 2 ready replicas?"
+
+  # Cron schedule (every 5 minutes)
+  schedule: "*/5 * * * *"
+
+  # Timeout for check execution
+  timeout: 30
+
+  # Mode: alert (send notifications) or monitor (log only)
+  mode: alert
+
+  # Alert destinations
+  destinations:
+    - type: slack
+      config:
+        channel: "#alerts"
+    - type: pagerduty
+      config:
+        integrationKeyRef:
+          name: pagerduty-secret
+          key: integration-key
+
+  # Set to false to disable the check
+  enabled: true
+
+  # How to handle concurrent executions
+  concurrencyPolicy: Forbid
+
+  # History limits
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: memory-usage-check
+  namespace: default
+spec:
+  query: "Are all pods in the default namespace using less than 90% of their memory limits?"
+  schedule: "*/10 * * * *"  # Every 10 minutes
+  timeout: 45
+  mode: monitor  # Don't send alerts, just log
+  suspend: false
+
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: certificate-expiry-check
+  namespace: default
+spec:
+  query: "Are all TLS certificates in the cluster valid for at least the next 30 days?"
+  schedule: "0 9 * * *"  # Daily at 9 AM
+  timeout: 60
+  mode: alert
+  destinations:
+    - type: slack
+      config:
+        channel: "#security"
+  suspend: false
+
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: node-readiness-check
+  namespace: default
+spec:
+  query: "Are all nodes in the cluster in Ready state?"
+  schedule: "*/3 * * * *"  # Every 3 minutes
+  timeout: 20
+  mode: alert
+  destinations:
+    - type: pagerduty
+      config:
+        integrationKeyRef:
+          name: pagerduty-secret
+          key: integration-key
+  enabled: true
+
+---
+# Example of a disabled check
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: database-connection-check
+  namespace: default
+spec:
+  query: "Can the application connect to the PostgreSQL database at db.example.com:5432?"
+  schedule: "*/2 * * * *"  # Every 2 minutes
+  timeout: 15
+  mode: alert
+  destinations:
+    - type: slack
+      config:
+        channel: "#database"
+  enabled: false  # This check is currently disabled
+
+---
+# Example secret for PagerDuty integration
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pagerduty-secret
+  namespace: default
+type: Opaque
+stringData:
+  integration-key: "YOUR_PAGERDUTY_INTEGRATION_KEY_HERE"

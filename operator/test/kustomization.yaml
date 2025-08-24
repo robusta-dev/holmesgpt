@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - test-deployment.yaml
+  - test-healthchecks.yaml
+
+# Add a common label to all test resources
+commonLabels:
+  app.kubernetes.io/managed-by: skaffold
+  test: holmes-operator

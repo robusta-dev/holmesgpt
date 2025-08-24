@@ -1,0 +1,20 @@
+# Ignore everything except what we need
+*
+!main.py
+!requirements.txt
+
+# Explicitly ignore these even if included above
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+.pytest_cache/
+.coverage
+.git/
+.gitignore
+README.md
+*.md

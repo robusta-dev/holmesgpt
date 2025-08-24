@@ -10,6 +10,7 @@ from holmes.checks.check import (
     ChecksConfig,
     DestinationConfig,
     display_results_table,
+    execute_check,
     load_checks_config,
     run_check_command,
 )
@@ -24,6 +25,7 @@ __all__ = [
     "ChecksConfig",
     "DestinationConfig",
     "display_results_table",
+    "execute_check",
     "load_checks_config",
     "run_check_command",
 ]

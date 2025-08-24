@@ -112,7 +112,11 @@ RUN apt-get install -y kubectl
 
 
 # Microsoft ODBC for Azure SQL. Required for azure/sql toolset
+# Note: Debian 13+ uses Debian 12 packages as they're compatible
 RUN VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2 | cut -d '.' -f 1) && \
+    if [ "$VERSION_ID" -ge 13 ]; then \
+        VERSION_ID=12; \
+    fi && \
     if ! echo "11 12" | grep -q "$VERSION_ID"; then \
         echo "Debian $VERSION_ID is not currently supported."; \
         exit 1; \

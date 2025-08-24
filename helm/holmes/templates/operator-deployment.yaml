@@ -1,0 +1,129 @@
+{{- if .Values.operator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-holmes-operator
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-holmes-operator
+rules:
+- apiGroups: ["holmes.robusta.dev"]
+  resources: ["healthchecks"]
+  verbs: ["get", "list", "watch", "patch", "update"]
+- apiGroups: ["holmes.robusta.dev"]
+  resources: ["healthchecks/status"]
+  verbs: ["get", "patch", "update"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # For kopf's internal state management
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-holmes-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-holmes-operator
+subjects:
+- kind: ServiceAccount
+  name: {{ .Release.Name }}-holmes-operator
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-holmes-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: holmes-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: holmes-operator
+  template:
+    metadata:
+      labels:
+        app: holmes-operator
+      annotations:
+        {{- with .Values.operator.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-holmes-operator
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- toYaml .Values.imagePullSecrets | nindent 6 }}
+      {{- end }}
+      {{- if .Values.operator.nodeSelector }}
+      nodeSelector: {{ toYaml .Values.operator.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.operator.affinity }}
+      affinity: {{ toYaml .Values.operator.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.operator.tolerations }}
+      tolerations: {{ toYaml .Values.operator.tolerations | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: operator
+        {{- if .Values.operator.image }}
+        image: "{{ .Values.operator.image }}"
+        {{- else if .Values.registry }}
+        image: "{{ .Values.registry }}/holmes-operator:{{ .Values.operator.tag | default "latest" }}"
+        {{- else }}
+        image: "holmes-operator:{{ .Values.operator.tag | default "latest" }}"
+        {{- end }}
+        imagePullPolicy: {{ .Values.operator.imagePullPolicy }}
+        env:
+        - name: HOLMES_API_URL
+          value: "http://{{ .Release.Name }}-holmes-api:{{ .Values.service.port }}"
+        - name: LOG_LEVEL
+          value: {{ .Values.operator.logLevel }}
+        {{- if .Values.operator.additionalEnvVars }}
+        {{- toYaml .Values.operator.additionalEnvVars | nindent 8 }}
+        {{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.operator.resources.requests.cpu }}
+            memory: {{ .Values.operator.resources.requests.memory }}
+          limits:
+            memory: {{ .Values.operator.resources.limits.memory }}
+            {{- if .Values.operator.resources.limits.cpu }}
+            cpu: {{ .Values.operator.resources.limits.cpu }}
+            {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-holmes-api
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: holmes
+  ports:
+  - name: http
+    port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+    protocol: TCP
+  type: ClusterIP
+{{- end }}

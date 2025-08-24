@@ -85,6 +85,133 @@ class CheckResult:
     query: str = ""
     duration: float = 0.0
     error: Optional[str] = None
+    rationale: Optional[str] = None
+
+
+def execute_check(
+    check: Check,
+    ai: ToolCallingLLM,
+    verbose: bool = False,
+    console: Optional[Console] = None,
+) -> CheckResult:
+    """
+    Execute a single health check.
+
+    This is the core check execution logic that can be reused by both
+    the CLI runner and the API endpoint.
+
+    Args:
+        check: The check configuration
+        ai: The LLM instance to use for evaluation
+        verbose: Whether to print verbose output
+        console: Optional console for output (only used if verbose=True)
+
+    Returns:
+        CheckResult with status, message, and metadata
+    """
+    start_time = time.time()
+
+    try:
+        # Define the structured output format
+        response_format = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "check_response",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "rationale": {
+                            "type": "string",
+                            "description": "First, explain what you found and your reasoning",
+                        },
+                        "passed": {
+                            "type": "boolean",
+                            "description": "Based on your rationale above, does the check pass (true) or fail (false)?",
+                        },
+                    },
+                    "required": ["rationale", "passed"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+        try:
+            # Load and render the system prompt template
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+            # Load template from file
+            template_path = Path(__file__).parent / "check_system_prompt.jinja2"
+            with open(template_path, "r") as f:
+                template = Template(f.read())
+
+            system_message = template.render(current_time=current_time)
+
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": check.query},
+            ]
+
+            # Execute the check with structured output
+            response = ai.call(messages, response_format=response_format)
+
+            # Parse the structured response
+            try:
+                result_json = json.loads(response.result or "{}")
+                check_response = CheckResponse(**result_json)
+                passed = check_response.passed
+                rationale = check_response.rationale
+            except (json.JSONDecodeError, Exception) as parse_error:
+                # Fallback if structured output fails
+                if verbose and console:
+                    console.print(
+                        f"    Failed to parse structured response: {parse_error}"
+                    )
+                passed = False
+                rationale = f"Failed to parse response: {str(parse_error)}"
+
+            if verbose and console:
+                status_str = "PASS" if passed else "FAIL"
+                console.print(f"    Result: {status_str}")
+                console.print(f"    Rationale: {rationale}")
+
+        except Exception as e:
+            passed = False
+            rationale = f"Error: {str(e)}"
+            if verbose and console:
+                console.print(f"    Error: {str(e)}")
+
+        duration = time.time() - start_time
+
+        if passed:
+            return CheckResult(
+                check_name=check.name,
+                status=CheckStatus.PASS,
+                message=f"Check passed. {rationale}",
+                query=check.query,
+                duration=duration,
+                rationale=rationale,
+            )
+        else:
+            return CheckResult(
+                check_name=check.name,
+                status=CheckStatus.FAIL,
+                message=f"Check failed. {rationale}",
+                query=check.query,
+                duration=duration,
+                rationale=rationale,
+            )
+
+    except Exception as e:
+        duration = time.time() - start_time
+        return CheckResult(
+            check_name=check.name,
+            status=CheckStatus.ERROR,
+            message=f"Check errored: {str(e)}",
+            query=check.query,
+            duration=duration,
+            error=str(e),
+        )
 
 
 class CheckRunner:
@@ -166,109 +293,12 @@ class CheckRunner:
 
     def run_single_check(self, check: Check) -> CheckResult:
         """Run a single check."""
-        start_time = time.time()
-
-        try:
-            ai = self._get_ai()
-
-            # Define the structured output format
-            response_format = {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "check_response",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "rationale": {
-                                "type": "string",
-                                "description": "First, explain what you found and your reasoning",
-                            },
-                            "passed": {
-                                "type": "boolean",
-                                "description": "Based on your rationale above, does the check pass (true) or fail (false)?",
-                            },
-                        },
-                        "required": ["rationale", "passed"],
-                        "additionalProperties": False,
-                    },
-                },
-            }
-
-            try:
-                # Load and render the system prompt template
-                current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-
-                # Load template from file
-                template_path = Path(__file__).parent / "check_system_prompt.jinja2"
-                with open(template_path, "r") as f:
-                    template = Template(f.read())
-
-                system_message = template.render(current_time=current_time)
-
-                messages = [
-                    {"role": "system", "content": system_message},
-                    {"role": "user", "content": check.query},
-                ]
-
-                # Execute the check with structured output
-                response = ai.call(messages, response_format=response_format)
-
-                # Parse the structured response
-                try:
-                    result_json = json.loads(response.result or "{}")
-                    check_response = CheckResponse(**result_json)
-                    passed = check_response.passed
-                    rationale = check_response.rationale
-                except (json.JSONDecodeError, Exception) as parse_error:
-                    # Fallback if structured output fails
-                    if self.verbose:
-                        self.console.print(
-                            f"    Failed to parse structured response: {parse_error}"
-                        )
-                    passed = False
-                    rationale = f"Failed to parse response: {str(parse_error)}"
-
-                if self.verbose:
-                    status_str = "PASS" if passed else "FAIL"
-                    self.console.print(f"    Result: {status_str}")
-                    self.console.print(f"    Rationale: {rationale}")
-
-            except Exception as e:
-                passed = False
-                rationale = f"Error: {str(e)}"
-                if self.verbose:
-                    self.console.print(f"    Error: {str(e)}")
-
-            duration = time.time() - start_time
-
-            if passed:
-                return CheckResult(
-                    check_name=check.name,
-                    status=CheckStatus.PASS,
-                    message=f"Check passed. {rationale}",
-                    query=check.query,
-                    duration=duration,
-                )
-            else:
-                return CheckResult(
-                    check_name=check.name,
-                    status=CheckStatus.FAIL,
-                    message=f"Check failed. {rationale}",
-                    query=check.query,
-                    duration=duration,
-                )
-
-        except Exception as e:
-            duration = time.time() - start_time
-            return CheckResult(
-                check_name=check.name,
-                status=CheckStatus.ERROR,
-                message=f"Check errored: {str(e)}",
-                query=check.query,
-                duration=duration,
-                error=str(e),
-            )
+        return execute_check(
+            check=check,
+            ai=self._get_ai(),
+            verbose=self.verbose,
+            console=self.console,
+        )
 
     def run_checks(
         self,

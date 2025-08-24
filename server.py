@@ -20,8 +20,9 @@ import colorlog
 import time
 
 from litellm.exceptions import AuthenticationError
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from holmes.utils.robusta import load_robusta_api_key
 from holmes.utils.stream import stream_investigate_formatter, stream_chat_formatter
 from holmes.common.env_vars import (
@@ -363,6 +364,85 @@ def chat(chat_request: ChatRequest):
         raise HTTPException(status_code=401, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/chat: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CheckExecutionRequest(BaseModel):
+    """Request model for check execution."""
+
+    query: str
+    timeout: int = 30
+    mode: str = "monitor"
+    destinations: list[dict] = []
+
+
+class CheckExecutionResponse(BaseModel):
+    """Response model for check execution."""
+
+    status: str  # "pass", "fail", "error"
+    message: str
+    duration: float
+    rationale: Optional[str] = None
+    error: Optional[str] = None
+
+
+@app.post("/api/check/execute")
+def execute_health_check(
+    request: CheckExecutionRequest,
+    x_check_name: Optional[str] = Header(None, alias="X-Check-Name"),
+):
+    """
+    Execute a single health check.
+
+    This endpoint is used by the Holmes operator to execute checks
+    via the stateless API servers.
+    """
+    try:
+        from holmes.checks import Check, CheckMode, execute_check
+
+        # Create the AI instance
+        ai = config.create_toolcalling_llm(dal=dal, model=None)
+
+        # Create Check object from request
+        # Extract destination names from list of dicts if needed
+        destination_names = []
+        if request.destinations:
+            if isinstance(request.destinations[0], dict):
+                destination_names = [
+                    d.get("name", "") for d in request.destinations if d.get("name")
+                ]
+            else:
+                destination_names = request.destinations
+
+        check = Check(
+            name=x_check_name or "api-check",
+            query=request.query,
+            timeout=request.timeout,
+            mode=CheckMode[request.mode.upper()],
+            destinations=destination_names,
+        )
+
+        # Execute the check using the shared function
+        result = execute_check(
+            check=check,
+            ai=ai,
+            verbose=False,
+            console=None,
+        )
+
+        # Return the result
+        return CheckExecutionResponse(
+            status=result.status.value,
+            message=result.message,
+            duration=result.duration,
+            rationale=result.rationale,
+            error=result.error,
+        )
+
+    except AuthenticationError as e:
+        raise HTTPException(status_code=401, detail=e.message)
+    except Exception as e:
+        logging.error(f"Error in /api/check/execute: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

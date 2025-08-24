@@ -7,8 +7,8 @@ additional_env_vars: []
 imagePullSecrets: []
 podAnnotations: {}
 
-image: holmes:0.0.0
-registry: robustadev
+image: holmes:0.0.0  # Image name and tag
+registry: robustadev  # Registry/organization prefix
 
 sentryDSN: https://51f9cd9bd2fdee16144db08fc423cd3b@o1120648.ingest.us.sentry.io/4508799804702720
 enableTelemetry: true
@@ -58,3 +58,55 @@ additionalVolumeMounts: []
 priorityClassName: ""
 
 modelList: {}
+
+# Service configuration for API access
+service:
+  port: 8080
+  targetPort: 8080
+  type: ClusterIP
+
+# Operator configuration for HealthCheck CRDs
+operator:
+  enabled: false  # Set to true to enable the operator
+
+  # Operator image configuration
+  # The full image path is constructed as: [registry/]repository:tag
+  # Default: robustadev/holmes-operator:latest (uses parent .Values.registry)
+  #
+  # To use default Docker Hub image:
+  #   Leave image empty (uses .Values.registry from parent)
+  #
+  # To use a custom image from a private registry:
+  #   Set image to full path like "my-registry.com/my-org/holmes-operator"
+  #   The tag will be appended automatically
+  #
+  # Examples:
+  #   Default: image: "" -> robustadev/holmes-operator:latest
+  #   Private: image: "gcr.io/my-project/holmes-operator" -> gcr.io/my-project/holmes-operator:latest
+  #   Custom:  image: "mycompany/my-holmes-operator" -> mycompany/my-holmes-operator:v1.2.3
+  image: ""  # Full image path (without tag) or empty for default
+  tag: "latest"  # Image tag/version
+
+  # Operator pod resources
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+      # cpu: 500m  # Optional CPU limit
+
+  # Operator configuration
+  logLevel: INFO
+  imagePullPolicy: Always
+
+  # Pod placement
+  nodeSelector: {}
+  affinity: {}
+  tolerations: []
+
+  # Additional annotations for operator pods
+  podAnnotations: {}
+
+  # Additional environment variables
+  additionalEnvVars: []

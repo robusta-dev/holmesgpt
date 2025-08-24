@@ -1,0 +1,168 @@
+{{- if .Values.operator.enabled }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: healthchecks.holmes.robusta.dev
+spec:
+  group: holmes.robusta.dev
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - query
+            properties:
+              query:
+                type: string
+                description: "The health check query to evaluate"
+              schedule:
+                type: string
+                description: "Cron schedule for the check (default: */5 * * * *)"
+                default: "*/5 * * * *"
+              timeout:
+                type: integer
+                description: "Timeout in seconds for check execution"
+                default: 30
+                minimum: 1
+                maximum: 300
+              mode:
+                type: string
+                description: "Execution mode: alert or monitor"
+                enum:
+                - alert
+                - monitor
+                default: monitor
+              destinations:
+                type: array
+                description: "Alert destinations for failed checks"
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                      - slack
+                      - pagerduty
+                    config:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+              enabled:
+                type: boolean
+                description: "Enable or disable check execution"
+                default: true
+              concurrencyPolicy:
+                type: string
+                description: "How to handle concurrent executions"
+                enum:
+                - Allow
+                - Forbid
+                - Replace
+                default: Forbid
+              successfulJobsHistoryLimit:
+                type: integer
+                description: "Number of successful executions to keep in history"
+                default: 3
+                minimum: 0
+                maximum: 100
+              failedJobsHistoryLimit:
+                type: integer
+                description: "Number of failed executions to keep in history"
+                default: 3
+                minimum: 0
+                maximum: 100
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+            description: "Status of the health check"
+            properties:
+              lastExecutionTime:
+                type: string
+                format: date-time
+                description: "Time of last execution"
+              lastSuccessfulTime:
+                type: string
+                format: date-time
+                description: "Time of last successful execution"
+              lastResult:
+                type: string
+                description: "Result of last execution: pass, fail, or error"
+                enum:
+                - pass
+                - fail
+                - error
+              message:
+                type: string
+                description: "Message from last execution"
+              jobId:
+                type: string
+                description: "ID of the scheduled job"
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              history:
+                type: array
+                description: "Execution history"
+                items:
+                  type: object
+                  properties:
+                    executionTime:
+                      type: string
+                      format: date-time
+                    result:
+                      type: string
+                    duration:
+                      type: number
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Query
+      type: string
+      description: "Health check query"
+      jsonPath: .spec.query
+      priority: 1
+    - name: Schedule
+      type: string
+      description: "Cron schedule"
+      jsonPath: .spec.schedule
+    - name: Last Result
+      type: string
+      description: "Last execution result"
+      jsonPath: .status.lastResult
+    - name: Last Run
+      type: date
+      description: "Last execution time"
+      jsonPath: .status.lastExecutionTime
+    - name: Enabled
+      type: boolean
+      description: "Whether the check is enabled"
+      jsonPath: .spec.enabled
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: healthchecks
+    singular: healthcheck
+    kind: HealthCheck
+    shortNames:
+    - hc
+{{- end }}

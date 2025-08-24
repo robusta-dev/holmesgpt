@@ -1,0 +1,78 @@
+# Test deployment for health check testing
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-test
+  namespace: test-app
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: test-app
+spec:
+  selector:
+    app: nginx
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# Deployment with issues for testing failures
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-app
+  namespace: test-app
+  labels:
+    app: broken
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: broken
+  template:
+    metadata:
+      labels:
+        app: broken
+    spec:
+      containers:
+      - name: broken
+        image: busybox
+        command: ["sh", "-c", "exit 1"]  # Will crash immediately
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"

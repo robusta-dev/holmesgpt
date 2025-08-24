@@ -1,0 +1,70 @@
+# Development values for local testing with Skaffold
+# These override the default values.yaml
+
+# Use local image (Skaffold will set this)
+image: holmes-local
+registry: ""
+
+# Enable debug logging
+logLevel: DEBUG
+
+# Disable telemetry for local development
+enableTelemetry: false
+sentryDSN: ""
+
+# Enable the operator
+operator:
+  enabled: true
+  # Image will be set by Skaffold dynamically
+  # When empty, defaults to: robustadev/holmes-operator:latest
+  # Skaffold overrides this with locally built image
+  image: ""  # Set by Skaffold with setValueTemplates
+  logLevel: DEBUG
+  imagePullPolicy: IfNotPresent  # Use local image
+
+  # Minimal resources for local testing
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+# Main Holmes deployment resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 1Gi
+
+# Service configuration
+service:
+  port: 8080
+  targetPort: 8080
+  type: ClusterIP
+
+# Essential toolsets for testing
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  prometheus/metrics:
+    enabled: false  # Disable unless you have Prometheus
+  robusta:
+    enabled: false  # Disable Robusta integration for local
+  internet:
+    enabled: true
+
+# Add environment variables for local development
+additionalEnvVars:
+  - name: PYTHONDONTWRITEBYTECODE
+    value: "1"
+  - name: PYTHONUNBUFFERED
+    value: "1"
+  # Add your API keys here for local testing
+  # - name: OPENAI_API_KEY
+  #   value: "your-key-here"
+  # - name: ANTHROPIC_API_KEY
+  #   value: "your-key-here"
