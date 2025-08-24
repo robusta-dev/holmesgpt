@@ -886,9 +886,7 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
                 # Add service filter (with smart matching)
                 if params.get("service_name"):
                     service = params["service_name"]
-                    # Try exact match first, then with -service suffix, then regex
-                    # For now, use regex for flexibility
-                    filters.append(f'resource.service.name=~"{service}.*"')
+                    filters.append(f'resource.service.name=~".*{service}.*"')
 
                 # Add namespace filter
                 if params.get("namespace"):
@@ -996,14 +994,14 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
 
                     slow_traces_data.append(
                         {
-                            "trace_id": trace_id,
-                            "duration_ms": round(trace_summary.get("durationMs", 0), 2),
-                            "root_service": trace_summary.get(
+                            "traceID": trace_id,
+                            "durationMs": round(trace_summary.get("durationMs", 0), 2),
+                            "rootServiceName": trace_summary.get(
                                 "rootServiceName", "unknown"
                             ),
-                            "key_attributes": trace_attributes,
-                            "slowest_operations": slowest_spans,
-                            "span_count": self._count_spans(root_spans),
+                            "attributes": trace_attributes,
+                            "slowestSpans": slowest_spans,
+                            "spanCount": self._count_spans(root_spans),
                         }
                     )
                 except Exception:
@@ -1045,13 +1043,13 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
 
                     fast_traces_data.append(
                         {
-                            "trace_id": trace_id,
-                            "duration_ms": round(trace_summary.get("durationMs", 0), 2),
-                            "root_service": trace_summary.get(
+                            "traceID": trace_id,
+                            "durationMs": round(trace_summary.get("durationMs", 0), 2),
+                            "rootServiceName": trace_summary.get(
                                 "rootServiceName", "unknown"
                             ),
-                            "key_attributes": trace_attributes,
-                            "span_count": self._count_spans(root_spans),
+                            "attributes": trace_attributes,
+                            "spanCount": self._count_spans(root_spans),
                         }
                     )
                 except Exception:
@@ -1090,13 +1088,13 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
 
                     typical_traces_data.append(
                         {
-                            "trace_id": trace_id,
-                            "duration_ms": round(trace_summary.get("durationMs", 0), 2),
-                            "root_service": trace_summary.get(
+                            "traceID": trace_id,
+                            "durationMs": round(trace_summary.get("durationMs", 0), 2),
+                            "rootServiceName": trace_summary.get(
                                 "rootServiceName", "unknown"
                             ),
-                            "key_attributes": trace_attributes,
-                            "span_count": self._count_spans(root_spans),
+                            "attributes": trace_attributes,
+                            "spanCount": self._count_spans(root_spans),
                         }
                     )
                 except Exception:
@@ -1227,15 +1225,15 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
         for span in sorted_spans:
             span_info = {
                 "operation": span.name,
-                "service": span.service_name,
-                "duration_ms": round(span.duration_ms, 2),
+                "serviceName": span.service_name,
+                "durationMs": round(span.duration_ms, 2),
             }
 
             # Add relevant attributes
             if span.attributes.get("db.statement"):
-                span_info["db_query"] = span.attributes["db.statement"][:100] + "..."
+                span_info["dbStatement"] = span.attributes["db.statement"][:100] + "..."
             if span.attributes.get("http.route"):
-                span_info["http_route"] = span.attributes["http.route"]
+                span_info["httpRoute"] = span.attributes["http.route"]
 
             result.append(span_info)
 
@@ -1270,14 +1268,14 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
 
         # Collect attribute frequencies in slow traces
         for trace in slow_traces:
-            for key, value in trace.get("key_attributes", {}).items():
+            for key, value in trace.get("attributes", {}).items():
                 if key not in slow_attrs:
                     slow_attrs[key] = {}
                 slow_attrs[key][str(value)] = slow_attrs[key].get(str(value), 0) + 1
 
         # Collect attribute frequencies in fast traces
         for trace in fast_traces:
-            for key, value in trace.get("key_attributes", {}).items():
+            for key, value in trace.get("attributes", {}).items():
                 if key not in fast_attrs:
                     fast_attrs[key] = {}
                 fast_attrs[key][str(value)] = fast_attrs[key].get(str(value), 0) + 1
@@ -1299,10 +1297,10 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
 
         # Check span count differences
         if slow_traces and fast_traces:
-            avg_slow_spans = sum(t.get("span_count", 0) for t in slow_traces) / len(
+            avg_slow_spans = sum(t.get("spanCount", 0) for t in slow_traces) / len(
                 slow_traces
             )
-            avg_fast_spans = sum(t.get("span_count", 0) for t in fast_traces) / len(
+            avg_fast_spans = sum(t.get("spanCount", 0) for t in fast_traces) / len(
                 fast_traces
             )
             if avg_slow_spans > avg_fast_spans * 1.5:
@@ -1313,11 +1311,11 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
         # Check for missing attributes
         slow_keys = set()
         for trace in slow_traces:
-            slow_keys.update(trace.get("key_attributes", {}).keys())
+            slow_keys.update(trace.get("attributes", {}).keys())
 
         fast_keys = set()
         for trace in fast_traces:
-            fast_keys.update(trace.get("key_attributes", {}).keys())
+            fast_keys.update(trace.get("attributes", {}).keys())
 
         only_in_slow = slow_keys - fast_keys
         if only_in_slow:
