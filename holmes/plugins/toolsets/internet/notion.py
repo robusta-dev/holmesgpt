@@ -118,7 +118,7 @@ class NotionToolset(InternetBaseToolset):
             name="notion",
             description="Fetch notion webpages",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Notion-logo.svg/2048px-Notion-logo.svg.png",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/notion.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/notion/",
             tools=[
                 FetchNotion(self),
             ],

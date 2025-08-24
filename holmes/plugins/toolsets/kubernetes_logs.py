@@ -63,7 +63,7 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#logs",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
             is_default=True,

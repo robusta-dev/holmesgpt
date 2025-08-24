@@ -823,7 +823,7 @@ class PrometheusToolset(Toolset):
         super().__init__(
             name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

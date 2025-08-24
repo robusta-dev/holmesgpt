@@ -213,7 +213,7 @@ class RobustaToolset(Toolset):
         super().__init__(
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             description="Fetches alerts metadata and change history",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/robusta/",
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[

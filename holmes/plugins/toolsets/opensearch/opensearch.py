@@ -197,7 +197,7 @@ class OpenSearchToolset(Toolset):
             name="opensearch/status",
             enabled=False,
             description="Provide cluster metadata information like health, shards, settings.",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-status/",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
