@@ -42,8 +42,8 @@ stringData:
         with tracer.start_as_current_span("process_checkout") as span:
             data = request.json or {}
 
-            # Log the incoming request
-            print(f"[CHECKOUT] Received request: {data}", flush=True)
+            # Log the incoming request (without revealing the data)
+            print(f"[CHECKOUT] Processing checkout request for user {data.get('user_id', 'guest')}", flush=True)
 
             # Extract parameters
             user_id = data.get('user_id', 'guest')
@@ -67,16 +67,18 @@ stringData:
                     # Simulate slow query with promo_code
                     query = "SELECT rate_per_kg, discount_percent FROM shipping_rates WHERE zone_id = ? AND promo_code = ? AND active = true"
                     db_span.set_attribute("db.statement", query)
-                    print(f"[DB] Executing SLOW query with promo_code: {promo_code} (simulating 2s delay)", flush=True)
-                    time.sleep(2.0)  # Simulate slow query
+                    # print(f"[DB] Executing shipping rate query", flush=True)
+                    sleep_time = random.uniform(1.5, 3.5)
+                    time.sleep(sleep_time) # Simulate slow query
                     shipping_rate = 4.5
                     discount = 15.0
                 else:
                     # Simulate fast query without promo_code
                     query = "SELECT rate_per_kg, discount_percent FROM shipping_rates WHERE zone_id = ? AND active = true"
                     db_span.set_attribute("db.statement", query)
-                    print(f"[DB] Executing FAST query without promo_code (simulating 0.1s delay)", flush=True)
-                    time.sleep(0.1)  # Simulate fast query
+                    # print(f"[DB] Executing shipping rate query", flush=True)
+                    sleep_time = random.uniform(0.1, 0.2)
+                    time.sleep(sleep_time) # Simulate fast query
                     shipping_rate = 5.0
                     discount = 0.0
 
@@ -95,7 +97,7 @@ stringData:
                 "total": round(total, 2)
             }
 
-            print(f"[CHECKOUT] Sending response: {response}", flush=True)
+            print(f"[CHECKOUT] Completed checkout request", flush=True)
             return jsonify(response)
 
     if __name__ == '__main__':

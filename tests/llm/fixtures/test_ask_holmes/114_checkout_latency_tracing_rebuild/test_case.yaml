@@ -84,18 +84,10 @@ before_test: |
     exit 1
   fi
 
-  echo "🔍 Verifying checkout service log entries"
-  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "FAST query without promo_code"; then
-    echo "✅ Found checkout FAST query log"
+  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
+    echo "✅ Found checkout request log"
   else
-    echo "❌ Missing checkout FAST query log"
-    exit 1
-  fi
-
-  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "SLOW query with promo_code"; then
-    echo "✅ Found checkout SLOW query log"
-  else
-    echo "❌ Missing checkout SLOW query log"
+    echo "❌ Missing checkout request log"
     exit 1
   fi
 
