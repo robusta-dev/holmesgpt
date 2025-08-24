@@ -231,9 +231,12 @@ def log_to_braintrust(
             prompt = result.prompt
 
     # Build comprehensive metadata
+    # Extract base test case ID without variant suffix (e.g., "91a_datadog[0]" -> "91a_datadog")
+    base_test_id = test_case.id.split("[")[0] if "[" in test_case.id else test_case.id
     metadata: dict[str, Any] = {
         "model": model,
-        "eval_id": test_case.id,  # Clean test case ID without model
+        "eval_id": base_test_id,  # Base test case ID without variant suffix
+        "test_id": test_case.id,  # Full test case ID with variant suffix if present
     }
 
     # Add test type for ask tests
