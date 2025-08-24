@@ -16,6 +16,7 @@ Weekly automated tests across 150+ real-world Kubernetes and cloud-native troubl
 ## Automated Benchmarking
 
 Our CI/CD pipeline automatically runs benchmarks:
+
 - **Weekly** - Every Sunday at 2 AM UTC (comprehensive testing with 10 iterations)
 - **Pull Requests** - When eval-related files are modified (quick validation)
 - **On-demand** - Via GitHub Actions UI
@@ -27,6 +28,7 @@ Results are automatically published here and archived in `history/`.
 Want to run benchmarks yourself or contribute new tests?
 
 **[→ See the Evaluation Guide](../development/evals/index.md)** for complete instructions on:
+
 - Running benchmarks locally
 - Testing different models
 - Adding new test scenarios

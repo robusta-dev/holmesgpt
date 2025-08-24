@@ -19,4 +19,4 @@
 
 ---
 
-*Results update weekly. See [Braintrust](https://braintrust.dev) for detailed traces.*
+*Results update weekly.*
