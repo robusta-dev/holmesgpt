@@ -17,8 +17,8 @@ if [ -z "$DATADOG_APP_KEY" ]; then
     exit 1
 fi
 
-# Use DATADOG_SITE or default to US1
-DATADOG_SITE="${DATADOG_SITE:-https://api.datadoghq.com}"
+# Use DATADOG_SITE or default to US1 logs intake endpoint
+DATADOG_SITE="${DATADOG_SITE:-https://http-intake.logs.datadoghq.com}"
 
 # Calculate yesterday's timestamp at 14:30 UTC
 YESTERDAY_14_30=$(date -u -d "yesterday 14:30" +%s)000
@@ -42,13 +42,13 @@ send_log() {
   "message": "$message",
   "service": "api-gateway",
   "status": "$level",
-  "@timestamp": $timestamp
+  "timestamp": $timestamp
 }
 EOF
 )
 
     # Send to Datadog HTTP API
-    if ! curl -fS -X POST "${DATADOG_SITE}/api/v2/logs" \
+    if ! curl -fS -X POST "${DATADOG_SITE}" \
         -H "Content-Type: application/json" \
         -H "DD-API-KEY: ${DATADOG_API_KEY}" \
         -H "DD-APPLICATION-KEY: ${DATADOG_APP_KEY}" \
