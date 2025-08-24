@@ -3,6 +3,24 @@ kind: Namespace
 metadata:
   name: deploy-91c
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: metrics-script
+  namespace: deploy-91c
+type: Opaque
+stringData:
+  script.sh: |
+    #!/bin/sh
+    echo "Starting metrics-deployment pod..."
+    # Simulate some CPU and memory usage
+    while true; do
+      # Consume some CPU with a calculation
+      echo "scale=5000; 4*a(1)" | busybox awk 'BEGIN{for(i=0;i<100;i++){}}' 2>/dev/null
+      # Sleep to create varying pattern
+      sleep 5
+    done
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,21 +36,19 @@ spec:
       labels:
         app: metrics-deployment
     spec:
+      volumes:
+      - name: script-volume
+        secret:
+          secretName: metrics-script
+          defaultMode: 0755
       containers:
       - name: app
         image: busybox:latest
-        command: ["/bin/sh"]
-        args:
-        - -c
-        - |
-          echo "Starting metrics-deployment pod..."
-          # Simulate some CPU and memory usage
-          while true; do
-            # Consume some CPU with a calculation
-            echo "scale=5000; 4*a(1)" | busybox awk 'BEGIN{for(i=0;i<100;i++){}}' 2>/dev/null
-            # Sleep to create varying pattern
-            sleep 5
-          done
+        command: ["/bin/sh", "-c"]
+        args: ["/etc/scripts/script.sh"]
+        volumeMounts:
+        - name: script-volume
+          mountPath: /etc/scripts
         resources:
           requests:
             memory: "256Mi"

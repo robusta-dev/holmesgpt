@@ -18,8 +18,8 @@ before_test: |
   # Send CPU and memory metrics to Datadog for HISTORICAL pod names
   # These simulate pods that existed previously but were deleted/replaced during a rollout
   # Using realistic pod name format: deployment-name-<replicaset-hash>-<pod-id>
-  bash ../../shared/send_datadog_metrics.sh app-91d telemetry-processor telemetry-processor-5f9d8b7c4d-x2km9
-  bash ../../shared/send_datadog_metrics.sh app-91d telemetry-processor telemetry-processor-5f9d8b7c4d-p7nz3
+  bash ../../shared/send_datadog_metrics.sh app-91d telemetry-processor-5f9d8b7c4d-x2km9 telemetry-processor
+  bash ../../shared/send_datadog_metrics.sh app-91d telemetry-processor-5f9d8b7c4d-p7nz3 telemetry-processor
 
 user_prompt:
   - "Can you show me a cpu graph of the telemetry-processor-5f9d8b7c4d-x2km9 pod in namespace app-91d?"
