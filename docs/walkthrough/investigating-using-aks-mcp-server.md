@@ -44,8 +44,10 @@ Add this configuration to your HolmesGPT config file (`~/.holmes/config.yaml`):
 ```yaml
 mcp_servers:
   aks-mcp:
-    description: "MCP server to get AKS cluster information, retrieve cluster resources and workloads, analyze network policies and VNet configurations, query control plane logs, fetch cluster metrics and health status. Investigate networking issues with NSGs and load balancers, access Application Insights data, perform kubectl operations, real-time monitoring of DNS, TCP connections, and process execution across Azure Kubernetes environments"
+    description: "Azure Kubernetes Service(AKS) Model Context Protocol(MCP) server"
     url: "http://localhost:8000/sse"
+    llm_instructions: "MCP server to get AKS cluster information, retrieve cluster resources and workloads, analyze network policies and VNet configurations, query control plane logs, fetch cluster metrics and health status. Investigate networking issues with NSGs and load balancers, perform kubectl operations, real-time monitoring of DNS, services across Azure Kubernetes environments"
+
 ```
 
 ## Investigation Examples
