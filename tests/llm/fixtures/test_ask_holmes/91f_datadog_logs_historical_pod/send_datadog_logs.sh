@@ -48,12 +48,15 @@ EOF
 )
 
     # Send to Datadog HTTP API
-    curl -X POST "${DATADOG_SITE}/api/v2/logs" \
+    if ! curl -fS -X POST "${DATADOG_SITE}/api/v2/logs" \
         -H "Content-Type: application/json" \
         -H "DD-API-KEY: ${DATADOG_API_KEY}" \
         -H "DD-APPLICATION-KEY: ${DATADOG_APP_KEY}" \
         -d "[$log_entry]" \
-        --silent --show-error
+        --silent --show-error ; then
+        echo "ERROR: Failed sending log to Datadog (level=$level)."
+        return 1
+    fi
 
     echo "Sent log: $level - ${message:0:50}..."
 }
