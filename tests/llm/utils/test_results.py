@@ -21,31 +21,22 @@ class TestResult:
     mock_data_failure: bool = False
 
     @property
-    def test_id(self) -> str:
-        """Extract test ID from pytest nodeid.
+    def test_case_name(self) -> str:
+        """Extract full test case name from pytest nodeid.
 
-        Example: 'test_ask_holmes[01_how_many_pods]' -> '01'
+        Example: 'test_ask_holmes[01_how_many_pods]' -> '01_how_many_pods'
+        Example: 'test_ask_holmes[01_how_many_pods0]' -> '01_how_many_pods' (removes iteration)
         """
         if "[" in self.nodeid and "]" in self.nodeid:
             test_case = self.nodeid.split("[")[1].split("]")[0]
-            # Extract number from start of test case name
-            return test_case.split("_")[0] if "_" in test_case else test_case
-        return "unknown"
-
-    @property
-    def test_name(self) -> str:
-        """Extract readable test name from pytest nodeid.
-
-        Example: 'test_ask_holmes[01_how_many_pods]' -> 'how_many_pods'
-        """
-        try:
-            if "[" in self.nodeid and "]" in self.nodeid:
-                test_case = self.nodeid.split("[")[1].split("]")[0]
-                # Remove number prefix and convert underscores to spaces
-                parts = test_case.split("_")[1:] if "_" in test_case else [test_case]
-                return "_".join(parts)
-        except (IndexError, AttributeError):
-            pass
+            # Remove trailing digits (iteration numbers added by pytest)
+            while test_case and test_case[-1].isdigit():
+                # But keep digits that are part of the test name (e.g., "113_" in "113_checkout")
+                # Check if removing this digit would leave us with underscore or nothing
+                if len(test_case) == 1 or test_case[-2] == "_":
+                    break
+                test_case = test_case[:-1]
+            return test_case
         return self.nodeid.split("::")[-1] if "::" in self.nodeid else self.nodeid
 
 

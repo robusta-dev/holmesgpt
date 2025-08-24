@@ -15,17 +15,15 @@ from holmes.core.conversations import build_chat_messages
 from holmes.core.llm import DefaultLLM
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_toolset import (
     MockToolsetManager,
-    MockMode,
     MockGenerationConfig,
 )
 from tests.llm.utils.test_case_utils import (
     AskHolmesTestCase,
-    Evaluation,
     check_and_skip_test,
+    get_models,
 )
 
 from holmes.core.prompt import build_initial_ask_messages
@@ -33,17 +31,12 @@ from holmes.core.prompt import build_initial_ask_messages
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     update_test_results,
-    update_mock_error,
+    handle_test_error,
 )
 from os import path
 from holmes.core.tracing import SpanType
-from tests.llm.utils.test_helpers import (
-    print_expected_output,
-    print_correctness_evaluation,
-    print_tool_calls_summary,
-    print_tool_calls_detailed,
-)
 from tests.llm.utils.iteration_utils import get_test_cases
+from tests.llm.utils.braintrust import log_to_braintrust
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_ask_holmes"))
@@ -55,8 +48,10 @@ def get_ask_holmes_test_cases():
 
 
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_ask_holmes_test_cases())
 def test_ask_holmes(
+    model: str,
     test_case: AskHolmesTestCase,
     caplog,
     request,
@@ -64,10 +59,10 @@ def test_ask_holmes(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
+    set_initial_properties(request, test_case, model)
 
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
+    # Check if test should be skipped or has setup failures
+    check_and_skip_test(test_case, request, shared_test_infrastructure)
 
     # Check if --only-setup is set
     only_setup = request.config.getoption("--only-setup", False)
@@ -76,43 +71,17 @@ def test_ask_holmes(
         print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
         pytest.skip("Skipping test execution due to --only-setup flag")
 
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
-
     print(f"\n🧪 TEST: {test_case.id}")
-    print("   CONFIGURATION:")
-    print(
-        f"   • Mode: {'⚪️ MOCKED' if mock_generation_config.mode == MockMode.MOCK else '🔥 LIVE'}, Generate Mocks: {mock_generation_config.generate_mocks}"
-    )
-    print(f"   • User Prompt: {test_case.user_prompt}")
-    print(f"   • Expected Output: {test_case.expected_output}")
-    if test_case.before_test:
-        if "\n" in test_case.before_test:
-            print("   • Before Test:")
-            for line in test_case.before_test.strip().split("\n"):
-                print(f"       {line}")
-        else:
-            print(f"   • Before Test: {test_case.before_test}")
-
-    if test_case.after_test:
-        if "\n" in test_case.after_test:
-            print("   • After Test:")
-            for line in test_case.after_test.strip().split("\n"):
-                print(f"       {line}")
-        else:
-            print(f"   • After Test: {test_case.after_test}")
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment()
+    metadata = {"model": model}
+    tracer.start_experiment(additional_metadata=metadata)
 
     result: Optional[LLMResult] = None
 
     try:
         with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.EVAL
+            name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
         ) as eval_span:
             # Store span info in user properties for conftest to access
             if hasattr(eval_span, "id"):
@@ -139,6 +108,7 @@ def test_ask_holmes(
                     with set_test_env_vars(test_case):
                         result = ask_holmes(
                             test_case=test_case,
+                            model=model,
                             tracer=tracer,
                             eval_span=eval_span,
                             mock_generation_config=mock_generation_config,
@@ -148,6 +118,7 @@ def test_ask_holmes(
                 with set_test_env_vars(test_case):
                     result = ask_holmes(
                         test_case=test_case,
+                        model=model,
                         tracer=tracer,
                         eval_span=eval_span,
                         mock_generation_config=mock_generation_config,
@@ -155,115 +126,40 @@ def test_ask_holmes(
                     )
 
     except Exception as e:
-        # Log error to span if available
-        try:
-            if "eval_span" in locals():
-                eval_span.log(
-                    input=test_case.user_prompt,
-                    output=result.result if result else str(e),
-                    expected=test_case.expected_output,
-                    dataset_record_id=test_case.id,
-                    scores={},
-                    tags=test_case.tags or [],
-                )
-        except Exception:
-            pass  # Don't fail the test due to logging issues
-
-        # Check if this is a MockDataError
-        is_mock_error = "MockDataError" in type(e).__name__ or any(
-            "MockData" in base.__name__ for base in type(e).__mro__
+        handle_test_error(
+            request=request,
+            error=e,
+            eval_span=eval_span if "eval_span" in locals() else None,
+            test_case=test_case,
+            model=model,
+            result=result,
+            mock_generation_config=mock_generation_config,
         )
-
-        if is_mock_error:
-            # Update properties for mock error
-            update_mock_error(request, e)
-
-        # Cleanup is handled by session-scoped fixture now
         raise
 
-    finally:
-        # Cleanup is handled by session-scoped fixture now
-        pass
-
-    input = test_case.user_prompt
     output = result.result
-    expected = test_case.expected_output
 
-    scores = {}
-
-    if not isinstance(expected, list):
-        expected = [expected]
-
-    print_expected_output(expected)
-
-    prompt = (
-        result.messages[0]["content"]
-        if result.messages and len(result.messages) > 0
-        else result.prompt
-    )
-    evaluation_type: str = (
-        test_case.evaluation.correctness.type
-        if isinstance(test_case.evaluation.correctness, Evaluation)
-        else "strict"
-    )
-    correctness_eval = evaluate_correctness(
+    scores = update_test_results(
+        request=request,
         output=output,
-        expected_elements=expected,
-        parent_span=eval_span,
-        evaluation_type=evaluation_type,
+        tools_called=[tc.description for tc in result.tool_calls]
+        if result.tool_calls
+        else [],
+        scores=None,  # Let it calculate
+        result=result,
+        test_case=test_case,
+        eval_span=eval_span,
         caplog=caplog,
     )
-    print("\n💬 ACTUAL OUTPUT:")
-    print(f"   {output}")
 
-    print_correctness_evaluation(correctness_eval)
-
-    scores["correctness"] = correctness_eval.score
-
-    # Log evaluation results directly to the span
     if eval_span:
-        eval_span.log(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            dataset_record_id=test_case.id,
+        log_to_braintrust(
+            eval_span=eval_span,
+            test_case=test_case,
+            model=model,
+            result=result,
             scores=scores,
-            metadata={"system_prompt": prompt},
-            tags=test_case.tags or [],
-        )
-
-    # Print tool calls summary
-    print_tool_calls_summary(result.tool_calls)
-
-    if result.tool_calls:
-        tools_called = [tc.description for tc in result.tool_calls]
-    else:
-        tools_called = "None"
-
-    # Print detailed tool output
-    print_tool_calls_detailed(result.tool_calls)
-
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
-
-    # Check if the output contains MockDataError (indicating a mock failure)
-    if output and any(
-        error_type in output
-        for error_type in [
-            "MockDataError",
-            "MockDataNotFoundError",
-            "MockDataCorruptedError",
-        ]
-    ):
-        # Record mock failure in user_properties
-        request.node.user_properties.append(("mock_data_failure", True))
-        # Fail the test
-        # Get expected from test_case since debug_expected is no longer in local scope
-        expected_output = test_case.expected_output
-        if isinstance(expected_output, list):
-            expected_output = "\n-  ".join(expected_output)
-        pytest.fail(
-            f"Test {test_case.id} failed due to mock data error\nActual: {output}\nExpected: {expected_output}"
+            mock_generation_config=mock_generation_config,
         )
 
     # Get expected for assertion message
@@ -279,6 +175,7 @@ def test_ask_holmes(
 # TODO: can this call real ask_holmes so more of the logic is captured
 def ask_holmes(
     test_case: AskHolmesTestCase,
+    model: str,
     tracer,
     eval_span,
     mock_generation_config,
@@ -303,8 +200,8 @@ def ask_holmes(
 
     ai = ToolCallingLLM(
         tool_executor=tool_executor,
-        max_steps=10,
-        llm=DefaultLLM(os.environ.get("MODEL", "gpt-4o"), tracer=tracer),
+        max_steps=40,
+        llm=DefaultLLM(model, tracer=tracer),
     )
 
     test_type = (
@@ -329,6 +226,7 @@ def ask_holmes(
                 test_case.user_prompt,
                 None,
                 ai.tool_executor,
+                ai.investigation_id,
                 runbooks,
             )
     else:
@@ -349,5 +247,6 @@ def ask_holmes(
         start_time = time.time()
         result = ai.messages_call(messages=messages, trace_span=llm_span)
         holmes_duration = time.time() - start_time
-        eval_span.log(metadata={"Holmes Duration": holmes_duration})
+        # Log duration directly to eval_span
+        eval_span.log(metadata={"holmes_duration": holmes_duration})
     return result

@@ -25,11 +25,22 @@ def append_all_files_to_user_prompt(
     return user_prompt
 
 
+def get_tasks_management_system_reminder() -> str:
+    return (
+        "\n\n<system-reminder>\nIMPORTANT: You have access to the TodoWrite tool. It creates a TodoList, in order to track progress. It's very important. You MUST use it:\n1. FIRST: Ask your self which sub problems you need to solve in order to answer the question."
+        "Do this, BEFORE any other tools\n2. "
+        "AFTER EVERY TOOL CALL: If required, update the TodoList\n3. "
+        "\n\nFAILURE TO UPDATE TodoList = INCOMPLETE INVESTIGATION\n\n"
+        "Example flow:\n- Think and divide to sub problems → create TodoList → Perform each task on the list → Update list → Verify your solution\n</system-reminder>"
+    )
+
+
 def build_initial_ask_messages(
     console: Console,
     initial_user_prompt: str,
     file_paths: Optional[List[Path]],
     tool_executor: Any,  # ToolExecutor type
+    investigation_id: str,
     runbooks: Union[RunbookCatalog, Dict, None] = None,
     system_prompt_additions: Optional[str] = None,
 ) -> List[Dict]:
@@ -49,6 +60,7 @@ def build_initial_ask_messages(
         "toolsets": tool_executor.toolsets,
         "runbooks": runbooks or {},
         "system_prompt_additions": system_prompt_additions or "",
+        "investigation_id": investigation_id,
     }
     system_prompt_rendered = load_and_render_prompt(
         system_prompt_template, template_context
@@ -59,6 +71,7 @@ def build_initial_ask_messages(
         console, initial_user_prompt, file_paths
     )
 
+    user_prompt_with_files += get_tasks_management_system_reminder()
     messages = [
         {"role": "system", "content": system_prompt_rendered},
         {"role": "user", "content": user_prompt_with_files},

@@ -94,7 +94,7 @@ opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     help="Path to a custom runbooks (can specify -r multiple times to add multiple runbooks)",
 )
 opt_max_steps: Optional[int] = typer.Option(
-    10,
+    40,
     "--max-steps",
     help="Advanced. Maximum number of steps the LLM can take to investigate the issue",
 )
@@ -103,6 +103,11 @@ opt_verbose: Optional[List[bool]] = typer.Option(
     "--verbose",
     "-v",
     help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv",
+)
+opt_log_costs: bool = typer.Option(
+    False,
+    "--log-costs",
+    help="Show LLM cost information in the output",
 )
 opt_echo_request: bool = typer.Option(
     True,
@@ -176,6 +181,7 @@ def ask(
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
+    log_costs: bool = opt_log_costs,
     # semi-common options
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -219,7 +225,7 @@ def ask(
     """
     Ask any question and answer using available tools
     """
-    console = init_logging(verbose)  # type: ignore
+    console = init_logging(verbose, log_costs)  # type: ignore
     # Detect and read piped input
     piped_data = None
 
@@ -302,6 +308,7 @@ def ask(
         prompt,  # type: ignore
         include_file,
         ai.tool_executor,
+        ai.investigation_id,
         config.get_runbook_catalog(),
         system_prompt_additions,
     )
