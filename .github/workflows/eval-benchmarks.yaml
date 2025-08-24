@@ -1,0 +1,162 @@
+name: LLM Evaluation Benchmarks
+
+on:
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      models:
+        description: 'Comma-separated list of models to test (e.g., gpt-4o,claude-sonnet-4)'
+        required: false
+        default: 'gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514'
+      test_markers:
+        description: 'Additional pytest markers (will be combined with "llm" - e.g., "easy", "medium", "logs")'
+        required: false
+        default: 'easy'
+      iterations:
+        description: 'Number of iterations per test (max 10)'
+        required: false
+        # TODO: For testing, use just 1 iteration by default
+        default: '1'  # Was: '3'
+
+  # TODO: Enable after testing
+  # # Run weekly on Sunday at 2 AM UTC
+  # schedule:
+  #   - cron: '0 2 * * 0'
+
+  # Run on PRs that modify eval-related files
+  pull_request:
+    paths:
+      - 'tests/llm/**'
+      - 'holmes/**'
+      - '.github/workflows/eval-benchmarks.yaml'
+
+jobs:
+  run-benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup HolmesGPT environment
+        uses: ./.github/actions/setup-holmes-env
+        with:
+          python-version: '3.12'
+          install-kubectl: 'true'
+
+      - name: Setup KIND cluster
+        uses: ./.github/actions/setup-kind-cluster
+        with:
+          cluster-name: 'kind'
+          wait-for-ready: 'true'
+
+      - name: Determine test command
+        id: test-command
+        run: |
+          # Set default values from workflow inputs or triggers
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            MODEL="${{ github.event.inputs.models }}"
+            # Always prepend "llm and " to user-provided markers with proper parentheses
+            TEST_MARKERS="llm and (${{ github.event.inputs.test_markers }})"
+            # Cap iterations at 10
+            ITERATIONS="${{ github.event.inputs.iterations }}"
+            if [ "$ITERATIONS" -gt 10 ]; then
+              echo "Capping iterations at 10 (requested: $ITERATIONS)"
+              ITERATIONS="10"
+            fi
+          elif [ "${{ github.event_name }}" == "schedule" ]; then
+            MODEL="gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4o"
+            TEST_MARKERS="llm and (easy)"
+            ITERATIONS="10"
+          else
+            # PR trigger - run minimal tests
+            MODEL="gpt-4o"
+            TEST_MARKERS="llm and (easy)"
+            ITERATIONS="1"
+          fi
+
+          # Build test command with markers
+          TEST_CMD="tests/llm/ -m '${TEST_MARKERS}'"
+
+          echo "models=$MODEL" >> $GITHUB_OUTPUT
+          echo "test_cmd=$TEST_CMD" >> $GITHUB_OUTPUT
+          echo "iterations=$ITERATIONS" >> $GITHUB_OUTPUT
+          echo "test_markers=$TEST_MARKERS" >> $GITHUB_OUTPUT
+
+      - name: Run evaluation benchmarks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
+          MODEL: ${{ steps.test-command.outputs.models }}
+          ITERATIONS: ${{ steps.test-command.outputs.iterations }}
+          RUN_LIVE: "true"
+          CLASSIFIER_MODEL: "gpt-4o"  # Always use OpenAI for classification
+          BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          EXPERIMENT_ID: "ci-benchmark-${{ github.run_id }}"
+          UPLOAD_DATASET: "true"
+        run: |
+          poetry run pytest ${{ steps.test-command.outputs.test_cmd }} \
+            --no-cov \
+            --tb=short \
+            -v \
+            --json-report \
+            --json-report-file=eval_results.json \
+            || true  # Don't fail the workflow if tests fail
+
+          # TODO: For testing, show what would be run
+          echo "==== Test execution summary ===="
+          echo "Models: ${{ steps.test-command.outputs.models }}"
+          echo "Markers: ${{ steps.test-command.outputs.test_markers }}"
+          echo "Iterations: ${{ steps.test-command.outputs.iterations }}"
+          echo "================================"
+
+      - name: Generate markdown report
+        if: always()
+        run: |
+          poetry run python scripts/generate_eval_report.py \
+            --json-file eval_results.json \
+            --output-file docs/benchmarks/latest-results.md \
+            --models "${{ steps.test-command.outputs.models }}"
+
+      - name: Upload eval results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: eval-results-${{ github.run_id }}
+          path: |
+            eval_results.json
+            evals_report.md
+            docs/benchmarks/latest-results.md
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: ./.github/actions/post-eval-comment
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          report-file: 'evals_report.md'
+          comment-identifier: '## LLM Evaluation Results'
+          delete-previous: 'false'  # Update instead of delete for benchmarks
+
+      # TODO: Enable after testing
+      # - name: Commit benchmark results
+      #   if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+      #   run: |
+      #     git config --local user.email "github-actions[bot]@users.noreply.github.com"
+      #     git config --local user.name "github-actions[bot]"
+      #
+      #     # Copy results to historical directory with timestamp
+      #     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+      #     mkdir -p docs/benchmarks/history
+      #     cp docs/benchmarks/latest-results.md "docs/benchmarks/history/results_${TIMESTAMP}.md"
+      #
+      #     git add docs/benchmarks/
+      #     git diff --staged --quiet || git commit -m "Update benchmark results [skip ci]"
+      #     git push

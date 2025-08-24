@@ -45,7 +45,7 @@ aws bedrock list-foundation-models --region=us-east-1 | grep modelId
 
 ### Model Name Examples
 
-Be sure to replace `<your-bedrock-model>` with a model you have access to, such as `anthropic.claude-3-5-sonnet-20240620-v1:0`
+Be sure to replace `<your-bedrock-model>` with a model you have access to, such as `anthropic.claude-sonnet-4-20250514-v1:0`
 
 ## Additional Resources
 
