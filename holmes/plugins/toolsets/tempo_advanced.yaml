@@ -1,0 +1,294 @@
+name: tempo/advanced-tracing
+description: Advanced Tempo tools for distributed tracing and performance root cause analysis
+docs_url: https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/tempo-advanced.html
+icon_url: https://grafana.com/static/assets/img/blog/tempo.png
+
+tools:
+  - name: analyze_trace_latency_breakdown
+    description: |
+      Analyzes a trace to identify where time is spent across services.
+      Provides span-level breakdown with critical path analysis.
+    parameters:
+      trace_id:
+        type: string
+        required: true
+        description: The trace ID to analyze
+      include_dependencies:
+        type: boolean
+        required: false
+        description: Include external service dependencies in analysis
+        default: true
+
+  - name: find_traces_by_criteria
+    description: |
+      Finds traces matching specified criteria.
+      Filters can be based on any span attributes available in your traces.
+    parameters:
+      service_name:
+        type: string
+        required: false
+        description: Service to search traces for
+      operation_name:
+        type: string
+        required: false
+        description: Specific operation name
+      min_duration:
+        type: string
+        required: true
+        description: Minimum trace duration (e.g., "500ms", "2s")
+      max_duration:
+        type: string
+        required: false
+        description: Maximum trace duration
+      span_attributes:
+        type: object
+        required: false
+        description: Any span attributes to filter by (discovered from your traces)
+      error_only:
+        type: boolean
+        required: false
+        description: Only return traces with errors
+        default: false
+      time_range:
+        type: string
+        required: false
+        description: Time range to search
+        default: "1h"
+      limit:
+        type: integer
+        required: false
+        description: Maximum traces to return
+        default: 50
+
+  - name: correlate_traces_with_metrics
+    description: |
+      Correlates slow traces with metrics to identify resource constraints.
+      Links trace spans to CPU, memory, network metrics.
+    parameters:
+      trace_ids:
+        type: array
+        required: false
+        description: Specific trace IDs to correlate (auto-detects if not provided)
+      service_name:
+        type: string
+        required: false
+        description: Service to focus correlation on
+      metric_sources:
+        type: array
+        required: false
+        description: Metric sources to correlate (prometheus, datadog, etc.)
+        default: ["prometheus"]
+      time_window:
+        type: string
+        required: false
+        description: Time window around trace for metrics
+        default: "1m"
+
+  - name: analyze_span_attributes
+    description: |
+      Analyzes span attributes to find patterns.
+      Groups traces by any available span attributes.
+    parameters:
+      service_name:
+        type: string
+        required: true
+        description: Service to analyze spans for
+      group_by_attributes:
+        type: array
+        required: true
+        description: Span attributes to group by (will use actual attributes from your traces)
+      min_duration:
+        type: string
+        required: false
+        description: Minimum span duration to include
+        default: "100ms"
+      aggregation:
+        type: string
+        required: false
+        description: How to aggregate (p50, p95, p99, avg, max)
+        default: "p95"
+      time_range:
+        type: string
+        required: false
+        description: Time range for analysis
+        default: "1h"
+
+  - name: trace_service_dependencies
+    description: |
+      Maps service dependencies and their latency contributions.
+      Identifies critical path and bottleneck services.
+    parameters:
+      root_service:
+        type: string
+        required: true
+        description: Root service to trace dependencies from
+      depth:
+        type: integer
+        required: false
+        description: Maximum dependency depth to analyze
+        default: 5
+      latency_threshold:
+        type: string
+        required: false
+        description: Only show dependencies above this latency
+      time_range:
+        type: string
+        required: false
+        description: Time range for dependency analysis
+        default: "1h"
+
+  - name: compare_trace_patterns
+    description: |
+      Compares traces between different time periods or deployments.
+      Identifies changes in service behavior and latency.
+    parameters:
+      service_name:
+        type: string
+        required: true
+        description: Service to compare traces for
+      operation_name:
+        type: string
+        required: false
+        description: Specific operation to compare
+      baseline_period:
+        type: object
+        required: true
+        description: Baseline time period (start, end)
+      comparison_period:
+        type: object
+        required: true
+        description: Comparison time period (start, end)
+      attributes_to_compare:
+        type: array
+        required: false
+        description: Specific attributes to compare
+
+  - name: detect_trace_anomalies
+    description: |
+      Detects anomalous traces using statistical analysis.
+      Identifies outliers in latency, error patterns, and span counts.
+    parameters:
+      service_name:
+        type: string
+        required: true
+        description: Service to detect anomalies for
+      baseline_window:
+        type: string
+        required: false
+        description: Historical window for baseline
+        default: "24h"
+      sensitivity:
+        type: number
+        required: false
+        description: Anomaly sensitivity (1-5)
+        default: 3
+      anomaly_types:
+        type: array
+        required: false
+        description: Types of anomalies to detect
+        default: ["latency", "errors", "span_count"]
+
+  - name: analyze_span_operations
+    description: |
+      Analyzes operations within traces based on span attributes.
+      Can identify slow operations, repeated patterns, and bottlenecks.
+    parameters:
+      service_name:
+        type: string
+        required: false
+        description: Service to analyze operations for
+      operation_type_attribute:
+        type: string
+        required: false
+        description: Span attribute that identifies operation type (e.g., 'db.system', 'rpc.method')
+      min_duration:
+        type: string
+        required: false
+        description: Minimum operation duration to include
+        default: "100ms"
+      group_by_attributes:
+        type: array
+        required: false
+        description: Additional attributes to group by
+      time_range:
+        type: string
+        required: false
+        description: Time range for analysis
+        default: "1h"
+
+  - name: trace_error_propagation
+    description: |
+      Traces how errors propagate through the system.
+      Identifies error origins and affected downstream services.
+    parameters:
+      error_type:
+        type: string
+        required: false
+        description: Specific error type to trace
+      service_name:
+        type: string
+        required: false
+        description: Service where error originated
+      include_retries:
+        type: boolean
+        required: false
+        description: Include retry attempts in analysis
+        default: true
+      time_range:
+        type: string
+        required: false
+        description: Time range to analyze
+        default: "1h"
+
+  - name: calculate_service_metrics_from_traces
+    description: |
+      Calculates service metrics from trace data.
+      Measures success rate, duration percentiles, and other KPIs.
+    parameters:
+      service_name:
+        type: string
+        required: true
+        description: Service to calculate metrics for
+      operation_name:
+        type: string
+        required: false
+        description: Specific operation (all if not specified)
+      metric_type:
+        type: string
+        required: true
+        description: Type of metric (duration_percentiles, success_rate, operation_rate)
+      threshold:
+        type: number
+        required: false
+        description: Threshold for metric calculation
+      time_range:
+        type: string
+        required: false
+        description: Time range for SLI calculation
+        default: "1h"
+
+additional_instructions: |
+  This toolset provides generic trace analysis without assuming specific attribute names.
+
+  When investigating performance issues using traces:
+
+  1. First use fetch_tempo_tags to discover available span attributes in your system
+  2. Use discovered attributes to filter and analyze traces
+  3. Find example traces matching the reported issue pattern
+  4. Group by actual span attributes to identify patterns
+  5. Break down individual traces to find bottleneck spans
+  6. Compare different time periods to identify changes
+
+  The tools work with any span attribute naming convention:
+  - OpenTelemetry semantic conventions
+  - Custom application-specific attributes
+  - Service mesh added attributes
+  - APM vendor-specific attributes
+
+  Common patterns to look for:
+  - Repeated operations (potential N+1 problems)
+  - Long-duration spans (bottlenecks)
+  - Error propagation through services
+  - Timeout and retry patterns
+
+  Always discover and use actual attribute names from your tracing data rather than assuming standard names.
