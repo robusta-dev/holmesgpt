@@ -269,6 +269,18 @@ def log_to_braintrust(
     if error:
         metadata["error_type"] = type(error).__name__
         metadata["error_message"] = str(error)
+
+        # Add detailed setup failure information if available
+        if hasattr(error, "test_id"):  # It's a SetupFailureError
+            metadata["is_setup_failure"] = True
+            metadata["setup_test_id"] = error.test_id
+            if hasattr(error, "output") and error.output:
+                # Store full setup failure details (includes script, stdout, stderr)
+                # Limit to 5000 chars to avoid huge metadata
+                metadata["setup_failure_details"] = (
+                    error.output[:5000] if len(error.output) > 5000 else error.output
+                )
+
         is_mock_error = "MockDataError" in type(error).__name__ or any(
             "MockData" in base.__name__ for base in type(error).__mro__
         )

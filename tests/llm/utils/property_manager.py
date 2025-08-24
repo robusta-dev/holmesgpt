@@ -50,6 +50,21 @@ def set_initial_properties(request, test_case: HolmesTestCase, model: str) -> No
     request.node.user_properties.append(("tags", test_case.tags or []))
 
 
+def set_trace_properties(request, eval_span) -> None:
+    """Set Braintrust trace properties for test reporting.
+
+    Args:
+        request: The pytest request object
+        eval_span: The Braintrust evaluation span
+    """
+    if hasattr(eval_span, "id"):
+        request.node.user_properties.append(("braintrust_span_id", str(eval_span.id)))
+    if hasattr(eval_span, "root_span_id"):
+        request.node.user_properties.append(
+            ("braintrust_root_span_id", str(eval_span.root_span_id))
+        )
+
+
 def update_property(request, key: str, value: Any) -> None:
     """Update an existing property value instead of appending a duplicate."""
     for i, (prop_key, prop_value) in enumerate(request.node.user_properties):
