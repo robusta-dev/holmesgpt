@@ -28,9 +28,6 @@ before_test: |
   echo "⏳ Waiting for Tempo pod to be ready"
   kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=60s
 
-  echo "🔍 Checking Tempo deployment status"
-  kubectl get pods -n app-114 -l app=tempo
-
   echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 60s)"
   TEMPO_READY=false
   for i in {1..12}; do
@@ -50,6 +47,83 @@ before_test: |
   fi
 
   echo "✅ Tempo deployment complete!"
+
+  echo "🛒 Deploying checkout service"
+  kubectl apply -f checkout-service.yaml -n app-114
+
+  echo "⏳ Waiting for checkout pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=60s
+
+  echo "🔍 Checking checkout deployment status"
+  kubectl get pods -n app-114 -l app=checkout
+
+  echo "🚦 Deploying traffic generator"
+  kubectl apply -f traffic-generator.yaml -n app-114
+
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=60s
+
+  echo "🔍 Checking all pods status"
+  kubectl get pods -n app-114
+
+  echo "⏰ Letting traffic generator run for 10 seconds to generate requests"
+  sleep 10
+
+  echo "🔍 Verifying traffic generator log entries"
+  if kubectl logs -n app-114 -l app=traffic-generator --tail=100 | grep -q "WITH promo_code"; then
+    echo "✅ Found traffic generator log WITH promo_code"
+  else
+    echo "❌ Missing traffic generator log WITH promo_code"
+    exit 1
+  fi
+
+  if kubectl logs -n app-114 -l app=traffic-generator --tail=100 | grep -q "WITHOUT promo_code"; then
+    echo "✅ Found traffic generator log WITHOUT promo_code"
+  else
+    echo "❌ Missing traffic generator log WITHOUT promo_code"
+    exit 1
+  fi
+
+  echo "🔍 Verifying checkout service log entries"
+  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "FAST query without promo_code"; then
+    echo "✅ Found checkout FAST query log"
+  else
+    echo "❌ Missing checkout FAST query log"
+    exit 1
+  fi
+
+  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "SLOW query with promo_code"; then
+    echo "✅ Found checkout SLOW query log"
+  else
+    echo "❌ Missing checkout SLOW query log"
+    exit 1
+  fi
+
+  # Commented out traffic generator trace checks as it no longer sends traces
+  # echo "🔍 Querying Tempo for traces from traffic generator"
+  # TRAFFIC_GEN_TRACES=$(curl -s "http://localhost:3200/api/search?tags=service.name%3Dtraffic-generator&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
+  # echo "Found $TRAFFIC_GEN_TRACES traces from traffic-generator"
+
+  echo "🔍 Querying Tempo for traces from checkout service"
+  CHECKOUT_TRACES=$(kubectl run -n app-114 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
+  echo "Found $CHECKOUT_TRACES traces from checkout-service"
+
+  # Commented out traffic generator trace check
+  # if [ "$TRAFFIC_GEN_TRACES" -gt "0" ]; then
+  #   echo "✅ Found traces from traffic-generator"
+  # else
+  #   echo "❌ No traces found from traffic-generator"
+  #   exit 1
+  # fi
+
+  if [ "$CHECKOUT_TRACES" -gt "0" ]; then
+    echo "✅ Found traces from checkout-service"
+  else
+    echo "❌ No traces found from checkout-service"
+    exit 1
+  fi
+
+  echo "✅ Test setup complete!"
 
 after_test: |
   kubectl delete namespace app-114 || true
