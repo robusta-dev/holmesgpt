@@ -88,16 +88,12 @@ fetch_tempo_tags(
 
 Then find example slow traces:
 
-Get specific examples of slow requests for detailed analysis:
-
 ```
-# Use tempo/advanced-tracing toolset
-find_traces_by_criteria(
+# Use grafana/tempo toolset
+fetch_tempo_traces(
   service_name="${affected_service}",
-  operation_name="${affected_operation}",
   min_duration="${threshold_duration}",
-  span_attributes={"${your_attributes}": "${values}"},
-  time_range="30m",
+  start_datetime="-30m",
   limit=10
 )
 ```
