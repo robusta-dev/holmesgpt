@@ -1,0 +1,324 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-mock
+  namespace: app-200
+spec:
+  selector:
+    app: prometheus-mock
+  ports:
+    - port: 9090
+      targetPort: 9090
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-mock-server
+  namespace: app-200
+data:
+  server.py: |
+    from flask import Flask, request, jsonify
+    import time
+    import random
+
+    app = Flask(__name__)
+
+    # Mock metrics data with varying latency by dimensions
+    def generate_metrics_data():
+        current_time = int(time.time())
+
+        # Different latency patterns by endpoint and user agent
+        patterns = [
+            # High latency pattern - recommendations endpoint with mobile UA
+            {
+                "endpoint": "/api/v2/recommendations",
+                "user_agent": "MobileApp/2.0",
+                "region": "eu-west",
+                "p95_latency": 3.2,
+                "p50_latency": 1.8,
+                "request_rate": 50,
+            },
+            {
+                "endpoint": "/api/v2/recommendations",
+                "user_agent": "MobileApp/2.1",
+                "region": "eu-west",
+                "p95_latency": 3.1,
+                "p50_latency": 1.7,
+                "request_rate": 45,
+            },
+            {
+                "endpoint": "/api/v2/recommendations",
+                "user_agent": "MobileApp/2.2",
+                "region": "eu-west",
+                "p95_latency": 3.3,
+                "p50_latency": 1.9,
+                "request_rate": 48,
+            },
+            # Normal latency - same endpoint, different UA
+            {
+                "endpoint": "/api/v2/recommendations",
+                "user_agent": "WebBrowser",
+                "region": "us-east",
+                "p95_latency": 0.5,
+                "p50_latency": 0.2,
+                "request_rate": 200,
+            },
+            # Normal latency - other endpoints
+            {
+                "endpoint": "/api/v2/products",
+                "user_agent": "MobileApp/2.0",
+                "region": "eu-west",
+                "p95_latency": 0.3,
+                "p50_latency": 0.15,
+                "request_rate": 100,
+            },
+            {
+                "endpoint": "/api/v2/users",
+                "user_agent": "WebBrowser",
+                "region": "us-east",
+                "p95_latency": 0.2,
+                "p50_latency": 0.1,
+                "request_rate": 150,
+            },
+        ]
+
+        return patterns
+
+    @app.route('/api/v1/metadata', methods=['GET'])
+    def metadata():
+        """Return available metrics metadata"""
+        return jsonify({
+            "status": "success",
+            "data": {
+                "http_request_duration_seconds": {
+                    "type": "histogram",
+                    "help": "HTTP request latency",
+                    "labels": ["endpoint", "method", "status_code", "user_agent", "region"]
+                },
+                "http_requests_total": {
+                    "type": "counter",
+                    "help": "Total HTTP requests",
+                    "labels": ["endpoint", "method", "status_code", "user_agent", "region"]
+                },
+                "instance_cpu_usage": {
+                    "type": "gauge",
+                    "help": "CPU usage percentage",
+                    "labels": ["instance", "region"]
+                }
+            }
+        })
+
+    @app.route('/api/v1/query', methods=['POST'])
+    def query():
+        """Handle instant queries"""
+        query_str = request.form.get('query', '')
+        current_time = int(time.time())
+
+        # Mock responses based on query patterns
+        if 'http_request_duration_seconds' in query_str:
+            if 'histogram_quantile' in query_str:
+                # Return p95 latencies
+                patterns = generate_metrics_data()
+                result = []
+
+                for pattern in patterns:
+                    if 'by' in query_str:  # Grouped query
+                        metric = {
+                            "endpoint": pattern["endpoint"],
+                            "user_agent": pattern["user_agent"],
+                            "region": pattern["region"]
+                        }
+                        value = pattern["p95_latency"] if '0.95' in query_str else pattern["p50_latency"]
+                    else:
+                        metric = {}
+                        value = 0.8  # Overall average
+
+                    result.append({
+                        "metric": metric,
+                        "value": [current_time, str(value)]
+                    })
+
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "resultType": "vector",
+                        "result": result
+                    }
+                })
+
+            elif 'topk' in query_str:
+                # Return top slow endpoints
+                patterns = generate_metrics_data()
+                # Sort by latency and return top entries
+                sorted_patterns = sorted(patterns, key=lambda x: x["p95_latency"], reverse=True)
+                result = []
+
+                for i, pattern in enumerate(sorted_patterns[:5]):
+                    result.append({
+                        "metric": {
+                            "endpoint": pattern["endpoint"],
+                            "user_agent": pattern["user_agent"],
+                            "region": pattern["region"]
+                        },
+                        "value": [current_time, str(pattern["p95_latency"])]
+                    })
+
+                return jsonify({
+                    "status": "success",
+                    "data": {
+                        "resultType": "vector",
+                        "result": result
+                    }
+                })
+
+        elif 'instance_cpu_usage' in query_str:
+            # Return CPU metrics correlating with high latency
+            result = [
+                {
+                    "metric": {"instance": "recommender-eu-1", "region": "eu-west"},
+                    "value": [current_time, "0.95"]
+                },
+                {
+                    "metric": {"instance": "recommender-eu-2", "region": "eu-west"},
+                    "value": [current_time, "0.93"]
+                },
+                {
+                    "metric": {"instance": "recommender-us-1", "region": "us-east"},
+                    "value": [current_time, "0.45"]
+                }
+            ]
+
+            return jsonify({
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": result
+                }
+            })
+
+        elif 'offset' in query_str:
+            # Historical comparison - return lower values
+            patterns = generate_metrics_data()
+            result = []
+
+            for pattern in patterns:
+                # Historical data shows 50% lower latency
+                historical_value = pattern["p95_latency"] * 0.5 if pattern["endpoint"] == "/api/v2/recommendations" else pattern["p95_latency"]
+                result.append({
+                    "metric": {
+                        "endpoint": pattern["endpoint"],
+                        "user_agent": pattern["user_agent"]
+                    },
+                    "value": [current_time - 86400, str(historical_value)]
+                })
+
+            return jsonify({
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": result
+                }
+            })
+
+        elif 'stddev_over_time' in query_str:
+            # Anomaly detection - flag the high latency pattern
+            result = [
+                {
+                    "metric": {
+                        "endpoint": "/api/v2/recommendations",
+                        "user_agent": "MobileApp/2.0",
+                        "region": "eu-west"
+                    },
+                    "value": [current_time, "5.2"]  # High z-score indicating anomaly
+                }
+            ]
+
+            return jsonify({
+                "status": "success",
+                "data": {
+                    "resultType": "vector",
+                    "result": result
+                }
+            })
+
+        # Default empty response
+        return jsonify({
+            "status": "success",
+            "data": {
+                "resultType": "vector",
+                "result": []
+            }
+        })
+
+    @app.route('/api/v1/query_range', methods=['POST'])
+    def query_range():
+        """Handle range queries"""
+        # Similar to instant query but with time series data
+        return query()
+
+    @app.route('/api/v1/series', methods=['GET'])
+    def series():
+        """Return series metadata"""
+        return jsonify({
+            "status": "success",
+            "data": [
+                {
+                    "__name__": "http_request_duration_seconds_bucket",
+                    "endpoint": "/api/v2/recommendations",
+                    "user_agent": "MobileApp/2.0",
+                    "region": "eu-west",
+                    "le": "0.5"
+                },
+                {
+                    "__name__": "http_request_duration_seconds_bucket",
+                    "endpoint": "/api/v2/recommendations",
+                    "user_agent": "MobileApp/2.0",
+                    "region": "eu-west",
+                    "le": "1.0"
+                }
+            ]
+        })
+
+    @app.route('/api/v1/labels', methods=['GET'])
+    def labels():
+        """Return available labels"""
+        return jsonify({
+            "status": "success",
+            "data": ["endpoint", "method", "status_code", "user_agent", "region", "instance"]
+        })
+
+    if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=9090)
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-mock
+  namespace: app-200
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-mock
+  template:
+    metadata:
+      labels:
+        app: prometheus-mock
+    spec:
+      containers:
+      - name: server
+        image: python:3.9-slim
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install flask
+            python /app/server.py
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: server-code
+          mountPath: /app
+      volumes:
+      - name: server-code
+        configMap:
+          name: prometheus-mock-server
