@@ -126,7 +126,7 @@ class RunbookToolset(Toolset):
             tools=[
                 RunbookFetcher(self),
             ],
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/runbook.html",
+            docs_url="https://holmesgpt.dev/data-sources/",
             tags=[
                 ToolsetTag.CORE,
             ],

@@ -571,7 +571,7 @@ class KafkaToolset(Toolset):
             name="kafka/admin",
             description="Fetches metadata from multiple Kafka clusters",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kafka.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kafka/",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-cR1JrBgJxB_SPVKUIRwtiHnR8qBvLeHXjQ&s",
             tags=[ToolsetTag.CORE],
             tools=[

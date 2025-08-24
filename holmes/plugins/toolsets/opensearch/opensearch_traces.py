@@ -196,7 +196,7 @@ class OpenSearchTracesToolset(BaseOpenSearchToolset):
         super().__init__(
             name="opensearch/traces",
             description="OpenSearch integration to fetch traces",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch-traces.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-status/",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

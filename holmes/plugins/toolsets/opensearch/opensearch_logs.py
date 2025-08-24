@@ -42,7 +42,7 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="opensearch/logs",
             description="OpenSearch integration to fetch logs",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch_logs.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-logs/",
             icon_url="https://opensearch.org/wp-content/uploads/2025/01/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
