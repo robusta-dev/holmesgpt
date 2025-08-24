@@ -41,7 +41,13 @@ spec:
       {{- end }}
       containers:
       - name: holmes
+        {{- if contains "/" .Values.image }}
+        image: "{{ .Values.image }}"
+        {{- else if .Values.registry }}
         image: "{{ .Values.registry }}/{{ .Values.image }}"
+        {{- else }}
+        image: "{{ .Values.image }}"
+        {{- end }}
         imagePullPolicy: Always
         command: ["python3", "-u", "server.py"]
         env:

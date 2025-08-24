@@ -354,7 +354,7 @@ async def handle_enabled_change(
 
 
 # For testing purposes, allow running checks immediately
-@kopf.on.annotation(
+@kopf.on.update(
     "holmes.robusta.dev",
     "v1alpha1",
     "healthchecks",
