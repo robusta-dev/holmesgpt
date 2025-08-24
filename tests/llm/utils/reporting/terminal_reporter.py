@@ -1013,12 +1013,8 @@ def _print_tag_performance_table(sorted_results: List[dict], console: Console) -
 def _print_model_comparison_if_multiple(
     sorted_results: List[dict], console: Console
 ) -> None:
-    """Print model comparison and tag performance tables if multiple models detected."""
+    """Print model comparison and tag performance tables."""
     if not sorted_results:
-        return
-
-    # Only show these tables for multiple models
-    if not _detect_multiple_models(sorted_results):
         return
 
     _print_model_comparison_table(sorted_results, console)
