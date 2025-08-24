@@ -64,6 +64,13 @@ def test_ask_holmes(
     # Check if test should be skipped or has setup failures
     check_and_skip_test(test_case, request, shared_test_infrastructure)
 
+    # Check if --only-setup is set
+    only_setup = request.config.getoption("--only-setup", False)
+    if only_setup:
+        print(f"\n🧪 TEST: {test_case.id}")
+        print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
+        pytest.skip("Skipping test execution due to --only-setup flag")
+
     print(f"\n🧪 TEST: {test_case.id}")
 
     tracer = TracingFactory.create_tracer("braintrust")

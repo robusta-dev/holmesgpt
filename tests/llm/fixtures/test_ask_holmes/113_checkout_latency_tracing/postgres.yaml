@@ -1,0 +1,139 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+data:
+  seed.sql: |
+    -- Connect to the default database first
+    \c postgres;
+
+    -- Create shipping_rates table
+    CREATE TABLE shipping_rates (
+        id SERIAL PRIMARY KEY,
+        zone_id VARCHAR(50) NOT NULL,
+        promo_code VARCHAR(50),
+        rate_per_kg DECIMAL(10,2) NOT NULL,
+        discount_percent DECIMAL(5,2) DEFAULT 0,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- Create index ONLY on zone_id (missing compound index is the problem!)
+    CREATE INDEX idx_zone_id ON shipping_rates(zone_id);
+
+    -- Insert base rates for different zones
+    INSERT INTO shipping_rates (zone_id, rate_per_kg, discount_percent, active) VALUES
+    ('us-west-1', 5.00, 0, true),
+    ('us-west-2', 5.50, 0, true),
+    ('us-east-1', 6.00, 0, true),
+    ('us-east-2', 6.50, 0, true),
+    ('eu-west-1', 8.00, 0, true),
+    ('eu-central-1', 8.50, 0, true),
+    ('ap-south-1', 9.00, 0, true),
+    ('ap-northeast-1', 9.50, 0, true);
+
+    -- Insert promo code rates (these will cause slow queries)
+    -- Generate many promo codes to make table scanning expensive
+    DO $$
+    DECLARE
+        zone_list text[] := ARRAY['us-west-1', 'us-west-2', 'us-east-1', 'us-east-2',
+                                   'eu-west-1', 'eu-central-1', 'ap-south-1', 'ap-northeast-1'];
+        promo_list text[] := ARRAY['SAVE10', 'WELCOME20', 'HOLIDAY15', 'SPECIAL25',
+                                   'FLASH30', 'MEMBER10', 'FIRST15', 'RETURN20',
+                                   'SUMMER10', 'WINTER15', 'SPRING20', 'FALL25'];
+        zone text;
+        promo text;
+        i int;
+    BEGIN
+        -- Insert specific promo codes
+        FOREACH zone IN ARRAY zone_list LOOP
+            FOREACH promo IN ARRAY promo_list LOOP
+                INSERT INTO shipping_rates (zone_id, promo_code, rate_per_kg, discount_percent, active)
+                VALUES (zone, promo, 5.00 + random() * 5, 10 + random() * 20, true);
+            END LOOP;
+        END LOOP;
+
+        -- Add many more rows to make table scanning slow (50,000+ rows)
+        FOR i IN 1..50000 LOOP
+            INSERT INTO shipping_rates (zone_id, promo_code, rate_per_kg, discount_percent, active)
+            VALUES (
+                zone_list[1 + floor(random() * 8)],
+                'PROMO' || i,
+                5.00 + random() * 10,
+                random() * 30,
+                random() > 0.2
+            );
+        END LOOP;
+    END $$;
+
+    -- Analyze table for query planner
+    ANALYZE shipping_rates;
+
+    -- Show the problem: query without promo_code uses index
+    EXPLAIN (ANALYZE, BUFFERS)
+    SELECT rate_per_kg, discount_percent
+    FROM shipping_rates
+    WHERE zone_id = 'us-west-1' AND active = true
+    LIMIT 1;
+
+    -- Show the problem: query with promo_code does table scan
+    EXPLAIN (ANALYZE, BUFFERS)
+    SELECT rate_per_kg, discount_percent
+    FROM shipping_rates
+    WHERE zone_id = 'us-west-1' AND promo_code = 'SAVE10' AND active = true
+    LIMIT 1;
+
+    -- The fix would be: CREATE INDEX idx_shipping_compound ON shipping_rates(zone_id, promo_code, active);
+    -- But we don't create it - that's for Holmes to discover!
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        env:
+        - name: POSTGRES_USER
+          value: postgres
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_DB
+          value: shipping
+        ports:
+        - containerPort: 5432
+        volumeMounts:
+        - name: init
+          mountPath: /docker-entrypoint-initdb.d
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+      volumes:
+      - name: init
+        configMap:
+          name: postgres-init
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
