@@ -51,6 +51,7 @@
 * For any question, try to make the answer specific to the user's cluster.
 ** For example, if asked to port forward, find out the app or pod port (kubectl describe) and provide a port forward command specific to the user's question
 
+{% if has_todos %}
 # MANDATORY Task Management
 
 * You MUST use the TodoWrite tool for ANY investigation requiring multiple steps
@@ -62,6 +63,7 @@
 * Follow ALL tasks in your plan - don't skip any tasks
 * Use task management to ensure you don't miss important investigation steps
 * If you discover additional steps during investigation, add them to your task list using TodoWrite
+{% endif %}
 
 # Tool/function calls
 

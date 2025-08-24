@@ -304,7 +304,10 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self,
+        dal: Optional["SupabaseDal"],
+        refresh_status: bool = False,
+        disable_todos: bool = False,
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -318,6 +321,13 @@ class Config(RobustaBaseConfig):
         cli_toolsets = self.toolset_manager.list_console_toolsets(
             dal=dal, refresh_status=refresh_status
         )
+
+        # Disable the core_investigation toolset (which contains TodoWriteTool) when in fast mode
+        if disable_todos:
+            cli_toolsets = [
+                ts for ts in cli_toolsets if ts.name != "core_investigation"
+            ]
+
         return ToolExecutor(cli_toolsets)
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
@@ -343,8 +353,11 @@ class Config(RobustaBaseConfig):
         dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        disable_todos: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(
+            dal, refresh_toolsets, disable_todos
+        )
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
