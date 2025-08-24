@@ -118,7 +118,7 @@ jobs:
           echo "Iterations: ${{ steps.test-command.outputs.iterations }}"
           echo "================================"
 
-      - name: Generate markdown report
+      - name: Generate benchmark report
         if: always()
         run: |
           poetry run python scripts/generate_eval_report.py \
