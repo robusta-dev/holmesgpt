@@ -141,22 +141,24 @@ class DatadogLogsToolset(BasePodLoggingToolset):
 
     @property
     def supported_capabilities(self) -> Set[LoggingCapability]:
-        """Datadog logs API only supports substring matching, no exclude filter"""
-        return set()  # No regex support, no exclude filter
+        """Datadog logs API supports historical data and substring matching"""
+        return {
+            LoggingCapability.HISTORICAL_DATA
+        }  # No regex support, no exclude filter, but supports historical data
 
     def __init__(self):
         super().__init__(
             name="datadog/logs",
-            description="Toolset for interacting with Datadog to fetch logs",
+            description="Toolset for fetching logs from Datadog, including historical data for pods no longer in the cluster",
             docs_url="https://docs.datadoghq.com/api/latest/logs/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             experimental=True,
             tags=[ToolsetTag.CORE],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
 
     def logger_name(self) -> str:
         return "DataDog"

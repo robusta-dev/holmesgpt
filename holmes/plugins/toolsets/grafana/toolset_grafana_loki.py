@@ -47,10 +47,10 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
         if not config:
