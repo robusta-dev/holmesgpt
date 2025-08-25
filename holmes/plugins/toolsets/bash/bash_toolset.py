@@ -196,19 +196,17 @@ class RunBashCommand(BaseBashTool):
                 logging.info(f"Refusing LLM tool call {command_str}")
 
                 # Check if user approval is enabled for rejected commands
-                if USER_MUST_APPROVE_REJECTED_TOOL_CALLS:
-                    return StructuredToolResult(
-                        status=ToolResultStatus.APPROVAL_REQUIRED,
-                        error=f"Command requires user approval. Only some commands are supported and this command needs approval to proceed. Error: {str(e)}",
-                        params=params,
-                        invocation=command_str,
-                    )
-                else:
-                    return StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
-                        params=params,
-                    )
+                status = (
+                    ToolResultStatus.APPROVAL_REQUIRED
+                    if USER_MUST_APPROVE_REJECTED_TOOL_CALLS
+                    else ToolResultStatus.ERROR
+                )
+                return StructuredToolResult(
+                    status=status,
+                    error=f"Refusing to execute bash command. {str(e)}",
+                    params=params,
+                    invocation=command_str,
+                )
 
         return execute_bash_command(
             cmd=command_to_execute, timeout=timeout, params=params

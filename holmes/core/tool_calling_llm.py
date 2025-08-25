@@ -484,39 +484,41 @@ class ToolCallingLLM:
                 tool_response = tool.invoke(tool_params, tool_number=tool_number)
 
             # Handle approval required status
-            if (
-                tool_response.status == ToolResultStatus.APPROVAL_REQUIRED
-                and self.approval_callback is not None
-            ):
-                command = tool_response.invocation or str(tool_params)
-                error_message = tool_response.error or "Command requires approval"
+            if tool_response.status == ToolResultStatus.APPROVAL_REQUIRED:
+                if self.approval_callback is not None:
+                    command = tool_response.invocation or str(tool_params)
+                    error_message = tool_response.error or "Command requires approval"
 
-                approved, feedback = self.approval_callback(command, error_message)
+                    approved, feedback = self.approval_callback(command, error_message)
 
-                if approved:
-                    # Re-execute the tool with approval
-                    logging.info(f"User approved command: {command}")
-                    # We need to modify the tool to bypass validation - this requires updating the bash toolset
-                    # For now, let's execute the command directly through the bash execution
-                    from holmes.plugins.toolsets.bash.common.bash import (
-                        execute_bash_command,
-                    )
+                    if approved:
+                        # Re-execute the tool with approval
+                        logging.debug(f"User approved command: {command}")
+                        # We need to modify the tool to bypass validation - this requires updating the bash toolset
+                        # For now, let's execute the command directly through the bash execution
+                        from holmes.plugins.toolsets.bash.common.bash import (
+                            execute_bash_command,
+                        )
 
-                    tool_response = execute_bash_command(
-                        cmd=command,
-                        timeout=tool_params.get("timeout", 60),
-                        params=tool_params,
-                    )
+                        tool_response = execute_bash_command(
+                            cmd=command,
+                            timeout=tool_params.get("timeout", 60),
+                            params=tool_params,
+                        )
+                    else:
+                        # User denied - create appropriate response
+                        feedback_text = (
+                            f" User feedback: {feedback}" if feedback else ""
+                        )
+                        tool_response = StructuredToolResult(
+                            status=ToolResultStatus.ERROR,
+                            error=f"User denied command execution.{feedback_text}",
+                            params=tool_params,
+                            invocation=command,
+                        )
                 else:
-                    # User denied - create appropriate response
-                    feedback_text = f" User feedback: {feedback}" if feedback else ""
-                    tool_response = StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error=f"User denied command execution.{feedback_text}",
-                        params=tool_params,
-                        invocation=command,
-                    )
-
+                    # No support for approval flow. Tool has been denied, changing that to an Error until SaaS UI supports approvals
+                    tool_response.status = ToolResultStatus.ERROR
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
                 logging.error(
