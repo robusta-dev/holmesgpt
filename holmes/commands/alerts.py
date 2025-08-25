@@ -84,6 +84,9 @@ def view_alerts(
         # Load configuration
         config = Config.load_from_file(None)
 
+        # Override the model in config to match the command line argument
+        config.model = model
+
         # Parse custom columns from repeatable --ai-column options
         custom_columns = {}
         if ai_columns:
