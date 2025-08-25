@@ -120,7 +120,9 @@ markers = [
     "ask-for-clarification: Tests where Holmes should ask the user for clarification",
     "database: Tests involving database interactions",
     "datadog: DataDog toolset",
-    "traces: Tests where the ai is expected to find the solution using the traces"
+    "traces: Tests where the ai is expected to find the solution using the traces",
+    "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
+    "datadog: DataDog toolset"
 ]
 
 addopts = [
