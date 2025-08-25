@@ -48,6 +48,7 @@ messages = build_initial_ask_messages(
     initial_user_prompt=question,
     file_paths=None,
     tool_executor=ai.tool_executor,
+    investigation_id=ai.investigation_id,
     runbooks=config.get_runbook_catalog(),
     system_prompt_additions=None
 )
@@ -129,6 +130,7 @@ def main():
                 initial_user_prompt=question,
                 file_paths=None,
                 tool_executor=ai.tool_executor,
+                investigation_id=ai.investigation_id,
                 runbooks=config.get_runbook_catalog(),
                 system_prompt_additions=None
             )
@@ -222,6 +224,7 @@ def main():
         initial_user_prompt=first_question,
         file_paths=None,
         tool_executor=ai.tool_executor,
+        investigation_id=ai.investigation_id,
         runbooks=config.get_runbook_catalog(),
         system_prompt_additions=None
     )
@@ -353,7 +356,10 @@ export GOOGLE_API_KEY="your-google-key"
 # Optional: Custom configuration
 export HOLMES_CONFIG_PATH="/path/to/config.yaml"
 export HOLMES_LOG_LEVEL="INFO"
+
 ```
+
+> **📚 See Also:** Check the [Environment Variables Reference](../reference/environment-variables.md) for complete documentation of all available environment variables.
 
 **Usage with environment variables:**
 ```python

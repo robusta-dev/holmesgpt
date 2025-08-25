@@ -8,7 +8,7 @@ from typing import Dict, Optional
 from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
-EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "180"))
+EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "210"))
 
 
 def _truncate_script(script: str, max_lines: int = 10) -> str:
@@ -111,7 +111,7 @@ def run_commands(
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {_truncate_script(script)}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}\n\nScript that failed:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",
@@ -124,7 +124,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {_truncate_script(script)}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
+        error_details = f"TIMEOUT after {e.timeout}s\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>\n\nScript that timed out:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",

@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Set
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import timezone
 from holmes.core.tools import (
     StructuredToolResult,
@@ -43,6 +43,14 @@ class FetchPodLogsParams(BaseModel):
     filter: Optional[str] = None
     exclude_filter: Optional[str] = None
     limit: Optional[int] = None
+
+    @field_validator("start_time", mode="before")
+    @classmethod
+    def convert_start_time_to_string(cls, v):
+        """Convert integer start_time values to strings."""
+        if v is not None and isinstance(v, int):
+            return str(v)
+        return v
 
 
 class BasePodLoggingToolset(Toolset, ABC):
@@ -104,7 +112,7 @@ class PodLoggingTool(Tool):
                 description="Kubernetes namespace", type="string", required=True
             ),
             "start_time": ToolParameter(
-                description=f"Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative integer (e.g. -3600) for relative seconds before end_time. Default: -{DEFAULT_TIME_SPAN_SECONDS} (last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days)",
+                description=f"Start time for logs. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') for absolute time or a negative string number (e.g. -3600) for relative seconds before end_time. Default: -{DEFAULT_TIME_SPAN_SECONDS} (last {DEFAULT_TIME_SPAN_SECONDS // SECONDS_PER_DAY} days)",
                 type="string",
                 required=False,
             ),

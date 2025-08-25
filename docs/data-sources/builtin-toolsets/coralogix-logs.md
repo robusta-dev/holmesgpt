@@ -16,42 +16,18 @@ For example if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` 
 
 ## Configuration
 
-=== "Holmes CLI"
+```yaml-toolset-config
+toolsets:
+  coralogix/logs:
+    enabled: true
+    config:
+      api_key: "<your Coralogix API key>"
+      domain: "eu2.coralogix.com"
+      team_hostname: "your-company-name"
 
-    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
-
-    ```yaml
-    toolsets:
-      coralogix/logs:
-        enabled: true
-        config:
-          api_key: "<your Coralogix API key>"
-          domain: "eu2.coralogix.com"
-          team_hostname: "your-company-name"
-
-      kubernetes/logs:
-        enabled: false  # Disable default Kubernetes logging
-    ```
-
-    --8<-- "snippets/toolset_refresh_warning.md"
-
-=== "Robusta Helm Chart"
-
-    ```yaml
-    holmes:
-      toolsets:
-        coralogix/logs:
-          enabled: true
-          config:
-            api_key: "<your Coralogix API key>"
-            domain: "eu2.coralogix.com"
-            team_hostname: "your-company-name"
-
-        kubernetes/logs:
-          enabled: false  # Disable default Kubernetes logging
-    ```
-
-    --8<-- "snippets/helm_upgrade_command.md"
+  kubernetes/logs:
+    enabled: false  # Disable default Kubernetes logging
+```
 
 ## Capabilities
 

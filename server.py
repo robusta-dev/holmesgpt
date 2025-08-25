@@ -2,6 +2,7 @@
 import os
 from typing import List, Optional
 
+import litellm
 import sentry_sdk
 from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
@@ -22,7 +23,6 @@ import time
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from holmes.utils.robusta import load_robusta_api_key
 from holmes.utils.stream import stream_investigate_formatter, stream_chat_formatter
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -81,6 +81,7 @@ dal = SupabaseDal(config.cluster_name)
 
 
 def sync_before_server_start():
+    config.load_robusta_api_key(dal=dal)
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -147,6 +148,8 @@ def investigate_issues(investigate_request: InvestigateRequest):
 
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/investigate: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -181,7 +184,7 @@ def stream_investigate_issues(req: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-    load_robusta_api_key(dal=dal, config=config)
+    config.load_robusta_api_key(dal=dal)
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -216,6 +219,7 @@ def workload_health_check(request: WorkloadHealthRequest):
                 "toolsets": ai.tool_executor.toolsets,
                 "response_format": workload_health_structured_output,
                 "cluster_name": config.cluster_name,
+                "investigation_id": ai.investigation_id,
             },
         )
 
@@ -235,6 +239,8 @@ def workload_health_check(request: WorkloadHealthRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.exception(f"Error in /api/workload_health_check: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -245,7 +251,7 @@ def workload_health_conversation(
     request: WorkloadHealthChatRequest,
 ):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -264,6 +270,8 @@ def workload_health_conversation(
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/workload_health_chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -272,7 +280,7 @@ def workload_health_conversation(
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -291,6 +299,8 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/issue_chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -309,7 +319,7 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
 
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
@@ -361,6 +371,8 @@ def chat(chat_request: ChatRequest):
             )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
+    except litellm.exceptions.RateLimitError as e:
+        raise HTTPException(status_code=429, detail=e.message)
     except Exception as e:
         logging.error(f"Error in /api/chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
