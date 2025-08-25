@@ -80,7 +80,7 @@ class GetTempoTraces(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
             name="fetch_tempo_traces",
-            description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required.""",
+            description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required. You should usually call fetch_traces_comparative_sample before calling this tool to first get an overview.""",
             parameters={
                 "min_duration": ToolParameter(
                     description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
@@ -839,7 +839,7 @@ Examples:
 - For namespace issues: namespace="production"
 - Combined: service_name="auth", namespace="staging"
 
-The tool automatically compares fast vs slow traces and highlights attribute differences. Usually this is the best first tool to call when investigating trace data as it gives a fantastic overview.""",
+The tool automatically compares fast vs slow traces and highlights attribute differences. Important: call this tool first when investigating performance issues via traces. This is the best first tool to call as it gives a fantastic overview. You can later call other trace tools for more information.""",
             parameters={
                 "service_name": ToolParameter(
                     description="Service to analyze (partial match supported, e.g., 'payment' matches 'payment-service')",
@@ -1128,78 +1128,36 @@ The tool automatically compares fast vs slow traces and highlights attribute dif
             )
 
     def _extract_trace_attributes(self, trace_raw: Dict) -> Dict[str, Any]:
-        """Extract key attributes from trace for analysis"""
+        """Extract ALL attributes from trace for analysis"""
         attributes = {}
 
-        # Common attributes to look for
-        interesting_keys = [
-            "user.id",
-            "user.tier",
-            "user.type",
-            "user.email",
-            "customer.id",
-            "promo.code",
-            "coupon.code",
-            "discount.type",
-            "zone.id",
-            "region",
-            "availability_zone",
-            "datacenter",
-            "items.count",
-            "cart.size",
-            "order.total",
-            "request.size",
-            "db.operation",
-            "db.statement",
-            "db.table",
-            "cache.hit",
-            "http.method",
-            "http.route",
-            "http.status_code",
-            "http.url",
-            "error",
-            "error.message",
-            "error.type",
-            "feature.flag",
-            "experiment.id",
-            "version",
-            "deployment.id",
-            "queue.name",
-            "job.type",
-            "workflow.step",
-        ]
-
         for batch in trace_raw.get("batches", []):
-            # Check resource attributes
+            # Extract all resource attributes
             for attr in batch.get("resource", {}).get("attributes", []):
                 key = attr.get("key", "")
-                if any(
-                    k in key.lower()
-                    for k in ["service", "version", "namespace", "pod", "node"]
-                ):
+                if key:
                     value = (
                         list(attr.get("value", {}).values())[0]
                         if attr.get("value")
                         else None
                     )
-                    if value:
+                    if value is not None:
                         attributes[key] = value
 
-            # Check span attributes
+            # Extract all span attributes (from first span of each type we haven't seen)
             for scope_spans in batch.get("scopeSpans", []):
                 for span_data in scope_spans.get("spans", []):
                     for attr in span_data.get("attributes", []):
                         key = attr.get("key", "")
-                        if key in interesting_keys or any(
-                            k in key.lower()
-                            for k in ["promo", "zone", "user", "error", "db"]
-                        ):
+                        if (
+                            key and key not in attributes
+                        ):  # Only add if we haven't seen this key yet
                             value = (
                                 list(attr.get("value", {}).values())[0]
                                 if attr.get("value")
                                 else None
                             )
-                            if value and key not in attributes:
+                            if value is not None:
                                 attributes[key] = value
 
         return attributes
