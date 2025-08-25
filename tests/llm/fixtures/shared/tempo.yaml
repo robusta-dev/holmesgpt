@@ -2,7 +2,19 @@
 # Apply with: kubectl apply -f tempo.yaml -n <namespace>
 # Note: Namespace must be created separately
 ---
-# Tempo deployment - lightweight, in-memory storage
+# PersistentVolumeClaim for Tempo storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+# Tempo deployment - with persistent storage and increased memory
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,16 +44,21 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /etc/tempo
+        - name: storage
+          mountPath: /var/tempo
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "10m"
-          limits:
             memory: "256Mi"
+            cpu: "50m"
+          limits:
+            memory: "1Gi"
       volumes:
       - name: config
         configMap:
           name: tempo-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: tempo-storage
 ---
 apiVersion: v1
 kind: Service
@@ -92,9 +109,9 @@ data:
       trace:
         backend: local
         local:
-          path: /tmp/tempo/traces
+          path: /var/tempo/traces
         wal:
-          path: /tmp/tempo/wal
+          path: /var/tempo/wal
         pool:
           max_workers: 10
           queue_depth: 100
