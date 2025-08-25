@@ -231,9 +231,12 @@ def log_to_braintrust(
             prompt = result.prompt
 
     # Build comprehensive metadata
+    # Extract base test case ID without variant suffix (e.g., "91a_datadog[0]" -> "91a_datadog")
+    base_test_id = test_case.id.split("[")[0] if "[" in test_case.id else test_case.id
     metadata: dict[str, Any] = {
         "model": model,
-        "eval_id": test_case.id,  # Clean test case ID without model
+        "eval_id": base_test_id,  # Base test case ID without variant suffix
+        "test_id": test_case.id,  # Full test case ID with variant suffix if present
     }
 
     # Add test type for ask tests
@@ -266,6 +269,18 @@ def log_to_braintrust(
     if error:
         metadata["error_type"] = type(error).__name__
         metadata["error_message"] = str(error)
+
+        # Add detailed setup failure information if available
+        if hasattr(error, "test_id"):  # It's a SetupFailureError
+            metadata["is_setup_failure"] = True
+            metadata["setup_test_id"] = error.test_id
+            if hasattr(error, "output") and error.output:
+                # Store full setup failure details (includes script, stdout, stderr)
+                # Limit to 5000 chars to avoid huge metadata
+                metadata["setup_failure_details"] = (
+                    error.output[:5000] if len(error.output) > 5000 else error.output
+                )
+
         is_mock_error = "MockDataError" in type(error).__name__ or any(
             "MockData" in base.__name__ for base in type(error).__mro__
         )
