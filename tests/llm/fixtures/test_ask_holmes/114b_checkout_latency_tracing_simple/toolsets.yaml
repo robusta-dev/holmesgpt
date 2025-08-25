@@ -1,0 +1,12 @@
+toolsets:
+  kubernetes/core:
+    enabled: true
+  kubernetes/logs:
+    enabled: true
+  grafana/tempo:
+    enabled: true
+    config:
+      url: http://localhost:3215
+      healthcheck: "ready"
+      enable_comparative_sample: false
+      enable_simple_comparison: true

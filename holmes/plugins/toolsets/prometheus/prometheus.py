@@ -816,6 +816,399 @@ class ExecuteRangeQuery(BasePrometheusTool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
+class AnalyzeMetricByDimensions(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="analyze_metric_by_dimensions",
+            description="Analyzes any metric broken down by its available label dimensions. Automatically discovers available labels from the metric.",
+            parameters={
+                "metric_name": ToolParameter(
+                    description="The metric name to analyze",
+                    type="string",
+                    required=True,
+                ),
+                "group_by": ToolParameter(
+                    description="Labels to group by (will be validated against available labels)",
+                    type="array",
+                    required=False,
+                ),
+                "filters": ToolParameter(
+                    description="Label filters to apply as key-value pairs",
+                    type="object",
+                    required=False,
+                ),
+                "percentiles": ToolParameter(
+                    description="For histogram/summary metrics - percentiles to calculate",
+                    type="array",
+                    required=False,
+                ),
+                "time_range": ToolParameter(
+                    description="Time range for analysis (e.g., '5m', '1h', '24h')",
+                    type="string",
+                    required=False,
+                ),
+                "aggregation": ToolParameter(
+                    description="Aggregation method (avg, sum, max, min, p50, p95, p99)",
+                    type="string",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
+
+        try:
+            metric_name = get_param_or_raise(params, "metric_name")
+            group_by = params.get("group_by", [])
+            filters = params.get("filters", {})
+            time_range = params.get("time_range", "1h")
+            aggregation = params.get("aggregation", "avg")
+
+            # Build the base query with filters
+            filter_str = ""
+            if filters:
+                filter_items = [f'{k}="{v}"' for k, v in filters.items()]
+                filter_str = "{" + ",".join(filter_items) + "}"
+
+            # Build the query based on aggregation type
+            if aggregation in ["p50", "p95", "p99"]:
+                percentile = float(aggregation[1:]) / 100
+                query = f"histogram_quantile({percentile}, sum(rate({metric_name}_bucket{filter_str}[{time_range}])) by (le"
+                if group_by:
+                    query += f", {', '.join(group_by)}"
+                query += "))"
+            elif group_by:
+                query = f'{aggregation}(rate({metric_name}{filter_str}[{time_range}])) by ({", ".join(group_by)})'
+            else:
+                query = f"{aggregation}(rate({metric_name}{filter_str}[{time_range}]))"
+
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
+            payload = {"query": query}
+
+            response = requests.post(
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=self.toolset.config.get_auth(),
+                data=payload,
+                timeout=60,
+                verify=self.toolset.config.prometheus_ssl_enabled,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=json.dumps(data.get("data"), indent=2),
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query failed with status {response.status_code}: {response.text}",
+                    params=params,
+                )
+
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error analyzing metric: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params) -> str:
+        metric_name = params.get("metric_name", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Analyze {metric_name} by dimensions"
+
+
+class FindTopMetricValues(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="find_top_metric_values",
+            description="Finds the highest values for any metric, grouped by labels. Useful for identifying outliers or slowest operations.",
+            parameters={
+                "metric_name": ToolParameter(
+                    description="The metric to analyze",
+                    type="string",
+                    required=True,
+                ),
+                "group_by_label": ToolParameter(
+                    description="Label to group results by",
+                    type="string",
+                    required=True,
+                ),
+                "top_n": ToolParameter(
+                    description="Number of top entries to return",
+                    type="integer",
+                    required=False,
+                ),
+                "percentile": ToolParameter(
+                    description="For histogram/summary metrics - percentile to use (e.g., 0.95)",
+                    type="number",
+                    required=False,
+                ),
+                "time_range": ToolParameter(
+                    description="Time range for analysis",
+                    type="string",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
+
+        try:
+            metric_name = get_param_or_raise(params, "metric_name")
+            group_by_label = get_param_or_raise(params, "group_by_label")
+            top_n = params.get("top_n", 10)
+            percentile = params.get("percentile", 0.95)
+            time_range = params.get("time_range", "1h")
+
+            # Check if it's a histogram metric
+            if "_bucket" in metric_name or percentile:
+                query = f"topk({top_n}, histogram_quantile({percentile}, sum(rate({metric_name}_bucket[{time_range}])) by (le, {group_by_label})))"
+            else:
+                query = f"topk({top_n}, avg(rate({metric_name}[{time_range}])) by ({group_by_label}))"
+
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
+            payload = {"query": query}
+
+            response = requests.post(
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=self.toolset.config.get_auth(),
+                data=payload,
+                timeout=60,
+                verify=self.toolset.config.prometheus_ssl_enabled,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=json.dumps(data.get("data"), indent=2),
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query failed with status {response.status_code}: {response.text}",
+                    params=params,
+                )
+
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error finding top values: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params) -> str:
+        metric_name = params.get("metric_name", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Find top values for {metric_name}"
+
+
+class CompareMetricPeriods(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="compare_metric_periods",
+            description="Compares a metric between two time periods to identify changes or degradations.",
+            parameters={
+                "metric_name": ToolParameter(
+                    description="The metric to compare",
+                    type="string",
+                    required=True,
+                ),
+                "current_period": ToolParameter(
+                    description="Current time period (e.g., '1h')",
+                    type="string",
+                    required=False,
+                ),
+                "comparison_offset": ToolParameter(
+                    description="How far back to compare (e.g., '24h' for yesterday)",
+                    type="string",
+                    required=False,
+                ),
+                "group_by": ToolParameter(
+                    description="Labels to group comparison by",
+                    type="array",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
+
+        try:
+            metric_name = get_param_or_raise(params, "metric_name")
+            current_period = params.get("current_period", "1h")
+            comparison_offset = params.get("comparison_offset", "24h")
+            group_by = params.get("group_by", [])
+
+            # Build group by clause
+            group_clause = ""
+            if group_by:
+                group_clause = f' by ({", ".join(group_by)})'
+
+            # Query comparing current vs offset period
+            query = f"""
+                (avg(rate({metric_name}[{current_period}])){group_clause} -
+                 avg(rate({metric_name}[{current_period}] offset {comparison_offset})){group_clause}) /
+                 avg(rate({metric_name}[{current_period}] offset {comparison_offset})){group_clause} * 100
+            """
+
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
+            payload = {"query": query}
+
+            response = requests.post(
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=self.toolset.config.get_auth(),
+                data=payload,
+                timeout=60,
+                verify=self.toolset.config.prometheus_ssl_enabled,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=json.dumps(data.get("data"), indent=2),
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query failed with status {response.status_code}: {response.text}",
+                    params=params,
+                )
+
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error comparing periods: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params) -> str:
+        metric_name = params.get("metric_name", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Compare {metric_name} periods"
+
+
+class DetectMetricAnomalies(BasePrometheusTool):
+    def __init__(self, toolset: "PrometheusToolset"):
+        super().__init__(
+            name="detect_metric_anomalies",
+            description="Detects anomalous patterns in metrics using statistical analysis. Identifies spikes and deviations from normal.",
+            parameters={
+                "metric_name": ToolParameter(
+                    description="The metric to analyze",
+                    type="string",
+                    required=True,
+                ),
+                "sensitivity": ToolParameter(
+                    description="Standard deviations for anomaly threshold (2-4 typical)",
+                    type="number",
+                    required=False,
+                ),
+                "lookback_window": ToolParameter(
+                    description="Historical window for baseline (e.g., '7d')",
+                    type="string",
+                    required=False,
+                ),
+                "group_by": ToolParameter(
+                    description="Labels to detect anomalies by",
+                    type="array",
+                    required=False,
+                ),
+            },
+            toolset=toolset,
+        )
+
+    def _invoke(self, params: Any) -> StructuredToolResult:
+        if not self.toolset.config or not self.toolset.config.prometheus_url:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Prometheus is not configured. Prometheus URL is missing",
+                params=params,
+            )
+
+        try:
+            metric_name = get_param_or_raise(params, "metric_name")
+            sensitivity = params.get("sensitivity", 3)
+            lookback_window = params.get("lookback_window", "1h")
+            group_by = params.get("group_by", [])
+
+            # Build group by clause
+            group_clause = ""
+            if group_by:
+                group_clause = f' by ({", ".join(group_by)})'
+
+            # Z-score based anomaly detection query
+            query = f"""
+                (rate({metric_name}[5m]){group_clause} -
+                 avg_over_time(rate({metric_name}[5m])[{lookback_window}:]){group_clause}) /
+                 stddev_over_time(rate({metric_name}[5m])[{lookback_window}:]){group_clause} > {sensitivity}
+            """
+
+            url = urljoin(self.toolset.config.prometheus_url, "api/v1/query")
+            payload = {"query": query}
+
+            response = requests.post(
+                url=url,
+                headers=self.toolset.config.headers,
+                auth=self.toolset.config.get_auth(),
+                data=payload,
+                timeout=60,
+                verify=self.toolset.config.prometheus_ssl_enabled,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data=json.dumps(data.get("data"), indent=2),
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Query failed with status {response.status_code}: {response.text}",
+                    params=params,
+                )
+
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error detecting anomalies: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params) -> str:
+        metric_name = params.get("metric_name", "")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: Detect anomalies in {metric_name}"
+
+
 class PrometheusToolset(Toolset):
     config: Optional[Union[PrometheusConfig, AMPConfig]] = None
 
@@ -831,6 +1224,10 @@ class PrometheusToolset(Toolset):
                 ListAvailableMetrics(toolset=self),
                 ExecuteInstantQuery(toolset=self),
                 ExecuteRangeQuery(toolset=self),
+                AnalyzeMetricByDimensions(toolset=self),
+                FindTopMetricValues(toolset=self),
+                CompareMetricPeriods(toolset=self),
+                DetectMetricAnomalies(toolset=self),
             ],
             tags=[
                 ToolsetTag.CORE,

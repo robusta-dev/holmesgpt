@@ -1,0 +1,66 @@
+tags:
+  - network
+  - traces
+  - easy
+
+before_test: |
+  # Create namespace
+  kubectl create namespace app-200
+
+  # Deploy a mock Prometheus with latency metrics
+  kubectl apply -f ./prometheus_mock.yaml -n app-200
+
+  # Deploy a mock Tempo with trace data
+  kubectl apply -f ./tempo_mock.yaml -n app-200
+
+  # Deploy an application with varying latency patterns
+  kubectl apply -f ./api_service.yaml -n app-200
+
+  # Wait for services to be ready
+  kubectl wait --for=condition=ready pod -l app=prometheus-mock -n app-200 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=tempo-mock -n app-200 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=api-service -n app-200 --timeout=60s
+
+  # Set up port forwarding with unique ports
+  kubectl port-forward -n app-200 service/prometheus-mock 20090:9090 &
+  kubectl port-forward -n app-200 service/tempo-mock 20100:3100 &
+  sleep 5
+
+after_test: |
+  # Kill port-forward processes
+  pkill -f "kubectl port-forward.*app-200.*20090:9090" || true
+  pkill -f "kubectl port-forward.*app-200.*20100:3100" || true
+
+  # Delete namespace
+  kubectl delete namespace app-200 --ignore-not-found
+
+user_prompt: |
+  I'm seeing high latency in my API service. Some users are reporting slow responses
+  but not all. Can you investigate what's causing this and identify which specific
+  subset of requests is affected?
+
+expected_output: |
+  The high latency issue is affecting a specific subset of requests:
+
+  **Affected Traffic Pattern:**
+  - Endpoint: `/api/v2/recommendations`
+  - User Agent: Mobile app versions 2.0-2.3
+  - Geographic Region: EU region users
+  - Time Pattern: Latency spikes during peak hours (10am-2pm UTC)
+
+  **Root Cause Analysis:**
+  - The `/api/v2/recommendations` endpoint makes calls to an external recommendation service
+  - EU users are routed to an EU-based instance that has resource constraints
+  - Mobile app versions 2.0-2.3 use an inefficient API calling pattern (N+1 queries)
+  - The combination causes p95 latency to exceed 3 seconds during peak load
+
+  **Evidence:**
+  - Prometheus metrics show p95 latency of 3.2s for the specific endpoint/user-agent combination
+  - Only 15% of total traffic is affected (matching the mobile app + EU user segment)
+  - Tempo traces show multiple sequential calls to the recommendation service
+  - Resource metrics correlate with high latency periods (CPU at 95% on EU instances)
+
+  **Recommendations:**
+  1. Immediate: Scale up EU recommendation service instances
+  2. Short-term: Implement request batching to reduce N+1 queries
+  3. Long-term: Update mobile app to use more efficient API patterns

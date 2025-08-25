@@ -1,0 +1,15 @@
+# Configure toolsets for this test
+toolsets:
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: http://localhost:20090
+      prometheus_ssl_enabled: false
+      tool_calls_return_data: true
+
+  grafana/tempo:
+    enabled: true
+    config:
+      url: http://localhost:20100
+      api_key: ""
+      grafana_datasource_uid: "tempo"
