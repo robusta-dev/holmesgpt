@@ -67,11 +67,11 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
             is_default=True,
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             tags=[ToolsetTag.CORE],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
         enabled, disabled_reason = self.health_check()
         prerequisite.enabled = enabled
         prerequisite.disabled_reason = disabled_reason

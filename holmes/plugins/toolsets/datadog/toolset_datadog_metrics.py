@@ -54,7 +54,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="list_active_datadog_metrics",
-            description=f"List active metrics from the last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours. This includes metrics that have actively reported data points.",
+            description=f"List active metrics from Datadog for the last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours. This includes metrics that have actively reported data points, including from pods no longer in the cluster.",
             parameters={
                 "from_time": ToolParameter(
                     description=f"Start time for listing metrics. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') or a negative integer for relative seconds from now (e.g. -86400 for 24 hours ago). Defaults to {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours ago",
@@ -182,7 +182,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="query_datadog_metrics",
-            description="Query timeseries data for a specific metric",
+            description="Query timeseries data from Datadog for a specific metric, including historical data for pods no longer in the cluster",
             parameters={
                 "query": ToolParameter(
                     description="The metric query string (e.g., 'system.cpu.user{host:myhost}')",
@@ -562,7 +562,7 @@ class DatadogMetricsToolset(Toolset):
     def __init__(self):
         super().__init__(
             name="datadog/metrics",
-            description="Toolset for interacting with Datadog to fetch metrics and metadata",
+            description="Toolset for fetching metrics and metadata from Datadog, including historical data for pods no longer in the cluster",
             docs_url="https://docs.datadoghq.com/api/latest/metrics/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
