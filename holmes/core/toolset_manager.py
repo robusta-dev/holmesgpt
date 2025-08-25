@@ -266,11 +266,7 @@ class ToolsetManager:
                 toolset.path = cached_status.get("path", None)
             # check prerequisites for only enabled toolset when the toolset is loaded from cache. When the toolset is
             # not loaded from cache, the prerequisites are checked in the refresh_toolset_status method.
-            if (
-                toolset.enabled
-                and toolset.status == ToolsetStatusEnum.ENABLED
-                and using_cached
-            ):
+            if toolset.enabled and toolset.status == ToolsetStatusEnum.ENABLED:
                 enabled_toolsets_from_cache.append(toolset)
         self.check_toolset_prerequisites(enabled_toolsets_from_cache)
 
