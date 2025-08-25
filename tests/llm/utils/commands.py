@@ -98,9 +98,15 @@ def run_commands(
     # This preserves multi-line bash constructs like if/then/else, for loops, etc.
     script = commands_str.strip()
 
+    # Prepend bash safety flags to ensure scripts fail fast on errors
+    # -e: Exit immediately if any command fails
+    # -u: Treat unset variables as errors
+    # -o pipefail: Propagate failures through pipes
+    script_with_flags = f"set -euo pipefail\n\n{script}"
+
     try:
         # Execute the entire commands string as a single bash script
-        _invoke_command(command=script, cwd=test_case.folder)
+        _invoke_command(command=script_with_flags, cwd=test_case.folder)
 
         elapsed_time = time.time() - start_time
         return CommandResult(
@@ -111,6 +117,7 @@ def run_commands(
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
+        # Show original script in error messages (without the added safety flags)
         error_details = f"$ {_truncate_script(script)}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
 
         return CommandResult(
@@ -124,6 +131,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
+        # Show original script in error messages (without the added safety flags)
         error_details = f"$ {_truncate_script(script)}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
 
         return CommandResult(
@@ -136,6 +144,7 @@ def run_commands(
         )
     except Exception as e:
         elapsed_time = time.time() - start_time
+        # Show original script in error messages (without the added safety flags)
         error_details = f"$ {_truncate_script(script)}\nUnexpected error: {str(e)}"
 
         return CommandResult(

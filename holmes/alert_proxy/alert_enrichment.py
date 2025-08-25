@@ -16,7 +16,8 @@ from holmes.alert_proxy.models import (
 )
 from holmes.alert_proxy.alert_grouping import AlertGrouper
 
-logger = logging.getLogger(__name__)
+# Use default logging instead of named logger for better console capture
+# logger = logging.getLogger(__name__)
 
 
 class AlertEnricher:
@@ -31,7 +32,7 @@ class AlertEnricher:
     def enrich_alert(self, alert: Alert) -> EnrichedAlert:
         """Enrich a single alert with AI insights."""
         alert_name = alert.labels.get("alertname", "Unknown")
-        logger.info(
+        logging.info(
             f"[ENRICHER] Starting enrichment for alert: {alert_name} (fingerprint: {alert.fingerprint})"
         )
 
@@ -39,7 +40,7 @@ class AlertEnricher:
         alert_severity = alert.labels.get("severity", "").lower()
         if self.enrichment_config.severity_filter:
             if alert_severity not in self.enrichment_config.severity_filter:
-                logger.info(
+                logging.info(
                     f"[ENRICHER] Skipping enrichment for alert '{alert_name}' with severity '{alert_severity}' (not in filter: {self.enrichment_config.severity_filter})"
                 )
                 # Return alert without enrichment
@@ -54,15 +55,17 @@ class AlertEnricher:
                 )
 
         try:
-            logger.debug(f"[ENRICHER] Calling _generate_enrichment for {alert_name}")
+            logging.info(f"[ENRICHER] Calling _generate_enrichment for {alert_name}")
             enrichment = self._generate_enrichment(alert)
-            logger.info(
+            logging.info(
                 f"[ENRICHER] Generated enrichment for {alert_name}: has_content={bool(enrichment.business_impact or enrichment.root_cause or enrichment.suggested_action)}"
             )
-            logger.debug(f"[ENRICHER] Enrichment content: {enrichment.model_dump()}")
+            logging.info(
+                f"[ENRICHER] Enrichment fields present: {[k for k,v in enrichment.model_dump().items() if v]}"
+            )
             return EnrichedAlert(original=alert, enrichment=enrichment)
         except Exception as e:
-            logger.error(
+            logging.error(
                 f"[ENRICHER] Failed to enrich alert {alert_name} ({alert.fingerprint}): {e}",
                 exc_info=True,
             )
@@ -77,44 +80,44 @@ class AlertEnricher:
         alert_name = alert.labels.get("alertname", "Unknown")
 
         # Build investigation prompt
-        logger.debug(f"[ENRICHER] Building prompt for {alert_name}")
+        logging.info(f"[ENRICHER] Building prompt for {alert_name}")
         prompt = self._build_investigation_prompt(alert)
-        logger.debug(f"[ENRICHER] Prompt length: {len(prompt)} chars")
+        logging.info(f"[ENRICHER] Prompt length: {len(prompt)} chars")
 
         # Use full Holmes investigation with timeout
         try:
             # Run full investigation with all toolsets
             start_time = time.time()
-            logger.info(
+            logging.info(
                 f"[ENRICHER] Running full investigation for {alert_name} with timeout {self.timeout}s"
             )
             response = self._run_full_investigation(prompt, alert)
             elapsed = time.time() - start_time
-            logger.info(
+            logging.info(
                 f"[ENRICHER] Investigation completed for {alert_name} in {elapsed:.2f}s"
             )
 
             # Check if we exceeded timeout
             if elapsed > self.timeout:
-                logger.warning(
+                logging.warning(
                     f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint}): {elapsed:.2f}s > {self.timeout}s"
                 )
                 raise TimeoutError(f"Investigation exceeded {self.timeout}s")
 
             # Parse the investigation result
-            logger.debug(f"[ENRICHER] Parsing response for {alert_name}")
+            logging.info(f"[ENRICHER] Parsing response for {alert_name}")
             enrichment = self._parse_investigation_response(response, alert)
-            logger.info(
+            logging.info(
                 f"[ENRICHER] Parsed enrichment for {alert_name}: has_content={bool(enrichment.business_impact or enrichment.root_cause or enrichment.suggested_action)}"
             )
             return enrichment
         except TimeoutError:
-            logger.warning(
+            logging.warning(
                 f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint})"
             )
             raise
         except Exception as e:
-            logger.error(
+            logging.error(
                 f"[ENRICHER] Error generating enrichment for {alert_name}: {e}",
                 exc_info=True,
             )
@@ -252,8 +255,10 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             raw=issue_data,
         )
 
-        logger.info(f"[ENRICHER] Starting LLM investigation for alert: {alert_name}")
-        logger.debug(f"[ENRICHER] Investigation prompt: {prompt[:500]}...")
+        logging.info(f"[ENRICHER] Starting LLM investigation for alert: {alert_name}")
+        logging.info(
+            f"[ENRICHER] Investigation prompt first 200 chars: {prompt[:200]}..."
+        )
 
         # Run investigation synchronously (ai.investigate is already sync)
         result = ai.investigate(
@@ -269,15 +274,17 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             response_str = str(result.result)
         except AttributeError:
             # Fallback if result doesn't have the expected attribute
-            logger.warning(
+            logging.warning(
                 f"[ENRICHER] Result object has no 'result' attribute for {alert_name}, using str()"
             )
             response_str = str(result)
 
-        logger.info(
+        logging.info(
             f"[ENRICHER] LLM investigation completed for {alert_name}, response length: {len(response_str)} chars"
         )
-        logger.debug(f"[ENRICHER] Raw AI response: {response_str[:1000]}...")
+        logging.info(
+            f"[ENRICHER] Raw AI response first 500 chars: {response_str[:500]}..."
+        )
 
         return response_str
 
@@ -299,7 +306,7 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             # Parse the JSON
             data = json.loads(json_str)
 
-            logger.debug(f"Parsed response keys: {list(data.keys())}")
+            logging.info(f"[ENRICHER] Parsed response keys: {list(data.keys())}")
 
             # Extract custom columns if configured
             enrichment_metadata = {"model": self.enrichment_config.model}
@@ -312,7 +319,9 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
                         custom_columns[col] = value
                         # Also add to enrichment_metadata for Slack display
                         enrichment_metadata[col] = value
-                        logger.debug(f"Found custom column '{col}': {str(value)[:100]}")
+                        logging.info(
+                            f"[ENRICHER] Found custom column '{col}': {str(value)[:100]}"
+                        )
 
             # Handle skip_default_enrichment mode
             if (
@@ -334,21 +343,23 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
                     affected_services = []
 
             # Log exactly what we got from AI for default fields
-            logger.debug(f"Default fields from AI response for {alert.fingerprint}:")
-            logger.debug(
-                f"  - business_impact: {data.get('business_impact', 'NOT PRESENT')[:100] if data.get('business_impact') else 'NOT PRESENT'}"
+            logging.info(
+                f"[ENRICHER] Default fields from AI response for {alert.fingerprint}:"
             )
-            logger.debug(
-                f"  - root_cause: {data.get('root_cause', 'NOT PRESENT')[:100] if data.get('root_cause') else 'NOT PRESENT'}"
+            logging.info(
+                f"[ENRICHER]   - business_impact: {data.get('business_impact', 'NOT PRESENT')[:100] if data.get('business_impact') else 'NOT PRESENT'}"
             )
-            logger.debug(
-                f"  - root_cause_analysis: {data.get('root_cause_analysis', 'NOT PRESENT')[:100] if data.get('root_cause_analysis') else 'NOT PRESENT'}"
+            logging.info(
+                f"[ENRICHER]   - root_cause: {data.get('root_cause', 'NOT PRESENT')[:100] if data.get('root_cause') else 'NOT PRESENT'}"
             )
-            logger.debug(
-                f"  - suggested_action: {data.get('suggested_action', 'NOT PRESENT')[:100] if data.get('suggested_action') else 'NOT PRESENT'}"
+            logging.info(
+                f"[ENRICHER]   - root_cause_analysis: {data.get('root_cause_analysis', 'NOT PRESENT')[:100] if data.get('root_cause_analysis') else 'NOT PRESENT'}"
             )
-            logger.debug(
-                f"  - affected_services: {data.get('affected_services', 'NOT PRESENT')}"
+            logging.info(
+                f"[ENRICHER]   - suggested_action: {data.get('suggested_action', 'NOT PRESENT')[:100] if data.get('suggested_action') else 'NOT PRESENT'}"
+            )
+            logging.info(
+                f"[ENRICHER]   - affected_services: {data.get('affected_services', 'NOT PRESENT')}"
             )
 
             # Create enrichment with both default and custom fields
@@ -364,20 +375,22 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             )
 
             # Log summary of enrichment
-            logger.debug(
-                f"Created enrichment for {alert.fingerprint} with fields: {[k for k in ['business_impact', 'root_cause', 'root_cause_analysis', 'suggested_action'] if getattr(enrichment, k, None)]}"
+            logging.info(
+                f"[ENRICHER] Created enrichment for {alert.fingerprint} with fields: {[k for k in ['business_impact', 'root_cause', 'root_cause_analysis', 'suggested_action'] if getattr(enrichment, k, None)]}"
             )
             if custom_columns:
-                logger.debug(f"Custom columns: {list(custom_columns.keys())}")
+                logging.info(
+                    f"[ENRICHER] Custom columns: {list(custom_columns.keys())}"
+                )
 
             return enrichment
         except json.JSONDecodeError as e:
             alert_name = alert.labels.get("alertname", "Unknown")
-            logger.error(
+            logging.error(
                 f"[ENRICHER] Failed to parse JSON response for {alert_name} ({alert.fingerprint}): {e}"
             )
-            logger.debug(
-                f"[ENRICHER] Raw response that failed to parse: {response[:1000]}"
+            logging.info(
+                f"[ENRICHER] Raw response that failed to parse: {response[:500]}"
             )
 
             # Return minimal enrichment on parse failure
@@ -390,7 +403,7 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             )
         except Exception as e:
             alert_name = alert.labels.get("alertname", "Unknown")
-            logger.error(
+            logging.error(
                 f"[ENRICHER] Unexpected error parsing response for {alert_name} ({alert.fingerprint}): {e}",
                 exc_info=True,
             )
@@ -428,7 +441,7 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
                     result = future.result(timeout=self.timeout)
                     enriched_alerts.append(result)
                 except Exception as e:
-                    logger.error(f"Failed to enrich alert {alert.fingerprint}: {e}")
+                    logging.error(f"Failed to enrich alert {alert.fingerprint}: {e}")
                     # Return minimal enrichment on error
                     error_enrichment = AIEnrichment(
                         enrichment_metadata={"enriched": False, "error": str(e)}
