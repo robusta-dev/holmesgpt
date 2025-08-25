@@ -31,6 +31,12 @@ def pytest_addoption(parser):
         default=False,
         help="Skip running after_test commands for test cases (useful for debugging test failures)",
     )
+    parser.addoption(
+        "--only-setup",
+        action="store_true",
+        default=False,
+        help="Only run before_test setup commands, skip the actual test execution",
+    )
 
 
 def pytest_configure(config):
