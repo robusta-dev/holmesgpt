@@ -1,5 +1,5 @@
 user_prompt:
-- "The checkout service in namespace app-114 is experiencing high latency. Investigate why."
+- "The checkout service in namespace app-114a is experiencing high latency. Investigate why."
 
 expected_output:
   - The answer must explicitly state that queries that include a promo code are slow or all slow requests include promo code.
@@ -12,26 +12,26 @@ tags:
   - traces
 
 port_forwards:
-  - namespace: app-114
+  - namespace: app-114a
     service: tempo
-    local_port: 3200
+    local_port: 3214
     remote_port: 3200
 
 before_test: |
-  echo "🚀 Setting up test 114 - Creating namespace app-114"
-  kubectl create namespace app-114 || true
-  echo "✅ Namespace app-114 created successfully!"
+  echo "🚀 Setting up test 114a - Creating namespace app-114a"
+  kubectl create namespace app-114a || true
+  echo "✅ Namespace app-114a created successfully!"
 
   echo "📦 Deploying Tempo from shared config"
-  kubectl apply -f ../../shared/tempo.yaml -n app-114
+  kubectl apply -f ../../shared/tempo.yaml -n app-114a
 
   echo "⏳ Waiting for Tempo pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=tempo -n app-114a --timeout=60s
 
   echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 60s)"
   TEMPO_READY=false
   for i in {1..12}; do
-    if kubectl exec -n app-114 deployment/tempo -- wget -q -O - http://localhost:3200/ready 2>/dev/null; then
+    if kubectl exec -n app-114a deployment/tempo -- wget -q -O - http://localhost:3200/ready 2>/dev/null; then
       echo "✅ Tempo is ready!"
       TEMPO_READY=true
       break
@@ -49,27 +49,27 @@ before_test: |
   echo "✅ Tempo deployment complete!"
 
   echo "🛒 Deploying checkout service"
-  kubectl apply -f checkout-service.yaml -n app-114
+  kubectl apply -f checkout-service.yaml -n app-114a
 
   echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-114a --timeout=60s
 
   echo "🔍 Checking checkout deployment status"
-  kubectl get pods -n app-114 -l app=checkout
+  kubectl get pods -n app-114a -l app=checkout
 
   echo "🚦 Deploying traffic generator"
-  kubectl apply -f traffic-generator.yaml -n app-114
+  kubectl apply -f traffic-generator.yaml -n app-114a
 
   echo "⏳ Waiting for traffic generator pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114a --timeout=60s
 
   echo "🔍 Checking all pods status"
-  kubectl get pods -n app-114
+  kubectl get pods -n app-114a
 
   echo "⏰ Waiting for traffic generator to produce logs (checking every 3s, timeout 60s)"
   PROMO_LOG_FOUND=false
   for i in {1..20}; do
-    if kubectl logs -n app-114 -l app=traffic-generator --tail=100 2>/dev/null | grep -q "WITH promo_code"; then
+    if kubectl logs -n app-114a -l app=traffic-generator --tail=100 2>/dev/null | grep -q "WITH promo_code"; then
       echo "✅ Found traffic generator log WITH promo_code after $((i*3)) seconds"
       PROMO_LOG_FOUND=true
       break
@@ -84,14 +84,14 @@ before_test: |
     exit 1
   fi
 
-  if kubectl logs -n app-114 -l app=traffic-generator --tail=100 | grep -q "WITHOUT promo_code"; then
+  if kubectl logs -n app-114a -l app=traffic-generator --tail=100 | grep -q "WITHOUT promo_code"; then
     echo "✅ Found traffic generator log WITHOUT promo_code"
   else
     echo "❌ Missing traffic generator log WITHOUT promo_code"
     exit 1
   fi
 
-  if kubectl logs -n app-114 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
+  if kubectl logs -n app-114a -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
     echo "✅ Found checkout request log"
   else
     echo "❌ Missing checkout request log"
@@ -104,7 +104,7 @@ before_test: |
   # echo "Found $TRAFFIC_GEN_TRACES traces from traffic-generator"
 
   echo "🔍 Querying Tempo for traces from checkout service"
-  CHECKOUT_TRACES=$(kubectl run -n app-114 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
+  CHECKOUT_TRACES=$(kubectl run -n app-114a tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
   echo "Found $CHECKOUT_TRACES traces from checkout-service"
 
   # Commented out traffic generator trace check
@@ -123,9 +123,9 @@ before_test: |
   fi
 
   # Delete Traffic generator so the ai won't cheat
-  kubectl delete -f traffic-generator.yaml -n app-114
+  kubectl delete -f traffic-generator.yaml -n app-114a
 
   echo "✅ Test setup complete!"
 
 after_test: |
-  kubectl delete namespace app-114 || true
+  kubectl delete namespace app-114a || true

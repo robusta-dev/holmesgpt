@@ -23,7 +23,7 @@ stringData:
     # trace.set_tracer_provider(provider)
 
     # otlp_exporter = OTLPSpanExporter(
-    #     endpoint="tempo.app-114.svc.cluster.local:4317",
+    #     endpoint="tempo.app-114a.svc.cluster.local:4317",
     #     insecure=True
     # )
     # provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
@@ -33,7 +33,7 @@ stringData:
 
     # tracer = trace.get_tracer(__name__)
 
-    CHECKOUT_URL = "http://checkout.app-114.svc.cluster.local:8080/checkout"
+    CHECKOUT_URL = "http://checkout.app-114a.svc.cluster.local:8080/checkout"
     ZONES = ['us-west-1', 'us-west-2', 'us-east-1', 'us-east-2']
     PROMO_CODES = ['SAVE10', 'WELCOME20', 'HOLIDAY15', 'SPECIAL25']
 

@@ -6,5 +6,7 @@ toolsets:
   grafana/tempo:
     enabled: true
     config:
-      url: http://localhost:3200
+      url: http://localhost:3215
       healthcheck: "ready"
+      enable_comparative_sample: false
+      enable_simple_comparison: true

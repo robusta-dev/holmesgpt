@@ -23,7 +23,7 @@ stringData:
     trace.set_tracer_provider(provider)
 
     otlp_exporter = OTLPSpanExporter(
-        endpoint="tempo.app-114.svc.cluster.local:4317",
+        endpoint="tempo.app-114b.svc.cluster.local:4317",
         insecure=True
     )
     provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
