@@ -62,6 +62,13 @@ def test_ask_holmes(
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case, model)
 
+    # Check if --only-setup is set
+    only_setup = request.config.getoption("--only-setup", False)
+    if only_setup:
+        print(f"\n🧪 TEST: {test_case.id}")
+        print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
+        pytest.skip("Skipping test execution due to --only-setup flag")
+
     tracer = TracingFactory.create_tracer("braintrust")
     metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)

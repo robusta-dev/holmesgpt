@@ -2,6 +2,7 @@
 import logging
 import os
 import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from typing import Dict, Optional
@@ -70,6 +71,14 @@ def _invoke_command(command: str, cwd: str) -> str:
         output = f"{result.stdout}\n{result.stderr}"
         logging.debug(f"** `{command}`:\n{output}")
         logging.debug(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
+
+        # Show output if SHOW_SETUP_OUTPUT is set
+        if os.environ.get("SHOW_SETUP_OUTPUT", "").lower() in ("true", "1"):
+            if result.stdout:
+                sys.stderr.write(f"[SETUP OUTPUT] {result.stdout}\n")
+            if result.stderr:
+                sys.stderr.write(f"[SETUP STDERR] {result.stderr}\n")
+
         return output
     except subprocess.CalledProcessError as e:
         truncated_command = _truncate_script(command)
