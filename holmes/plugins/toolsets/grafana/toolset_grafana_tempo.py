@@ -64,6 +64,48 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
     def grafana_config(self) -> GrafanaTempoConfig:
         return cast(GrafanaTempoConfig, self._grafana_config)
 
+    def build_k8s_filters(
+        self, params: Dict[str, Any], use_exact_match: bool = True
+    ) -> List[str]:
+        """Build TraceQL filters for k8s parameters.
+
+        Args:
+            params: Dictionary containing k8s parameters
+            use_exact_match: If True, uses exact match (=), if False uses regex match (=~)
+
+        Returns:
+            List of TraceQL filter strings
+        """
+        prefix = ""
+        if TEMPO_LABELS_ADD_PREFIX:
+            prefix = "resource."
+
+        filters = []
+        labels = self.grafana_config.labels
+
+        # Define parameter mappings: (param_name, label_attribute)
+        parameter_mappings = [
+            ("service_name", "service"),
+            ("pod_name", "pod"),
+            ("namespace_name", "namespace"),
+            ("deployment_name", "deployment"),
+            ("node_name", "node"),
+        ]
+
+        for param_name, label_attr in parameter_mappings:
+            value = params.get(param_name)
+            if value:
+                # Get the label from the config
+                label = getattr(labels, label_attr)
+
+                # Build the filter based on match type
+                if use_exact_match:
+                    filters.append(f'{prefix}{label}="{value}"')
+                else:
+                    filters.append(f'{prefix}{label}=~".*{value}.*"')
+
+        return filters
+
 
 def validate_params(params: Dict[str, Any], expected_params: List[str]):
     for param in expected_params:
@@ -136,7 +178,6 @@ class GetTempoTraces(Tool):
     def _invoke(self, params: Dict) -> StructuredToolResult:
         api_key = self._toolset.grafana_config.api_key
         headers = self._toolset.grafana_config.headers
-        labels = self._toolset.grafana_config.labels
 
         invalid_params_error = validate_params(
             params, ["service_name", "pod_name", "deployment_name"]
@@ -154,25 +195,7 @@ class GetTempoTraces(Tool):
             default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
 
-        prefix = ""
-        if TEMPO_LABELS_ADD_PREFIX:
-            prefix = "resource."
-
-        filters = []
-        if params.get("service_name"):
-            filters.append(f'{prefix}{labels.service}="{params.get("service_name")}"')
-        if params.get("pod_name"):
-            filters.append(f'{prefix}{labels.pod}="{params.get("pod_name")}"')
-        if params.get("namespace_name"):
-            filters.append(
-                f'{prefix}{labels.namespace}="{params.get("namespace_name")}"'
-            )
-        if params.get("deployment_name"):
-            filters.append(
-                f'{prefix}{labels.deployment}="{params.get("deployment_name")}"'
-            )
-        if params.get("node_name"):
-            filters.append(f'{prefix}{labels.node}="{params.get("node_name")}"')
+        filters = self._toolset.build_k8s_filters(params, use_exact_match=True)
 
         filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
 
@@ -291,6 +314,225 @@ class GetTempoTraceById(Tool):
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
 
 
+class FetchTracesSimpleComparison(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="fetch_traces_comparative_sample",
+            description="""Fetches statistics and representative samples of fast, slow, and typical traces for performance analysis.
+
+Important: call this tool first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns.
+
+Examples:
+- For service latency: service_name="payment" (matches "payment-service" too)
+- For namespace issues: namespace_name="production"
+- Combined: service_name="auth", namespace_name="staging\"""",
+            parameters={
+                "service_name": ToolParameter(
+                    description="Service to analyze (partial match supported)",
+                    type="string",
+                    required=False,
+                ),
+                "pod_name": ToolParameter(
+                    description="Filter traces by pod name (partial match supported)",
+                    type="string",
+                    required=False,
+                ),
+                "namespace_name": ToolParameter(
+                    description="Kubernetes namespace to filter traces",
+                    type="string",
+                    required=False,
+                ),
+                "deployment_name": ToolParameter(
+                    description="Filter traces by deployment name (partial match supported)",
+                    type="string",
+                    required=False,
+                ),
+                "node_name": ToolParameter(
+                    description="Filter traces by node name",
+                    type="string",
+                    required=False,
+                ),
+                "base_query": ToolParameter(
+                    description="Custom TraceQL filter",
+                    type="string",
+                    required=False,
+                ),
+                "sample_count": ToolParameter(
+                    description="Number of traces to fetch from each category (fastest/slowest). Default 3",
+                    type="integer",
+                    required=False,
+                ),
+                "start_datetime": ToolParameter(
+                    description="Start time for analysis (RFC3339 or relative)",
+                    type="string",
+                    required=False,
+                ),
+                "end_datetime": ToolParameter(
+                    description="End time for analysis (RFC3339 or relative)",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        try:
+            # Build query
+            if params.get("base_query"):
+                base_query = params["base_query"]
+            else:
+                # Use the shared utility with partial matching (regex)
+                filters = self._toolset.build_k8s_filters(params, use_exact_match=False)
+
+                # Validate that at least one parameter was provided
+                invalid_params_error = validate_params(
+                    params,
+                    [
+                        "service_name",
+                        "pod_name",
+                        "namespace_name",
+                        "deployment_name",
+                        "node_name",
+                    ],
+                )
+                if invalid_params_error:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=invalid_params_error,
+                        params=params,
+                    )
+
+                base_query = " && ".join(filters)
+
+            sample_count = params.get("sample_count", 3)
+
+            start, end = process_timestamps_to_int(
+                params.get("start_datetime"),
+                params.get("end_datetime"),
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+            )
+
+            base_url = get_base_url(self._toolset.grafana_config)
+
+            # Step 1: Get all trace summaries
+            stats_query = f"{{{base_query}}}"
+            all_traces_response = query_tempo_traces(
+                base_url=base_url,
+                api_key=self._toolset.grafana_config.api_key,
+                headers=self._toolset.grafana_config.headers,
+                query=stats_query,
+                start=start,
+                end=end,
+                limit=1000,
+            )
+
+            traces = all_traces_response.get("traces", [])
+            if not traces:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="No traces found matching the query",
+                    params=params,
+                )
+
+            # Step 2: Sort traces by duration
+            sorted_traces = sorted(traces, key=lambda x: x.get("durationMs", 0))
+
+            # Step 3: Calculate basic statistics
+            durations = [t.get("durationMs", 0) for t in sorted_traces]
+            stats = {
+                "trace_count": len(durations),
+                "min_ms": durations[0],
+                "p25_ms": durations[len(durations) // 4]
+                if len(durations) >= 4
+                else durations[0],
+                "p50_ms": durations[len(durations) // 2],
+                "p75_ms": durations[3 * len(durations) // 4]
+                if len(durations) >= 4
+                else durations[-1],
+                "p90_ms": durations[int(len(durations) * 0.9)]
+                if len(durations) >= 10
+                else durations[-1],
+                "p99_ms": durations[int(len(durations) * 0.99)]
+                if len(durations) >= 100
+                else durations[-1],
+                "max_ms": durations[-1],
+            }
+
+            # Step 4: Select representative traces to fetch
+            fastest_indices = list(range(min(sample_count, len(sorted_traces))))
+            slowest_indices = list(
+                range(max(0, len(sorted_traces) - sample_count), len(sorted_traces))
+            )
+
+            # Add median trace
+            median_idx = len(sorted_traces) // 2
+
+            # Step 5: Fetch full trace details
+            def fetch_full_trace(trace_summary):
+                trace_id = trace_summary.get("traceID")
+                if not trace_id:
+                    return None
+
+                try:
+                    url = f"{base_url}/api/traces/{trace_id}"
+                    response = requests.get(
+                        url,
+                        headers=build_headers(
+                            api_key=self._toolset.grafana_config.api_key,
+                            additional_headers=self._toolset.grafana_config.headers,
+                        ),
+                        timeout=5,
+                    )
+                    response.raise_for_status()
+                    return {
+                        "traceID": trace_id,
+                        "durationMs": trace_summary.get("durationMs", 0),
+                        "rootServiceName": trace_summary.get(
+                            "rootServiceName", "unknown"
+                        ),
+                        "traceData": response.json(),  # Raw trace data
+                    }
+                except Exception:
+                    return {
+                        "traceID": trace_id,
+                        "durationMs": trace_summary.get("durationMs", 0),
+                        "error": "Failed to fetch full trace",
+                    }
+
+            # Fetch the selected traces
+            result = {
+                "statistics": stats,
+                "all_trace_durations_ms": durations,  # All durations for distribution analysis
+                "fastest_traces": [
+                    fetch_full_trace(sorted_traces[i]) for i in fastest_indices
+                ],
+                "median_trace": fetch_full_trace(sorted_traces[median_idx]),
+                "slowest_traces": [
+                    fetch_full_trace(sorted_traces[i]) for i in slowest_indices
+                ],
+            }
+
+            # Return as YAML for readability
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False, sort_keys=False),
+                params=params,
+            )
+
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching traces: {str(e)}",
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return (
+            f"{toolset_name_for_one_liner(self._toolset.name)}: Simple trace comparison"
+        )
+
+
 class GrafanaTempoToolset(BaseGrafanaTempoToolset):
     def __init__(self):
         super().__init__(
@@ -298,7 +540,12 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html",
-            tools=[GetTempoTraces(self), GetTempoTraceById(self), GetTempoTags(self)],
+            tools=[
+                FetchTracesSimpleComparison(self),
+                GetTempoTraces(self),
+                GetTempoTraceById(self),
+                GetTempoTags(self),
+            ],
         )
         template_file_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "toolset_grafana_tempo.jinja2")
