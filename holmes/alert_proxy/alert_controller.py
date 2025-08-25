@@ -133,21 +133,60 @@ class AlertUIController:
             )
 
             if enriched_alerts and enriched_alerts[0].enrichment:
-                # Update the alert with enrichment
-                alert.enrichment = enriched_alerts[0].enrichment
-                alert.enriched_at = enriched_alerts[0].enriched_at
-                alert.enrichment_status = EnrichmentStatus.COMPLETED
+                enrichment = enriched_alerts[0].enrichment
 
-                logger.info(f"[ENRICH] Successfully enriched {alert_name}")
-                logger.debug(
-                    f"[ENRICH] Enrichment data: {alert.enrichment.model_dump() if alert.enrichment else 'None'}"
+                # Check if enrichment actually has content (not just metadata)
+                has_content = (
+                    enrichment.business_impact
+                    or enrichment.root_cause
+                    or enrichment.root_cause_analysis
+                    or enrichment.suggested_action
+                    or enrichment.affected_services
+                    or enrichment.custom_columns
                 )
 
-                if self.view:
-                    self.view.add_console_line(f"✅ Enrichment complete: {alert_name}")
+                # Check for error in metadata
+                has_error = (
+                    enrichment.enrichment_metadata.get("error")
+                    or enrichment.enrichment_metadata.get("enriched") is False
+                )
+
+                if has_content and not has_error:
+                    # Update the alert with enrichment
+                    alert.enrichment = enrichment
+                    alert.enriched_at = enriched_alerts[0].enriched_at
+                    alert.enrichment_status = EnrichmentStatus.COMPLETED
+
+                    logger.info(f"[ENRICH] Successfully enriched {alert_name}")
+                    logger.debug(
+                        f"[ENRICH] Enrichment data: {alert.enrichment.model_dump() if alert.enrichment else 'None'}"
+                    )
+
+                    if self.view:
+                        self.view.add_console_line(
+                            f"✅ Enrichment complete: {alert_name}"
+                        )
+                else:
+                    # Enrichment failed or returned empty
+                    alert.enrichment_status = EnrichmentStatus.FAILED
+                    error_msg = enrichment.enrichment_metadata.get(
+                        "error", "No content generated"
+                    )
+
+                    logger.warning(
+                        f"[ENRICH] Enrichment failed for {alert_name}: {error_msg}"
+                    )
+                    logger.debug(
+                        f"[ENRICH] Failed enrichment metadata: {enrichment.enrichment_metadata}"
+                    )
+
+                    if self.view:
+                        self.view.add_console_line(
+                            f"⚠️ Enrichment failed for {alert_name}: {error_msg}"
+                        )
             else:
                 alert.enrichment_status = EnrichmentStatus.FAILED
-                logger.warning(f"[ENRICH] No enrichment generated for {alert_name}")
+                logger.warning(f"[ENRICH] No enrichment returned for {alert_name}")
                 if self.view:
                     self.view.add_console_line(
                         f"⚠️ No enrichment generated for: {alert_name}"

@@ -43,8 +43,8 @@ class StatusBar:
     def _get_header_text(self):
         """Get header text with branding and model info."""
         model_info = ""
-        if self.alert_config and hasattr(self.alert_config, "model"):
-            model_info = f"  •  Model: {self.alert_config.model}"
+        if self.alert_config and hasattr(self.alert_config, "enrichment"):
+            model_info = f"  •  Model: {self.alert_config.enrichment.model}"
         return f"🚨 HolmesGPT Alert Viewer{model_info}  •  {self.get_status()}"
 
     def _get_footer_text(self):

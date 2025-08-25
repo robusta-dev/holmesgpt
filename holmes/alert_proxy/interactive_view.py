@@ -599,6 +599,12 @@ class AlertUIView:
     # Single UI update path
     def _refresh_ui(self, update_inspector=True, sync_cursor=True):
         """Single method for all UI updates to ensure consistency."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug(
+            f"[UI] _refresh_ui called (update_inspector={update_inspector}, sync_cursor={sync_cursor})"
+        )
 
         # Update components
         self._update_list()
@@ -890,14 +896,29 @@ UI:
 
     def _update_inspector(self):
         """Update the inspector pane."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         if not self.model:
             self.inspector_area.text = self.inspector.format_alert_details(None)
             return
         alerts = self.model.get_alerts_for_display()
         if not alerts or self.selected_index >= len(alerts):
+            logger.debug(
+                f"[UI] No alerts to show in inspector (alerts={len(alerts) if alerts else 0}, selected={self.selected_index})"
+            )
             self.inspector_area.text = self.inspector.format_alert_details(None)
         else:
             alert = alerts[self.selected_index]
+            alert_name = alert.original.labels.get("alertname", "Unknown")
+            logger.debug(
+                f"[UI] Updating inspector for alert: {alert_name}, enrichment_status={alert.enrichment_status}, has_enrichment={bool(alert.enrichment)}"
+            )
+            if alert.enrichment:
+                logger.debug(
+                    f"[UI] Enrichment content: business_impact={bool(alert.enrichment.business_impact)}, root_cause={bool(alert.enrichment.root_cause)}, suggested_action={bool(alert.enrichment.suggested_action)}"
+                )
             self.inspector_area.text = self.inspector.format_alert_details(alert)
 
     def _update_console(self):
@@ -926,9 +947,14 @@ UI:
         # Start refresh monitoring thread
         def monitor_refresh():
             """Monitor for refresh requests from model."""
+            import logging
+
+            logger = logging.getLogger(__name__)
+
             while not self.stop_event.is_set():
                 if self.refresh_requested.wait(timeout=REFRESH_POLL_INTERVAL):
                     self.refresh_requested.clear()
+                    logger.debug("[UI] Processing refresh request from monitor thread")
                     # Refresh UI from polling thread
                     self._refresh_ui()
 
@@ -950,6 +976,10 @@ UI:
 
     def request_refresh(self):
         """Request a UI refresh (called by model when data changes)."""
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.debug("[UI] UI refresh requested")
         # Simply set the flag for the monitor thread to handle
         self.refresh_requested.set()
 

@@ -30,12 +30,17 @@ class AlertEnricher:
 
     def enrich_alert(self, alert: Alert) -> EnrichedAlert:
         """Enrich a single alert with AI insights."""
+        alert_name = alert.labels.get("alertname", "Unknown")
+        logger.info(
+            f"[ENRICHER] Starting enrichment for alert: {alert_name} (fingerprint: {alert.fingerprint})"
+        )
+
         # Check severity filter
         alert_severity = alert.labels.get("severity", "").lower()
         if self.enrichment_config.severity_filter:
             if alert_severity not in self.enrichment_config.severity_filter:
                 logger.info(
-                    f"Skipping enrichment for alert with severity '{alert_severity}' (not in filter: {self.enrichment_config.severity_filter})"
+                    f"[ENRICHER] Skipping enrichment for alert '{alert_name}' with severity '{alert_severity}' (not in filter: {self.enrichment_config.severity_filter})"
                 )
                 # Return alert without enrichment
                 return EnrichedAlert(
@@ -49,10 +54,18 @@ class AlertEnricher:
                 )
 
         try:
+            logger.debug(f"[ENRICHER] Calling _generate_enrichment for {alert_name}")
             enrichment = self._generate_enrichment(alert)
+            logger.info(
+                f"[ENRICHER] Generated enrichment for {alert_name}: has_content={bool(enrichment.business_impact or enrichment.root_cause or enrichment.suggested_action)}"
+            )
+            logger.debug(f"[ENRICHER] Enrichment content: {enrichment.model_dump()}")
             return EnrichedAlert(original=alert, enrichment=enrichment)
         except Exception as e:
-            logger.error(f"Failed to enrich alert {alert.fingerprint}: {e}")
+            logger.error(
+                f"[ENRICHER] Failed to enrich alert {alert_name} ({alert.fingerprint}): {e}",
+                exc_info=True,
+            )
             # Return minimal enrichment on error
             enrichment = AIEnrichment(
                 enrichment_metadata={"enriched": False, "error": str(e)}
@@ -61,24 +74,50 @@ class AlertEnricher:
 
     def _generate_enrichment(self, alert: Alert) -> AIEnrichment:
         """Generate AI enrichment for an alert using full Holmes investigation."""
+        alert_name = alert.labels.get("alertname", "Unknown")
+
         # Build investigation prompt
+        logger.debug(f"[ENRICHER] Building prompt for {alert_name}")
         prompt = self._build_investigation_prompt(alert)
+        logger.debug(f"[ENRICHER] Prompt length: {len(prompt)} chars")
 
         # Use full Holmes investigation with timeout
         try:
             # Run full investigation with all toolsets
             start_time = time.time()
+            logger.info(
+                f"[ENRICHER] Running full investigation for {alert_name} with timeout {self.timeout}s"
+            )
             response = self._run_full_investigation(prompt, alert)
+            elapsed = time.time() - start_time
+            logger.info(
+                f"[ENRICHER] Investigation completed for {alert_name} in {elapsed:.2f}s"
+            )
 
             # Check if we exceeded timeout
-            if time.time() - start_time > self.timeout:
-                logger.warning(f"Investigation timeout for alert {alert.fingerprint}")
+            if elapsed > self.timeout:
+                logger.warning(
+                    f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint}): {elapsed:.2f}s > {self.timeout}s"
+                )
                 raise TimeoutError(f"Investigation exceeded {self.timeout}s")
 
             # Parse the investigation result
-            return self._parse_investigation_response(response, alert)
+            logger.debug(f"[ENRICHER] Parsing response for {alert_name}")
+            enrichment = self._parse_investigation_response(response, alert)
+            logger.info(
+                f"[ENRICHER] Parsed enrichment for {alert_name}: has_content={bool(enrichment.business_impact or enrichment.root_cause or enrichment.suggested_action)}"
+            )
+            return enrichment
         except TimeoutError:
-            logger.warning(f"Investigation timeout for alert {alert.fingerprint}")
+            logger.warning(
+                f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint})"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"[ENRICHER] Error generating enrichment for {alert_name}: {e}",
+                exc_info=True,
+            )
             raise
 
     def _build_investigation_prompt(self, alert: Alert) -> str:
@@ -213,8 +252,8 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             raw=issue_data,
         )
 
-        logger.info(f"Starting investigation for alert: {alert_name}")
-        logger.debug(f"Investigation prompt: {prompt[:500]}...")
+        logger.info(f"[ENRICHER] Starting LLM investigation for alert: {alert_name}")
+        logger.debug(f"[ENRICHER] Investigation prompt: {prompt[:500]}...")
 
         # Run investigation synchronously (ai.investigate is already sync)
         result = ai.investigate(
@@ -230,10 +269,15 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
             response_str = str(result.result)
         except AttributeError:
             # Fallback if result doesn't have the expected attribute
+            logger.warning(
+                f"[ENRICHER] Result object has no 'result' attribute for {alert_name}, using str()"
+            )
             response_str = str(result)
 
-        logger.info(f"Investigation completed for {alert_name}")
-        logger.debug(f"Raw AI response: {response_str[:1000]}...")
+        logger.info(
+            f"[ENRICHER] LLM investigation completed for {alert_name}, response length: {len(response_str)} chars"
+        )
+        logger.debug(f"[ENRICHER] Raw AI response: {response_str[:1000]}...")
 
         return response_str
 
@@ -328,25 +372,32 @@ IMPORTANT: Use all available tools to investigate thoroughly, then provide the f
 
             return enrichment
         except json.JSONDecodeError as e:
+            alert_name = alert.labels.get("alertname", "Unknown")
             logger.error(
-                f"Failed to parse investigation response for {alert.fingerprint}: {e}"
+                f"[ENRICHER] Failed to parse JSON response for {alert_name} ({alert.fingerprint}): {e}"
             )
-            logger.debug(f"Raw response that failed to parse: {response[:1000]}")
+            logger.debug(
+                f"[ENRICHER] Raw response that failed to parse: {response[:1000]}"
+            )
 
             # Return minimal enrichment on parse failure
             return AIEnrichment(
                 enrichment_metadata={
+                    "enriched": False,
                     "parse_error": str(e),
                     "raw_response": response[:500],
                 }
             )
         except Exception as e:
+            alert_name = alert.labels.get("alertname", "Unknown")
             logger.error(
-                f"Unexpected error parsing response for {alert.fingerprint}: {e}"
+                f"[ENRICHER] Unexpected error parsing response for {alert_name} ({alert.fingerprint}): {e}",
+                exc_info=True,
             )
 
             return AIEnrichment(
                 enrichment_metadata={
+                    "enriched": False,
                     "parse_error": str(e),
                     "raw_response": response[:500],
                 }
