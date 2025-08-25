@@ -93,11 +93,18 @@ class AlertUIController:
         fingerprint = alert.original.fingerprint
         alert_name = alert.original.labels.get("alertname", "Unknown")
 
+        logger.info(
+            f"[ENRICH] Starting enrichment for alert: {alert_name} (fingerprint: {fingerprint})"
+        )
+
         try:
             # Update status
             alert.enrichment_status = EnrichmentStatus.IN_PROGRESS
+            logger.debug(f"[ENRICH] Set status to IN_PROGRESS for {alert_name}")
+
             if self.view:
                 self.view.add_console_line(f"🔮 Starting enrichment: {alert_name}")
+                logger.debug(f"[ENRICH] Requesting UI refresh for {alert_name} start")
                 self.view.request_refresh()
 
             # Create webhook for enrichment
@@ -115,10 +122,15 @@ class AlertUIController:
 
             # Run enrichment (now synchronous)
             if not self.enricher:
-                logger.error("Enricher not initialized")
+                logger.error("[ENRICH] Enricher not initialized")
                 alert.enrichment_status = EnrichmentStatus.FAILED
                 return
+
+            logger.info(f"[ENRICH] Calling enricher.enrich_webhook for {alert_name}")
             enriched_alerts = self.enricher.enrich_webhook(webhook)
+            logger.info(
+                f"[ENRICH] Enricher returned {len(enriched_alerts) if enriched_alerts else 0} enriched alerts"
+            )
 
             if enriched_alerts and enriched_alerts[0].enrichment:
                 # Update the alert with enrichment
@@ -126,17 +138,23 @@ class AlertUIController:
                 alert.enriched_at = enriched_alerts[0].enriched_at
                 alert.enrichment_status = EnrichmentStatus.COMPLETED
 
+                logger.info(f"[ENRICH] Successfully enriched {alert_name}")
+                logger.debug(
+                    f"[ENRICH] Enrichment data: {alert.enrichment.model_dump() if alert.enrichment else 'None'}"
+                )
+
                 if self.view:
                     self.view.add_console_line(f"✅ Enrichment complete: {alert_name}")
             else:
                 alert.enrichment_status = EnrichmentStatus.FAILED
+                logger.warning(f"[ENRICH] No enrichment generated for {alert_name}")
                 if self.view:
                     self.view.add_console_line(
                         f"⚠️ No enrichment generated for: {alert_name}"
                     )
 
         except Exception as e:
-            logger.error(f"Failed to enrich {alert_name}: {e}")
+            logger.error(f"[ENRICH] Failed to enrich {alert_name}: {e}", exc_info=True)
             alert.enrichment_status = EnrichmentStatus.FAILED
             if self.view:
                 self.view.add_console_line(
@@ -146,7 +164,12 @@ class AlertUIController:
             # Remove from enriching set
             if fingerprint:
                 self.enriching_fingerprints.discard(fingerprint)
+                logger.debug(f"[ENRICH] Removed {fingerprint} from enriching set")
+
             # Update view
+            logger.info(
+                f"[ENRICH] Requesting final UI refresh for {alert_name} (status: {alert.enrichment_status})"
+            )
             if self.view:
                 self.view.request_refresh()
 
@@ -156,19 +179,29 @@ class AlertUIController:
         Args:
             alert_fingerprints: List of alert fingerprints to enrich
         """
+        logger.info(
+            f"[ENRICH] enrich_alerts called with {len(alert_fingerprints)} fingerprints"
+        )
         enriched_count = 0
         if not self.alert_manager:
-            logger.error("Alert manager not initialized")
+            logger.error("[ENRICH] Alert manager not initialized")
             return
         for fingerprint in alert_fingerprints:
             alert = self.alert_manager.get_alert(fingerprint)
             if not alert:
+                logger.warning(
+                    f"[ENRICH] Alert not found for fingerprint: {fingerprint}"
+                )
                 continue
 
             # Skip if already enriched or enriching
             if alert.enrichment_status == EnrichmentStatus.COMPLETED:
+                logger.debug(f"[ENRICH] Skipping already enriched alert: {fingerprint}")
                 continue
             if fingerprint in self.enriching_fingerprints:
+                logger.debug(
+                    f"[ENRICH] Skipping alert already being enriched: {fingerprint}"
+                )
                 continue
 
             # Mark as QUEUED and add to queue
@@ -176,6 +209,9 @@ class AlertUIController:
             self.enriching_fingerprints.add(fingerprint)
             self.enrichment_queue.put(alert)
             enriched_count += 1
+            logger.info(
+                f"[ENRICH] Queued alert for enrichment: {alert.original.labels.get('alertname', 'Unknown')} ({fingerprint})"
+            )
 
         if self.view:
             if enriched_count > 0:
