@@ -9,3 +9,5 @@ tags:
   - medium
   - kubernetes
   - logs
+
+test_type: server
