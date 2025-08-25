@@ -16,70 +16,34 @@ toolsets:
           for example when a user asks
             - 'describe pod xyz-123'
             - 'show service xyz-123 in namespace my-ns'
-          You are NEVER EVER allowed to get kubernetes secrets!
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_get_by_name"
-        description: "Run `kubectl get <kind> <name> --show-labels`. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        description: "Run `kubectl get <kind> <name> --show-labels`"
+        command: "kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_get_by_kind_in_namespace"
-        description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}
+        description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
+        command: "kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}"
 
       - name: "kubectl_get_by_kind_in_cluster"
-        description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get -A --show-labels -o wide {{ kind }}
+        description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
+        command: "kubectl get -A --show-labels -o wide {{ kind }}"
 
       - name: "kubectl_find_resource"
-        description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}
+        description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels"
+        command: "kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}"
 
       - name: "kubectl_get_yaml"
-        description: "Run `kubectl get -o yaml` on a single Kubernetes resource. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get -o yaml {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
+        command: "kubectl get -o yaml {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_events"
-        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment', 'job', 'node', etc. You are NEVER EVER allowed to get kubernetes secrets!"
-        command: |
-          if [ "{{resource_type}}" = "secret" ] || [ "{{resource_type}}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl events --for {{resource_type}}/{{ resource_name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment', 'job', 'node', etc."
+        command: "kubectl events --for {{resource_type}}/{{ resource_name }}{% if namespace %} -n {{ namespace }}{% endif %}"
 
       - name: "kubectl_memory_requests_all_namespaces"
-        description: "Fetch and display memory requests for all pods across all namespaces in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly. You are NEVER EVER allowed to get kubernetes secrets!"
+        description: "Fetch and display memory requests for all pods across all namespaces in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly."
         command: |
           kubectl get pods --all-namespaces -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,MEMORY_REQUEST:.spec.containers[*].resources.requests.memory" --no-headers | \
           awk '
@@ -121,7 +85,7 @@ toolsets:
             }' | sort -k3 -nr
 
       - name: "kubectl_memory_requests_namespace"
-        description: "Fetch and display memory requests for all pods in a specified namespace in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly. You are NEVER EVER allowed to get kubernetes secrets!"
+        description: "Fetch and display memory requests for all pods in a specified namespace in MiB, summing requests across multiple containers where applicable and handling binary, decimal, and millibyte units correctly."
         command: |
           kubectl get pods -n {{ namespace }} -o custom-columns="NAMESPACE:.metadata.namespace,NAME:.metadata.name,MEMORY_REQUEST:.spec.containers[*].resources.requests.memory" --no-headers | \
           awk '
@@ -165,13 +129,8 @@ toolsets:
       - name: "kubernetes_jq_query"
         user_description: "Query Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -r {{jq_expr}}"
         description: >
-          Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not). You are NEVER EVER allowed to get kubernetes secrets!
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+          Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
+        command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
 
       - name: "kubernetes_count"
         user_description: "Count Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
@@ -181,13 +140,7 @@ toolsets:
           Use select() to filter objects before extracting properties, e.g. .items[] | select(.metadata.namespace == "test-1") | .metadata.name
           Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give.
           e.g. give an expression like .items[] | select(.spec.containers[].image | test("^gcr.io/") | not) | .metadata.name
-          You are NEVER EVER allowed to get kubernetes secrets!
         script: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-
           echo "Command executed: kubectl get {{ kind }} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
           echo "---"
 
@@ -286,20 +239,10 @@ toolsets:
     tools:
       - name: "kubectl_lineage_children"
         description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
       - name: "kubectl_lineage_parents"
         description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D
+        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
 
   kubernetes/kube-lineage-extras: # To make this work, build kube-lineage from source
     description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
@@ -312,17 +255,7 @@ toolsets:
     tools:
       - name: "kubectl_lineage_children"
         description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}
+        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
       - name: "kubectl_lineage_parents"
         description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: |
-          if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-            echo "Not allowed to get kubernetes secrets"
-            exit 1
-          fi
-          kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D
+        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
