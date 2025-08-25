@@ -2,6 +2,7 @@
 import braintrust
 from braintrust import Dataset, Experiment, ReadonlyExperiment, Span
 import logging
+import os
 from typing import Any, List, Optional, Union
 
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore
@@ -167,6 +168,150 @@ class BraintrustEvalHelper:
 def get_dataset_name(test_suite: str):
     system_metadata = get_machine_state_tags()
     return f"{test_suite}:{system_metadata.get('branch', 'unknown_branch')}"
+
+
+def log_to_braintrust(
+    eval_span,
+    test_case: HolmesTestCase,
+    model: str,
+    result: Optional[Any] = None,  # Can be LLMResult or InvestigationResult
+    scores: Optional[dict] = None,
+    error: Optional[Exception] = None,
+    mock_generation_config: Optional[Any] = None,
+) -> None:
+    """Shared function to log evaluation data to Braintrust.
+
+    Args:
+        eval_span: The Braintrust evaluation span
+        test_case: The test case being evaluated (AskHolmesTestCase or InvestigateTestCase)
+        model: The model being tested
+        result: The result object (LLMResult for ask, InvestigationResult for investigate)
+        scores: Dictionary of scores (e.g., correctness)
+        error: Exception if the test failed
+        mock_generation_config: Mock configuration for additional context
+    """
+    from tests.llm.utils.test_case_utils import AskHolmesTestCase, InvestigateTestCase
+
+    # Prepare tags
+    tags = (test_case.tags or []).copy()
+    tags.append(f"model:{model}")
+
+    # Determine output based on test type and error state
+    if error:
+        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult
+            output = result.result if result else str(error)
+        elif hasattr(
+            result, "analysis"
+        ):  # InvestigateTestCase with InvestigationResult
+            output = result.analysis if result else str(error)
+        else:
+            output = str(error)
+        scores = scores or {}
+    else:
+        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult
+            output = result.result if result else ""
+        elif hasattr(
+            result, "analysis"
+        ):  # InvestigateTestCase with InvestigationResult
+            output = result.analysis if result else ""
+        else:
+            output = ""
+
+    # Get prompt/system prompt for ask tests
+    prompt = None
+    if isinstance(test_case, AskHolmesTestCase):
+        if (
+            result
+            and hasattr(result, "messages")
+            and result.messages
+            and len(result.messages) > 0
+        ):
+            prompt = result.messages[0]["content"]
+        elif result and hasattr(result, "prompt"):
+            prompt = result.prompt
+
+    # Build comprehensive metadata
+    # Extract base test case ID without variant suffix (e.g., "91a_datadog[0]" -> "91a_datadog")
+    base_test_id = test_case.id.split("[")[0] if "[" in test_case.id else test_case.id
+    metadata: dict[str, Any] = {
+        "model": model,
+        "eval_id": base_test_id,  # Base test case ID without variant suffix
+        "test_id": test_case.id,  # Full test case ID with variant suffix if present
+    }
+
+    # Add test type for ask tests
+    if isinstance(test_case, AskHolmesTestCase):
+        metadata["test_type"] = (
+            test_case.test_type or os.environ.get("ASK_HOLMES_TEST_TYPE", "cli").lower()
+        )
+
+    # Add prompt if available
+    if prompt:
+        metadata["system_prompt"] = prompt
+
+    # Add execution context
+    if mock_generation_config and hasattr(mock_generation_config, "mode"):
+        metadata["mock_mode"] = mock_generation_config.mode.value
+
+    # Add test configuration if present
+    if hasattr(test_case, "conversation_history") and test_case.conversation_history:
+        metadata["has_conversation_history"] = True
+    if hasattr(test_case, "runbooks") and test_case.runbooks is not None:
+        metadata["has_custom_runbooks"] = True
+
+    # Add tool usage metrics if available
+    if result and getattr(result, "tool_calls", None):
+        metadata["tool_call_count"] = len(result.tool_calls)
+        metadata["tools_used"] = list({tc.tool_name for tc in result.tool_calls})
+        # Note: holmes_duration is logged separately directly to eval_span in ask_holmes()
+
+    # Add error information if present
+    if error:
+        metadata["error_type"] = type(error).__name__
+        metadata["error_message"] = str(error)
+
+        # Add detailed setup failure information if available
+        if hasattr(error, "test_id"):  # It's a SetupFailureError
+            metadata["is_setup_failure"] = True
+            metadata["setup_test_id"] = error.test_id
+            if hasattr(error, "output") and error.output:
+                # Store full setup failure details (includes script, stdout, stderr)
+                # Limit to 5000 chars to avoid huge metadata
+                metadata["setup_failure_details"] = (
+                    error.output[:5000] if len(error.output) > 5000 else error.output
+                )
+
+        is_mock_error = "MockDataError" in type(error).__name__ or any(
+            "MockData" in base.__name__ for base in type(error).__mro__
+        )
+        if is_mock_error:
+            metadata["is_mock_data_error"] = True
+
+    # Determine input and expected based on test type
+    if isinstance(test_case, AskHolmesTestCase):
+        input_data = test_case.user_prompt
+        expected = (
+            test_case.expected_output
+            if isinstance(test_case.expected_output, str)
+            else str(test_case.expected_output)
+        )
+    elif isinstance(test_case, InvestigateTestCase):
+        input_data = str(test_case.investigate_request)
+        expected = str(test_case.expected_output)
+    else:
+        input_data = ""
+        expected = ""
+
+    # Log to Braintrust
+    eval_span.log(
+        input=input_data,
+        output=output,
+        expected=expected,
+        dataset_record_id=test_case.id,
+        scores=scores or {},
+        metadata=metadata,
+        tags=tags,
+    )
 
 
 def get_braintrust_url(
