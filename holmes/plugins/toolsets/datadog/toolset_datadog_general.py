@@ -317,6 +317,15 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the GET request."""
+        logging.info("=" * 60)
+        logging.info("DatadogAPIGet Tool Invocation:")
+        logging.info(f"  Description: {params.get('description', 'No description')}")
+        logging.info(f"  Endpoint: {params.get('endpoint', '')}")
+        logging.info(
+            f"  Query Params: {json.dumps(params.get('query_params', {}), indent=2)}"
+        )
+        logging.info("=" * 60)
+
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -334,6 +343,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
             allow_custom=self.toolset.dd_config.allow_custom_endpoints,
         )
         if not is_allowed:
+            logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
@@ -342,9 +352,13 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
 
         url = None
         try:
-            # Build full URL
-            url = f"{self.toolset.dd_config.site_api_url}{endpoint}"
+            # Build full URL (ensure no double slashes)
+            base_url = str(self.toolset.dd_config.site_api_url).rstrip("/")
+            endpoint = endpoint.lstrip("/")
+            url = f"{base_url}/{endpoint}"
             headers = get_headers(self.toolset.dd_config)
+
+            logging.info(f"Full API URL: {url}")
 
             # Execute request
             response = execute_datadog_http_request(
@@ -439,6 +453,13 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
 
     def _invoke(self, params: Any) -> StructuredToolResult:
         """Execute the POST search request."""
+        logging.info("=" * 60)
+        logging.info("DatadogAPIPostSearch Tool Invocation:")
+        logging.info(f"  Description: {params.get('description', 'No description')}")
+        logging.info(f"  Endpoint: {params.get('endpoint', '')}")
+        logging.info(f"  Body: {json.dumps(params.get('body', {}), indent=2)}")
+        logging.info("=" * 60)
+
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -456,6 +477,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
             allow_custom=self.toolset.dd_config.allow_custom_endpoints,
         )
         if not is_allowed:
+            logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
@@ -464,9 +486,13 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
 
         url = None
         try:
-            # Build full URL
-            url = f"{self.toolset.dd_config.site_api_url}{endpoint}"
+            # Build full URL (ensure no double slashes)
+            base_url = str(self.toolset.dd_config.site_api_url).rstrip("/")
+            endpoint = endpoint.lstrip("/")
+            url = f"{base_url}/{endpoint}"
             headers = get_headers(self.toolset.dd_config)
+
+            logging.info(f"Full API URL: {url}")
 
             # Execute request
             response = execute_datadog_http_request(
@@ -550,6 +576,11 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
     def _invoke(self, params: Any) -> StructuredToolResult:
         """List available API resources."""
         category = params.get("category", "all").lower()
+
+        logging.info("=" * 60)
+        logging.info("ListDatadogAPIResources Tool Invocation:")
+        logging.info(f"  Category: {category}")
+        logging.info("=" * 60)
 
         # Define categories and their endpoints
         resources = {

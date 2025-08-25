@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import Any, Optional, Dict
 import requests  # type: ignore
@@ -152,6 +153,21 @@ def execute_datadog_http_request(
     timeout: int,
     method: str = "POST",
 ) -> Any:
+    # Create sanitized headers for logging (remove API keys)
+    sanitized_headers = {
+        k: v if "key" not in k.lower() else "[REDACTED]" for k, v in headers.items()
+    }
+
+    # Log the request details
+    logging.info("Datadog API Request:")
+    logging.info(f"  Method: {method}")
+    logging.info(f"  URL: {url}")
+    logging.info(f"  Headers: {json.dumps(sanitized_headers, indent=2)}")
+    logging.info(
+        f"  {'Params' if method == 'GET' else 'Payload'}: {json.dumps(payload_or_params, indent=2)}"
+    )
+    logging.info(f"  Timeout: {timeout}s")
+
     if method == "GET":
         response = requests.get(
             url, headers=headers, params=payload_or_params, timeout=timeout
@@ -161,10 +177,29 @@ def execute_datadog_http_request(
             url, headers=headers, json=payload_or_params, timeout=timeout
         )
 
+    # Log the response details
+    logging.info("Datadog API Response:")
+    logging.info(f"  Status Code: {response.status_code}")
+    logging.info(f"  Response Headers: {dict(response.headers)}")
+
     if response.status_code == 200:
-        return response.json()
+        response_data = response.json()
+        # Log response size but not full content (could be large)
+        if isinstance(response_data, dict):
+            logging.info(f"  Response Keys: {list(response_data.keys())}")
+            if "data" in response_data:
+                data_len = (
+                    len(response_data["data"])
+                    if isinstance(response_data["data"], list)
+                    else 1
+                )
+                logging.info(f"  Data Items Count: {data_len}")
+        else:
+            logging.info(f"  Response Type: {type(response_data).__name__}")
+        return response_data
 
     else:
+        logging.error(f"  Error Response Body: {response.text}")
         raise DataDogRequestError(
             payload=payload_or_params,
             status_code=response.status_code,
