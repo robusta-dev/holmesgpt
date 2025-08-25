@@ -105,7 +105,7 @@ class TodoWriteTool(Tool):
             todo_manager.update_session_tasks(session_id, tasks)
 
             self.print_tasks_table(tasks)
-
+            logging.info("#### calling format tasks from tool response")
             formatted_tasks = todo_manager.format_tasks_for_prompt(session_id)
 
             response_data = f"✅ Investigation plan updated with {len(tasks)} tasks. Tasks are now stored in session and will appear in subsequent prompts.\n\n"

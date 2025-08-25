@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, List
 from threading import Lock
 
@@ -15,6 +16,7 @@ class TodoListManager:
         self._lock: Lock = Lock()
 
     def get_session_tasks(self, session_id: str) -> List[Task]:
+        logging.info("#### calling get session")
         with self._lock:
             return self._sessions.get(session_id, []).copy()
 

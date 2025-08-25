@@ -231,7 +231,7 @@ class DefaultLLM(LLM):
         self.args.setdefault("temperature", temperature)
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-
+        logging.info(f"#### messages: \n\n{messages}")
         result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
