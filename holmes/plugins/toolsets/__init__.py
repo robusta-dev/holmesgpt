@@ -26,6 +26,9 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
 from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
     DatadogRDSToolset,
 )
+from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
+    DatadogGeneralToolset,
+)
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
@@ -82,6 +85,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         NotionToolset(),
         KafkaToolset(),
         DatadogLogsToolset(),
+        DatadogGeneralToolset(),
         DatadogMetricsToolset(),
         DatadogTracesToolset(),
         DatadogRDSToolset(),
