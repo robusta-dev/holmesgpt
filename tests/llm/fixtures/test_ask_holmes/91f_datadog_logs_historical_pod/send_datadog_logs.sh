@@ -17,14 +17,24 @@ if [ -z "$DATADOG_APP_KEY" ]; then
     exit 1
 fi
 
-# Use DATADOG_SITE or default to US1 logs intake endpoint
-DATADOG_SITE="${DATADOG_SITE:-https://http-intake.logs.datadoghq.com}"
+# Use DATADOG_SITE or default to EU logs intake endpoint (matching our API keys)
+DATADOG_SITE="${DATADOG_SITE:-https://http-intake.logs.datadoghq.eu}"
 
 # Calculate yesterday's timestamp at 14:30 UTC
-YESTERDAY_14_30=$(date -u -d "yesterday 14:30" +%s)000
-YESTERDAY_14_25=$(date -u -d "yesterday 14:25" +%s)000
-YESTERDAY_14_35=$(date -u -d "yesterday 14:35" +%s)000
-YESTERDAY_14_40=$(date -u -d "yesterday 14:40" +%s)000
+# Handle both GNU date (Linux) and BSD date (macOS)
+if date --version >/dev/null 2>&1; then
+    # GNU date (Linux)
+    YESTERDAY_14_30=$(date -u -d "yesterday 14:30" +%s)000
+    YESTERDAY_14_25=$(date -u -d "yesterday 14:25" +%s)000
+    YESTERDAY_14_35=$(date -u -d "yesterday 14:35" +%s)000
+    YESTERDAY_14_40=$(date -u -d "yesterday 14:40" +%s)000
+else
+    # BSD date (macOS)
+    YESTERDAY_14_30=$(date -u -v-1d -v14H -v30M -v0S +%s)000
+    YESTERDAY_14_25=$(date -u -v-1d -v14H -v25M -v0S +%s)000
+    YESTERDAY_14_35=$(date -u -v-1d -v14H -v35M -v0S +%s)000
+    YESTERDAY_14_40=$(date -u -v-1d -v14H -v40M -v0S +%s)000
+fi
 
 # Function to send a log entry to Datadog
 send_log() {
@@ -48,14 +58,13 @@ EOF
 )
 
     # Send to Datadog HTTP API
-    if ! curl -fS -X POST "${DATADOG_SITE}" \
+    if ! curl -fS -X POST "${DATADOG_SITE}/v1/input" \
         -H "Content-Type: application/json" \
         -H "DD-API-KEY: ${DATADOG_API_KEY}" \
-        -H "DD-APPLICATION-KEY: ${DATADOG_APP_KEY}" \
         -d "[$log_entry]" \
         --silent --show-error ; then
         echo "ERROR: Failed sending log to Datadog (level=$level)."
-        return 1
+        exit 1  # Exit immediately on failure
     fi
 
     echo "Sent log: $level - ${message:0:50}..."
@@ -109,3 +118,63 @@ echo ""
 echo "Successfully sent historical logs to Datadog"
 echo "Pod api-gateway-7b9f4fd5c9-xk2lm in namespace ${NAMESPACE}"
 echo "Logs simulate memory exhaustion and database connection pool issues"
+
+# Wait for logs to be indexed
+echo ""
+echo "Waiting 30 seconds for logs to be indexed in Datadog..."
+sleep 30
+
+# Verify logs are queryable via Datadog API
+echo ""
+echo "Verifying logs are accessible via Datadog query API..."
+
+# Use the correct API endpoint for querying logs (EU to match our keys)
+DATADOG_API_URL="${DATADOG_API_URL:-https://api.datadoghq.eu}"
+
+# Query for the logs we just sent
+QUERY_PAYLOAD=$(cat <<EOF
+{
+  "filter": {
+    "from": "$((YESTERDAY_14_25 - 60000))",
+    "to": "$((YESTERDAY_14_40 + 60000))",
+    "query": "kube_namespace:${NAMESPACE} pod_name:api-gateway-7b9f4fd5c9-xk2lm",
+    "indexes": ["*"]
+  },
+  "sort": "-timestamp",
+  "page": {
+    "limit": 1
+  }
+}
+EOF
+)
+
+RESPONSE=$(curl -s -X POST "${DATADOG_API_URL}/api/v2/logs/events/search" \
+    -H "Content-Type: application/json" \
+    -H "DD-API-KEY: ${DATADOG_API_KEY}" \
+    -H "DD-APPLICATION-KEY: ${DATADOG_APP_KEY}" \
+    -d "$QUERY_PAYLOAD")
+
+# Check if we got an error response
+if echo "$RESPONSE" | grep -q '"errors"'; then
+    echo "ERROR: Failed to query logs from Datadog API:"
+    echo "$RESPONSE" | jq '.' 2>/dev/null || echo "$RESPONSE"
+    echo ""
+    echo "This means logs were sent but cannot be queried. Possible issues:"
+    echo "- API key may not have logs_read_data permission"
+    echo "- Logs may not be indexed yet (try increasing sleep time)"
+    echo "- Wrong API endpoint for your Datadog region"
+    exit 1
+fi
+
+# Check if we got any logs back
+LOG_COUNT=$(echo "$RESPONSE" | jq '.data | length' 2>/dev/null || echo "0")
+if [ "$LOG_COUNT" = "0" ] || [ -z "$LOG_COUNT" ]; then
+    echo "ERROR: No logs found in Datadog query response"
+    echo "Response: $RESPONSE"
+    echo ""
+    echo "Logs may not be indexed yet or query parameters may be incorrect"
+    exit 1
+fi
+
+echo "✓ Verified: Found $LOG_COUNT log(s) in Datadog"
+echo "Logs are successfully accessible via Datadog API"

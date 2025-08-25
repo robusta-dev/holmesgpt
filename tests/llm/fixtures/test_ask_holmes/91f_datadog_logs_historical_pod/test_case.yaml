@@ -23,10 +23,11 @@ before_test: |
 
   # Send historical logs to Datadog using their API
   # The script will generate realistic logs with timestamps from yesterday
+  # The script will also verify logs are queryable before proceeding
   bash send_datadog_logs.sh app-91f
 
-  # Wait a bit for logs to be indexed in Datadog
-  sleep 10
+  # Additional wait to ensure logs are fully indexed
+  sleep 15
 
 after_test: |
   # No cleanup needed - we didn't create any Kubernetes resources
