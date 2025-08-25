@@ -3,7 +3,7 @@ import json
 import logging
 import textwrap
 import uuid
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union, Callable
 
 import sentry_sdk
 from openai import BadRequestError
@@ -212,6 +212,7 @@ class ToolCallingLLM:
         self.tracer = tracer
         self.llm = llm
         self.investigation_id = str(uuid.uuid4())
+        self.approval_callback: Optional[Callable[[str, str], tuple[bool, Optional[str]]]] = None
 
     def prompt_call(
         self,
@@ -479,6 +480,35 @@ class ToolCallingLLM:
             )
             if not tool_response:
                 tool_response = tool.invoke(tool_params, tool_number=tool_number)
+            
+            # Handle approval required status
+            if (tool_response.status == ToolResultStatus.APPROVAL_REQUIRED 
+                and self.approval_callback is not None):
+                command = tool_response.invocation or str(tool_params)
+                error_message = tool_response.error or "Command requires approval"
+                
+                approved, feedback = self.approval_callback(command, error_message)
+                
+                if approved:
+                    # Re-execute the tool with approval
+                    logging.info(f"User approved command: {command}")
+                    # We need to modify the tool to bypass validation - this requires updating the bash toolset
+                    # For now, let's execute the command directly through the bash execution
+                    from holmes.plugins.toolsets.bash.common.bash import execute_bash_command
+                    tool_response = execute_bash_command(
+                        cmd=command, 
+                        timeout=tool_params.get("timeout", 60), 
+                        params=tool_params
+                    )
+                else:
+                    # User denied - create appropriate response
+                    feedback_text = f" User feedback: {feedback}" if feedback else ""
+                    tool_response = StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error=f"User denied command execution.{feedback_text}",
+                        params=tool_params,
+                        invocation=command,
+                    )
 
             if not isinstance(tool_response, StructuredToolResult):
                 # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type

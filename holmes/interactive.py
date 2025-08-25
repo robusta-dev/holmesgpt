@@ -584,6 +584,50 @@ def prompt_for_llm_sharing(
     return None
 
 
+def handle_tool_approval(
+    command: str, error_message: str, session: PromptSession, style: Style, console: Console
+) -> tuple[bool, Optional[str]]:
+    """
+    Handle user approval for potentially sensitive commands.
+
+    Args:
+        command: The command that needs approval
+        error_message: The error message explaining why approval is needed
+        session: PromptSession for user input
+        style: Style for prompts
+        console: Rich console for output
+
+    Returns:
+        Tuple of (approved: bool, feedback: Optional[str])
+        - approved: True if user approves, False if denied
+        - feedback: User's optional feedback message when denying
+    """
+    console.print("\n[bold yellow]⚠️  Command Approval Required[/bold yellow]")
+    console.print(f"[yellow]Command:[/yellow] {command}")
+    console.print(f"[yellow]Reason:[/yellow] {error_message}")
+    console.print()
+    
+    # Create a temporary session without history for approval prompts
+    temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+    
+    approval_prompt = temp_session.prompt(
+        [("class:prompt", "Do you want to approve and execute this command? (y/N): ")], 
+        style=style
+    )
+    
+    if approval_prompt.lower().startswith("y"):
+        return True, None
+    else:
+        # Ask for optional feedback when denying
+        feedback_prompt = temp_session.prompt(
+            [("class:prompt", "Optional feedback for the AI (press Enter to skip): ")],
+            style=style,
+        )
+        
+        feedback = feedback_prompt.strip() if feedback_prompt.strip() else None
+        return False, feedback
+
+
 def handle_run_command(
     bash_command: str, session: PromptSession, style: Style, console: Console
 ) -> Optional[str]:
@@ -810,6 +854,14 @@ def run_interactive_loop(
             "bottom-toolbar.text": "#aaaa44 bg:#aa4444",
         }
     )
+    
+    # Set up approval callback for potentially sensitive commands
+    def approval_handler(command: str, error_message: str) -> tuple[bool, Optional[str]]:
+        # Create a temporary session for the approval prompt
+        temp_session: PromptSession = PromptSession()
+        return handle_tool_approval(command, error_message, temp_session, style, console)
+    
+    ai.approval_callback = approval_handler
 
     # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
