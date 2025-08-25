@@ -24,12 +24,15 @@ class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
     NO_DATA = "no_data"
+    APPROVAL_REQUIRED = "approval_required"
 
     def to_color(self) -> str:
         if self == ToolResultStatus.SUCCESS:
             return "green"
         elif self == ToolResultStatus.ERROR:
             return "red"
+        elif self == ToolResultStatus.APPROVAL_REQUIRED:
+            return "yellow"
         else:
             return "white"
 
@@ -38,6 +41,8 @@ class ToolResultStatus(str, Enum):
             return "✔"
         elif self == ToolResultStatus.ERROR:
             return "❌"
+        elif self == ToolResultStatus.APPROVAL_REQUIRED:
+            return "⚠️"
         else:
             return "⚪️"
 

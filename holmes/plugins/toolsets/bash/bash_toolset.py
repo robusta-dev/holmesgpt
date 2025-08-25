@@ -9,7 +9,10 @@ from typing import Dict, Any, Optional
 import sentry_sdk
 
 
-from holmes.common.env_vars import BASH_TOOL_UNSAFE_ALLOW_ALL
+from holmes.common.env_vars import (
+    BASH_TOOL_UNSAFE_ALLOW_ALL,
+    USER_MUST_APPROVE_REJECTED_TOOL_CALLS,
+)
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
@@ -191,10 +194,18 @@ class RunBashCommand(BaseBashTool):
 
             if not BASH_TOOL_UNSAFE_ALLOW_ALL:
                 logging.info(f"Refusing LLM tool call {command_str}")
+
+                # Check if user approval is enabled for rejected commands
+                status = (
+                    ToolResultStatus.APPROVAL_REQUIRED
+                    if USER_MUST_APPROVE_REJECTED_TOOL_CALLS
+                    else ToolResultStatus.ERROR
+                )
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
+                    status=status,
+                    error=f"Refusing to execute bash command. {str(e)}",
                     params=params,
+                    invocation=command_str,
                 )
 
         return execute_bash_command(
