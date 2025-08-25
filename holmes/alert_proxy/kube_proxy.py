@@ -2,8 +2,9 @@
 
 import logging
 from typing import Optional, Dict, Any
-import requests
-from kubernetes import client, config as k8s_config
+import requests  # type: ignore
+from kubernetes import client
+from holmes.alert_proxy.kube_config_singleton import KubeConfigSingleton
 
 logger = logging.getLogger(__name__)
 
@@ -13,23 +14,26 @@ class KubeProxy:
 
     def __init__(self, kubeconfig_path: Optional[str] = None):
         """Initialize with Kubernetes client."""
+        # Use singleton for Kubernetes configuration
+        self.kube_config = KubeConfigSingleton()
+        self.available = self.kube_config.initialize(kubeconfig_path)
+
+        if self.available:
+            self.api_client = self.kube_config.api_client
+            self.v1 = client.CoreV1Api(self.api_client) if self.api_client else None
+        else:
+            self.api_client = None
+            self.v1 = None
+            self.api_host = None
+            self.headers: Dict[str, str] = {}
+            self.cert = None
+            self.ca_cert = None
+            self.verify_ssl = True
+            return
+
         try:
-            if kubeconfig_path:
-                k8s_config.load_kube_config(config_file=kubeconfig_path)
-            else:
-                # Try in-cluster config first, then default kubeconfig
-                try:
-                    k8s_config.load_incluster_config()
-                    logger.info("Using in-cluster Kubernetes config")
-                except Exception:
-                    k8s_config.load_kube_config()
-                    logger.info("Using kubeconfig")
-
-            self.api_client = client.ApiClient()
-            self.v1 = client.CoreV1Api(self.api_client)
-            self.available = True
-
             # Get the API server URL and auth headers
+            assert self.api_client is not None
             config = self.api_client.configuration
             self.api_host = config.host
             self.headers = {}

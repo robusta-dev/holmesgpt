@@ -53,6 +53,7 @@ class AlertUIController:
         self.stop_enrichment = threading.Event()
         self.stop_polling = threading.Event()
         self.polling_thread = None
+        self.model_error: Optional[str] = None  # Store model connectivity error
 
     def start_enrichment_worker(self):
         """Start the background enrichment worker thread."""
@@ -89,23 +90,93 @@ class AlertUIController:
             self.enrichment_queue.put(None)  # Poison pill
             self.enrichment_thread.join(timeout=2)
 
+    def _test_model_connectivity(self):
+        """Test model connectivity and configuration at startup."""
+        model_name = self.alert_config.enrichment.model
+        logging.info(f"[STARTUP] Testing connectivity to model: {model_name}")
+        self.model_error = None  # Reset any previous error
+
+        # Try a simple test completion
+        try:
+            logging.info(f"[STARTUP] Sending test prompt to {model_name}...")
+
+            # Use LiteLLM directly for a simple test
+            import litellm
+
+            litellm.set_verbose = False  # Suppress debug output
+
+            response = litellm.completion(
+                model=model_name,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {
+                        "role": "user",
+                        "content": "Reply with 'OK' if you can read this.",
+                    },
+                ],
+                max_tokens=10,
+                temperature=0,
+            )
+
+            # Check if we got a valid response
+            if response and response.choices and response.choices[0].message.content:
+                result = response.choices[0].message.content.strip()
+                logging.info(
+                    f"[STARTUP] ✅ Model connectivity test successful: {model_name} responded with '{result}'"
+                )
+            else:
+                logging.error(
+                    f"[STARTUP] ❌ Model test failed: Empty response from {model_name}"
+                )
+
+        except Exception as e:
+            error_msg = str(e)
+            logging.error(
+                f"[STARTUP] ❌ Model connectivity test failed for {model_name}"
+            )
+            logging.error(f"[STARTUP] Error: {error_msg[:500]}")
+            logging.error(
+                "[STARTUP] Please check your API keys and model configuration"
+            )
+            logging.warning(
+                "[STARTUP] ⚠️ Continuing without working model connectivity."
+            )
+            logging.warning(
+                "[STARTUP] Alert enrichment will likely fail until this is fixed."
+            )
+
+            # Store a concise error message for the header
+            if "OPENAI_API_KEY" in error_msg or "api_key" in error_msg:
+                self.model_error = "Missing API key"
+            elif "AuthenticationError" in error_msg:
+                self.model_error = "Auth failed"
+            elif "rate" in error_msg.lower():
+                self.model_error = "Rate limited"
+            else:
+                # Extract first meaningful part of error
+                self.model_error = error_msg.split(":")[0][:30]
+
+            # Pass error to view
+            if self.view:
+                self.view.set_model_error(self.model_error)
+
     def _enrich_single_alert(self, alert: EnrichedAlert):
         """Enrich a single alert."""
         fingerprint = alert.original.fingerprint
         alert_name = alert.original.labels.get("alertname", "Unknown")
 
-        logging.info(
-            f"[ENRICH] Starting enrichment for alert: {alert_name} (fingerprint: {fingerprint})"
-        )
+        # logging.info(
+        #     f"[ENRICH] Starting enrichment for alert: {alert_name} (fingerprint: {fingerprint})"
+        # )
 
         try:
             # Update status
             alert.enrichment_status = EnrichmentStatus.IN_PROGRESS
-            logging.info(f"[ENRICH] Set status to IN_PROGRESS for {alert_name}")
+            # logging.info(f"[ENRICH] Set status to IN_PROGRESS for {alert_name}")
 
             if self.view:
                 self.view.add_console_line(f"🔮 Starting enrichment: {alert_name}")
-                logging.info(f"[ENRICH] Requesting UI refresh for {alert_name} start")
+                # logging.info(f"[ENRICH] Requesting UI refresh for {alert_name} start")
                 self.view.request_refresh()
 
             # Create webhook for enrichment
@@ -123,15 +194,15 @@ class AlertUIController:
 
             # Run enrichment (now synchronous)
             if not self.enricher:
-                logging.error("[ENRICH] Enricher not initialized")
+                # logging.error("[ENRICH] Enricher not initialized")
                 alert.enrichment_status = EnrichmentStatus.FAILED
                 return
 
-            logging.info(f"[ENRICH] Calling enricher.enrich_webhook for {alert_name}")
+            # logging.info(f"[ENRICH] Calling enricher.enrich_webhook for {alert_name}")
             enriched_alerts = self.enricher.enrich_webhook(webhook)
-            logging.info(
-                f"[ENRICH] Enricher returned {len(enriched_alerts) if enriched_alerts else 0} enriched alerts"
-            )
+            # logging.info(
+            #     f"[ENRICH] Enricher returned {len(enriched_alerts) if enriched_alerts else 0} enriched alerts"
+            # )
 
             if enriched_alerts and enriched_alerts[0].enrichment:
                 enrichment = enriched_alerts[0].enrichment
@@ -158,17 +229,17 @@ class AlertUIController:
                     alert.enriched_at = enriched_alerts[0].enriched_at
                     alert.enrichment_status = EnrichmentStatus.COMPLETED
 
-                    logging.info(f"[ENRICH] Successfully enriched {alert_name}")
-                    logging.info(
-                        f"[ENRICH] Enrichment data keys: {list(alert.enrichment.model_dump().keys()) if alert.enrichment else 'None'}"
-                    )
+                    # logging.info(f"[ENRICH] Successfully enriched {alert_name}")
+                    # logging.info(
+                    #     f"[ENRICH] Enrichment data keys: {list(alert.enrichment.model_dump().keys()) if alert.enrichment else 'None'}"
+                    # )
                     # Log actual content presence
-                    if alert.enrichment:
-                        logging.info(
-                            f"[ENRICH] Content check - business_impact: {bool(alert.enrichment.business_impact)}, "
-                            f"root_cause: {bool(alert.enrichment.root_cause)}, "
-                            f"suggested_action: {bool(alert.enrichment.suggested_action)}"
-                        )
+                    # if alert.enrichment:
+                    #     logging.info(
+                    #         f"[ENRICH] Content check - business_impact: {bool(alert.enrichment.business_impact)}, "
+                    #         f"root_cause: {bool(alert.enrichment.root_cause)}, "
+                    #         f"suggested_action: {bool(alert.enrichment.suggested_action)}"
+                    #     )
 
                     if self.view:
                         self.view.add_console_line(
@@ -181,12 +252,12 @@ class AlertUIController:
                         "error", "No content generated"
                     )
 
-                    logging.warning(
-                        f"[ENRICH] Enrichment failed for {alert_name}: {error_msg}"
-                    )
-                    logging.info(
-                        f"[ENRICH] Failed enrichment metadata: {enrichment.enrichment_metadata}"
-                    )
+                    # logging.warning(
+                    #     f"[ENRICH] Enrichment failed for {alert_name}: {error_msg}"
+                    # )
+                    # logging.info(
+                    #     f"[ENRICH] Failed enrichment metadata: {enrichment.enrichment_metadata}"
+                    # )
 
                     if self.view:
                         self.view.add_console_line(
@@ -194,14 +265,14 @@ class AlertUIController:
                         )
             else:
                 alert.enrichment_status = EnrichmentStatus.FAILED
-                logging.warning(f"[ENRICH] No enrichment returned for {alert_name}")
+                # logging.warning(f"[ENRICH] No enrichment returned for {alert_name}")
                 if self.view:
                     self.view.add_console_line(
                         f"⚠️ No enrichment generated for: {alert_name}"
                     )
 
         except Exception as e:
-            logging.error(f"[ENRICH] Failed to enrich {alert_name}: {e}", exc_info=True)
+            # logging.error(f"[ENRICH] Failed to enrich {alert_name}: {e}", exc_info=True)
             alert.enrichment_status = EnrichmentStatus.FAILED
             if self.view:
                 self.view.add_console_line(
@@ -211,12 +282,12 @@ class AlertUIController:
             # Remove from enriching set
             if fingerprint:
                 self.enriching_fingerprints.discard(fingerprint)
-                logging.info(f"[ENRICH] Removed {fingerprint} from enriching set")
+                # logging.info(f"[ENRICH] Removed {fingerprint} from enriching set")
 
             # Update view
-            logging.info(
-                f"[ENRICH] Requesting final UI refresh for {alert_name} (status: {alert.enrichment_status})"
-            )
+            # logging.info(
+            #     f"[ENRICH] Requesting final UI refresh for {alert_name} (status: {alert.enrichment_status})"
+            # )
             if self.view:
                 self.view.request_refresh()
 
@@ -226,29 +297,29 @@ class AlertUIController:
         Args:
             alert_fingerprints: List of alert fingerprints to enrich
         """
-        logging.info(
-            f"[ENRICH] enrich_alerts called with {len(alert_fingerprints)} fingerprints"
-        )
+        # logging.info(
+        #     f"[ENRICH] enrich_alerts called with {len(alert_fingerprints)} fingerprints"
+        # )
         enriched_count = 0
         if not self.alert_manager:
-            logging.error("[ENRICH] Alert manager not initialized")
+            # logging.error("[ENRICH] Alert manager not initialized")
             return
         for fingerprint in alert_fingerprints:
             alert = self.alert_manager.get_alert(fingerprint)
             if not alert:
-                logging.warning(
-                    f"[ENRICH] Alert not found for fingerprint: {fingerprint}"
-                )
+                # logging.warning(
+                #     f"[ENRICH] Alert not found for fingerprint: {fingerprint}"
+                # )
                 continue
 
             # Skip if already enriched or enriching
             if alert.enrichment_status == EnrichmentStatus.COMPLETED:
-                logging.info(f"[ENRICH] Skipping already enriched alert: {fingerprint}")
+                # logging.info(f"[ENRICH] Skipping already enriched alert: {fingerprint}")
                 continue
             if fingerprint in self.enriching_fingerprints:
-                logging.info(
-                    f"[ENRICH] Skipping alert already being enriched: {fingerprint}"
-                )
+                # logging.info(
+                #     f"[ENRICH] Skipping alert already being enriched: {fingerprint}"
+                # )
                 continue
 
             # Mark as QUEUED and add to queue
@@ -256,9 +327,9 @@ class AlertUIController:
             self.enriching_fingerprints.add(fingerprint)
             self.enrichment_queue.put(alert)
             enriched_count += 1
-            logging.info(
-                f"[ENRICH] Queued alert for enrichment: {alert.original.labels.get('alertname', 'Unknown')} ({fingerprint})"
-            )
+            # logging.info(
+            #     f"[ENRICH] Queued alert for enrichment: {alert.original.labels.get('alertname', 'Unknown')} ({fingerprint})"
+            # )
 
         if self.view:
             if enriched_count > 0:
@@ -286,6 +357,34 @@ class AlertUIController:
 
     def run(self):
         """Run the interactive UI with periodic polling."""
+        # Suppress LiteLLM output to prevent UI corruption
+        import os
+
+        os.environ["LITELLM_LOG"] = "ERROR"  # Only show errors
+        os.environ["LITELLM_LOG_LEVEL"] = "ERROR"
+        os.environ["LITELLM_SUPPRESS_DEBUG_INFO"] = "true"
+
+        # Also configure litellm directly
+        import litellm
+
+        litellm.suppress_debug_info = True
+        litellm.set_verbose = False
+        # Disable the "Give Feedback" message
+        if hasattr(litellm, "_logging"):
+            litellm._logging._disable_debugging = True
+
+        # Also suppress via logging module
+        import logging
+
+        logging.getLogger("litellm").setLevel(logging.ERROR)
+        logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+        logging.getLogger("litellm.utils").setLevel(logging.ERROR)
+        logging.getLogger("litellm.cost_calculator").setLevel(logging.ERROR)
+        logging.getLogger("litellm.litellm_core_utils").setLevel(logging.ERROR)
+        logging.getLogger("litellm.litellm_core_utils.litellm_logging").setLevel(
+            logging.ERROR
+        )
+
         # Create the interactive view
         if not self.enricher:
             # Create enricher if not provided
@@ -295,16 +394,12 @@ class AlertUIController:
         # Set up logging interceptor
         log_interceptor = LogInterceptor(self.view.console)
 
-        # Configure logging for holmes.alert_proxy modules
-        alert_proxy_logger = logging.getLogger("holmes.alert_proxy")
-        alert_proxy_logger.setLevel(logging.INFO)
-        alert_proxy_logger.addHandler(log_interceptor)
-
-        # Also add to root logger for other modules
+        # Replace all existing handlers with our console interceptor
         original_handlers = logging.root.handlers.copy()
         for handler in original_handlers:
             logging.root.removeHandler(handler)
         logging.root.addHandler(log_interceptor)
+        logging.root.setLevel(logging.INFO)
 
         try:
             # Start the view with reference to this model
@@ -316,6 +411,10 @@ class AlertUIController:
             # Show initial welcome message
             self.view.add_console_line("🚀 HolmesGPT Alert Viewer started")
             self.view.add_console_line("")
+
+            # Test model connectivity early (always test so users know if there's an issue)
+            if self.enricher:
+                self._test_model_connectivity()
 
             # Show enrichment status
             if self.enricher and self.alert_config.enrichment.enable_enrichment:
@@ -331,7 +430,15 @@ class AlertUIController:
                     )
                     self.view.add_console_line(f"  Custom columns: {cols}")
             else:
-                self.view.add_console_line("💭 AI enrichment disabled")
+                self.view.add_console_line(
+                    f"💭 AI enrichment ready (model: {self.alert_config.enrichment.model})"
+                )
+                self.view.add_console_line(
+                    "  Press 'e' on any alert to enrich with AI analysis"
+                )
+                self.view.add_console_line(
+                    "  Or run with --enrich flag to auto-enrich all alerts"
+                )
             self.view.add_console_line("")
 
             # Start enrichment worker
@@ -391,22 +498,35 @@ class AlertUIController:
                 time.sleep(0.1)
 
         finally:
+            # Signal all threads to stop first
+            self.stop_polling.set()
+            self.stop_enrichment.set()
+
             # Stop enrichment worker
             self.stop_enrichment_worker()
 
-            # Stop polling
-            self.stop_polling.set()
-            if self.polling_thread:
-                self.polling_thread.join(timeout=2)
+            # Stop polling thread
+            if self.polling_thread and self.polling_thread.is_alive():
+                self.polling_thread.join(timeout=1)
 
             # Stop the view
             if self.view:
                 self.view.stop()
 
+            # Flush any remaining output before restoring handlers
+            import sys
+
+            sys.stdout.flush()
+            sys.stderr.flush()
+
             # Restore logging handlers
             logging.root.removeHandler(log_interceptor)
             for handler in original_handlers:
                 logging.root.addHandler(handler)
+
+            # Final flush
+            sys.stdout.flush()
+            sys.stderr.flush()
 
     def _polling_loop(self):
         """Main polling loop for fetching and displaying alerts."""

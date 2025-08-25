@@ -8,12 +8,30 @@ import sentry_sdk
 
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
-import litellm
 import os
 from holmes.common.env_vars import (
     REASONING_EFFORT,
     THINKING,
 )
+
+# Suppress LiteLLM output before importing
+os.environ.setdefault("LITELLM_LOG", "ERROR")
+os.environ.setdefault("LITELLM_LOG_LEVEL", "ERROR")
+os.environ.setdefault("LITELLM_SUPPRESS_DEBUG_INFO", "true")
+
+import litellm
+
+# Configure litellm to be quiet
+litellm.suppress_debug_info = True
+litellm.set_verbose = False
+
+# Suppress all litellm loggers
+logging.getLogger("litellm").setLevel(logging.ERROR)
+logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+logging.getLogger("litellm.utils").setLevel(logging.ERROR)
+logging.getLogger("litellm.cost_calculator").setLevel(logging.ERROR)
+logging.getLogger("litellm.litellm_core_utils").setLevel(logging.ERROR)
+logging.getLogger("litellm.litellm_core_utils.litellm_logging").setLevel(logging.ERROR)
 
 
 def environ_get_safe_int(env_var, default="0"):

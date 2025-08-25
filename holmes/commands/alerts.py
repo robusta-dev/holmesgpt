@@ -26,7 +26,7 @@ def view_alerts(
         None,
         "--alertmanager-url",
         "-a",
-        help="AlertManager URL (auto-discovers if not provided)",
+        help="AlertManager URL. Supports: http://host:port, k8s://namespace/service[:port] for auto-proxy, or auto-discovery if not provided",
     ),
     poll_interval: int = typer.Option(
         30,
@@ -66,6 +66,10 @@ def view_alerts(
 
         # View alerts from specific AlertManager
         holmes alerts view --alertmanager-url http://alertmanager:9093
+
+        # Use k8s:// for automatic proxy setup (namespace required)
+        holmes alerts view --alertmanager-url k8s://monitoring/alertmanager:9093
+        holmes alerts view --alertmanager-url k8s://default/robusta-kube-prometheus-st-alertmanager
 
         # Add custom AI columns with descriptions
         holmes alerts view --ai-column "root_cause=identify the technical root cause" --ai-column "affected_team=which team owns this service"
@@ -112,7 +116,7 @@ def view_alerts(
         # Create interactive mode config
         alert_config = InteractiveModeConfig(
             alertmanager_url=alertmanager_url,
-            auto_discover=True,  # Always auto-discover if URL not provided
+            auto_discover=not alertmanager_url,  # Only auto-discover if URL not provided
             poll_interval=poll_interval,
             max_alerts=None,  # No limit by default
             enrichment=enrichment_config,
@@ -150,7 +154,7 @@ def list_alerts(
         None,
         "--alertmanager-url",
         "-a",
-        help="AlertManager URL (auto-discovers if not provided)",
+        help="AlertManager URL. Supports: http://host:port, k8s://namespace/service[:port] for auto-proxy, or auto-discovery if not provided",
     ),
     format: str = typer.Option(
         "table",
@@ -210,7 +214,7 @@ def list_alerts(
 
                 minimal_config = InteractiveModeConfig(
                     alertmanager_url=alertmanager_url_to_use,
-                    auto_discover=True,
+                    auto_discover=not alertmanager_url_to_use,  # Only auto-discover if URL not provided
                 )
                 alert_manager = AlertManager(minimal_config, fetcher)
 

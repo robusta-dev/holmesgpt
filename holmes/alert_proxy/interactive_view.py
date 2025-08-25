@@ -8,7 +8,7 @@ Bottom: Console output with captured logs
 import json
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from prompt_toolkit.application import Application
 from prompt_toolkit.key_binding import KeyBindings
@@ -48,6 +48,7 @@ class AlertUIView:
         self.console_collapsed = False
         self.initial_load_complete = False  # Track if we've done first fetch
         self.refresh_requested = threading.Event()  # For model to signal refresh
+        self.model_error: Optional[str] = None  # Store model connectivity error
 
         # Initialize helper modules
         self.search_manager = SearchManager()
@@ -196,6 +197,17 @@ class AlertUIView:
 
         # Get the configured keybindings
         kb = kb_manager.get_bindings()
+
+        # Add context-aware go-to-top and go-to-bottom shortcuts
+        @kb.add("g", "g", filter=kb_manager.not_searching_filter)
+        def _go_top(event):
+            """Go to top - context aware."""
+            self._go_to_top()
+
+        @kb.add("G", filter=kb_manager.not_searching_filter)
+        def _go_bottom(event):
+            """Go to bottom - context aware."""
+            self._go_to_bottom()
 
         # Create a separate KeyBindings instance for search mode that takes priority
         search_kb = KeyBindings()
@@ -599,12 +611,11 @@ class AlertUIView:
     # Single UI update path
     def _refresh_ui(self, update_inspector=True, sync_cursor=True):
         """Single method for all UI updates to ensure consistency."""
-        import logging
 
         # logger = logging.getLogger(__name__)
-        logging.info(
-            f"[UI] _refresh_ui called (update_inspector={update_inspector}, sync_cursor={sync_cursor})"
-        )
+        # logging.info(
+        #     f"[UI] _refresh_ui called (update_inspector={update_inspector}, sync_cursor={sync_cursor})"
+        # )
 
         # Update components
         self._update_list()
@@ -850,7 +861,11 @@ UI:
 
     def _quit_app(self, event):
         """Quit the application."""
+        # Signal all threads to stop
         self.stop_event.set()
+        self.refresh_requested.set()  # Wake up the refresh thread
+
+        # Exit the app
         try:
             event.app.exit()
         except Exception:
@@ -896,7 +911,6 @@ UI:
 
     def _update_inspector(self):
         """Update the inspector pane."""
-        import logging
 
         # logger = logging.getLogger(__name__)
 
@@ -905,20 +919,20 @@ UI:
             return
         alerts = self.model.get_alerts_for_display()
         if not alerts or self.selected_index >= len(alerts):
-            logging.info(
-                f"[UI] No alerts to show in inspector (alerts={len(alerts) if alerts else 0}, selected={self.selected_index})"
-            )
+            # logging.info(
+            #     f"[UI] No alerts to show in inspector (alerts={len(alerts) if alerts else 0}, selected={self.selected_index})"
+            # )
             self.inspector_area.text = self.inspector.format_alert_details(None)
         else:
             alert = alerts[self.selected_index]
-            alert_name = alert.original.labels.get("alertname", "Unknown")
-            logging.info(
-                f"[UI] Updating inspector for alert: {alert_name}, enrichment_status={alert.enrichment_status}, has_enrichment={bool(alert.enrichment)}"
-            )
-            if alert.enrichment:
-                logging.info(
-                    f"[UI] Enrichment content: business_impact={bool(alert.enrichment.business_impact)}, root_cause={bool(alert.enrichment.root_cause)}, suggested_action={bool(alert.enrichment.suggested_action)}"
-                )
+            # alert_name = alert.original.labels.get("alertname", "Unknown")
+            # logging.info(
+            #     f"[UI] Updating inspector for alert: {alert_name}, enrichment_status={alert.enrichment_status}, has_enrichment={bool(alert.enrichment)}"
+            # )
+            # if alert.enrichment:
+            #     logging.info(
+            #         f"[UI] Enrichment content: business_impact={bool(alert.enrichment.business_impact)}, root_cause={bool(alert.enrichment.root_cause)}, suggested_action={bool(alert.enrichment.suggested_action)}"
+            #     )
             self.inspector_area.text = self.inspector.format_alert_details(alert)
 
     def _update_console(self):
@@ -947,14 +961,13 @@ UI:
         # Start refresh monitoring thread
         def monitor_refresh():
             """Monitor for refresh requests from model."""
-            import logging
 
             # logger = logging.getLogger(__name__)
 
             while not self.stop_event.is_set():
                 if self.refresh_requested.wait(timeout=REFRESH_POLL_INTERVAL):
                     self.refresh_requested.clear()
-                    logging.info("[UI] Processing refresh request from monitor thread")
+                    # logging.info("[UI] Processing refresh request from monitor thread")
                     # Refresh UI from polling thread
                     self._refresh_ui()
 
@@ -963,12 +976,25 @@ UI:
 
     def stop(self):
         """Stop the interactive view."""
+        # Signal all threads to stop
         self.stop_event.set()
+        self.refresh_requested.set()  # Wake up the refresh thread
+
+        # Wait for threads to finish
+        if self.refresh_thread and self.refresh_thread.is_alive():
+            self.refresh_thread.join(timeout=0.5)
+
+        # Exit the app
         try:
-            self.app.exit()
+            if self.app:
+                self.app.exit()
         except Exception:
             # App might already be stopped, that's fine
             pass
+
+        # Wait for app thread
+        if self.app_thread and self.app_thread.is_alive():
+            self.app_thread.join(timeout=0.5)
 
     def set_model(self, model):
         """Set the model reference."""
@@ -976,10 +1002,9 @@ UI:
 
     def request_refresh(self):
         """Request a UI refresh (called by model when data changes)."""
-        import logging
 
         # logger = logging.getLogger(__name__)
-        logging.info("[UI] UI refresh requested")
+        # logging.info("[UI] UI refresh requested")
         # Simply set the flag for the monitor thread to handle
         self.refresh_requested.set()
 
@@ -997,6 +1022,12 @@ UI:
     def add_console_line(self, message: str):
         """Add a line to the console output."""
         self.console.add_line(message)
+
+    def set_model_error(self, error: str):
+        """Set model connectivity error to display in header."""
+        self.model_error = error
+        self.status_bar.model_error = error
+        self.app.invalidate()
 
 
 # LogInterceptor is re-exported from console_logger

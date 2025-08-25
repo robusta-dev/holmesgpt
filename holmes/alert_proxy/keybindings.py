@@ -63,19 +63,8 @@ class KeybindingsManager:
             if focus_list:
                 focus_list()
 
-        @self.kb.add("g", "g", filter=self.not_searching_filter)
-        def _go_to_top(event):
-            """Go to top of list."""
-            # Move to first item
-            while move_up():
-                pass
-
-        @self.kb.add("G", filter=self.not_searching_filter)
-        def _go_to_bottom(event):
-            """Go to bottom of list."""
-            # Move to last item
-            while move_down():
-                pass
+        # Note: g,g and G shortcuts are handled in the view's _create_application method
+        # to be context-aware for different panes
 
     def add_ui_bindings(
         self,

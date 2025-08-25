@@ -63,16 +63,65 @@ class AlertManager:
         if self.alert_config.auto_discover:
             discovered = self.discovery.discover_all()
         elif self.alert_config.alertmanager_url:
-            # Use manually configured URL
-            discovered = [
-                AlertManagerInstance(
-                    name="configured",
-                    namespace="unknown",
-                    url=self.alert_config.alertmanager_url,
-                    source="config",
-                    use_proxy=False,
+            url = self.alert_config.alertmanager_url
+
+            # Check if it's a k8s:// URL for automatic proxy setup
+            if url.startswith("k8s://"):
+                # Parse k8s:// URL format: k8s://namespace/service[:port]
+                k8s_path = url[6:]  # Remove 'k8s://' prefix
+
+                # Parse namespace, service, and port (namespace is mandatory)
+                if "/" not in k8s_path:
+                    raise ValueError(
+                        f"Invalid k8s:// URL format: '{url}'. "
+                        "Format must be: k8s://namespace/service[:port] "
+                        "(e.g., k8s://default/alertmanager:9093)"
+                    )
+
+                namespace, service_port = k8s_path.split("/", 1)
+
+                if not namespace or not service_port:
+                    raise ValueError(
+                        f"Invalid k8s:// URL format: '{url}'. "
+                        "Both namespace and service are required."
+                    )
+
+                if ":" in service_port:
+                    service, port = service_port.rsplit(":", 1)
+                else:
+                    service = service_port
+                    port = "9093"  # Default AlertManager port
+
+                logger.info(
+                    f"Parsed k8s:// URL - namespace: {namespace}, service: {service}, port: {port}"
                 )
-            ]
+
+                # Create AlertManagerInstance with proxy enabled
+                discovered = [
+                    AlertManagerInstance(
+                        name=service,  # The actual service name for proxy
+                        namespace=namespace,
+                        port=int(port),
+                        url="",  # Not needed when use_proxy=True
+                        source="k8s-url",
+                        use_proxy=True,
+                    )
+                ]
+
+                logger.info(
+                    "Configured k8s:// AlertManager to use Kubernetes API proxy"
+                )
+            else:
+                # Regular HTTP/HTTPS URL
+                discovered = [
+                    AlertManagerInstance(
+                        name="configured",
+                        namespace="unknown",
+                        url=self.alert_config.alertmanager_url,
+                        source="config",
+                        use_proxy=False,
+                    )
+                ]
         else:
             logger.warning("No AlertManager configured and auto-discovery disabled")
             discovered = []

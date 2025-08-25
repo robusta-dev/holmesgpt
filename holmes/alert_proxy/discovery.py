@@ -5,9 +5,10 @@ import os
 import re
 from typing import List, Optional
 
-from kubernetes import client, config as k8s_config
+from kubernetes import client
 from kubernetes.client.rest import ApiException
 from holmes.alert_proxy.kube_proxy import KubeProxy
+from holmes.alert_proxy.kube_config_singleton import KubeConfigSingleton
 from holmes.alert_proxy.models import AlertManagerInstance
 
 logger = logging.getLogger(__name__)
@@ -32,25 +33,18 @@ class AlertManagerDiscovery:
         self.use_proxy = use_proxy
         self.kube_proxy = KubeProxy(kubeconfig_path) if use_proxy else None
 
-        try:
-            if kubeconfig_path:
-                k8s_config.load_kube_config(config_file=kubeconfig_path)
-            else:
-                # Try in-cluster config first, then default kubeconfig
-                try:
-                    k8s_config.load_incluster_config()
-                    logger.info("Using in-cluster Kubernetes config")
-                    self.use_proxy = False  # Don't need proxy in-cluster
-                except Exception:
-                    k8s_config.load_kube_config()
-                    logger.info("Using kubeconfig")
+        # Use singleton for Kubernetes configuration (KubeProxy already initialized it)
+        self.kube_config = KubeConfigSingleton()
+        # Just call initialize to ensure it's set up (it won't log again if already initialized)
+        self.k8s_available = self.kube_config.initialize(kubeconfig_path)
 
-            self.v1 = client.CoreV1Api()
-            self.apps_v1 = client.AppsV1Api()
-            self.k8s_available = True
-        except Exception as e:
-            logger.warning(f"Kubernetes API not available: {e}")
-            self.k8s_available = False
+        if self.k8s_available:
+            api_client = self.kube_config.api_client
+            self.v1 = client.CoreV1Api(api_client) if api_client else None
+            self.apps_v1 = client.AppsV1Api(api_client) if api_client else None
+        else:
+            self.v1 = None
+            self.apps_v1 = None
 
     def discover_all(self) -> List[AlertManagerInstance]:
         """Discover all AlertManager instances using multiple methods."""
@@ -86,6 +80,7 @@ class AlertManagerDiscovery:
         discovered = []
 
         try:
+            assert self.v1 is not None
             services = self.v1.list_service_for_all_namespaces()
 
             for svc in services.items:
@@ -94,6 +89,7 @@ class AlertManagerDiscovery:
                     if re.match(pattern, svc.metadata.name, re.IGNORECASE):
                         # Check if service has ready endpoints (backing pods)
                         try:
+                            assert self.v1 is not None
                             endpoints = self.v1.read_namespaced_endpoints(
                                 svc.metadata.name, svc.metadata.namespace
                             )
@@ -158,6 +154,7 @@ class AlertManagerDiscovery:
 
         try:
             # Check StatefulSets
+            assert self.apps_v1 is not None
             statefulsets = self.apps_v1.list_stateful_set_for_all_namespaces()
             for sts in statefulsets.items:
                 if self._is_alertmanager_workload(sts.metadata.name):
@@ -174,6 +171,7 @@ class AlertManagerDiscovery:
                         )
 
             # Check Deployments
+            assert self.apps_v1 is not None
             deployments = self.apps_v1.list_deployment_for_all_namespaces()
             for dep in deployments.items:
                 if self._is_alertmanager_workload(dep.metadata.name):
@@ -204,6 +202,7 @@ class AlertManagerDiscovery:
 
         try:
             for selector in label_selectors:
+                assert self.v1 is not None
                 pods = self.v1.list_pod_for_all_namespaces(label_selector=selector)
                 for pod in pods.items:
                     if pod.status.phase == "Running":

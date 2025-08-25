@@ -66,21 +66,21 @@ class ConsoleLogger:
 
     def add_error(self, message: str, exception: Optional[Exception] = None):
         """Add an error message to the console."""
-        self.add_line(f"❌ ERROR: {message}")
+        self.add_line(f"ERROR: {message}")
         if exception:
             self.add_line(f"   {str(exception)}", timestamp=False)
 
     def add_warning(self, message: str):
         """Add a warning message to the console."""
-        self.add_line(f"⚠️  WARNING: {message}")
+        self.add_line(f"WARNING: {message}")
 
     def add_info(self, message: str):
         """Add an info message to the console."""
-        self.add_line(f"ℹ️  {message}")
+        self.add_line(message)
 
     def add_success(self, message: str):
         """Add a success message to the console."""
-        self.add_line(f"✅ {message}")
+        self.add_line(f"SUCCESS: {message}")
 
 
 class LogInterceptor(logging.Handler):

@@ -25,12 +25,12 @@ class StatusBar:
         self.get_status = get_status
         self.get_focused_pane = get_focused_pane
         self.alert_config: Optional["InteractiveModeConfig"] = None  # Set by view
+        self.model_error: Optional[str] = None  # Model connectivity error
 
         # Create header window
         self.header = Window(
             FormattedTextControl(self._get_header_text),
             height=1,
-            style="bold fg:#00aa00",
         )
 
         # Create footer window
@@ -42,10 +42,24 @@ class StatusBar:
 
     def _get_header_text(self):
         """Get header text with branding and model info."""
-        model_info = ""
+        parts = []
+        parts.append(("fg:#00aa00 bold", "🚨 HolmesGPT Alert Viewer"))
+
         if self.alert_config and hasattr(self.alert_config, "enrichment"):
-            model_info = f"  •  Model: {self.alert_config.enrichment.model}"
-        return f"🚨 HolmesGPT Alert Viewer{model_info}  •  {self.get_status()}"
+            model_name = self.alert_config.enrichment.model
+            if self.model_error:
+                # Show model error in red
+                parts.append(
+                    (
+                        "fg:#ff0000 bold",
+                        f"  •  Model: {model_name} ❌ {self.model_error}",
+                    )
+                )
+            else:
+                parts.append(("fg:#00aa00 bold", f"  •  Model: {model_name}"))
+
+        parts.append(("fg:#00aa00 bold", f"  •  {self.get_status()}"))
+        return parts
 
     def _get_footer_text(self):
         """Get footer text with context-sensitive shortcuts."""
