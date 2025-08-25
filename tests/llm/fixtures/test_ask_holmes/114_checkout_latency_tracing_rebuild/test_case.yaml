@@ -66,8 +66,8 @@ before_test: |
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-114
 
-  echo "⏰ Letting traffic generator run for 10 seconds to generate requests"
-  sleep 10
+  echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
+  sleep 20
 
   echo "🔍 Verifying traffic generator log entries"
   if kubectl logs -n app-114 -l app=traffic-generator --tail=100 | grep -q "WITH promo_code"; then

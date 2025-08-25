@@ -92,8 +92,8 @@ stringData:
                 # span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                 print(f"[TRAFFIC-GEN] Request #{request_count}: Error - {str(e)}", flush=True)
 
-            # Wait 100ms to 200ms second before next request
-            sleep_time = random.uniform(0.1, 0.2)
+            # Wait 10ms to 50ms second before next request
+            sleep_time = random.uniform(0.01, 0.05)
             time.sleep(sleep_time)
 
     if __name__ == '__main__':
