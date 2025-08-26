@@ -317,7 +317,7 @@ class GetTempoTraceById(Tool):
 class FetchTracesSimpleComparison(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="fetch_traces_comparative_sample",
+            name="fetch_tempo_traces_comparative_sample",
             description="""Fetches statistics and representative samples of fast, slow, and typical traces for performance analysis.
 
 Important: call this tool first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns.
