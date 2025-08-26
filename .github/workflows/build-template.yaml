@@ -1,0 +1,219 @@
+# Reusable Multi-OS Binary Build Workflow
+# This template provides a reusable workflow for building binaries across multiple operating systems
+# with proper dependency installation and testing
+
+name: Multi-OS Binary Build Template
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: 'Python version to use'
+        required: false
+        default: '3.11'
+        type: string
+      python-versions-matrix:
+        description: 'Python versions matrix for testing (JSON array)'
+        required: false
+        default: '["3.11"]'
+        type: string
+      poetry-version:
+        description: 'Poetry version to use'
+        required: false
+        default: '1.4.0'
+        type: string
+      os-matrix:
+        description: 'OS matrix for builds (JSON array)'
+        required: false
+        default: '["ubuntu-22.04", "windows-latest", "macos-latest"]'
+        type: string
+      run-tests:
+        description: 'Run tests after building'
+        required: false
+        default: true
+        type: boolean
+      is-release:
+        description: 'Is this a release build (updates version and uploads artifacts)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: ${{ inputs.python-version }}
+  POETRY_VERSION: ${{ inputs.poetry-version }}
+
+jobs:
+  # Main build job with matrix strategy for multiple OS
+  build:
+    name: Build (${{ matrix.os }}${{ fromJson(inputs.python-versions-matrix)[0] != fromJson(inputs.python-versions-matrix)[1] && format(', Python {0}', matrix.python-version) || '' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJson(inputs.os-matrix) }}
+        python-version: ${{ fromJson(inputs.python-versions-matrix) }}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    # Common dependency installation for Unix-like systems
+    - name: Install base dependencies (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        python -m pip install --upgrade pip setuptools pyinstaller
+        curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
+        poetry config virtualenvs.create false
+        poetry install --no-root
+
+    # Windows-specific dependency installation
+    - name: Install base dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        python -m pip install --upgrade pip setuptools pyinstaller
+        curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
+        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
+        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
+
+    # Linux-specific system dependencies
+    - name: Install system dependencies (Linux)
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y binutils
+        # Add other Linux-specific packages here as needed
+        # Example: sudo apt-get install -y build-essential libffi-dev
+
+    # macOS-specific system dependencies
+    - name: Install system dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install unixodbc
+        # Add other macOS-specific packages here as needed
+        # Example: brew install pkg-config libffi
+
+    # Windows-specific system dependencies (if needed)
+    - name: Install system dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        # Add Windows-specific installations here
+        # Example: choco install visualcpp-build-tools
+        echo "Windows system dependencies installation placeholder"
+
+    # Version update for release builds
+    - name: Update version (Linux)
+      if: contains(matrix.os, 'ubuntu') && inputs.is-release
+      run: sed -i 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
+
+    - name: Update version (macOS)
+      if: matrix.os == 'macos-latest' && inputs.is-release
+      run: sed -i '' 's/__version__ = .*/__version__ = "${{ github.ref_name }}"/g' holmes/__init__.py
+
+    - name: Update version (Windows)
+      if: matrix.os == 'windows-latest' && inputs.is-release
+      run: |
+        $filePath = 'holmes/__init__.py'
+        (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
+      shell: pwsh
+
+    # Build step with PyInstaller
+    - name: Build binary with PyInstaller
+      shell: bash
+      run: |
+        # Customize this PyInstaller command based on your project structure
+        pyinstaller holmes_cli.py \
+          --name holmes \
+          --add-data 'holmes/plugins/runbooks/*:holmes/plugins/runbooks' \
+          --add-data 'holmes/plugins/prompts/*:holmes/plugins/prompts' \
+          --add-data 'holmes/plugins/toolsets/*:holmes/plugins/toolsets' \
+          --add-data 'holmes/plugins/toolsets/coralogix*:holmes/plugins/toolsets/coralogix' \
+          --add-data 'holmes/plugins/toolsets/grafana*:holmes/plugins/toolsets/grafana' \
+          --add-data 'holmes/plugins/toolsets/internet*:holmes/plugins/toolsets/internet' \
+          --add-data 'holmes/plugins/toolsets/opensearch*:holmes/plugins/toolsets/opensearch' \
+          --add-data 'holmes/plugins/toolsets/prometheus*:holmes/plugins/toolsets/prometheus' \
+          --hidden-import=tiktoken_ext.openai_public \
+          --hidden-import=tiktoken_ext \
+          --hiddenimport litellm.llms.tokenizers \
+          --hiddenimport litellm.litellm_core_utils.tokenizers \
+          --collect-data litellm
+        ls dist/
+
+    # Optional: Run tests
+    - name: Run tests
+      if: inputs.run-tests
+      shell: bash
+      env:
+        # Add your test environment variables here
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        poetry run pytest -m "not llm"
+
+    # Test the built binary
+    - name: Test binary (Unix)
+      if: matrix.os != 'windows-latest'
+      shell: bash
+      run: |
+        dist/holmes/holmes version
+        if [ $? -ne 0 ]; then
+          echo "Binary test failed"
+          exit 1
+        fi
+        echo "Binary test passed"
+
+    - name: Test binary (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: pwsh
+      run: |
+        dist/holmes/holmes.exe version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Output "Binary test failed"
+          exit 1
+        }
+        Write-Output "Binary test passed"
+
+    # Package the binary
+    - name: Package binary (Unix)
+      if: (matrix.os == 'macos-latest' || contains(matrix.os, 'ubuntu')) && inputs.is-release
+      run: |
+        cd dist
+        tar -czf holmes-${{ matrix.os }}-${{ github.run_number }}.tar.gz holmes
+        mv holmes-${{ matrix.os }}-${{ github.run_number }}.tar.gz ../
+        cd ..
+
+    - name: Package binary (Windows)
+      if: matrix.os == 'windows-latest' && inputs.is-release
+      run: |
+        Set-Location -Path dist
+        Compress-Archive -Path holmes -DestinationPath holmes-${{ matrix.os }}-${{ github.run_number }}.zip -Force
+        Move-Item -Path holmes-${{ matrix.os }}-${{ github.run_number }}.zip -Destination ..\
+        Set-Location -Path ..
+      shell: pwsh
+
+    # Upload artifacts
+    - name: Upload build artifacts
+      if: inputs.is-release
+      uses: actions/upload-artifact@v4
+      with:
+        name: holmes-${{ matrix.os }}-${{ github.run_number }}
+        path: |
+          holmes-${{ matrix.os }}-${{ github.run_number }}.tar.gz
+          holmes-${{ matrix.os }}-${{ github.run_number }}.zip
+        retention-days: 30
+
+    # Release asset upload (only on release events)
+    - name: Upload release asset
+      if: inputs.is-release
+      uses: actions/upload-release-asset@v1.0.2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./holmes-${{ matrix.os }}-${{ github.run_number }}.${{ matrix.os == 'windows-latest' && 'zip' || 'tar.gz' }}
+        asset_name: holmes-${{ matrix.os }}-${{ github.ref_name }}.${{ matrix.os == 'windows-latest' && 'zip' || 'tar.gz' }}
+        asset_content_type: application/octet-stream
