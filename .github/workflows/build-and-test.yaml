@@ -181,8 +181,8 @@ jobs:
             --add-data 'holmes/plugins/toolsets/prometheus*:holmes/plugins/toolsets/prometheus' \
             --hidden-import=tiktoken_ext.openai_public \
             --hidden-import=tiktoken_ext \
-            --hiddenimport litellm.llms.tokenizers \
-            --hiddenimport litellm.litellm_core_utils.tokenizers \
+            --hidden-import=litellm.llms.tokenizers \
+            --hidden-import=litellm.litellm_core_utils.tokenizers \
             --collect-data litellm
           ls dist
 
