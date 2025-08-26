@@ -528,9 +528,7 @@ Examples:
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return (
-            f"{toolset_name_for_one_liner(self._toolset.name)}: Simple trace comparison"
-        )
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Simple Tempo Traces Comparison"
 
 
 class GrafanaTempoToolset(BaseGrafanaTempoToolset):
