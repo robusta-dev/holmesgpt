@@ -73,7 +73,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools pyinstaller
         curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
-        echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" | Out-File -FilePath "$env:GITHUB_PATH" -Encoding utf8 -Append
 
         poetry config virtualenvs.create false
         poetry install --no-root
@@ -142,9 +142,19 @@ jobs:
         ls dist/
 
     # Optional: Run tests
-    - name: Run tests
-      if: ${{ !inputs.is-release }}
+    - name: Run tests(Unix)
+      if: ${{ !inputs.is-release }} && matrix.os != 'windows-latest'
       shell: bash
+      env:
+        # Add your test environment variables here
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        poetry run pytest -m "not llm"
+
+    # Optional: Run tests
+    - name: Run tests(Windows)
+      if: ${{ !inputs.is-release }} && matrix.os == 'windows-latest'
+      shell: pwsh
       env:
         # Add your test environment variables here
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
