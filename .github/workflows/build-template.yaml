@@ -73,10 +73,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools pyinstaller
         curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
-        echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" | Out-File -FilePath "$env:GITHUB_PATH" -Encoding utf8 -Append
-
-        poetry config virtualenvs.create false
-        poetry install --no-root
+        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
+        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
+        # Updated GITHUB_PATH works on next steps, not current step somehow
+        echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" >> $env:GITHUB_PATH
 
     # Linux-specific system dependencies
     - name: Install system dependencies (Linux)
@@ -117,11 +117,12 @@ jobs:
       run: |
         $filePath = 'holmes/__init__.py'
         (Get-Content $filePath) -replace '__version__ = .+', '__version__ = "${{ github.ref_name }}"' | Set-Content $filePath
-      shell: pwsh
 
     # Build step with PyInstaller
     - name: Build binary with PyInstaller
       shell: bash
+      # regarding the tiktoken part of the command, see https://github.com/openai/tiktoken/issues/80
+      # regarding the litellm part of the command, see https://github.com/pyinstaller/pyinstaller/issues/8620#issuecomment-2186540504
       run: |
         # Customize this PyInstaller command based on your project structure
         pyinstaller holmes_cli.py \
@@ -142,19 +143,8 @@ jobs:
         ls dist/
 
     # Optional: Run tests
-    - name: Run tests(Unix)
-      if: ${{ !inputs.is-release }} && matrix.os != 'windows-latest'
-      shell: bash
-      env:
-        # Add your test environment variables here
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      run: |
-        poetry run pytest -m "not llm"
-
-    # Optional: Run tests
-    - name: Run tests(Windows)
-      if: ${{ !inputs.is-release }} && matrix.os == 'windows-latest'
-      shell: pwsh
+    - name: Run tests
+      if: ${{ !inputs.is-release }}
       env:
         # Add your test environment variables here
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -164,7 +154,6 @@ jobs:
     # Test the built binary
     - name: Test binary (Unix)
       if: matrix.os != 'windows-latest'
-      shell: bash
       run: |
         dist/holmes/holmes version
         if [ $? -ne 0 ]; then
@@ -175,7 +164,6 @@ jobs:
 
     - name: Test binary (Windows)
       if: matrix.os == 'windows-latest'
-      shell: pwsh
       run: |
         dist/holmes/holmes.exe version
         if ($LASTEXITCODE -ne 0) {
@@ -200,7 +188,6 @@ jobs:
         Compress-Archive -Path holmes -DestinationPath holmes-${{ matrix.os }}-${{ github.run_number }}.zip -Force
         Move-Item -Path holmes-${{ matrix.os }}-${{ github.run_number }}.zip -Destination ..\
         Set-Location -Path ..
-      shell: pwsh
 
     # Upload artifacts
     - name: Upload build artifacts
