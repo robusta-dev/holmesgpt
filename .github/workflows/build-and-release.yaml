@@ -15,7 +15,6 @@ jobs:
       # See https://pyinstaller.org/en/stable/usage.html?highlight=glibc#making-gnu-linux-apps-forward-compatible:~:text=The%20solution%20is%20to%20always%20build%20your%20app%20on%20the%20oldest%20version%20of%20GNU/Linux%20you%20mean%20to%20support.%20It%20should%20continue%20to%20work%20with%20the%20libc%20found%20on%20newer%20versions.
       # TODO: for similar reasons, we may want to build on older Windows/MacOS versions as well
       os-matrix: '["ubuntu-22.04", "windows-latest", "macos-latest"]'
-      run-tests: false
       is-release: true
     secrets: inherit
 

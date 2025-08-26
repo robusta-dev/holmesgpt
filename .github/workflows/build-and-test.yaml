@@ -36,6 +36,5 @@ jobs:
     with:
       python-versions-matrix: '["3.10", "3.11", "3.12"]'
       os-matrix: '["ubuntu-latest", "windows-latest", "macos-latest"]'
-      run-tests: true
       is-release: false
     secrets: inherit

@@ -27,13 +27,8 @@ on:
         required: false
         default: '["ubuntu-22.04", "windows-latest", "macos-latest"]'
         type: string
-      run-tests:
-        description: 'Run tests after building'
-        required: false
-        default: true
-        type: boolean
       is-release:
-        description: 'Is this a release build (updates version and uploads artifacts)'
+        description: 'Is this a release build'
         required: false
         default: false
         type: boolean
@@ -78,8 +73,10 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools pyinstaller
         curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
-        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
-        C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
+        echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+        poetry config virtualenvs.create false
+        poetry install --no-root
 
     # Linux-specific system dependencies
     - name: Install system dependencies (Linux)
@@ -146,7 +143,7 @@ jobs:
 
     # Optional: Run tests
     - name: Run tests
-      if: inputs.run-tests
+      if: ${{ !inputs.is-release }}
       shell: bash
       env:
         # Add your test environment variables here
