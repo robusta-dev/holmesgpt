@@ -76,6 +76,7 @@ class HolmesTestCase(BaseModel):
     evaluation: LLMEvaluations = LLMEvaluations()
     before_test: Optional[str] = None
     after_test: Optional[str] = None
+    setup_timeout: Optional[int] = None  # Override default setup timeout in seconds
     conversation_history: Optional[list[dict]] = None
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution
