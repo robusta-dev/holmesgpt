@@ -45,9 +45,11 @@ from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
 # Enhanced InfraInsights toolsets
 from holmes.plugins.toolsets.infrainsights.enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
 from holmes.plugins.toolsets.infrainsights.comprehensive_kafka_toolset import ComprehensiveKafkaToolset
+from holmes.plugins.toolsets.infrainsights.comprehensive_kafka_connect_toolset import InfraInsightsKafkaConnectToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_mongodb_toolset import EnhancedMongoDBToolset
 from holmes.plugins.toolsets.infrainsights.enhanced_redis_toolset import EnhancedRedisToolset
 from holmes.plugins.toolsets.infrainsights.comprehensive_kubernetes_toolset import InfraInsightsKubernetesToolset
+from holmes.plugins.toolsets.infrainsights.kfuse_tempo_toolset import KfuseTempoToolset
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -241,6 +243,45 @@ def load_toolsets_from_config(
                     logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
                     validated_toolset.configure(validated_toolset.config)
                 else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
+            elif name == "infrainsights_kafka_connect_enhanced" or name == "infrainsights_kafka_connect_v2" or name == "infrainsights_kafka_connect" or name == "comprehensive_kafka_connect":
+                logging.info(f"🔧 Loading comprehensive Kafka Connect toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
+                validated_toolset = InfraInsightsKafkaConnectToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                
+                # Safety check: Verify all tools are proper Tool objects
+                logging.info(f"🔧 SAFETY CHECK: Verifying {len(validated_toolset.tools)} Kafka Connect tools")
+                for i, tool in enumerate(validated_toolset.tools):
+                    if not hasattr(tool, 'name'):
+                        logging.error(f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}")
+                        raise ValueError(f"Kafka Connect toolset tool {i} is not a proper Tool object: {type(tool)}")
+                    logging.info(f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})")
+                
+                # Call configure method to initialize InfraInsights client with config
+                if validated_toolset.config:
+                    logging.info(f"🔧 Calling configure method with config: {validated_toolset.config}")
+                    validated_toolset.configure(validated_toolset.config)
+                else:
+                    logging.warning(f"🔧 No config found for {name}, using defaults")
+            elif name == "kfuse_tempo" or name == "infrainsights_kfuse_tempo" or name == "kfuse/tempo":
+                logging.info(f"🔧 Loading Kfuse Tempo toolset: {name}")
+                logging.info(f"🔧 Config received: {config}")
+                validated_toolset = KfuseTempoToolset()
+                validated_toolset.config = config.get("config")
+                logging.info(f"🔧 Extracted config: {validated_toolset.config}")
+                
+                # Safety check: Verify all tools are proper Tool objects
+                logging.info(f"🔧 SAFETY CHECK: Verifying {len(validated_toolset.tools)} Kfuse Tempo tools")
+                for i, tool in enumerate(validated_toolset.tools):
+                    if not hasattr(tool, 'name'):
+                        logging.error(f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}")
+                        raise ValueError(f"Kfuse Tempo toolset tool {i} is not a proper Tool object: {type(tool)}")
+                    logging.info(f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})")
+                
+                # No configure method needed for KfuseTempoToolset as it uses config directly
+                if not validated_toolset.config:
                     logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)

@@ -10,6 +10,8 @@ from .enhanced_elasticsearch_toolset import EnhancedElasticsearchToolset
 from .enhanced_mongodb_toolset import EnhancedMongoDBToolset
 from .enhanced_redis_toolset import EnhancedRedisToolset
 from .comprehensive_kafka_toolset import ComprehensiveKafkaToolset
+from .comprehensive_kafka_connect_toolset import InfraInsightsKafkaConnectToolset
+from .kfuse_tempo_toolset import KfuseTempoToolset
 
 # List of available toolsets - used by the loader
 AVAILABLE_TOOLSETS = {
@@ -17,6 +19,8 @@ AVAILABLE_TOOLSETS = {
     'enhanced_mongodb': EnhancedMongoDBToolset,
     'enhanced_redis': EnhancedRedisToolset,
     'comprehensive_kafka': ComprehensiveKafkaToolset,
+    'comprehensive_kafka_connect': InfraInsightsKafkaConnectToolset,
+    'kfuse_tempo': KfuseTempoToolset,
 }
 
 def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
@@ -83,5 +87,41 @@ def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
                 break  # Only load one instance of Kafka toolset
             except Exception as e:
                 logger.error(f"❌ Failed to load Comprehensive Kafka toolset: {e}")
+    
+    # Comprehensive Kafka Connect toolset - support multiple config key variations
+    kafka_connect_configs = [
+        config.get('kafka_connect', {}),
+        config.get('infrainsights_kafka_connect', {}),
+        config.get('comprehensive_kafka_connect', {})
+    ]
+    
+    for kafka_connect_config in kafka_connect_configs:
+        if kafka_connect_config.get('enabled', False):
+            try:
+                kafka_connect_toolset = InfraInsightsKafkaConnectToolset()
+                kafka_connect_toolset.configure(kafka_connect_config)
+                toolsets.append(kafka_connect_toolset)
+                logger.info("✅ Comprehensive Kafka Connect toolset loaded")
+                break  # Only load one instance of Kafka Connect toolset
+            except Exception as e:
+                logger.error(f"❌ Failed to load Comprehensive Kafka Connect toolset: {e}")
+    
+    # Kfuse Tempo toolset - support multiple config key variations
+    tempo_configs = [
+        config.get('kfuse_tempo', {}),
+        config.get('infrainsights_kfuse_tempo', {}),
+        config.get('tempo', {})
+    ]
+    
+    for tempo_config in tempo_configs:
+        if tempo_config.get('enabled', False):
+            try:
+                tempo_toolset = KfuseTempoToolset()
+                tempo_toolset.config = tempo_config
+                toolsets.append(tempo_toolset)
+                logger.info("✅ Kfuse Tempo toolset loaded")
+                break  # Only load one instance of Tempo toolset
+            except Exception as e:
+                logger.error(f"❌ Failed to load Kfuse Tempo toolset: {e}")
     
     return toolsets 

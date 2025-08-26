@@ -24,6 +24,125 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================
+# ENHANCED CONTAINER INTELLIGENCE UTILITIES
+# ============================================
+
+class EnhancedContainerHandler:
+    """Enhanced container handling logic for intelligent container detection and multi-container operations"""
+    
+    @staticmethod
+    def should_check_all_containers(prompt: str) -> bool:
+        """Determine if prompt indicates checking all containers"""
+        if not prompt:
+            return False
+            
+        all_container_patterns = [
+            r'all\s+containers?',
+            r'check.*all.*containers?', 
+            r'containers?\s+of\s+pod',
+            r'every\s+container',
+            r'each\s+container',
+            r'all\s+container.*of.*pod',
+            r'investigate.*containers?',
+            r'check.*for.*all.*container',
+            r'logs.*from.*all.*container',
+            r'all.*container.*logs'
+        ]
+        
+        for pattern in all_container_patterns:
+            if re.search(pattern, prompt, re.IGNORECASE):
+                logger.info(f"🔍 Detected 'all containers' request with pattern: {pattern}")
+                return True
+        return False
+    
+    @staticmethod
+    def extract_container_name(prompt: str) -> Optional[str]:
+        """Extract specific container name from prompt"""
+        if not prompt:
+            return None
+            
+        patterns = [
+            r'container[:\s]+([a-zA-Z0-9\-_]+)',
+            r'container_name[:\s]+([a-zA-Z0-9\-_]+)',
+            r'([a-zA-Z0-9\-_]+)\s+container',
+            r'container\s+([a-zA-Z0-9\-_]+)',
+            r'in\s+container\s+([a-zA-Z0-9\-_]+)',
+            r'from\s+container\s+([a-zA-Z0-9\-_]+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, prompt, re.IGNORECASE)
+            if match:
+                extracted = match.group(1)
+                if extracted.lower() not in ['container', 'in', 'from']:
+                    logger.info(f"🔍 Extracted container name from prompt: {extracted}")
+                    return extracted
+        return None
+
+    @staticmethod
+    def get_pod_containers(core_api: client.CoreV1Api, pod_name: str, namespace: str) -> List[Dict[str, Any]]:
+        """Get all containers in a pod with their status"""
+        try:
+            pod = core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
+            containers = []
+            
+            for container in pod.spec.containers:
+                container_status = None
+                if pod.status.container_statuses:
+                    container_status = next(
+                        (cs for cs in pod.status.container_statuses if cs.name == container.name), 
+                        None
+                    )
+                
+                containers.append({
+                    'name': container.name,
+                    'image': container.image,
+                    'ready': container_status.ready if container_status else False,
+                    'restart_count': container_status.restart_count if container_status else 0,
+                    'state': str(container_status.state) if container_status else 'Unknown'
+                })
+            
+            logger.info(f"🔍 Found {len(containers)} containers in pod {pod_name}: {[c['name'] for c in containers]}")
+            return containers
+        except Exception as e:
+            logger.error(f"Failed to get pod containers: {e}")
+            return []
+
+    @staticmethod 
+    def fetch_logs_all_containers(core_api: client.CoreV1Api, pod_name: str, namespace: str, **kwargs) -> Dict[str, Dict[str, Any]]:
+        """Fetch logs from all containers in a pod"""
+        containers = EnhancedContainerHandler.get_pod_containers(core_api, pod_name, namespace)
+        all_logs = {}
+        
+        for container in containers:
+            try:
+                container_kwargs = kwargs.copy()
+                container_kwargs['container'] = container['name']
+                
+                logs = core_api.read_namespaced_pod_log(
+                    name=pod_name,
+                    namespace=namespace,
+                    **container_kwargs
+                )
+                
+                all_logs[container['name']] = {
+                    'logs': logs if logs else "No logs available",
+                    'container_info': container
+                }
+                
+                logger.info(f"🔍 Successfully fetched logs for container: {container['name']}")
+                
+            except Exception as e:
+                logger.error(f"Failed to fetch logs for container {container['name']}: {e}")
+                all_logs[container['name']] = {
+                    'logs': f"Error fetching logs: {str(e)}",
+                    'container_info': container
+                }
+        
+        return all_logs
+
+
+# ============================================
 # PHASE 1: BASIC KUBERNETES TOOLS
 # ============================================
 
@@ -726,10 +845,12 @@ class KubernetesDescribeResourceTool(Tool):
 # ============================================
 
 class KubernetesLogsTool(Tool):
-    """Tool to fetch Kubernetes pod logs"""
+    """Tool to fetch Kubernetes pod logs with intelligent container detection"""
     
     name: str = "kubernetes_logs"
-    description: str = "Fetch logs from Kubernetes pods with various filtering options"
+    description: str = """Fetch logs from Kubernetes pods with intelligent container handling. 
+    Supports fetching logs from all containers when 'all containers' is mentioned in prompts,
+    or can extract specific container names from natural language requests."""
     parameters: Dict[str, ToolParameter] = {
         "instance_name": ToolParameter(
             description="Name of the Kubernetes instance",
@@ -747,7 +868,7 @@ class KubernetesLogsTool(Tool):
             required=False
         ),
         "container": ToolParameter(
-            description="Container name (for multi-container pods)",
+            description="Container name (for multi-container pods). Leave empty to auto-detect from user prompt",
             type="string",
             required=False
         ),
@@ -765,6 +886,11 @@ class KubernetesLogsTool(Tool):
             description="Show logs since timestamp (e.g., 1h, 2m, 2023-01-01T00:00:00Z)",
             type="string",
             required=False
+        ),
+        "user_prompt": ToolParameter(
+            description="Original user prompt for intelligent container detection",
+            type="string",
+            required=False
         )
     }
     toolset: Optional[Any] = None
@@ -772,7 +898,9 @@ class KubernetesLogsTool(Tool):
     def __init__(self, toolset=None):
         super().__init__(
             name="kubernetes_logs",
-            description="Fetch logs from Kubernetes pods with various filtering options",
+            description="""Fetch logs from Kubernetes pods with intelligent container handling. 
+            Supports fetching logs from all containers when 'all containers' is mentioned in prompts,
+            or can extract specific container names from natural language requests.""",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
@@ -790,7 +918,7 @@ class KubernetesLogsTool(Tool):
                     required=False
                 ),
                 "container": ToolParameter(
-                    description="Container name (for multi-container pods)",
+                    description="Container name (for multi-container pods). Leave empty to auto-detect from user prompt",
                     type="string",
                     required=False
                 ),
@@ -806,6 +934,11 @@ class KubernetesLogsTool(Tool):
                 ),
                 "since": ToolParameter(
                     description="Show logs since timestamp (e.g., 1h, 2m, 2023-01-01T00:00:00Z)",
+                    type="string",
+                    required=False
+                ),
+                "user_prompt": ToolParameter(
+                    description="Original user prompt for intelligent container detection",
                     type="string",
                     required=False
                 )
@@ -824,6 +957,8 @@ class KubernetesLogsTool(Tool):
             tail = params.get("tail")
             since = params.get("since")
 
+            user_prompt = params.get("user_prompt", "")
+
             if not instance_name or not pod_name:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
@@ -840,23 +975,45 @@ class KubernetesLogsTool(Tool):
                     params=params
                 )
 
-            # Fetch logs
-            logs_data = self._fetch_logs(instance, pod_name, namespace, container, previous, tail, since)
+            # Fetch logs with enhanced container intelligence
+            logs_data = self._fetch_logs_enhanced(instance, pod_name, namespace, container, previous, tail, since, user_prompt)
             
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data={
-                    'instance_name': instance_name,
-                    'pod_name': pod_name,
-                    'namespace': namespace,
-                    'container': container,
-                    'previous': previous,
-                    'tail': tail,
-                    'since': since,
-                    'logs': logs_data
-                },
-                params=params
-            )
+            # Parse logs_data to check if it's from multiple containers
+            if isinstance(logs_data, dict) and 'all_containers' in logs_data:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data={
+                        'instance_name': instance_name,
+                        'pod_name': pod_name,
+                        'namespace': namespace,
+                        'container': container,
+                        'previous': previous,
+                        'tail': tail,
+                        'since': since,
+                        'user_prompt': user_prompt,
+                        'all_containers_checked': True,
+                        'container_count': logs_data.get('container_count', 0),
+                        'logs': logs_data['logs']
+                    },
+                    params=params
+                )
+            else:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data={
+                        'instance_name': instance_name,
+                        'pod_name': pod_name,
+                        'namespace': namespace,
+                        'container': container,
+                        'previous': previous,
+                        'tail': tail,
+                        'since': since,
+                        'user_prompt': user_prompt,
+                        'all_containers_checked': False,
+                        'logs': logs_data
+                    },
+                    params=params
+                )
             
         except Exception as e:
             logger.error(f"Failed to fetch Kubernetes logs: {e}", exc_info=True)
@@ -1005,6 +1162,69 @@ class KubernetesLogsTool(Tool):
             logger.error(f"🔍 Failed to fetch logs: {e}", exc_info=True)
             return f"Failed to fetch logs: {str(e)}"
 
+    def _fetch_logs_enhanced(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], previous: bool, tail: Optional[int], since: Optional[str], user_prompt: str) -> Any:
+        """Enhanced fetch logs with intelligent container handling"""
+        try:
+            logger.info(f"🔍 Enhanced log fetching for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
+            
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            
+            # Check if user wants all containers
+            check_all = EnhancedContainerHandler.should_check_all_containers(user_prompt)
+            
+            # If no container specified but user wants all containers
+            if container is None and check_all:
+                logger.info("🔍 User requested all containers - fetching from all containers in pod")
+                
+                # Build kwargs for log fetching
+                kwargs = {}
+                if previous:
+                    kwargs['previous'] = True
+                if tail:
+                    kwargs['tail_lines'] = tail
+                if since:
+                    since_seconds = self._parse_since_seconds(since)
+                    if since_seconds:
+                        kwargs['since_seconds'] = since_seconds
+                
+                # Fetch logs from all containers
+                all_logs = EnhancedContainerHandler.fetch_logs_all_containers(
+                    core_api, pod_name, namespace, **kwargs
+                )
+                
+                # Format the result
+                result = f"=== LOGS FROM ALL CONTAINERS IN POD '{pod_name}' ===\n\n"
+                for container_name, log_data in all_logs.items():
+                    result += f"🔶 CONTAINER: {container_name}\n"
+                    result += f"   Image: {log_data['container_info']['image']}\n"
+                    result += f"   Ready: {log_data['container_info']['ready']}\n"
+                    result += f"   Restart Count: {log_data['container_info']['restart_count']}\n"
+                    result += f"   State: {log_data['container_info']['state']}\n"
+                    result += f"--- LOGS ---\n{log_data['logs']}\n"
+                    result += f"{'='*80}\n\n"
+                
+                # Return structured data for multi-container logs
+                return {
+                    'all_containers': True,
+                    'container_count': len(all_logs),
+                    'logs': result
+                }
+                
+            # If no container specified, try to extract from prompt
+            elif container is None:
+                extracted_container = EnhancedContainerHandler.extract_container_name(user_prompt)
+                if extracted_container:
+                    logger.info(f"🔍 Extracted container name from prompt: {extracted_container}")
+                    container = extracted_container
+            
+            # Use original single container logic
+            return self._fetch_logs(instance, pod_name, namespace, container, previous, tail, since)
+            
+        except Exception as e:
+            logger.error(f"Enhanced log fetching failed: {e}", exc_info=True)
+            return f"Error fetching logs: {str(e)}"
+
     def _parse_since_seconds(self, since_str: Optional[str]) -> Optional[int]:
         """Parse 'since' parameter into seconds"""
         if not since_str:
@@ -1058,7 +1278,15 @@ class KubernetesLogsTool(Tool):
         instance_name = params.get("instance_name", "unknown")
         pod_name = params.get("pod_name", "unknown")
         namespace = params.get("namespace", "default")
-        return f"kubernetes_logs(instance_name={instance_name}, pod_name={pod_name}, namespace={namespace})"
+        container = params.get("container")
+        user_prompt = params.get("user_prompt", "")
+        
+        if container:
+            return f"kubernetes_logs(instance_name={instance_name}, pod_name={pod_name}, namespace={namespace}, container={container})"
+        elif user_prompt:
+            return f"kubernetes_logs(instance_name={instance_name}, pod_name={pod_name}, namespace={namespace}, user_prompt='{user_prompt[:50]}...')"
+        else:
+            return f"kubernetes_logs(instance_name={instance_name}, pod_name={pod_name}, namespace={namespace})"
 
 
 class KubernetesEventsTool(Tool):
@@ -1319,10 +1547,12 @@ class KubernetesEventsTool(Tool):
 
 
 class KubernetesLogsSearchTool(Tool):
-    """Tool to search logs for specific patterns"""
+    """Tool to search logs for specific patterns with intelligent container detection"""
     
     name: str = "kubernetes_logs_search"
-    description: str = "Search Kubernetes pod logs for specific patterns or terms"
+    description: str = """Search Kubernetes pod logs for specific patterns or terms with intelligent container handling.
+    Supports searching across all containers when 'all containers' is mentioned in prompts,
+    or can extract specific container names from natural language requests."""
     parameters: Dict[str, ToolParameter] = {
         "instance_name": ToolParameter(
             description="Name of the Kubernetes instance",
@@ -1345,7 +1575,7 @@ class KubernetesLogsSearchTool(Tool):
             required=True
         ),
         "container": ToolParameter(
-            description="Container name (for multi-container pods)",
+            description="Container name (for multi-container pods). Leave empty to auto-detect from user prompt",
             type="string",
             required=False
         ),
@@ -1358,6 +1588,11 @@ class KubernetesLogsSearchTool(Tool):
             description="Invert match (show lines that don't match)",
             type="boolean",
             required=False
+        ),
+        "user_prompt": ToolParameter(
+            description="Original user prompt for intelligent container detection",
+            type="string",
+            required=False
         )
     }
     toolset: Optional[Any] = None
@@ -1365,7 +1600,9 @@ class KubernetesLogsSearchTool(Tool):
     def __init__(self, toolset=None):
         super().__init__(
             name="kubernetes_logs_search",
-            description="Search Kubernetes pod logs for specific patterns or terms",
+            description="""Search Kubernetes pod logs for specific patterns or terms with intelligent container handling.
+            Supports searching across all containers when 'all containers' is mentioned in prompts,
+            or can extract specific container names from natural language requests.""",
             parameters={
                 "instance_name": ToolParameter(
                     description="Name of the Kubernetes instance",
@@ -1388,7 +1625,7 @@ class KubernetesLogsSearchTool(Tool):
                     required=True
                 ),
                 "container": ToolParameter(
-                    description="Container name (for multi-container pods)",
+                    description="Container name (for multi-container pods). Leave empty to auto-detect from user prompt",
                     type="string",
                     required=False
                 ),
@@ -1400,6 +1637,11 @@ class KubernetesLogsSearchTool(Tool):
                 "invert_match": ToolParameter(
                     description="Invert match (show lines that don't match)",
                     type="boolean",
+                    required=False
+                ),
+                "user_prompt": ToolParameter(
+                    description="Original user prompt for intelligent container detection",
+                    type="string",
                     required=False
                 )
             }
@@ -1416,6 +1658,7 @@ class KubernetesLogsSearchTool(Tool):
             container = params.get("container")
             case_sensitive = params.get("case_sensitive", False)
             invert_match = params.get("invert_match", False)
+            user_prompt = params.get("user_prompt", "")
 
             if not instance_name or not pod_name or not search_term:
                 return StructuredToolResult(
@@ -1433,8 +1676,8 @@ class KubernetesLogsSearchTool(Tool):
                     params=params
                 )
 
-            # Fetch logs and apply search filter
-            logs_result = self._fetch_logs_for_search(instance, pod_name, namespace, container)
+            # Fetch logs with enhanced container intelligence and apply search filter
+            logs_result = self._fetch_logs_for_search_enhanced(instance, pod_name, namespace, container, user_prompt)
             filtered_logs = self._filter_logs(logs_result, search_term, case_sensitive, invert_match)
             
             return StructuredToolResult(
@@ -1447,6 +1690,7 @@ class KubernetesLogsSearchTool(Tool):
                     'search_term': search_term,
                     'case_sensitive': case_sensitive,
                     'invert_match': invert_match,
+                    'user_prompt': user_prompt,
                     'filtered_logs': filtered_logs,
                     'total_lines': len(logs_result.splitlines()),
                     'matching_lines': len(filtered_logs.splitlines())
@@ -1491,6 +1735,49 @@ class KubernetesLogsSearchTool(Tool):
         except Exception as e:
             logger.error(f"Failed to fetch logs for search: {e}", exc_info=True)
             return f"Failed to fetch logs for search: {str(e)}"
+
+    def _fetch_logs_for_search_enhanced(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], user_prompt: str) -> str:
+        """Enhanced fetch logs for search with intelligent container handling"""
+        try:
+            logger.info(f"🔍 Enhanced log search for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
+            
+            k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
+            
+            # Check if user wants all containers
+            check_all = EnhancedContainerHandler.should_check_all_containers(user_prompt)
+            
+            # If no container specified but user wants all containers
+            if container is None and check_all:
+                logger.info("🔍 User requested all containers for search - fetching from all containers in pod")
+                
+                # Fetch logs from all containers without specific parameters (for search)
+                all_logs = EnhancedContainerHandler.fetch_logs_all_containers(
+                    core_api, pod_name, namespace, follow=False
+                )
+                
+                # Combine all logs into one searchable string
+                combined_logs = f"=== COMBINED LOGS FOR SEARCH FROM ALL CONTAINERS IN POD '{pod_name}' ===\n\n"
+                for container_name, log_data in all_logs.items():
+                    combined_logs += f"🔶 CONTAINER: {container_name}\n"
+                    combined_logs += f"--- LOGS ---\n{log_data['logs']}\n"
+                    combined_logs += f"{'='*80}\n\n"
+                
+                return combined_logs
+                
+            # If no container specified, try to extract from prompt
+            elif container is None:
+                extracted_container = EnhancedContainerHandler.extract_container_name(user_prompt)
+                if extracted_container:
+                    logger.info(f"🔍 Extracted container name from prompt for search: {extracted_container}")
+                    container = extracted_container
+            
+            # Use original single container logic
+            return self._fetch_logs_for_search(instance, pod_name, namespace, container)
+            
+        except Exception as e:
+            logger.error(f"Enhanced log search failed: {e}", exc_info=True)
+            return f"Error fetching logs for search: {str(e)}"
 
     def _filter_logs(self, logs: str, search_term: str, case_sensitive: bool, invert_match: bool) -> str:
         """Filter logs using search term"""
@@ -1546,7 +1833,15 @@ class KubernetesLogsSearchTool(Tool):
         instance_name = params.get("instance_name", "unknown")
         pod_name = params.get("pod_name", "unknown")
         search_term = params.get("search_term", "unknown")
-        return f"kubernetes_logs_search(instance_name={instance_name}, pod_name={pod_name}, search_term={search_term})"
+        container = params.get("container")
+        user_prompt = params.get("user_prompt", "")
+        
+        if container:
+            return f"kubernetes_logs_search(instance_name={instance_name}, pod_name={pod_name}, search_term={search_term}, container={container})"
+        elif user_prompt:
+            return f"kubernetes_logs_search(instance_name={instance_name}, pod_name={pod_name}, search_term={search_term}, user_prompt='{user_prompt[:50]}...')"
+        else:
+            return f"kubernetes_logs_search(instance_name={instance_name}, pod_name={pod_name}, search_term={search_term})"
 
 
 # ============================================
