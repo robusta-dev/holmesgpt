@@ -8,7 +8,7 @@ set -euo pipefail
 # 2) fetches p95(promotions) and p95(none) from Prometheus via kubectl-run+curl
 # 3) asserts: p95(promotions) > 2 * p95(none)  AND  p95(none) < 0.20s
 
-NS="${NS:-holmes-test}"
+NS="${NS:-app-115}"
 JOB="${JOB:-k6-coupon-split}"
 WAIT_TIMEOUT="${WAIT_TIMEOUT:-5m}"
 PROM_URL="${PROM_URL:-http://prometheus.${NS}.svc.cluster.local:9090}"
