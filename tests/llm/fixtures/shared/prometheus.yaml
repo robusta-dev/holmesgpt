@@ -1,22 +1,7 @@
 # Shared Prometheus deployment configuration for test fixtures
 # Apply with: kubectl apply -f prometheus.yaml -n <namespace>
 # Note: Namespace must be created separately
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 5s
-      evaluation_interval: 5s
-    scrape_configs:
-    - job_name: 'checkout'
-      metrics_path: /metrics
-      static_configs:
-      - targets: ['checkout:80']
-
+# Note: Requires a ConfigMap named 'prometheus-config' to be created separately
 ---
 apiVersion: apps/v1
 kind: Deployment

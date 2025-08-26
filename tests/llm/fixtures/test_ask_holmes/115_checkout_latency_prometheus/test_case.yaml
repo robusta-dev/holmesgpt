@@ -20,6 +20,7 @@ port_forwards:
 before_test: |
   set -e  # Exit immediately if any command fails
   kubectl create namespace app-115 --save-config --dry-run=client -o yaml | kubectl apply -f - || true
+  kubectl apply -f prometheus-config.yaml -n app-115
   kubectl apply -f ../../shared/prometheus.yaml -n app-115
   kubectl apply -f holmes-all-in-one-fast.yaml -n app-115
   ./run-holmes-check-curl-jq.sh
