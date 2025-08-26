@@ -20,7 +20,7 @@ on:
       poetry-version:
         description: 'Poetry version to use'
         required: false
-        default: '1.4.0'
+        default: '1.8.4'
         type: string
       os-matrix:
         description: 'OS matrix for builds (JSON array)'
