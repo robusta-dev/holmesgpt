@@ -10,7 +10,7 @@ from openai import BadRequestError
 from openai.types.chat.chat_completion_message_tool_call import (
     ChatCompletionMessageToolCall,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rich.console import Console
 
 from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
@@ -42,6 +42,78 @@ from holmes.utils.stream import StreamEvents, StreamMessage
 from holmes.core.todo_manager import (
     get_todo_manager,
 )
+
+# Create a named logger for cost tracking
+cost_logger = logging.getLogger("holmes.costs")
+
+
+class LLMCosts(BaseModel):
+    """Tracks cost and token usage for LLM calls."""
+
+    total_cost: float = 0.0
+    total_tokens: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+def _extract_cost_from_response(full_response) -> float:
+    """Extract cost value from LLM response.
+
+    Args:
+        full_response: The raw LLM response object
+
+    Returns:
+        The cost as a float, or 0.0 if not available
+    """
+    try:
+        cost_value = (
+            full_response._hidden_params.get("response_cost", 0)
+            if hasattr(full_response, "_hidden_params")
+            else 0
+        )
+        # Ensure cost is a float
+        return float(cost_value) if cost_value is not None else 0.0
+    except Exception:
+        return 0.0
+
+
+def _process_cost_info(
+    full_response, costs: Optional[LLMCosts] = None, log_prefix: str = "LLM call"
+) -> None:
+    """Process cost and token information from LLM response.
+
+    Logs the cost information and optionally accumulates it into a costs object.
+
+    Args:
+        full_response: The raw LLM response object
+        costs: Optional LLMCosts object to accumulate costs into
+        log_prefix: Prefix for logging messages (e.g., "LLM call", "Post-processing")
+    """
+    try:
+        cost = _extract_cost_from_response(full_response)
+        usage = getattr(full_response, "usage", {})
+
+        if usage:
+            prompt_toks = usage.get("prompt_tokens", 0)
+            completion_toks = usage.get("completion_tokens", 0)
+            total_toks = usage.get("total_tokens", 0)
+            cost_logger.debug(
+                f"{log_prefix} cost: ${cost:.6f} | Tokens: {prompt_toks} prompt + {completion_toks} completion = {total_toks} total"
+            )
+            # Accumulate costs and tokens if costs object provided
+            if costs:
+                costs.total_cost += cost
+                costs.prompt_tokens += prompt_toks
+                costs.completion_tokens += completion_toks
+                costs.total_tokens += total_toks
+        elif cost > 0:
+            cost_logger.debug(
+                f"{log_prefix} cost: ${cost:.6f} | Token usage not available"
+            )
+            if costs:
+                costs.total_cost += cost
+    except Exception as e:
+        logging.debug(f"Could not extract cost information: {e}")
 
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
@@ -186,11 +258,11 @@ class ToolCallResult(BaseModel):
         }
 
 
-class LLMResult(BaseModel):
+class LLMResult(LLMCosts):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
     unprocessed_result: Optional[str] = None
-    instructions: List[str] = []
+    instructions: List[str] = Field(default_factory=list)
     # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
@@ -259,6 +331,8 @@ class ToolCallingLLM:
     ) -> LLMResult:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
+        costs = LLMCosts()
+
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
@@ -298,6 +372,9 @@ class ToolCallingLLM:
                     drop_params=True,
                 )
                 logging.debug(f"got response {full_response.to_json()}")  # type: ignore
+
+                # Extract and accumulate cost information
+                _process_cost_info(full_response, costs, "LLM call")
 
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
@@ -352,11 +429,14 @@ class ToolCallingLLM:
                 if post_process_prompt and user_prompt:
                     logging.info("Running post processing on investigation.")
                     raw_response = text_response
-                    post_processed_response = self._post_processing_call(
-                        prompt=user_prompt,
-                        investigation=raw_response,
-                        user_prompt=post_process_prompt,
+                    post_processed_response, post_processing_cost = (
+                        self._post_processing_call(
+                            prompt=user_prompt,
+                            investigation=raw_response,
+                            user_prompt=post_process_prompt,
+                        )
                     )
+                    costs.total_cost += post_processing_cost
 
                     perf_timing.end(f"- completed in {i} iterations -")
                     return LLMResult(
@@ -365,6 +445,7 @@ class ToolCallingLLM:
                         tool_calls=tool_calls,
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
+                        **costs.model_dump(),  # Include all cost fields
                     )
 
                 perf_timing.end(f"- completed in {i} iterations -")
@@ -373,6 +454,7 @@ class ToolCallingLLM:
                     tool_calls=tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
+                    **costs.model_dump(),  # Include all cost fields
                 )
 
             if text_response and text_response.strip():
@@ -543,7 +625,7 @@ class ToolCallingLLM:
         investigation,
         user_prompt: Optional[str] = None,
         system_prompt: str = "You are an AI assistant summarizing Kubernetes issues.",
-    ) -> Optional[str]:
+    ) -> tuple[Optional[str], float]:
         try:
             user_prompt = ToolCallingLLM.__load_post_processing_user_prompt(
                 prompt, investigation, user_prompt
@@ -562,10 +644,18 @@ class ToolCallingLLM:
             ]
             full_response = self.llm.completion(messages=messages, temperature=0)
             logging.debug(f"Post processing response {full_response}")
-            return full_response.choices[0].message.content  # type: ignore
+
+            # Extract and log cost information for post-processing
+            post_processing_cost = _extract_cost_from_response(full_response)
+            if post_processing_cost > 0:
+                cost_logger.debug(
+                    f"Post-processing LLM cost: ${post_processing_cost:.6f}"
+                )
+
+            return full_response.choices[0].message.content, post_processing_cost  # type: ignore
         except Exception:
             logging.exception("Failed to run post processing", exc_info=True)
-            return investigation
+            return investigation, 0.0
 
     @sentry_sdk.trace
     def truncate_messages_to_fit_context(
@@ -638,6 +728,10 @@ class ToolCallingLLM:
                     stream=False,
                     drop_params=True,
                 )
+
+                # Log cost information for this iteration (no accumulation in streaming)
+                _process_cost_info(full_response, log_prefix="LLM iteration")
+
                 perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:

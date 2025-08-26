@@ -15,6 +15,28 @@ from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
 
 
+class SetupFailureError(Exception):
+    """Custom exception for setup failures with additional context."""
+
+    def __init__(
+        self,
+        message: str,
+        test_id: str,
+        command: Optional[str] = None,
+        output: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.test_id = test_id
+        self.command = command
+        self.output = output
+
+
+def get_models():
+    """Get list of models to test from MODEL env var (supports comma-separated list)."""
+    models_str = os.environ.get("MODEL", "gpt-4o")
+    return models_str.split(",")
+
+
 def read_file(file_path: Path):
     with open(file_path, "r", encoding="utf-8") as file:
         return file.read().strip()
@@ -101,14 +123,44 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     request: Any = None
 
 
-def check_and_skip_test(test_case: HolmesTestCase) -> None:
-    """Check if test should be skipped and raise pytest.skip if needed.
+def check_and_skip_test(
+    test_case: HolmesTestCase, request=None, shared_test_infrastructure=None
+) -> None:
+    """Check if test should be skipped or has setup failures, and raise appropriate pytest exceptions.
 
     Args:
         test_case: A HolmesTestCase or any of its subclasses
+        request: The pytest request object (optional, needed for setup failure tracking)
+        shared_test_infrastructure: Shared test infrastructure dict (optional, needed for setup failure checking)
     """
+    # Check if test should be skipped
     if test_case.skip:
         pytest.skip(test_case.skip_reason or "Test skipped")
+
+    # Check if --only-setup is set
+    if request and request.config.getoption("--only-setup", False):
+        print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
+        pytest.skip("Skipping test execution due to --only-setup flag")
+
+    # Check for setup failures - early return if no infrastructure or request
+    if shared_test_infrastructure is None or request is None:
+        return
+
+    setup_failures = shared_test_infrastructure.get("setup_failures", {})
+    if test_case.id in setup_failures:
+        setup_error_detail = setup_failures[test_case.id]
+        request.node.user_properties.append(("is_setup_failure", True))
+        request.node.user_properties.append(
+            ("setup_failure_detail", setup_error_detail)
+        )
+
+        # Just pass the full error detail through - no parsing needed
+        raise SetupFailureError(
+            message=setup_error_detail,
+            test_id=test_case.id,
+            command="Setup script",
+            output=setup_error_detail,  # Full details including stdout/stderr
+        )
 
 
 class MockHelper:
