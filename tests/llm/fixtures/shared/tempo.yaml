@@ -97,9 +97,10 @@ data:
               endpoint: 0.0.0.0:4318
 
     ingester:
-      max_block_duration: 5m
-      trace_idle_period: 30s
-      max_block_bytes: 10_000_000
+      max_block_duration: 24h
+      trace_idle_period: 24h
+      max_block_bytes: 1_000_000_000
+      complete_block_timeout: 48h
 
     compactor:
       compaction:
