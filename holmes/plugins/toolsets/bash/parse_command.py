@@ -27,7 +27,7 @@ from holmes.plugins.toolsets.bash.utilities.grep import GrepCommand
 
 
 # All commands now use BashCommand classes
-commands: list[BashCommand] = [
+AVAILABLE_COMMANDS: list[BashCommand] = [
     WCCommand(),
     KubectlCommand(),
     AWSCommand(),
@@ -46,6 +46,10 @@ commands: list[BashCommand] = [
     JqCommand(),
     SedCommand(),
 ]
+
+command_name_to_command_map: dict[str, BashCommand] = {
+    cmd.name: cmd for cmd in AVAILABLE_COMMANDS
+}
 
 
 class QuietArgumentParser(argparse.ArgumentParser):
@@ -73,7 +77,7 @@ def create_parser() -> argparse.ArgumentParser:
     )
 
     # Add all BashCommand classes
-    for command in commands:
+    for command in AVAILABLE_COMMANDS:
         command.add_parser(commands_parser)
 
     return parser
@@ -82,25 +86,24 @@ def create_parser() -> argparse.ArgumentParser:
 def validate_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ):
-    pass
+    bash_command_instance = command_name_to_command_map.get(command.cmd)
+
+    if bash_command_instance:
+        bash_command_instance.validate_command(command, original_command, config)
 
 
 def stringify_command(
     command: Any, original_command: str, config: Optional[BashExecutorConfig]
 ) -> str:
-    bash_command_instance = next(
-        (cmd for cmd in commands if cmd.name == command.cmd), None
-    )
+    bash_command_instance = command_name_to_command_map.get(command.cmd)
 
     if bash_command_instance:
-        # Validate the command first
-        bash_command_instance.validate_command(command, original_command, config)
         return bash_command_instance.stringify_command(
             command, original_command, config
         )
     else:
         # This code path should not happen b/c the parsing of the command should catch an unsupported command
-        supported_commands = [cmd.name for cmd in commands]
+        supported_commands = [cmd.name for cmd in AVAILABLE_COMMANDS]
         raise ValueError(
             f"Unsupported command '{command.cmd}' in {original_command}. Supported commands are: {', '.join(supported_commands)}"
         )
