@@ -122,17 +122,17 @@ def generate_markdown_report(sorted_results: List[dict]) -> Tuple[str, List[dict
 
     for result in sorted_results:
         test_suite = result["test_type"]
-        test_name = f"{result['test_id']}_{result['test_name']}"
+        test_case_name = result["test_case_name"]
 
         braintrust_url = get_braintrust_url(
             result.get("braintrust_span_id"),
             result.get("braintrust_root_span_id"),
         )
         if braintrust_url:
-            test_name = f"[{test_name}]({braintrust_url})"
+            test_case_name = f"[{test_case_name}]({braintrust_url})"
 
         status = TestStatus(result)
-        markdown += f"| {test_suite} | {test_name} | {status.markdown_symbol} |\n"
+        markdown += f"| {test_suite} | {test_case_name} | {status.markdown_symbol} |\n"
 
     markdown += "\n\n**Legend**\n"
     markdown += "\n- :white_check_mark: the test was successful"

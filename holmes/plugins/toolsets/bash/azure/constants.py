@@ -188,7 +188,12 @@ DENIED_AZURE_COMMANDS: dict[str, dict] = {
     },
     # Storage operations
     "storage": {
-        "account": {"create": {}, "delete": {}, "update": {}},
+        "account": {
+            "create": {},
+            "delete": {},
+            "update": {},
+            "keys": {},
+        },
         "container": {"create": {}, "delete": {}},
         "blob": {
             "upload": {},
@@ -295,6 +300,15 @@ DENIED_AZURE_COMMANDS: dict[str, dict] = {
     # Backup and recovery
     "backup": {},
     "restore": {},
+    # CDN operations
+    "cdn": {
+        "profile": {"create": {}, "delete": {}},
+        "endpoint": {
+            "create": {},
+            "delete": {},
+            "purge": {},  # Purges CDN content
+        },
+    },
     # DevOps and CI/CD
     "devops": {},
     "repos": {},
@@ -309,12 +323,17 @@ DENIED_AZURE_COMMANDS: dict[str, dict] = {
             },
         },
     },
-    # Service-specific risky operations
-    "invoke": {},  # Function invocation
-    "execute": {},  # Command execution
-    "run": {},  # Running tasks/jobs
-    "submit": {},  # Job submission
-    "cancel": {},  # Canceling operations
-    "purge": {},  # Purging data
-    "regenerate": {},  # Regenerating keys/secrets
+    # Function App operations
+    "functionapp": {
+        "invoke": {},  # Function invocation
+    },
+    # Batch operations
+    "batch": {
+        "execute": {},  # Command execution
+        "job": {
+            "run": {},  # Running tasks/jobs
+            "submit": {},  # Job submission
+            "cancel": {},  # Canceling operations
+        },
+    },
 }

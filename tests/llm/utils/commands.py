@@ -2,6 +2,7 @@
 import logging
 import os
 import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from typing import Dict, Optional
@@ -70,6 +71,14 @@ def _invoke_command(command: str, cwd: str) -> str:
         output = f"{result.stdout}\n{result.stderr}"
         logging.debug(f"** `{command}`:\n{output}")
         logging.debug(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
+
+        # Show output if SHOW_SETUP_OUTPUT is set
+        if os.environ.get("SHOW_SETUP_OUTPUT", "").lower() in ("true", "1"):
+            if result.stdout:
+                sys.stderr.write(f"[SETUP OUTPUT] {result.stdout}\n")
+            if result.stderr:
+                sys.stderr.write(f"[SETUP STDERR] {result.stderr}\n")
+
         return output
     except subprocess.CalledProcessError as e:
         truncated_command = _truncate_script(command)
@@ -111,7 +120,7 @@ def run_commands(
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {_truncate_script(script)}\nExit code: {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}\n\nScript that failed:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",
@@ -124,7 +133,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {_truncate_script(script)}\nTIMEOUT after {e.timeout}s; You can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>"
+        error_details = f"TIMEOUT after {e.timeout}s\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>\n\nScript that timed out:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",
