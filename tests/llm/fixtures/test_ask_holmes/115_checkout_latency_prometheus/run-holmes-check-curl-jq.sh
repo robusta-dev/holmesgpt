@@ -1,38 +1,5 @@
 #!/usr/bin/env bash
 
-# TODO I get weird results - the prometheus waits 10/10 times but the final verdit is actually working. also, there is a none print
-# ./run-holmes-check-curl-jq.sh                                                                                                                                                                                                                                                                 (do-fra1-tomer)
-#>>> Waiting for Job/k6-coupon-split to complete (timeout: 5m)
-#job.batch/k6-coupon-split condition met
-#>>> Fetching metrics via curl (inside cluster)
-#Waiting for Prometheus data (attempt 1/10)...
-#Waiting for Prometheus data (attempt 2/10)...
-#Waiting for Prometheus data (attempt 3/10)...
-#Waiting for Prometheus data (attempt 4/10)...
-#Waiting for Prometheus data (attempt 5/10)...
-#Waiting for Prometheus data (attempt 6/10)...
-#Waiting for Prometheus data (attempt 7/10)...
-#Waiting for Prometheus data (attempt 8/10)...
-#Waiting for Prometheus data (attempt 9/10)...
-#Waiting for Prometheus data (attempt 10/10)...
-#Waiting for Prometheus data (attempt 1/10)...
-#Waiting for Prometheus data (attempt 2/10)...
-#Waiting for Prometheus data (attempt 3/10)...
-#Waiting for Prometheus data (attempt 4/10)...
-#Waiting for Prometheus data (attempt 5/10)...
-#Waiting for Prometheus data (attempt 6/10)...
-#Waiting for Prometheus data (attempt 7/10)...
-#Waiting for Prometheus data (attempt 8/10)...
-#Waiting for Prometheus data (attempt 9/10)...
-#Waiting for Prometheus data (attempt 10/10)...
-#parse error: Invalid numeric literal at line 1, column 114
-#parse error: Invalid numeric literal at line 1, column 128
-#coupon_p95=0.7375s  nocoupon_p95=0.048682195121951224s
-#>>> PASS: Only coupon calls are slower (promo p95 > 2x none, baseline p95 < 200ms).
-
-
-
-
 set -euo pipefail
 
 # Requirements: kubectl, jq
@@ -58,27 +25,59 @@ fi
 
 # Run curl inside the cluster and stream stdout back; no port-forward
 curl_query() {
-  local query="$1"
-  local name="curl-$(date +%s)-$RANDOM"
-  kubectl -n "${NS}" run "${name}" --rm -i --restart=Never \
-    --image=curlimages/curl:8.8.0 -- \
-    curl -s --get "${PROM_URL}/api/v1/query" --data-urlencode "query=${query}" 2>/dev/null
+  local q="$1"
+  kubectl run curl-$$ \
+    --image=curlimages/curl:8.8.0 \
+    --restart=Never --rm -i --quiet -- \
+    sh -c "curl -sS --get '${PROM_URL}/api/v1/query' --data-urlencode 'query=${q}'" 2>&1 | \
+    awk 'match($0, /^[[:space:]]*{/) { print; exit }'
 }
 
-# Simple retry helper to allow last scrapes to land
+# Simple retry helper to allow last scrapes to land — with verbose error prints
 fetch_json() {
   local q="$1" json="" attempt=1
-  until [ $attempt -gt 10 ]; do
-    json="$(curl_query "$q")" || true
-    # consider success if status=success and we have a result array (may be empty)
-    if printf '%s' "$json" | jq -e '.status=="success"' >/dev/null 2>&1; then
-      echo "$json"
-      return 0
+
+  while [ $attempt -le 10 ]; do
+    # Capture stderr from curl_query so we can show it
+    local curl_rc curl_stderr tmp
+    tmp="$(mktemp)"
+    json="$(curl_query "$q" 2>"$tmp")"; curl_rc=$?
+    curl_stderr="$(cat "$tmp" 2>/dev/null || true)"; rm -f "$tmp"
+
+    # If curl failed, print its error
+    if [ $curl_rc -ne 0 ]; then
+      echo "curl_query failed (rc=$curl_rc) on attempt $attempt: $curl_stderr" >&2
     fi
+
+    # If body isn't valid JSON, print jq's parse error + a short preview of the body
+    if ! printf '%s' "$json" | jq -e . >/dev/null 2>&1; then
+      local jq_err tmpjq
+      tmpjq="$(mktemp)"
+      printf '%s' "$json" | jq . >/dev/null 2>"$tmpjq" || true
+      jq_err="$(cat "$tmpjq" 2>/dev/null || true)"; rm -f "$tmpjq"
+      [ -n "$jq_err" ] && echo "jq parse error (attempt $attempt): $jq_err" >&2
+      echo "response preview (first 200 bytes): $(printf '%s' "$json" | head -c 200 | tr '\n' ' ')" >&2
+    else
+      # JSON parsed — check status, and print Prometheus error fields if not success
+      local status errType err warns
+      status="$(printf '%s' "$json" | jq -r '.status // "UNKNOWN"')"
+      if [ "$status" = "success" ]; then
+        echo "$json"
+        return 0
+      else
+        errType="$(printf '%s' "$json" | jq -r '.errorType // ""')"
+        err="$(printf '%s' "$json" | jq -r '.error // ""')"
+        warns="$(printf '%s' "$json" | jq -c '.warnings // []')"
+        echo "Prometheus returned status=$status errorType=${errType:-none} error=${err:-none} warnings=${warns}" >&2
+      fi
+    fi
+
     echo "Waiting for Prometheus data (attempt $attempt/10)..." >&2
     sleep 3
     attempt=$((attempt+1))
   done
+
+  # Return the last body we saw (even if it failed), so caller can inspect
   echo "$json"
 }
 
@@ -105,10 +104,10 @@ echo "coupon_p95=${promo_p95}s  nocoupon_p95=${none_p95}s"
 
 # Assertion: promo > 2 * none AND none < 0.20
 if awk -v a="$promo_p95" -v b="$none_p95" 'BEGIN{exit !(a > 2*b && b < 0.20)}'; then
-  echo ">>> PASS: Only coupon calls are slower (promo p95 > 2x none, baseline p95 < 200ms)."
+  echo ">>> PASS: Only coupon calls are slower (promo p95 > 2x no-promo, baseline p95 < 200ms)."
   exit 0
 else
-  echo "ERROR: Assertion failed (either promo not >2x none, or baseline >=200ms)." >&2
+  echo "ERROR: Assertion failed (either promo not >2x no-promo, or baseline >=200ms)." >&2
   # Uncomment for debugging:
   # echo "--- PROMO_JSON ---"; echo "$promo_json"
   # echo "--- NONE_JSON ----"; echo "$none_json"
