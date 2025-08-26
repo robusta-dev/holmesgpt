@@ -9,7 +9,7 @@ tags:
   - kubernetes
   - hard
   - chain-of-causation
-  - prometheus
+#  - prometheus
 
 port_forwards:
   - namespace: app-115
@@ -24,6 +24,9 @@ before_test: |
   kubectl apply -f ../../shared/prometheus.yaml -n app-115
   kubectl apply -f holmes-all-in-one-fast.yaml -n app-115
   ./run-holmes-check-curl-jq.sh
+  echo "🧹 Cleaning up k6 job and pods to prevent AI detection"
+  kubectl delete job k6-coupon-split -n app-115 --ignore-not-found=true
+  kubectl delete pods -n app-115 -l job-name=k6-coupon-split --ignore-not-found=true
   echo "✅ Test setup completed successfully"
 
 after_test: |

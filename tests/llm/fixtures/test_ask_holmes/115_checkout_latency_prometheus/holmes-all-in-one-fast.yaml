@@ -6,7 +6,7 @@
 #
 # Components:
 # - Namespace: holmes-test
-# - SUT (checkout app): Tiny Python/Flask app from ConfigMap
+# - SUT (checkout app): Tiny Python/Flask app from Secret
 #     * /checkout endpoint with simulated latency
 #       - normal calls: fast (~30–50ms)
 #       - coupon=Promotions calls: slower (~500ms, simulating missing index)
@@ -38,20 +38,31 @@ metadata:
 
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: checkout-app-code
+  name: checkout-app
   namespace: app-115
-data:
+type: Opaque
+stringData:
   app.py: |
-    import os, time, json, random
+    import os, time, json, random, logging
     from flask import Flask, request, jsonify
     from prometheus_client import Histogram, Counter, generate_latest, CONTENT_TYPE_LATEST
 
+    # LOGGING CONTROL - Set to True to enable logs, False to disable
+    ENABLE_LOGGING = False
+
     app = Flask(__name__)
-    BASE_MEAN = float(os.getenv("BASE_MEAN_SEC", "0.03"))
-    BASE_JITTER = float(os.getenv("BASE_JITTER_SEC", "0.02"))
-    PROMO_EXTRA = float(os.getenv("PROMO_EXTRA_SEC", "0.5"))
+
+    # Configure logging based on ENABLE_LOGGING flag
+    if not ENABLE_LOGGING:
+        log = logging.getLogger('werkzeug')
+        log.setLevel(logging.ERROR)
+        app.logger.disabled = True
+
+    BASE_MEAN = 0.03
+    BASE_JITTER = 0.02
+    PROMO_EXTRA = 0.5
 
     REQ_LAT = Histogram(
       "http_request_duration_seconds",
@@ -114,13 +125,6 @@ spec:
       - name: app
         image: python:3.11-slim
         imagePullPolicy: IfNotPresent
-        env:
-        - name: BASE_MEAN_SEC
-          value: "0.03"
-        - name: BASE_JITTER_SEC
-          value: "0.02"
-        - name: PROMO_EXTRA_SEC
-          value: "0.5"
         command: ["/bin/sh","-c"]
         args:
           - pip install --no-cache-dir flask prometheus_client && python /app/app.py
@@ -143,8 +147,8 @@ spec:
           failureThreshold: 3
       volumes:
       - name: app-code
-        configMap:
-          name: checkout-app-code
+        secret:
+          secretName: checkout-app
 
 ---
 apiVersion: v1
@@ -163,11 +167,12 @@ spec:
 
 ---
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
   name: k6-script
   namespace: app-115
-data:
+type: Opaque
+stringData:
   test.js: |
     import http from 'k6/http';
     import { check, sleep } from 'k6';
@@ -229,8 +234,8 @@ spec:
           mountPath: /scripts
       volumes:
       - name: script
-        configMap:
-          name: k6-script
+        secret:
+          secretName: k6-script
           items:
           - key: test.js
             path: test.js
