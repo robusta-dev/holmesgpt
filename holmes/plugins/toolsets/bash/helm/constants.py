@@ -12,7 +12,13 @@ ALLOWED_HELM_COMMANDS: dict[str, dict] = {
     },
     "status": {},
     "history": {},
-    "diff": {},
+    "diff": {
+        "upgrade": {},
+        "rollback": {},
+        "revision": {},
+        "release": {},
+        "version": {},
+    },
     # Chart operations (read-only)
     "show": {
         "all": {},
