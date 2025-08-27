@@ -12,6 +12,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     normalize_datetime,
     stringify_flattened_logs,
+    extract_field,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
@@ -136,3 +137,16 @@ def test_build_coralogix_link_to_logs(coralogix_config):
     expected_url = f"https://{coralogix_config.team_hostname}.app.{coralogix_config.domain}/#/query-new/logs?query=source+logs+%7C+lucene+%27app%3Atest+AND+level%3Aerror%27+%7C+limit+100&querySyntax=dataprime&time=from:{start},to:{end}"
     actual_url = build_coralogix_link_to_logs(coralogix_config, query, start, end)
     assert actual_url == expected_url
+
+
+@pytest.mark.parametrize(
+    "data_obj, field, expected",
+    [
+        ({"key": "value"}, "key", "value"),
+        ({"parent": {"child": {"grandchild": "deep_value"}}}, "parent.child.grandchild", "deep_value"),
+        ({}, "key", None),
+        (None, "key", None),
+    ],
+)
+def test_extract_field(data_obj, field, expected):
+    assert extract_field(data_obj, field) == expected
