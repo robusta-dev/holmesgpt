@@ -843,14 +843,14 @@ class AnalyzeTraceRCA(BaseTempoTool):
         return f'kfuse_tempo_analyze_trace_rca(user_prompt="{params["user_prompt"]}")'
 
 # Define the toolset for Kfuse Tempo
+# kfuse_tempo_toolset.py
 class KfuseTempoToolset(Toolset):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    # The configuration should include at least tempo_url
     config: Dict[str, Any] = {}
 
     def __init__(self):
         super().__init__(
-            name="kfuse/tempo",
+            name="kfuse_tempo",          # avoid slashes in IDs
             description="""Toolset to query Kfuse Tempo for APM traces with intelligent parameter extraction. 
             This toolset automatically extracts Kubernetes cluster names, deployment names, and duration filters 
             from user prompts, making it easy to query traces without specifying technical parameters.
@@ -866,21 +866,24 @@ class KfuseTempoToolset(Toolset):
             - "Get traces for user-service deployment in staging"
             - "Analyze trace abc123 for root cause analysis"
             """,
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafana.html",
-            icon_url="https://grafana.com/static/img/fav32.png",
-            prerequisites=[],
-            tools=[FetchTraces(self), FetchKubeDeploymentTraces(self), AnalyzeTraceRCA(self)],
+            enabled=False,               # start disabled until configured
+            tools=[],                    # attach after init
             tags=[ToolsetTag.CORE],
-            is_default=True,
+            prerequisites=[CallablePrerequisite(callable=self._prereq_check)],
         )
+        # Declare tools after init so they capture the instance cleanly
+        self.tools = [FetchTraces(self), FetchKubeDeploymentTraces(self), AnalyzeTraceRCA(self)]
 
-    def prerequisites_callable(self, config: dict[str, Any]) -> bool:
-        # Check that the config includes required keys
-        return bool(config.get("tempo_url"))
+    def _prereq_check(self, _: Dict[str, Any]) -> tuple[bool, str]:
+        tempo = os.getenv("TEMPO_URL") or self.config.get("tempo_url")
+        if not tempo:
+            return False, "tempo_url missing (set TEMPO_URL env or provide config.tempo_url)"
+        return True, ""
 
-    def get_example_config(self) -> Dict[str, Any]:
-        # Return an example configuration for this toolset
-        return {
-            "tempo_url": "your-central-tempo-host",  # e.g., "10.254.240.159" or "tempo.example.com"
-            "kube_cluster_name": "optional-default-cluster"  # Optional: default cluster if not specified in prompt
-        }
+    def configure(self, cfg: Dict[str, Any]) -> None:
+        self.config = cfg or {}
+        ok, msg = self._prereq_check({})
+        if not ok:
+            raise ValueError(msg)
+        self.enabled = True  # ✅ flip it on
+

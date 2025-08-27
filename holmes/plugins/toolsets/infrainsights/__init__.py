@@ -114,14 +114,15 @@ def get_infrainsights_toolsets(config: Dict[str, Any] = None) -> List[Toolset]:
     ]
     
     for tempo_config in tempo_configs:
+        # __init__.py (loader)
         if tempo_config.get('enabled', False):
             try:
                 tempo_toolset = KfuseTempoToolset()
-                tempo_toolset.config = tempo_config
+                tempo_toolset.configure(tempo_config)  # ✅ actually configure it
                 toolsets.append(tempo_toolset)
                 logger.info("✅ Kfuse Tempo toolset loaded")
-                break  # Only load one instance of Tempo toolset
             except Exception as e:
                 logger.error(f"❌ Failed to load Kfuse Tempo toolset: {e}")
+
     
     return toolsets 
