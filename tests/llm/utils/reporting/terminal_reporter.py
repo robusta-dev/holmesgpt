@@ -910,9 +910,9 @@ def _print_model_comparison_table(sorted_results: List[dict], console: Console) 
     # Calculate and print total evaluation cost
     total_cost = sum(model_costs.values()) if model_costs else 0
     if total_cost > 0:
-        # Count unique test cases across all models
-        unique_tests = len(set(r["test_case_name"] for r in sorted_results))
-        avg_cost_per_test = total_cost / unique_tests if unique_tests else 0
+        # Count total number of test runs (not unique test cases)
+        total_test_runs = len(sorted_results)
+        avg_cost_per_test = total_cost / total_test_runs if total_test_runs else 0
         console.print(
             f"[cyan]Total evaluation cost: ${total_cost:.4f}, Average per test: ${avg_cost_per_test:.6f}[/cyan]"
         )
