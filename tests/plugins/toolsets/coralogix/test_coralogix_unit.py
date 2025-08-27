@@ -143,7 +143,11 @@ def test_build_coralogix_link_to_logs(coralogix_config):
     "data_obj, field, expected",
     [
         ({"key": "value"}, "key", "value"),
-        ({"parent": {"child": {"grandchild": "deep_value"}}}, "parent.child.grandchild", "deep_value"),
+        (
+            {"parent": {"child": {"grandchild": "deep_value"}}},
+            "parent.child.grandchild",
+            "deep_value",
+        ),
         ({}, "key", None),
         (None, "key", None),
     ],
