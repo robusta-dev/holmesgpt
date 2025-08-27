@@ -140,7 +140,6 @@ def get_investigation_context(
             "structured_output": request_structured_output_from_llm,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
-            "investigation_id": ai.investigation_id,
         },
     )
 

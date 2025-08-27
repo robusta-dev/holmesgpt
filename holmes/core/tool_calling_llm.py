@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import uuid
 from typing import Dict, List, Optional, Type, Union
 
 import sentry_sdk
@@ -281,7 +280,6 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
-        self.investigation_id = str(uuid.uuid4())
 
     def prompt_call(
         self,
@@ -900,7 +898,6 @@ class IssueInvestigator(ToolCallingLLM):
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
                 "cluster_name": self.cluster_name,
-                "investigation_id": self.investigation_id,
             },
         )
 
