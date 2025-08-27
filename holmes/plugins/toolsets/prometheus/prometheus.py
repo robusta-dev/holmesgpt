@@ -92,7 +92,7 @@ class AMPConfig(PrometheusConfig):
     aws_region: str
     aws_service_name: str = "aps"
     healthcheck: str = "api/v1/query?query=up"
-    prometheus_ssl_enabled: bool = True
+    prometheus_ssl_enabled: bool = False
 
     def is_amp(self) -> bool:
         return True
@@ -112,7 +112,7 @@ class AMPConfig(PrometheusConfig):
             session_token=frozen.token,
         )
 
-    def _build_static_auth(self) -> Optional[AWS4Auth]:
+    def _build_static_aws_auth(self) -> Optional[AWS4Auth]:
         """Fallback: static credentials from config."""
         if self.aws_access_key and self.aws_secret_access_key:
             return AWS4Auth(
@@ -128,7 +128,7 @@ class AMPConfig(PrometheusConfig):
         irsa_auth = self._build_irsa_auth()
         if irsa_auth:
             return irsa_auth
-        static_auth = self._build_static_auth()
+        static_auth = self._build_static_aws_auth()
         if static_auth:
             return static_auth
         raise RuntimeError(
