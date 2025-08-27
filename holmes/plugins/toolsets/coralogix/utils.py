@@ -20,8 +20,8 @@ class CoralogixQueryResult(BaseModel):
 
 
 class CoralogixLabelsConfig(BaseModel):
-    pod: str = "kubernetes.pod_name"
-    namespace: str = "kubernetes.namespace_name"
+    pod: str = "resource.attributes.k8s.pod.name"
+    namespace: str = "resource.attributes.k8s.namespace.name"
     log_message: str = "userData.logRecord.body"
     timestamp: str = "userData.time"
 
