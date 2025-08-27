@@ -2,7 +2,14 @@ import os
 import logging
 from typing import Any, Dict, Tuple, Union
 
-from azure.identity import DefaultAzureCredential, ClientSecretCredential
+# Make Azure credential imports optional for local testing
+try:
+    from azure.identity import DefaultAzureCredential, ClientSecretCredential
+    AZURE_IDENTITY_AVAILABLE = True
+except ImportError:
+    DefaultAzureCredential = None
+    ClientSecretCredential = None
+    AZURE_IDENTITY_AVAILABLE = False
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -87,6 +94,9 @@ class AzureSQLToolset(BaseAzureSQLToolset):
             # Set up Azure credentials
             try:
                 credential: Union[ClientSecretCredential, DefaultAzureCredential]
+                if not AZURE_IDENTITY_AVAILABLE:
+                    raise ImportError("Azure Identity SDK is not available. Please install azure-identity package.")
+                
                 if (
                     azure_sql_config.tenant_id
                     and azure_sql_config.client_id

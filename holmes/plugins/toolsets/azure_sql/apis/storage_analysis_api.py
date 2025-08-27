@@ -1,17 +1,29 @@
 from typing import Dict, List
 import logging
 from datetime import datetime, timedelta
-from azure.core.credentials import TokenCredential
-from azure.monitor.query import MetricsQueryClient
+
+# Make Azure imports optional for local testing
+try:
+    from azure.core.credentials import TokenCredential
+    from azure.monitor.query import MetricsQueryClient
+    AZURE_AVAILABLE = True
+except ImportError:
+    TokenCredential = None
+    MetricsQueryClient = None
+    AZURE_AVAILABLE = False
+
 from .azure_sql_api import AzureSQLAPIClient
 
 
 class StorageAnalysisAPI:
     def __init__(
         self,
-        credential: TokenCredential,
+        credential,
         subscription_id: str,
     ):
+        if not AZURE_AVAILABLE:
+            raise ImportError("Azure SDK is not available. Please install azure-monitor-query package.")
+        
         self.sql_api_client = AzureSQLAPIClient(credential, subscription_id)
         self.metrics_client = MetricsQueryClient(credential)
         self.subscription_id = subscription_id

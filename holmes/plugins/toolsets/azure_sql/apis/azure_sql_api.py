@@ -1,17 +1,35 @@
 from typing import Dict, List
-import pyodbc
 import logging
 import struct
-from azure.core.credentials import TokenCredential
-from azure.mgmt.sql import SqlManagementClient
+
+# Make Azure and ODBC imports optional for local testing
+try:
+    import pyodbc
+    PYODBC_AVAILABLE = True
+except ImportError:
+    PYODBC_AVAILABLE = False
+
+try:
+    from azure.core.credentials import TokenCredential
+    from azure.mgmt.sql import SqlManagementClient
+    AZURE_AVAILABLE = True
+except ImportError:
+    TokenCredential = None
+    SqlManagementClient = None
+    AZURE_AVAILABLE = False
 
 
 class AzureSQLAPIClient:
     def __init__(
         self,
-        credential: TokenCredential,
+        credential,
         subscription_id: str,
     ):
+        if not AZURE_AVAILABLE:
+            raise ImportError("Azure SDK is not available. Please install azure-mgmt-sql package.")
+        if not PYODBC_AVAILABLE:
+            raise ImportError("pyodbc is not available. Please install pyodbc package.")
+        
         self.sql_client = SqlManagementClient(credential, subscription_id)
         self.credential = credential
 

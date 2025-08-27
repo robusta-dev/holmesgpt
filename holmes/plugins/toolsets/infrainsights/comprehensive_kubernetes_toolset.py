@@ -8,6 +8,9 @@ from typing import Dict, List, Any, Optional, Tuple
 from kubernetes import client, config
 from kubernetes.client.rest import ApiException
 from kubernetes.config import kube_config
+
+# Import base classes
+from .base_toolset_v2 import BaseInfraInsightsToolsetV2
 from kubernetes.config.kube_config import KubeConfigLoader
 import base64
 import json
