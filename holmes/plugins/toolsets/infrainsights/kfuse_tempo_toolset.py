@@ -13,15 +13,15 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
     CallablePrerequisite,
+    StructuredToolResult,
+    ToolResultStatus,
 )
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Define a base tool class for the Kfuse Tempo toolset
-class BaseTempoTool(Tool):
-    pass
+# Remove base tool class - inherit directly from Tool
 
 class PromptParser:
     """Utility class to extract Kubernetes and duration information from user prompts
@@ -305,8 +305,29 @@ class PromptParser:
         }
 
 # Define the tool that fetches traces for all services running in a Kubernetes cluster
-class FetchTraces(BaseTempoTool):
-    def __init__(self, toolset: "KfuseTempoToolset"):
+class FetchTraces(Tool):
+    """Tool to fetch APM traces for all services in Kubernetes cluster"""
+    
+    name: str = "kfuse_tempo_fetch_traces"
+    description: str = """Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts 
+    the cluster name and duration filter from your prompt. It retrieves traces across all services in the cluster, 
+    providing a broad overview. Use this when you need to see a wide range of activity, or when you're starting 
+    an investigation and don't yet have a specific target. Examples:
+    - "Show me traces from the last hour in production cluster"
+    - "Get all traces from staging environment in the last 30 minutes"
+    - "Fetch traces from dev cluster since 2 hours ago"
+    """
+    parameters: Dict[str, ToolParameter] = {
+        "user_prompt": ToolParameter(
+            description="User prompt containing cluster name and duration information",
+            type="string",
+            required=False,
+            default=""
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_fetch_traces",
             description="""Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts 
@@ -317,112 +338,126 @@ class FetchTraces(BaseTempoTool):
             - "Get all traces from staging environment in the last 30 minutes"
             - "Fetch traces from dev cluster since 2 hours ago"
             """,
-            parameters={},  # No extra parameters needed - extracted from prompt
-            toolset=toolset,
+            parameters={
+                "user_prompt": ToolParameter(
+                    description="User prompt containing cluster name and duration information",
+                    type="string",
+                    required=False,
+                    default=""
+                )
+            }
         )
+        self.toolset = toolset
 
-    def _invoke(self, params: Any) -> str:
-        # Get the user prompt from params or use a default
-        user_prompt = params.get("user_prompt", "")
-        
-        # Get configuration values from the toolset config
-        tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
-        kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
-        
-        if not tempo_url:
-            raise ValueError("Config must provide 'tempo_url'.")
-        
-        # Extract all Kubernetes information from prompt
-        kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
-        
-        # Extract cluster name from prompt if not in config
-        if not kube_cluster_name:
-            kube_cluster_name = kube_info['cluster_name']
-            if not kube_cluster_name:
-                return "Error: Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request."
-        
-        # Extract duration filter from prompt
-        duration_filter = kube_info['duration_filter']
-        
-        # Generate current timestamp in ISO 8601 format with timezone offset
-        current_timestamp = datetime.now().astimezone().isoformat()
-        
-        # Build the query payload
-        query = f"""
-        {{
-          traces (
-            durationSecs: {duration_filter['upper_bound'] // 1000000000},
-            filter: {{
-              and: [
-                {{
-                  attributeFilter: {{
-                    eq: {{
-                      key: "kube_cluster_name",
-                      value: "{kube_cluster_name}"
-                    }}
-                  }}
-                }},
-                {{
-                  durationFilter: {{
-                    lowerBound: {duration_filter['lower_bound']},
-                    upperBound: {duration_filter['upper_bound']}
-                  }}
-                }},
-                {{
-                  attributeFilter: {{
-                    eq: {{
-                      key: "span_service_entry",
-                      value: "true"
-                    }}
-                  }}
-                }}
-              ]
-            }},
-            timestamp: "{current_timestamp}",
-            sortField: "duration",
-            sortOrder: Desc
-          ) {{
-            traceId
-            span {{
-              spanId
-              parentSpanId
-              startTimeNs
-              endTimeNs
-              attributes
-              durationNs
-              name
-              service {{
-                name
-                labels
-                hash
-                distinctLabels
-              }}
-              statusCode
-              method
-              endpoint
-              rootSpan
-            }}
-            traceMetrics {{
-              spanCount
-              serviceExecTimeNs
-            }}
-          }}
-        }}
-        """
-        
-        payload = {
-            "query": query,
-            "variables": {}
-        }
-        
-        # Construct the API endpoint URL
-        url = f"http://{tempo_url}:8080/v1/trace/query"
-        headers = {"Content-Type": "application/json"}
-        
-        logger.info(f"Fetching traces for cluster: {kube_cluster_name}")
-        logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
-        
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Fetch APM traces for all services in the cluster"""
         try:
+            user_prompt = params.get("user_prompt", "")
+            
+            # Get configuration values from the toolset config
+            tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
+            kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
+            
+            if not tempo_url:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Config must provide 'tempo_url'.",
+                    params=params
+                )
+            
+            # Extract all Kubernetes information from prompt
+            kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
+            
+            # Extract cluster name from prompt if not in config
+            if not kube_cluster_name:
+                kube_cluster_name = kube_info['cluster_name']
+                if not kube_cluster_name:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
+                        params=params
+                    )
+            
+            # Extract duration filter from prompt
+            duration_filter = kube_info['duration_filter']
+            
+            # Generate current timestamp in ISO 8601 format with timezone offset
+            current_timestamp = datetime.now().astimezone().isoformat()
+            
+            # Build the query payload
+            query = f"""
+            {{
+              traces (
+                durationSecs: {duration_filter['upper_bound'] // 1000000000},
+                filter: {{
+                  and: [
+                    {{
+                      attributeFilter: {{
+                        eq: {{
+                          key: "kube_cluster_name",
+                          value: "{kube_cluster_name}"
+                        }}
+                      }}
+                    }},
+                    {{
+                      durationFilter: {{
+                        lowerBound: {duration_filter['lower_bound']},
+                        upperBound: {duration_filter['upper_bound']}
+                      }}
+                    }},
+                    {{
+                      attributeFilter: {{
+                        eq: {{
+                          key: "span_service_entry",
+                          value: "true"
+                        }}
+                      }}
+                    }}
+                  ]
+                }},
+                timestamp: "{current_timestamp}",
+                sortField: "duration",
+                sortOrder: Desc
+              ) {{
+                traceId
+                span {{
+                  spanId
+                  parentSpanId
+                  startTimeNs
+                  endTimeNs
+                  attributes
+                  durationNs
+                  name
+                  service {{
+                    name
+                    labels
+                    hash
+                    distinctLabels
+                  }}
+                  statusCode
+                  method
+                  endpoint
+                  rootSpan
+                }}
+                traceMetrics {{
+                  spanCount
+                  serviceExecTimeNs
+                }}
+              }}
+            }}
+            """
+            
+            payload = {
+                "query": query,
+                "variables": {}
+            }
+            
+            # Construct the API endpoint URL
+            url = f"http://{tempo_url}:8080/v1/trace/query"
+            headers = {"Content-Type": "application/json"}
+            
+            logger.info(f"Fetching traces for cluster: {kube_cluster_name}")
+            logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             result = response.json()
@@ -435,25 +470,64 @@ class FetchTraces(BaseTempoTool):
                 'tempo_host': tempo_url
             }
             
-            return json.dumps(result, indent=2)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=result,
+                params=params
+            )
         except requests.exceptions.Timeout:
-            return "Error: Request to Tempo timed out. Please try again."
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request to Tempo timed out. Please try again.",
+                params=params
+            )
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP request failed: {e}")
-            return f"Error fetching traces: HTTP {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching traces: HTTP {e}",
+                params=params
+            )
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {e}")
-            return f"Error parsing response: {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error parsing response: {e}",
+                params=params
+            )
         except Exception as e:
             logger.exception("Unexpected error fetching traces")
-            return f"Error fetching traces: {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching traces: {e}",
+                params=params
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "kfuse_tempo_fetch_traces()"
 
 # Define the tool that fetches traces for a single kubernetes deployment workload
-class FetchKubeDeploymentTraces(BaseTempoTool):
-    def __init__(self, toolset: "KfuseTempoToolset"):
+class FetchKubeDeploymentTraces(Tool):
+    """Tool to fetch APM traces for a specific Kubernetes deployment"""
+    
+    name: str = "kfuse_tempo_fetch_kube_deployment_traces"
+    description: str = """Fetch APM traces for a specific Kubernetes deployment. This tool automatically extracts the deployment name, 
+    cluster name, and duration filter from your prompt. Use this when you suspect a problem with a particular deployment 
+    and want to examine its traces in isolation. Examples:
+    - "Show me traces for the user-service deployment in production cluster"
+    - "Get traces from auth-service in staging for the last hour"
+    - "Fetch traces for payment-service in dev cluster since 2 hours ago"
+    """
+    parameters: Dict[str, ToolParameter] = {
+        "user_prompt": ToolParameter(
+            description="User prompt containing deployment, cluster, and duration information",
+            type="string",
+            required=True,
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_fetch_kube_deployment_traces",
             description="""Fetch APM traces for a specific Kubernetes deployment. This tool automatically extracts the deployment name, 
@@ -469,42 +543,56 @@ class FetchKubeDeploymentTraces(BaseTempoTool):
                     type="string",
                     required=True,
                 )
-            },
-            toolset=toolset,
+            }
         )
+        self.toolset = toolset
 
-    def _invoke(self, params: Any) -> str:
-        user_prompt = params["user_prompt"]
-        
-        # Get configuration values from the toolset config
-        tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
-        kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
-        
-        if not tempo_url:
-            raise ValueError("Config must provide 'tempo_url'.")
-        
-        # Extract all Kubernetes information from prompt
-        kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
-        
-        # Extract parameters from prompt
-        kube_deployment = kube_info['deployment_name']
-        if not kube_deployment:
-            return "Error: Could not determine Kubernetes deployment name from prompt. Please specify the deployment in your request."
-        
-        # Extract cluster name from prompt if not in config
-        if not kube_cluster_name:
-            kube_cluster_name = kube_info['cluster_name']
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Fetch APM traces for a specific Kubernetes deployment"""
+        try:
+            user_prompt = params["user_prompt"]
+            
+            # Get configuration values from the toolset config
+            tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
+            kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
+            
+            if not tempo_url:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Config must provide 'tempo_url'.",
+                    params=params
+                )
+            
+            # Extract all Kubernetes information from prompt
+            kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
+            
+            # Extract parameters from prompt
+            kube_deployment = kube_info['deployment_name']
+            if not kube_deployment:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Could not determine Kubernetes deployment name from prompt. Please specify the deployment in your request.",
+                    params=params
+                )
+            
+            # Extract cluster name from prompt if not in config
             if not kube_cluster_name:
-                return "Error: Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request."
-        
-        # Extract duration filter from prompt
-        duration_filter = kube_info['duration_filter']
-        
-        # Generate current timestamp in ISO 8601 format with timezone offset
-        current_timestamp = datetime.now().astimezone().isoformat()
-        
-        # Build the query payload
-        query = f"""
+                kube_cluster_name = kube_info['cluster_name']
+                if not kube_cluster_name:
+                    return StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
+                        params=params
+                    )
+            
+            # Extract duration filter from prompt
+            duration_filter = kube_info['duration_filter']
+            
+            # Generate current timestamp in ISO 8601 format with timezone offset
+            current_timestamp = datetime.now().astimezone().isoformat()
+            
+            # Build the query payload
+            query = f"""
         {{
           traces (
             durationSecs: {duration_filter['upper_bound'] // 1000000000},
@@ -571,23 +659,21 @@ class FetchKubeDeploymentTraces(BaseTempoTool):
               serviceExecTimeNs
             }}
           }}
-        }}
-        """
-        
-        payload = {
-            "query": query,
-            "variables": {}
-        }
-        
-        # Construct the API endpoint URL
-        url = f"http://{tempo_url}:8080/v1/trace/query"
-        headers = {"Content-Type": "application/json"}
-        
-        logger.info(f"Fetching traces for deployment: {kube_deployment}")
-        logger.info(f"Cluster: {kube_cluster_name}")
-        logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
-        
-        try:
+            }}
+            """
+            
+            payload = {
+                "query": query,
+                "variables": {}
+            }
+            
+            # Construct the API endpoint URL
+            url = f"http://{tempo_url}:8080/v1/trace/query"
+            headers = {"Content-Type": "application/json"}
+            
+            logger.info(f"Fetching traces for deployment: {kube_deployment}")
+            logger.info(f"Cluster: {kube_cluster_name}")
+            logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             result = response.json()
@@ -601,25 +687,65 @@ class FetchKubeDeploymentTraces(BaseTempoTool):
                 'tempo_host': tempo_url
             }
             
-            return json.dumps(result, indent=2)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=result,
+                params=params
+            )
         except requests.exceptions.Timeout:
-            return "Error: Request to Tempo timed out. Please try again."
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request to Tempo timed out. Please try again.",
+                params=params
+            )
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP request failed: {e}")
-            return f"Error fetching traces: HTTP {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching traces: HTTP {e}",
+                params=params
+            )
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {e}")
-            return f"Error parsing response: {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error parsing response: {e}",
+                params=params
+            )
         except Exception as e:
             logger.exception("Unexpected error fetching traces")
-            return f"Error fetching traces: {e}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching traces: {e}",
+                params=params
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f'kfuse_tempo_fetch_kube_deployment_traces(user_prompt="{params["user_prompt"]}")'
 
 # New tool to analyze a trace and fetch RCA details
-class AnalyzeTraceRCA(BaseTempoTool):
-    def __init__(self, toolset: "KfuseTempoToolset"):
+class AnalyzeTraceRCA(Tool):
+    """Tool to analyze APM traces for root cause analysis"""
+    
+    name: str = "kfuse_tempo_analyze_trace_rca"
+    description: str = """Perform a detailed analysis of a specific APM trace to identify the root cause of performance issues (RCA).
+    This tool automatically extracts the trace_id and timestamp from your prompt, or you can provide them directly.
+    It retrieves comprehensive information including the full trace details, details of the slowest span within the trace,
+    and performance metrics (latency percentiles) for that span. Examples:
+    - "Analyze trace abc123def456 for root cause analysis"
+    - "Show me RCA details for trace xyz789 from 2 hours ago"
+    - "What's the root cause of slow performance in trace abc123?"
+    """
+    parameters: Dict[str, ToolParameter] = {
+        "user_prompt": ToolParameter(
+            description="User prompt containing trace_id and optionally timestamp information",
+            type="string",
+            required=True,
+        )
+    }
+    toolset: Optional[Any] = None
+    
+    def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_analyze_trace_rca",
             description="""Perform a detailed analysis of a specific APM trace to identify the root cause of performance issues (RCA).
@@ -636,35 +762,45 @@ class AnalyzeTraceRCA(BaseTempoTool):
                     type="string",
                     required=True,
                 )
-            },
-            toolset=toolset,
+            }
         )
+        self.toolset = toolset
 
-    def _invoke(self, params: Any) -> str:
-        user_prompt = params["user_prompt"]
-        
-        # Extract trace_id and timestamp from prompt
-        trace_id = PromptParser.extract_trace_id(user_prompt)
-        if not trace_id:
-            return "Error: Could not determine trace ID from prompt. Please specify the trace ID in your request."
-        
-        timestamp = PromptParser.extract_timestamp(user_prompt)
-        if not timestamp:
-            # Use current timestamp if none provided
-            timestamp = datetime.now().astimezone().isoformat()
-        
-        tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
-        if not tempo_url:
-            raise ValueError("Config must provide 'tempo_url'.")
-        
-        headers = {"Content-Type": "application/json"}
-        url = f"http://{tempo_url}:8080/v1/trace/query"
-        
-        logger.info(f"Analyzing trace: {trace_id}")
-        logger.info(f"Timestamp: {timestamp}")
-        
-        # Step 1. Fetch detailed trace data using describeTrace
-        trace_query = f"""
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        """Analyze APM trace for root cause analysis"""
+        try:
+            user_prompt = params["user_prompt"]
+            
+            # Extract trace_id and timestamp from prompt
+            trace_id = PromptParser.extract_trace_id(user_prompt)
+            if not trace_id:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Could not determine trace ID from prompt. Please specify the trace ID in your request.",
+                    params=params
+                )
+            
+            timestamp = PromptParser.extract_timestamp(user_prompt)
+            if not timestamp:
+                # Use current timestamp if none provided
+                timestamp = datetime.now().astimezone().isoformat()
+            
+            tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
+            if not tempo_url:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Config must provide 'tempo_url'.",
+                    params=params
+                )
+            
+            headers = {"Content-Type": "application/json"}
+            url = f"http://{tempo_url}:8080/v1/trace/query"
+            
+            logger.info(f"Analyzing trace: {trace_id}")
+            logger.info(f"Timestamp: {timestamp}")
+            
+            # Step 1. Fetch detailed trace data using describeTrace
+            trace_query = f"""
         {{
           describeTrace(
             traceId: "{trace_id}"
@@ -698,90 +834,126 @@ class AnalyzeTraceRCA(BaseTempoTool):
               spanIdExecTimeNs
             }}
           }}
-        }}
-        """
-        
-        payload = {"query": trace_query, "variables": {}}
-        
-        try:
-            response_trace = requests.post(url, headers=headers, json=payload, timeout=30)
-            response_trace.raise_for_status()
-            trace_details = response_trace.json()
-        except requests.exceptions.Timeout:
-            return "Error: Request to Tempo timed out. Please try again."
-        except requests.exceptions.RequestException as e:
-            logger.error(f"HTTP request failed: {e}")
-            return f"Error fetching trace details: HTTP {e}"
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON response: {e}")
-            return f"Error parsing response: {e}"
-        except Exception as e:
-            logger.exception("Failed to fetch trace details")
-            return f"Error fetching trace details: {e}"
-        
-        spans = trace_details.get("data", {}).get("describeTrace", {}).get("spans", [])
-        if not spans:
-            return "No spans found in the trace."
-        
-        # For RCA, pick the span with maximum durationNs
-        max_span = max(spans, key=lambda s: s.get("durationNs", 0))
-        span_id = max_span.get("spanId")
-        span_name = max_span.get("name")
-        service_hash = max_span.get("service", {}).get("hash")
-        latency_ns = max_span.get("durationNs")
-        
-        # Step 2. Fetch detailed span data using describeSpan
-        span_query = f"""
-        {{
-          describeSpan(
-            spanId: "{span_id}"
-            traceId: "{trace_id}"
-            timestamp: "{timestamp}"
-          ) {{
-            attributes
-            endpoint
-            endTimeNs
-            method
-            name
-            durationNs
-            parentSpanId
-            rootSpan
-            service {{
-              name
-              distinctLabels
-              hash
-              labels
             }}
-            span
-            spanId
-            startTimeNs
-            statusCode
-            traceId
-          }}
-        }}
-        """
-        
-        payload = {"query": span_query, "variables": {}}
-        
-        try:
-            response_span = requests.post(url, headers=headers, json=payload, timeout=30)
-            response_span.raise_for_status()
-            span_details = response_span.json()
-        except requests.exceptions.Timeout:
-            return "Error: Request to Tempo timed out. Please try again."
-        except requests.exceptions.RequestException as e:
-            logger.error(f"HTTP request failed: {e}")
-            return f"Error fetching span details: HTTP {e}"
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON response: {e}")
-            return f"Error parsing response: {e}"
-        except Exception as e:
-            logger.exception("Failed to fetch span details")
-            return f"Error fetching span details: {e}"
-        
-        # Step 3. Fetch span metrics (latency percentiles) using spanMetrics
-        if service_hash and span_name:
-            metrics_query = f"""
+            """
+            
+            payload = {"query": trace_query, "variables": {}}
+            
+            try:
+                response_trace = requests.post(url, headers=headers, json=payload, timeout=30)
+                response_trace.raise_for_status()
+                trace_details = response_trace.json()
+            except requests.exceptions.Timeout:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Request to Tempo timed out. Please try again.",
+                    params=params
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(f"HTTP request failed: {e}")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error fetching trace details: HTTP {e}",
+                    params=params
+                )
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON response: {e}")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error parsing response: {e}",
+                    params=params
+                )
+            except Exception as e:
+                logger.exception("Failed to fetch trace details")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error fetching trace details: {e}",
+                    params=params
+                )
+            
+            spans = trace_details.get("data", {}).get("describeTrace", {}).get("spans", [])
+            if not spans:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="No spans found in the trace.",
+                    params=params
+                )
+            
+            # For RCA, pick the span with maximum durationNs
+            max_span = max(spans, key=lambda s: s.get("durationNs", 0))
+            span_id = max_span.get("spanId")
+            span_name = max_span.get("name")
+            service_hash = max_span.get("service", {}).get("hash")
+            latency_ns = max_span.get("durationNs")
+            
+            # Step 2. Fetch detailed span data using describeSpan
+            span_query = f"""
+            {{
+              describeSpan(
+                spanId: "{span_id}"
+                traceId: "{trace_id}"
+                timestamp: "{timestamp}"
+              ) {{
+                attributes
+                endpoint
+                endTimeNs
+                method
+                name
+                durationNs
+                parentSpanId
+                rootSpan
+                service {{
+                  name
+                  distinctLabels
+                  hash
+                  labels
+                }}
+                span
+                spanId
+                startTimeNs
+                statusCode
+                traceId
+              }}
+            }}
+            """
+            
+            payload = {"query": span_query, "variables": {}}
+            
+            try:
+                response_span = requests.post(url, headers=headers, json=payload, timeout=30)
+                response_span.raise_for_status()
+                span_details = response_span.json()
+            except requests.exceptions.Timeout:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Request to Tempo timed out. Please try again.",
+                    params=params
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(f"HTTP request failed: {e}")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error fetching span details: HTTP {e}",
+                    params=params
+                )
+            except json.JSONDecodeError as e:
+                logger.error(f"Invalid JSON response: {e}")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error parsing response: {e}",
+                    params=params
+                )
+            except Exception as e:
+                logger.exception("Failed to fetch span details")
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Error fetching span details: {e}",
+                    params=params
+                )
+            
+            # Step 3. Fetch span metrics (latency percentiles) using spanMetrics
+            if service_hash and span_name:
+                metrics_query = f"""
             {{
               spanMetrics(
                 latencyNs: {latency_ns}
@@ -815,28 +987,59 @@ class AnalyzeTraceRCA(BaseTempoTool):
             except Exception as e:
                 logger.warning(f"Failed to fetch span metrics: {e}")
                 metrics_details = {"error": f"Failed to fetch metrics: {e}"}
-        else:
-            metrics_details = {"error": "Service hash or span name not available"}
-        
-        # Combine all results into a single JSON response
-        result = {
-            "trace_details": trace_details,
-            "span_details": span_details,
-            "span_metrics": metrics_details,
-            "metadata": {
-                "trace_id": trace_id,
-                "timestamp": timestamp,
-                "slowest_span": {
-                    "span_id": span_id,
-                    "span_name": span_name,
-                    "duration_ns": latency_ns,
-                    "duration_ms": latency_ns // 1000000 if latency_ns else None
-                },
-                "tempo_host": tempo_url
+            else:
+                metrics_details = {"error": "Service hash or span name not available"}
+            
+            # Combine all results into a single JSON response
+            result = {
+                "trace_details": trace_details,
+                "span_details": span_details,
+                "span_metrics": metrics_details,
+                "metadata": {
+                    "trace_id": trace_id,
+                    "timestamp": timestamp,
+                    "slowest_span": {
+                        "span_id": span_id,
+                        "span_name": span_name,
+                        "duration_ns": latency_ns,
+                        "duration_ms": latency_ns // 1000000 if latency_ns else None
+                    },
+                    "tempo_host": tempo_url
+                }
             }
-        }
         
-        return json.dumps(result, indent=2)
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=result,
+                params=params
+            )
+        except requests.exceptions.Timeout:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error="Request to Tempo timed out. Please try again.",
+                params=params
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HTTP request failed: {e}")
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error analyzing trace: HTTP {e}",
+                params=params
+            )
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON response: {e}")
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error parsing response: {e}",
+                params=params
+            )
+        except Exception as e:
+            logger.exception("Unexpected error analyzing trace")
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error analyzing trace: {e}",
+                params=params
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f'kfuse_tempo_analyze_trace_rca(user_prompt="{params["user_prompt"]}")'
