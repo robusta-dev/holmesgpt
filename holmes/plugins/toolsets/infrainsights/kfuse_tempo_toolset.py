@@ -21,8 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Define a base tool class for the Kfuse Tempo toolset
 class BaseTempoTool(Tool):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    toolset: "KfuseTempoToolset"
+    pass
 
 class PromptParser:
     """Utility class to extract Kubernetes and duration information from user prompts
