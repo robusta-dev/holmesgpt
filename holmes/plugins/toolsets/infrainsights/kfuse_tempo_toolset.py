@@ -887,3 +887,10 @@ class KfuseTempoToolset(Toolset):
             raise ValueError(msg)
         self.enabled = True  # ✅ flip it on
 
+    def get_example_config(self) -> Dict[str, Any]:
+        """Return example configuration for this toolset"""
+        return {
+            "tempo_url": "your-kfuse-tempo-url",
+            "kube_cluster_name": "your-cluster-name"
+        }
+
