@@ -103,8 +103,8 @@ toolsets:
 **Recommendations:**
 
 - Use `ARCHIVE_FALLBACK` for most cases (balances speed and coverage)
-- Use `FREQUENT_SEARCH_ONLY` when you need fastest queries for recent logs
-- Use `ARCHIVE_ONLY` when investigating older issues beyond Frequent Search retention
+- Use `FREQUENT_SEARCH_ONLY` when you know Holmes does not need to access the log archive
+- Use `ARCHIVE_ONLY` If the frequent search logs are always empty
 - Use `BOTH_FREQUENT_SEARCH_AND_ARCHIVE` for comprehensive log coverage (slower)
 
 ## Capabilities
