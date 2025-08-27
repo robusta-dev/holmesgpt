@@ -111,19 +111,23 @@ RUN cat Release.key |  gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring
 RUN apt-get install -y kubectl
 
 
-# Microsoft ODBC for Azure SQL. Required for azure/sql toolset
+# Microsoft ODBC for Azure SQL. Optional - only install on supported Debian versions
 RUN VERSION_ID=$(grep VERSION_ID /etc/os-release | cut -d '"' -f 2 | cut -d '.' -f 1) && \
-    if ! echo "11 12" | grep -q "$VERSION_ID"; then \
-        echo "Debian $VERSION_ID is not currently supported."; \
-        exit 1; \
-    fi && \
-    curl -sSL -O https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
-    dpkg -i packages-microsoft-prod.deb && \
-    rm packages-microsoft-prod.deb && \
-    apt-get update && \
-    ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
-    apt-get install -y libgssapi-krb5-2 && \
-    rm -rf /var/lib/apt/lists/*
+    if echo "11 12" | grep -q "$VERSION_ID"; then \
+        echo "Installing Microsoft ODBC drivers for Debian $VERSION_ID"; \
+        curl -sSL -O https://packages.microsoft.com/config/debian/$VERSION_ID/packages-microsoft-prod.deb && \
+        dpkg -i packages-microsoft-prod.deb && \
+        rm packages-microsoft-prod.deb && \
+        apt-get update && \
+        ACCEPT_EULA=Y apt-get install -y msodbcsql18 && \
+        apt-get install -y libgssapi-krb5-2 && \
+        rm -rf /var/lib/apt/lists/*; \
+        echo "Microsoft ODBC drivers installed successfully"; \
+    else \
+        echo "WARNING: Debian $VERSION_ID is not supported by Microsoft ODBC drivers."; \
+        echo "Azure SQL toolset will not be available, but holmesGPT will still work."; \
+        echo "Supported versions: Debian 11, 12"; \
+    fi
 
 
 # Set up kube lineage
