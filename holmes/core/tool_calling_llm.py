@@ -809,10 +809,16 @@ class ToolCallingLLM:
 
                     perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
 
-                    yield StreamMessage(
-                        event=StreamEvents.TOOL_RESULT,
-                        data=tool_call_result.as_streaming_tool_result_response(),
-                    )
+                    if tool_call_result.result.status == ToolResultStatus.APPROVAL_REQUIRED:
+                        yield StreamMessage(
+                            event=StreamEvents.APPROVAL_REQUIRED,
+                            data=tool_call_result.as_streaming_tool_result_response(),
+                        )
+                    else:
+                        yield StreamMessage(
+                            event=StreamEvents.TOOL_RESULT,
+                            data=tool_call_result.as_streaming_tool_result_response(),
+                        )
 
                 # Update the tool number offset for the next iteration
                 tool_number_offset += len(tools_to_call)

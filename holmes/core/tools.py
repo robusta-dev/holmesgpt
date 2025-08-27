@@ -24,6 +24,7 @@ class ToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
     NO_DATA = "no_data"
+    APPROVAL_REQUIRED = "approval_required"
 
     def to_color(self) -> str:
         if self == ToolResultStatus.SUCCESS:

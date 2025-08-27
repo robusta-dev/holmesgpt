@@ -13,6 +13,7 @@ class StreamEvents(str, Enum):
     TOOL_RESULT = "tool_calling_result"
     ERROR = "error"
     AI_MESSAGE = "ai_message"
+    APPROVAL_REQUIRED = "approval_required"
 
 
 class StreamMessage(BaseModel):
