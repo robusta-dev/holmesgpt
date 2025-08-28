@@ -44,10 +44,19 @@ def formatted_logs():
 
 @pytest.fixture
 def coralogix_config():
+    from holmes.plugins.toolsets.coralogix.utils import CoralogixLabelsConfig
+
+    labels_config = CoralogixLabelsConfig(
+        pod="kubernetes.pod_name",
+        namespace="kubernetes.namespace_name",
+        log_message="log",
+        timestamp="time",
+    )
     return CoralogixConfig(
         api_key="dummy_api_key",
         team_hostname="my-team",
         domain="eu2.coralogix.com",
+        labels=labels_config,
     )
 
 
@@ -59,8 +68,10 @@ def coralogix_toolset(coralogix_config):
     return toolset
 
 
-def test_format_logs(raw_logs_result, formatted_logs):
-    actual_output = stringify_flattened_logs(parse_logs(raw_logs_result))
+def test_format_logs(raw_logs_result, formatted_logs, coralogix_config):
+    actual_output = stringify_flattened_logs(
+        parse_logs(raw_logs_result, coralogix_config.labels)
+    )
     logs_match = actual_output.strip() == formatted_logs.strip()
     actual_file_path_for_debugging = os.path.join(
         FIXTURES_DIR, "formatted_logs.txt.actual"
