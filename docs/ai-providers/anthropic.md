@@ -23,18 +23,9 @@ holmes ask "what pods are failing?" --model="anthropic/<your-claude-model>" --ap
 
 ## Prompt Caching
 
-HolmesGPT supports Anthropic's prompt caching feature, which can significantly reduce costs and latency for repeated API calls with similar prompts.
+HolmesGPT adds Anthropic's prompt caching feature, which can significantly reduce costs and latency for repeated API calls with similar prompts.
 
-### Enabling Prompt Caching
-
-To enable prompt caching for Anthropic models:
-
-```bash
-export PROMPT_CACHE_CONTROL=true
-holmes ask "what pods are failing?" --model="anthropic/claude-3-5-sonnet-20241022"
-```
-
-When enabled, HolmesGPT automatically adds cache control to the last message in each API call. This caches everything from the beginning of the conversation up to that point, making subsequent calls with the same prefix much faster and cheaper.
+HolmesGPT automatically adds cache control to the last message in each API call. This caches everything from the beginning of the conversation up to that point, making subsequent calls with the same prefix much faster and cheaper.
 
 ### How It Works
 

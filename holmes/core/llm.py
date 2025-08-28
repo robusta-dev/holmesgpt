@@ -230,13 +230,10 @@ class DefaultLLM(LLM):
 
         self.args.setdefault("temperature", temperature)
 
-        # Add cache_control if enabled
-        # if os.environ.get("PROMPT_CACHE_CONTROL", "").lower() in ["true", "1", "yes"] and messages:
         self._add_cache_control_to_last_message(messages)
 
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-        # logging.info(f"#### messages: \n\n{messages}")
         result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
@@ -278,7 +275,6 @@ class DefaultLLM(LLM):
         """
         Add cache_control to the last non-user message for Anthropic prompt caching.
         Removes any existing cache_control from previous messages to avoid accumulation.
-        Modifies messages in-place. Safe for any model - ignored by non-Anthropic.
         """
         # First, remove any existing cache_control from all messages
         for msg in messages:
@@ -291,7 +287,8 @@ class DefaultLLM(LLM):
                             f"Removed existing cache_control from {msg.get('role')} message"
                         )
 
-        # Find the last non-user message to add cache_control to
+        # Find the last non-user message to add cache_control to.
+        # Adding cache_control to user message requires changing its structure, so we avoid it
         # This avoids breaking parse_messages_tags which only processes user messages
         target_msg = None
         for msg in reversed(messages):

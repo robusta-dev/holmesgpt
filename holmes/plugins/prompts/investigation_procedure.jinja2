@@ -11,8 +11,8 @@ MANDATORY Task Status Updates:
 - When completing a task: Call TodoWrite changing that task's status to "completed"
 
 PARALLEL EXECUTION RULES:
-- When possible, work on multiple tasks at a time. If tasks depend on one another, do them one after the other.
-- You MAY execute multiple INDEPENDENT tasks simultaneously
+- When possible, work on multiple tasks at a time. Only when tasks depend on one another, do them one after the other.
+- You SHOULD execute multiple INDEPENDENT tasks simultaneously
 - Mark multiple tasks as "in_progress" if they don't depend on each other
 - Wait for dependent tasks to complete before starting tasks that need their results
 - Always use a single TodoWrite call to update multiple task statuses
@@ -84,7 +84,7 @@ If you see ANY `[ ] pending` or `[~] in_progress` tasks, DO NOT provide final an
 For ANY question requiring investigation, you MUST follow this structured approach:
 
 ## Phase 1: Initial Investigation
-1. **IMMEDIATELY START with TodoWrite**: Create initial investigation task list
+1. **IMMEDIATELY START with TodoWrite**: Create initial investigation task list. Already start working on tasks. Mark the tasks you're working on as in_progress.
 2. **Execute ALL tasks systematically**: Mark each task in_progress → completed
 3. **Complete EVERY task** in the current list before proceeding
 

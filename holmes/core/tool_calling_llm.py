@@ -12,7 +12,11 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from pydantic import BaseModel, Field
 from rich.console import Console
 
-from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
+from holmes.common.env_vars import (
+    TEMPERATURE,
+    MAX_OUTPUT_TOKEN_RESERVATION,
+    LOG_LLM_USAGE_RESPONSE,
+)
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -90,7 +94,8 @@ def _process_cost_info(
         usage = getattr(full_response, "usage", {})
 
         if usage:
-            logging.info(f"### usage:\n\n{usage}\n\n")
+            if LOG_LLM_USAGE_RESPONSE:  # shows stats on token cache usage
+                logging.info(f"LLM usage response:\n{usage}\n")
             prompt_toks = usage.get("prompt_tokens", 0)
             completion_toks = usage.get("completion_tokens", 0)
             total_toks = usage.get("total_tokens", 0)
