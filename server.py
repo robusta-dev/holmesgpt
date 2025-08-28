@@ -390,8 +390,6 @@ def chat(chat_request: ChatRequest):
                 tool_calls=llm_call.tool_calls,
                 conversation_history=llm_call.messages,
                 follow_up_actions=follow_up_actions,
-                pending_approvals=None,  # Non-streaming doesn't support approvals yet
-                requires_approval=False,
             )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)

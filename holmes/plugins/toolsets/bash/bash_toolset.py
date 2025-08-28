@@ -192,8 +192,8 @@ class RunBashCommand(BaseBashTool):
             if not BASH_TOOL_UNSAFE_ALLOW_ALL:
                 logging.info(f"Refusing LLM tool call {command_str}")
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
+                    status=ToolResultStatus.APPROVAL_REQUIRED,
+                    error=f"Refusing to execute bash command for security reasons. Error: {str(e)}",
                     params=params,
                 )
 

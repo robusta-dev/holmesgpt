@@ -312,16 +312,30 @@ class ToolCallingLLM:
                 break
 
         if pending_message_idx is None or not pending_tool_calls:
-            # No pending approvals found, return messages as-is
+            # No pending approvals found
+            if tool_decisions:
+                logging.warning(
+                    f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
+                )
             return messages
 
         # Create decision lookup
         decisions_by_id = {
             decision.tool_call_id: decision for decision in tool_decisions
         }
-
-        # Remove the pending approval flag from the assistant message
-        messages[pending_message_idx]["pending_approval"] = False
+        
+        # Validate that all decisions have corresponding pending tool calls
+        pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
+        invalid_decisions = [
+            decision.tool_call_id 
+            for decision in tool_decisions 
+            if decision.tool_call_id not in pending_tool_ids
+        ]
+        
+        if invalid_decisions:
+            logging.warning(
+                f"Received decisions for non-pending tool calls: {invalid_decisions}"
+            )
 
         # Process each tool call
         for tool_call in pending_tool_calls:
@@ -331,10 +345,8 @@ class ToolCallingLLM:
             if decision and decision.approved:
                 # Execute the approved tool
                 try:
-                    # Use modified params if provided, otherwise use original
-                    params = decision.modified_params or json.loads(
-                        tool_call["function"]["arguments"]
-                    )
+                    # Use original params from the tool call
+                    params = json.loads(tool_call["function"]["arguments"])
 
                     # Create a tool call object for execution
 
@@ -936,7 +948,7 @@ class ToolCallingLLM:
                             approval_required_tools.append(tool_call_result)
 
                             yield StreamMessage(
-                                event=StreamEvents.APPROVAL_REQUIRED,
+                                event=StreamEvents.TOOL_RESULT,
                                 data=tool_call_result.as_streaming_tool_result_response(),
                             )
                         else:
