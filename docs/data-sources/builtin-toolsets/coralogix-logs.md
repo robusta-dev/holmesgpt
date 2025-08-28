@@ -52,10 +52,10 @@ toolsets:
       domain: "eu2.coralogix.com"
       team_hostname: "your-company-name"
       labels:
-        namespace: "kubernetes.namespace_name"     # Default
-        pod: "kubernetes.pod_name"                 # Default
-        log_message: "logRecord.body"              # Default
-        timestamp: "logRecord.attributes.time"     # Default
+        namespace: "resource.attributes.k8s.pod.name" # Default
+        pod: "resource.attributes.k8s.namespace.name" # Default
+        log_message: "logRecord.body"                 # Default
+        timestamp: "logRecord.attributes.time"        # Default
 
   kubernetes/logs:
     enabled: false  # Disable default Kubernetes logging
