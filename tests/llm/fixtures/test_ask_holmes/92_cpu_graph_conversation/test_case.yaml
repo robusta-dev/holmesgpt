@@ -1,3 +1,7 @@
+before_test: |
+  # Send CPU and memory metrics to Datadog for a specific robusta-runner mentioned in conversation history
+  bash ../../shared/send_datadog_metrics.sh default robusta-runner-78599b764d-f847h robusta-runner
+
 user_prompt:
   - "Can you show this as a graph?"
   - "Could you visualize this data in a chart?"

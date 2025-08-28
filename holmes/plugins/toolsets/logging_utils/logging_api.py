@@ -27,6 +27,9 @@ class LoggingCapability(str, Enum):
 
     REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
     EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
+    HISTORICAL_DATA = (
+        "historical_data"  # Can fetch logs for pods no longer in the cluster
+    )
 
 
 class LoggingConfig(BaseModel):
@@ -78,8 +81,15 @@ class PodLoggingTool(Tool):
         parameters = self._get_tool_parameters(toolset)
 
         # Build description based on capabilities
-        description = "Fetch logs for a Kubernetes pod"
+        # Include the toolset name in the description
+        toolset_name = toolset.name if toolset.name else "logging backend"
+        description = f"Fetch logs for a Kubernetes pod from {toolset_name}"
         capabilities = toolset.supported_capabilities
+
+        if LoggingCapability.HISTORICAL_DATA in capabilities:
+            description += (
+                " (including historical data for pods no longer in the cluster)"
+            )
 
         if (
             LoggingCapability.REGEX_FILTER in capabilities

@@ -45,13 +45,13 @@ class OpenSearchLogsToolset(BasePodLoggingToolset):
             docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch_logs.html",
             icon_url="https://opensearch.org/wp-content/uploads/2025/01/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             tags=[
                 ToolsetTag.CORE,
             ],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = OpenSearchLoggingConfig(

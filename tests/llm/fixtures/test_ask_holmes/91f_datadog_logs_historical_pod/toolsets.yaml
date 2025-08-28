@@ -2,6 +2,9 @@
 # Enables Datadog logs toolset to query historical logs
 
 toolsets:
+  kubernetes/logs:
+    enabled: False
+
   datadog/logs:
     enabled: true
     config:
