@@ -2,11 +2,11 @@ import os
 import json
 import logging
 import re
-from datetime import datetime, timedelta
-from typing import Any, Dict, Optional, List
+from datetime import datetime
+from typing import Any, Dict, Optional
 
 import requests
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict, Field
 from holmes.core.tools import (
     Tool,
     ToolParameter,
@@ -80,30 +80,30 @@ class PromptParser:
             
         # Enhanced patterns following InfraInsights conventions
         patterns = [
-            # Specific name patterns with colons (highest priority)
-            r'deployment:\s*([a-zA-Z0-9\-_]+)',
-            r'service:\s*([a-zA-Z0-9\-_]+)',
-            r'pod:\s*([a-zA-Z0-9\-_]+)',
-            r'workload:\s*([a-zA-Z0-9\-_]+)',
-            r'container:\s*([a-zA-Z0-9\-_]+)',
-            
+            # Specific name patterns with keyword first (highest priority)
+            r'deployment[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'service[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'pod[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'workload[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'container[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+
             # Direct mentions with resource types
             r'([a-zA-Z0-9\-_]+)\s+deployment',
             r'([a-zA-Z0-9\-_]+)\s+service',
             r'([a-zA-Z0-9\-_]+)\s+pod',
             r'([a-zA-Z0-9\-_]+)\s+workload',
             r'([a-zA-Z0-9\-_]+)\s+container',
-            
+
             # "for" patterns
             r'for\s+([a-zA-Z0-9\-_]+)(?:\s+(?:deployment|service|pod|workload))?',
             r'traces?\s+for\s+([a-zA-Z0-9\-_]+)',
             r'logs?\s+for\s+([a-zA-Z0-9\-_]+)',
-            
+
             # Service name patterns
             r'([a-zA-Z0-9\-_]+)-service',
             r'([a-zA-Z0-9\-_]+)-api',
             r'([a-zA-Z0-9\-_]+)-app',
-            
+
             # Generic patterns (lower priority)
             r'([a-zA-Z0-9\-_]+)\s+traces',
             r'([a-zA-Z0-9\-_]+)\s+logs',
@@ -115,7 +115,7 @@ class PromptParser:
             if match:
                 extracted = match.group(1)
                 # Skip common false positives
-                if extracted.lower() in ['deployment', 'service', 'pod', 'workload', 'container', 'traces', 'logs', 'for', 'in', 'from']:
+                if extracted.lower() in ['deployment', 'service', 'pod', 'workload', 'container', 'traces', 'logs', 'for', 'in', 'from', 'get', 'show', 'fetch', 'display', 'retrieve', 'list']:
                     continue
                 return extracted
         
