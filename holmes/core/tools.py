@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, OrderedDict, Tuple, Union
 
 from jinja2 import Template
-from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator
+from pydantic import BaseModel, ConfigDict, Field, FilePath, model_validator, field_serializer
 from rich.console import Console
 
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
@@ -313,7 +313,16 @@ class StaticPrerequisite(BaseModel):
 
 
 class CallablePrerequisite(BaseModel):
+    """Prerequisite implemented via a Python callable."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     callable: Callable[[dict[str, Any]], Tuple[bool, str]]
+
+    @field_serializer("callable", when_used="json")
+    def serialize_callable(cls, v: Callable[[dict[str, Any]], Tuple[bool, str]]):  # type: ignore[override]
+        """Serialize callable prerequisites by name when dumping to JSON."""
+        return getattr(v, "__name__", repr(v))
 
 
 class ToolsetCommandPrerequisite(BaseModel):

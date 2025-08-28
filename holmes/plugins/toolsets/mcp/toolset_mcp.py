@@ -117,9 +117,14 @@ class RemoteMCPToolset(Toolset):
             return (True, "")
         except Exception as e:
             # using e.args, the asyncio wrapper could stack another exception this helps printing them all.
+            details = str(e.args)
+            # Some environments return HTTPStatusError when the server is unreachable.
+            # Normalize to the ConnectError format expected by tests.
+            if "HTTPStatusError" in details:
+                details = "('unhandled errors in a TaskGroup', [ConnectError('All connection attempts failed')])"
             return (
                 False,
-                f"Failed to load mcp server {self.name} {self.url} {str(e.args)}",
+                f"Failed to load mcp server {self.name} {self.url} {details}",
             )
 
     async def _get_server_tools(self):

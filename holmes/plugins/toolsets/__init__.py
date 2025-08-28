@@ -152,7 +152,10 @@ def load_toolsets_from_config(
     """
     
     logging.info("🚀🚀🚀 LOADING TOOLSETS FROM CONFIG - ENHANCED VERSION 🚀🚀🚀")
-    logging.info(f"📝 Received toolsets config: {list(toolsets.keys()) if toolsets else 'None'}")
+    if isinstance(toolsets, dict):
+        logging.info(f"📝 Received toolsets config: {list(toolsets.keys())}")
+    else:
+        logging.info("📝 Received toolsets config in legacy list format")
 
     if not toolsets:
         return []
@@ -271,17 +274,28 @@ def load_toolsets_from_config(
                 validated_toolset = KfuseTempoToolset()
                 validated_toolset.config = config.get("config")
                 logging.info(f"🔧 Extracted config: {validated_toolset.config}")
-                
+
                 # Safety check: Verify all tools are proper Tool objects
                 logging.info(f"🔧 SAFETY CHECK: Verifying {len(validated_toolset.tools)} Kfuse Tempo tools")
                 for i, tool in enumerate(validated_toolset.tools):
                     if not hasattr(tool, 'name'):
-                        logging.error(f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}")
-                        raise ValueError(f"Kfuse Tempo toolset tool {i} is not a proper Tool object: {type(tool)}")
-                    logging.info(f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})")
-                
-                # No configure method needed for KfuseTempoToolset as it uses config directly
-                if not validated_toolset.config:
+                        logging.error(
+                            f"🔧 SAFETY CHECK FAILED: Tool {i} is not a proper Tool object: {type(tool)}"
+                        )
+                        raise ValueError(
+                            f"Kfuse Tempo toolset tool {i} is not a proper Tool object: {type(tool)}"
+                        )
+                    logging.info(
+                        f"🔧 SAFETY CHECK: Tool {i} OK: {tool.name} ({type(tool).__name__})"
+                    )
+
+                # Call configure to enable the toolset if config is provided
+                if validated_toolset.config:
+                    logging.info(
+                        f"🔧 Calling configure method with config: {validated_toolset.config}"
+                    )
+                    validated_toolset.configure(validated_toolset.config)
+                else:
                     logging.warning(f"🔧 No config found for {name}, using defaults")
             elif toolset_type is ToolsetType.MCP:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
