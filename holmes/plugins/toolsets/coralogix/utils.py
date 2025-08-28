@@ -22,8 +22,8 @@ class CoralogixQueryResult(BaseModel):
 class CoralogixLabelsConfig(BaseModel):
     pod: str = "resource.attributes.k8s.pod.name"
     namespace: str = "resource.attributes.k8s.namespace.name"
-    log_message: str = "userData.logRecord.body"
-    timestamp: str = "userData.time"
+    log_message: str = "logRecord.body"
+    timestamp: str = "logRecord.attributes.time"
 
 
 class CoralogixLogsMethodology(str, Enum):
@@ -104,19 +104,18 @@ def flatten_structured_log_entries(
     flattened_logs = []
     for log_entry in log_entries:
         try:
-            log_message = extract_field(log_entry, labels_config.log_message)
-            timestamp = extract_field(log_entry, labels_config.timestamp)
+            userData = json.loads(log_entry.get("userData", "{}"))
+            log_message = extract_field(userData, labels_config.log_message)
+            timestamp = extract_field(userData, labels_config.timestamp)
             if not log_message or not timestamp:
-                log_message = json.dumps(log_entry)
+                log_message = json.dumps(userData)
             else:
                 flattened_logs.append(
                     FlattenedLog(timestamp=timestamp, log_message=log_message)
                 )  # Store as tuple for sorting
 
         except json.JSONDecodeError:
-            logging.error(
-                f"Failed to decode userData JSON: {log_entry.get('userData')}"
-            )
+            logging.error(f"Failed to decode userData JSON: {json.dumps(log_entry)}")
     return flattened_logs
 
 
