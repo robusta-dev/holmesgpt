@@ -12,6 +12,8 @@ from holmes.core.tools import (
     ToolsetTag,
     ToolsetType,
     YAMLToolset,
+    YAMLTool,
+    ToolsetYamlFromConfig,
 )
 from holmes.core.toolset_manager import ToolsetManager
 
@@ -91,6 +93,24 @@ def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_m
     assert len(toolsets) == 1
     assert toolsets[0].enabled is False
     os.remove(tmpfile_path)
+
+
+def test_preprocess_tools_converts_dict_to_yamltool():
+    data = {
+        "name": "dict-toolset",
+        "description": "test",
+        "enabled": True,
+        "tools": [
+            {
+                "name": "foo",
+                "description": "bar",
+                "command": "echo hi",
+                "parameters": {},
+            }
+        ],
+    }
+    ts = ToolsetYamlFromConfig.model_validate(data)
+    assert isinstance(ts.tools[0], YAMLTool)
 
 
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
@@ -302,3 +322,20 @@ def test_load_custom_toolsets_empty_file(tmp_path, toolset_manager):
     with pytest.raises(Exception) as e_info:
         toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
     assert "Invalid data type:" in e_info.value.args[0]
+
+
+def test_override_with_preserves_tools():
+    builtin = YAMLToolset(
+        name="base",
+        description="Builtin",
+        tools=[YAMLTool(name="orig", description="o", command="echo hi")],
+    )
+    override = ToolsetYamlFromConfig(
+        name="base",
+        tools=[YAMLTool(name="new", description="n", command="echo hi")],
+    )
+
+    builtin.override_with(override)
+
+    assert all(isinstance(t, YAMLTool) for t in builtin.tools)
+    assert builtin.tools[0].name == "new"
