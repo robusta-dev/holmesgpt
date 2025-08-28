@@ -54,8 +54,8 @@ toolsets:
       labels:
         namespace: "kubernetes.namespace_name"     # Default
         pod: "kubernetes.pod_name"                 # Default
-        log_message: "userData.logRecord.body"     # Default
-        timestamp: "userData.time"                 # Default
+        log_message: "logRecord.body"              # Default
+        timestamp: "logRecord.attributes.time"     # Default
 
   kubernetes/logs:
     enabled: false  # Disable default Kubernetes logging
