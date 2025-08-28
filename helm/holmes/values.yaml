@@ -8,6 +8,14 @@ podAnnotations: {}
 
 replicas: 1
 
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPU: "60"
+  targetMemory: ""
+  behavior: {}
+  
 image: holmes:0.0.0
 registry: robustadev
 
