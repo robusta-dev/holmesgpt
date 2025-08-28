@@ -37,6 +37,11 @@ class ToolExecutor:
         self.tools_by_name: dict[str, Tool] = {}
         for ts in toolsets_by_name.values():
             for tool in ts.tools:
+                # Debug: check if tool is a dict
+                if isinstance(tool, dict):
+                    logging.error(f"Tool in toolset {ts.name} is a dict: {tool}")
+                    continue
+                    
                 if tool.name in self.tools_by_name:
                     logging.warning(
                         f"Overriding existing tool '{tool.name} with new tool from {ts.name} at {ts.path}'!"
