@@ -64,8 +64,6 @@ class LLMSummarizeTransformer(BaseTransformer):
 
     def model_post_init(self, __context) -> None:
         """Initialize the fast LLM instance after model validation."""
-        import logging
-
         logger = logging.getLogger(__name__)
 
         self._fast_llm = None
@@ -102,8 +100,6 @@ class LLMSummarizeTransformer(BaseTransformer):
         Returns:
             True if summarization should be applied, False otherwise
         """
-        import logging
-
         logger = logging.getLogger(__name__)
 
         # Skip if no fast model is configured
