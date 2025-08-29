@@ -318,7 +318,7 @@ The only valid top-level fields for toolsets in YAML are: `enabled`, `name`, `de
 
 ## Documentation Lookup
 
-When asked about content from the HolmesGPT documentation website (https://robusta-dev.github.io/holmesgpt/), look in the local `docs/` directory:
+When asked about content from the HolmesGPT documentation website (https://holmesgpt.dev/), look in the local `docs/` directory:
 - Python SDK examples: `docs/installation/python-installation.md`
 - CLI installation: `docs/installation/cli-installation.md`
 - Kubernetes deployment: `docs/installation/kubernetes-installation.md`

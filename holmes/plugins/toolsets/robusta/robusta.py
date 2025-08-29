@@ -203,7 +203,7 @@ class RobustaToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
             enabled=True if dal else False,
-            disabled_reason="The data access layer is not available",
+            disabled_reason="Integration with Robusta cloud is disabled",
         )
         if dal:
             dal_prereq = StaticPrerequisite(

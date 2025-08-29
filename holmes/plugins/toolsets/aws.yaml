@@ -44,6 +44,10 @@ toolsets:
     description: "Read access to Amazon RDS resources"
     docs_url: "https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/aws.html#rds"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
+    llm_instructions: |
+      You have access to information on RDS resources.
+      Use this toolset to get extra information on RDS resources on AWS.
+      When investigating RDS resources ALWAYS fetch additional information if possible.
     tags:
       - cli
     prerequisites:
@@ -56,8 +60,8 @@ toolsets:
         command: "aws rds describe-events"
 
       - name: "aws_rds_describe_instance"
-        description: "Get the configuration of a RDS instance"
-        user_description: "Get the configuration of a RDS instance"
+        description: "Get the configuration of a RDS instance, its status and availability stats. Runs 'aws rds describe-db-instances' for a specific instance."
+        user_description: "Get the configuration of an RDS instance"
         command: "aws rds describe-db-instances --db-instance-identifier '{{ db_instance_identifier }}'"
 
       - name: "aws_rds_describe_instances"
@@ -66,7 +70,7 @@ toolsets:
         command: "aws rds describe-db-instances"
 
       - name: "aws_rds_describe_logs"
-        description: "Describe all available logs for an AWS RDS instance."
+        description: "Describe all available logs for an AWS RDS instance. Runs 'aws rds describe-db-log-files' for a specific instance."
         user_description: "list available RDS logs (e.g. slow query logs)"
         command: "aws rds describe-db-log-files --db-instance-identifier '{{ db_instance_identifier }}'"
 

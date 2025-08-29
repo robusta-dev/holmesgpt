@@ -30,3 +30,7 @@ HolmesGPT supports multiple AI providers, giving you flexibility in choosing the
     3. Run `holmes ask "what pods are failing?"` (OpenAI is the default provider)
 
 Choose your provider above to see detailed configuration instructions.
+
+## Configuration
+
+Each AI provider requires specific environment variables for authentication. See the [Environment Variables Reference](../reference/environment-variables.md) for a complete list of all configuration options beyond just API keys.

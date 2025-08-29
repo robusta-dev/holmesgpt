@@ -1,7 +1,5 @@
 user_prompt:
-  - "can you show me a graph of the node exporter"
-  - "can you show me a memory graph of the node exporter"
-  - "can you show me a graph of the running node exporter"
+  - "generate me a graph of robusta-runner"
   - "Show me robusta-runner memory usage over the last 24 hours"
   - "Graph robusta-runner memory consumption trends for the past week"
   - "Display hourly memory usage pattern for robusta-runner over the last 3 days"

@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.11-slim as builder
+FROM python:3.11-slim-bookworm as builder
 ENV PATH="/root/.local/bin/:$PATH"
 
 RUN apt-get update \
@@ -81,7 +81,7 @@ RUN if [ "${PRIVATE_PACKAGE_REGISTRY}" != "none" ]; then \
 
 
 # Final stage
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/venv/bin:$PATH"
