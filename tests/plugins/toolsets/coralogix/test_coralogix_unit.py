@@ -2,7 +2,7 @@ import os
 import pytest
 from pathlib import Path
 
-from holmes.plugins.toolsets.coralogix.api import DEFAULT_LOG_COUNT, build_query_string
+from holmes.plugins.toolsets.coralogix.api import build_query_string
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
 )
@@ -101,7 +101,7 @@ def test_normalize_datetime_valid_inputs(input_date, expected_output):
     [
         (
             {"namespace": "application", "pod_name": "my-app"},
-            f'source logs | lucene \'kubernetes.namespace_name:"application" AND kubernetes.pod_name:"my-app"\' | limit {DEFAULT_LOG_COUNT}',
+            'source logs | lucene \'kubernetes.namespace_name:"application" AND kubernetes.pod_name:"my-app"\' | limit 100',
         ),
         (
             {

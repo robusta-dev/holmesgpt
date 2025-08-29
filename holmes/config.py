@@ -9,7 +9,15 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
 
-from holmes.common.env_vars import ROBUSTA_AI, ROBUSTA_API_ENDPOINT, ROBUSTA_CONFIG_PATH
+
+from holmes.clients.robusta_client import fetch_robusta_models
+from holmes.core.llm import DefaultLLM
+from holmes.common.env_vars import (
+    ROBUSTA_AI,
+    LOAD_ALL_ROBUSTA_MODELS,
+    ROBUSTA_API_ENDPOINT,
+    ROBUSTA_CONFIG_PATH,
+)
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -22,7 +30,6 @@ from holmes.plugins.runbooks import (
 # Source plugin imports moved to their respective create methods to speed up startup
 if TYPE_CHECKING:
     from holmes.core.llm import LLM
-    from holmes.core.supabase_dal import SupabaseDal
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
@@ -31,6 +38,7 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import replace_env_vars_values
@@ -71,8 +79,11 @@ class Config(RobustaBaseConfig):
     api_key: Optional[SecretStr] = (
         None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
     )
+    account_id: Optional[str] = None
+    session_token: Optional[SecretStr] = None
+
     model: Optional[str] = "gpt-4o"
-    max_steps: int = 10
+    max_steps: int = 40
     cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
@@ -134,10 +145,51 @@ class Config(RobustaBaseConfig):
 
     def model_post_init(self, __context: Any) -> None:
         self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
-        if self._should_load_robusta_ai():
-            logging.info("Loading Robusta AI model")
+
+        if not self._should_load_robusta_ai():
+            return
+
+        self.configure_robusta_ai_model()
+
+    def configure_robusta_ai_model(self) -> None:
+        try:
+            if not self.cluster_name or not LOAD_ALL_ROBUSTA_MODELS:
+                self._load_default_robusta_config()
+                return
+
+            if not self.api_key:
+                dal = SupabaseDal(self.cluster_name)
+                self.load_robusta_api_key(dal)
+
+            if not self.account_id or not self.session_token:
+                self._load_default_robusta_config()
+                return
+
+            models = fetch_robusta_models(
+                self.account_id, self.session_token.get_secret_value()
+            )
+            if not models:
+                self._load_default_robusta_config()
+                return
+
+            for model in models:
+                logging.info(f"Loading Robusta AI model: {model}")
+                self._model_list[model] = {
+                    "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
+                    "is_robusta_model": True,
+                }
+
+        except Exception:
+            logging.exception("Failed to get all robusta models")
+            # fallback to default behavior
+            self._load_default_robusta_config()
+
+    def _load_default_robusta_config(self):
+        if self._should_load_robusta_ai() and self.api_key:
+            logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
                 "base_url": ROBUSTA_API_ENDPOINT,
+                "is_robusta_model": True,
             }
 
     def _should_load_robusta_ai(self) -> bool:
@@ -465,7 +517,7 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key = self.api_key.get_secret_value() if self.api_key else None
+        api_key: Optional[str] = None
         model = self.model
         model_params = {}
         if self._model_list:
@@ -475,10 +527,11 @@ class Config(RobustaBaseConfig):
                 if model_key
                 else next(iter(self._model_list.values())).copy()
             )
-            api_key = model_params.pop("api_key", api_key)
+            if model_params.get("is_robusta_model") and self.api_key:
+                api_key = self.api_key.get_secret_value()
+            else:
+                api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
-
-        from holmes.core.llm import DefaultLLM
 
         return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
 
@@ -487,6 +540,13 @@ class Config(RobustaBaseConfig):
             return json.dumps(list(self._model_list.keys()))  # type: ignore
 
         return json.dumps([self.model])  # type: ignore
+
+    def load_robusta_api_key(self, dal: SupabaseDal):
+        if ROBUSTA_AI:
+            account_id, token = dal.get_ai_credentials()
+            self.api_key = SecretStr(f"{account_id} {token}")
+            self.account_id = account_id
+            self.session_token = SecretStr(token)
 
 
 class TicketSource(BaseModel):

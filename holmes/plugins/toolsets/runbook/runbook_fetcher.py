@@ -83,10 +83,10 @@ class RunbookFetcher(Tool):
                         4. ❌ *Could not analyze process mailbox sizes* - Observer tool not enabled in container. Enable remote shell or observer_cli for process introspection.
                         5. ✅ *Check pod memory limits* - container limit 4Gi, requests 2Gi
                         6. ✅ *Verify BEAM startup arguments* - `+S 4:4 +P 1048576`, no memory instrumentation flags enabled
-                        7. ❌ *Could not retrieve APM traces* - Datadog traces toolset is disabled. You can enable it by following https://robusta-dev.github.io/holmesgpt/data-sources/builtin-toolsets/datadog/
-                        8. ❌ *Could not query Erlang metrics* - Prometheus integration is not connected. Enable it via https://robusta-dev.github.io/holmesgpt/data-sources/builtin-toolsets/prometheus/
+                        7. ❌ *Could not retrieve APM traces* - Datadog traces toolset is disabled. You can enable it by following https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/
+                        8. ❌ *Could not query Erlang metrics* - Prometheus integration is not connected. Enable it via https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/
                         9. ✅ *Examine recent deployments* - app version 2.1.3 deployed 4 hours ago, coincides with memory spike
-                        10. ❌ *Could not check Stripe API status* - No toolset for Stripe integration exists. To monitor Stripe or similar third-party APIs, add a [custom toolset](https://robusta-dev.github.io/holmesgpt/data-sources/custom-toolsets/) or use a [remote MCP server](https://robusta-dev.github.io/holmesgpt/data-sources/remote-mcp-servers/)
+                        10. ❌ *Could not check Stripe API status* - No toolset for Stripe integration exists. To monitor Stripe or similar third-party APIs, add a [custom toolset](https://holmesgpt.dev/data-sources/custom-toolsets/) or use a [remote MCP server](https://holmesgpt.dev/data-sources/remote-mcp-servers/)
 
                         **Root cause:** Memory leak in `gen_server` logic introduced in v2.1.3. BEAM VM hitting memory limit, causing out-of-memory crashes.
 

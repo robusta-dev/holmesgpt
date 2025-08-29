@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, cast, Set
 from pydantic import BaseModel
 
 from holmes.core.tools import CallablePrerequisite
@@ -11,7 +11,9 @@ from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
@@ -21,8 +23,6 @@ from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
-
-DEFAULT_TIME_SPAN_SECONDS = 3600
 
 
 class GrafanaLokiLabelsConfig(BaseModel):
@@ -35,6 +35,11 @@ class GrafanaLokiConfig(GrafanaConfig):
 
 
 class GrafanaLokiToolset(BasePodLoggingToolset):
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Loki only supports substring matching, not regex or exclude filters"""
+        return set()  # No regex support, no exclude filter
+
     def __init__(self):
         super().__init__(
             name="grafana/loki",

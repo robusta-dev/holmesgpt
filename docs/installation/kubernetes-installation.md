@@ -98,7 +98,7 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #       key: gemini-api-key
         ```
 
-        > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above.
+        > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above. For a complete list of all environment variables, see the [Environment Variables Reference](../reference/environment-variables.md).
 
 3. **Install HolmesGPT:**
    ```bash

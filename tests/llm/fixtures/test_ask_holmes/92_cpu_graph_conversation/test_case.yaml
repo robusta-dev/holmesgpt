@@ -19,3 +19,5 @@ expected_output: |
 
 tags:
   - datadog
+
+test_type: server

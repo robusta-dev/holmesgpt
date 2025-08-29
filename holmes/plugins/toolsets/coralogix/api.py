@@ -12,14 +12,14 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     CoralogixLogsMethodology,
 )
-from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    FetchPodLogsParams,
+    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
+)
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
 )
-
-
-DEFAULT_TIME_SPAN_SECONDS = 86400
-DEFAULT_LOG_COUNT = 2000  # Coralogix's default is 2000
 
 
 class CoralogixTier(str, Enum):
@@ -62,7 +62,7 @@ def build_query_string(config: CoralogixConfig, params: FetchPodLogsParams) -> s
         query_filters.append(f'{config.labels.log_message}:"{params.filter}"')
 
     query_string = " AND ".join(query_filters)
-    query_string = f"source logs | lucene '{query_string}' | limit {params.limit or DEFAULT_LOG_COUNT}"
+    query_string = f"source logs | lucene '{query_string}' | limit {params.limit or DEFAULT_LOG_LIMIT}"
     return query_string
 
 

@@ -72,7 +72,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
       us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes ask "what pods are unhealthy and why?"
     ```
 
-    > **Note:** Pass environment variables using `-e` flags. An example for OpenAI is shown above. Adjust it for other AI providers by passing `-e GEMINI_API_KEY`, `-e ANTHROPIC_API_KEY`, etc.
+    > **Note:** Pass environment variables using `-e` flags. An example for OpenAI is shown above. Adjust it for other AI providers by passing `-e GEMINI_API_KEY`, `-e ANTHROPIC_API_KEY`, etc. See the [Environment Variables Reference](../reference/environment-variables.md) for a complete list.
 
 ## Quick Start
 

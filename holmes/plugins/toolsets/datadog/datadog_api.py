@@ -126,6 +126,25 @@ class wait_for_retry_after_header(wait_base):
     ),
     reraise=True,
 )
+def execute_paginated_datadog_http_request(
+    url: str,
+    headers: dict,
+    payload_or_params: dict,
+    timeout: int,
+    method: str = "POST",
+) -> tuple[Any, Optional[str]]:
+    response_data = execute_datadog_http_request(
+        url=url,
+        headers=headers,
+        payload_or_params=payload_or_params,
+        timeout=timeout,
+        method=method,
+    )
+    cursor = extract_cursor(response_data)
+    data = response_data.get("data", [])
+    return data, cursor
+
+
 def execute_datadog_http_request(
     url: str,
     headers: dict,
@@ -143,14 +162,7 @@ def execute_datadog_http_request(
         )
 
     if response.status_code == 200:
-        response_data = response.json()
-
-        if method == "POST" and response_data and "data" in response_data:
-            cursor = extract_cursor(response_data)
-            data = response_data.get("data", [])
-            return data, cursor
-        else:
-            return response_data
+        return response.json()
 
     else:
         raise DataDogRequestError(

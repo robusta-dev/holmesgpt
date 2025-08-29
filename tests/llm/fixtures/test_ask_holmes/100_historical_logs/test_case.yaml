@@ -10,7 +10,7 @@ expected_output:
 tags:
   - logs
   - kubernetes
-  - easy
+  - medium
 
 port_forwards:
   - namespace: app-100

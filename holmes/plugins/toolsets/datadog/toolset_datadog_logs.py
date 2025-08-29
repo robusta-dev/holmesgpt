@@ -1,7 +1,7 @@
 from enum import Enum
 import json
 import logging
-from typing import Any, Optional, Dict, Tuple
+from typing import Any, Optional, Dict, Tuple, Set
 from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
@@ -12,14 +12,16 @@ from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.datadog.datadog_api import (
     DatadogBaseConfig,
     DataDogRequestError,
-    execute_datadog_http_request,
+    execute_paginated_datadog_http_request,
     get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
     BasePodLoggingToolset,
     FetchPodLogsParams,
+    LoggingCapability,
     PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
@@ -47,7 +49,7 @@ class DatadogLogsConfig(DatadogBaseConfig):
     )
     labels: DataDogLabelsMapping = DataDogLabelsMapping()
     page_size: int = 300
-    default_limit: int = 1000
+    default_limit: int = DEFAULT_LOG_LIMIT
 
 
 def calculate_page_size(
@@ -96,7 +98,7 @@ def fetch_paginated_logs(
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
 
-    logs, cursor = execute_datadog_http_request(
+    logs, cursor = execute_paginated_datadog_http_request(
         url=url,
         headers=headers,
         payload_or_params=payload,
@@ -105,7 +107,7 @@ def fetch_paginated_logs(
 
     while cursor and len(logs) < limit:
         payload["page"]["cursor"] = cursor
-        new_logs, cursor = execute_datadog_http_request(
+        new_logs, cursor = execute_paginated_datadog_http_request(
             url=url,
             headers=headers,
             payload_or_params=payload,
@@ -136,6 +138,11 @@ def format_logs(raw_logs: list[dict]) -> str:
 
 class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
+
+    @property
+    def supported_capabilities(self) -> Set[LoggingCapability]:
+        """Datadog logs API only supports substring matching, no exclude filter"""
+        return set()  # No regex support, no exclude filter
 
     def __init__(self):
         super().__init__(
