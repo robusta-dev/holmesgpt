@@ -159,6 +159,14 @@ You can save common settings and API Keys in a config file to avoid passing them
 You can save common settings and API keys in config file for re-use. Place the config file in <code>~/.holmes/config.yaml`</code> or pass it using the <code> --config</code>
 
 You can view an example config file with all available settings [here](config.example.yaml).
+
+### Tool Output Transformers
+
+HolmesGPT supports **transformers** to process large tool outputs before sending them to your primary LLM. This feature helps manage context window limits while preserving essential information.
+
+The most common transformer is `llm_summarize`, which uses a fast secondary model to summarize lengthy outputs from tools like `kubectl describe`, log queries, or metrics collection.
+
+📖 **Learn more**: [Tool Output Transformers Documentation](docs/transformers.md)
 </details>
 
 ## 🔐 Data Privacy
