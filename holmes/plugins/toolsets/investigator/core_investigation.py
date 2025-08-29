@@ -82,7 +82,9 @@ class TodoWriteTool(Tool):
 
         logging.info(separator)
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 

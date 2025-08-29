@@ -153,14 +153,17 @@ class Tool(ABC, BaseModel):
         )
 
     def invoke(
-        self, params: Dict, tool_number: Optional[int] = None
+        self,
+        params: Dict,
+        tool_number: Optional[int] = None,
+        user_approved: bool = False,
     ) -> StructuredToolResult:
         tool_number_str = f"#{tool_number} " if tool_number else ""
         logging.info(
             f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
-        result = self._invoke(params)
+        result = self._invoke(params=params, user_approved=user_approved)
         result.icon_url = self.icon_url
         elapsed = time.time() - start_time
         output_str = (
@@ -176,7 +179,13 @@ class Tool(ABC, BaseModel):
         return result
 
     @abstractmethod
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
+        """
+        params: the tool params
+        user_approved: whether the tool call is approved by the user. Can be used to confidently execute unsafe actions.
+        """
         pass
 
     @abstractmethod
@@ -228,7 +237,9 @@ class YAMLTool(Tool, BaseModel):
             return ToolResultStatus.NO_DATA
         return ToolResultStatus.SUCCESS
 
-    def _invoke(self, params) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)
         else:

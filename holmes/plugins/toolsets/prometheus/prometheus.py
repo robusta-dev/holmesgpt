@@ -403,7 +403,9 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -499,7 +501,9 @@ class ListAvailableMetrics(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -536,8 +540,9 @@ class ListAvailableMetrics(BasePrometheusTool):
                 verify_ssl=self.toolset.config.prometheus_ssl_enabled,
             )
 
-            if params.get("type_filter"):
-                metrics = filter_metrics_by_type(metrics, params.get("type_filter"))
+            type_filter = params.get("type_filter")
+            if type_filter:
+                metrics = filter_metrics_by_type(metrics, type_filter)
 
             output = ["Metric | Description | Type | Labels"]
             output.append("-" * 100)
@@ -604,7 +609,9 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -740,7 +747,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,

@@ -63,7 +63,9 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config:
             raise ValueError("RabbitMQ is not configured.")
 
@@ -101,7 +103,9 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             # Fetch node details which include partition info
             cluster_config = self._get_cluster_config(

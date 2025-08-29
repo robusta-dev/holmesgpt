@@ -83,7 +83,9 @@ class KubectlRunImageCommand(BaseBashTool):
         command_str = get_param_or_raise(params, "command")
         return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i -- {command_str}"
 
-    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         timeout = params.get("timeout", 60)
 
         image = get_param_or_raise(params, "image")
@@ -163,7 +165,9 @@ class RunBashCommand(BaseBashTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         command_str = params.get("command")
         timeout = params.get("timeout", 60)
 
@@ -182,31 +186,34 @@ class RunBashCommand(BaseBashTool):
             )
 
         command_to_execute = command_str
-        try:
-            command_to_execute = make_command_safe(command_str, self.toolset.config)
 
-        except (argparse.ArgumentError, ValueError) as e:
-            with sentry_sdk.configure_scope() as scope:
-                scope.set_extra("command", command_str)
-                scope.set_extra("error", str(e))
-                scope.set_extra("unsafe_allow_all", BASH_TOOL_UNSAFE_ALLOW_ALL)
-                sentry_sdk.capture_exception(e)
+        # Only run the safety check if user has NOT approved the command
+        if not user_approved:
+            try:
+                command_to_execute = make_command_safe(command_str, self.toolset.config)
 
-            if not BASH_TOOL_UNSAFE_ALLOW_ALL:
-                logging.info(f"Refusing LLM tool call {command_str}")
+            except (argparse.ArgumentError, ValueError) as e:
+                with sentry_sdk.configure_scope() as scope:
+                    scope.set_extra("command", command_str)
+                    scope.set_extra("error", str(e))
+                    scope.set_extra("unsafe_allow_all", BASH_TOOL_UNSAFE_ALLOW_ALL)
+                    sentry_sdk.capture_exception(e)
 
-                # Check if user approval is enabled for rejected commands
-                status = (
-                    ToolResultStatus.APPROVAL_REQUIRED
-                    if USER_MUST_APPROVE_REJECTED_TOOL_CALLS
-                    else ToolResultStatus.ERROR
-                )
-                return StructuredToolResult(
-                    status=status,
-                    error=f"Refusing to execute bash command. {str(e)}",
-                    params=params,
-                    invocation=command_str,
-                )
+                if not BASH_TOOL_UNSAFE_ALLOW_ALL:
+                    logging.info(f"Refusing LLM tool call {command_str}")
+
+                    # Check if user approval is enabled for rejected commands
+                    status = (
+                        ToolResultStatus.APPROVAL_REQUIRED
+                        if USER_MUST_APPROVE_REJECTED_TOOL_CALLS
+                        else ToolResultStatus.ERROR
+                    )
+                    return StructuredToolResult(
+                        status=status,
+                        error=f"Refusing to execute bash command. {str(e)}",
+                        params=params,
+                        invocation=command_str,
+                    )
 
         return execute_bash_command(
             cmd=command_to_execute, timeout=timeout, params=params

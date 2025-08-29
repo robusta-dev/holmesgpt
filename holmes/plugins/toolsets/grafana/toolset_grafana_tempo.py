@@ -133,7 +133,9 @@ class GetTempoTraces(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api_key = self._toolset.grafana_config.api_key
         headers = self._toolset.grafana_config.headers
         labels = self._toolset.grafana_config.labels
@@ -220,7 +222,9 @@ class GetTempoTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api_key = self._toolset.grafana_config.api_key
         headers = self._toolset.grafana_config.headers
         start, end = process_timestamps_to_int(
@@ -269,7 +273,9 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         labels_mapping = self._toolset.grafana_config.labels
         labels = list(labels_mapping.model_dump().values())
 

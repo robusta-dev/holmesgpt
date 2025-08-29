@@ -285,7 +285,7 @@ class ToolCallingLLM:
         self.llm = llm
         self.investigation_id = str(uuid.uuid4())
         self.approval_callback: Optional[
-            Callable[[str, str], tuple[bool, Optional[str]]]
+            Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
         ] = None
 
     def prompt_call(
@@ -568,24 +568,14 @@ class ToolCallingLLM:
             # Handle approval required status
             if tool_response.status == ToolResultStatus.APPROVAL_REQUIRED:
                 if self.approval_callback is not None:
-                    command = tool_response.invocation or str(tool_params)
-                    error_message = tool_response.error or "Command requires approval"
-
-                    approved, feedback = self.approval_callback(command, error_message)
+                    approved, feedback = self.approval_callback(tool_response)
 
                     if approved:
-                        # Re-execute the tool with approval
-                        logging.debug(f"User approved command: {command}")
-                        # We need to modify the tool to bypass validation - this requires updating the bash toolset
-                        # For now, let's execute the command directly through the bash execution
-                        from holmes.plugins.toolsets.bash.common.bash import (
-                            execute_bash_command,
+                        logging.debug(
+                            f"User approved command: {tool_response.invocation}"
                         )
-
-                        tool_response = execute_bash_command(
-                            cmd=command,
-                            timeout=tool_params.get("timeout", 60),
-                            params=tool_params,
+                        tool_response = tool.invoke(
+                            tool_params, tool_number=tool_number, user_approved=True
                         )
                     else:
                         # User denied - create appropriate response
@@ -596,7 +586,7 @@ class ToolCallingLLM:
                             status=ToolResultStatus.ERROR,
                             error=f"User denied command execution.{feedback_text}",
                             params=tool_params,
-                            invocation=command,
+                            invocation=tool_response.invocation,
                         )
                 else:
                     # No support for approval flow. Tool has been denied, changing that to an Error until SaaS UI supports approvals

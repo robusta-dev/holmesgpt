@@ -30,7 +30,7 @@ from rich.markdown import Markdown, Panel
 from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
-from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
 from holmes.utils.colors import (
     AI_COLOR,
@@ -585,8 +585,8 @@ def prompt_for_llm_sharing(
 
 
 def handle_tool_approval(
-    command: str,
-    error_message: str,
+    command: Optional[str],
+    error_message: Optional[str],
     session: PromptSession,
     style: Style,
     console: Console,
@@ -607,8 +607,8 @@ def handle_tool_approval(
         - feedback: User's optional feedback message when denying
     """
     console.print("\n[bold yellow]⚠️  Command Approval Required[/bold yellow]")
-    console.print(f"[yellow]Command:[/yellow] {command}")
-    console.print(f"[yellow]Reason:[/yellow] {error_message}")
+    console.print(f"[yellow]Command:[/yellow] {command or 'unknown'}")
+    console.print(f"[yellow]Reason:[/yellow] {error_message or 'unknown'}")
     console.print()
 
     # Create a temporary session without history for approval prompts
@@ -861,12 +861,16 @@ def run_interactive_loop(
 
     # Set up approval callback for potentially sensitive commands
     def approval_handler(
-        command: str, error_message: str
+        tool_call_result: StructuredToolResult,
     ) -> tuple[bool, Optional[str]]:
         # Create a temporary session for the approval prompt
         temp_session: PromptSession = PromptSession()
         return handle_tool_approval(
-            command, error_message, temp_session, style, console
+            tool_call_result.invocation,
+            tool_call_result.error,
+            temp_session,
+            style,
+            console,
         )
 
     ai.approval_callback = approval_handler
