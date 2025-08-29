@@ -640,7 +640,7 @@ class ToolCallingLLM:
         Returns:
             Updated tool call result with approved/denied status
         """
-        # Only process if status is APPROVAL_REQUIRED
+        
         if tool_call_result.result.status != ToolResultStatus.APPROVAL_REQUIRED:
             return tool_call_result
 
@@ -657,7 +657,6 @@ class ToolCallingLLM:
                 f"User approved command: {tool_call_result.result.invocation}"
             )
 
-            # Re-invoke the tool with user_approved=True
             new_response = self._directly_invoke_tool(
                 tool_name=tool_call_result.tool_name,
                 tool_params=tool_call_result.result.params or {},
@@ -665,7 +664,6 @@ class ToolCallingLLM:
                 trace_span=DummySpan(),
                 tool_number=None,  # Could be extracted if needed
             )
-            # Update the result with the new response
             tool_call_result.result = new_response
         else:
             # User denied - update to error
@@ -872,7 +870,6 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    # Handle approval if needed
                     tool_call_result = self.handle_tool_call_approval(tool_call_result)
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
