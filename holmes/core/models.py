@@ -86,10 +86,31 @@ class ConversationRequest(BaseModel):
     include_tool_call_results: bool = False
 
 
+class PendingToolApproval(BaseModel):
+    """Represents a tool call that requires user approval."""
+
+    tool_call_id: str
+    tool_name: str
+    description: str
+    params: Dict[str, Any]
+
+
+class ToolApprovalDecision(BaseModel):
+    """Represents a user's decision on a tool approval."""
+
+    tool_call_id: str
+    approved: bool
+
+
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
     model: Optional[str] = None
     stream: bool = Field(default=False)
+    enable_tool_approval: Optional[bool] = (
+        False  # Optional boolean for backwards compatibility
+    )
+    tool_decisions: Optional[List[ToolApprovalDecision]] = None
+    pending_approvals: Optional[List[PendingToolApproval]] = None
 
     # In our setup with litellm, the first message in conversation_history
     # should follow the structure [{"role": "system", "content": ...}],
@@ -145,6 +166,7 @@ class ChatResponse(BaseModel):
     conversation_history: list[dict]
     tool_calls: Optional[List[ToolCallResult]] = []
     follow_up_actions: Optional[List[FollowUpAction]] = []
+    pending_approvals: Optional[List[PendingToolApproval]] = None
 
 
 class WorkloadHealthInvestigationResult(BaseModel):
