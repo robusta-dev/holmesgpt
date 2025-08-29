@@ -200,21 +200,40 @@ class TestToolValidationIntegration:
         # Invalid transformers will cause validation to fail during model creation
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> Mock:
-                return Mock()
+            def _invoke(self, params: Dict) -> StructuredToolResult:
+                return StructuredToolResult(
+                    status=ToolResultStatus.SUCCESS,
+                    data="Test output",
+                )
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
                 return "test command"
 
-        # Test creating tool with valid transformers works
-        valid_transforms = [Transformer(name="mock_transformer", config={})]
-        tool = ConcreteTestTool(
-            name="test_tool",
-            description="Test tool",
-            transformers=valid_transforms,
-        )
-
-        assert tool.transformers == valid_transforms
+        # Test creating tool with invalid transformers logs warnings but continues
+        invalid_transforms = [
+            Transformer(name="nonexistent_transformer", config={}),
+            Transformer(name="mock_transformer", config={}),  # This one should succeed
+        ]
+        
+        with patch("holmes.core.tools.logger.warning") as mock_logger_warning:
+            tool = ConcreteTestTool(
+                name="test_tool",
+                description="Test tool",
+                transformers=invalid_transforms,
+            )
+            
+            # Verify that warning was logged for invalid transformer
+            mock_logger_warning.assert_called()
+            warning_calls = [
+                call
+                for call in mock_logger_warning.call_args_list
+                if "nonexistent_transformer" in str(call)
+            ]
+            assert len(warning_calls) > 0
+            
+        # Tool should still work despite invalid transformer
+        result = tool.invoke({})
+        assert result.status == ToolResultStatus.SUCCESS
 
     def test_yaml_tool_validation(self):
         """Test YAMLTool transformer validation."""
@@ -745,16 +764,16 @@ class TestTransformerCachingOptimization:
                 return "test command"
 
         # Create tool - initialization should handle the failure gracefully
-        with patch("logging.warning") as mock_warning:
+        with patch("holmes.core.tools.logger.warning") as mock_logger_warning:
             tool = ConcreteTestTool(
                 name="test_tool", description="Test tool", transformers=transformers
             )
 
             # Verify that warning was logged for failed transformer
-            mock_warning.assert_called()
+            mock_logger_warning.assert_called()
             warning_calls = [
                 call
-                for call in mock_warning.call_args_list
+                for call in mock_logger_warning.call_args_list
                 if "nonexistent_transformer" in str(call)
             ]
             assert len(warning_calls) > 0
