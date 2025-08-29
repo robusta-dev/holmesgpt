@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import uuid
 from typing import Dict, List, Optional, Type, Union, Callable
 
 
@@ -290,7 +289,6 @@ class ToolCallingLLM:
         self.approval_callback: Optional[
             Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
         ] = None
-
 
     def prompt_call(
         self,
