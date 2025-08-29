@@ -101,7 +101,9 @@ stringData:
             return total_size
 
         def check_disk_space_limit(self):
-            """Check if folder size exceeds 100MB and simulate disk full"""
+            """Check if folder size exceeds 100MB and simulate disk full
+            This simulates disk space limits when the PVC's limit is not enforced (e.g. local kind cluster)
+            """
             folder_size = self.get_folder_size(self.data_dir)
             if folder_size >= 100 * 1024 * 1024:  # 100MB limit
                 raise OSError(28, "No space left on device")
