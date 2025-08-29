@@ -1104,27 +1104,27 @@ class AnalyzeTraceRCA(Tool):
             }}
             """
 
-            payload = {"query": metrics_query, "variables": {}}
+                payload = {"query": metrics_query, "variables": {}}
 
-            try:
-                logger.info("Tempo request payload: %s", payload)
-                response_metrics = requests.post(
-                    url, headers=headers, json=payload, timeout=30
-                )
-                logger.info(
-                    "Tempo response [%s]: %s",
-                    response_metrics.status_code,
-                    response_metrics.text,
-                )
-                response_metrics.raise_for_status()
-                metrics_details = response_metrics.json()
-            except requests.exceptions.Timeout:
-                metrics_details = {"error": "Request to Tempo timed out"}
-            except Exception as e:
-                logger.warning(f"Failed to fetch span metrics: {e}")
-                metrics_details = {"error": f"Failed to fetch metrics: {e}"}
-        else:
-            metrics_details = {"error": "Service hash or span name not available"}
+                try:
+                    logger.info("Tempo request payload: %s", payload)
+                    response_metrics = requests.post(
+                        url, headers=headers, json=payload, timeout=30
+                    )
+                    logger.info(
+                        "Tempo response [%s]: %s",
+                        response_metrics.status_code,
+                        response_metrics.text,
+                    )
+                    response_metrics.raise_for_status()
+                    metrics_details = response_metrics.json()
+                except requests.exceptions.Timeout:
+                    metrics_details = {"error": "Request to Tempo timed out"}
+                except Exception as e:
+                    logger.warning(f"Failed to fetch span metrics: {e}")
+                    metrics_details = {"error": f"Failed to fetch metrics: {e}"}
+            else:
+                metrics_details = {"error": "Service hash or span name not available"}
 
             # Combine all results into a single JSON response with comprehensive RCA analysis
             result = {
