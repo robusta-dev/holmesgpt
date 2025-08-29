@@ -287,7 +287,6 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
-        self.investigation_id = str(uuid.uuid4())
         self.approval_callback: Optional[
             Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
         ] = None
