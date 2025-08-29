@@ -23,53 +23,61 @@ logger = logging.getLogger(__name__)
 
 # Remove base tool class - inherit directly from Tool
 
+
 class PromptParser:
     """Utility class to extract Kubernetes and duration information from user prompts
     Following the same patterns used by InfraInsights toolsets"""
-    
+
     @staticmethod
     def extract_kube_cluster_name(prompt: str) -> Optional[str]:
         """Extract Kubernetes cluster name from prompt using various patterns"""
         if not prompt:
             return None
-            
+
         # Enhanced patterns following InfraInsights conventions
         patterns = [
             # Specific name patterns with colons (highest priority)
-            r'cluster_name:\s*([a-zA-Z0-9\-_]+)',
-            r'kube_cluster:\s*([a-zA-Z0-9\-_]+)',
-            r'kubernetes_cluster:\s*([a-zA-Z0-9\-_]+)',
-            
+            r'cluster_name[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'kube_cluster[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'kubernetes_cluster[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'cluster\s+name\s*(?:is\s*)?["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'clustername[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
             # Direct mentions with service types
-            r'([a-zA-Z0-9\-_]+)\s+kubernetes(?:\s+cluster)?',
-            r'([a-zA-Z0-9\-_]+)\s+k8s(?:\s+cluster)?',
-            
+            r"([a-zA-Z0-9\-_]+)\s+kubernetes(?:\s+cluster)?",
+            r"([a-zA-Z0-9\-_]+)\s+k8s(?:\s+cluster)?",
             # "my" patterns
-            r'my\s+([a-zA-Z0-9\-_]+)(?:\s+(?:kubernetes|k8s|cluster))?',
-            
+            r"my\s+([a-zA-Z0-9\-_]+)(?:\s+(?:kubernetes|k8s|cluster))?",
             # Environment-based patterns
-            r'([a-zA-Z0-9\-_]+)\s+environment',
-            r'([a-zA-Z0-9\-_]+)\s+prod',
-            r'([a-zA-Z0-9\-_]+)\s+staging',
-            r'([a-zA-Z0-9\-_]+)\s+dev',
-            r'([a-zA-Z0-9\-_]+)\s+test',
-            
+            r"([a-zA-Z0-9\-_]+)\s+environment",
+            r"([a-zA-Z0-9\-_]+)\s+prod",
+            r"([a-zA-Z0-9\-_]+)\s+staging",
+            r"([a-zA-Z0-9\-_]+)\s+dev",
+            r"([a-zA-Z0-9\-_]+)\s+test",
             # Generic patterns (lower priority)
-            r'(?:in|from)\s+([a-zA-Z0-9\-_]+)\s+cluster',
-            r'([a-zA-Z0-9\-_]+)\s+cluster',
-            r'(?:instance|cluster|service)\s+([a-zA-Z0-9\-_]+)',
-            r'([a-zA-Z0-9\-_]{3,})(?:\s+(?:instance|cluster|service))',
+            r"(?:in|from)\s+([a-zA-Z0-9\-_]+)\s+cluster",
+            r"([a-zA-Z0-9\-_]+)\s+cluster",
+            r"(?:instance|cluster|service)\s+([a-zA-Z0-9\-_]+)",
+            r"([a-zA-Z0-9\-_]{3,})(?:\s+(?:instance|cluster|service))",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
                 # Skip common false positives
-                if extracted.lower() in ['kubernetes', 'k8s', 'cluster', 'instance', 'service', 'in', 'from', 'my']:
+                if extracted.lower() in [
+                    "kubernetes",
+                    "k8s",
+                    "cluster",
+                    "instance",
+                    "service",
+                    "in",
+                    "from",
+                    "my",
+                ]:
                     continue
                 return extracted
-        
+
         return None
 
     @staticmethod
@@ -77,7 +85,7 @@ class PromptParser:
         """Extract Kubernetes deployment name from prompt"""
         if not prompt:
             return None
-            
+
         # Enhanced patterns following InfraInsights conventions
         patterns = [
             # Specific name patterns with keyword first (highest priority)
@@ -86,39 +94,52 @@ class PromptParser:
             r'pod[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
             r'workload[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
             r'container[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
-
             # Direct mentions with resource types
-            r'([a-zA-Z0-9\-_]+)\s+deployment',
-            r'([a-zA-Z0-9\-_]+)\s+service',
-            r'([a-zA-Z0-9\-_]+)\s+pod',
-            r'([a-zA-Z0-9\-_]+)\s+workload',
-            r'([a-zA-Z0-9\-_]+)\s+container',
-
+            r"([a-zA-Z0-9\-_]+)\s+deployment",
+            r"([a-zA-Z0-9\-_]+)\s+service",
+            r"([a-zA-Z0-9\-_]+)\s+pod",
+            r"([a-zA-Z0-9\-_]+)\s+workload",
+            r"([a-zA-Z0-9\-_]+)\s+container",
             # "for" patterns
-            r'for\s+([a-zA-Z0-9\-_]+)(?:\s+(?:deployment|service|pod|workload))?',
-            r'traces?\s+for\s+([a-zA-Z0-9\-_]+)',
-            r'logs?\s+for\s+([a-zA-Z0-9\-_]+)',
-
+            r"for\s+([a-zA-Z0-9\-_]+)(?:\s+(?:deployment|service|pod|workload))?",
+            r"traces?\s+for\s+([a-zA-Z0-9\-_]+)",
+            r"logs?\s+for\s+([a-zA-Z0-9\-_]+)",
             # Service name patterns
-            r'([a-zA-Z0-9\-_]+)-service',
-            r'([a-zA-Z0-9\-_]+)-api',
-            r'([a-zA-Z0-9\-_]+)-app',
-
+            r"([a-zA-Z0-9\-_]+)-service",
+            r"([a-zA-Z0-9\-_]+)-api",
+            r"([a-zA-Z0-9\-_]+)-app",
             # Generic patterns (lower priority)
-            r'([a-zA-Z0-9\-_]+)\s+traces',
-            r'([a-zA-Z0-9\-_]+)\s+logs',
+            r"([a-zA-Z0-9\-_]+)\s+traces",
+            r"([a-zA-Z0-9\-_]+)\s+logs",
         ]
-        
+
         # Try to find the most specific match first
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
                 # Skip common false positives
-                if extracted.lower() in ['deployment', 'service', 'pod', 'workload', 'container', 'traces', 'logs', 'for', 'in', 'from', 'get', 'show', 'fetch', 'display', 'retrieve', 'list']:
+                if extracted.lower() in [
+                    "deployment",
+                    "service",
+                    "pod",
+                    "workload",
+                    "container",
+                    "traces",
+                    "logs",
+                    "for",
+                    "in",
+                    "from",
+                    "get",
+                    "show",
+                    "fetch",
+                    "display",
+                    "retrieve",
+                    "list",
+                ]:
                     continue
                 return extracted
-        
+
         return None
 
     @staticmethod
@@ -126,23 +147,23 @@ class PromptParser:
         """Extract Kubernetes pod name from prompt"""
         if not prompt:
             return None
-            
+
         patterns = [
-            r'pod:\s*([a-zA-Z0-9\-_]+)',
-            r'pod_name:\s*([a-zA-Z0-9\-_]+)',
-            r'([a-zA-Z0-9\-_]+)\s+pod',
-            r'pod\s+([a-zA-Z0-9\-_]+)',
-            r'logs?\s+from\s+pod\s+([a-zA-Z0-9\-_]+)',
-            r'traces?\s+from\s+pod\s+([a-zA-Z0-9\-_]+)',
+            r"pod:\s*([a-zA-Z0-9\-_]+)",
+            r"pod_name:\s*([a-zA-Z0-9\-_]+)",
+            r"([a-zA-Z0-9\-_]+)\s+pod",
+            r"pod\s+([a-zA-Z0-9\-_]+)",
+            r"logs?\s+from\s+pod\s+([a-zA-Z0-9\-_]+)",
+            r"traces?\s+from\s+pod\s+([a-zA-Z0-9\-_]+)",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
-                if extracted.lower() not in ['pod', 'logs', 'traces', 'from']:
+                if extracted.lower() not in ["pod", "logs", "traces", "from"]:
                     return extracted
-        
+
         return None
 
     @staticmethod
@@ -150,23 +171,23 @@ class PromptParser:
         """Extract Kubernetes container name from prompt"""
         if not prompt:
             return None
-            
+
         patterns = [
-            r'container:\s*([a-zA-Z0-9\-_]+)',
-            r'container_name:\s*([a-zA-Z0-9\-_]+)',
-            r'([a-zA-Z0-9\-_]+)\s+container',
-            r'container\s+([a-zA-Z0-9\-_]+)',
-            r'in\s+container\s+([a-zA-Z0-9\-_]+)',
-            r'from\s+container\s+([a-zA-Z0-9\-_]+)',
+            r"container:\s*([a-zA-Z0-9\-_]+)",
+            r"container_name:\s*([a-zA-Z0-9\-_]+)",
+            r"([a-zA-Z0-9\-_]+)\s+container",
+            r"container\s+([a-zA-Z0-9\-_]+)",
+            r"in\s+container\s+([a-zA-Z0-9\-_]+)",
+            r"from\s+container\s+([a-zA-Z0-9\-_]+)",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
-                if extracted.lower() not in ['container', 'in', 'from']:
+                if extracted.lower() not in ["container", "in", "from"]:
                     return extracted
-        
+
         return None
 
     @staticmethod
@@ -174,20 +195,20 @@ class PromptParser:
         """Extract Kubernetes namespace from prompt"""
         if not prompt:
             return None
-            
+
         patterns = [
-            r'namespace:\s*([a-zA-Z0-9\-_]+)',
-            r'ns:\s*([a-zA-Z0-9\-_]+)',
-            r'in\s+namespace\s+([a-zA-Z0-9\-_]+)',
-            r'from\s+namespace\s+([a-zA-Z0-9\-_]+)',
-            r'([a-zA-Z0-9\-_]+)\s+namespace',
+            r'namespace[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'ns[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'in\s+namespace\s+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'from\s+namespace\s+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r"([a-zA-Z0-9\-_]+)\s+namespace",
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
-                if extracted.lower() not in ['namespace', 'ns', 'in', 'from']:
+                if extracted.lower() not in ["namespace", "ns", "in", "from"]:
                     return extracted
 
         return None
@@ -199,17 +220,19 @@ class PromptParser:
             return None
 
         patterns = [
+            r'servicename[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'service\s+name\s*(?:is\s*)?["\']?([a-zA-Z0-9\-_]+)["\']?',
             r'service[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
-            r'([a-zA-Z0-9\-_]+)\s+service',
-            r'service\s+([a-zA-Z0-9\-_]+)',
-            r'([a-zA-Z0-9\-_]+)-service',
+            r'["\']?([a-zA-Z0-9\-_]+)["\']?\s+service',
+            r'service\s+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r"([a-zA-Z0-9\-_]+)-service",
         ]
 
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 extracted = match.group(1)
-                if extracted.lower() not in ['service']:
+                if extracted.lower() not in ["service"]:
                     return extracted
 
         return None
@@ -219,47 +242,56 @@ class PromptParser:
         """Extract duration filter from prompt and return in nanoseconds"""
         # Default duration: last 30 minutes
         default_duration = 30 * 60  # 30 minutes in seconds
-        
+
         patterns = [
-            r'last (\d+) minutes?',  # last 15 minutes
-            r'(\d+) minutes? ago',  # 15 minutes ago
-            r'last (\d+) hours?',  # last 2 hours
-            r'(\d+) hours? ago',  # 2 hours ago
-            r'last (\d+) days?',  # last 1 day
-            r'(\d+) days? ago',  # 1 day ago
-            r'since (\d+):(\d+)',  # since 14:30 (today)
-            r'between (\d+):(\d+) and (\d+):(\d+)',  # between 14:00 and 16:00
-            r'(\d+) hour',  # 1 hour (singular)
-            r'(\d+) minute',  # 1 minute (singular)
-            r'(\d+) day',  # 1 day (singular)
+            r"last (\d+) minutes?",  # last 15 minutes
+            r"(\d+) minutes? ago",  # 15 minutes ago
+            r"last (\d+) hours?",  # last 2 hours
+            r"(\d+) hours? ago",  # 2 hours ago
+            r"last (\d+) days?",  # last 1 day
+            r"(\d+) days? ago",  # 1 day ago
+            r"since (\d+):(\d+)",  # since 14:30 (today)
+            r"between (\d+):(\d+) and (\d+):(\d+)",  # between 14:00 and 16:00
+            r"(\d+) hour",  # 1 hour (singular)
+            r"(\d+) minute",  # 1 minute (singular)
+            r"(\d+) day",  # 1 day (singular)
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
-                if 'minutes' in pattern or 'minute' in pattern:
+                if "minutes" in pattern or "minute" in pattern:
                     minutes = int(match.group(1))
                     return {
-                        'lower_bound': 500000000,  # 500ms in nanoseconds
-                        'upper_bound': minutes * 60 * 1000000000  # minutes to nanoseconds
+                        "lower_bound": 500000000,  # 500ms in nanoseconds
+                        "upper_bound": minutes
+                        * 60
+                        * 1000000000,  # minutes to nanoseconds
                     }
-                elif 'hours' in pattern or 'hour' in pattern:
+                elif "hours" in pattern or "hour" in pattern:
                     hours = int(match.group(1))
                     return {
-                        'lower_bound': 500000000,  # 500ms in nanoseconds
-                        'upper_bound': hours * 60 * 60 * 1000000000  # hours to nanoseconds
+                        "lower_bound": 500000000,  # 500ms in nanoseconds
+                        "upper_bound": hours
+                        * 60
+                        * 60
+                        * 1000000000,  # hours to nanoseconds
                     }
-                elif 'days' in pattern or 'day' in pattern:
+                elif "days" in pattern or "day" in pattern:
                     days = int(match.group(1))
                     return {
-                        'lower_bound': 500000000,  # 500ms in nanoseconds
-                        'upper_bound': days * 24 * 60 * 60 * 1000000000  # days to nanoseconds
+                        "lower_bound": 500000000,  # 500ms in nanoseconds
+                        "upper_bound": days
+                        * 24
+                        * 60
+                        * 60
+                        * 1000000000,  # days to nanoseconds
                     }
-        
+
         # Return default duration (last 30 minutes)
         return {
-            'lower_bound': 500000000,  # 500ms in nanoseconds
-            'upper_bound': default_duration * 1000000000  # 30 minutes to nanoseconds
+            "lower_bound": 500000000,  # 500ms in nanoseconds
+            "upper_bound": default_duration * 1000000000,  # 30 minutes to nanoseconds
         }
 
     @staticmethod
@@ -267,17 +299,17 @@ class PromptParser:
         """Extract trace ID from prompt"""
         # Trace ID patterns (hexadecimal, typically 16-32 characters)
         patterns = [
-            r'trace[:\s]+([a-fA-F0-9]{16,32})',  # trace: abc123...
-            r'trace_id[:\s]+([a-fA-F0-9]{16,32})',  # trace_id: abc123...
-            r'trace ([a-fA-F0-9]{16,32})',  # trace abc123...
-            r'([a-fA-F0-9]{16,32})',  # just the hex string (should be last)
+            r"trace[:\s]+([a-fA-F0-9]{16,32})",  # trace: abc123...
+            r"trace_id[:\s]+([a-fA-F0-9]{16,32})",  # trace_id: abc123...
+            r"trace ([a-fA-F0-9]{16,32})",  # trace abc123...
+            r"([a-fA-F0-9]{16,32})",  # just the hex string (should be last)
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 return match.group(1)
-        
+
         return None
 
     @staticmethod
@@ -285,56 +317,59 @@ class PromptParser:
         """Extract timestamp from prompt"""
         # ISO 8601 timestamp patterns
         patterns = [
-            r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z))',  # ISO format
-            r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})',  # YYYY-MM-DD HH:MM:SS
-            r'(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})',  # MM/DD/YYYY HH:MM:SS
+            r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z))",  # ISO format
+            r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})",  # YYYY-MM-DD HH:MM:SS
+            r"(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2})",  # MM/DD/YYYY HH:MM:SS
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, prompt, re.IGNORECASE)
             if match:
                 timestamp_str = match.group(1)
                 try:
                     # Try to parse and convert to ISO format
-                    if '/' in timestamp_str:
+                    if "/" in timestamp_str:
                         # MM/DD/YYYY format
-                        dt = datetime.strptime(timestamp_str, '%m/%d/%Y %H:%M:%S')
-                    elif 'T' in timestamp_str:
+                        dt = datetime.strptime(timestamp_str, "%m/%d/%Y %H:%M:%S")
+                    elif "T" in timestamp_str:
                         # Already ISO format
-                        dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                        dt = datetime.fromisoformat(
+                            timestamp_str.replace("Z", "+00:00")
+                        )
                     else:
                         # YYYY-MM-DD format
-                        dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
-                    
+                        dt = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+
                     return dt.astimezone().isoformat()
                 except ValueError:
                     continue
-        
+
         return None
 
     @staticmethod
     def extract_all_kubernetes_info(prompt: str) -> Dict[str, Optional[str]]:
         """Extract all Kubernetes-related information from a prompt"""
         return {
-            'cluster_name': PromptParser.extract_kube_cluster_name(prompt),
-            'deployment_name': PromptParser.extract_kube_deployment(prompt),
-            'pod_name': PromptParser.extract_kube_pod_name(prompt),
-            'container_name': PromptParser.extract_container_name(prompt),
-            'namespace': PromptParser.extract_namespace(prompt),
-            'service_name': PromptParser.extract_service_name(prompt),
-            'duration_filter': PromptParser.extract_duration_filter(prompt),
-            'trace_id': PromptParser.extract_trace_id(prompt),
-            'timestamp': PromptParser.extract_timestamp(prompt),
+            "cluster_name": PromptParser.extract_kube_cluster_name(prompt),
+            "deployment_name": PromptParser.extract_kube_deployment(prompt),
+            "pod_name": PromptParser.extract_kube_pod_name(prompt),
+            "container_name": PromptParser.extract_container_name(prompt),
+            "namespace": PromptParser.extract_namespace(prompt),
+            "service_name": PromptParser.extract_service_name(prompt),
+            "duration_filter": PromptParser.extract_duration_filter(prompt),
+            "trace_id": PromptParser.extract_trace_id(prompt),
+            "timestamp": PromptParser.extract_timestamp(prompt),
         }
+
 
 # Define the tool that fetches traces for all services running in a Kubernetes cluster
 class FetchTraces(Tool):
     """Tool to fetch APM traces for all services in Kubernetes cluster"""
-    
+
     name: str = "kfuse_tempo_fetch_traces"
-    description: str = """Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts 
-    the cluster name and duration filter from your prompt. It retrieves traces across all services in the cluster, 
-    providing a broad overview. Use this when you need to see a wide range of activity, or when you're starting 
+    description: str = """Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts
+    the cluster name and duration filter from your prompt. It retrieves traces across all services in the cluster,
+    providing a broad overview. Use this when you need to see a wide range of activity, or when you're starting
     an investigation and don't yet have a specific target. Examples:
     - "Show me traces from the last hour in production cluster"
     - "Get all traces from staging environment in the last 30 minutes"
@@ -345,19 +380,18 @@ class FetchTraces(Tool):
             description="User prompt containing cluster name and duration information",
             type="string",
             required=False,
-            default=""
+            default="",
         )
     }
 
     toolset: Optional[Any] = Field(default=None, exclude=True)
 
-    
     def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_fetch_traces",
-            description="""Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts 
-            the cluster name and duration filter from your prompt. It retrieves traces across all services in the cluster, 
-            providing a broad overview. Use this when you need to see a wide range of activity, or when you're starting 
+            description="""Fetch APM traces for all services running in the Kubernetes cluster. This tool automatically extracts
+            the cluster name and duration filter from your prompt. It retrieves traces across all services in the cluster,
+            providing a broad overview. Use this when you need to see a wide range of activity, or when you're starting
             an investigation and don't yet have a specific target. Examples:
             - "Show me traces from the last hour in production cluster"
             - "Get all traces from staging environment in the last 30 minutes"
@@ -368,9 +402,9 @@ class FetchTraces(Tool):
                     description="User prompt containing cluster name and duration information",
                     type="string",
                     required=False,
-                    default=""
+                    default="",
                 )
-            }
+            },
         )
         self.toolset = toolset
 
@@ -378,34 +412,37 @@ class FetchTraces(Tool):
         """Fetch APM traces for all services in the cluster"""
         try:
             user_prompt = params.get("user_prompt", "")
-            
+
             # Get configuration values from the toolset config
             tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
-            kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
-            
+            kube_cluster_name = os.getenv(
+                "KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name")
+            )
+
             if not tempo_url:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Config must provide 'tempo_url'.",
-                    params=params
+                    params=params,
                 )
-            
+
             # Extract all Kubernetes information from prompt
             kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
-            
-            # Extract cluster name from prompt if not in config
-            if not kube_cluster_name:
-                kube_cluster_name = kube_info['cluster_name']
-                if not kube_cluster_name:
-                    return StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
-                        params=params
-                    )
-            
+
+            # Use cluster name from prompt if provided, otherwise fall back to config
+            prompt_cluster = kube_info["cluster_name"]
+            if prompt_cluster:
+                kube_cluster_name = prompt_cluster
+            elif not kube_cluster_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
+                    params=params,
+                )
+
             # Extract duration filter from prompt
-            duration_filter = kube_info['duration_filter']
-            duration_secs = duration_filter['upper_bound'] // 1000000000
+            duration_filter = kube_info["duration_filter"]
+            duration_secs = duration_filter["upper_bound"] // 1000000000
 
             # Generate current timestamp in ISO 8601 format with timezone offset
             current_timestamp = datetime.now().astimezone().isoformat()
@@ -468,12 +505,9 @@ class FetchTraces(Tool):
               }}
             }}
             """
-            
-            payload = {
-                "query": query,
-                "variables": {}
-            }
-            
+
+            payload = {"query": query, "variables": {}}
+
             # Construct the API endpoint URL
             url = f"http://{tempo_url}:8080/v1/trace/query"
             headers = {"Content-Type": "application/json"}
@@ -486,53 +520,54 @@ class FetchTraces(Tool):
 
             logger.info(f"Fetching traces for cluster: {kube_cluster_name}")
             logger.info(f"Duration filter: {duration_secs} seconds")
+            logger.info("Tempo request payload: %s", payload)
             response = requests.post(url, headers=headers, json=payload, timeout=30)
+            logger.info("Tempo response [%s]: %s", response.status_code, response.text)
             response.raise_for_status()
             result = response.json()
-            
+
             # Add metadata to the response
-            result['metadata'] = {
-                'cluster_name': kube_cluster_name,
-                'duration_filter_seconds': duration_secs,
-                'query_timestamp': current_timestamp,
-                'tempo_host': tempo_url
+            result["metadata"] = {
+                "cluster_name": kube_cluster_name,
+                "duration_filter_seconds": duration_secs,
+                "query_timestamp": current_timestamp,
+                "tempo_host": tempo_url,
             }
-            
+
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=result,
-                params=params
+                status=ToolResultStatus.SUCCESS, data=result, params=params
             )
         except requests.exceptions.Timeout:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request to Tempo timed out. Please try again.",
-                params=params
+                params=params,
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP request failed: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error fetching traces: HTTP {e}",
-                params=params
+                params=params,
             )
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error parsing response: {e}",
-                params=params
+                params=params,
             )
         except Exception as e:
             logger.exception("Unexpected error fetching traces")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error fetching traces: {e}",
-                params=params
+                params=params,
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "kfuse_tempo_fetch_traces()"
+
 
 ###############################################
 # Define the tool that fetches traces for a single service
@@ -557,7 +592,6 @@ class FetchServiceTraces(Tool):
 
     toolset: Optional[Any] = Field(default=None, exclude=True)
 
-
     def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_fetch_service_traces",
@@ -574,7 +608,7 @@ class FetchServiceTraces(Tool):
                     type="string",
                     required=True,
                 )
-            }
+            },
         )
         self.toolset = toolset
 
@@ -582,44 +616,47 @@ class FetchServiceTraces(Tool):
         """Fetch APM traces for a specific Kubernetes service"""
         try:
             user_prompt = params["user_prompt"]
-            
+
             # Get configuration values from the toolset config
             tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
-            kube_cluster_name = os.getenv("KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name"))
-            
+            kube_cluster_name = os.getenv(
+                "KUBE_CLUSTER_NAME", self.toolset.config.get("kube_cluster_name")
+            )
+
             if not tempo_url:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Config must provide 'tempo_url'.",
-                    params=params
+                    params=params,
                 )
-            
+
             # Extract all Kubernetes information from prompt
             kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
-            
+
             # Extract parameters from prompt
-            service_name = kube_info['service_name']
-            namespace = kube_info['namespace']
+            service_name = kube_info["service_name"]
+            namespace = kube_info["namespace"]
             if not service_name or not namespace:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Could not determine service name or namespace from prompt. Please specify both in your request.",
-                    params=params
+                    params=params,
                 )
 
-            # Extract cluster name from prompt if not in config
-            if not kube_cluster_name:
-                kube_cluster_name = kube_info['cluster_name']
-                if not kube_cluster_name:
-                    return StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
-                        params=params
-                    )
+            # Use cluster name from prompt if provided, otherwise fall back to config
+            prompt_cluster = kube_info["cluster_name"]
+            if prompt_cluster:
+                kube_cluster_name = prompt_cluster
+            elif not kube_cluster_name:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
+                    params=params,
+                )
 
             # Extract duration filter from prompt
-            duration_filter = kube_info['duration_filter']
-            duration_secs = duration_filter['upper_bound'] // 1000000000
+            duration_filter = kube_info["duration_filter"]
+            duration_secs = duration_filter["upper_bound"] // 1000000000
 
             # Generate current timestamp in ISO 8601 format with timezone offset
             current_timestamp = datetime.now().astimezone().isoformat()
@@ -670,12 +707,9 @@ class FetchServiceTraces(Tool):
           }}
             }}
             """
-            
-            payload = {
-                "query": query,
-                "variables": {}
-            }
-            
+
+            payload = {"query": query, "variables": {}}
+
             # Construct the API endpoint URL
             url = f"http://{tempo_url}:8080/v1/trace/query"
             headers = {"Content-Type": "application/json"}
@@ -690,60 +724,63 @@ class FetchServiceTraces(Tool):
             logger.info(f"Namespace: {namespace}")
             logger.info(f"Cluster: {kube_cluster_name}")
             logger.info(f"Duration filter: {duration_secs} seconds")
+            logger.info("Tempo request payload: %s", payload)
             response = requests.post(url, headers=headers, json=payload, timeout=30)
+            logger.info("Tempo response [%s]: %s", response.status_code, response.text)
             response.raise_for_status()
             result = response.json()
 
             # Add metadata to the response
-            result['metadata'] = {
-                'service_name': service_name,
-                'namespace': namespace,
-                'cluster_name': kube_cluster_name,
-                'duration_filter_seconds': duration_secs,
-                'query_timestamp': current_timestamp,
-                'tempo_host': tempo_url
+            result["metadata"] = {
+                "service_name": service_name,
+                "namespace": namespace,
+                "cluster_name": kube_cluster_name,
+                "duration_filter_seconds": duration_secs,
+                "query_timestamp": current_timestamp,
+                "tempo_host": tempo_url,
             }
-            
+
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=result,
-                params=params
+                status=ToolResultStatus.SUCCESS, data=result, params=params
             )
         except requests.exceptions.Timeout:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request to Tempo timed out. Please try again.",
-                params=params
+                params=params,
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP request failed: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error fetching traces: HTTP {e}",
-                params=params
+                params=params,
             )
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error parsing response: {e}",
-                params=params
+                params=params,
             )
         except Exception as e:
             logger.exception("Unexpected error fetching traces")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error fetching traces: {e}",
-                params=params
+                params=params,
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f'kfuse_tempo_fetch_service_traces(user_prompt="{params["user_prompt"]}")'
+        return (
+            f'kfuse_tempo_fetch_service_traces(user_prompt="{params["user_prompt"]}")'
+        )
+
 
 # New tool to analyze a trace and fetch RCA details
 class AnalyzeTraceRCA(Tool):
     """Tool to analyze APM traces for root cause analysis"""
-    
+
     name: str = "kfuse_tempo_analyze_trace_rca"
     description: str = """Perform a detailed analysis of a specific APM trace to identify the root cause of performance issues (RCA).
     This tool automatically extracts the trace_id and timestamp from your prompt, or you can provide them directly.
@@ -763,7 +800,6 @@ class AnalyzeTraceRCA(Tool):
 
     toolset: Optional[Any] = Field(default=None, exclude=True)
 
-    
     def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_analyze_trace_rca",
@@ -781,7 +817,7 @@ class AnalyzeTraceRCA(Tool):
                     type="string",
                     required=True,
                 )
-            }
+            },
         )
         self.toolset = toolset
 
@@ -789,29 +825,29 @@ class AnalyzeTraceRCA(Tool):
         """Analyze APM trace for root cause analysis"""
         try:
             user_prompt = params["user_prompt"]
-            
+
             # Extract trace_id and timestamp from prompt
             trace_id = PromptParser.extract_trace_id(user_prompt)
             if not trace_id:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Could not determine trace ID from prompt. Please specify the trace ID in your request.",
-                    params=params
+                    params=params,
                 )
-            
+
             timestamp = PromptParser.extract_timestamp(user_prompt)
             if not timestamp:
                 # Use current timestamp if none provided
                 timestamp = datetime.now().astimezone().isoformat()
-            
+
             tempo_url = os.getenv("TEMPO_URL", self.toolset.config.get("tempo_url"))
             if not tempo_url:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Config must provide 'tempo_url'.",
-                    params=params
+                    params=params,
                 )
-            
+
             headers = {"Content-Type": "application/json"}
             token = self.toolset.config.get("basic_auth_token")
             auth_user = self.toolset.config.get("auth_user")
@@ -820,10 +856,10 @@ class AnalyzeTraceRCA(Tool):
             if auth_user:
                 headers["X-Auth-Request-User"] = auth_user
             url = f"http://{tempo_url}:8080/v1/trace/query"
-            
+
             logger.info(f"Analyzing trace: {trace_id}")
             logger.info(f"Timestamp: {timestamp}")
-            
+
             # Step 1. Fetch detailed trace data using describeTrace
             trace_query = f"""
         {{
@@ -861,56 +897,66 @@ class AnalyzeTraceRCA(Tool):
           }}
             }}
             """
-            
+
             payload = {"query": trace_query, "variables": {}}
-            
+
             try:
-                response_trace = requests.post(url, headers=headers, json=payload, timeout=30)
+                logger.info("Tempo request payload: %s", payload)
+                response_trace = requests.post(
+                    url, headers=headers, json=payload, timeout=30
+                )
+                logger.info(
+                    "Tempo response [%s]: %s",
+                    response_trace.status_code,
+                    response_trace.text,
+                )
                 response_trace.raise_for_status()
                 trace_details = response_trace.json()
             except requests.exceptions.Timeout:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Request to Tempo timed out. Please try again.",
-                    params=params
+                    params=params,
                 )
             except requests.exceptions.RequestException as e:
                 logger.error(f"HTTP request failed: {e}")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error fetching trace details: HTTP {e}",
-                    params=params
+                    params=params,
                 )
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON response: {e}")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error parsing response: {e}",
-                    params=params
+                    params=params,
                 )
             except Exception as e:
                 logger.exception("Failed to fetch trace details")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error fetching trace details: {e}",
-                    params=params
+                    params=params,
                 )
-            
-            spans = trace_details.get("data", {}).get("describeTrace", {}).get("spans", [])
+
+            spans = (
+                trace_details.get("data", {}).get("describeTrace", {}).get("spans", [])
+            )
             if not spans:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="No spans found in the trace.",
-                    params=params
+                    params=params,
                 )
-            
+
             # For RCA, pick the span with maximum durationNs
             max_span = max(spans, key=lambda s: s.get("durationNs", 0))
             span_id = max_span.get("spanId")
             span_name = max_span.get("name")
             service_hash = max_span.get("service", {}).get("hash")
             latency_ns = max_span.get("durationNs")
-            
+
             # Step 2. Fetch detailed span data using describeSpan
             span_query = f"""
             {{
@@ -941,41 +987,49 @@ class AnalyzeTraceRCA(Tool):
               }}
             }}
             """
-            
+
             payload = {"query": span_query, "variables": {}}
-            
+
             try:
-                response_span = requests.post(url, headers=headers, json=payload, timeout=30)
+                logger.info("Tempo request payload: %s", payload)
+                response_span = requests.post(
+                    url, headers=headers, json=payload, timeout=30
+                )
+                logger.info(
+                    "Tempo response [%s]: %s",
+                    response_span.status_code,
+                    response_span.text,
+                )
                 response_span.raise_for_status()
                 span_details = response_span.json()
             except requests.exceptions.Timeout:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Request to Tempo timed out. Please try again.",
-                    params=params
+                    params=params,
                 )
             except requests.exceptions.RequestException as e:
                 logger.error(f"HTTP request failed: {e}")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error fetching span details: HTTP {e}",
-                    params=params
+                    params=params,
                 )
             except json.JSONDecodeError as e:
                 logger.error(f"Invalid JSON response: {e}")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error parsing response: {e}",
-                    params=params
+                    params=params,
                 )
             except Exception as e:
                 logger.exception("Failed to fetch span details")
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error=f"Error fetching span details: {e}",
-                    params=params
+                    params=params,
                 )
-            
+
             # Step 3. Fetch span metrics (latency percentiles) using spanMetrics
             if service_hash and span_name:
                 metrics_query = f"""
@@ -1000,11 +1054,19 @@ class AnalyzeTraceRCA(Tool):
               }}
             }}
             """
-            
+
             payload = {"query": metrics_query, "variables": {}}
-            
+
             try:
-                response_metrics = requests.post(url, headers=headers, json=payload, timeout=30)
+                logger.info("Tempo request payload: %s", payload)
+                response_metrics = requests.post(
+                    url, headers=headers, json=payload, timeout=30
+                )
+                logger.info(
+                    "Tempo response [%s]: %s",
+                    response_metrics.status_code,
+                    response_metrics.text,
+                )
                 response_metrics.raise_for_status()
                 metrics_details = response_metrics.json()
             except requests.exceptions.Timeout:
@@ -1014,7 +1076,7 @@ class AnalyzeTraceRCA(Tool):
                 metrics_details = {"error": f"Failed to fetch metrics: {e}"}
             else:
                 metrics_details = {"error": "Service hash or span name not available"}
-            
+
             # Combine all results into a single JSON response
             result = {
                 "trace_details": trace_details,
@@ -1027,47 +1089,46 @@ class AnalyzeTraceRCA(Tool):
                         "span_id": span_id,
                         "span_name": span_name,
                         "duration_ns": latency_ns,
-                        "duration_ms": latency_ns // 1000000 if latency_ns else None
+                        "duration_ms": latency_ns // 1000000 if latency_ns else None,
                     },
-                    "tempo_host": tempo_url
-                }
+                    "tempo_host": tempo_url,
+                },
             }
-        
+
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=result,
-                params=params
+                status=ToolResultStatus.SUCCESS, data=result, params=params
             )
         except requests.exceptions.Timeout:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error="Request to Tempo timed out. Please try again.",
-                params=params
+                params=params,
             )
         except requests.exceptions.RequestException as e:
             logger.error(f"HTTP request failed: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error analyzing trace: HTTP {e}",
-                params=params
+                params=params,
             )
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON response: {e}")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error parsing response: {e}",
-                params=params
+                params=params,
             )
         except Exception as e:
             logger.exception("Unexpected error analyzing trace")
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
                 error=f"Error analyzing trace: {e}",
-                params=params
+                params=params,
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f'kfuse_tempo_analyze_trace_rca(user_prompt="{params["user_prompt"]}")'
+
 
 # Define the toolset for Kfuse Tempo
 # kfuse_tempo_toolset.py
@@ -1077,7 +1138,7 @@ class KfuseTempoToolset(Toolset):
 
     def __init__(self):
         super().__init__(
-            name="kfuse_tempo",          # avoid slashes in IDs
+            name="kfuse_tempo",  # avoid slashes in IDs
             description="""Toolset to query Kfuse Tempo for APM traces with intelligent parameter extraction.
             This toolset automatically extracts Kubernetes cluster names, namespaces, service names, and duration filters
             from user prompts, making it easy to query traces without specifying technical parameters.
@@ -1093,18 +1154,25 @@ class KfuseTempoToolset(Toolset):
             - "Get traces for user-service in staging namespace"
             - "Analyze trace abc123 for root cause analysis"
             """,
-            enabled=False,               # start disabled until configured
-            tools=[],                    # attach after init
+            enabled=False,  # start disabled until configured
+            tools=[],  # attach after init
             tags=[ToolsetTag.CORE],
             prerequisites=[CallablePrerequisite(callable=self._prereq_check)],
         )
         # Declare tools after init so they capture the instance cleanly
-        self.tools = [FetchTraces(self), FetchServiceTraces(self), AnalyzeTraceRCA(self)]
+        self.tools = [
+            FetchTraces(self),
+            FetchServiceTraces(self),
+            AnalyzeTraceRCA(self),
+        ]
 
     def _prereq_check(self, _: Dict[str, Any]) -> tuple[bool, str]:
         tempo = os.getenv("TEMPO_URL") or self.config.get("tempo_url")
         if not tempo:
-            return False, "tempo_url missing (set TEMPO_URL env or provide config.tempo_url)"
+            return (
+                False,
+                "tempo_url missing (set TEMPO_URL env or provide config.tempo_url)",
+            )
         return True, ""
 
     def configure(self, cfg: Dict[str, Any]) -> None:
@@ -1120,6 +1188,5 @@ class KfuseTempoToolset(Toolset):
             "tempo_url": "your-kfuse-tempo-url",
             "kube_cluster_name": "your-cluster-name",
             "basic_auth_token": "base64-encoded-token",
-            "auth_user": "your-user"
+            "auth_user": "your-user",
         }
-
