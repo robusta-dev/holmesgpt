@@ -519,7 +519,7 @@ class FetchTraces(Tool):
             logger.info(f"Fetching traces for cluster: {kube_cluster_name}")
             logger.info(f"Duration filter: {duration_secs} seconds")
             logger.info("Tempo request payload: %s", payload)
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response = requests.post(url, headers=headers, json=payload, timeout=300)
             logger.info("Tempo response [%s]: %s", response.status_code, response.text)
             response.raise_for_status()
             result = response.json()
@@ -721,7 +721,7 @@ class FetchServiceTraces(Tool):
             logger.info(f"Cluster: {kube_cluster_name}")
             logger.info(f"Duration filter: {duration_secs} seconds")
             logger.info("Tempo request payload: %s", payload)
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            response = requests.post(url, headers=headers, json=payload, timeout=300)
             logger.info("Tempo response [%s]: %s", response.status_code, response.text)
             response.raise_for_status()
             result = response.json()
@@ -918,7 +918,7 @@ class AnalyzeTraceRCA(Tool):
             try:
                 logger.info("Tempo request payload: %s", payload)
                 response_trace = requests.post(
-                    url, headers=headers, json=payload, timeout=30
+                    url, headers=headers, json=payload, timeout=300
                 )
                 logger.info(
                     "Tempo response [%s]: %s",
@@ -1042,7 +1042,7 @@ class AnalyzeTraceRCA(Tool):
             try:
                 logger.info("Tempo request payload: %s", payload)
                 response_span = requests.post(
-                    url, headers=headers, json=payload, timeout=30
+                    url, headers=headers, json=payload, timeout=300
                 )
                 logger.info(
                     "Tempo response [%s]: %s",
@@ -1109,7 +1109,7 @@ class AnalyzeTraceRCA(Tool):
                 try:
                     logger.info("Tempo request payload: %s", payload)
                     response_metrics = requests.post(
-                        url, headers=headers, json=payload, timeout=30
+                        url, headers=headers, json=payload, timeout=300
                     )
                     logger.info(
                         "Tempo response [%s]: %s",
