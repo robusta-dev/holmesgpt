@@ -28,6 +28,9 @@ toolsets:
                 - Group healthy nodes together with aggregate counts
                 - Highlight nodes with concerning conditions or ages
                 - When possible, mention exact node names for follow-up investigation
+                - Be concise: aim for ≤ 50% of the original length; avoid repeating defaults/healthy/unchanged details
+                - Prefer aggregates and counts; list only outliers and actionable items
+                - Keep grep-friendly: include exact field names/values that matter
       - name: "describe_node"
         description: "Describes a specific node in the AKS cluster to inspect its conditions."
         user_description: "describe node {{ NODE_NAME }} in the AKS cluster"
@@ -45,6 +48,8 @@ toolsets:
                 - Recent events that show problems or state changes
                 - System information relevant to troubleshooting
                 - When possible, highlight specific condition reasons for investigation
+                - Strive for ≤ 50% of the original size; keep results compact and grep-friendly (one line per aggregate)
+                - Prioritize aggregates and actionable outliers over comprehensive details
       - name: "get_node_events"
         description: "Fetches recent events for a specific node to surface warnings and errors."
         user_description: "get events for node {{ NODE_NAME }}"
@@ -72,6 +77,8 @@ toolsets:
                 - Network security group, load balancer, or VM-related changes
                 - Group similar activities and highlight time patterns
                 - When possible, mention specific operation names and correlation IDs
+                - Be concise and avoid expansion: target ≤ 50% of input size; prefer counts + outliers over full listings
+                - Include grep-ready keys/values; avoid repeating entire objects or unchanged defaults
       - name: "check_top_resource_consuming_pods"
         description: "Checks for the top resource-consuming pods on a specific node."
         user_description: "get the top resource-consuming pods on node {{ NODE_NAME }}"

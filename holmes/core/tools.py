@@ -277,13 +277,25 @@ class Tool(ABC, BaseModel):
                 # Apply transformation
                 pre_transform_size = len(transformed_data)
                 transform_start_time = time.time()
+                original_data = transformed_data  # Keep a copy for potential reversion
                 transformed_data = transformer_instance.transform(transformed_data)
                 transform_elapsed = time.time() - transform_start_time
+
+                # Check if this is llm_summarize and revert if summary is not smaller
+                post_transform_size = len(transformed_data)
+                if (transformer_instance.name == "llm_summarize" and 
+                    post_transform_size >= pre_transform_size):
+                    # Revert to original data if summary is not smaller
+                    transformed_data = original_data
+                    logger.debug(
+                        f"Transformer '{transformer_instance.name}' reverted for tool '{self.name}' "
+                        f"(output size {post_transform_size:,} >= input size {pre_transform_size:,})"
+                    )
+                    continue  # Don't mark as applied
 
                 transformers_applied.append(transformer_instance.name)
 
                 # Generic logging - transformers can override this with their own specific metrics
-                post_transform_size = len(transformed_data)
                 size_change = post_transform_size - pre_transform_size
                 logger.info(
                     f"Applied transformer '{transformer_instance.name}' to tool '{self.name}' output "
