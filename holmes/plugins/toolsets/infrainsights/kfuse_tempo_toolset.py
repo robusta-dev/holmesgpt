@@ -472,8 +472,6 @@ class FetchTraces(Tool):
                     }}
                   ]
                 }}
-                limit: 100
-                pageNum: 1
                 timestamp: "{current_timestamp}"
                 sortField: "timestamp"
                 sortOrder: Desc
@@ -674,8 +672,6 @@ class FetchServiceTraces(Tool):
                 {{ attributeFilter: {{ eq: {{ key: "service_name", value: "{service_name}" }} }} }}
               ]
             }}
-            limit: 100
-            pageNum: 1
             timestamp: "{current_timestamp}"
             sortField: "timestamp"
             sortOrder: Desc
@@ -863,36 +859,41 @@ class AnalyzeTraceRCA(Tool):
             # Step 1. Fetch detailed trace data using describeTrace
             trace_query = f"""
         {{
-          describeTrace(
-            traceId: "{trace_id}"
-            timestamp: "{timestamp}"
+          traces (
+            durationSecs: {duration_secs}
+            filter: {{
+              and: [
+                {{ attributeFilter: {{ eq: {{ key: "span_service_entry", value: "true" }} }} }},
+                {{ attributeFilter: {{ eq: {{ key: "traceId", value: "{trace_id}" }} }} }},
+              ]
+            }}
+            timestamp: "{current_timestamp}"
+            sortField: "timestamp"
+            sortOrder: Desc
           ) {{
-            spans {{
-              attributes
-              endpoint
-              endTimeNs
-              method
-              name
-              durationNs
+            traceId
+            span {{
+              spanId
               parentSpanId
-              rootSpan
+              startTimeNs
+              endTimeNs
+              attributes
+              durationNs
+              name
               service {{
                 name
-                distinctLabels
-                hash
                 labels
+                hash
+                distinctLabels
               }}
-              span
-              spanId
-              startTimeNs
               statusCode
-              traceId
+              method
+              endpoint
+              rootSpan
             }}
             traceMetrics {{
-              hostExecTimeNs
               spanCount
               serviceExecTimeNs
-              spanIdExecTimeNs
             }}
           }}
             }}
