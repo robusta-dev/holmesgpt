@@ -323,15 +323,15 @@ class ToolCallingLLM:
         decisions_by_id = {
             decision.tool_call_id: decision for decision in tool_decisions
         }
-        
+
         # Validate that all decisions have corresponding pending tool calls
         pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
         invalid_decisions = [
-            decision.tool_call_id 
-            for decision in tool_decisions 
+            decision.tool_call_id
+            for decision in tool_decisions
             if decision.tool_call_id not in pending_tool_ids
         ]
-        
+
         if invalid_decisions:
             logging.warning(
                 f"Received decisions for non-pending tool calls: {invalid_decisions}"
@@ -800,7 +800,7 @@ class ToolCallingLLM:
         This function DOES NOT call llm.completion(stream=true).
         This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
         """
-        messages = []
+        messages: list[dict] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         if user_prompt:

@@ -86,7 +86,6 @@ class ConversationRequest(BaseModel):
     include_tool_call_results: bool = False
 
 
-
 class PendingToolApproval(BaseModel):
     """Represents a tool call that requires user approval."""
 
@@ -101,6 +100,7 @@ class ToolApprovalDecision(BaseModel):
 
     tool_call_id: str
     approved: bool
+
 
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
