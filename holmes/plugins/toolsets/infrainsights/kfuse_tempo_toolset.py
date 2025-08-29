@@ -855,7 +855,9 @@ class AnalyzeTraceRCA(Tool):
 
             logger.info(f"Analyzing trace: {trace_id}")
             logger.info(f"Timestamp: {timestamp}")
-
+            
+            # Generate current timestamp in ISO 8601 format with timezone offset
+            current_timestamp = datetime.now().astimezone().isoformat()
             # Step 1. Fetch detailed trace data using describeTrace
             trace_query = f"""
         {{
