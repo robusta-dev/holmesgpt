@@ -855,10 +855,10 @@ class AnalyzeTraceRCA(Tool):
 
             logger.info(f"Analyzing trace: {trace_id}")
             logger.info(f"Timestamp: {timestamp}")
-            
+
             # Generate current timestamp in ISO 8601 format with timezone offset
             current_timestamp = datetime.now().astimezone().isoformat()
-            # Step 1. Fetch detailed trace data using describeTrace
+            # Step 1. Fetch entry spans for the trace using the traces query
             trace_query = f"""
         {{
           traces (
@@ -898,8 +898,8 @@ class AnalyzeTraceRCA(Tool):
               serviceExecTimeNs
             }}
           }}
-            }}
-            """
+        }}
+        """
 
             payload = {"query": trace_query, "variables": {}}
 
@@ -943,9 +943,11 @@ class AnalyzeTraceRCA(Tool):
                     params=params,
                 )
 
-            spans = (
-                trace_details.get("data", {}).get("describeTrace", {}).get("spans", [])
-            )
+            spans = [
+                t.get("span")
+                for t in trace_details.get("data", {}).get("traces", [])
+                if t.get("span")
+            ]
             if not spans:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
