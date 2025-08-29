@@ -44,7 +44,9 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         url: str = params["url"]
 
         # Get headers from the toolset configuration

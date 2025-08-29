@@ -152,7 +152,9 @@ class DummyNonLoggingToolset(Toolset):
             name="non_logging_toolset", description="Dummy toolset", tools=[]
         )
 
-    def _invoke(self, params: dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         return StructuredToolResult(status=ToolResultStatus.SUCCESS)
 
     def get_parameterized_one_liner(self, params: dict) -> str:

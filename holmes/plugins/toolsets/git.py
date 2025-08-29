@@ -249,7 +249,9 @@ class GitReadFileWithLineNumbers(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         filepath = params["filepath"]
         try:
             headers = {"Authorization": f"token {self.toolset.git_credentials}"}
@@ -293,7 +295,9 @@ class GitListFiles(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             headers = {"Authorization": f"token {self.toolset.git_credentials}"}
             url = f"https://api.github.com/repos/{self.toolset.git_repo}/git/trees/{self.toolset.git_branch}?recursive=1"
@@ -334,7 +338,9 @@ class GitListOpenPRs(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             prs = self.toolset.list_open_prs()
             formatted = [
@@ -402,7 +408,9 @@ class GitExecuteChanges(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -620,7 +628,9 @@ class GitUpdatePR(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             line = params["line"]
             filename = params["filename"]

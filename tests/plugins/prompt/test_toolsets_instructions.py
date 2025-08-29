@@ -15,7 +15,9 @@ class DummyTool(Tool):
     def __init__(self):
         super().__init__(name="dummy_tool_name", description="tool description")
 
-    def _invoke(self, params):
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         return StructuredToolResult(status=ToolResultStatus.SUCCESS, data="")
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

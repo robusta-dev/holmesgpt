@@ -24,7 +24,9 @@ class RemoteMCPTool(Tool):
     url: str
     headers: Optional[Dict[str, str]] = None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             return asyncio.run(self._invoke_async(params))
         except Exception as e:

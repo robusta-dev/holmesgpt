@@ -92,7 +92,9 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -390,7 +392,9 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,

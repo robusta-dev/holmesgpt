@@ -7,7 +7,9 @@ class DummyTool(Tool):
     name: str = "dummy_tool"
     description: str = "A dummy tool"
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         return StructuredToolResult(status=ToolResultStatus.SUCCESS)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

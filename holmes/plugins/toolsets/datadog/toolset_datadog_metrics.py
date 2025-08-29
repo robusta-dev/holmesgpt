@@ -75,7 +75,9 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -215,7 +217,9 @@ class QueryMetrics(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -371,7 +375,9 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -485,7 +491,9 @@ class ListMetricTags(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
