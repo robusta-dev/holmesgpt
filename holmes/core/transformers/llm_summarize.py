@@ -4,7 +4,7 @@ LLM Summarize Transformer for fast model summarization of large tool outputs.
 
 import logging
 from typing import Optional, ClassVar
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, StrictStr
 
 from .base import BaseTransformer, TransformerError
 from ..llm import DefaultLLM, LLM
@@ -39,17 +39,17 @@ class LLMSummarizeTransformer(BaseTransformer):
     input_threshold: int = Field(
         default=1000, ge=0, description="Minimum input length to trigger summarization"
     )
-    prompt: Optional[str] = Field(
+    prompt: Optional[StrictStr] = Field(
         default=None,
         min_length=1,
         description="Custom prompt template for summarization",
     )
-    fast_model: Optional[str] = Field(
+    fast_model: Optional[StrictStr] = Field(
         default=None,
         min_length=1,
         description="Fast model name for summarization (e.g., 'gpt-4o-mini')",
     )
-    global_fast_model: Optional[str] = Field(
+    global_fast_model: Optional[StrictStr] = Field(
         default=None,
         min_length=1,
         description="Global fast model name fallback when fast_model is not set",

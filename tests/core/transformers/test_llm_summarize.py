@@ -473,7 +473,12 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
     @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
     def test_non_expanding_behavior_integration(self, mock_default_llm):
-        """Test that transformer reverts to original data when summary is larger."""
+        """Test that transformer may produce longer output and that expansion behavior is handled.
+
+        This test verifies that the transformer itself can produce summaries that are longer
+        than the original input. The non-expansion/reversion logic (preventing output that
+        is larger than input) is implemented at the tools.py level, not in the transformer.
+        """
         # Test case 1: Summary that expands the original data
         expanding_summary = "This is a very long and detailed expansion of the original short input that makes the content much larger than it was before processing with lots of extra words"
         mock_llm_expanding = self.create_mock_llm(expanding_summary)
@@ -537,7 +542,10 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
             name="test_tool",
             description="Test tool",
             transformers=[
-                Transformer(name="llm_summarize", config={"input_threshold": 5})
+                Transformer(
+                    name="llm_summarize",
+                    config={"input_threshold": 5, "fast_model": "fast"},
+                )
             ],
         )
 

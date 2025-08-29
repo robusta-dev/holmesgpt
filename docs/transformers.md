@@ -106,6 +106,7 @@ The `llm_summarize` transformer is the primary transformer available in HolmesGP
 2. **Fast Model Required**: Skips summarization if no `--fast-model` is configured
 3. **Context Preservation**: Maintains essential debugging information while reducing size
 4. **Error Handling**: Falls back to original output if summarization fails
+5. **Non-Expanding Fallback**: If the generated summary is not smaller than the original output, preserves the original output to prevent expansion
 
 ### Configuration Options
 
