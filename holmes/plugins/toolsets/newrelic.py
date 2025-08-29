@@ -135,7 +135,7 @@ class GetTraces(BaseNewRelicTool):
             )
 
         duration = get_param_or_raise(params, "duration")
-        trace_id = get_param_or_raise(params, "trace_id")
+        trace_id = params.get("trace_id")
 
         if trace_id:
             query_string = f"SELECT * FROM Span WHERE trace.id = '{trace_id}' and duration.ms > {duration * 1000} and span.kind != 'internal'"

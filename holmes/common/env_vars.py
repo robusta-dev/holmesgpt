@@ -69,6 +69,4 @@ MAX_OUTPUT_TOKEN_RESERVATION = int(
 BASH_TOOL_UNSAFE_ALLOW_ALL = load_bool("BASH_TOOL_UNSAFE_ALLOW_ALL", False)
 
 # For CLI only, enable user approval for potentially sensitive commands that would otherwise be rejected
-USER_MUST_APPROVE_REJECTED_TOOL_CALLS = load_bool(
-    "USER_MUST_APPROVE_REJECTED_TOOL_CALLS", True
-)
+ENABLE_CLI_TOOL_APPROVAL = load_bool("ENABLE_CLI_TOOL_APPROVAL", True)
