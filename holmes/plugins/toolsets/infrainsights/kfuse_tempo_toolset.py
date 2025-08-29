@@ -778,10 +778,16 @@ class AnalyzeTraceRCA(Tool):
     """Tool to analyze APM traces for root cause analysis"""
 
     name: str = "kfuse_tempo_analyze_trace_rca"
-    description: str = """Perform a detailed analysis of a specific APM trace to identify the root cause of performance issues (RCA).
+    description: str = """Perform a comprehensive root cause analysis (RCA) of a specific APM trace to identify performance bottlenecks.
     This tool automatically extracts the trace_id and timestamp from your prompt, or you can provide them directly.
-    It retrieves comprehensive information including the full trace details, details of the slowest span within the trace,
-    and performance metrics (latency percentiles) for that span. Examples:
+    It provides detailed analysis including:
+    - Service-level performance breakdown with execution times
+    - Identification of primary and secondary bottlenecks
+    - Database and external service performance analysis
+    - Comprehensive trace metrics and span details
+    - Percentage impact analysis of each service on total trace duration
+    
+    Examples:
     - "Analyze trace abc123def456 for root cause analysis"
     - "Show me RCA details for trace xyz789 from 2 hours ago"
     - "What's the root cause of slow performance in trace abc123?"
@@ -799,10 +805,16 @@ class AnalyzeTraceRCA(Tool):
     def __init__(self, toolset=None):
         super().__init__(
             name="kfuse_tempo_analyze_trace_rca",
-            description="""Perform a detailed analysis of a specific APM trace to identify the root cause of performance issues (RCA).
+            description="""Perform a comprehensive root cause analysis (RCA) of a specific APM trace to identify performance bottlenecks.
             This tool automatically extracts the trace_id and timestamp from your prompt, or you can provide them directly.
-            It retrieves comprehensive information including the full trace details, details of the slowest span within the trace,
-            and performance metrics (latency percentiles) for that span. Examples:
+            It provides detailed analysis including:
+            - Service-level performance breakdown with execution times
+            - Identification of primary and secondary bottlenecks
+            - Database and external service performance analysis
+            - Comprehensive trace metrics and span details
+            - Percentage impact analysis of each service on total trace duration
+            
+            Examples:
             - "Analyze trace abc123def456 for root cause analysis"
             - "Show me RCA details for trace xyz789 from 2 hours ago"
             - "What's the root cause of slow performance in trace abc123?"
@@ -943,24 +955,56 @@ class AnalyzeTraceRCA(Tool):
                     params=params,
                 )
 
-            spans = [
-                t.get("span")
-                for t in trace_details.get("data", {}).get("traces", [])
-                if t.get("span")
-            ]
-            if not spans:
+            # Extract trace metrics and spans for comprehensive RCA analysis
+            traces_data = trace_details.get("data", {}).get("traces", [])
+            if not traces_data:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="No spans found in the trace.",
+                    error="No traces found in the response.",
                     params=params,
                 )
 
-            # For RCA, pick the span with maximum durationNs
-            max_span = max(spans, key=lambda s: s.get("durationNs", 0))
-            span_id = max_span.get("spanId")
-            span_name = max_span.get("name")
-            service_hash = max_span.get("service", {}).get("hash")
-            latency_ns = max_span.get("durationNs")
+            # Get the first trace (should be the one we're analyzing)
+            trace_data = traces_data[0]
+            spans = [trace_data.get("span")] if trace_data.get("span") else []
+            
+            # Extract service execution times for comprehensive RCA
+            service_exec_times = trace_data.get("traceMetrics", {}).get("serviceExecTimeNs", {})
+            
+            if not service_exec_times:
+                return StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error="No service execution time data found in the trace.",
+                    params=params,
+                )
+
+            # Analyze service execution times to find the real bottlenecks
+            # Convert nanoseconds to milliseconds for readability
+            service_performance = {}
+            total_execution_time = 0
+            
+            for service_name, exec_time_ns in service_exec_times.items():
+                exec_time_ms = exec_time_ns / 1_000_000  # Convert to milliseconds
+                service_performance[service_name] = {
+                    "execution_time_ns": exec_time_ns,
+                    "execution_time_ms": exec_time_ms,
+                    "execution_time_seconds": exec_time_ms / 1000
+                }
+                total_execution_time += exec_time_ns
+
+            # Sort services by execution time to identify bottlenecks
+            sorted_services = sorted(
+                service_performance.items(),
+                key=lambda x: x[1]["execution_time_ns"],
+                reverse=True
+            )
+
+            # For RCA, pick the span with maximum durationNs (individual span performance)
+            max_span = max(spans, key=lambda s: s.get("durationNs", 0)) if spans else {}
+            span_id = max_span.get("spanId") if max_span else None
+            span_name = max_span.get("name") if max_span else None
+            service_hash = max_span.get("service", {}).get("hash") if max_span else None
+            latency_ns = max_span.get("durationNs") if max_span else 0
 
             # Step 2. Fetch detailed span data using describeSpan
             span_query = f"""
@@ -1079,14 +1123,45 @@ class AnalyzeTraceRCA(Tool):
             except Exception as e:
                 logger.warning(f"Failed to fetch span metrics: {e}")
                 metrics_details = {"error": f"Failed to fetch metrics: {e}"}
-            else:
-                metrics_details = {"error": "Service hash or span name not available"}
+        else:
+            metrics_details = {"error": "Service hash or span name not available"}
 
-            # Combine all results into a single JSON response
+            # Combine all results into a single JSON response with comprehensive RCA analysis
             result = {
                 "trace_details": trace_details,
                 "span_details": span_details,
                 "span_metrics": metrics_details,
+                "rca_analysis": {
+                    "summary": {
+                        "total_trace_duration_ms": total_execution_time / 1_000_000,
+                        "total_trace_duration_seconds": total_execution_time / 1_000_000_000,
+                        "primary_bottleneck": {
+                            "service": sorted_services[0][0] if sorted_services else "Unknown",
+                            "duration_ms": sorted_services[0][1]["execution_time_ms"] if sorted_services else 0,
+                            "percentage_of_total": (sorted_services[0][1]["execution_time_ns"] / total_execution_time * 100) if sorted_services and total_execution_time > 0 else 0
+                        } if sorted_services else None,
+                        "total_services_analyzed": len(service_performance)
+                    },
+                    "service_performance_breakdown": service_performance,
+                    "bottleneck_analysis": {
+                        "top_bottlenecks": sorted_services[:5],  # Top 5 bottlenecks
+                        "total_execution_time_ns": total_execution_time,
+                        "total_execution_time_ms": total_execution_time / 1_000_000,
+                        "total_execution_time_seconds": total_execution_time / 1_000_000_000
+                    },
+                    "performance_insights": {
+                        "primary_bottleneck": sorted_services[0] if sorted_services else None,
+                        "secondary_bottlenecks": sorted_services[1:4] if len(sorted_services) > 1 else [],
+                        "database_performance": {
+                            service: data for service, data in service_performance.items() 
+                            if any(db in service.lower() for db in ["mongodb", "elasticsearch", "redis", "mysql", "postgresql"])
+                        },
+                        "external_service_performance": {
+                            service: data for service, data in service_performance.items() 
+                            if any(ext in service.lower() for ext in ["http", "api", "grpc", "rpc"])
+                        }
+                    }
+                },
                 "metadata": {
                     "trace_id": trace_id,
                     "timestamp": timestamp,
