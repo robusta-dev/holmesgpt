@@ -317,6 +317,7 @@ class TestLLMSummarizeTransformerIntegration:
         mock_choice = Mock()
         mock_message = Mock()
 
+        # Properly configure the mock message.content to return a string that supports .strip()
         mock_message.content = response_content
         mock_choice.message = mock_message
         mock_response.choices = [mock_choice]
@@ -634,6 +635,9 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         expanding_response = "This is an extremely long and detailed expansion of the original input that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on with lots of additional unnecessary details that make it much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much longer than the original data, completely defeating the purpose of summarization and making the output counterproductive"
         mock_llm_expanding = self.create_mock_llm(expanding_response)
 
+        # Set up mock BEFORE creating the tool
+        mock_default_llm.return_value = mock_llm_expanding
+
         tool1 = TestTool(
             name="expanding_tool",
             description="Test tool with expanding transformer",
@@ -644,8 +648,6 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
                 )
             ],
         )
-
-        mock_default_llm.return_value = mock_llm_expanding
 
         with patch("holmes.core.tools.logger.debug") as mock_debug1:
             result1 = tool1.invoke({})
@@ -667,6 +669,9 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         reducing_response = "Short summary"
         mock_llm_reducing = self.create_mock_llm(reducing_response)
 
+        # Set up mock BEFORE creating the second tool
+        mock_default_llm.return_value = mock_llm_reducing
+
         tool2 = TestTool(
             name="reducing_tool",
             description="Test tool with reducing transformer",
@@ -677,8 +682,6 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
                 )
             ],
         )
-
-        mock_default_llm.return_value = mock_llm_reducing
 
         with patch("holmes.core.tools.logger.info") as mock_info:
             result2 = tool2.invoke({})
