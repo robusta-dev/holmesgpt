@@ -18,3 +18,9 @@ def test_extract_kube_deployment_after_keyword():
         'from the last 1 hour to analyze slow API responses.'
     )
     assert PromptParser.extract_kube_deployment(prompt) == "arkham"
+
+
+def test_extract_service_name():
+    PromptParser = load_prompt_parser()
+    prompt = 'Fetch traces for service checkout in namespace payments'
+    assert PromptParser.extract_service_name(prompt) == "checkout"

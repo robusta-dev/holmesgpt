@@ -189,7 +189,29 @@ class PromptParser:
                 extracted = match.group(1)
                 if extracted.lower() not in ['namespace', 'ns', 'in', 'from']:
                     return extracted
-        
+
+        return None
+
+    @staticmethod
+    def extract_service_name(prompt: str) -> Optional[str]:
+        """Extract Kubernetes service name from prompt"""
+        if not prompt:
+            return None
+
+        patterns = [
+            r'service[:\s]+["\']?([a-zA-Z0-9\-_]+)["\']?',
+            r'([a-zA-Z0-9\-_]+)\s+service',
+            r'service\s+([a-zA-Z0-9\-_]+)',
+            r'([a-zA-Z0-9\-_]+)-service',
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, prompt, re.IGNORECASE)
+            if match:
+                extracted = match.group(1)
+                if extracted.lower() not in ['service']:
+                    return extracted
+
         return None
 
     @staticmethod
@@ -299,6 +321,7 @@ class PromptParser:
             'pod_name': PromptParser.extract_kube_pod_name(prompt),
             'container_name': PromptParser.extract_container_name(prompt),
             'namespace': PromptParser.extract_namespace(prompt),
+            'service_name': PromptParser.extract_service_name(prompt),
             'duration_filter': PromptParser.extract_duration_filter(prompt),
             'trace_id': PromptParser.extract_trace_id(prompt),
             'timestamp': PromptParser.extract_timestamp(prompt),
@@ -382,31 +405,18 @@ class FetchTraces(Tool):
             
             # Extract duration filter from prompt
             duration_filter = kube_info['duration_filter']
-            
+            duration_secs = duration_filter['upper_bound'] // 1000000000
+
             # Generate current timestamp in ISO 8601 format with timezone offset
             current_timestamp = datetime.now().astimezone().isoformat()
-            
+
             # Build the query payload
             query = f"""
             {{
               traces (
-                durationSecs: {duration_filter['upper_bound'] // 1000000000},
+                durationSecs: {duration_secs}
                 filter: {{
                   and: [
-                    {{
-                      attributeFilter: {{
-                        eq: {{
-                          key: "kube_cluster_name",
-                          value: "{kube_cluster_name}"
-                        }}
-                      }}
-                    }},
-                    {{
-                      durationFilter: {{
-                        lowerBound: {duration_filter['lower_bound']},
-                        upperBound: {duration_filter['upper_bound']}
-                      }}
-                    }},
                     {{
                       attributeFilter: {{
                         eq: {{
@@ -414,11 +424,21 @@ class FetchTraces(Tool):
                           value: "true"
                         }}
                       }}
+                    }},
+                    {{
+                      attributeFilter: {{
+                        eq: {{
+                          key: "kube_cluster_name",
+                          value: "{kube_cluster_name}"
+                        }}
+                      }}
                     }}
                   ]
-                }},
-                timestamp: "{current_timestamp}",
-                sortField: "duration",
+                }}
+                limit: 100
+                pageNum: 1
+                timestamp: "{current_timestamp}"
+                sortField: "timestamp"
                 sortOrder: Desc
               ) {{
                 traceId
@@ -457,9 +477,15 @@ class FetchTraces(Tool):
             # Construct the API endpoint URL
             url = f"http://{tempo_url}:8080/v1/trace/query"
             headers = {"Content-Type": "application/json"}
-            
+            token = self.toolset.config.get("basic_auth_token")
+            auth_user = self.toolset.config.get("auth_user")
+            if token:
+                headers["Authorization"] = f"Basic {token}"
+            if auth_user:
+                headers["X-Auth-Request-User"] = auth_user
+
             logger.info(f"Fetching traces for cluster: {kube_cluster_name}")
-            logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
+            logger.info(f"Duration filter: {duration_secs} seconds")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             result = response.json()
@@ -467,7 +493,7 @@ class FetchTraces(Tool):
             # Add metadata to the response
             result['metadata'] = {
                 'cluster_name': kube_cluster_name,
-                'duration_filter_seconds': duration_filter['upper_bound'] // 1000000000,
+                'duration_filter_seconds': duration_secs,
                 'query_timestamp': current_timestamp,
                 'tempo_host': tempo_url
             }
@@ -508,21 +534,22 @@ class FetchTraces(Tool):
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return "kfuse_tempo_fetch_traces()"
 
-# Define the tool that fetches traces for a single kubernetes deployment workload
-class FetchKubeDeploymentTraces(Tool):
-    """Tool to fetch APM traces for a specific Kubernetes deployment"""
-    
-    name: str = "kfuse_tempo_fetch_kube_deployment_traces"
-    description: str = """Fetch APM traces for a specific Kubernetes deployment. This tool automatically extracts the deployment name, 
-    cluster name, and duration filter from your prompt. Use this when you suspect a problem with a particular deployment 
+###############################################
+# Define the tool that fetches traces for a single service
+class FetchServiceTraces(Tool):
+    """Tool to fetch APM traces for a specific Kubernetes service"""
+
+    name: str = "kfuse_tempo_fetch_service_traces"
+    description: str = """Fetch APM traces for a specific Kubernetes service. This tool automatically extracts the service name,
+    namespace, cluster name, and duration filter from your prompt. Use this when you suspect a problem with a particular service
     and want to examine its traces in isolation. Examples:
-    - "Show me traces for the user-service deployment in production cluster"
+    - "Show me traces for the checkout service in production namespace prod"
     - "Get traces from auth-service in staging for the last hour"
     - "Fetch traces for payment-service in dev cluster since 2 hours ago"
     """
     parameters: Dict[str, ToolParameter] = {
         "user_prompt": ToolParameter(
-            description="User prompt containing deployment, cluster, and duration information",
+            description="User prompt containing service, namespace, cluster, and duration information",
             type="string",
             required=True,
         )
@@ -530,20 +557,20 @@ class FetchKubeDeploymentTraces(Tool):
 
     toolset: Optional[Any] = Field(default=None, exclude=True)
 
-    
+
     def __init__(self, toolset=None):
         super().__init__(
-            name="kfuse_tempo_fetch_kube_deployment_traces",
-            description="""Fetch APM traces for a specific Kubernetes deployment. This tool automatically extracts the deployment name, 
-            cluster name, and duration filter from your prompt. Use this when you suspect a problem with a particular deployment 
+            name="kfuse_tempo_fetch_service_traces",
+            description="""Fetch APM traces for a specific Kubernetes service. This tool automatically extracts the service name,
+            namespace, cluster name, and duration filter from your prompt. Use this when you suspect a problem with a particular service
             and want to examine its traces in isolation. Examples:
-            - "Show me traces for the user-service deployment in production cluster"
+            - "Show me traces for the checkout service in production"
             - "Get traces from auth-service in staging for the last hour"
             - "Fetch traces for payment-service in dev cluster since 2 hours ago"
             """,
             parameters={
                 "user_prompt": ToolParameter(
-                    description="User prompt containing deployment, cluster, and duration information",
+                    description="User prompt containing service, namespace, cluster, and duration information",
                     type="string",
                     required=True,
                 )
@@ -552,7 +579,7 @@ class FetchKubeDeploymentTraces(Tool):
         self.toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        """Fetch APM traces for a specific Kubernetes deployment"""
+        """Fetch APM traces for a specific Kubernetes service"""
         try:
             user_prompt = params["user_prompt"]
             
@@ -571,14 +598,15 @@ class FetchKubeDeploymentTraces(Tool):
             kube_info = PromptParser.extract_all_kubernetes_info(user_prompt)
             
             # Extract parameters from prompt
-            kube_deployment = kube_info['deployment_name']
-            if not kube_deployment:
+            service_name = kube_info['service_name']
+            namespace = kube_info['namespace']
+            if not service_name or not namespace:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
-                    error="Could not determine Kubernetes deployment name from prompt. Please specify the deployment in your request.",
+                    error="Could not determine service name or namespace from prompt. Please specify both in your request.",
                     params=params
                 )
-            
+
             # Extract cluster name from prompt if not in config
             if not kube_cluster_name:
                 kube_cluster_name = kube_info['cluster_name']
@@ -588,54 +616,31 @@ class FetchKubeDeploymentTraces(Tool):
                         error="Could not determine Kubernetes cluster name from prompt. Please specify the cluster in your request.",
                         params=params
                     )
-            
+
             # Extract duration filter from prompt
             duration_filter = kube_info['duration_filter']
-            
+            duration_secs = duration_filter['upper_bound'] // 1000000000
+
             # Generate current timestamp in ISO 8601 format with timezone offset
             current_timestamp = datetime.now().astimezone().isoformat()
-            
+
             # Build the query payload
             query = f"""
         {{
           traces (
-            durationSecs: {duration_filter['upper_bound'] // 1000000000},
+            durationSecs: {duration_secs}
             filter: {{
               and: [
-                {{
-                  attributeFilter: {{
-                    eq: {{
-                      key: "kube_deployment",
-                      value: "{kube_deployment}"
-                    }}
-                  }}
-                }},
-                {{
-                  attributeFilter: {{
-                    eq: {{
-                      key: "kube_cluster_name",
-                      value: "{kube_cluster_name}"
-                    }}
-                  }}
-                }},
-                {{
-                  durationFilter: {{
-                    lowerBound: {duration_filter['lower_bound']},
-                    upperBound: {duration_filter['upper_bound']}
-                  }}
-                }},
-                {{
-                  attributeFilter: {{
-                    eq: {{
-                      key: "span_service_entry",
-                      value: "true"
-                    }}
-                  }}
-                }}
+                {{ attributeFilter: {{ eq: {{ key: "span_service_entry", value: "true" }} }} }},
+                {{ attributeFilter: {{ eq: {{ key: "kube_cluster_name", value: "{kube_cluster_name}" }} }} }},
+                {{ attributeFilter: {{ eq: {{ key: "kube_namespace", value: "{namespace}" }} }} }},
+                {{ attributeFilter: {{ eq: {{ key: "service_name", value: "{service_name}" }} }} }}
               ]
-            }},
-            timestamp: "{current_timestamp}",
-            sortField: "duration",
+            }}
+            limit: 100
+            pageNum: 1
+            timestamp: "{current_timestamp}"
+            sortField: "timestamp"
             sortOrder: Desc
           ) {{
             traceId
@@ -674,19 +679,27 @@ class FetchKubeDeploymentTraces(Tool):
             # Construct the API endpoint URL
             url = f"http://{tempo_url}:8080/v1/trace/query"
             headers = {"Content-Type": "application/json"}
-            
-            logger.info(f"Fetching traces for deployment: {kube_deployment}")
+            token = self.toolset.config.get("basic_auth_token")
+            auth_user = self.toolset.config.get("auth_user")
+            if token:
+                headers["Authorization"] = f"Basic {token}"
+            if auth_user:
+                headers["X-Auth-Request-User"] = auth_user
+
+            logger.info(f"Fetching traces for service: {service_name}")
+            logger.info(f"Namespace: {namespace}")
             logger.info(f"Cluster: {kube_cluster_name}")
-            logger.info(f"Duration filter: {duration_filter['upper_bound'] // 1000000000} seconds")
+            logger.info(f"Duration filter: {duration_secs} seconds")
             response = requests.post(url, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
             result = response.json()
-            
+
             # Add metadata to the response
             result['metadata'] = {
-                'deployment_name': kube_deployment,
+                'service_name': service_name,
+                'namespace': namespace,
                 'cluster_name': kube_cluster_name,
-                'duration_filter_seconds': duration_filter['upper_bound'] // 1000000000,
+                'duration_filter_seconds': duration_secs,
                 'query_timestamp': current_timestamp,
                 'tempo_host': tempo_url
             }
@@ -725,7 +738,7 @@ class FetchKubeDeploymentTraces(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f'kfuse_tempo_fetch_kube_deployment_traces(user_prompt="{params["user_prompt"]}")'
+        return f'kfuse_tempo_fetch_service_traces(user_prompt="{params["user_prompt"]}")'
 
 # New tool to analyze a trace and fetch RCA details
 class AnalyzeTraceRCA(Tool):
@@ -800,6 +813,12 @@ class AnalyzeTraceRCA(Tool):
                 )
             
             headers = {"Content-Type": "application/json"}
+            token = self.toolset.config.get("basic_auth_token")
+            auth_user = self.toolset.config.get("auth_user")
+            if token:
+                headers["Authorization"] = f"Basic {token}"
+            if auth_user:
+                headers["X-Auth-Request-User"] = auth_user
             url = f"http://{tempo_url}:8080/v1/trace/query"
             
             logger.info(f"Analyzing trace: {trace_id}")
@@ -1059,19 +1078,19 @@ class KfuseTempoToolset(Toolset):
     def __init__(self):
         super().__init__(
             name="kfuse_tempo",          # avoid slashes in IDs
-            description="""Toolset to query Kfuse Tempo for APM traces with intelligent parameter extraction. 
-            This toolset automatically extracts Kubernetes cluster names, deployment names, and duration filters 
+            description="""Toolset to query Kfuse Tempo for APM traces with intelligent parameter extraction.
+            This toolset automatically extracts Kubernetes cluster names, namespaces, service names, and duration filters
             from user prompts, making it easy to query traces without specifying technical parameters.
-            
+
             Features:
-            - Automatic extraction of kube_cluster_name, kube_deployment, and duration filters from natural language
+            - Automatic extraction of kube_cluster_name, kube_namespace, service_name, and duration filters from natural language
             - Centralized Tempo host configuration
             - Smart parsing of time ranges (last 30 minutes, 2 hours ago, etc.)
             - Comprehensive trace analysis and root cause analysis (RCA)
-            
+
             Examples:
             - "Show me traces from production cluster in the last hour"
-            - "Get traces for user-service deployment in staging"
+            - "Get traces for user-service in staging namespace"
             - "Analyze trace abc123 for root cause analysis"
             """,
             enabled=False,               # start disabled until configured
@@ -1080,7 +1099,7 @@ class KfuseTempoToolset(Toolset):
             prerequisites=[CallablePrerequisite(callable=self._prereq_check)],
         )
         # Declare tools after init so they capture the instance cleanly
-        self.tools = [FetchTraces(self), FetchKubeDeploymentTraces(self), AnalyzeTraceRCA(self)]
+        self.tools = [FetchTraces(self), FetchServiceTraces(self), AnalyzeTraceRCA(self)]
 
     def _prereq_check(self, _: Dict[str, Any]) -> tuple[bool, str]:
         tempo = os.getenv("TEMPO_URL") or self.config.get("tempo_url")
@@ -1099,6 +1118,8 @@ class KfuseTempoToolset(Toolset):
         """Return example configuration for this toolset"""
         return {
             "tempo_url": "your-kfuse-tempo-url",
-            "kube_cluster_name": "your-cluster-name"
+            "kube_cluster_name": "your-cluster-name",
+            "basic_auth_token": "base64-encoded-token",
+            "auth_user": "your-user"
         }
 
