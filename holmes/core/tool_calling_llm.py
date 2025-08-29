@@ -640,7 +640,7 @@ class ToolCallingLLM:
         Returns:
             Updated tool call result with approved/denied status
         """
-        
+
         if tool_call_result.result.status != ToolResultStatus.APPROVAL_REQUIRED:
             return tool_call_result
 

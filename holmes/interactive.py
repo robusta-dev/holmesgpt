@@ -588,7 +588,6 @@ def prompt_for_llm_sharing(
 def handle_tool_approval(
     command: Optional[str],
     error_message: Optional[str],
-    session: PromptSession,
     style: Style,
     console: Console,
 ) -> tuple[bool, Optional[str]]:
@@ -864,14 +863,11 @@ def run_interactive_loop(
     def approval_handler(
         tool_call_result: StructuredToolResult,
     ) -> tuple[bool, Optional[str]]:
-        # Create a temporary session for the approval prompt
-        temp_session: PromptSession = PromptSession()
         return handle_tool_approval(
-            tool_call_result.invocation,
-            tool_call_result.error,
-            temp_session,
-            style,
-            console,
+            command=tool_call_result.invocation,
+            error_message=tool_call_result.error,
+            style=style,
+            console=console,
         )
 
     if ENABLE_CLI_TOOL_APPROVAL:
