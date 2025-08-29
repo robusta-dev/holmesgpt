@@ -11,18 +11,43 @@ from holmes.core.tools import ToolResultStatus
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 
+from pydantic import Field
+
 
 class MockSummarizeTransformer(BaseTransformer):
     """Mock LLM summarize transformer for testing."""
 
-    input_threshold: int = 1000  # default value
-    prompt: str = "Default summarization prompt"
+    # Pydantic fields with validation
+    input_threshold: int = Field(
+        default=1000, ge=0, description="Minimum input length to trigger summarization"
+    )
+    prompt: str = Field(
+        default="Default summarization prompt", description="Custom prompt for testing"
+    )
 
     def transform(self, input_text: str) -> str:
-        # Simulate summarization by truncating and adding prefix
-        if len(input_text) > 100:
-            return f"SUMMARIZED: {input_text[:50]}... [Original length: {len(input_text)} chars]"
-        return f"SUMMARIZED: {input_text}"
+        # Simulate summarization by always reducing the text size
+        # Include original length info that tests expect
+        original_length = len(input_text)
+        length_info = f"[Original length: {original_length} chars]"
+
+        if len(input_text) <= 50:
+            # For short inputs, create a minimal summary
+            return f"SUMMARIZED: Short content {length_info}"
+
+        # For longer inputs, reduce to approximately 60% of original size
+        target_length = int(len(input_text) * 0.6)
+        prefix = "SUMMARIZED: "
+        suffix = f"... {length_info}"
+
+        # Calculate how much content we can include
+        available_length = target_length - len(prefix) - len(suffix)
+
+        if available_length < 10:
+            # If we don't have much space, just use a short summary
+            return f"{prefix}Content truncated {length_info}"
+
+        return f"{prefix}{input_text[:available_length]}...{length_info}"
 
     def should_apply(self, input_text: str) -> bool:
         return len(input_text) >= self.input_threshold
@@ -37,20 +62,30 @@ class TestKubernetesTransformerExecution:
 
     def setup_method(self):
         """Set up test fixtures."""
-        # Clean up any existing registrations first
-        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
-            if registry.is_registered(transformer_name):
-                registry.unregister(transformer_name)
+        # Save original transformer registration if it exists
+        self.original_llm_summarize = None
+        if registry.is_registered("llm_summarize"):
+            self.original_llm_summarize = registry._transformers["llm_summarize"]
+            registry.unregister("llm_summarize")
 
-        # Register mock transformer with a different name to avoid conflicts
+        # Clean up any mock registrations
+        if registry.is_registered("MockSummarizeTransformer"):
+            registry.unregister("MockSummarizeTransformer")
+
+        # Register mock transformer
         registry.register(MockSummarizeTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
-            if registry.is_registered(transformer_name):
-                registry.unregister(transformer_name)
+        if registry.is_registered("llm_summarize"):
+            registry.unregister("llm_summarize")
+        if registry.is_registered("MockSummarizeTransformer"):
+            registry.unregister("MockSummarizeTransformer")
+
+        # Restore original transformer if it existed
+        if self.original_llm_summarize is not None:
+            registry._transformers["llm_summarize"] = self.original_llm_summarize
 
     def test_kubectl_describe_with_large_output(self):
         """Test kubectl_describe applies transformer for large output."""
@@ -435,6 +470,12 @@ toolsets:
 
                 # Mock subprocess execution with output that will trigger both transformers
                 test_output = "This is a longer test output that should trigger both transformers in sequence"
+
+                # Re-register mock transformer after toolset loading (imports may have restored original)
+                if registry.is_registered("llm_summarize"):
+                    registry.unregister("llm_summarize")
+                registry.register(MockSummarizeTransformer)
+
                 with patch.object(
                     tool, "_YAMLTool__execute_subprocess"
                 ) as mock_subprocess:
@@ -462,20 +503,30 @@ class TestTransformerPerformanceMetrics:
 
     def setup_method(self):
         """Set up test fixtures."""
-        # Clean up any existing registrations first
-        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
-            if registry.is_registered(transformer_name):
-                registry.unregister(transformer_name)
+        # Save original transformer registration if it exists
+        self.original_llm_summarize = None
+        if registry.is_registered("llm_summarize"):
+            self.original_llm_summarize = registry._transformers["llm_summarize"]
+            registry.unregister("llm_summarize")
 
-        # Register mock transformer with a different name to avoid conflicts
+        # Clean up any mock registrations
+        if registry.is_registered("MockSummarizeTransformer"):
+            registry.unregister("MockSummarizeTransformer")
+
+        # Register mock transformer
         registry.register(MockSummarizeTransformer)
 
     def teardown_method(self):
         """Clean up test fixtures."""
         # Unregister mock transformer
-        for transformer_name in ["llm_summarize", "MockSummarizeTransformer"]:
-            if registry.is_registered(transformer_name):
-                registry.unregister(transformer_name)
+        if registry.is_registered("llm_summarize"):
+            registry.unregister("llm_summarize")
+        if registry.is_registered("MockSummarizeTransformer"):
+            registry.unregister("MockSummarizeTransformer")
+
+        # Restore original transformer if it existed
+        if self.original_llm_summarize is not None:
+            registry._transformers["llm_summarize"] = self.original_llm_summarize
 
     def test_transformer_performance_logging(self):
         """Test that transformer execution metrics are logged."""
@@ -506,6 +557,11 @@ toolsets:
             toolsets = load_toolsets_from_file(tmp_file_path)
             toolset = toolsets[0]
             tool = toolset.tools[0]
+
+            # Re-register mock transformer after toolset loading (imports may have restored original)
+            if registry.is_registered("llm_summarize"):
+                registry.unregister("llm_summarize")
+            registry.register(MockSummarizeTransformer)
 
             # Mock subprocess execution
             test_output = "This is a test output that should trigger the transformer and performance logging"

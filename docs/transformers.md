@@ -40,14 +40,16 @@ Tools can declare transformers in their definitions:
   description: "Get all resources of a type in a namespace"
   command: "kubectl get --show-labels -o wide {{ kind }} -n {{ namespace }}"
   transformers:
-    - llm_summarize: {}
+    - name: llm_summarize
+      config: {}
 
 # Custom threshold and prompt
 - name: "kubectl_describe"
   description: "Describe a Kubernetes resource"
   command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
   transformers:
-    - llm_summarize:
+    - name: llm_summarize
+      config:
         input_threshold: 1000
         prompt: |
           Summarize this kubectl describe output focusing on:
@@ -61,6 +63,8 @@ Tools can declare transformers in their definitions:
 #### Python Toolsets
 
 ```python
+from holmes.core.transformers import Transformer
+
 class PrometheusToolset(Toolset):
     def __init__(self):
         super().__init__(
@@ -69,18 +73,19 @@ class PrometheusToolset(Toolset):
                 ListPrometheusRules(
                     toolset=self,
                     transformers=[
-                        {"llm_summarize": {}}  # use default config
+                        Transformer(name="llm_summarize", config={})  # use default config
                     ]
                 ),
                 ListAvailableMetrics(
                     toolset=self,
                     transformers=[
-                        {
-                            "llm_summarize": {
+                        Transformer(
+                            name="llm_summarize",
+                            config={
                                 "input_threshold": 800,
                                 "prompt": "Summarize the available Prometheus metrics, grouping similar metrics and highlighting any unusual patterns."
                             }
-                        }
+                        )
                     ]
                 ),
             ]
@@ -244,7 +249,8 @@ Add transformer configuration to tools that generate large outputs:
 - name: "my_large_output_tool"
   command: "some command that produces lots of output"
   transformers:
-    - llm_summarize:
+    - name: llm_summarize
+      config:
         input_threshold: 1000
         prompt: "Custom prompt for this tool's output type"
 ```
@@ -254,6 +260,8 @@ Add transformer configuration to tools that generate large outputs:
 Update tool constructors to accept transformer configurations:
 
 ```python
+from holmes.core.transformers import Transformer
+
 # Before
 MyTool(toolset=self)
 
@@ -261,7 +269,7 @@ MyTool(toolset=self)
 MyTool(
     toolset=self,
     transformers=[
-        {"llm_summarize": {"input_threshold": 800}}
+        Transformer(name="llm_summarize", config={"input_threshold": 800})
     ]
 )
 ```
