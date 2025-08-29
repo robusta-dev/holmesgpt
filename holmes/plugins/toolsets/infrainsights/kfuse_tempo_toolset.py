@@ -860,7 +860,7 @@ class AnalyzeTraceRCA(Tool):
             trace_query = f"""
         {{
           traces (
-            durationSecs: {duration_secs}
+            durationSecs: 86400
             filter: {{
               and: [
                 {{ attributeFilter: {{ eq: {{ key: "span_service_entry", value: "true" }} }} }},
