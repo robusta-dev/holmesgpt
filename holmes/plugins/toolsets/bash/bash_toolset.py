@@ -11,7 +11,6 @@ import sentry_sdk
 
 from holmes.common.env_vars import (
     BASH_TOOL_UNSAFE_ALLOW_ALL,
-    USER_MUST_APPROVE_REJECTED_TOOL_CALLS,
 )
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -202,14 +201,8 @@ class RunBashCommand(BaseBashTool):
                 if not BASH_TOOL_UNSAFE_ALLOW_ALL:
                     logging.info(f"Refusing LLM tool call {command_str}")
 
-                    # Check if user approval is enabled for rejected commands
-                    status = (
-                        ToolResultStatus.APPROVAL_REQUIRED
-                        if USER_MUST_APPROVE_REJECTED_TOOL_CALLS
-                        else ToolResultStatus.ERROR
-                    )
                     return StructuredToolResult(
-                        status=status,
+                        status=ToolResultStatus.APPROVAL_REQUIRED,
                         error=f"Refusing to execute bash command. {str(e)}",
                         params=params,
                         invocation=command_str,

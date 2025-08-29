@@ -472,7 +472,7 @@ class ToolCallingLLM:
                     logging.debug(f"Tool to call: {t}")
                     futures.append(
                         executor.submit(
-                            self._invoke_tool,
+                            self._invoke_llm_tool_call,
                             tool_to_call=t,
                             previous_tool_calls=tool_calls,
                             trace_span=trace_span,
@@ -482,6 +482,8 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+
+                    tool_call_result = self.handle_tool_call_approval(tool_call_result)
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
@@ -497,7 +499,63 @@ class ToolCallingLLM:
 
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
 
-    def _invoke_tool(
+    def _directly_invoke_tool(
+        self,
+        tool_name: str,
+        tool_params: dict,
+        user_approved: bool,
+        trace_span=DummySpan(),
+        tool_number: Optional[int] = None,
+    ) -> StructuredToolResult:
+        tool_span = trace_span.start_span(name=tool_name, type="tool")
+        tool = self.tool_executor.get_tool_by_name(tool_name)
+        tool_response = None
+        try:
+            if (not tool) or (tool_params is None):
+                logging.warning(
+                    f"Skipping tool execution for {tool_name}: args: {tool_params}"
+                )
+                tool_response = StructuredToolResult(
+                    status=ToolResultStatus.ERROR,
+                    error=f"Failed to find tool {tool_name}",
+                    params=tool_params,
+                )
+            else:
+                tool_response = tool.invoke(
+                    tool_params, tool_number=tool_number, user_approved=user_approved
+                )
+        except Exception as e:
+            logging.error(
+                f"Tool call to {tool_name} failed with an Exception", exc_info=True
+            )
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Tool call failed: {e}",
+                params=tool_params,
+            )
+
+            # Log error to trace span
+            tool_span.log(
+                input=tool_params, output=str(e), metadata={"status": "ERROR"}
+            )
+
+        tool_span.log(
+            input=tool_params,
+            output=tool_response.data,
+            metadata={
+                "status": tool_response.status.value,
+                "error": tool_response.error,
+                "description": tool.get_parameterized_one_liner(tool_params)
+                if tool
+                else "",
+                "structured_tool_result": tool_response,
+            },
+        )
+        tool_span.end()
+
+        return tool_response
+
+    def _invoke_llm_tool_call(
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
@@ -526,117 +584,98 @@ class ToolCallingLLM:
                 ),
             )
 
-        tool_params = None
+        tool_params = {}
         try:
             tool_params = json.loads(tool_arguments)
         except Exception:
             logging.warning(
                 f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
+
         tool_call_id = tool_to_call.id
-        tool = self.tool_executor.get_tool_by_name(tool_name)
 
-        if (not tool) or (tool_params is None):
-            logging.warning(
-                f"Skipping tool execution for {tool_name}: args: {tool_arguments}"
-            )
-            return ToolCallResult(
-                tool_call_id=tool_call_id,
+        tool_response = prevent_overly_repeated_tool_call(
+            tool_name=tool_name,
+            tool_params=tool_params,
+            tool_calls=previous_tool_calls,
+        )
+
+        if not tool_response:
+            tool_response = self._directly_invoke_tool(
                 tool_name=tool_name,
-                description="NA",
-                result=StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Failed to find tool {tool_name}",
-                    params=tool_params,
-                ),
-            )
-
-        tool_response = None
-
-        # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name, type="tool")
-
-        try:
-            tool_response = prevent_overly_repeated_tool_call(
-                tool_name=tool.name,
                 tool_params=tool_params,
-                tool_calls=previous_tool_calls,
-            )
-            if not tool_response:
-                tool_response = tool.invoke(tool_params, tool_number=tool_number)
-
-            # Handle approval required status
-            if tool_response.status == ToolResultStatus.APPROVAL_REQUIRED:
-                if self.approval_callback is not None:
-                    approved, feedback = self.approval_callback(tool_response)
-
-                    if approved:
-                        logging.debug(
-                            f"User approved command: {tool_response.invocation}"
-                        )
-                        tool_response = tool.invoke(
-                            tool_params, tool_number=tool_number, user_approved=True
-                        )
-                    else:
-                        # User denied - create appropriate response
-                        feedback_text = (
-                            f" User feedback: {feedback}" if feedback else ""
-                        )
-                        tool_response = StructuredToolResult(
-                            status=ToolResultStatus.ERROR,
-                            error=f"User denied command execution.{feedback_text}",
-                            params=tool_params,
-                            invocation=tool_response.invocation,
-                        )
-                else:
-                    # No support for approval flow. Tool has been denied, changing that to an Error until SaaS UI supports approvals
-                    tool_response.status = ToolResultStatus.ERROR
-            if not isinstance(tool_response, StructuredToolResult):
-                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
-                logging.error(
-                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
-                )
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=tool_response,
-                    params=tool_params,
-                )
-
-            # Log tool execution to trace span
-            tool_span.log(
-                input=tool_params,
-                output=tool_response.data,
-                metadata={
-                    "status": tool_response.status.value,
-                    "error": tool_response.error,
-                    "description": tool.get_parameterized_one_liner(tool_params),
-                    "structured_tool_result": tool_response,
-                },
+                user_approved=False,
+                trace_span=trace_span,
+                tool_number=tool_number,
             )
 
-        except Exception as e:
+        if not isinstance(tool_response, StructuredToolResult):
+            # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
             logging.error(
-                f"Tool call to {tool_name} failed with an Exception", exc_info=True
+                f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Tool call failed: {e}",
+                status=ToolResultStatus.SUCCESS,
+                data=tool_response,
                 params=tool_params,
             )
 
-            # Log error to trace span
-            tool_span.log(
-                input=tool_params, output=str(e), metadata={"status": "ERROR"}
-            )
-        finally:
-            # End tool span
-            tool_span.end()
+        tool = self.tool_executor.get_tool_by_name(tool_name)
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
-            description=tool.get_parameterized_one_liner(tool_params),
+            description=tool.get_parameterized_one_liner(tool_params) if tool else "",
             result=tool_response,
         )
+
+    def handle_tool_call_approval(
+        self, tool_call_result: ToolCallResult
+    ) -> ToolCallResult:
+        """
+        Handle approval for a single tool call if required.
+
+        Args:
+            tool_call_result: A single tool call result that may require approval
+
+        Returns:
+            Updated tool call result with approved/denied status
+        """
+        # Only process if status is APPROVAL_REQUIRED
+        if tool_call_result.result.status != ToolResultStatus.APPROVAL_REQUIRED:
+            return tool_call_result
+
+        # If no approval callback, convert to ERROR because it is assumed the client may not be able to handle approvals
+        if not self.approval_callback:
+            tool_call_result.result.status = ToolResultStatus.ERROR
+            return tool_call_result
+
+        # Get approval from user
+        approved, feedback = self.approval_callback(tool_call_result.result)
+
+        if approved:
+            logging.debug(
+                f"User approved command: {tool_call_result.result.invocation}"
+            )
+
+            # Re-invoke the tool with user_approved=True
+            new_response = self._directly_invoke_tool(
+                tool_name=tool_call_result.tool_name,
+                tool_params=tool_call_result.result.params or {},
+                user_approved=True,
+                trace_span=DummySpan(),
+                tool_number=None,  # Could be extracted if needed
+            )
+            # Update the result with the new response
+            tool_call_result.result = new_response
+        else:
+            # User denied - update to error
+            feedback_text = f" User feedback: {feedback}" if feedback else ""
+            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.error = (
+                f"User denied command execution.{feedback_text}"
+            )
+
+        return tool_call_result
 
     @staticmethod
     def __load_post_processing_user_prompt(
@@ -818,7 +857,7 @@ class ToolCallingLLM:
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     futures.append(
                         executor.submit(
-                            self._invoke_tool,
+                            self._invoke_llm_tool_call,
                             tool_to_call=t,  # type: ignore
                             previous_tool_calls=tool_calls,
                             trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
@@ -832,6 +871,9 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+
+                    # Handle approval if needed
+                    tool_call_result = self.handle_tool_call_approval(tool_call_result)
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())

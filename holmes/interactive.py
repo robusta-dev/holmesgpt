@@ -27,6 +27,7 @@ from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
 
+from holmes.common.env_vars import USER_MUST_APPROVE_REJECTED_TOOL_CALLS
 from holmes.core.config import config_path_dir
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
@@ -873,7 +874,8 @@ def run_interactive_loop(
             console,
         )
 
-    ai.approval_callback = approval_handler
+    if USER_MUST_APPROVE_REJECTED_TOOL_CALLS:
+        ai.approval_callback = approval_handler
 
     # Create merged completer with slash commands, conditional executables, show command, and smart paths
     slash_completer = SlashCommandCompleter()
