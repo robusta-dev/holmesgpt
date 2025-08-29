@@ -3,10 +3,7 @@ import os
 from typing import Any, Dict
 
 from uuid import uuid4
-from holmes.core.todo_manager import (
-    get_todo_manager,
-)
-
+from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
     Toolset,
     ToolsetTag,
@@ -34,11 +31,6 @@ class TodoWriteTool(Tool):
                     "status": ToolParameter(type="string", required=True),
                 },
             ),
-        ),
-        "investigation_id": ToolParameter(
-            description="This investigation identifier. This is a uuid that represents the investigation session id.",
-            type="string",
-            required=True,
         ),
     }
 
@@ -101,14 +93,8 @@ class TodoWriteTool(Tool):
 
             logging.info(f"Tasks: {len(tasks)}")
 
-            # Store tasks in session storage
-            todo_manager = get_todo_manager()
-            session_id = params.get("investigation_id", "")
-            todo_manager.update_session_tasks(session_id, tasks)
-
             self.print_tasks_table(tasks)
-
-            formatted_tasks = todo_manager.format_tasks_for_prompt(session_id)
+            formatted_tasks = format_tasks(tasks)
 
             response_data = f"✅ Investigation plan updated with {len(tasks)} tasks. Tasks are now stored in session and will appear in subsequent prompts.\n\n"
             if formatted_tasks:
