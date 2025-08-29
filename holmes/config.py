@@ -194,7 +194,6 @@ class Config(RobustaBaseConfig):
                 "is_robusta_model": True,
             }
 
-
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
             return False
@@ -213,7 +212,6 @@ class Config(RobustaBaseConfig):
             return False
 
         return True
-
 
     def log_useful_info(self):
         if self._model_list:
@@ -252,7 +250,6 @@ class Config(RobustaBaseConfig):
 
     @classmethod
     def load_from_env(cls):
-
         kwargs = {}
         for field_name in [
             "model",

@@ -477,209 +477,221 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         expanding_summary = "This is a very long and detailed expansion of the original short input that makes the content much larger than it was before processing with lots of extra words"
         mock_llm_expanding = self.create_mock_llm(expanding_summary)
         mock_default_llm.return_value = mock_llm_expanding
-        
+
         transformer = LLMSummarizeTransformer(
-            fast_model="gpt-4o-mini", 
-            input_threshold=10
+            fast_model="gpt-4o-mini", input_threshold=10
         )
-        
+
         original_input = "Short input data"
-        
+
         # Verify that this would normally apply
         assert transformer.should_apply(original_input)
-        
+
         # When used in the transformation pipeline, the non-expanding logic
         # is handled at the tools.py level, not in the transformer itself.
         # This test verifies the transformer can produce larger output
         result = transformer.transform(original_input)
         assert result == expanding_summary
         assert len(result) > len(original_input)
-        
+
         # Test case 2: Summary that properly reduces size
         reducing_summary = "Short"
         mock_llm_reducing = self.create_mock_llm(reducing_summary)
         mock_default_llm.return_value = mock_llm_reducing
-        
+
         transformer2 = LLMSummarizeTransformer(
-            fast_model="gpt-4o-mini", 
-            input_threshold=10
+            fast_model="gpt-4o-mini", input_threshold=10
         )
-        
+
         longer_input = "This is a much longer input that should be summarized into something shorter"
-        
+
         assert transformer2.should_apply(longer_input)
         result2 = transformer2.transform(longer_input)
         assert result2 == reducing_summary
         assert len(result2) < len(longer_input)
-        
-    @patch("holmes.core.transformers.llm_summarize.DefaultLLM") 
+
+    @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
     def test_integration_with_tools_non_expanding_logic(self, mock_default_llm):
         """Test integration with the tools.py non-expanding logic."""
         from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
         from holmes.core.transformers import Transformer
-        
+
         # Create a mock expanding transformer response
         expanding_response = "This response is much much much longer than the original input and would not be useful as a summary since it expands rather than contracts the content size making it counterproductive"
         mock_llm = self.create_mock_llm(expanding_response)
         mock_default_llm.return_value = mock_llm
-        
+
         # Create a concrete tool class for testing
         class TestTool(Tool):
             def _invoke(self, params):
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data="Original short data"
+                    status=ToolResultStatus.SUCCESS, data="Original short data"
                 )
-            
+
             def get_parameterized_one_liner(self, params):
                 return "test command"
-        
+
         # Create tool with llm_summarize transformer
         tool = TestTool(
             name="test_tool",
-            description="Test tool", 
-            transformers=[Transformer(name="llm_summarize", config={"input_threshold": 5})]
+            description="Test tool",
+            transformers=[
+                Transformer(name="llm_summarize", config={"input_threshold": 5})
+            ],
         )
-        
+
         # Invoke the tool - this should trigger the non-expanding logic in tools.py
         result = tool.invoke({})
-        
+
         # The result should be the original data, not the expanded summary
         # because tools.py should revert when llm_summarize expands the content
         assert result.data == "Original short data"
         assert len(result.data) < len(expanding_response)
 
-    @patch("holmes.core.transformers.llm_summarize.DefaultLLM") 
+    @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
     def test_non_expanding_logic_with_debug_logging(self, mock_default_llm):
         """Test that explicitly verifies the non-expanding logic is triggered."""
         from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
         from holmes.core.transformers import Transformer
-        
+
         # Create a mock expanding transformer response that's much larger than original
         original_data = "This is some original data that is long enough to trigger the llm_summarize transformer because it exceeds the input threshold that we set to a low value so the transformer will definitely apply to this input text"  # Long enough to trigger threshold
         expanding_response = "This is an extremely long and detailed expansion of the original input that goes on and on with lots of additional unnecessary details that make it much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much longer than the original data, completely defeating the purpose of summarization and making the output counterproductive and should be reverted automatically"  # Much longer
-        
+
         mock_llm = self.create_mock_llm(expanding_response)
         mock_default_llm.return_value = mock_llm
-        
+
         # Create a concrete tool class for testing
         class TestTool(Tool):
             def _invoke(self, params):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
-                    data=original_data  # This will be the input to the transformer
+                    data=original_data,  # This will be the input to the transformer
                 )
-            
+
             def get_parameterized_one_liner(self, params):
                 return "test command"
-        
+
         # Create tool with llm_summarize transformer (low threshold so it applies)
         # Need to ensure fast_model is configured AND global_fast_model fallback
         tool = TestTool(
             name="test_tool",
-            description="Test tool", 
-            transformers=[Transformer(
-                name="llm_summarize", 
-                config={
-                    "input_threshold": 50,  # Much lower than our input length
-                    "fast_model": "gpt-4o-mini",  # Provide fast_model
-                }
-            )]
+            description="Test tool",
+            transformers=[
+                Transformer(
+                    name="llm_summarize",
+                    config={
+                        "input_threshold": 50,  # Much lower than our input length
+                        "fast_model": "gpt-4o-mini",  # Provide fast_model
+                    },
+                )
+            ],
         )
-        
+
         # Patch the logger to capture debug messages
         with patch("holmes.core.tools.logger.debug") as mock_debug_logger:
             # Invoke the tool - this should trigger the non-expanding logic
             result = tool.invoke({})
-            
+
             # Verify that the result is the original data (not the expanded response)
             assert result.data == original_data
             assert len(result.data) < len(expanding_response)
-            
+
             # Most importantly: Check that the debug log for reversion was called
             debug_calls = mock_debug_logger.call_args_list
             reversion_logged = any(
-                "reverted" in str(call) and "llm_summarize" in str(call) 
+                "reverted" in str(call) and "llm_summarize" in str(call)
                 for call in debug_calls
             )
-            assert reversion_logged, f"Expected debug log about reversion, got: {debug_calls}"
-            
+            assert (
+                reversion_logged
+            ), f"Expected debug log about reversion, got: {debug_calls}"
+
             # Also verify the LLM was actually called (so we know the transformer ran)
             mock_llm.completion.assert_called_once()
-            
-    @patch("holmes.core.transformers.llm_summarize.DefaultLLM") 
-    def test_non_expanding_vs_successful_summarization_comparison(self, mock_default_llm):
+
+    @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
+    def test_non_expanding_vs_successful_summarization_comparison(
+        self, mock_default_llm
+    ):
         """Test comparing expanding vs reducing scenarios to ensure logic works correctly."""
         from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
         from holmes.core.transformers import Transformer
-        
+
         original_data = "This is some longer original data that should be summarized by the transformer if it works properly and produces a smaller result"
-        
+
         # Create a concrete tool class for testing
         class TestTool(Tool):
             def _invoke(self, params):
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=original_data
+                    status=ToolResultStatus.SUCCESS, data=original_data
                 )
-            
+
             def get_parameterized_one_liner(self, params):
                 return "test command"
-        
+
         # Test Case 1: Expanding response (should be reverted)
         expanding_response = "This is an extremely long and detailed expansion of the original input that goes on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on and on with lots of additional unnecessary details that make it much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much much longer than the original data, completely defeating the purpose of summarization and making the output counterproductive"
         mock_llm_expanding = self.create_mock_llm(expanding_response)
-        
+
         tool1 = TestTool(
             name="expanding_tool",
             description="Test tool with expanding transformer",
-            transformers=[Transformer(name="llm_summarize", config={
-                "input_threshold": 50,
-                "fast_model": "gpt-4o-mini"
-            })]
+            transformers=[
+                Transformer(
+                    name="llm_summarize",
+                    config={"input_threshold": 50, "fast_model": "gpt-4o-mini"},
+                )
+            ],
         )
-        
+
         mock_default_llm.return_value = mock_llm_expanding
-        
+
         with patch("holmes.core.tools.logger.debug") as mock_debug1:
             result1 = tool1.invoke({})
-            
+
             # Should revert to original data
             assert result1.data == original_data
             assert len(result1.data) < len(expanding_response)
-            
+
             # Should log reversion
             reversion_logged = any(
                 "reverted" in str(call) and "llm_summarize" in str(call)
                 for call in mock_debug1.call_args_list
             )
-            assert reversion_logged, f"Expected reversion log, got: {mock_debug1.call_args_list}"
-        
-        # Test Case 2: Reducing response (should be applied)  
+            assert (
+                reversion_logged
+            ), f"Expected reversion log, got: {mock_debug1.call_args_list}"
+
+        # Test Case 2: Reducing response (should be applied)
         reducing_response = "Short summary"
         mock_llm_reducing = self.create_mock_llm(reducing_response)
-        
+
         tool2 = TestTool(
-            name="reducing_tool", 
+            name="reducing_tool",
             description="Test tool with reducing transformer",
-            transformers=[Transformer(name="llm_summarize", config={
-                "input_threshold": 50,
-                "fast_model": "gpt-4o-mini"
-            })]
+            transformers=[
+                Transformer(
+                    name="llm_summarize",
+                    config={"input_threshold": 50, "fast_model": "gpt-4o-mini"},
+                )
+            ],
         )
-        
+
         mock_default_llm.return_value = mock_llm_reducing
-        
+
         with patch("holmes.core.tools.logger.info") as mock_info:
             result2 = tool2.invoke({})
-            
+
             # Should use the summarized data
             assert result2.data == reducing_response
             assert len(result2.data) < len(original_data)
-            
+
             # Should log successful transformation
             transformation_logged = any(
                 "Applied transformer 'llm_summarize'" in str(call)
-                for call in mock_info.call_args_list  
+                for call in mock_info.call_args_list
             )
-            assert transformation_logged, f"Expected transformation log, got: {mock_info.call_args_list}"
+            assert (
+                transformation_logged
+            ), f"Expected transformation log, got: {mock_info.call_args_list}"

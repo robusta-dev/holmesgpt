@@ -283,8 +283,10 @@ class Tool(ABC, BaseModel):
 
                 # Check if this is llm_summarize and revert if summary is not smaller
                 post_transform_size = len(transformed_data)
-                if (transformer_instance.name == "llm_summarize" and 
-                    post_transform_size >= pre_transform_size):
+                if (
+                    transformer_instance.name == "llm_summarize"
+                    and post_transform_size >= pre_transform_size
+                ):
                     # Revert to original data if summary is not smaller
                     transformed_data = original_data
                     logger.debug(

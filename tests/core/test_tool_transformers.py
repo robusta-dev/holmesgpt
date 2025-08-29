@@ -214,14 +214,14 @@ class TestToolValidationIntegration:
             Transformer(name="nonexistent_transformer", config={}),
             Transformer(name="mock_transformer", config={}),  # This one should succeed
         ]
-        
+
         with patch("holmes.core.tools.logger.warning") as mock_logger_warning:
             tool = ConcreteTestTool(
                 name="test_tool",
                 description="Test tool",
                 transformers=invalid_transforms,
             )
-            
+
             # Verify that warning was logged for invalid transformer
             mock_logger_warning.assert_called()
             warning_calls = [
@@ -230,7 +230,7 @@ class TestToolValidationIntegration:
                 if "nonexistent_transformer" in str(call)
             ]
             assert len(warning_calls) > 0
-            
+
         # Tool should still work despite invalid transformer
         result = tool.invoke({})
         assert result.status == ToolResultStatus.SUCCESS
