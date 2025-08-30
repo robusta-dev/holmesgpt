@@ -33,7 +33,7 @@ from holmes.utils.cache import TTLCache
 from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
 )
 from holmes.utils.keygen_utils import generate_random_key
 
@@ -716,7 +716,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 ),
                 "start": ToolParameter(
                     description=standard_start_datetime_tool_param_description(
-                        DEFAULT_TIME_SPAN_SECONDS
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
                     ),
                     type="string",
                     required=False,
@@ -755,7 +755,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             (start, end) = process_timestamps_to_rfc3339(
                 start_timestamp=params.get("start"),
                 end_timestamp=params.get("end"),
-                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+                default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
             )
             step = params.get("step", "")
             description = params.get("description", "")
