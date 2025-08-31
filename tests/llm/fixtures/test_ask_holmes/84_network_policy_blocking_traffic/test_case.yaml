@@ -9,6 +9,9 @@ prometheus_alert: prometheus_alert.yaml
 before_test: |
   kubectl create namespace namespace-84
   kubectl apply -f ../../shared/network_policy_blocking/manifest.yaml -n namespace-84
+  kubectl wait --for=condition=ready pod -l app=backend -n namespace-84 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=frontend -n namespace-84 --timeout=60s
+  # Give endpoints time to propagate
   sleep 30
 after_test: |
   kubectl delete -f ../../shared/network_policy_blocking/manifest.yaml -n namespace-84
