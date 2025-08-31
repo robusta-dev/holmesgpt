@@ -81,9 +81,7 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
 
-        self.check_llm(
-            self.model, self.api_key, self.api_base, self.api_version, self.args
-        )
+        self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
 
     def check_llm(
         self,
@@ -91,7 +89,6 @@ class DefaultLLM(LLM):
         api_key: Optional[str],
         api_base: Optional[str],
         api_version: Optional[str],
-        args: Optional[Dict],
     ):
         logging.debug(f"Checking LiteLLM model {model}")
         lookup = litellm.get_llm_provider(model)

@@ -540,7 +540,10 @@ class Config(RobustaBaseConfig):
                 api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
             # It's ok if the model does not have api base and api version, which are defaults to None.
-            api_base = model_params.pop("api_base", api_base)
+            # Handle both api_base and base_url - api_base takes precedence
+            model_api_base = model_params.pop("api_base", None)
+            model_base_url = model_params.pop("base_url", None)
+            api_base = model_api_base or model_base_url or api_base
             api_version = model_params.pop("api_version", api_version)
 
         return DefaultLLM(model, api_key, api_base, api_version, model_params, tracer)  # type: ignore

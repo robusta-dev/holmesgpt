@@ -28,6 +28,7 @@ def test_config_load_from_env_includes_api_base_version(monkeypatch):
 
     assert config.api_base == "https://env.api.base"
     assert config.api_version == "2024-01-01"
+    assert config.model == "test-model"
 
 
 def test_config_get_llm_with_api_base_version():
@@ -256,3 +257,138 @@ def test_config_get_llm_with_specific_model_from_model_list(monkeypatch, tmp_pat
             {},
             None,  # tracer
         )
+
+
+def test_config_get_llm_with_base_url_only(monkeypatch, tmp_path):
+    """Test that base_url is used when only base_url is provided in model list."""
+    temp_config_file = tmp_path / "model_list.yaml"
+    data = {
+        "test-model": {
+            "model": "gpt-4",
+            "api_key": "test-key",
+            "base_url": "https://base.url.only",
+            "api_version": "2024-01-01",
+        }
+    }
+    temp_config_file.write_text(yaml.dump(data))
+    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+
+    config = Config()
+
+    with patch("holmes.config.DefaultLLM") as mock_default_llm:
+        mock_llm_instance = MagicMock()
+        mock_default_llm.return_value = mock_llm_instance
+
+        config._get_llm("test-model")
+
+        # Should use base_url value as api_base
+        mock_default_llm.assert_called_once_with(
+            "gpt-4",
+            "test-key",
+            "https://base.url.only",  # base_url used as api_base
+            "2024-01-01",
+            {},
+            None,  # tracer
+        )
+
+
+def test_config_get_llm_api_base_overrides_base_url(monkeypatch, tmp_path):
+    """Test that api_base takes precedence over base_url when both are provided."""
+    temp_config_file = tmp_path / "model_list.yaml"
+    data = {
+        "test-model": {
+            "model": "gpt-4",
+            "api_key": "test-key",
+            "api_base": "https://api.base.wins",
+            "base_url": "https://base.url.loses",
+            "api_version": "2024-01-01",
+        }
+    }
+    temp_config_file.write_text(yaml.dump(data))
+    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+
+    config = Config()
+
+    with patch("holmes.config.DefaultLLM") as mock_default_llm:
+        mock_llm_instance = MagicMock()
+        mock_default_llm.return_value = mock_llm_instance
+
+        config._get_llm("test-model")
+
+        # Should use api_base value, not base_url
+        mock_default_llm.assert_called_once_with(
+            "gpt-4",
+            "test-key",
+            "https://api.base.wins",  # api_base takes precedence
+            "2024-01-01",
+            {},
+            None,  # tracer
+        )
+
+
+def test_config_get_llm_neither_api_base_nor_base_url_uses_config(
+    monkeypatch, tmp_path
+):
+    """Test that config api_base is used when neither api_base nor base_url are in model list."""
+    temp_config_file = tmp_path / "model_list.yaml"
+    data = {
+        "test-model": {
+            "model": "gpt-4",
+            "api_key": "test-key",
+            "api_version": "2024-01-01",
+            # Neither api_base nor base_url provided
+        }
+    }
+    temp_config_file.write_text(yaml.dump(data))
+    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+
+    config = Config(api_base="https://config.fallback.base")
+
+    with patch("holmes.config.DefaultLLM") as mock_default_llm:
+        mock_llm_instance = MagicMock()
+        mock_default_llm.return_value = mock_llm_instance
+
+        config._get_llm("test-model")
+
+        # Should use config api_base as fallback
+        mock_default_llm.assert_called_once_with(
+            "gpt-4",
+            "test-key",
+            "https://config.fallback.base",  # config api_base used as fallback
+            "2024-01-01",
+            {},
+            None,  # tracer
+        )
+
+
+def test_config_get_llm_both_params_popped_from_model_params(monkeypatch, tmp_path):
+    """Test that both api_base and base_url are removed from model_params before passing to DefaultLLM."""
+    temp_config_file = tmp_path / "model_list.yaml"
+    data = {
+        "test-model": {
+            "model": "gpt-4",
+            "api_key": "test-key",
+            "api_base": "https://api.base.value",
+            "base_url": "https://base.url.value",
+            "api_version": "2024-01-01",
+            "custom_param": "should_remain",
+        }
+    }
+    temp_config_file.write_text(yaml.dump(data))
+    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+
+    config = Config()
+
+    with patch("holmes.config.DefaultLLM") as mock_default_llm:
+        mock_llm_instance = MagicMock()
+        mock_default_llm.return_value = mock_llm_instance
+
+        config._get_llm("test-model")
+
+        # Verify that model_params only contains custom_param, not api_base or base_url
+        call_args = mock_default_llm.call_args[0]
+        model_params = call_args[4]
+        assert "api_base" not in model_params
+        assert "base_url" not in model_params
+        assert "custom_param" in model_params
+        assert model_params["custom_param"] == "should_remain"
