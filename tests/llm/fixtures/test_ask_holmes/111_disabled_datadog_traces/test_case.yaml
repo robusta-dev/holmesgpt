@@ -8,7 +8,7 @@ tags:
   - transparency
 before_test: |
   echo "Setting up checkout service for eval 111..."
-  kubectl apply -f $TEST_DIR/helm/checkout-service.yaml
+  kubectl apply -f helm/checkout-service.yaml
 
   echo "Waiting for checkout service pods to be ready..."
   kubectl wait --for=condition=ready pod -l app=checkout -n app-111 --timeout=60s

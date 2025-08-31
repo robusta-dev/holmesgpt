@@ -120,7 +120,7 @@ class DummySpan:
 class DummyTracer:
     """A no-op tracer implementation for when tracing is disabled."""
 
-    def start_experiment(self, experiment_name=None, metadata=None):
+    def start_experiment(self, experiment_name=None, additional_metadata=None):
         """No-op experiment creation."""
         return None
 
