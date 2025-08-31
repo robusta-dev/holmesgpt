@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any, Dict, List, cast
 
 import requests  # type: ignore
@@ -100,9 +101,13 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
 
                 # Build the filter based on match type
                 if use_exact_match:
-                    filters.append(f'{prefix}{label}="{value}"')
+                    # Escape double quotes in the value for exact match
+                    escaped_value = value.replace('"', '\\"')
+                    filters.append(f'{prefix}{label}="{escaped_value}"')
                 else:
-                    filters.append(f'{prefix}{label}=~".*{value}.*"')
+                    # Escape regex special characters for partial match
+                    escaped_value = re.escape(value)
+                    filters.append(f'{prefix}{label}=~".*{escaped_value}.*"')
 
         return filters
 
@@ -493,11 +498,20 @@ Examples:
                         ),
                         "traceData": response.json(),  # Raw trace data
                     }
-                except Exception:
+                except requests.exceptions.RequestException as e:
+                    error_msg = f"Failed to fetch full trace: {str(e)}"
+                    if hasattr(e, "response") and e.response is not None:
+                        error_msg += f" (Status: {e.response.status_code})"
                     return {
                         "traceID": trace_id,
                         "durationMs": trace_summary.get("durationMs", 0),
-                        "error": "Failed to fetch full trace",
+                        "error": error_msg,
+                    }
+                except (ValueError, KeyError) as e:
+                    return {
+                        "traceID": trace_id,
+                        "durationMs": trace_summary.get("durationMs", 0),
+                        "error": f"Failed to parse trace data: {str(e)}",
                     }
 
             # Fetch the selected traces

@@ -8,5 +8,5 @@ Assume every application provides tempo traces.
         - Use fetch_finding_by_id if you are provided with a finding/alert id. It will contain details about when the alert was triggered
     - Use at least one of the following argument to ensure you get relevant traces: `service_name`, `pod_name` or `deployment_name`.
 4. When you have a specific trace ID to investigate, use `fetch_tempo_trace_by_id` to get detailed information about that trace.
-5. Look at the duration of each span in any single trace and deduct any issues.
+5. Look at the duration of each span in any single trace and deduce any issues.
 6. ALWAYS fetch the logs for a pod once you identify a span that is taking a long time. There may be an explanation for the slowness in the logs.
