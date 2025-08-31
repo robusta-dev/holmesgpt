@@ -123,11 +123,10 @@ def run_all_test_commands(
                     #    f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
                     # )
 
-                    # Store failure info for setup
+                    # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
-                        failed_setup_info[test_case.id] = (
-                            f"Setup timeout: Command timed out after {result.elapsed_time:.2f}s"
-                        )
+                        # Store the full error details without truncation for Braintrust
+                        failed_setup_info[test_case.id] = result.error_details
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
@@ -148,11 +147,11 @@ def run_all_test_commands(
                     #    f"[{test_case.id}] {operation.value} failed: {result.error_details}"
                     # )
 
-                    # Store failure info for setup
+                    # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
-                        failed_setup_info[test_case.id] = (
-                            f"Setup failed: Command failed with {result.exit_info}"
-                        )
+                        # Store the full error details without truncation for Braintrust
+                        # This includes the script, exit code, stdout, and stderr
+                        failed_setup_info[test_case.id] = result.error_details
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(

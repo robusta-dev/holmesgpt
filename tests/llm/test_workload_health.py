@@ -24,6 +24,7 @@ from tests.llm.utils.test_case_utils import (
 )
 from tests.llm.utils.property_manager import (
     set_initial_properties,
+    set_trace_properties,
     update_test_results,
     handle_test_error,
 )
@@ -81,9 +82,6 @@ def test_health_check(
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case, model)
 
-    # Check if test should be skipped or has setup failures
-    check_and_skip_test(test_case, request, shared_test_infrastructure)
-
     tracer = TracingFactory.create_tracer("braintrust")
     metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)
@@ -105,15 +103,8 @@ def test_health_check(
     with tracer.start_trace(
         name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
     ) as eval_span:
-        # Store span info in user properties for conftest to access
-        if hasattr(eval_span, "id"):
-            request.node.user_properties.append(
-                ("braintrust_span_id", str(eval_span.id))
-            )
-        if hasattr(eval_span, "root_span_id"):
-            request.node.user_properties.append(
-                ("braintrust_root_span_id", str(eval_span.root_span_id))
-            )
+        set_trace_properties(request, eval_span)
+        check_and_skip_test(test_case, request, shared_test_infrastructure)
 
         try:
             with patch.multiple("server", dal=mock_dal, config=config):

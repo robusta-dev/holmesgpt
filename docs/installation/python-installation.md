@@ -48,7 +48,6 @@ messages = build_initial_ask_messages(
     initial_user_prompt=question,
     file_paths=None,
     tool_executor=ai.tool_executor,
-    investigation_id=ai.investigation_id,
     runbooks=config.get_runbook_catalog(),
     system_prompt_additions=None
 )
@@ -130,7 +129,6 @@ def main():
                 initial_user_prompt=question,
                 file_paths=None,
                 tool_executor=ai.tool_executor,
-                investigation_id=ai.investigation_id,
                 runbooks=config.get_runbook_catalog(),
                 system_prompt_additions=None
             )
@@ -224,7 +222,6 @@ def main():
         initial_user_prompt=first_question,
         file_paths=None,
         tool_executor=ai.tool_executor,
-        investigation_id=ai.investigation_id,
         runbooks=config.get_runbook_catalog(),
         system_prompt_additions=None
     )

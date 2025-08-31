@@ -31,7 +31,7 @@ markdown = "^3.6"
 certifi = "^2024.7.4"
 urllib3 = "^1.26.19"
 boto3 = "^1.34.145"
-setuptools = "70.0.0"
+setuptools = "^80.9.0"
 aiohttp = "^3.10.2"
 cachetools = "^5.5.0"
 bs4 = "^0.0.2"
@@ -101,7 +101,6 @@ markers = [
     "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
     "runbooks: Tests involving runbook functionality",
-    "kafka: Tests involving Kafka functionality",
     "misleading-history: Tests with misleading historical data",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
@@ -119,6 +118,8 @@ markers = [
     "toolset-limitation: Tests that cannot be solved no matter how smart the model, unless we improve the underlying toolsets themselves",
     "ask-for-clarification: Tests where Holmes should ask the user for clarification",
     "database: Tests involving database interactions",
+    "traces: Tests where the ai is expected to find the solution using the traces",
+    "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
     "datadog: DataDog toolset"
 ]
 

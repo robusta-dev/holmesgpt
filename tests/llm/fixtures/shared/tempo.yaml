@@ -1,0 +1,114 @@
+# Shared Tempo deployment configuration for test fixtures
+# Apply with: kubectl apply -f tempo.yaml -n <namespace>
+# Note: Namespace must be created separately
+---
+# Tempo deployment - lightweight, in-memory storage
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+      - name: tempo
+        image: grafana/tempo:2.3.0
+        args:
+        - -config.file=/etc/tempo/tempo-config.yaml
+        ports:
+        - containerPort: 3200
+          name: http
+        - containerPort: 4317
+          name: otlp-grpc
+        - containerPort: 4318
+          name: otlp-http
+        volumeMounts:
+        - name: config
+          mountPath: /etc/tempo
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
+      volumes:
+      - name: config
+        configMap:
+          name: tempo-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tempo
+spec:
+  selector:
+    app: tempo
+  ports:
+  - name: http
+    port: 3200
+    targetPort: 3200
+  - name: otlp-grpc
+    port: 4317
+    targetPort: 4317
+  - name: otlp-http
+    port: 4318
+    targetPort: 4318
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tempo-config
+data:
+  tempo-config.yaml: |
+    server:
+      http_listen_port: 3200
+
+    distributor:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+
+    ingester:
+      max_block_duration: 5m
+      trace_idle_period: 30s
+      max_block_bytes: 10_000_000
+
+    compactor:
+      compaction:
+        block_retention: 17520h  # 2 years (730 days * 24 hours)
+
+    storage:
+      trace:
+        backend: local
+        local:
+          path: /tmp/tempo/traces
+        wal:
+          path: /tmp/tempo/wal
+        pool:
+          max_workers: 10
+          queue_depth: 100
+
+    querier:
+      frontend_worker:
+        frontend_address: 127.0.0.1:9095
+      max_concurrent_queries: 10
+
+    query_frontend:
+      max_batch_size: 5
+
+    overrides:
+      max_traces_per_user: 10000
+      ingestion_rate_limit_bytes: 15000000
+      ingestion_burst_size_bytes: 20000000
+      max_bytes_per_trace: 5000000
