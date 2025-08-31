@@ -36,6 +36,8 @@ from holmes.plugins.toolsets.utils import (
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 
 ONE_HOUR_IN_SECONDS = 3600
+DEFAULT_TRACES_TIME_SPAN_SECONDS = DEFAULT_TIME_SPAN_SECONDS  # 7 days
+DEFAULT_TAGS_TIME_SPAN_SECONDS = 8 * ONE_HOUR_IN_SECONDS  # 8 hours
 
 
 class GrafanaTempoLabelsConfig(BaseModel):
@@ -66,7 +68,7 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
         return cast(GrafanaTempoConfig, self._grafana_config)
 
     def build_k8s_filters(
-        self, params: Dict[str, Any], use_exact_match: bool = True
+        self, params: Dict[str, Any], use_exact_match: bool
     ) -> List[str]:
         """Build TraceQL filters for k8s parameters.
 
@@ -157,7 +159,7 @@ class GetTempoTraces(Tool):
                     required=False,
                 ),
                 "start_datetime": ToolParameter(
-                    description="The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative one hour (-3600)",
+                    description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
                     type="string",
                     required=False,
                 ),
@@ -197,7 +199,7 @@ class GetTempoTraces(Tool):
         start, end = process_timestamps_to_int(
             params.get("start_datetime"),
             params.get("end_datetime"),
-            default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+            default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
         )
 
         filters = self._toolset.build_k8s_filters(params, use_exact_match=True)
@@ -235,7 +237,7 @@ class GetTempoTags(Tool):
             description="List the tags available in Tempo",
             parameters={
                 "start_datetime": ToolParameter(
-                    description="The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to negative 8 hours (-3600)",
+                    description=f"The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TAGS_TIME_SPAN_SECONDS}",
                     type="string",
                     required=False,
                 ),
@@ -254,7 +256,7 @@ class GetTempoTags(Tool):
         start, end = process_timestamps_to_int(
             start=params.get("start_datetime"),
             end=params.get("end_datetime"),
-            default_time_span_seconds=8 * ONE_HOUR_IN_SECONDS,
+            default_time_span_seconds=DEFAULT_TAGS_TIME_SPAN_SECONDS,
         )
 
         base_url = get_base_url(self._toolset.grafana_config)
@@ -368,12 +370,12 @@ Examples:
                     required=False,
                 ),
                 "start_datetime": ToolParameter(
-                    description="Start time for analysis (RFC3339 or relative)",
+                    description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
                     type="string",
                     required=False,
                 ),
                 "end_datetime": ToolParameter(
-                    description="End time for analysis (RFC3339 or relative)",
+                    description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
                     type="string",
                     required=False,
                 ),
@@ -415,7 +417,7 @@ Examples:
             start, end = process_timestamps_to_int(
                 params.get("start_datetime"),
                 params.get("end_datetime"),
-                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+                default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
             )
 
             base_url = get_base_url(self._toolset.grafana_config)
