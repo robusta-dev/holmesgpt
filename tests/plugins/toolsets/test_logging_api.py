@@ -18,6 +18,7 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles integer start_time values."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
             data="Sample logs", status=ToolResultStatus.SUCCESS
@@ -56,6 +57,7 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles string start_time values."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
             data="Sample logs", status=ToolResultStatus.SUCCESS
@@ -87,6 +89,7 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles RFC3339 formatted start_time."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
             data="Sample logs", status=ToolResultStatus.SUCCESS
@@ -115,6 +118,7 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles missing start_time."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
             data="Sample logs", status=ToolResultStatus.SUCCESS
@@ -138,6 +142,7 @@ class TestPodLoggingTool:
         """Test that all parameters are correctly passed through."""
         # Create mock toolset with capabilities
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = {
             LoggingCapability.REGEX_FILTER,
             LoggingCapability.EXCLUDE_FILTER,

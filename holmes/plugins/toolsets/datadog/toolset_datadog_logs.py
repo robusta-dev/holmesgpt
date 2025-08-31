@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 import json
 import logging
@@ -141,22 +142,25 @@ class DatadogLogsToolset(BasePodLoggingToolset):
 
     @property
     def supported_capabilities(self) -> Set[LoggingCapability]:
-        """Datadog logs API only supports substring matching, no exclude filter"""
-        return set()  # No regex support, no exclude filter
+        """Datadog logs API supports historical data and substring matching"""
+        return {
+            LoggingCapability.HISTORICAL_DATA
+        }  # No regex support, no exclude filter, but supports historical data
 
     def __init__(self):
         super().__init__(
             name="datadog/logs",
-            description="Toolset for interacting with Datadog to fetch logs",
+            description="Toolset for fetching logs from Datadog, including historical data for pods no longer in the cluster",
             docs_url="https://docs.datadoghq.com/api/latest/logs/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             experimental=True,
             tags=[ToolsetTag.CORE],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
+        self._reload_instructions()
 
     def logger_name(self) -> str:
         return "DataDog"
@@ -272,3 +276,10 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             "dd_app_key": "your-datadog-application-key",
             "site_api_url": "https://api.datadoghq.com",
         }
+
+    def _reload_instructions(self):
+        """Load Datadog logs specific troubleshooting instructions."""
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "datadog_logs_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
