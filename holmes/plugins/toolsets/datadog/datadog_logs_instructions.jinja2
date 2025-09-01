@@ -1,0 +1,43 @@
+## Datadog Logs Tools Usage Guide
+
+Before running logs queries:
+
+** You are often (but not always) running in a kubernetes environment. So users might ask you questions about kubernetes workloads without explicitly stating their type.
+** When getting ambiguous questions, use kubectl_find_resource to find the resource you are being asked about!
+** Find the involved resource name and kind
+** If you can't figure out what is the type of the resource, ask the user for more information and don't guess
+
+
+### General guideline
+- This toolset is used to read pod logs.
+- Assume the pod should have logs. If logs not found, try to adjust the query
+
+### CRITICAL: Pod Name Resolution Workflow
+
+**When user provides an exact pod name** (e.g., `my-workload-5f9d8b7c4d-x2km9`):
+- FIRST query Datadog directly with that pod name using appropriate tags
+- Do NOT try to verify if the pod exists in Kubernetes first
+- This allows querying historical pods that have been deleted/replaced
+
+**When user provides a generic workload name** (e.g., "my-workload", "nginx", "telemetry-processor"):
+- First use `kubectl_find_resource` to find actual pod names
+- Example: `kubectl_find_resource` with "my-workload" → finds pods like "my-workload-8f8cdfxyz-c7zdr"
+- Then use those specific pod names in Datadog queries
+- Alternative: Use deployment-level tags when appropriate
+
+**Why this matters:**
+- Pod names in Datadog are the actual Kubernetes pod names (with random suffixes)
+- Historical pods that no longer exist in the cluster can still have logs in Datadog
+- Deployment/service names alone are NOT pod names (they need the suffix)
+
+### Time Parameters
+- Use RFC3339 format: `2023-03-01T10:30:00Z`
+- Or relative seconds: `-3600` for 1 hour ago
+- Defaults to 1 hour window if not specified
+
+### Common Investigation Patterns
+
+**For Pod/Container Metrics (MOST COMMON):**
+1. User asks: "Show logs for my-workload"
+2. Use `kubectl_find_resource` → find pod "my-workload-abc123-xyz"
+3. Query Datadog for pod "my-workload-abc123-xyz" logs
