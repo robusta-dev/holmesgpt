@@ -146,28 +146,50 @@ class KubeProxy:
             return {}
 
     def get_alertmanager_alerts(
-        self, service_name: str, namespace: str, port: int = 9093
+        self, service_name: str, namespace: str, port: int = 9093, subpath: str = ""
     ) -> Optional[Dict[str, Any]]:
         """Get alerts from AlertManager via Kubernetes API proxy."""
+        # Construct the path with optional subpath (e.g., "/alertmanager/api/v2/alerts" for Mimir)
+        if subpath:
+            # Ensure subpath starts with / and doesn't end with /
+            if not subpath.startswith("/"):
+                subpath = "/" + subpath
+            if subpath.endswith("/"):
+                subpath = subpath[:-1]
+            path = f"{subpath}/api/v2/alerts"
+        else:
+            path = "/api/v2/alerts"
+
         result = self.proxy_request(
             service_name=service_name,
             namespace=namespace,
             port=port,
-            path="/api/v2/alerts",
+            path=path,
         )
         # Return None for empty dict to make it clearer
         return result if result and result != {} else None
 
     def verify_alertmanager(
-        self, service_name: str, namespace: str, port: int = 9093
+        self, service_name: str, namespace: str, port: int = 9093, subpath: str = ""
     ) -> bool:
         """Verify AlertManager is accessible via proxy."""
         try:
+            # Construct the path with optional subpath
+            if subpath:
+                # Ensure subpath starts with / and doesn't end with /
+                if not subpath.startswith("/"):
+                    subpath = "/" + subpath
+                if subpath.endswith("/"):
+                    subpath = subpath[:-1]
+                path = f"{subpath}/api/v2/status"
+            else:
+                path = "/api/v2/status"
+
             result = self.proxy_request(
                 service_name=service_name,
                 namespace=namespace,
                 port=port,
-                path="/api/v2/status",
+                path=path,
             )
             return result is not None
         except Exception as e:

@@ -67,25 +67,33 @@ class AlertManager:
 
             # Check if it's a k8s:// URL for automatic proxy setup
             if url.startswith("k8s://"):
-                # Parse k8s:// URL format: k8s://namespace/service[:port]
+                # Parse k8s:// URL format: k8s://namespace/service[:port][/path]
                 k8s_path = url[6:]  # Remove 'k8s://' prefix
 
                 # Parse namespace, service, and port (namespace is mandatory)
                 if "/" not in k8s_path:
                     raise ValueError(
                         f"Invalid k8s:// URL format: '{url}'. "
-                        "Format must be: k8s://namespace/service[:port] "
-                        "(e.g., k8s://default/alertmanager:9093)"
+                        "Format must be: k8s://namespace/service[:port][/path] "
+                        "(e.g., k8s://default/alertmanager:9093 or k8s://mimi/mimir-alertmanager:8080/alertmanager)"
                     )
 
-                namespace, service_port = k8s_path.split("/", 1)
+                namespace, service_port_path = k8s_path.split("/", 1)
 
-                if not namespace or not service_port:
+                if not namespace or not service_port_path:
                     raise ValueError(
                         f"Invalid k8s:// URL format: '{url}'. "
                         "Both namespace and service are required."
                     )
 
+                # Check if there's a subpath (e.g., service:port/path or service/path)
+                subpath = ""
+                if "/" in service_port_path:
+                    service_port, subpath = service_port_path.split("/", 1)
+                else:
+                    service_port = service_port_path
+
+                # Now parse service and port
                 if ":" in service_port:
                     service, port = service_port.rsplit(":", 1)
                 else:
@@ -93,7 +101,7 @@ class AlertManager:
                     port = "9093"  # Default AlertManager port
 
                 logger.info(
-                    f"Parsed k8s:// URL - namespace: {namespace}, service: {service}, port: {port}"
+                    f"Parsed k8s:// URL - namespace: {namespace}, service: {service}, port: {port}, subpath: {subpath}"
                 )
 
                 # Create AlertManagerInstance with proxy enabled
@@ -105,6 +113,7 @@ class AlertManager:
                         url="",  # Not needed when use_proxy=True
                         source="k8s-url",
                         use_proxy=True,
+                        subpath=subpath,  # Pass the subpath for use in API calls
                     )
                 ]
 

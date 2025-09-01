@@ -27,6 +27,10 @@ class AlertManagerInstance(BaseModel):
     use_proxy: bool = Field(
         default=False, description="Whether to access via Kubernetes API proxy"
     )
+    subpath: str = Field(
+        default="",
+        description="Subpath for AlertManager API (e.g., 'alertmanager' for Mimir)",
+    )
 
 
 class Alert(BaseModel):

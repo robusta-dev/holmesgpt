@@ -69,6 +69,9 @@ class AlertFetcher:
                     alertmanager.name,
                     alertmanager.namespace,
                     alertmanager.port,
+                    subpath=getattr(
+                        alertmanager, "subpath", ""
+                    ),  # Pass subpath if available
                 )
                 # Check for empty dict or None
                 if not data or data == {}:

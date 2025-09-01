@@ -26,7 +26,7 @@ def view_alerts(
         None,
         "--alertmanager-url",
         "-a",
-        help="AlertManager URL. Supports: http://host:port[/path], k8s://namespace/service[:port] for auto-proxy, or auto-discovery if not provided. Subpaths are supported (e.g., http://mimir.example.com/alertmanager)",
+        help="AlertManager URL. Supports: http://host:port[/path], k8s://namespace/service[:port][/path] for auto-proxy, or auto-discovery if not provided. Subpaths are supported (e.g., http://mimir.example.com/alertmanager or k8s://mimi/mimir-alertmanager:8080/alertmanager)",
     ),
     poll_interval: int = typer.Option(
         30,
@@ -157,7 +157,7 @@ def list_alerts(
         None,
         "--alertmanager-url",
         "-a",
-        help="AlertManager URL. Supports: http://host:port[/path], k8s://namespace/service[:port] for auto-proxy, or auto-discovery if not provided. Subpaths are supported (e.g., http://mimir.example.com/alertmanager)",
+        help="AlertManager URL. Supports: http://host:port[/path], k8s://namespace/service[:port][/path] for auto-proxy, or auto-discovery if not provided. Subpaths are supported (e.g., http://mimir.example.com/alertmanager or k8s://mimi/mimir-alertmanager:8080/alertmanager)",
     ),
     format: str = typer.Option(
         "table",
