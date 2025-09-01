@@ -60,6 +60,8 @@ stringData:
 
         def save_batch_data(self, batch_id, data):
             """Save batch data to disk"""
+            # Check disk space before saving batch data
+            self.check_disk_space_limit()
 
             filename = f"{self.data_dir}/analytics_batch_{batch_id:06d}.json"
             with open(filename, 'w') as f:
@@ -85,11 +87,40 @@ stringData:
 
             return filename
 
+        def get_folder_size(self, folder_path):
+            """Calculate total size of files in folder"""
+            total_size = 0
+            try:
+                for dirpath, dirnames, filenames in os.walk(folder_path):
+                    for filename in filenames:
+                        filepath = os.path.join(dirpath, filename)
+                        if os.path.exists(filepath):
+                            total_size += os.path.getsize(filepath)
+            except (OSError, IOError):
+                pass
+            return total_size
+
+        def check_disk_space_limit(self):
+            """Check if folder size exceeds 100MB and simulate disk full
+            This simulates disk space limits when the PVC's limit is not enforced (e.g. local kind cluster)
+            """
+            folder_size = self.get_folder_size(self.data_dir)
+            if folder_size >= 100 * 1024 * 1024:  # 100MB limit
+                raise OSError(28, "No space left on device")
 
         def initialize_historical_data(self):
             """Initialize historical data repository for analytics"""
             print(f"[{datetime.now()}] Initializing historical data repository...")
 
+            # Check if we have persistent state from previous runs
+            state_file = f"{self.data_dir}/.processing_state"
+            if os.path.exists(state_file):
+                with open(state_file, 'r') as f:
+                    state = f.read().strip()
+                if state == "storage_error":
+                    print(f"[{datetime.now()}] ERROR: Previous run encountered storage issues - cannot initialize repository")
+                    print(f"[{datetime.now()}] CRITICAL: Insufficient storage space for historical data requirements")
+                    raise OSError("[Errno 28] No space left on device")
 
             try:
                 # Initialize the historical data repository with seed data
@@ -100,6 +131,9 @@ stringData:
                     # Load historical data for trend analysis (realistic for analytics)
                     months_of_data = 24  # 2 years of historical data
                     for month in range(months_of_data):
+                        # Check disk space before writing each month
+                        self.check_disk_space_limit()
+
                         # Each month contains user interaction data
                         monthly_data_size = 50 * 1024 * 1024  # 50MB per month is realistic
                         f.write(os.urandom(monthly_data_size))
@@ -110,10 +144,18 @@ stringData:
                 print(f"[{datetime.now()}] Historical data repository initialized successfully")
 
             except OSError as e:
-                print(f"[{datetime.now()}] ERROR: Failed to initialize historical data repository")
-                print(f"[{datetime.now()}] CRITICAL: Unable to load required historical dataset")
-                print(f"[{datetime.now()}] {e}")
-                raise
+                if "No space left on device" in str(e) or e.errno == 28:
+                    # Mark the storage error state
+                    try:
+                        with open(state_file, 'w') as f:
+                            f.write("storage_error")
+                    except:
+                        pass
+                    print(f"[{datetime.now()}] ERROR: Failed to initialize historical data repository")
+                    print(f"[{datetime.now()}] CRITICAL: Unable to load required historical dataset - insufficient storage")
+                    exit(1)
+                else:
+                    raise
 
         def process_data_continuously(self):
             """Main processing loop"""
@@ -150,9 +192,14 @@ stringData:
                     time.sleep(0.01)
 
                 except OSError as e:
-                    print(f"[{datetime.now()}] CRITICAL ERROR: Failed to write batch {batch_id}")
-                    print(f"[{datetime.now()}] {e}")
-                    raise
+                    if "No space left on device" in str(e):
+                        print(f"[{datetime.now()}] CRITICAL ERROR: Failed to write batch {batch_id} - storage capacity exceeded")
+                        print(f"[{datetime.now()}] ERROR: No space left on device while processing analytics data")
+                        print(f"[{datetime.now()}] System cannot continue data processing operations")
+                        exit(1)
+                    else:
+                        print(f"[{datetime.now()}] ERROR: I/O error while processing batch {batch_id}: {e}")
+                        exit(1)
                 except Exception as e:
                     print(f"[{datetime.now()}] ERROR: Unexpected error in batch {batch_id}: {e}")
                     raise
@@ -237,4 +284,3 @@ spec:
       resources:
         requests:
           storage: 100Mi
-      storageClassName: longhorn
