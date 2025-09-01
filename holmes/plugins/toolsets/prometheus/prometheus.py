@@ -260,7 +260,7 @@ def adjust_step_for_max_points(
     # If current points exceed max, adjust the step
     if current_points > MAX_GRAPH_POINTS:
         adjusted_step = time_range_seconds / MAX_GRAPH_POINTS
-        logging.debug(
+        logging.info(
             f"Adjusting step from {step}s to {adjusted_step}s to limit points from {current_points:.0f} to {MAX_GRAPH_POINTS}"
         )
         return adjusted_step
