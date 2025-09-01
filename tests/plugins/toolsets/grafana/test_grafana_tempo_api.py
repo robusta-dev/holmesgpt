@@ -97,7 +97,7 @@ class TestGrafanaTempoAPI:
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/v2/traces/123abc",
             headers=api_get.headers,
-            params={"start": 1000, "end": 2000},
+            params={"start": "1000", "end": "2000"},
             timeout=30,
         )
 
@@ -142,10 +142,10 @@ class TestGrafanaTempoAPI:
             "tags": "service=api",
             "minDuration": "5s",
             "maxDuration": "30s",
-            "limit": 100,
-            "start": 1000,
-            "end": 2000,
-            "spss": 5,
+            "limit": "100",
+            "start": "1000",
+            "end": "2000",
+            "spss": "5",
         }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/search",
@@ -173,10 +173,10 @@ class TestGrafanaTempoAPI:
         assert result == {"traces": []}
         expected_params = {
             "q": '{service="api"}',
-            "limit": 100,
-            "start": 1000,
-            "end": 2000,
-            "spss": 5,
+            "limit": "100",
+            "start": "1000",
+            "end": "2000",
+            "spss": "5",
         }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/search",
@@ -206,10 +206,10 @@ class TestGrafanaTempoAPI:
         expected_params = {
             "scope": "resource",
             "q": '{service="api"}',
-            "start": 1000,
-            "end": 2000,
-            "limit": 50,
-            "maxStaleValues": 100,
+            "start": "1000",
+            "end": "2000",
+            "limit": "50",
+            "maxStaleValues": "100",
         }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/v2/search/tags",
@@ -238,10 +238,10 @@ class TestGrafanaTempoAPI:
         assert result == {"tagValues": ["api", "web", "db"]}
         expected_params = {
             "q": '{resource.cluster="us-east-1"}',
-            "start": 1000,
-            "end": 2000,
-            "limit": 50,
-            "maxStaleValues": 100,
+            "start": "1000",
+            "end": "2000",
+            "limit": "50",
+            "maxStaleValues": "100",
         }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/v2/search/tag/service.name/values",
@@ -268,8 +268,8 @@ class TestGrafanaTempoAPI:
         assert result == {"metrics": {"value": 123}}
         expected_params = {
             "q": "{status=error} | count_over_time() by (resource.service.name)",
-            "start": 1000,
-            "end": 2000,
+            "start": "1000",
+            "end": "2000",
             "since": "1h",
         }
         mock_get.assert_called_once_with(
@@ -302,10 +302,10 @@ class TestGrafanaTempoAPI:
         expected_params = {
             "q": '{resource.service.name="myservice"} | rate()',
             "step": "1m",
-            "start": 1000,
-            "end": 2000,
+            "start": "1000",
+            "end": "2000",
             "since": "3h",
-            "exemplars": 100,
+            "exemplars": "100",
         }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/metrics/query_range",
@@ -347,7 +347,11 @@ class TestGrafanaTempoAPI:
     def test_http_error_handling(self, mock_get, api_get):
         """Test handling of HTTP errors."""
         mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = HTTPError("404 Not Found")
+        # Create an HTTPError with a response attribute
+        http_error = HTTPError("404 Not Found")
+        http_error.response = MagicMock()
+        http_error.response.status_code = 404
+        mock_response.raise_for_status.side_effect = http_error
         mock_get.return_value = mock_response
 
         with pytest.raises(Exception) as exc_info:
@@ -367,7 +371,9 @@ class TestGrafanaTempoAPI:
         api_get.search_tag_values_v2(tag="service/name:test")
 
         # Check that the URL was properly encoded
-        expected_url = f"{api_get.base_url}/api/search/tag/service%2Fname%3Atest/values"
+        expected_url = (
+            f"{api_get.base_url}/api/v2/search/tag/service%2Fname%3Atest/values"
+        )
         mock_get.assert_called_once_with(
             expected_url,
             headers=api_get.headers,
@@ -417,3 +423,39 @@ class TestGrafanaTempoAPIIntegration:
         api = GrafanaTempoAPI(config)
         result = api.search_tag_names_v2()
         assert "scopes" in result or "tagNames" in result
+
+    @pytest.mark.skip(reason="Requires actual Tempo instance")
+    def test_query_trace_by_id_v2_integration(self, config):
+        """Test trace retrieval by ID against real Tempo."""
+        api = GrafanaTempoAPI(config)
+        # First, find a trace
+        search_result = api.search_traces_by_tags(tags="service.name=frontend", limit=1)
+        if search_result.get("traces"):
+            trace_id = search_result["traces"][0]["traceID"]
+            result = api.query_trace_by_id_v2(trace_id)
+            assert "batches" in result or "resourceSpans" in result
+
+    @pytest.mark.skip(reason="Requires actual Tempo instance")
+    def test_search_tag_values_v2_integration(self, config):
+        """Test tag value search against real Tempo."""
+        api = GrafanaTempoAPI(config)
+        result = api.search_tag_values_v2(tag="service.name")
+        assert "tagValues" in result
+
+    @pytest.mark.skip(reason="Requires actual Tempo instance")
+    def test_query_metrics_instant_integration(self, config):
+        """Test instant metrics query against real Tempo."""
+        api = GrafanaTempoAPI(config)
+        result = api.query_metrics_instant(
+            q='{status.code="error"} | count_over_time()', since="1h"
+        )
+        assert "metrics" in result or "data" in result
+
+    @pytest.mark.skip(reason="Requires actual Tempo instance")
+    def test_query_metrics_range_integration(self, config):
+        """Test range metrics query against real Tempo."""
+        api = GrafanaTempoAPI(config)
+        result = api.query_metrics_range(
+            q='{service.name="frontend"} | rate()', step="5m", since="1h"
+        )
+        assert "series" in result or "data" in result
