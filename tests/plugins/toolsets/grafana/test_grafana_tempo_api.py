@@ -8,6 +8,9 @@ from requests.exceptions import RequestException, HTTPError  # type: ignore
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoConfig
 
+# Test constants
+TEST_SERVICE_NAME = "checkout-service"
+
 
 class TestGrafanaTempoAPI:
     """Test the GrafanaTempoAPI wrapper class."""
@@ -136,7 +139,7 @@ class TestGrafanaTempoAPI:
         mock_get.return_value = mock_response
 
         result = api_get.search_traces_by_tags(
-            tags="service=api",
+            tags=f"resource.service.name={TEST_SERVICE_NAME}",
             min_duration="5s",
             max_duration="30s",
             limit=100,
@@ -147,7 +150,7 @@ class TestGrafanaTempoAPI:
 
         assert result == {"traces": []}
         expected_params = {
-            "tags": "service=api",
+            "tags": f"resource.service.name={TEST_SERVICE_NAME}",
             "minDuration": "5s",
             "maxDuration": "30s",
             "limit": "100",
@@ -171,7 +174,7 @@ class TestGrafanaTempoAPI:
         mock_get.return_value = mock_response
 
         result = api_get.search_traces_by_query(
-            q='{service="api"}',
+            q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             limit=100,
             start=1000,
             end=2000,
@@ -180,7 +183,7 @@ class TestGrafanaTempoAPI:
 
         assert result == {"traces": []}
         expected_params = {
-            "q": '{service="api"}',
+            "q": f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             "limit": "100",
             "start": "1000",
             "end": "2000",
@@ -203,7 +206,7 @@ class TestGrafanaTempoAPI:
 
         result = api_get.search_tag_names_v2(
             scope="resource",
-            q='{service="api"}',
+            q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             start=1000,
             end=2000,
             limit=50,
@@ -213,7 +216,7 @@ class TestGrafanaTempoAPI:
         assert result == {"scopes": {"resource": ["service.name"]}}
         expected_params = {
             "scope": "resource",
-            "q": '{service="api"}',
+            "q": f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             "start": "1000",
             "end": "2000",
             "limit": "50",
@@ -230,12 +233,14 @@ class TestGrafanaTempoAPI:
     def test_search_tag_values_v2(self, mock_get, api_get):
         """Test search_tag_values_v2 method."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"tagValues": ["api", "web", "db"]}
+        mock_response.json.return_value = {
+            "tagValues": [TEST_SERVICE_NAME, "web", "db"]
+        }
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
         result = api_get.search_tag_values_v2(
-            tag="service.name",
+            tag="resource.service.name",
             q='{resource.cluster="us-east-1"}',
             start=1000,
             end=2000,
@@ -243,7 +248,7 @@ class TestGrafanaTempoAPI:
             max_stale_values=100,
         )
 
-        assert result == {"tagValues": ["api", "web", "db"]}
+        assert result == {"tagValues": [TEST_SERVICE_NAME, "web", "db"]}
         expected_params = {
             "q": '{resource.cluster="us-east-1"}',
             "start": "1000",
@@ -252,7 +257,7 @@ class TestGrafanaTempoAPI:
             "maxStaleValues": "100",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/v2/search/tag/service.name/values",
+            f"{api_get.base_url}/api/v2/search/tag/resource.service.name/values",
             headers=api_get.headers,
             params=expected_params,
             timeout=30,
@@ -330,10 +335,14 @@ class TestGrafanaTempoAPI:
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_metrics_instant(q='{service="api"} | count()')
+        result = api_get.query_metrics_instant(
+            q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}} | count()'
+        )
 
         assert result == {"metrics": {"value": 123}}
-        expected_params = {"q": '{service="api"} | count()'}
+        expected_params = {
+            "q": f'{{resource.service.name="{TEST_SERVICE_NAME}"}} | count()'
+        }
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/metrics/query",
             headers=api_get.headers,
@@ -423,13 +432,17 @@ class TestGrafanaTempoAPIIntegration:
     def test_search_traces_by_tags_integration(self, config):
         """Test tag-based trace search against real Tempo."""
         api = GrafanaTempoAPI(config)
-        result = api.search_traces_by_tags(tags="service.name=frontend", limit=10)
+        result = api.search_traces_by_tags(
+            tags=f"resource.service.name={TEST_SERVICE_NAME}", limit=10
+        )
         assert "traces" in result
 
     def test_search_traces_by_query_integration(self, config):
         """Test TraceQL trace search against real Tempo."""
         api = GrafanaTempoAPI(config)
-        result = api.search_traces_by_query(q='{service.name="frontend"}', limit=10)
+        result = api.search_traces_by_query(
+            q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}}', limit=10
+        )
         assert "traces" in result
 
     def test_search_tag_names_integration(self, config):
@@ -442,7 +455,9 @@ class TestGrafanaTempoAPIIntegration:
         """Test trace retrieval by ID against real Tempo."""
         api = GrafanaTempoAPI(config)
         # First, find a trace
-        search_result = api.search_traces_by_tags(tags="service.name=frontend", limit=1)
+        search_result = api.search_traces_by_tags(
+            tags=f"resource.service.name={TEST_SERVICE_NAME}", limit=1
+        )
         if search_result.get("traces"):
             trace_id = search_result["traces"][0]["traceID"]
             result = api.query_trace_by_id_v2(trace_id)
@@ -451,7 +466,7 @@ class TestGrafanaTempoAPIIntegration:
     def test_search_tag_values_v2_integration(self, config):
         """Test tag value search against real Tempo."""
         api = GrafanaTempoAPI(config)
-        result = api.search_tag_values_v2(tag="service.name")
+        result = api.search_tag_values_v2(tag="resource.service.name")
         assert "tagValues" in result
 
     def test_query_metrics_instant_integration(self, config):
@@ -466,6 +481,8 @@ class TestGrafanaTempoAPIIntegration:
         """Test range metrics query against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.query_metrics_range(
-            q='{service.name="frontend"} | rate()', step="5m", since="1h"
+            q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}} | rate()',
+            step="5m",
+            since="1h",
         )
         assert "series" in result or "data" in result
