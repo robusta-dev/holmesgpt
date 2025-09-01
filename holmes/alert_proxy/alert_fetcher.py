@@ -156,7 +156,7 @@ class AlertFetcher:
 
                 alerts.append(alert)
 
-            logger.info(
+            logger.debug(
                 f"Successfully processed {len(alerts)} alerts from {alertmanager.name}"
             )
             return alerts
@@ -165,7 +165,14 @@ class AlertFetcher:
             logger.error(f"Timeout fetching alerts from {alertmanager.name}")
             return []
         except Exception as e:
-            logger.error(f"Error fetching alerts from {alertmanager.name}: {e}")
+            error_msg = f"Error fetching alerts from {alertmanager.name}: {e}"
+
+            # Add helpful message if this is from environment variable
+            if alertmanager.name == "ALERTMANAGER_URL-env-var":
+                error_msg += f"\n  Note: This AlertManager URL ({alertmanager.url}) comes from the ALERTMANAGER_URL environment variable."
+                error_msg += "\n  To fix: Either unset ALERTMANAGER_URL or set it to a valid AlertManager URL"
+
+            logger.error(error_msg)
             import traceback
 
             logger.debug(f"Traceback: {traceback.format_exc()}")

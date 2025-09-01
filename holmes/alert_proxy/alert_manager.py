@@ -58,7 +58,7 @@ class AlertManager:
         Returns:
             List of discovered AlertManager instances
         """
-        logger.info("Discovering AlertManager instances...")
+        logger.debug("Discovering AlertManager instances...")
 
         if self.alert_config.auto_discover:
             discovered = self.discovery.discover_all()
@@ -136,7 +136,7 @@ class AlertManager:
             discovered = []
 
         self.alertmanager_instances = discovered
-        logger.info(f"Found {len(discovered)} AlertManager instance(s)")
+        logger.debug(f"Found {len(discovered)} AlertManager instance(s)")
         return discovered
 
     # ========== Polling Methods ==========
@@ -170,7 +170,7 @@ class AlertManager:
                 self._cleanup_stale_alerts()
                 return []
 
-            logger.info(f"Found {len(alerts)} alerts from {name}")
+            logger.debug(f"Found {len(alerts)} alerts from {name}")
 
             if deduplicate:
                 # Filter for new alerts only

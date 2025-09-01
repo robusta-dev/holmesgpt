@@ -117,7 +117,7 @@ def serve(
             enable_enrichment=True,  # Always enabled for webhook mode
             ai_custom_columns=custom_columns,
             skip_default_enrichment=False,  # Always include default enrichment
-            enrichment_timeout=180,
+            enrichment_timeout=300,
             enrich_only_firing=True,
             severity_filter=severity_filter
             if severity_filter

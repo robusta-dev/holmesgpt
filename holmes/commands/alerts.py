@@ -51,9 +51,9 @@ def view_alerts(
         help="LLM model for enrichment",
     ),
     enrichment_timeout: int = typer.Option(
-        180,
+        300,
         "--enrichment-timeout",
-        help="Timeout for AI enrichment investigation in seconds (default: 180s)",
+        help="Timeout for AI enrichment investigation in seconds (default: 300s/5 minutes)",
     ),
 ):
     """
@@ -235,6 +235,7 @@ def list_alerts(
                     if not alert_manager.alertmanager_instances:
                         console.print("[red]No AlertManager instances found[/red]")
                         return []
+                    # Just show the count, discovery details are logged at debug level
                     console.print(
                         f"[green]Found {len(alert_manager.alertmanager_instances)} AlertManager instance(s)[/green]"
                     )

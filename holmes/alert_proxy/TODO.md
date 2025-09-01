@@ -1,3 +1,7 @@
+# Alerts viewer TODO
+- Show intermediate output and maybe tool calls in Alert Inspector pane
+- When loading alerts, update UI as soon as we get alerts from one AM not only when fetching from all is done
+
 # Alert Proxy TODO
 
 ## Features to Implement

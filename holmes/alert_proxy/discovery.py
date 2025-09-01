@@ -72,7 +72,7 @@ class AlertManagerDiscovery:
                 unique.append(am)
                 seen_keys.add(key)
 
-        logger.info(f"Discovered {len(unique)} AlertManager instance(s)")
+        logger.debug(f"Discovered {len(unique)} AlertManager instance(s)")
         return unique
 
     def discover_via_services(self) -> List[AlertManagerInstance]:
@@ -139,7 +139,7 @@ class AlertManagerDiscovery:
                                     use_proxy=use_proxy,
                                 )
                             )
-                            logger.info(
+                            logger.debug(
                                 f"Found AlertManager service: {svc.metadata.name} in {svc.metadata.namespace}:{port}"
                             )
                         break
@@ -235,8 +235,8 @@ class AlertManagerDiscovery:
         if alertmanager_url:
             discovered.append(
                 AlertManagerInstance(
-                    name="env-configured",
-                    namespace="unknown",
+                    name="ALERTMANAGER_URL-env-var",
+                    namespace="from-env",
                     url=alertmanager_url,
                     source="environment",
                 )

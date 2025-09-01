@@ -460,11 +460,11 @@ class AlertUIController:
                 self.view.add_console_line(
                     "🔍 Auto-discovering AlertManager instances..."
                 )
-                self.view.add_console_line("  • Searching in Kubernetes cluster...")
             elif self.alert_config.alertmanager_url:
-                self.view.add_console_line(
-                    f"📡 Using configured AlertManager URL: {self.alert_config.alertmanager_url}"
-                )
+                url_display = self.alert_config.alertmanager_url
+                if len(url_display) > 60:
+                    url_display = url_display[:57] + "..."
+                self.view.add_console_line(f"📡 Using AlertManager: {url_display}")
             else:
                 self.view.add_console_line(
                     "⚠️ No AlertManager configured, attempting auto-discovery..."
@@ -473,14 +473,24 @@ class AlertUIController:
             self.alert_manager.discover_alertmanagers()
 
             if self.alert_manager.alertmanager_instances:
-                self.view.add_console_line(
-                    f"✅ Found {len(self.alert_manager.alertmanager_instances)} AlertManager instance(s)"
-                )
-                for am in self.alert_manager.alertmanager_instances:
+                count = len(self.alert_manager.alertmanager_instances)
+                if count == 1:
+                    am = self.alert_manager.alertmanager_instances[0]
                     location = f"{am.namespace}/{am.name}" if am.namespace else am.name
-                    self.view.add_console_line(f"  • {location}")
+                    self.view.add_console_line(
+                        f"✅ Connected to AlertManager: {location}"
+                    )
+                else:
+                    self.view.add_console_line(
+                        f"✅ Found {count} AlertManager instances:"
+                    )
+                    # Show all AlertManager instances
+                    for am in self.alert_manager.alertmanager_instances:
+                        location = (
+                            f"{am.namespace}/{am.name}" if am.namespace else am.name
+                        )
+                        self.view.add_console_line(f"  • {location}")
                 self.view.add_console_line("")
-                self.view.add_console_line("🔄 Starting initial alert fetch...")
             else:
                 self.view.add_console_line("❌ No AlertManager instances found")
                 self.view.add_console_line(
@@ -528,6 +538,17 @@ class AlertUIController:
             sys.stdout.flush()
             sys.stderr.flush()
 
+    def _get_source_info(self) -> str:
+        """Get a brief description of alert sources."""
+        if self.alert_manager and self.alert_manager.alertmanager_instances:
+            count = len(self.alert_manager.alertmanager_instances)
+            if count == 1:
+                instance = self.alert_manager.alertmanager_instances[0]
+                return f"{instance.namespace}/{instance.name}"
+            else:
+                return f"{count} AlertManager instances"
+        return "AlertManager"
+
     def _polling_loop(self):
         """Main polling loop for fetching and displaying alerts."""
         first_poll = True
@@ -541,24 +562,29 @@ class AlertUIController:
                 # Poll all AlertManagers (without deduplication for interactive mode)
                 fetched_alerts = self.alert_manager.poll_all(deduplicate=False)
 
-                if fetched_alerts:
-                    if first_poll:
-                        self.view.add_console_line(
-                            f"✨ Initial fetch complete: {len(fetched_alerts)} alerts found"
-                        )
-                    else:
-                        self.view.add_console_line(
-                            f"🔄 Update: {len(fetched_alerts)} alerts"
-                        )
-
                 # Store the fetched alerts
                 self._store_fetched_alerts(fetched_alerts)
 
+                # Get the alert count after storage
+                alert_count = self.alert_manager.count()
+
+                # Generate consolidated refresh message
+                if first_poll:
+                    if alert_count > 0:
+                        source_info = self._get_source_info()
+                        self.view.add_console_line(
+                            f"✨ Initial fetch complete: {alert_count} alerts from {source_info}"
+                        )
+                else:
+                    if fetched_alerts:
+                        source_info = self._get_source_info()
+                        self.view.add_console_line(
+                            f"🔄 Refreshed UI with {alert_count} alerts from {source_info}"
+                        )
+
                 # Notify view to refresh (view will pull data from model)
                 if self.view:
-                    alert_count = self.alert_manager.count()
                     if alert_count > 0:
-                        self.view.add_console_line(f"Showing {alert_count} alerts")
                         self.view.update_status(
                             f"Showing {alert_count} alerts • Next poll in {self.alert_config.poll_interval}s"
                         )

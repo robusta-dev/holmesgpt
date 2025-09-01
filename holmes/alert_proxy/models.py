@@ -113,7 +113,7 @@ class AlertEnrichmentConfig(BaseModel):
     # LLM settings
     model: str = Field("gpt-4o-mini", description="LLM model for enrichment")
     enable_enrichment: bool = Field(True, description="Enable AI enrichment")
-    enrichment_timeout: int = Field(180, description="Timeout for LLM calls in seconds")
+    enrichment_timeout: int = Field(300, description="Timeout for LLM calls in seconds")
 
     # AI-generated custom columns with descriptions
     ai_custom_columns: Dict[str, str] = Field(
