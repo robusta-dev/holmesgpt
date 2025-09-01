@@ -3,8 +3,9 @@
 import logging
 from datetime import datetime, timezone
 from typing import List, Optional
+from urllib.parse import urljoin  # type: ignore
 
-import requests
+import requests  # type:ignore
 from holmes.alert_proxy.models import (
     Alert,
     AlertStatus,
@@ -77,7 +78,19 @@ class AlertFetcher:
                     return []
             else:
                 # Direct URL access - v2 API only
-                url = f"{alertmanager.url}/api/v2/alerts"
+                if not alertmanager.url:
+                    logger.error(
+                        f"No URL configured for AlertManager {alertmanager.name}"
+                    )
+                    return []
+
+                # Use urljoin to properly handle subpaths (e.g., /alertmanager for Mimir)
+                # Ensure base URL ends with / for proper path joining
+                base_url = alertmanager.url
+                if not base_url.endswith("/"):
+                    base_url += "/"
+                url = urljoin(base_url, "api/v2/alerts")
+
                 if not self.session:
                     logger.error("No session available for AlertManager fetch")
                     return []

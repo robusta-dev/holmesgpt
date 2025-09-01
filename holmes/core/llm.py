@@ -240,6 +240,12 @@ class DefaultLLM(LLM):
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
+        # Enable modify_params for Bedrock models to handle tool calling properly
+        # TODO: This sets the global litellm.modify_params flag but doesn't unset it for future calls
+        # This could affect subsequent API calls. Consider saving and restoring the original value.
+        if self.model.startswith("bedrock/"):
+            litellm.modify_params = True
+
         if REASONING_EFFORT:
             self.args.setdefault("reasoning_effort", REASONING_EFFORT)
             allowed_openai_params = [
