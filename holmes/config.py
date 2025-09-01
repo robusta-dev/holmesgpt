@@ -527,7 +527,9 @@ class Config(RobustaBaseConfig):
                 if model_key
                 else next(iter(self._model_list.values())).copy()
             )
-            if model_params.get("is_robusta_model") and self.api_key:
+            is_robusta_model = model_params.pop("is_robusta_model", False)
+            if is_robusta_model and self.api_key:
+                # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
                 api_key = self.api_key.get_secret_value()
             else:
                 api_key = model_params.pop("api_key", api_key)
