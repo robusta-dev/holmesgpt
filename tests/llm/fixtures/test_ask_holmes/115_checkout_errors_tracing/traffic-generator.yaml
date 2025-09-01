@@ -41,12 +41,18 @@ stringData:
         """Continuously generate traffic to checkout service"""
         print("[TRAFFIC-GEN] Starting traffic generator", flush=True)
         request_count = 0
+        ever_had_promo = False
 
         while True:
             request_count += 1
 
-            # 30% chance to include promo code
-            include_promo = random.random() < 0.3
+            if request_count > 100 and not ever_had_promo:
+              include_promo = True
+            else:
+              # 1% chance to include promo code
+              include_promo = random.random() < 0.01
+            if include_promo:
+              ever_had_promo = True
 
             # Build request data
             data = {
