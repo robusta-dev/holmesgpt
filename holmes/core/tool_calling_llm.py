@@ -470,22 +470,34 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
+                futures_tool_numbers: dict[
+                    concurrent.futures.Future, Optional[int]
+                ] = {}
+                tool_number: Optional[int]
                 for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
-                    futures.append(
-                        executor.submit(
-                            self._invoke_llm_tool_call,
-                            tool_to_call=t,
-                            previous_tool_calls=tool_calls,
-                            trace_span=trace_span,
-                            tool_number=tool_number_offset + tool_index,
-                        )
+                    tool_number = tool_number_offset + tool_index
+                    future = executor.submit(
+                        self._invoke_llm_tool_call,
+                        tool_to_call=t,
+                        previous_tool_calls=tool_calls,
+                        trace_span=trace_span,
+                        tool_number=tool_number,
                     )
+                    futures_tool_numbers[future] = tool_number
+                    futures.append(future)
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_call_result = self.handle_tool_call_approval(tool_call_result)
+                    tool_number = (
+                        futures_tool_numbers[future]
+                        if future in futures_tool_numbers
+                        else None
+                    )
+                    tool_call_result = self.handle_tool_call_approval(
+                        tool_call_result=tool_call_result, tool_number=tool_number
+                    )
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
@@ -631,7 +643,7 @@ class ToolCallingLLM:
         )
 
     def handle_tool_call_approval(
-        self, tool_call_result: ToolCallResult
+        self, tool_call_result: ToolCallResult, tool_number: Optional[int]
     ) -> ToolCallResult:
         """
         Handle approval for a single tool call if required.
@@ -664,7 +676,7 @@ class ToolCallingLLM:
                 tool_params=tool_call_result.result.params or {},
                 user_approved=True,
                 trace_span=DummySpan(),
-                tool_number=None,  # Could be extracted if needed
+                tool_number=tool_number,
             )
             tool_call_result.result = new_response
         else:
@@ -855,15 +867,15 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
-                    futures.append(
-                        executor.submit(
-                            self._invoke_llm_tool_call,
-                            tool_to_call=t,  # type: ignore
-                            previous_tool_calls=tool_calls,
-                            trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
-                            tool_number=tool_number_offset + tool_index,
-                        )
+                    tool_number = tool_number_offset + tool_index
+                    future = executor.submit(
+                        self._invoke_llm_tool_call,
+                        tool_to_call=t,  # type: ignore
+                        previous_tool_calls=tool_calls,
+                        trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
+                        tool_number=tool_number,
                     )
+                    futures.append(future)
                     yield StreamMessage(
                         event=StreamEvents.START_TOOL,
                         data={"tool_name": t.function.name, "id": t.id},
@@ -871,8 +883,6 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-
-                    tool_call_result = self.handle_tool_call_approval(tool_call_result)
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
