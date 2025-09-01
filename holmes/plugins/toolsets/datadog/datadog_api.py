@@ -147,10 +147,16 @@ def execute_paginated_datadog_http_request(
 
 
 def sanitize_headers(headers: Union[dict, CaseInsensitiveDict]) -> dict:
-    return {
-        k: v if ("key" not in k.lower() and "key" not in v.lower()) else "[REDACTED]"
-        for k, v in headers.items()
-    }
+    try:
+        return {
+            k: v
+            if ("key" not in k.lower() and "key" not in v.lower())
+            else "[REDACTED]"
+            for k, v in headers.items()
+        }
+    except (AttributeError, TypeError):
+        # Return empty dict for mock objects or other non-dict types
+        return {}
 
 
 def execute_datadog_http_request(
