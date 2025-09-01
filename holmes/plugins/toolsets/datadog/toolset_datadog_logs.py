@@ -160,7 +160,6 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         )
         # Now that parent is initialized and self.name exists, create the tool
         self.tools = [PodLoggingTool(self)]
-
         self._reload_instructions()
 
     def logger_name(self) -> str:

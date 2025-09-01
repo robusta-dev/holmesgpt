@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import re
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlparse
@@ -101,9 +102,6 @@ WHITELISTED_ENDPOINTS = [
     # Service Accounts (read only)
     r"^/api/v\d+/service_accounts$",
     r"^/api/v\d+/service_accounts/[^/]+$",
-    # API Keys (list only, no values)
-    r"^/api/v\d+/api_keys$",
-    r"^/api/v\d+/application_keys$",
 ]
 
 # Blacklisted path segments that indicate write operations
@@ -183,6 +181,12 @@ class DatadogGeneralToolset(Toolset):
             experimental=True,
             tags=[ToolsetTag.CORE],
         )
+        template_file_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__), "datadog_general_instructions.jinja2"
+            )
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         """Check prerequisites with configuration."""
@@ -274,7 +278,7 @@ def is_endpoint_allowed(
         return False, f"Endpoint not in whitelist: {path}"
 
     else:
-        return False, f"HTTP method {method} not allowed"
+        return False, f"HTTP method {method} not allowed for {path}"
 
 
 class BaseDatadogGeneralTool(Tool):

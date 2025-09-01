@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Union
 import requests  # type: ignore
 from pydantic import AnyUrl, BaseModel
 from requests.structures import CaseInsensitiveDict  # type: ignore
@@ -146,6 +146,13 @@ def execute_paginated_datadog_http_request(
     return data, cursor
 
 
+def sanitize_headers(headers: Union[dict, CaseInsensitiveDict]) -> dict:
+    return {
+        k: v if ("key" not in k.lower() and "key" not in v.lower()) else "[REDACTED]"
+        for k, v in headers.items()
+    }
+
+
 def execute_datadog_http_request(
     url: str,
     headers: dict,
@@ -153,16 +160,11 @@ def execute_datadog_http_request(
     timeout: int,
     method: str = "POST",
 ) -> Any:
-    # Create sanitized headers for logging (remove API keys)
-    sanitized_headers = {
-        k: v if "key" not in k.lower() else "[REDACTED]" for k, v in headers.items()
-    }
-
     # Log the request details
     logging.info("Datadog API Request:")
     logging.info(f"  Method: {method}")
     logging.info(f"  URL: {url}")
-    logging.info(f"  Headers: {json.dumps(sanitized_headers, indent=2)}")
+    logging.info(f"  Headers: {json.dumps(sanitize_headers(headers), indent=2)}")
     logging.info(
         f"  {'Params' if method == 'GET' else 'Payload'}: {json.dumps(payload_or_params, indent=2)}"
     )
@@ -180,7 +182,7 @@ def execute_datadog_http_request(
     # Log the response details
     logging.info("Datadog API Response:")
     logging.info(f"  Status Code: {response.status_code}")
-    logging.info(f"  Response Headers: {dict(response.headers)}")
+    logging.info(f"  Response Headers: {dict(sanitize_headers(response.headers))}")
 
     if response.status_code == 200:
         response_data = response.json()
