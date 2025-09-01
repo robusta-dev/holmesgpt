@@ -50,6 +50,11 @@ def view_alerts(
         "-m",
         help="LLM model for enrichment",
     ),
+    enrichment_timeout: int = typer.Option(
+        180,
+        "--enrichment-timeout",
+        help="Timeout for AI enrichment investigation in seconds (default: 180s)",
+    ),
 ):
     """
     View AlertManager alerts in an interactive terminal UI.
@@ -109,7 +114,7 @@ def view_alerts(
             enable_enrichment=enrichment_enabled,
             ai_custom_columns=custom_columns,
             skip_default_enrichment=False,  # Always include default enrichment along with custom columns
-            enrichment_timeout=90,
+            enrichment_timeout=enrichment_timeout,
             enrich_only_firing=True,
             enable_grouping=True,
             enable_caching=True,

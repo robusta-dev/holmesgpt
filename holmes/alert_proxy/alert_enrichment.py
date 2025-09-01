@@ -100,9 +100,12 @@ class AlertEnricher:
             # Check if we exceeded timeout
             if elapsed > self.timeout:
                 logging.warning(
-                    f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint}): {elapsed:.2f}s > {self.timeout}s"
+                    f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint}): {elapsed:.2f}s > {self.timeout}s. "
+                    f"Consider increasing --enrichment-timeout (current: {self.timeout}s)"
                 )
-                raise TimeoutError(f"Investigation exceeded {self.timeout}s")
+                raise TimeoutError(
+                    f"Investigation exceeded {self.timeout}s timeout. Consider increasing --enrichment-timeout"
+                )
 
             # Parse the investigation result
             logging.info(f"[ENRICHER] Parsing response for {alert_name}")
@@ -113,7 +116,8 @@ class AlertEnricher:
             return enrichment
         except TimeoutError:
             logging.warning(
-                f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint})"
+                f"[ENRICHER] Investigation timeout for alert {alert_name} ({alert.fingerprint}). "
+                f"Consider increasing --enrichment-timeout (current: {self.timeout}s)"
             )
             raise
         except Exception as e:
