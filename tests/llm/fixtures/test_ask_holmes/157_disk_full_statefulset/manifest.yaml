@@ -119,7 +119,6 @@ stringData:
                     state = f.read().strip()
                 if state == "storage_error":
                     print(f"[{datetime.now()}] ERROR: Previous run encountered storage issues - cannot initialize repository")
-                    print(f"[{datetime.now()}] CRITICAL: Insufficient storage space for historical data requirements")
                     raise OSError("[Errno 28] No space left on device")
 
             try:
@@ -152,7 +151,8 @@ stringData:
                     except:
                         pass
                     print(f"[{datetime.now()}] ERROR: Failed to initialize historical data repository")
-                    print(f"[{datetime.now()}] CRITICAL: Unable to load required historical dataset - insufficient storage")
+                    print(f"[{datetime.now()}] CRITICAL: Unable to load required historical dataset")
+                    print(e)
                     exit(1)
                 else:
                     raise
@@ -193,9 +193,9 @@ stringData:
 
                 except OSError as e:
                     if "No space left on device" in str(e):
-                        print(f"[{datetime.now()}] CRITICAL ERROR: Failed to write batch {batch_id} - storage capacity exceeded")
-                        print(f"[{datetime.now()}] ERROR: No space left on device while processing analytics data")
+                        print(f"[{datetime.now()}] CRITICAL ERROR: Failed to write batch {batch_id}")
                         print(f"[{datetime.now()}] System cannot continue data processing operations")
+                        print(e)
                         exit(1)
                     else:
                         print(f"[{datetime.now()}] ERROR: I/O error while processing batch {batch_id}: {e}")
