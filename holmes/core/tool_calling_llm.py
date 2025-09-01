@@ -2,7 +2,6 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-import uuid
 from typing import Dict, List, Optional, Type, Union
 
 import sentry_sdk
@@ -13,7 +12,11 @@ from openai.types.chat.chat_completion_message_tool_call import (
 from pydantic import BaseModel, Field
 from rich.console import Console
 
-from holmes.common.env_vars import TEMPERATURE, MAX_OUTPUT_TOKEN_RESERVATION
+from holmes.common.env_vars import (
+    TEMPERATURE,
+    MAX_OUTPUT_TOKEN_RESERVATION,
+    LOG_LLM_USAGE_RESPONSE,
+)
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,
@@ -39,9 +42,6 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
-from holmes.core.todo_manager import (
-    get_todo_manager,
-)
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
@@ -94,6 +94,8 @@ def _process_cost_info(
         usage = getattr(full_response, "usage", {})
 
         if usage:
+            if LOG_LLM_USAGE_RESPONSE:  # shows stats on token cache usage
+                logging.info(f"LLM usage response:\n{usage}\n")
             prompt_toks = usage.get("prompt_tokens", 0)
             completion_toks = usage.get("completion_tokens", 0)
             total_toks = usage.get("total_tokens", 0)
@@ -283,7 +285,6 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
-        self.investigation_id = str(uuid.uuid4())
 
     def prompt_call(
         self,
@@ -894,9 +895,6 @@ class IssueInvestigator(ToolCallingLLM):
                 "[bold]No runbooks found for this issue. Using default behaviour. (Add runbooks to guide the investigation.)[/bold]"
             )
 
-        todo_manager = get_todo_manager()
-        todo_context = todo_manager.format_tasks_for_prompt(self.investigation_id)
-
         system_prompt = load_and_render_prompt(
             prompt,
             {
@@ -905,8 +903,6 @@ class IssueInvestigator(ToolCallingLLM):
                 "structured_output": request_structured_output_from_llm,
                 "toolsets": self.tool_executor.toolsets,
                 "cluster_name": self.cluster_name,
-                "todo_list": todo_context,
-                "investigation_id": self.investigation_id,
             },
         )
 
