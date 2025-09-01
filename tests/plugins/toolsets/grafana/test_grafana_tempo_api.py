@@ -473,7 +473,7 @@ class TestGrafanaTempoAPIIntegration:
         """Test instant metrics query against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.query_metrics_instant(
-            q='{status.code="error"} | count_over_time()', since="1h"
+            q='{span.http.status_code="error"} | count_over_time()'
         )
         assert "metrics" in result or "data" in result
 
