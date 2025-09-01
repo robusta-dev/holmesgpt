@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 import json
 import logging
@@ -160,6 +161,8 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         # Now that parent is initialized and self.name exists, create the tool
         self.tools = [PodLoggingTool(self)]
 
+        self._reload_instructions()
+
     def logger_name(self) -> str:
         return "DataDog"
 
@@ -274,3 +277,10 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             "dd_app_key": "your-datadog-application-key",
             "site_api_url": "https://api.datadoghq.com",
         }
+
+    def _reload_instructions(self):
+        """Load Datadog logs specific troubleshooting instructions."""
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "datadog_logs_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")

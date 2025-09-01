@@ -32,19 +32,22 @@ When investigating metrics-related issues:
 - IMPORTANT: This toolset DOES NOT support promql queries.
 
 ### CRITICAL: Pod Name Resolution Workflow
-When users ask for metrics about a deployment, service, or workload (e.g., "my-workload", "nginx-deployment"):
 
-**ALWAYS follow this two-step process:**
-1. **First**: Use `kubectl_find_resource` to find the actual pod names
-   - Example: `kubectl_find_resource` with "my-workload" → finds pods like "my-workload-8f8cdfxyz-c7zdr"
-2. **Then**: Use those specific pod names in Datadog queries
-   - Correct: `container.cpu.usage{pod_name:my-workload-8f8cdfxyz-c7zdr}`
-   - WRONG: `container.cpu.usage{pod_name:my-workload}` ← This will return no data!
+**When user provides an exact pod name** (e.g., `my-workload-5f9d8b7c4d-x2km9`):
+- Query Datadog directly with that pod name using appropriate metrics and tags
+- Do NOT try to verify if the pod exists in Kubernetes first
+- This allows querying historical pods that have been deleted/replaced
+
+**When user provides a generic workload name** (e.g., "my-workload", "nginx", "telemetry-processor"):
+- First use `kubectl_find_resource` to find actual pod names
+- Example: `kubectl_find_resource` with "my-workload" → finds pods like "my-workload-8f8cdfxyz-c7zdr"
+- Then use those specific pod names in Datadog queries
+- Alternative: Use deployment-level tags when appropriate
 
 **Why this matters:**
 - Pod names in Datadog are the actual Kubernetes pod names (with random suffixes)
-- Deployment/service names are NOT pod names
-- Using deployment names as pod_name filters will always return empty results
+- Historical pods that no longer exist in the cluster can still have metrics in Datadog
+- Deployment/service names alone are NOT pod names (they need the suffix)
 
 ### Time Parameters
 - Use RFC3339 format: `2023-03-01T10:30:00Z`
