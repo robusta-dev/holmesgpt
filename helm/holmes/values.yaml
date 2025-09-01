@@ -48,9 +48,9 @@ mcp_servers: {}
 resources:
   requests:
     cpu: 100m
-    memory: 1024Mi
+    memory: 2048Mi
   limits:
-    memory: 1024Mi
+    memory: 2048Mi
 
 additionalVolumes: []
 additionalVolumeMounts: []

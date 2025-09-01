@@ -28,7 +28,10 @@ Braintrust is a platform for tracking and analyzing LLM evaluations. HolmesGPT e
 
 ```bash
 export BRAINTRUST_API_KEY=sk-your-api-key-here
+export BRAINTRUST_ORG=your-org-name
 ```
+
+**Note**: Both `BRAINTRUST_API_KEY` and `BRAINTRUST_ORG` are required for Braintrust integration to work.
 
 ## Running Evaluations with Braintrust
 
@@ -36,6 +39,7 @@ export BRAINTRUST_API_KEY=sk-your-api-key-here
 
 ```bash
 export BRAINTRUST_API_KEY=sk-your-key
+export BRAINTRUST_ORG=your-org
 
 # Run all regression tests with Braintrust tracking
 RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
@@ -48,6 +52,7 @@ RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k "01_how_many_pod
 
 ```bash
 export BRAINTRUST_API_KEY=sk-your-key
+export BRAINTRUST_ORG=your-org
 
 # Run with multiple iterations for reliable results
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10

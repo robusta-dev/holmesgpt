@@ -4,7 +4,7 @@ import logging
 from typing import Optional, Set
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import timezone
 from holmes.core.tools import (
     StructuredToolResult,
@@ -27,6 +27,9 @@ class LoggingCapability(str, Enum):
 
     REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
     EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
+    HISTORICAL_DATA = (
+        "historical_data"  # Can fetch logs for pods no longer in the cluster
+    )
 
 
 class LoggingConfig(BaseModel):
@@ -43,6 +46,14 @@ class FetchPodLogsParams(BaseModel):
     filter: Optional[str] = None
     exclude_filter: Optional[str] = None
     limit: Optional[int] = None
+
+    @field_validator("start_time", mode="before")
+    @classmethod
+    def convert_start_time_to_string(cls, v):
+        """Convert integer start_time values to strings."""
+        if v is not None and isinstance(v, int):
+            return str(v)
+        return v
 
 
 class BasePodLoggingToolset(Toolset, ABC):
@@ -70,8 +81,15 @@ class PodLoggingTool(Tool):
         parameters = self._get_tool_parameters(toolset)
 
         # Build description based on capabilities
-        description = "Fetch logs for a Kubernetes pod"
+        # Include the toolset name in the description
+        toolset_name = toolset.name if toolset.name else "logging backend"
+        description = f"Fetch logs for a Kubernetes pod from {toolset_name}"
         capabilities = toolset.supported_capabilities
+
+        if LoggingCapability.HISTORICAL_DATA in capabilities:
+            description += (
+                " (including historical data for pods no longer in the cluster)"
+            )
 
         if (
             LoggingCapability.REGEX_FILTER in capabilities

@@ -9,31 +9,20 @@ This guide provides step-by-step instructions for configuring HolmesGPT to conne
 
 ## Example: MCP server configuration
 
-=== "Robusta Helm Chart"
+```yaml-helm-values
+mcp_servers:
+  mcp_server_1:
+    # human-readable description of the mcp server (this is not seen by the AI model - its just for users)
+    description: "Remote mcp server"
+    url: "http://example.com:8000/sse"
 
-    **Helm Values:**
-
-    ```yaml
-    holmes:
-      mcp_servers:
-        mcp_server_1:
-          # human-readable description of the mcp server (this is not seen by the AI model - its just for users)
-          description: "Remote mcp server"
-          url: "http://example.com:8000/sse"
-
-        mcp_server_2:
-          description: "MCP server that runs in my cluster"
-          url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>"
-          config:
-            headers:
-              key: "{{ env.my_mcp_server_key }}" # You can use holmes environment variables as headers for the MCP server requests.
-    ```
-
-    Update your Helm values with the provided YAML configuration, then apply the changes with Helm upgrade:
-
-    ```bash
-    helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-    ```
+  mcp_server_2:
+    description: "MCP server that runs in my cluster"
+    url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>"
+    config:
+      headers:
+        key: "{{ env.my_mcp_server_key }}" # You can use holmes environment variables as headers for the MCP server requests.
+```
 
 ## Example: Working with Stdio MCP servers
 
@@ -173,22 +162,11 @@ Use this config according to your use case.
     holmes ask "Using dynatrace what issues do I have in my cluster?"
     ```
 
-=== "Robusta Helm Chart"
+```yaml-helm-values
+mcp_servers:
+  mcp_server_1:
+    description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
+    url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
+```
 
-    **Helm Values:**
-
-    ```yaml
-    holmes:
-      mcp_servers:
-        mcp_server_1:
-          description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
-          url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
-    ```
-
-    Update your Helm values with the provided YAML configuration, then apply the changes with Helm upgrade:
-
-    ```bash
-    helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-    ```
-
-    After the deployment is complete, you can open the HolmesGPT chat in the Robusta SaaS UI and ask questions like *Using dynatrace what issues do I have in my cluster?*.
+After the deployment is complete, you can use HolmesGPT and ask questions like *Using dynatrace what issues do I have in my cluster?*.
