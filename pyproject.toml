@@ -120,7 +120,8 @@ markers = [
     "database: Tests involving database interactions",
     "traces: Tests where the ai is expected to find the solution using the traces",
     "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
-    "datadog: DataDog toolset"
+    "datadog: DataDog toolset",
+    "storage: Disk related, like I/O or disk space"
 ]
 
 addopts = [
