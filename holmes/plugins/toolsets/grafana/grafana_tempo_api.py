@@ -96,16 +96,37 @@ class GrafanaTempoAPI:
             logger.error(f"Request failed for {url}: {e}")
             raise Exception(f"Failed to query Tempo API: {e}")
 
-    def query_echo_endpoint(self) -> Dict[str, Any]:
+    def query_echo_endpoint(self) -> bool:
         """Query the echo endpoint to check Tempo status.
 
         API Endpoint: GET /api/echo
         HTTP Method: GET (or POST if use_post=True)
 
         Returns:
-            dict: Status response from Tempo
+            bool: True if endpoint returns 200 status code, False otherwise
         """
-        return self._make_request("/api/echo")
+        url = f"{self.base_url}/api/echo"
+
+        try:
+            if self.use_post:
+                response = requests.post(
+                    url,
+                    headers=self.headers,
+                    timeout=30,
+                )
+            else:
+                response = requests.get(
+                    url,
+                    headers=self.headers,
+                    timeout=30,
+                )
+
+            # Just check status code, don't try to parse JSON
+            return response.status_code == 200
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed for {url}: {e}")
+            return False
 
     def query_trace_by_id_v2(
         self,

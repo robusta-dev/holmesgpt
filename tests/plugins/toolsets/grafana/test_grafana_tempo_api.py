@@ -1,5 +1,6 @@
 """Tests for the Grafana Tempo API wrapper."""
 
+import os
 import pytest
 from unittest.mock import MagicMock, patch
 from requests.exceptions import RequestException, HTTPError  # type: ignore
@@ -51,17 +52,15 @@ class TestGrafanaTempoAPI:
     def test_query_echo_endpoint_get(self, mock_get, api_get):
         """Test query_echo_endpoint with GET method."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = MagicMock()
+        mock_response.status_code = 200
         mock_get.return_value = mock_response
 
         result = api_get.query_echo_endpoint()
 
-        assert result == {"status": "ok"}
+        assert result is True
         mock_get.assert_called_once_with(
             f"{api_get.base_url}/api/echo",
             headers=api_get.headers,
-            params=None,
             timeout=30,
         )
 
@@ -69,19 +68,28 @@ class TestGrafanaTempoAPI:
     def test_query_echo_endpoint_post(self, mock_post, api_post):
         """Test query_echo_endpoint with POST method."""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"status": "ok"}
-        mock_response.raise_for_status = MagicMock()
+        mock_response.status_code = 200
         mock_post.return_value = mock_response
 
         result = api_post.query_echo_endpoint()
 
-        assert result == {"status": "ok"}
+        assert result is True
         mock_post.assert_called_once_with(
             f"{api_post.base_url}/api/echo",
             headers=api_post.headers,
-            json={},
             timeout=30,
         )
+
+    @patch("requests.get")
+    def test_query_echo_endpoint_non_200(self, mock_get, api_get):
+        """Test query_echo_endpoint with non-200 status code."""
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        mock_get.return_value = mock_response
+
+        result = api_get.query_echo_endpoint()
+
+        assert result is False
 
     @patch("requests.get")
     def test_query_trace_by_id_v2(self, mock_get, api_get):
@@ -338,10 +346,18 @@ class TestGrafanaTempoAPI:
         """Test error handling for failed requests."""
         mock_get.side_effect = RequestException("Connection error")
 
-        with pytest.raises(Exception) as exc_info:
-            api_get.query_echo_endpoint()
+        # query_echo_endpoint now returns False on error
+        result = api_get.query_echo_endpoint()
+        assert result is False
 
-        assert "Failed to query Tempo API" in str(exc_info.value)
+    @patch("requests.post")
+    def test_error_handling_post(self, mock_post, api_post):
+        """Test error handling for failed POST requests."""
+        mock_post.side_effect = RequestException("Connection error")
+
+        # query_echo_endpoint now returns False on error
+        result = api_post.query_echo_endpoint()
+        assert result is False
 
     @patch("requests.get")
     def test_http_error_handling(self, mock_get, api_get):
@@ -383,48 +399,45 @@ class TestGrafanaTempoAPI:
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    not os.getenv("GRAFANA_URL"), reason="GRAFANA_URL environment variable not set"
+)
 class TestGrafanaTempoAPIIntegration:
     """Integration tests for Grafana Tempo API (requires real Tempo instance)."""
 
     @pytest.fixture
     def config(self):
-        """Create configuration for integration tests."""
-        # These would be loaded from environment variables in real tests
+        """Create configuration for integration tests from environment variables."""
         return GrafanaTempoConfig(
-            url="http://localhost:3000",  # Grafana URL
-            api_key="test-key",
-            grafana_datasource_uid="tempo-datasource",
+            url=os.getenv("GRAFANA_URL", ""),
+            api_key=os.getenv("GRAFANA_API_KEY", ""),
+            grafana_datasource_uid=os.getenv("GRAFANA_TEMPO_DATASOURCE_UID", ""),
         )
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_echo_endpoint_integration(self, config):
         """Test echo endpoint against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.query_echo_endpoint()
-        assert "echo" in result or "status" in result
+        assert result is True
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_search_traces_by_tags_integration(self, config):
         """Test tag-based trace search against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.search_traces_by_tags(tags="service.name=frontend", limit=10)
         assert "traces" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_search_traces_by_query_integration(self, config):
         """Test TraceQL trace search against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.search_traces_by_query(q='{service.name="frontend"}', limit=10)
         assert "traces" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_search_tag_names_integration(self, config):
         """Test tag name search against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.search_tag_names_v2()
         assert "scopes" in result or "tagNames" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_query_trace_by_id_v2_integration(self, config):
         """Test trace retrieval by ID against real Tempo."""
         api = GrafanaTempoAPI(config)
@@ -435,14 +448,12 @@ class TestGrafanaTempoAPIIntegration:
             result = api.query_trace_by_id_v2(trace_id)
             assert "batches" in result or "resourceSpans" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_search_tag_values_v2_integration(self, config):
         """Test tag value search against real Tempo."""
         api = GrafanaTempoAPI(config)
         result = api.search_tag_values_v2(tag="service.name")
         assert "tagValues" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_query_metrics_instant_integration(self, config):
         """Test instant metrics query against real Tempo."""
         api = GrafanaTempoAPI(config)
@@ -451,7 +462,6 @@ class TestGrafanaTempoAPIIntegration:
         )
         assert "metrics" in result or "data" in result
 
-    @pytest.mark.skip(reason="Requires actual Tempo instance")
     def test_query_metrics_range_integration(self, config):
         """Test range metrics query against real Tempo."""
         api = GrafanaTempoAPI(config)
