@@ -249,7 +249,11 @@ class GetTempoTags(Tool):
                 params=params,
             )
         except Exception as e:
-            raise Exception(f"Failed to retrieve tags: {e}")
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to retrieve tags: {str(e)}",
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"

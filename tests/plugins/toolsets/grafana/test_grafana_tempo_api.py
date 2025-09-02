@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 from requests.exceptions import RequestException, HTTPError  # type: ignore
 
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
-from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoConfig
+from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 
 # Test constants
 TEST_SERVICE_NAME = "checkout-service"
@@ -379,10 +379,10 @@ class TestGrafanaTempoAPI:
         mock_response.raise_for_status.side_effect = http_error
         mock_get.return_value = mock_response
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(HTTPError) as exc_info:
             api_get.query_trace_by_id_v2("nonexistent")
 
-        assert "Failed to query Tempo API" in str(exc_info.value)
+        assert "404 Not Found" in str(exc_info.value)
 
     @patch("requests.get")
     def test_special_characters_in_path_params(self, mock_get, api_get):
@@ -407,7 +407,6 @@ class TestGrafanaTempoAPI:
         )
 
 
-@pytest.mark.integration
 @pytest.mark.skipif(
     not os.getenv("GRAFANA_URL"), reason="GRAFANA_URL environment variable not set"
 )

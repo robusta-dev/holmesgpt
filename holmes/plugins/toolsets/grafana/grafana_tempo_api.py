@@ -71,6 +71,7 @@ class GrafanaTempoAPI:
             requests.exceptions.RequestException,
             max_tries=retries,
             giveup=lambda e: isinstance(e, requests.exceptions.HTTPError)
+            and getattr(e, "response", None) is not None
             and e.response.status_code < 500,
         )
         def make_request():
@@ -97,7 +98,7 @@ class GrafanaTempoAPI:
             return make_request()
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed for {url}: {e}")
-            raise Exception(f"Failed to query Tempo API: {e}")
+            raise
 
     def query_echo_endpoint(self) -> bool:
         """Query the echo endpoint to check Tempo status.
