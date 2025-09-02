@@ -17,6 +17,32 @@ from holmes.plugins.toolsets.grafana.common import (
 logger = logging.getLogger(__name__)
 
 
+class TempoAPIError(Exception):
+    """Custom exception for Tempo API errors with detailed response information."""
+
+    def __init__(self, status_code: int, response_text: str, url: str):
+        self.status_code = status_code
+        self.response_text = response_text
+        self.url = url
+
+        # Try to extract error message from JSON response
+        try:
+            import json
+
+            error_data = json.loads(response_text)
+            # Tempo may return errors in different formats
+            error_message = (
+                error_data.get("error")
+                or error_data.get("message")
+                or error_data.get("errorType")
+                or response_text
+            )
+        except (json.JSONDecodeError, TypeError):
+            error_message = response_text
+
+        super().__init__(f"Tempo API error {status_code}: {error_message}")
+
+
 class GrafanaTempoAPI:
     """Python wrapper for Grafana Tempo REST API.
 
@@ -96,6 +122,21 @@ class GrafanaTempoAPI:
 
         try:
             return make_request()
+        except requests.exceptions.HTTPError as e:
+            # Extract detailed error message from response
+            response = e.response
+            if response is not None:
+                logger.error(
+                    f"HTTP error {response.status_code} for {url}: {response.text}"
+                )
+                raise TempoAPIError(
+                    status_code=response.status_code,
+                    response_text=response.text,
+                    url=url,
+                )
+            else:
+                logger.error(f"Request failed for {url}: {e}")
+                raise
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed for {url}: {e}")
             raise

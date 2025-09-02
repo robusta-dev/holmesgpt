@@ -872,11 +872,20 @@ class QueryMetricsInstant(Tool):
             description=(
                 "Compute a single TraceQL metric value across time range. "
                 "Uses the Tempo API endpoint: GET /api/metrics/query. "
-                "TraceQL metrics compute metrics from trace data (e.g., error rates, latencies)."
+                "TraceQL metrics compute aggregated metrics from trace data. "
+                "Returns a single value for the entire time range. "
+                "Basic syntax: {selector} | function(attribute) [by (grouping)]"
             ),
             parameters={
                 "q": ToolParameter(
-                    description="TraceQL metrics query (e.g., '{ status.code=\"error\" } | rate()', '{ } | histogram_quantile(.95)')",
+                    description=(
+                        "TraceQL metrics query. Supported functions: rate, count_over_time, "
+                        "sum_over_time, max_over_time, min_over_time, avg_over_time, "
+                        "quantile_over_time, histogram_over_time, compare. "
+                        "Can use topk or bottomk modifiers. "
+                        "Syntax: {selector} | function(attribute) [by (grouping)]. "
+                        'Example: {resource.service.name="api"} | avg_over_time(duration)'
+                    ),
                     type="string",
                     required=True,
                 ),
@@ -934,11 +943,20 @@ class QueryMetricsRange(Tool):
             description=(
                 "Get time series data from TraceQL metrics queries. "
                 "Uses the Tempo API endpoint: GET /api/metrics/query_range. "
-                "Returns metrics computed at regular intervals from trace data."
+                "Returns metrics computed at regular intervals (controlled by 'step' parameter). "
+                "Use this for graphing metrics over time or analyzing trends. "
+                "Basic syntax: {selector} | function(attribute) [by (grouping)]"
             ),
             parameters={
                 "q": ToolParameter(
-                    description="TraceQL metrics query (e.g., '{ service.name=\"api\" } | rate()')",
+                    description=(
+                        "TraceQL metrics query. Supported functions: rate, count_over_time, "
+                        "sum_over_time, max_over_time, min_over_time, avg_over_time, "
+                        "quantile_over_time, histogram_over_time, compare. "
+                        "Can use topk or bottomk modifiers. "
+                        "Syntax: {selector} | function(attribute) [by (grouping)]. "
+                        'Example: {resource.service.name="api"} | avg_over_time(duration)'
+                    ),
                     type="string",
                     required=True,
                 ),

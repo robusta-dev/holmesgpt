@@ -1,5 +1,7 @@
 Grafana Tempo provides distributed tracing data through its REST API. Each tool maps directly to a specific Tempo API endpoint.
 
+Assume every application provides tempo traces.
+
 ## API Endpoints and Tool Mapping
 
 1. **Trace Search** (GET /api/search)
@@ -43,20 +45,83 @@ When you have trace IDs from search results:
 - Examine spans for errors, slow operations, and bottlenecks
 
 ### 4. Computing Metrics from Traces
-**TraceQL metrics** compute aggregated metrics from your trace data:
+**TraceQL metrics** compute aggregated metrics from your trace data.
 
-**Instant Metrics** (`query_metrics_instant`):
-- Error rate: `{ status.code="error" } | rate()`
-- P95 latency: `{ } | histogram_quantile(.95)`
-- Count by service: `{ } | count() by (resource.service.name)`
+**Supported Functions:**
+- `rate` - Calculate rate of spans/traces
+- `count_over_time` - Count spans/traces over time
+- `sum_over_time` - Sum span attributes
+- `avg_over_time` - Average of span attributes
+- `max_over_time` - Maximum value over time
+- `min_over_time` - Minimum value over time
+- `quantile_over_time` - Calculate quantiles
+- `histogram_over_time` - Generate histogram data
+- `compare` - Compare metrics between time periods
 
-**Time Series Metrics** (`query_metrics_range`):
-- Track error rate over time: `{ status.code="error" } | rate()`
-- Monitor latency trends: `{ service.name="api" } | histogram_quantile(.95)`
-- Use `step` parameter to control granularity (e.g., "5m", "1h")
+**Modifiers:**
+- `topk` - Return top N results
+- `bottomk` - Return bottom N results
+
+**TraceQL Metrics Query Examples:**
+
+1. **rate** - Calculate error rate by service and HTTP route:
+   ```
+   { resource.service.name = "foo" && status = error } | rate() by (span.http.route)
+   ```
+
+2. **count_over_time** - Count spans by HTTP status code:
+   ```
+   { name = "GET /:endpoint" } | count_over_time() by (span.http.status_code)
+   ```
+
+3. **sum_over_time** - Sum HTTP response sizes by service:
+   ```
+   { name = "GET /:endpoint" } | sum_over_time(span.http.response.size) by (resource.service.name)
+   ```
+
+4. **avg_over_time** - Average duration by HTTP status code:
+   ```
+   { name = "GET /:endpoint" } | avg_over_time(duration) by (span.http.status_code)
+   ```
+
+5. **max_over_time** - Maximum response size by HTTP target:
+   ```
+   { name = "GET /:endpoint" } | max_over_time(span.http.response.size) by (span.http.target)
+   ```
+
+6. **min_over_time** - Minimum duration by HTTP target:
+   ```
+   { name = "GET /:endpoint" } | min_over_time(duration) by (span.http.target)
+   ```
+
+7. **quantile_over_time** - Calculate multiple percentiles (99th, 90th, 50th) with exemplars:
+   ```
+   { span:name = "GET /:endpoint" } | quantile_over_time(duration, .99, .9, .5) by (span.http.target) with (exemplars=true)
+   ```
+
+8. **histogram_over_time** - Build duration histogram grouped by custom attribute:
+   ```
+   { name = "GET /:endpoint" } | histogram_over_time(duration) by (span.foo)
+   ```
+
+9. **compare** - Compare error spans against baseline (10 attributes):
+   ```
+   { resource.service.name="a" && span.http.path="/myapi" } | compare({status=error}, 10)
+   ```
+
+10. **Using topk modifier** - Find top 10 endpoints by request rate:
+    ```
+    { resource.service.name = "foo" } | rate() by (span.http.url) | topk(10)
+    ```
+
+**Instant Metrics** (`query_metrics_instant`) - Single value for entire time range
+
+**Time Series Metrics** (`query_metrics_range`) - Values over time intervals with step parameter to control granularity
 
 ## Important Notes
 - TraceQL is the modern query language - prefer it over tag-based search
 - TraceQL metrics are computed from trace data, not traditional Prometheus metrics
+- TraceQL metrics is an experimental feature that computes RED (Rate, Error, Duration) metrics from trace data
+- Common attributes to use in queries: resource.service.name, span.http.route, span.http.status_code, span.http.target, status, name, duration
 - All timestamps can be Unix epoch seconds or RFC3339 format
 - Use time filters (start/end) to improve query performance

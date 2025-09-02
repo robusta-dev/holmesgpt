@@ -4,6 +4,7 @@ import pytest
 
 from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
+from holmes.plugins.toolsets.grafana.grafana_tempo_api import TempoAPIError
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GrafanaTempoToolset,
     SearchTracesByQuery,
@@ -81,6 +82,26 @@ class TestSearchTracesByQuery:
 
             assert result.status == ToolResultStatus.ERROR
             assert "API Error" in result.error
+
+    def test_search_traces_by_query_tempo_api_error(self, tempo_toolset):
+        """Test that Tempo API errors are properly propagated with details."""
+        tool = SearchTracesByQuery(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.search_traces_by_query"
+        ) as mock_search:
+            # Simulate a Tempo API error with detailed message
+            mock_search.side_effect = TempoAPIError(
+                status_code=400,
+                response_text='{"error": "invalid TraceQL query: unexpected token"}',
+                url="http://tempo/api/search",
+            )
+
+            result = tool._invoke({"q": "{invalid syntax}"})
+
+            assert result.status == ToolResultStatus.ERROR
+            assert "invalid TraceQL query: unexpected token" in result.error
+            assert "400" in result.error
 
 
 class TestSearchTracesByTags:
