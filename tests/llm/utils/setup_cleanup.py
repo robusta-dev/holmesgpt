@@ -11,9 +11,7 @@ from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
-from tests.llm.utils.test_helpers import truncate_output
 from pathlib import Path
-
 
 # Configuration
 MAX_ERROR_LINES = 10
@@ -56,13 +54,18 @@ class Operation(StrEnum):
 
 
 def get_prometheus_alert_commands(
-    test_case: HolmesTestCase, operation: Operation
+    test_case: HolmesTestCase,
+    operation: Operation,
+    create_alerts: bool,
+    prometheus_label: str,
 ) -> str:
     """Generate commands for deploying/cleaning up Prometheus alerts.
 
     Args:
         test_case: The test case configuration
         operation: Whether this is setup or cleanup
+        create_alerts: Whether to create Prometheus alerts (from pytest flag)
+        prometheus_label: Prometheus label override (from pytest flag)
 
     Returns:
         Shell commands to handle Prometheus alerts, or empty string if not needed
@@ -70,16 +73,12 @@ def get_prometheus_alert_commands(
     if not test_case.prometheus_alert:
         return ""
 
-    # Check environment variables in Python
-    create_alerts = os.environ.get("EVAL_CREATE_ALERTS", "false").lower() == "true"
     if not create_alerts:
         return ""
 
     alert_file = Path(test_case.folder) / test_case.prometheus_alert
     if not alert_file.exists():
         return ""
-
-    prometheus_label = os.environ.get("EVAL_PROMETHEUS_LABEL", "")
 
     if operation == Operation.SETUP:
         # Deploy alert
@@ -96,14 +95,18 @@ def get_prometheus_alert_commands(
 
 
 def run_all_test_commands(
-    test_cases: List[HolmesTestCase], operation: Operation
+    test_cases: List[HolmesTestCase],
+    operation: Operation,
+    create_alerts: bool = False,
+    prometheus_label: str = "",
 ) -> Dict[str, str]:
     """Run before_test/after_test (according to operation)
 
     Args:
         test_cases: List of test cases to process
-        command_func: Function to call for each test case (before_test or after_test)
-        operation_name: Name of operation for logging ("Setup" or "Cleanup")
+        operation: Operation type (Setup or Cleanup)
+        create_alerts: Whether to create Prometheus alerts (from pytest flag)
+        prometheus_label: Prometheus label override (from pytest flag)
 
     Returns:
         Dict[str, str]: Mapping of test_case.id to error message for failed setups
@@ -128,7 +131,9 @@ def run_all_test_commands(
                     run_commands,
                     test_case,
                     (test_case.before_test or "")
-                    + get_prometheus_alert_commands(test_case, operation),
+                    + get_prometheus_alert_commands(
+                        test_case, operation, create_alerts, prometheus_label
+                    ),
                     operation_lower,
                 ): test_case
                 for test_case in test_cases
@@ -138,7 +143,9 @@ def run_all_test_commands(
                 executor.submit(
                     run_commands,
                     test_case,
-                    get_prometheus_alert_commands(test_case, operation)
+                    get_prometheus_alert_commands(
+                        test_case, operation, create_alerts, prometheus_label
+                    )
                     + (test_case.after_test or ""),
                     operation_lower,
                 ): test_case
@@ -236,24 +243,43 @@ def run_all_test_commands(
 
 def run_all_test_setup(
     test_cases: List[HolmesTestCase],
+    create_alerts: bool = False,
+    prometheus_label: str = "",
 ) -> Dict[str, str]:
     """Run before_test for each test case in parallel.
+
+    Args:
+        test_cases: List of test cases to process
+        create_alerts: Whether to create Prometheus alerts (from pytest flag)
+        prometheus_label: Prometheus label override (from pytest flag)
 
     Returns:
         Dict[str, str]: Mapping of test_case.id to error message for failed setups
     """
     # Run the before_test commands (which create namespaces, deployments, etc.)
-    setup_failures = run_all_test_commands(test_cases, Operation.SETUP)
+    setup_failures = run_all_test_commands(
+        test_cases, Operation.SETUP, create_alerts, prometheus_label
+    )
 
     return setup_failures
 
 
 def run_all_test_cleanup(
     test_cases: List[HolmesTestCase],
+    create_alerts: bool = False,
+    prometheus_label: str = "",
 ) -> None:
-    """Run after_test for each test case in parallel."""
+    """Run after_test for each test case in parallel.
+
+    Args:
+        test_cases: List of test cases to process
+        create_alerts: Whether to create Prometheus alerts (from pytest flag)
+        prometheus_label: Prometheus label override (from pytest flag)
+    """
     # Run the after_test commands
-    run_all_test_commands(test_cases, Operation.CLEANUP)
+    run_all_test_commands(
+        test_cases, Operation.CLEANUP, create_alerts, prometheus_label
+    )
 
 
 def extract_llm_test_cases(session) -> List[HolmesTestCase]:

@@ -191,6 +191,7 @@ metadata:
   name: frontend-metrics
   labels:
     app: frontend
+    release: robusta  # Required for Prometheus to pick up this ServiceMonitor
 spec:
   selector:
     matchLabels:

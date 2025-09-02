@@ -121,37 +121,36 @@ Essential variables for controlling test behavior:
 | `MODEL` | LLM to test | `MODEL=gpt-4o` |
 | `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
 | `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
-| `EVAL_CREATE_ALERTS` | Deploy Prometheus alerts for evals (for demos) | `EVAL_CREATE_ALERTS=true` |
-| `EVAL_PROMETHEUS_LABEL` | Override Prometheus label selector | `EVAL_PROMETHEUS_LABEL=kube-prometheus` |
 
 ### Prometheus Alert Configuration
 
-The `EVAL_CREATE_ALERTS` and `EVAL_PROMETHEUS_LABEL` variables control Prometheus alert deployment for evals:
+Prometheus alert deployment for evals is controlled via pytest command-line flags:
 
-#### EVAL_CREATE_ALERTS
-When set to `true`, deploys realistic Prometheus alerts alongside eval resources for testing alert-based investigation (this is currently manual tests not automated).
+#### --create-alerts
+Deploys realistic Prometheus alerts alongside eval resources for testing alert-based investigation (this is currently manual tests not automated).
 
 ```bash
 # Run eval with Prometheus alert deployment
-EVAL_CREATE_ALERTS=true RUN_LIVE=true poetry run pytest -k "84_network_policy" --skip-cleanup
+RUN_LIVE=true poetry run pytest -k "84_network_policy" --create-alerts --skip-cleanup
+>>>>>>> Stashed changes
 
 # The alert will fire in Prometheus and can be used for demos
 ```
 
-#### EVAL_PROMETHEUS_LABEL
+#### --prometheus-label
 Overrides the Prometheus label selector in alert rules. Different Prometheus deployments use different labels to select which rules to load:
 - Default: `release: robusta` (for Robusta's kube-prometheus-stack)
 - Can be overridden to match your Prometheus deployment
 
 ```bash
 # Default: Robusta's embedded Prometheus (no override needed, uses release: robusta)
-EVAL_CREATE_ALERTS=true RUN_LIVE=true poetry run pytest -k "test_name"
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts
 
 # Custom Prometheus with different label selector
-EVAL_CREATE_ALERTS=true EVAL_PROMETHEUS_LABEL=prometheus-operator RUN_LIVE=true poetry run pytest -k "test_name"
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts --prometheus-label prometheus-operator
 
 # For vanilla kube-prometheus-stack
-EVAL_CREATE_ALERTS=true EVAL_PROMETHEUS_LABEL=kube-prometheus RUN_LIVE=true poetry run pytest -k "test_name"
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts --prometheus-label kube-prometheus
 ```
 
 ### ASK_HOLMES_TEST_TYPE Details
