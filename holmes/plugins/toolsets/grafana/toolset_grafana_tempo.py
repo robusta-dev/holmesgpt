@@ -2,9 +2,7 @@ import os
 import re
 from typing import Any, Dict, List, cast
 
-import requests  # type: ignore
 import yaml  # type: ignore
-from pydantic import BaseModel
 
 from holmes.common.env_vars import load_bool
 from holmes.core.tools import (
@@ -15,15 +13,13 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
-    GrafanaConfig,
-    build_headers,
-    get_base_url,
+    GrafanaTempoConfig,
 )
-from holmes.plugins.toolsets.grafana.tempo_api import (
-    query_tempo_trace_by_id,
-    query_tempo_traces,
+from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
+from holmes.plugins.toolsets.grafana.trace_parser import (
+    format_traces_list,
+    process_trace,
 )
-from holmes.plugins.toolsets.grafana.trace_parser import format_traces_list
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
 )
@@ -34,22 +30,11 @@ from holmes.plugins.toolsets.utils import (
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
+TEMPO_API_USE_POST = True  # Use POST method for backward compatibility
 
 ONE_HOUR_IN_SECONDS = 3600
 DEFAULT_TRACES_TIME_SPAN_SECONDS = DEFAULT_TIME_SPAN_SECONDS  # 7 days
 DEFAULT_TAGS_TIME_SPAN_SECONDS = 8 * ONE_HOUR_IN_SECONDS  # 8 hours
-
-
-class GrafanaTempoLabelsConfig(BaseModel):
-    pod: str = "k8s.pod.name"
-    namespace: str = "k8s.namespace.name"
-    deployment: str = "k8s.deployment.name"
-    node: str = "k8s.node.name"
-    service: str = "service.name"
-
-
-class GrafanaTempoConfig(GrafanaConfig):
-    labels: GrafanaTempoLabelsConfig = GrafanaTempoLabelsConfig()
 
 
 class BaseGrafanaTempoToolset(BaseGrafanaToolset):
@@ -183,8 +168,8 @@ class GetTempoTraces(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        api_key = self._toolset.grafana_config.api_key
-        headers = self._toolset.grafana_config.headers
+        # Create API instance
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         invalid_params_error = validate_params(
             params, ["service_name", "pod_name", "deployment_name"]
@@ -209,12 +194,8 @@ class GetTempoTraces(Tool):
         query = " && ".join(filters)
         query = f"{{{query}}}"
 
-        base_url = get_base_url(self._toolset.grafana_config)
-        traces = query_tempo_traces(
-            base_url=base_url,
-            api_key=api_key,
-            headers=headers,
-            query=query,
+        traces = api.search_traces_by_query(
+            q=query,
             start=start,
             end=end,
             limit=params.get("limit", 50),
@@ -251,32 +232,24 @@ class GetTempoTags(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
-        api_key = self._toolset.grafana_config.api_key
-        headers = self._toolset.grafana_config.headers
+        # Create API instance
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
         start, end = process_timestamps_to_int(
             start=params.get("start_datetime"),
             end=params.get("end_datetime"),
             default_time_span_seconds=DEFAULT_TAGS_TIME_SPAN_SECONDS,
         )
 
-        base_url = get_base_url(self._toolset.grafana_config)
-        url = f"{base_url}/api/v2/search/tags?start={start}&end={end}"
-
         try:
-            response = requests.get(
-                url,
-                headers=build_headers(api_key=api_key, additional_headers=headers),
-                timeout=60,
-            )
-            response.raise_for_status()  # Raise an error for non-2xx responses
-            data = response.json()
+            data = api.search_tag_names_v2(start=start, end=end)
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
                 data=yaml.dump(data.get("scopes")),
                 params=params,
             )
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Failed to retrieve tags: {e} \n for URL: {url}")
+        except Exception as e:
+            raise Exception(f"Failed to retrieve tags: {e}")
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
@@ -298,20 +271,23 @@ class GetTempoTraceById(Tool):
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        # Create API instance
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
         labels_mapping = self._toolset.grafana_config.labels
         labels = list(labels_mapping.model_dump().values())
 
-        base_url = get_base_url(self._toolset.grafana_config)
-        trace_data = query_tempo_trace_by_id(
-            base_url=base_url,
-            api_key=self._toolset.grafana_config.api_key,
-            headers=self._toolset.grafana_config.headers,
-            trace_id=get_param_or_raise(params, "trace_id"),
-            key_labels=labels,
+        # Get raw trace data
+        trace_data = api.query_trace_by_id_v2(
+            trace_id=get_param_or_raise(params, "trace_id")
         )
+
+        # Process the trace data (new API returns raw data)
+        formatted_trace = process_trace(trace_data, labels)
+
         return StructuredToolResult(
             status=ToolResultStatus.SUCCESS,
-            data=trace_data,
+            data=formatted_trace,
             params=params,
         )
 
@@ -418,15 +394,15 @@ Examples:
                 default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
             )
 
-            base_url = get_base_url(self._toolset.grafana_config)
+            # Create API instance
+            api = GrafanaTempoAPI(
+                self._toolset.grafana_config, use_post=TEMPO_API_USE_POST
+            )
 
             # Step 1: Get all trace summaries
             stats_query = f"{{{base_query}}}"
-            all_traces_response = query_tempo_traces(
-                base_url=base_url,
-                api_key=self._toolset.grafana_config.api_key,
-                headers=self._toolset.grafana_config.headers,
-                query=stats_query,
+            all_traces_response = api.search_traces_by_query(
+                q=stats_query,
                 start=start,
                 end=end,
                 limit=1000,
@@ -480,38 +456,21 @@ Examples:
                     return None
 
                 try:
-                    url = f"{base_url}/api/traces/{trace_id}"
-                    response = requests.get(
-                        url,
-                        headers=build_headers(
-                            api_key=self._toolset.grafana_config.api_key,
-                            additional_headers=self._toolset.grafana_config.headers,
-                        ),
-                        timeout=5,
-                    )
-                    response.raise_for_status()
+                    trace_data = api.query_trace_by_id_v2(trace_id=trace_id)
                     return {
                         "traceID": trace_id,
                         "durationMs": trace_summary.get("durationMs", 0),
                         "rootServiceName": trace_summary.get(
                             "rootServiceName", "unknown"
                         ),
-                        "traceData": response.json(),  # Raw trace data
+                        "traceData": trace_data,  # Raw trace data
                     }
-                except requests.exceptions.RequestException as e:
+                except Exception as e:
                     error_msg = f"Failed to fetch full trace: {str(e)}"
-                    if hasattr(e, "response") and e.response is not None:
-                        error_msg += f" (Status: {e.response.status_code})"
                     return {
                         "traceID": trace_id,
                         "durationMs": trace_summary.get("durationMs", 0),
                         "error": error_msg,
-                    }
-                except (ValueError, KeyError) as e:
-                    return {
-                        "traceID": trace_id,
-                        "durationMs": trace_summary.get("durationMs", 0),
-                        "error": f"Failed to parse trace data: {str(e)}",
                     }
 
             # Fetch the selected traces

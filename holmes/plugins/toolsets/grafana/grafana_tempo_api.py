@@ -7,8 +7,11 @@ from urllib.parse import quote
 import backoff
 import requests  # type: ignore
 
-from holmes.plugins.toolsets.grafana.common import build_headers, get_base_url
-from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import GrafanaTempoConfig
+from holmes.plugins.toolsets.grafana.common import (
+    GrafanaTempoConfig,
+    build_headers,
+    get_base_url,
+)
 
 
 logger = logging.getLogger(__name__)
