@@ -175,7 +175,9 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         return params
 
-    def _invoke(self, params: dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),

@@ -7,6 +7,7 @@ from unittest.mock import Mock, call, patch
 from holmes.core.tools import (
     CallablePrerequisite,
     StaticPrerequisite,
+    StructuredToolResult,
     Tool,
     Toolset,
     ToolsetCommandPrerequisite,
@@ -25,7 +26,9 @@ class DummyTool(Tool):
     name: str = "dummy_tool"
     description: str = "A dummy tool"
 
-    def _invoke(self, params: Dict) -> Any:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         pass
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
