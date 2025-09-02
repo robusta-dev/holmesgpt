@@ -1,6 +1,6 @@
 site_name: HolmesGPT Documentation
 site_description: AI-powered root cause analysis for DevOps and SRE teams
-site_url: https://robusta-dev.github.io/holmesgpt/
+site_url: https://holmesgpt.dev/
 repo_url: https://github.com/robusta-dev/holmesgpt
 repo_name: robusta-dev/holmesgpt
 edit_uri: edit/master/docs/
@@ -148,6 +148,7 @@ nav:
       - Interactive Mode: walkthrough/interactive-mode.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
+      - Investigating using AKS MCP Server: walkthrough/investigating-using-aks-mcp-server.md
 
   - AI Providers:
       - ai-providers/index.md

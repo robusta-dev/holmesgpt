@@ -130,7 +130,7 @@ class RabbitMQToolset(Toolset):
         super().__init__(
             name="rabbitmq/core",
             description="Provides tools to interact with RabbitMQ to diagnose cluster health, node status, and specifically network partitions (split-brain).",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/rabbitmq/",
             icon_url="https://cdn.worldvectorlogo.com/logos/rabbitmq.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

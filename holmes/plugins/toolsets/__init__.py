@@ -26,6 +26,9 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
 from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
     DatadogRDSToolset,
 )
+from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
+    DatadogGeneralToolset,
+)
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
@@ -44,6 +47,9 @@ from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
+from holmes.plugins.toolsets.investigator.core_investigation import (
+    CoreInvestigationToolset,
+)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -68,6 +74,7 @@ def load_toolsets_from_file(
 def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
+        CoreInvestigationToolset(),  # Load first for higher priority
         InternetToolset(),
         RobustaToolset(dal),
         OpenSearchToolset(),
@@ -78,6 +85,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         NotionToolset(),
         KafkaToolset(),
         DatadogLogsToolset(),
+        DatadogGeneralToolset(),
         DatadogMetricsToolset(),
         DatadogTracesToolset(),
         DatadogRDSToolset(),
@@ -151,7 +159,7 @@ def load_toolsets_from_config(
 
     loaded_toolsets: list[Toolset] = []
     if is_old_toolset_config(toolsets):
-        message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+        message = "Old toolset config format detected, please update to the new format: https://holmesgpt.dev/data-sources/custom-toolsets/"
         logging.warning(message)
         raise ValueError(message)
 

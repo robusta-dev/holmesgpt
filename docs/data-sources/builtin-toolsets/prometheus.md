@@ -99,6 +99,15 @@ toolsets:
 - `fetch_metadata_with_series_api`: Use the series API for metadata (only set to true if the metadata API is disabled or not working).
 - `tool_calls_return_data`: If `false`, disables returning Prometheus data to HolmesGPT (useful if you hit token limits).
 
+## Capabilities
+
+| Tool Name | Description |
+|-----------|-------------|
+| list_available_metrics | List all available Prometheus metrics |
+| execute_prometheus_instant_query | Execute an instant PromQL query |
+| execute_prometheus_range_query | Execute a range PromQL query for time series data |
+| get_current_time | Get current timestamp for time-based queries |
+
 ---
 
 ## Coralogix Prometheus Configuration
@@ -140,11 +149,38 @@ To use a Coralogix PromQL endpoint with HolmesGPT:
 
 ---
 
-## Capabilities
+## Grafana Cloud (Mimir) Configuration
 
-| Tool Name | Description |
-|-----------|-------------|
-| list_available_metrics | List all available Prometheus metrics |
-| execute_prometheus_instant_query | Execute an instant PromQL query |
-| execute_prometheus_range_query | Execute a range PromQL query for time series data |
-| get_current_time | Get current timestamp for time-based queries |
+To connect HolmesGPT to Grafana Cloud's Prometheus/Mimir endpoint:
+
+1. **Create a service account token in Grafana Cloud:**
+   - Navigate to "Administration → Service accounts"
+   - Create a new service account
+   - Generate a service account token (starts with `glsa_`)
+
+2. **Find your Prometheus datasource UID:**
+   ```bash
+   curl -H "Authorization: Bearer YOUR_GLSA_TOKEN" \
+        "https://YOUR-INSTANCE.grafana.net/api/datasources" | \
+        jq '.[] | select(.type=="prometheus") | {name, uid}'
+   ```
+
+3. **Configure HolmesGPT:**
+   ```yaml
+   holmes:
+     toolsets:
+       prometheus/metrics:
+         enabled: true
+         config:
+           prometheus_url: https://YOUR-INSTANCE.grafana.net/api/datasources/proxy/uid/PROMETHEUS_DATASOURCE_UID
+           fetch_labels_with_labels_api: false  # Important for Mimir
+           fetch_metadata_with_series_api: true  # Important for Mimir
+           headers:
+             Authorization: Bearer YOUR_GLSA_TOKEN
+   ```
+
+**Important notes:**
+
+- Use the proxy endpoint URL format `/api/datasources/proxy/uid/` - this handles authentication and routing to Mimir automatically
+- Set `fetch_labels_with_labels_api: false` for optimal Mimir compatibility
+- Set `fetch_metadata_with_series_api: true` for proper metadata retrieval
