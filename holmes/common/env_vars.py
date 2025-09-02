@@ -67,3 +67,7 @@ MAX_OUTPUT_TOKEN_RESERVATION = int(
 
 # When using the bash tool, setting BASH_TOOL_UNSAFE_ALLOW_ALL will skip any command validation and run any command requested by the LLM
 BASH_TOOL_UNSAFE_ALLOW_ALL = load_bool("BASH_TOOL_UNSAFE_ALLOW_ALL", False)
+
+LOG_LLM_USAGE_RESPONSE = load_bool("LOG_LLM_USAGE_RESPONSE", False)
+
+MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 300))
