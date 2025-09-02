@@ -159,7 +159,7 @@ def load_toolsets_from_config(
 
     loaded_toolsets: list[Toolset] = []
     if is_old_toolset_config(toolsets):
-        message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+        message = "Old toolset config format detected, please update to the new format: https://holmesgpt.dev/data-sources/custom-toolsets/"
         logging.warning(message)
         raise ValueError(message)
 
