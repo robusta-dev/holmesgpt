@@ -1,12 +1,62 @@
-Use Tempo when investigating latency or performance issues. Tempo provides traces information for application running on the cluster.
-Assume every application provides tempo traces.
-1. Start by identifying an initial filter to use. This can be a pod name, a deployment name or a service name
-2. Call fetch_tempo_traces_comparative_sample first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns. For other issues not related to performance, you can start with fetch_tempo_traces.
-3. Use `fetch_tempo_traces` setting the appropriate query params
-    - Use the min_duration filter to ensure you get traces that trigger the alert when you are investigating a performance issue
-    - If possible, use start and end date to narrow down your search.
-        - Use fetch_finding_by_id if you are provided with a finding/alert id. It will contain details about when the alert was triggered
-    - Use at least one of the following argument to ensure you get relevant traces: `service_name`, `pod_name` or `deployment_name`.
-4. When you have a specific trace ID to investigate, use `fetch_tempo_trace_by_id` to get detailed information about that trace.
-5. Look at the duration of each span in any single trace and deduce any issues.
-6. ALWAYS fetch the logs for a pod once you identify a span that is taking a long time. There may be an explanation for the slowness in the logs.
+Grafana Tempo provides distributed tracing data through its REST API. Each tool maps directly to a specific Tempo API endpoint.
+
+## API Endpoints and Tool Mapping
+
+1. **Trace Search** (GET /api/search)
+   - `search_traces_by_query`: Use with 'q' parameter for TraceQL queries
+   - `search_traces_by_tags`: Use with 'tags' parameter for logfmt queries
+
+2. **Trace Details** (GET /api/v2/traces/{trace_id})
+   - `query_trace_by_id`: Retrieve full trace data
+
+3. **Tag Discovery**
+   - `search_tag_names` (GET /api/v2/search/tags): List available tags
+   - `search_tag_values` (GET /api/v2/search/tag/{tag}/values): Get values for a tag
+
+4. **TraceQL Metrics**
+   - `query_metrics_instant` (GET /api/metrics/query): Single value computation
+   - `query_metrics_range` (GET /api/metrics/query_range): Time series data
+
+## Usage Workflow
+
+### 1. Discovering Available Data
+Start by understanding what tags and values exist:
+- Use `search_tag_names` to discover available tags
+- Use `search_tag_values` to see all values for a specific tag (e.g., service names)
+
+### 2. Searching for Traces
+**TraceQL Search (recommended):**
+Use `search_traces_by_query` with TraceQL syntax for powerful filtering:
+- Find errors: `{span.http.status_code>=400}`
+- Service traces: `{resource.service.name="api"}`
+- Slow traces: `{duration>100ms}`
+- Complex queries: `{resource.service.name="api" && span.http.status_code=500 && duration>1s}`
+
+**Tag-based Search (legacy):**
+Use `search_traces_by_tags` with logfmt format when you need min/max duration filters:
+- Example: `service.name="api" http.status_code="500"`
+- Supports `min_duration` and `max_duration` parameters
+
+### 3. Analyzing Specific Traces
+When you have trace IDs from search results:
+- Use `query_trace_by_id` to get full trace details
+- Examine spans for errors, slow operations, and bottlenecks
+
+### 4. Computing Metrics from Traces
+**TraceQL metrics** compute aggregated metrics from your trace data:
+
+**Instant Metrics** (`query_metrics_instant`):
+- Error rate: `{ status.code="error" } | rate()`
+- P95 latency: `{ } | histogram_quantile(.95)`
+- Count by service: `{ } | count() by (resource.service.name)`
+
+**Time Series Metrics** (`query_metrics_range`):
+- Track error rate over time: `{ status.code="error" } | rate()`
+- Monitor latency trends: `{ service.name="api" } | histogram_quantile(.95)`
+- Use `step` parameter to control granularity (e.g., "5m", "1h")
+
+## Important Notes
+- TraceQL is the modern query language - prefer it over tag-based search
+- TraceQL metrics are computed from trace data, not traditional Prometheus metrics
+- All timestamps can be Unix epoch seconds or RFC3339 format
+- Use time filters (start/end) to improve query performance

@@ -1,6 +1,5 @@
 import os
-import re
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, Tuple, cast
 
 import yaml  # type: ignore
 
@@ -16,21 +15,15 @@ from holmes.plugins.toolsets.grafana.common import (
     GrafanaTempoConfig,
 )
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
-from holmes.plugins.toolsets.grafana.trace_parser import (
-    format_traces_list,
-    process_trace,
-)
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import (
-    get_param_or_raise,
-    process_timestamps_to_int,
     toolset_name_for_one_liner,
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
-TEMPO_API_USE_POST = True  # Use POST method for backward compatibility
+TEMPO_API_USE_POST = False  # Use GET method for direct API mapping
 
 ONE_HOUR_IN_SECONDS = 3600
 DEFAULT_TRACES_TIME_SPAN_SECONDS = DEFAULT_TIME_SPAN_SECONDS  # 7 days
@@ -52,308 +45,853 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
     def grafana_config(self) -> GrafanaTempoConfig:
         return cast(GrafanaTempoConfig, self._grafana_config)
 
-    def build_k8s_filters(
-        self, params: Dict[str, Any], use_exact_match: bool
-    ) -> List[str]:
-        """Build TraceQL filters for k8s parameters.
+    def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        """Check Tempo connectivity using the echo endpoint."""
+        # First call parent to validate config
+        success, msg = super().prerequisites_callable(config)
+        if not success:
+            return success, msg
 
-        Args:
-            params: Dictionary containing k8s parameters
-            use_exact_match: If True, uses exact match (=), if False uses regex match (=~)
+        # Then check Tempo-specific echo endpoint
+        try:
+            api = GrafanaTempoAPI(self.grafana_config, use_post=TEMPO_API_USE_POST)
+            if api.query_echo_endpoint():
+                return True, "Successfully connected to Tempo"
+            else:
+                return False, "Failed to connect to Tempo echo endpoint"
+        except Exception as e:
+            return False, f"Failed to connect to Tempo: {str(e)}"
 
-        Returns:
-            List of TraceQL filter strings
-        """
-        prefix = ""
-        if TEMPO_LABELS_ADD_PREFIX:
-            prefix = "resource."
+    # def build_k8s_filters(
+    #     self, params: Dict[str, Any], use_exact_match: bool
+    # ) -> List[str]:
+    #     """Build TraceQL filters for k8s parameters.
+    #
+    #     Args:
+    #         params: Dictionary containing k8s parameters
+    #         use_exact_match: If True, uses exact match (=), if False uses regex match (=~)
+    #
+    #     Returns:
+    #         List of TraceQL filter strings
+    #     """
+    #     prefix = ""
+    #     if TEMPO_LABELS_ADD_PREFIX:
+    #         prefix = "resource."
+    #
+    #     filters = []
+    #     labels = self.grafana_config.labels
+    #
+    #     # Define parameter mappings: (param_name, label_attribute)
+    #     parameter_mappings = [
+    #         ("service_name", "service"),
+    #         ("pod_name", "pod"),
+    #         ("namespace_name", "namespace"),
+    #         ("deployment_name", "deployment"),
+    #         ("node_name", "node"),
+    #     ]
+    #
+    #     for param_name, label_attr in parameter_mappings:
+    #         value = params.get(param_name)
+    #         if value:
+    #             # Get the label from the config
+    #             label = getattr(labels, label_attr)
+    #
+    #             # Build the filter based on match type
+    #             if use_exact_match:
+    #                 # Escape double quotes in the value for exact match
+    #                 escaped_value = value.replace('"', '\\"')
+    #                 filters.append(f'{prefix}{label}="{escaped_value}"')
+    #             else:
+    #                 # Escape regex special characters for partial match
+    #                 escaped_value = re.escape(value)
+    #                 filters.append(f'{prefix}{label}=~".*{escaped_value}.*"')
+    #
+    #     return filters
 
-        filters = []
-        labels = self.grafana_config.labels
 
-        # Define parameter mappings: (param_name, label_attribute)
-        parameter_mappings = [
-            ("service_name", "service"),
-            ("pod_name", "pod"),
-            ("namespace_name", "namespace"),
-            ("deployment_name", "deployment"),
-            ("node_name", "node"),
-        ]
-
-        for param_name, label_attr in parameter_mappings:
-            value = params.get(param_name)
-            if value:
-                # Get the label from the config
-                label = getattr(labels, label_attr)
-
-                # Build the filter based on match type
-                if use_exact_match:
-                    # Escape double quotes in the value for exact match
-                    escaped_value = value.replace('"', '\\"')
-                    filters.append(f'{prefix}{label}="{escaped_value}"')
-                else:
-                    # Escape regex special characters for partial match
-                    escaped_value = re.escape(value)
-                    filters.append(f'{prefix}{label}=~".*{escaped_value}.*"')
-
-        return filters
+# def validate_params(params: Dict[str, Any], expected_params: List[str]):
+#     for param in expected_params:
+#         if param in params and params[param] not in (None, "", [], {}):
+#             return None
+#
+#     return f"At least one of the following argument is expected but none were set: {expected_params}"
 
 
-def validate_params(params: Dict[str, Any], expected_params: List[str]):
-    for param in expected_params:
-        if param in params and params[param] not in (None, "", [], {}):
-            return None
+# class GetTempoTraces(Tool):
+#     def __init__(self, toolset: BaseGrafanaTempoToolset):
+#         super().__init__(
+#             name="fetch_tempo_traces",
+#             description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required.""",
+#             parameters={
+#                 "min_duration": ToolParameter(
+#                     description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
+#                     type="string",
+#                     required=True,
+#                 ),
+#                 "service_name": ToolParameter(
+#                     description="Filter traces by service name",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "pod_name": ToolParameter(
+#                     description="Filter traces by pod name",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "namespace_name": ToolParameter(
+#                     description="Filter traces by namespace",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "deployment_name": ToolParameter(
+#                     description="Filter traces by deployment name",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "node_name": ToolParameter(
+#                     description="Filter traces by node",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "start_datetime": ToolParameter(
+#                     description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "end_datetime": ToolParameter(
+#                     description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "limit": ToolParameter(
+#                     description="Maximum number of traces to return. Defaults to 50",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "sort": ToolParameter(
+#                     description="One of 'descending', 'ascending' or 'none' for no sorting. Defaults to descending",
+#                     type="string",
+#                     required=False,
+#                 ),
+#             },
+#         )
+#         self._toolset = toolset
+#
+#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#         # Create API instance
+#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+#
+#         invalid_params_error = validate_params(
+#             params, ["service_name", "pod_name", "deployment_name"]
+#         )
+#         if invalid_params_error:
+#             return StructuredToolResult(
+#                 status=ToolResultStatus.ERROR,
+#                 error=invalid_params_error,
+#                 params=params,
+#             )
+#
+#         start, end = process_timestamps_to_int(
+#             params.get("start_datetime"),
+#             params.get("end_datetime"),
+#             default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
+#         )
+#
+#         filters = self._toolset.build_k8s_filters(params, use_exact_match=True)
+#
+#         filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
+#
+#         query = " && ".join(filters)
+#         query = f"{{{query}}}"
+#
+#         traces = api.search_traces_by_query(
+#             q=query,
+#             start=start,
+#             end=end,
+#             limit=params.get("limit", 50),
+#         )
+#         return StructuredToolResult(
+#             status=ToolResultStatus.SUCCESS,
+#             data=format_traces_list(traces),
+#             params=params,
+#             invocation=query,
+#         )
+#
+#     def get_parameterized_one_liner(self, params: Dict) -> str:
+#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Traces (min_duration={params.get('min_duration')})"
 
-    return f"At least one of the following argument is expected but none were set: {expected_params}"
+
+# class GetTempoTags(Tool):
+#     def __init__(self, toolset: BaseGrafanaTempoToolset):
+#         super().__init__(
+#             name="fetch_tempo_tags",
+#             description="List the tags available in Tempo",
+#             parameters={
+#                 "start_datetime": ToolParameter(
+#                     description=f"The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TAGS_TIME_SPAN_SECONDS}",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "end_datetime": ToolParameter(
+#                     description="The ending time boundary for the search period. String in RFC3339 format. Defaults to NOW().",
+#                     type="string",
+#                     required=False,
+#                 ),
+#             },
+#         )
+#         self._toolset = toolset
+#
+#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#         # Create API instance
+#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+#
+#         start, end = process_timestamps_to_int(
+#             start=params.get("start_datetime"),
+#             end=params.get("end_datetime"),
+#             default_time_span_seconds=DEFAULT_TAGS_TIME_SPAN_SECONDS,
+#         )
+#
+#         try:
+#             data = api.search_tag_names_v2(start=start, end=end)
+#             return StructuredToolResult(
+#                 status=ToolResultStatus.SUCCESS,
+#                 data=yaml.dump(data.get("scopes")),
+#                 params=params,
+#             )
+#         except Exception as e:
+#             return StructuredToolResult(
+#                 status=ToolResultStatus.ERROR,
+#                 error=f"Failed to retrieve tags: {str(e)}",
+#                 params=params,
+#             )
+#
+#     def get_parameterized_one_liner(self, params: Dict) -> str:
+#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
+#
+
+# class GetTempoTraceById(Tool):
+#     def __init__(self, toolset: BaseGrafanaTempoToolset):
+#         super().__init__(
+#             name="fetch_tempo_trace_by_id",
+#             description="""Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace.""",
+#             parameters={
+#                 "trace_id": ToolParameter(
+#                     description="The unique trace ID to fetch.",
+#                     type="string",
+#                     required=True,
+#                 ),
+#             },
+#         )
+#         self._toolset = toolset
+#
+#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#         # Create API instance
+#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+#
+#         labels_mapping = self._toolset.grafana_config.labels
+#         labels = list(labels_mapping.model_dump().values())
+#
+#         # Get raw trace data
+#         trace_data = api.query_trace_by_id_v2(
+#             trace_id=get_param_or_raise(params, "trace_id")
+#         )
+#
+#         # Process the trace data (new API returns raw data)
+#         formatted_trace = process_trace(trace_data, labels)
+#
+#         return StructuredToolResult(
+#             status=ToolResultStatus.SUCCESS,
+#             data=formatted_trace,
+#             params=params,
+#         )
+#
+#     def get_parameterized_one_liner(self, params: Dict) -> str:
+#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
+#
+
+# class FetchTracesSimpleComparison(Tool):
+#     def __init__(self, toolset: BaseGrafanaTempoToolset):
+#         super().__init__(
+#             name="fetch_tempo_traces_comparative_sample",
+#             description="""Fetches statistics and representative samples of fast, slow, and typical traces for performance analysis. Requires either a `base_query` OR at least one of `service_name`, `pod_name`, `namespace_name`, `deployment_name`, `node_name`.
+#
+# Important: call this tool first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns.
+#
+# Examples:
+# - For service latency: service_name="payment" (matches "payment-service" too)
+# - For namespace issues: namespace_name="production"
+# - Combined: service_name="auth", namespace_name="staging\"""",
+#             parameters={
+#                 "service_name": ToolParameter(
+#                     description="Service to analyze (partial match supported)",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "pod_name": ToolParameter(
+#                     description="Filter traces by pod name (partial match supported)",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "namespace_name": ToolParameter(
+#                     description="Kubernetes namespace to filter traces",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "deployment_name": ToolParameter(
+#                     description="Filter traces by deployment name (partial match supported)",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "node_name": ToolParameter(
+#                     description="Filter traces by node name",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "base_query": ToolParameter(
+#                     description="Custom TraceQL filter",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "sample_count": ToolParameter(
+#                     description="Number of traces to fetch from each category (fastest/slowest). Default 3",
+#                     type="integer",
+#                     required=False,
+#                 ),
+#                 "start_datetime": ToolParameter(
+#                     description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
+#                     type="string",
+#                     required=False,
+#                 ),
+#                 "end_datetime": ToolParameter(
+#                     description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
+#                     type="string",
+#                     required=False,
+#                 ),
+#             },
+#         )
+#         self._toolset = toolset
+#
+#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#         try:
+#             # Build query
+#             if params.get("base_query"):
+#                 base_query = params["base_query"]
+#             else:
+#                 # Use the shared utility with partial matching (regex)
+#                 filters = self._toolset.build_k8s_filters(params, use_exact_match=False)
+#
+#                 # Validate that at least one parameter was provided
+#                 invalid_params_error = validate_params(
+#                     params,
+#                     [
+#                         "service_name",
+#                         "pod_name",
+#                         "namespace_name",
+#                         "deployment_name",
+#                         "node_name",
+#                     ],
+#                 )
+#                 if invalid_params_error:
+#                     return StructuredToolResult(
+#                         status=ToolResultStatus.ERROR,
+#                         error=invalid_params_error,
+#                         params=params,
+#                     )
+#
+#                 base_query = " && ".join(filters)
+#
+#             sample_count = params.get("sample_count", 3)
+#
+#             start, end = process_timestamps_to_int(
+#                 params.get("start_datetime"),
+#                 params.get("end_datetime"),
+#                 default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
+#             )
+#
+#             # Create API instance
+#             api = GrafanaTempoAPI(
+#                 self._toolset.grafana_config, use_post=TEMPO_API_USE_POST
+#             )
+#
+#             # Step 1: Get all trace summaries
+#             stats_query = f"{{{base_query}}}"
+#             all_traces_response = api.search_traces_by_query(
+#                 q=stats_query,
+#                 start=start,
+#                 end=end,
+#                 limit=1000,
+#             )
+#
+#             traces = all_traces_response.get("traces", [])
+#             if not traces:
+#                 return StructuredToolResult(
+#                     status=ToolResultStatus.SUCCESS,
+#                     data="No traces found matching the query",
+#                     params=params,
+#                 )
+#
+#             # Step 2: Sort traces by duration
+#             sorted_traces = sorted(traces, key=lambda x: x.get("durationMs", 0))
+#
+#             # Step 3: Calculate basic statistics
+#             durations = [t.get("durationMs", 0) for t in sorted_traces]
+#             stats = {
+#                 "trace_count": len(durations),
+#                 "min_ms": durations[0],
+#                 "p25_ms": durations[len(durations) // 4]
+#                 if len(durations) >= 4
+#                 else durations[0],
+#                 "p50_ms": durations[len(durations) // 2],
+#                 "p75_ms": durations[3 * len(durations) // 4]
+#                 if len(durations) >= 4
+#                 else durations[-1],
+#                 "p90_ms": durations[int(len(durations) * 0.9)]
+#                 if len(durations) >= 10
+#                 else durations[-1],
+#                 "p99_ms": durations[int(len(durations) * 0.99)]
+#                 if len(durations) >= 100
+#                 else durations[-1],
+#                 "max_ms": durations[-1],
+#             }
+#
+#             # Step 4: Select representative traces to fetch
+#             fastest_indices = list(range(min(sample_count, len(sorted_traces))))
+#             slowest_indices = list(
+#                 range(max(0, len(sorted_traces) - sample_count), len(sorted_traces))
+#             )
+#
+#             # Add median trace
+#             median_idx = len(sorted_traces) // 2
+#
+#             # Step 5: Fetch full trace details
+#             def fetch_full_trace(trace_summary):
+#                 trace_id = trace_summary.get("traceID")
+#                 if not trace_id:
+#                     return None
+#
+#                 try:
+#                     trace_data = api.query_trace_by_id_v2(trace_id=trace_id)
+#                     return {
+#                         "traceID": trace_id,
+#                         "durationMs": trace_summary.get("durationMs", 0),
+#                         "rootServiceName": trace_summary.get(
+#                             "rootServiceName", "unknown"
+#                         ),
+#                         "traceData": trace_data,  # Raw trace data
+#                     }
+#                 except Exception as e:
+#                     error_msg = f"Failed to fetch full trace: {str(e)}"
+#                     return {
+#                         "traceID": trace_id,
+#                         "durationMs": trace_summary.get("durationMs", 0),
+#                         "error": error_msg,
+#                     }
+#
+#             # Fetch the selected traces
+#             result = {
+#                 "statistics": stats,
+#                 "all_trace_durations_ms": durations,  # All durations for distribution analysis
+#                 "fastest_traces": [
+#                     fetch_full_trace(sorted_traces[i]) for i in fastest_indices
+#                 ],
+#                 "median_trace": fetch_full_trace(sorted_traces[median_idx]),
+#                 "slowest_traces": [
+#                     fetch_full_trace(sorted_traces[i]) for i in slowest_indices
+#                 ],
+#             }
+#
+#             # Return as YAML for readability
+#             return StructuredToolResult(
+#                 status=ToolResultStatus.SUCCESS,
+#                 data=yaml.dump(result, default_flow_style=False, sort_keys=False),
+#                 params=params,
+#             )
+#
+#         except Exception as e:
+#             return StructuredToolResult(
+#                 status=ToolResultStatus.ERROR,
+#                 error=f"Error fetching traces: {str(e)}",
+#                 params=params,
+#             )
+#
+#     def get_parameterized_one_liner(self, params: Dict) -> str:
+#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Simple Tempo Traces Comparison"
 
 
-class GetTempoTraces(Tool):
+# New tools matching GrafanaTempoAPI methods
+
+
+class SearchTracesByQuery(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="fetch_tempo_traces",
-            description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required.""",
+            name="search_traces_by_query",
+            description=(
+                "Search for traces using TraceQL query language. "
+                "Uses the Tempo API endpoint: GET /api/search with 'q' parameter. "
+                'TraceQL allows complex filtering like: {resource.service.name="api"} && {span.http.status_code=500}'
+            ),
             parameters={
-                "min_duration": ToolParameter(
-                    description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
+                "q": ToolParameter(
+                    description="TraceQL query (e.g., '{resource.service.name=\"api\" && span.http.status_code=500}')",
                     type="string",
                     required=True,
                 ),
-                "service_name": ToolParameter(
-                    description="Filter traces by service name",
+                "limit": ToolParameter(
+                    description="Maximum number of traces to return (default: 20)",
+                    type="integer",
+                    required=False,
+                ),
+                "start": ToolParameter(
+                    description="Start time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "spss": ToolParameter(
+                    description="Spans per span set",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            result = api.search_traces_by_query(
+                q=params["q"],
+                limit=params.get("limit"),
+                start=params.get("start"),
+                end=params.get("end"),
+                spss=params.get("spss"),
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Searched traces with TraceQL"
+
+
+class SearchTracesByTags(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="search_traces_by_tags",
+            description=(
+                "Search for traces using logfmt-encoded tags. "
+                "Uses the Tempo API endpoint: GET /api/search with 'tags' parameter. "
+                'Example: service.name="api" http.status_code="500"'
+            ),
+            parameters={
+                "tags": ToolParameter(
+                    description='Logfmt-encoded span/process attributes (e.g., \'service.name="api" http.status_code="500"\')',
+                    type="string",
+                    required=True,
+                ),
+                "min_duration": ToolParameter(
+                    description="Minimum trace duration (e.g., '5s', '100ms')",
                     type="string",
                     required=False,
                 ),
-                "pod_name": ToolParameter(
-                    description="Filter traces by pod name",
-                    type="string",
-                    required=False,
-                ),
-                "namespace_name": ToolParameter(
-                    description="Filter traces by namespace",
-                    type="string",
-                    required=False,
-                ),
-                "deployment_name": ToolParameter(
-                    description="Filter traces by deployment name",
-                    type="string",
-                    required=False,
-                ),
-                "node_name": ToolParameter(
-                    description="Filter traces by node",
-                    type="string",
-                    required=False,
-                ),
-                "start_datetime": ToolParameter(
-                    description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
-                    type="string",
-                    required=False,
-                ),
-                "end_datetime": ToolParameter(
-                    description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
+                "max_duration": ToolParameter(
+                    description="Maximum trace duration (e.g., '10s', '1000ms')",
                     type="string",
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of traces to return. Defaults to 50",
-                    type="string",
-                    required=False,
-                ),
-                "sort": ToolParameter(
-                    description="One of 'descending', 'ascending' or 'none' for no sorting. Defaults to descending",
-                    type="string",
-                    required=False,
-                ),
-            },
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
-        # Create API instance
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-
-        invalid_params_error = validate_params(
-            params, ["service_name", "pod_name", "deployment_name"]
-        )
-        if invalid_params_error:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=invalid_params_error,
-                params=params,
-            )
-
-        start, end = process_timestamps_to_int(
-            params.get("start_datetime"),
-            params.get("end_datetime"),
-            default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
-        )
-
-        filters = self._toolset.build_k8s_filters(params, use_exact_match=True)
-
-        filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
-
-        query = " && ".join(filters)
-        query = f"{{{query}}}"
-
-        traces = api.search_traces_by_query(
-            q=query,
-            start=start,
-            end=end,
-            limit=params.get("limit", 50),
-        )
-        return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
-            data=format_traces_list(traces),
-            params=params,
-            invocation=query,
-        )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Traces (min_duration={params.get('min_duration')})"
-
-
-class GetTempoTags(Tool):
-    def __init__(self, toolset: BaseGrafanaTempoToolset):
-        super().__init__(
-            name="fetch_tempo_tags",
-            description="List the tags available in Tempo",
-            parameters={
-                "start_datetime": ToolParameter(
-                    description=f"The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TAGS_TIME_SPAN_SECONDS}",
-                    type="string",
-                    required=False,
-                ),
-                "end_datetime": ToolParameter(
-                    description="The ending time boundary for the search period. String in RFC3339 format. Defaults to NOW().",
-                    type="string",
-                    required=False,
-                ),
-            },
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
-        # Create API instance
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-
-        start, end = process_timestamps_to_int(
-            start=params.get("start_datetime"),
-            end=params.get("end_datetime"),
-            default_time_span_seconds=DEFAULT_TAGS_TIME_SPAN_SECONDS,
-        )
-
-        try:
-            data = api.search_tag_names_v2(start=start, end=end)
-            return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
-                data=yaml.dump(data.get("scopes")),
-                params=params,
-            )
-        except Exception as e:
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Failed to retrieve tags: {str(e)}",
-                params=params,
-            )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
-
-
-class GetTempoTraceById(Tool):
-    def __init__(self, toolset: BaseGrafanaTempoToolset):
-        super().__init__(
-            name="fetch_tempo_trace_by_id",
-            description="""Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace.""",
-            parameters={
-                "trace_id": ToolParameter(
-                    description="The unique trace ID to fetch.",
-                    type="string",
-                    required=True,
-                ),
-            },
-        )
-        self._toolset = toolset
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
-        # Create API instance
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-
-        labels_mapping = self._toolset.grafana_config.labels
-        labels = list(labels_mapping.model_dump().values())
-
-        # Get raw trace data
-        trace_data = api.query_trace_by_id_v2(
-            trace_id=get_param_or_raise(params, "trace_id")
-        )
-
-        # Process the trace data (new API returns raw data)
-        formatted_trace = process_trace(trace_data, labels)
-
-        return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
-            data=formatted_trace,
-            params=params,
-        )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
-
-
-class FetchTracesSimpleComparison(Tool):
-    def __init__(self, toolset: BaseGrafanaTempoToolset):
-        super().__init__(
-            name="fetch_tempo_traces_comparative_sample",
-            description="""Fetches statistics and representative samples of fast, slow, and typical traces for performance analysis. Requires either a `base_query` OR at least one of `service_name`, `pod_name`, `namespace_name`, `deployment_name`, `node_name`.
-
-Important: call this tool first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns.
-
-Examples:
-- For service latency: service_name="payment" (matches "payment-service" too)
-- For namespace issues: namespace_name="production"
-- Combined: service_name="auth", namespace_name="staging\"""",
-            parameters={
-                "service_name": ToolParameter(
-                    description="Service to analyze (partial match supported)",
-                    type="string",
-                    required=False,
-                ),
-                "pod_name": ToolParameter(
-                    description="Filter traces by pod name (partial match supported)",
-                    type="string",
-                    required=False,
-                ),
-                "namespace_name": ToolParameter(
-                    description="Kubernetes namespace to filter traces",
-                    type="string",
-                    required=False,
-                ),
-                "deployment_name": ToolParameter(
-                    description="Filter traces by deployment name (partial match supported)",
-                    type="string",
-                    required=False,
-                ),
-                "node_name": ToolParameter(
-                    description="Filter traces by node name",
-                    type="string",
-                    required=False,
-                ),
-                "base_query": ToolParameter(
-                    description="Custom TraceQL filter",
-                    type="string",
-                    required=False,
-                ),
-                "sample_count": ToolParameter(
-                    description="Number of traces to fetch from each category (fastest/slowest). Default 3",
+                    description="Maximum number of traces to return (default: 20)",
                     type="integer",
                     required=False,
                 ),
-                "start_datetime": ToolParameter(
-                    description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
+                "start": ToolParameter(
+                    description="Start time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "spss": ToolParameter(
+                    description="Spans per span set",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            result = api.search_traces_by_tags(
+                tags=params["tags"],
+                min_duration=params.get("min_duration"),
+                max_duration=params.get("max_duration"),
+                limit=params.get("limit"),
+                start=params.get("start"),
+                end=params.get("end"),
+                spss=params.get("spss"),
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Searched traces with tags"
+
+
+class QueryTraceById(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="query_trace_by_id",
+            description=(
+                "Retrieve detailed trace information by trace ID. "
+                "Uses the Tempo API endpoint: GET /api/v2/traces/{trace_id}. "
+                "Returns the full trace data in OpenTelemetry format."
+            ),
+            parameters={
+                "trace_id": ToolParameter(
+                    description="The unique trace ID to fetch",
+                    type="string",
+                    required=True,
+                ),
+                "start": ToolParameter(
+                    description="Optional start time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="Optional end time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            trace_data = api.query_trace_by_id_v2(
+                trace_id=params["trace_id"],
+                start=params.get("start"),
+                end=params.get("end"),
+            )
+
+            # Return raw trace data as YAML for readability
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(trace_data, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Retrieved trace {params.get('trace_id')}"
+
+
+class SearchTagNames(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="search_tag_names",
+            description=(
+                "Discover available tag names across traces. "
+                "Uses the Tempo API endpoint: GET /api/v2/search/tags. "
+                "Returns tags organized by scope (resource, span, intrinsic)."
+            ),
+            parameters={
+                "scope": ToolParameter(
+                    description="Filter by scope: 'resource', 'span', or 'intrinsic'",
                     type="string",
                     required=False,
                 ),
-                "end_datetime": ToolParameter(
-                    description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
+                "q": ToolParameter(
+                    description="TraceQL query to filter tags (e.g., '{resource.cluster=\"us-east-1\"}')",
+                    type="string",
+                    required=False,
+                ),
+                "start": ToolParameter(
+                    description="Start time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description="Maximum number of tag names to return",
+                    type="integer",
+                    required=False,
+                ),
+                "max_stale_values": ToolParameter(
+                    description="Maximum stale values parameter",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            result = api.search_tag_names_v2(
+                scope=params.get("scope"),
+                q=params.get("q"),
+                start=params.get("start"),
+                end=params.get("end"),
+                limit=params.get("limit"),
+                max_stale_values=params.get("max_stale_values"),
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Discovered tag names"
+
+
+class SearchTagValues(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="search_tag_values",
+            description=(
+                "Get all values for a specific tag. "
+                "Uses the Tempo API endpoint: GET /api/v2/search/tag/{tag}/values. "
+                "Useful for discovering what values exist for a given tag."
+            ),
+            parameters={
+                "tag": ToolParameter(
+                    description="The tag name to get values for (e.g., 'service.name', 'http.status_code')",
+                    type="string",
+                    required=True,
+                ),
+                "q": ToolParameter(
+                    description="TraceQL query to filter tag values (e.g., '{resource.cluster=\"us-east-1\"}')",
+                    type="string",
+                    required=False,
+                ),
+                "start": ToolParameter(
+                    description="Start time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time in Unix epoch seconds",
+                    type="integer",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description="Maximum number of values to return",
+                    type="integer",
+                    required=False,
+                ),
+                "max_stale_values": ToolParameter(
+                    description="Maximum stale values parameter",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            result = api.search_tag_values_v2(
+                tag=params["tag"],
+                q=params.get("q"),
+                start=params.get("start"),
+                end=params.get("end"),
+                limit=params.get("limit"),
+                max_stale_values=params.get("max_stale_values"),
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Retrieved values for tag '{params.get('tag')}'"
+
+
+class QueryMetricsInstant(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="query_metrics_instant",
+            description=(
+                "Compute a single TraceQL metric value across time range. "
+                "Uses the Tempo API endpoint: GET /api/metrics/query. "
+                "TraceQL metrics compute metrics from trace data (e.g., error rates, latencies)."
+            ),
+            parameters={
+                "q": ToolParameter(
+                    description="TraceQL metrics query (e.g., '{ status.code=\"error\" } | rate()', '{ } | histogram_quantile(.95)')",
+                    type="string",
+                    required=True,
+                ),
+                "start": ToolParameter(
+                    description="Start time (Unix seconds/nanoseconds/RFC3339)",
+                    type="string",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time (Unix seconds/nanoseconds/RFC3339)",
+                    type="string",
+                    required=False,
+                ),
+                "since": ToolParameter(
+                    description="Duration string (e.g., '1h', '30m')",
                     type="string",
                     required=False,
                 ),
@@ -362,150 +900,103 @@ Examples:
         self._toolset = toolset
 
     def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
         try:
-            # Build query
-            if params.get("base_query"):
-                base_query = params["base_query"]
-            else:
-                # Use the shared utility with partial matching (regex)
-                filters = self._toolset.build_k8s_filters(params, use_exact_match=False)
-
-                # Validate that at least one parameter was provided
-                invalid_params_error = validate_params(
-                    params,
-                    [
-                        "service_name",
-                        "pod_name",
-                        "namespace_name",
-                        "deployment_name",
-                        "node_name",
-                    ],
-                )
-                if invalid_params_error:
-                    return StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
-                        error=invalid_params_error,
-                        params=params,
-                    )
-
-                base_query = " && ".join(filters)
-
-            sample_count = params.get("sample_count", 3)
-
-            start, end = process_timestamps_to_int(
-                params.get("start_datetime"),
-                params.get("end_datetime"),
-                default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
+            result = api.query_metrics_instant(
+                q=params["q"],
+                start=params.get("start"),
+                end=params.get("end"),
+                since=params.get("since"),
             )
-
-            # Create API instance
-            api = GrafanaTempoAPI(
-                self._toolset.grafana_config, use_post=TEMPO_API_USE_POST
-            )
-
-            # Step 1: Get all trace summaries
-            stats_query = f"{{{base_query}}}"
-            all_traces_response = api.search_traces_by_query(
-                q=stats_query,
-                start=start,
-                end=end,
-                limit=1000,
-            )
-
-            traces = all_traces_response.get("traces", [])
-            if not traces:
-                return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data="No traces found matching the query",
-                    params=params,
-                )
-
-            # Step 2: Sort traces by duration
-            sorted_traces = sorted(traces, key=lambda x: x.get("durationMs", 0))
-
-            # Step 3: Calculate basic statistics
-            durations = [t.get("durationMs", 0) for t in sorted_traces]
-            stats = {
-                "trace_count": len(durations),
-                "min_ms": durations[0],
-                "p25_ms": durations[len(durations) // 4]
-                if len(durations) >= 4
-                else durations[0],
-                "p50_ms": durations[len(durations) // 2],
-                "p75_ms": durations[3 * len(durations) // 4]
-                if len(durations) >= 4
-                else durations[-1],
-                "p90_ms": durations[int(len(durations) * 0.9)]
-                if len(durations) >= 10
-                else durations[-1],
-                "p99_ms": durations[int(len(durations) * 0.99)]
-                if len(durations) >= 100
-                else durations[-1],
-                "max_ms": durations[-1],
-            }
-
-            # Step 4: Select representative traces to fetch
-            fastest_indices = list(range(min(sample_count, len(sorted_traces))))
-            slowest_indices = list(
-                range(max(0, len(sorted_traces) - sample_count), len(sorted_traces))
-            )
-
-            # Add median trace
-            median_idx = len(sorted_traces) // 2
-
-            # Step 5: Fetch full trace details
-            def fetch_full_trace(trace_summary):
-                trace_id = trace_summary.get("traceID")
-                if not trace_id:
-                    return None
-
-                try:
-                    trace_data = api.query_trace_by_id_v2(trace_id=trace_id)
-                    return {
-                        "traceID": trace_id,
-                        "durationMs": trace_summary.get("durationMs", 0),
-                        "rootServiceName": trace_summary.get(
-                            "rootServiceName", "unknown"
-                        ),
-                        "traceData": trace_data,  # Raw trace data
-                    }
-                except Exception as e:
-                    error_msg = f"Failed to fetch full trace: {str(e)}"
-                    return {
-                        "traceID": trace_id,
-                        "durationMs": trace_summary.get("durationMs", 0),
-                        "error": error_msg,
-                    }
-
-            # Fetch the selected traces
-            result = {
-                "statistics": stats,
-                "all_trace_durations_ms": durations,  # All durations for distribution analysis
-                "fastest_traces": [
-                    fetch_full_trace(sorted_traces[i]) for i in fastest_indices
-                ],
-                "median_trace": fetch_full_trace(sorted_traces[median_idx]),
-                "slowest_traces": [
-                    fetch_full_trace(sorted_traces[i]) for i in slowest_indices
-                ],
-            }
-
-            # Return as YAML for readability
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
-                data=yaml.dump(result, default_flow_style=False, sort_keys=False),
+                data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
-
         except Exception as e:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
-                error=f"Error fetching traces: {str(e)}",
+                error=str(e),
                 params=params,
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"{toolset_name_for_one_liner(self._toolset.name)}: Simple Tempo Traces Comparison"
+        return (
+            f"{toolset_name_for_one_liner(self._toolset.name)}: Computed TraceQL metric"
+        )
+
+
+class QueryMetricsRange(Tool):
+    def __init__(self, toolset: BaseGrafanaTempoToolset):
+        super().__init__(
+            name="query_metrics_range",
+            description=(
+                "Get time series data from TraceQL metrics queries. "
+                "Uses the Tempo API endpoint: GET /api/metrics/query_range. "
+                "Returns metrics computed at regular intervals from trace data."
+            ),
+            parameters={
+                "q": ToolParameter(
+                    description="TraceQL metrics query (e.g., '{ service.name=\"api\" } | rate()')",
+                    type="string",
+                    required=True,
+                ),
+                "step": ToolParameter(
+                    description="Time series granularity (e.g., '1m', '5m', '1h')",
+                    type="string",
+                    required=False,
+                ),
+                "start": ToolParameter(
+                    description="Start time (Unix seconds/nanoseconds/RFC3339)",
+                    type="string",
+                    required=False,
+                ),
+                "end": ToolParameter(
+                    description="End time (Unix seconds/nanoseconds/RFC3339)",
+                    type="string",
+                    required=False,
+                ),
+                "since": ToolParameter(
+                    description="Duration string (e.g., '3h', '1d')",
+                    type="string",
+                    required=False,
+                ),
+                "exemplars": ToolParameter(
+                    description="Maximum number of exemplars to return",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: Dict) -> StructuredToolResult:
+        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+
+        try:
+            result = api.query_metrics_range(
+                q=params["q"],
+                step=params.get("step"),
+                start=params.get("start"),
+                end=params.get("end"),
+                since=params.get("since"),
+                exemplars=params.get("exemplars"),
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=yaml.dump(result, default_flow_style=False),
+                params=params,
+            )
+        except Exception as e:
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Retrieved TraceQL metrics time series"
 
 
 class GrafanaTempoToolset(BaseGrafanaTempoToolset):
@@ -516,10 +1007,17 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanatempo/",
             tools=[
-                FetchTracesSimpleComparison(self),
-                GetTempoTraces(self),
-                GetTempoTraceById(self),
-                GetTempoTags(self),
+                # FetchTracesSimpleComparison(self),
+                # GetTempoTraces(self),
+                # GetTempoTraceById(self),
+                # GetTempoTags(self),
+                SearchTracesByQuery(self),
+                SearchTracesByTags(self),
+                QueryTraceById(self),
+                SearchTagNames(self),
+                SearchTagValues(self),
+                QueryMetricsInstant(self),
+                QueryMetricsRange(self),
             ],
         )
         template_file_path = os.path.abspath(
