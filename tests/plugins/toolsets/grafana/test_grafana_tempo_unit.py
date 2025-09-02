@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from holmes.core.tools import ToolResultStatus
+from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
     GetTempoTraces,
     GetTempoTraceById,
-    GrafanaTempoConfig,
     GrafanaTempoToolset,
 )
 
@@ -127,15 +127,17 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
     }
 
     with patch(
-        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.query_tempo_traces"
-    ) as mock_query_traces, patch("requests.get") as mock_get:
-        mock_query_traces.return_value = mock_traces
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        # Create mock API instance
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
 
-        # Mock response for individual trace fetches
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_full_trace
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        # Mock search_traces_by_query
+        mock_api.search_traces_by_query.return_value = mock_traces
+
+        # Mock query_trace_by_id_v2 for individual trace fetches
+        mock_api.query_trace_by_id_v2.return_value = mock_full_trace
 
         # Test with service name filter
         result = tool.invoke(
@@ -174,9 +176,9 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
         assert data["slowest_traces"][1]["durationMs"] == 750
 
         # Verify the query was called correctly
-        mock_query_traces.assert_called_once()
-        call_args = mock_query_traces.call_args[1]
-        assert 'resource.service.name=~".*frontend.*"' in call_args["query"]
+        mock_api.search_traces_by_query.assert_called_once()
+        call_args = mock_api.search_traces_by_query.call_args[1]
+        assert 'resource.service.name=~".*frontend.*"' in call_args["q"]
 
 
 def test_fetch_traces_simple_comparison_with_multiple_filters():
@@ -193,9 +195,11 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
     mock_traces = {"traces": []}
 
     with patch(
-        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.query_tempo_traces"
-    ) as mock_query_traces:
-        mock_query_traces.return_value = mock_traces
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
+        mock_api.search_traces_by_query.return_value = mock_traces
 
         result = tool.invoke(
             params={
@@ -212,8 +216,8 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
         assert result.data == "No traces found matching the query"
 
         # Verify all filters were included in the query
-        call_args = mock_query_traces.call_args[1]
-        query = call_args["query"]
+        call_args = mock_api.search_traces_by_query.call_args[1]
+        query = call_args["q"]
         assert 'resource.service.name=~".*api.*"' in query
         assert 'resource.k8s.namespace.name=~".*production.*"' in query
         assert 'resource.k8s.deployment.name=~".*api\\-server.*"' in query
@@ -244,15 +248,12 @@ def test_fetch_traces_simple_comparison_with_base_query():
     }
 
     with patch(
-        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.query_tempo_traces"
-    ) as mock_query_traces, patch("requests.get") as mock_get:
-        mock_query_traces.return_value = mock_traces
-
-        # Mock response for trace fetch
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"batches": []}
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
+        mock_api.search_traces_by_query.return_value = mock_traces
+        mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
         custom_query = "span.http.status_code >= 400"
         result = tool.invoke(params={"base_query": custom_query})
@@ -260,8 +261,8 @@ def test_fetch_traces_simple_comparison_with_base_query():
         assert result.status == ToolResultStatus.SUCCESS
 
         # Verify the custom query was used
-        call_args = mock_query_traces.call_args[1]
-        assert call_args["query"] == f"{{{custom_query}}}"
+        call_args = mock_api.search_traces_by_query.call_args[1]
+        assert call_args["q"] == f"{{{custom_query}}}"
 
 
 def test_fetch_traces_simple_comparison_error_handling():
@@ -276,9 +277,11 @@ def test_fetch_traces_simple_comparison_error_handling():
     tool = FetchTracesSimpleComparison(toolset)
 
     with patch(
-        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.query_tempo_traces"
-    ) as mock_query_traces:
-        mock_query_traces.side_effect = Exception("API Error")
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
+        mock_api.search_traces_by_query.side_effect = Exception("API Error")
 
         result = tool.invoke(params={"service_name": "test-service"})
 
@@ -306,15 +309,12 @@ def test_fetch_traces_simple_comparison_percentile_calculations():
     }
 
     with patch(
-        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.query_tempo_traces"
-    ) as mock_query_traces, patch("requests.get") as mock_get:
-        mock_query_traces.return_value = mock_traces
-
-        # Mock response for individual trace fetches
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"batches": []}
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
+        mock_api.search_traces_by_query.return_value = mock_traces
+        mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
         result = tool.invoke(params={"service_name": "test"})
         assert result.status == ToolResultStatus.SUCCESS

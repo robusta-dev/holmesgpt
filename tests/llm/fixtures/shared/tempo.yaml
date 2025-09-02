@@ -29,11 +29,16 @@ spec:
       labels:
         app: tempo
     spec:
+      securityContext:
+        fsGroup: 10001
+        runAsUser: 10001
+        runAsNonRoot: true
       containers:
       - name: tempo
-        image: grafana/tempo:2.3.0
+        image: grafana/tempo:2.8.2
         args:
         - -config.file=/etc/tempo/tempo-config.yaml
+        - -target=all
         ports:
         - containerPort: 3200
           name: http
@@ -125,8 +130,23 @@ data:
     query_frontend:
       max_batch_size: 5
 
+    metrics_generator:
+      ring:
+        kvstore:
+          store: inmemory
+      processor:
+        local_blocks:
+          filter_server_spans: false
+          flush_to_storage: true
+      storage:
+        path: /var/tempo/metrics
+      traces_storage:
+        path: /var/tempo/generator-wal
+
     overrides:
       max_traces_per_user: 10000
       ingestion_rate_limit_bytes: 15000000
       ingestion_burst_size_bytes: 20000000
       max_bytes_per_trace: 5000000
+      metrics_generator_processors:
+        - local-blocks

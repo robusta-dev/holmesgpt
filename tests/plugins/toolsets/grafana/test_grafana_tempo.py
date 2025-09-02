@@ -5,9 +5,9 @@ from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 import pytest
 
 from holmes.core.tools import ToolsetStatusEnum
+from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     GetTempoTraces,
-    GrafanaTempoConfig,
     GrafanaTempoToolset,
 )
 from holmes.plugins.toolsets.grafana.trace_parser import process_trace
