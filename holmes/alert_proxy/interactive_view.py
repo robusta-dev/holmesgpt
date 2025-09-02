@@ -46,6 +46,7 @@ class AlertUIView:
         self._focused_pane = 0  # 0=list, 1=inspector, 2=console
         self.inspector_collapsed = False
         self.console_collapsed = False
+        self.fullscreen_pane = None  # None or 0=list, 1=inspector, 2=console
         self.initial_load_complete = False  # Track if we've done first fetch
         self.refresh_requested = threading.Event()  # For model to signal refresh
         self.model_error: Optional[str] = None  # Store model connectivity error
@@ -247,6 +248,18 @@ class AlertUIView:
             """Switch to next pane."""
             self._switch_pane()
 
+        # Add fullscreen toggle (f key)
+        @kb.add("f", filter=not_searching)
+        def _(event):
+            """Toggle fullscreen for current pane."""
+            self._toggle_fullscreen()
+
+        # Add log dump (d key) - only when console is visible or in fullscreen
+        @kb.add("d", filter=not_searching)
+        def _(event):
+            """Dump console logs to file."""
+            self._dump_console_logs()
+
         # Merge the search keybindings with higher priority
         from prompt_toolkit.key_binding import merge_key_bindings
 
@@ -258,8 +271,10 @@ class AlertUIView:
         # Create style with better colors
         style = Style.from_dict(
             {
-                "frame.border": "fg:#808080",
+                "frame.border": "fg:#606060",  # Default inactive border
+                "frame.border.active": "fg:#00ffff bold",  # Cyan border for active pane
                 "frame.title": "bold",
+                "frame.title.active": "fg:#00ffff bold",  # Cyan title for active pane
                 "status": "reverse",
                 "selected": "reverse",
                 "firing": "fg:#ff0000 bold",
@@ -280,20 +295,65 @@ class AlertUIView:
 
     def _create_layout(self):
         """Create the application layout."""
+        # Check if we're in fullscreen mode
+        if self.fullscreen_pane is not None:
+            # Create fullscreen layout for the focused pane
+            if self.fullscreen_pane == 0:  # Alert list fullscreen
+                fullscreen_frame = Frame(
+                    self.list_area,
+                    title="Alert List [FULLSCREEN - f to exit]",
+                    style="class:frame.border.active",
+                )
+            elif self.fullscreen_pane == 1:  # Inspector fullscreen
+                fullscreen_frame = Frame(
+                    self.inspector_area,
+                    title="Alert Inspector [FULLSCREEN - f to exit]",
+                    style="class:frame.border.active",
+                )
+            elif self.fullscreen_pane == 2:  # Console fullscreen
+                fullscreen_frame = Frame(
+                    self.console_area,
+                    title="Console Output [FULLSCREEN - f to exit]",
+                    style="class:frame.border.active",
+                )
+            else:
+                fullscreen_frame = None
+
+            if fullscreen_frame:
+                root_container = HSplit(
+                    [
+                        self.status_bar.header,  # Header at top
+                        fullscreen_frame,  # Fullscreen pane
+                        self.status_bar.footer,  # Footer at bottom
+                    ]
+                )
+                return Layout(root_container)
+
+        # Normal layout (not fullscreen)
         # Alert list (left pane) with title showing shortcut
+        list_title = "Alert List [l to focus]"
+        if self.focused_pane == 0:
+            list_title = "Alert List [l to focus, f for fullscreen]"
         list_frame = Frame(
             self.list_area,
-            title="Alert List [l to focus]",
-            style="bold" if self.focused_pane == 0 else "",
+            title=list_title,
+            style="class:frame.border.active"
+            if self.focused_pane == 0
+            else "class:frame.border",
         )
 
         # Inspector (right pane) with dynamic title
         if not self.inspector_collapsed:
+            inspector_title = "Alert Inspector [i to toggle]"
+            if self.focused_pane == 1:
+                inspector_title = "Alert Inspector [i to toggle, f for fullscreen]"
             inspector_frame = Frame(
                 self.inspector_area,
-                title="Alert Inspector [i to toggle]",
+                title=inspector_title,
                 width=INSPECTOR_WIDTH,  # Fixed width for inspector
-                style="bold" if self.focused_pane == 1 else "",
+                style="class:frame.border.active"
+                if self.focused_pane == 1
+                else "class:frame.border",
             )
             # Main content with separator
             main_content = VSplit(
@@ -316,11 +376,16 @@ class AlertUIView:
 
         # Console (bottom pane) with dynamic title
         if not self.console_collapsed:
+            console_title = "Console Output [o to toggle]"
+            if self.focused_pane == 2:
+                console_title = "Console Output [o to toggle, f for fullscreen]"
             console_frame = Frame(
                 self.console_area,
-                title="Console Output [o to toggle]",
+                title=console_title,
                 height=CONSOLE_HEIGHT,
-                style="bold" if self.focused_pane == 2 else "",
+                style="class:frame.border.active"
+                if self.focused_pane == 2
+                else "class:frame.border",
             )
             console_component = console_frame
         else:
@@ -540,13 +605,22 @@ class AlertUIView:
 
     def _switch_pane(self):
         """Switch to next pane in cycle, skipping collapsed panes."""
+        # In fullscreen mode, tab does nothing
+        if self.fullscreen_pane is not None:
+            return
+
         available_panes = [0]  # Alert list is always available
         if not self.inspector_collapsed:
             available_panes.append(1)
         if not self.console_collapsed:
             available_panes.append(2)
 
-        current_idx = available_panes.index(self.focused_pane)
+        try:
+            current_idx = available_panes.index(self.focused_pane)
+        except ValueError:
+            # Current pane not available, default to first
+            current_idx = 0
+
         next_idx = (current_idx + 1) % len(available_panes)
         self.focused_pane = available_panes[next_idx]
         self._update_focus()
@@ -578,14 +652,30 @@ class AlertUIView:
 
     def _update_focus(self):
         """Update focus to match focused_pane and refresh display."""
-        if self.focused_pane == 0:
-            self.app.layout.focus(self.list_area)
-            # Sync cursor position with selected index
-            self._sync_cursor_to_selection()
-        elif self.focused_pane == 1:
-            self.app.layout.focus(self.inspector_area)
-        elif self.focused_pane == 2:
-            self.app.layout.focus(self.console_area)
+        try:
+            # Check which panes are actually visible in the current layout
+            if self.focused_pane == 0:
+                # Alert list is always visible (unless in fullscreen mode of another pane)
+                if self.fullscreen_pane is None or self.fullscreen_pane == 0:
+                    self.app.layout.focus(self.list_area)
+                    # Sync cursor position with selected index
+                    self._sync_cursor_to_selection()
+            elif self.focused_pane == 1:
+                # Inspector must not be collapsed and visible
+                if not self.inspector_collapsed and (
+                    self.fullscreen_pane is None or self.fullscreen_pane == 1
+                ):
+                    self.app.layout.focus(self.inspector_area)
+            elif self.focused_pane == 2:
+                # Console must not be collapsed and visible
+                if not self.console_collapsed and (
+                    self.fullscreen_pane is None or self.fullscreen_pane == 2
+                ):
+                    self.app.layout.focus(self.console_area)
+        except ValueError:
+            # If we can't focus the desired pane, fall back to alert list
+            if self.fullscreen_pane is None or self.fullscreen_pane == 0:
+                self.app.layout.focus(self.list_area)
 
         # Always invalidate after focus change
         self.app.invalidate()
@@ -841,10 +931,12 @@ Actions:
   E           Enrich all alerts
   y           Copy alert details
   x           Export current alert
+  d           Dump console logs to file
 
 UI:
   i           Toggle inspector
   o           Toggle console
+  f           Toggle fullscreen (current pane)
   /           Search
   Esc         Clear search
   ?/h         Show this help
@@ -871,6 +963,56 @@ UI:
         except Exception:
             # App might already be exiting, that's fine
             pass
+
+    def _toggle_fullscreen(self):
+        """Toggle fullscreen mode for the current pane."""
+        if self.fullscreen_pane is not None:
+            # Exit fullscreen
+            self.fullscreen_pane = None
+            self.console.add_line("Exited fullscreen mode")
+        else:
+            # Enter fullscreen for current pane
+            self.fullscreen_pane = self.focused_pane
+            pane_names = ["Alert List", "Inspector", "Console"]
+            self.console.add_line(
+                f"Entered fullscreen mode for {pane_names[self.focused_pane]}"
+            )
+
+        # Recreate layout
+        if self.app:
+            self.app.layout = self._create_layout()
+            self.app.invalidate()
+
+    def _dump_console_logs(self):
+        """Dump console logs to a timestamped file."""
+        from pathlib import Path
+
+        # Create logs directory if it doesn't exist
+        logs_dir = Path.home() / ".holmes" / "console_logs"
+        logs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Generate timestamped filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = logs_dir / f"console_log_{timestamp}.txt"
+
+        try:
+            # Get console content
+            console_text = self.console_area.text
+
+            # Write to file
+            with open(filename, "w") as f:
+                f.write("Holmes Alert Viewer Console Log\n")
+                f.write(f"Dumped at: {datetime.now().isoformat()}\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(console_text)
+
+            self.console.add_line(
+                f"✅ Console logs saved ({len(console_text.splitlines())} lines): {filename}"
+            )
+        except Exception as e:
+            self.console.add_line(f"❌ Failed to save logs: {e}")
+
+        self._update_console()
 
     # Update methods
     def _update_list(self):

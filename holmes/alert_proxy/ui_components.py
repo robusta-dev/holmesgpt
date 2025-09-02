@@ -74,6 +74,7 @@ class StatusBar:
                 "Enrich all=E",
                 "Copy=y",
                 "Export=x",
+                "Fullscreen=f",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",
@@ -81,6 +82,7 @@ class StatusBar:
         elif focused_pane == 1:  # Inspector
             shortcuts = [
                 "Scroll=j/k",
+                "Fullscreen=f",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",
@@ -88,6 +90,8 @@ class StatusBar:
         elif focused_pane == 2:  # Console
             shortcuts = [
                 "Scroll=j/k",
+                "Dump logs=d",
+                "Fullscreen=f",
                 "Tab=Switch",
                 "Help=?",
                 "Quit=q",
