@@ -436,7 +436,9 @@ class MockableToolWrapper(Tool):
             raise MockDataNotFoundError(error_msg, tool_name=self.name)
         return mock.return_value
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the tool based on the current mode."""
         if self._mode == MockMode.GENERATE:
             try:
