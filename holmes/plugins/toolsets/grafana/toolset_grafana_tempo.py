@@ -537,7 +537,7 @@ class SearchTracesByQuery(Tool):
                     required=True,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of traces to return (default: 20)",
+                    description="Maximum number of traces to return",
                     type="integer",
                     required=False,
                 ),
@@ -613,7 +613,7 @@ class SearchTracesByTags(Tool):
                     required=False,
                 ),
                 "limit": ToolParameter(
-                    description="Maximum number of traces to return (default: 20)",
+                    description="Maximum number of traces to return",
                     type="integer",
                     required=False,
                 ),
