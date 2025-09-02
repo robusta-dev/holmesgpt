@@ -623,6 +623,9 @@ class AlertUIView:
 
         next_idx = (current_idx + 1) % len(available_panes)
         self.focused_pane = available_panes[next_idx]
+
+        # Recreate layout to update border colors
+        self.app.layout = self._create_layout()
         self._update_focus()
 
     def _sync_cursor_to_selection(self):
