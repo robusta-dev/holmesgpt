@@ -102,10 +102,10 @@ data:
               endpoint: 0.0.0.0:4318
 
     ingester:
-      max_block_duration: 24h
-      trace_idle_period: 24h
+      max_block_duration: 168h  # 1 week
+      trace_idle_period: 168h  # 1 week
       max_block_bytes: 1000000000
-      complete_block_timeout: 48h
+      complete_block_timeout: 168h  # 1 week
 
     compactor:
       compaction:
@@ -148,5 +148,7 @@ data:
       ingestion_rate_limit_bytes: 15000000
       ingestion_burst_size_bytes: 20000000
       max_bytes_per_trace: 5000000
+      max_search_duration: 168h  # 1 week - maximum time range for searches
+      max_metrics_duration: 168h  # 1 week - maximum time range for metrics queries
       metrics_generator_processors:
         - local-blocks
