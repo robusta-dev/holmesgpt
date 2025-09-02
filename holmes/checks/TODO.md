@@ -1,5 +1,18 @@
 # TODO for Holmes Check Feature
 
+
+1. who sends notifications? can be server.py
+2. kubernetes jobs/cronjobs for scheduling created by operator?
+3. simplify cli and remove scheduling
+4. can we use ask endpoint? (i.e. impacts streaming output)
+
+UI:
+1. needs to display up to date view of all checks across all clusters
+2. checks can be defined from UI (writes CRD to cluster)
+3. cluster is source of truth - use manual actions to read and write.
+4. later, if we want to show a view of all checks across all clusters we can have some caching in db etc - not now
+5. its not possible for a user to define a check in the ui and say 'apply this automatically to all clusters' - the way you do that is by downloading check as yaml and putting it on future clusters yourself
+
 ## Architecture Considerations
 
 ### CRD Design Pattern
