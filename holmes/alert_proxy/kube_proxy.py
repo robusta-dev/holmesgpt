@@ -107,8 +107,8 @@ class KubeProxy:
             # Disable SSL verification
             verify_param = False
 
-        # Handle client certificate if provided
-        if self.cert:
+        # Handle client certificate if provided (only when SSL verification is enabled)
+        if self.cert and self.verify_ssl:
             cert_param = self.cert
 
         # Make the request via API proxy
