@@ -2,6 +2,7 @@
 import logging
 import os
 import subprocess
+import sys
 import time
 from contextlib import contextmanager
 from typing import Dict, Optional
@@ -53,9 +54,10 @@ class CommandResult:
         )
 
 
-def _invoke_command(command: str, cwd: str) -> str:
+def _invoke_command(command: str, cwd: str, timeout: Optional[int] = None) -> str:
     try:
-        logging.debug(f"Running `{command}` in {cwd}")
+        actual_timeout = timeout if timeout is not None else EVAL_SETUP_TIMEOUT
+        logging.debug(f"Running `{command}` in {cwd} with timeout {actual_timeout}s")
         result = subprocess.run(
             command,
             shell=True,
@@ -64,12 +66,20 @@ def _invoke_command(command: str, cwd: str) -> str:
             check=True,
             stdin=subprocess.DEVNULL,
             cwd=cwd,
-            timeout=EVAL_SETUP_TIMEOUT,
+            timeout=actual_timeout,
         )
 
         output = f"{result.stdout}\n{result.stderr}"
         logging.debug(f"** `{command}`:\n{output}")
         logging.debug(f"Ran `{command}` in {cwd} with exit code {result.returncode}")
+
+        # Show output if SHOW_SETUP_OUTPUT is set
+        if os.environ.get("SHOW_SETUP_OUTPUT", "").lower() in ("true", "1"):
+            if result.stdout:
+                sys.stderr.write(f"[SETUP OUTPUT] {result.stdout}\n")
+            if result.stderr:
+                sys.stderr.write(f"[SETUP STDERR] {result.stderr}\n")
+
         return output
     except subprocess.CalledProcessError as e:
         truncated_command = _truncate_script(command)
@@ -100,7 +110,13 @@ def run_commands(
 
     try:
         # Execute the entire commands string as a single bash script
-        _invoke_command(command=script, cwd=test_case.folder)
+        # Use per-test timeout if specified, otherwise use default
+        timeout = (
+            test_case.setup_timeout
+            if hasattr(test_case, "setup_timeout") and test_case.setup_timeout
+            else None
+        )
+        _invoke_command(command=script, cwd=test_case.folder, timeout=timeout)
 
         elapsed_time = time.time() - start_time
         return CommandResult(
@@ -124,7 +140,7 @@ def run_commands(
         )
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
-        error_details = f"TIMEOUT after {e.timeout}s\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds>\n\nScript that timed out:\n$ {_truncate_script(script)}"
+        error_details = f"TIMEOUT after {e.timeout}s\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds> or by setting 'setup_timeout' in test_case.yaml\n\nScript that timed out:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",

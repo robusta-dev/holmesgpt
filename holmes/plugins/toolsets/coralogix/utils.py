@@ -20,9 +20,10 @@ class CoralogixQueryResult(BaseModel):
 
 
 class CoralogixLabelsConfig(BaseModel):
-    pod: str = "kubernetes.pod_name"
-    namespace: str = "kubernetes.namespace_name"
-    log_message: str = "log"
+    pod: str = "resource.attributes.k8s.pod.name"
+    namespace: str = "resource.attributes.k8s.namespace.name"
+    log_message: str = "logRecord.body"
+    timestamp: str = "logRecord.attributes.time"
 
 
 class CoralogixLogsMethodology(str, Enum):
@@ -78,24 +79,43 @@ def normalize_datetime(date_str: Optional[str]) -> str:
         return date_str
 
 
+def extract_field(data_obj: dict[str, Any], field: str):
+    """returns a nested field from a dict
+    e.g. extract_field({"parent": {"child": "value"}}, "parent.child") => value
+    """
+    current_object: Any = data_obj
+    fields = field.split(".")
+
+    for field in fields:
+        if not current_object:
+            return None
+        if isinstance(current_object, dict):
+            current_object = current_object.get(field)
+        else:
+            return None
+
+    return current_object
+
+
 def flatten_structured_log_entries(
     log_entries: List[Dict[str, Any]],
+    labels_config: CoralogixLabelsConfig,
 ) -> List[FlattenedLog]:
     flattened_logs = []
     for log_entry in log_entries:
         try:
-            user_data = json.loads(log_entry.get("userData", "{}"))
-            timestamp = normalize_datetime(user_data.get("time"))
-            log_message = user_data.get("log", "")
-            if log_message:
+            userData = json.loads(log_entry.get("userData", "{}"))
+            log_message = extract_field(userData, labels_config.log_message)
+            timestamp = extract_field(userData, labels_config.timestamp)
+            if not log_message or not timestamp:
+                log_message = json.dumps(userData)
+            else:
                 flattened_logs.append(
                     FlattenedLog(timestamp=timestamp, log_message=log_message)
                 )  # Store as tuple for sorting
 
         except json.JSONDecodeError:
-            logging.error(
-                f"Failed to decode userData JSON: {log_entry.get('userData')}"
-            )
+            logging.error(f"Failed to decode userData JSON: {json.dumps(log_entry)}")
     return flattened_logs
 
 
@@ -107,14 +127,16 @@ def stringify_flattened_logs(log_entries: List[FlattenedLog]) -> str:
     return "\n".join(formatted_logs) if formatted_logs else "No logs found."
 
 
-def parse_json_objects(json_objects: List[Dict[str, Any]]) -> List[FlattenedLog]:
+def parse_json_objects(
+    json_objects: List[Dict[str, Any]], labels_config: CoralogixLabelsConfig
+) -> List[FlattenedLog]:
     """Extracts timestamp and log values from parsed JSON objects, sorted in ascending order (oldest first)."""
     logs: List[FlattenedLog] = []
 
     for data in json_objects:
         if isinstance(data, dict) and "result" in data and "results" in data["result"]:
             logs += flatten_structured_log_entries(
-                log_entries=data["result"]["results"]
+                log_entries=data["result"]["results"], labels_config=labels_config
             )
         elif isinstance(data, dict) and data.get("warning"):
             logging.info(
@@ -128,13 +150,18 @@ def parse_json_objects(json_objects: List[Dict[str, Any]]) -> List[FlattenedLog]
     return logs
 
 
-def parse_logs(raw_logs: str) -> List[FlattenedLog]:
+def parse_logs(
+    raw_logs: str,
+    labels_config: CoralogixLabelsConfig,
+) -> List[FlattenedLog]:
     """Processes the HTTP response and extracts only log outputs."""
     try:
         json_objects = parse_json_lines(raw_logs)
         if not json_objects:
             raise Exception("No valid JSON objects found.")
-        return parse_json_objects(json_objects)
+        return parse_json_objects(
+            json_objects=json_objects, labels_config=labels_config
+        )
     except Exception as e:
         logging.error(
             f"Unexpected error in format_logs for a coralogix API response: {str(e)}"

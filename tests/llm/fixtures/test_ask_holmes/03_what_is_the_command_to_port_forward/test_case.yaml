@@ -6,7 +6,8 @@ expected_output:
   - Should NOT just say "find grafana in your cluster" or give generic instructions
 tags:
   - kubernetes
-  - easy
+  - medium
+  - answer-given-wrong-place # LLM gave the answer in intermediate steps, not final answer, so harder for user to see
 before_test: |
   kubectl create namespace app-03
   cat <<EOF | kubectl apply -f -
