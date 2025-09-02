@@ -276,9 +276,7 @@ class GetTempoTags(Tool):
                 params=params,
             )
         except requests.exceptions.RequestException as e:
-            raise Exception(
-                f"Failed to retrieve trace by ID after retries: {e} \n for URL: {url}"
-            )
+            raise Exception(f"Failed to retrieve tags: {e} \n for URL: {url}")
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
