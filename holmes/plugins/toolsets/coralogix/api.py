@@ -106,7 +106,9 @@ def query_logs_for_tier(
         )
         http_status = response.status_code
         if http_status == 200:
-            logs = parse_logs(raw_logs=response.text.strip())
+            logs = parse_logs(
+                raw_logs=response.text.strip(), labels_config=config.labels
+            )
             return CoralogixQueryResult(logs=logs, http_status=http_status, error=None)
         else:
             return CoralogixQueryResult(
