@@ -62,6 +62,17 @@ def test_ask_holmes(
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case, model)
 
+    # DEBUG: Check if API is available before running test
+    api_key = os.environ.get("OPENAI_API_KEY")
+    azure_key = os.environ.get("AZURE_API_KEY")
+    print(
+        f"\n🔍 DEBUG test_ask_holmes: Starting test {test_case.id} with model {model}"
+    )
+    print(f"  - OPENAI_API_KEY set: {bool(api_key)}")
+    print(f"  - AZURE_API_KEY set: {bool(azure_key)}")
+    if not api_key and not azure_key:
+        print("  - ⚠️ WARNING: No API keys found but test is still running!")
+
     tracer = TracingFactory.create_tracer("braintrust")
     metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)
