@@ -1,10 +1,8 @@
 import json
 import logging
-import boto3
 import os
 import re
 import time
-import dateutil.parser
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from urllib.parse import urljoin
 
@@ -31,10 +29,10 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT, MAX_GRAPH_POINTS
+from holmes.common.env_vars import IS_OPENSHIFT
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
+    DEFAULT_TIME_SPAN_SECONDS,
 )
 from holmes.utils.keygen_utils import generate_random_key
 
@@ -88,53 +86,22 @@ class PrometheusConfig(BaseModel):
 
 
 class AMPConfig(PrometheusConfig):
-    aws_access_key: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    aws_access_key: str
+    aws_secret_access_key: str
     aws_region: str
     aws_service_name: str = "aps"
-    healthcheck: str = "api/v1/query?query=up"
+    healthcheck: str = "api/v1/query?query=up"  # Override for AMP
     prometheus_ssl_enabled: bool = False
 
     def is_amp(self) -> bool:
         return True
 
-    def _build_irsa_auth(self) -> Optional[AWS4Auth]:
-        """Try IRSA (or default AWS provider chain)."""
-        session = boto3.Session()
-        creds = session.get_credentials()
-        if creds is None:
-            return None
-        frozen = creds.get_frozen_credentials()
-        return AWS4Auth(
-            frozen.access_key,
-            frozen.secret_key,
-            self.aws_region,
-            self.aws_service_name,
-            session_token=frozen.token,
-        )
-
-    def _build_static_aws_auth(self) -> Optional[AWS4Auth]:
-        """Fallback: static credentials from config."""
-        if self.aws_access_key and self.aws_secret_access_key:
-            return AWS4Auth(
-                self.aws_access_key,
-                self.aws_secret_access_key,
-                self.aws_region,
-                self.aws_service_name,
-            )
-        return None
-
     def get_auth(self):
-        # Prefer IRSA, fallback to static
-        irsa_auth = self._build_irsa_auth()
-        if irsa_auth:
-            return irsa_auth
-        static_auth = self._build_static_aws_auth()
-        if static_auth:
-            return static_auth
-        raise RuntimeError(
-            "No AWS credentials available. Tried IRSA and static keys. "
-            "Ensure IRSA is configured on the service account or provide aws_access_key/aws_secret_access_key."
+        return AWS4Auth(
+            self.aws_access_key,  # type: ignore
+            self.aws_secret_access_key,  # type: ignore
+            self.aws_region,  # type: ignore
+            self.aws_service_name,  # type: ignore
         )
 
 
@@ -230,42 +197,6 @@ def result_has_data(result: Dict) -> bool:
     if len(data.get("result", [])) > 0:
         return True
     return False
-
-
-def adjust_step_for_max_points(
-    start_timestamp: str,
-    end_timestamp: str,
-    step: float,
-) -> float:
-    """
-    Adjusts the step parameter to ensure the number of data points doesn't exceed max_points.
-    Max points is controlled by the PROMETHEUS_MAX_GRAPH_POINTS environment variable (default: 300).
-
-    Args:
-        start_timestamp: RFC3339 formatted start time
-        end_timestamp: RFC3339 formatted end time
-        step: The requested step duration in seconds
-
-    Returns:
-        Adjusted step value in seconds that ensures points <= max_points
-    """
-
-    start_dt = dateutil.parser.parse(start_timestamp)
-    end_dt = dateutil.parser.parse(end_timestamp)
-
-    time_range_seconds = (end_dt - start_dt).total_seconds()
-
-    current_points = time_range_seconds / step
-
-    # If current points exceed max, adjust the step
-    if current_points > MAX_GRAPH_POINTS:
-        adjusted_step = time_range_seconds / MAX_GRAPH_POINTS
-        logging.info(
-            f"Adjusting step from {step}s to {adjusted_step}s to limit points from {current_points:.0f} to {MAX_GRAPH_POINTS}"
-        )
-        return adjusted_step
-
-    return step
 
 
 def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]:
@@ -440,9 +371,7 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -538,9 +467,7 @@ class ListAvailableMetrics(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -577,9 +504,8 @@ class ListAvailableMetrics(BasePrometheusTool):
                 verify_ssl=self.toolset.config.prometheus_ssl_enabled,
             )
 
-            type_filter = params.get("type_filter")
-            if type_filter:
-                metrics = filter_metrics_by_type(metrics, type_filter)
+            if params.get("type_filter"):
+                metrics = filter_metrics_by_type(metrics, params.get("type_filter"))
 
             output = ["Metric | Description | Type | Labels"]
             output.append("-" * 100)
@@ -646,9 +572,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -760,7 +684,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 ),
                 "start": ToolParameter(
                     description=standard_start_datetime_tool_param_description(
-                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                        DEFAULT_TIME_SPAN_SECONDS
                     ),
                     type="string",
                     required=False,
@@ -784,9 +708,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Any) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -801,16 +723,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
             (start, end) = process_timestamps_to_rfc3339(
                 start_timestamp=params.get("start"),
                 end_timestamp=params.get("end"),
-                default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
             )
             step = params.get("step", "")
-
-            step = adjust_step_for_max_points(
-                start_timestamp=start,
-                end_timestamp=end,
-                step=float(step) if step else MAX_GRAPH_POINTS,
-            )
-
             description = params.get("description", "")
             output_type = params.get("output_type", "Plain")
             payload = {
@@ -908,7 +823,7 @@ class PrometheusToolset(Toolset):
         super().__init__(
             name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
-            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
+            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -932,8 +847,10 @@ class PrometheusToolset(Toolset):
     def determine_prometheus_class(
         self, config: dict[str, Any]
     ) -> Type[Union[PrometheusConfig, AMPConfig]]:
-        has_aws_fields = "aws_region" in config
-        return AMPConfig if has_aws_fields else PrometheusConfig
+        has_aws_credentials = (
+            "aws_access_key" in config or "aws_secret_access_key" in config
+        )
+        return AMPConfig if has_aws_credentials else PrometheusConfig
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:

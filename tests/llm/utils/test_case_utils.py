@@ -34,7 +34,18 @@ class SetupFailureError(Exception):
 def get_models():
     """Get list of models to test from MODEL env var (supports comma-separated list)."""
     models_str = os.environ.get("MODEL", "gpt-4o")
-    return models_str.split(",")
+    models = models_str.split(",")
+
+    # If multiple models are specified, require explicit CLASSIFIER_MODEL
+    if len(models) > 1 and not os.environ.get("CLASSIFIER_MODEL"):
+        raise ValueError(
+            f"Multiple models specified ({models_str}) but CLASSIFIER_MODEL not set. "
+            "When testing multiple models, you must explicitly set CLASSIFIER_MODEL "
+            "to ensure consistent scoring. Example:\n"
+            "  MODEL=gpt-4o,claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/"
+        )
+
+    return models
 
 
 def read_file(file_path: Path):

@@ -222,13 +222,23 @@ def force_pytest_output(request):
 
 def check_llm_api_with_test_call():
     """Check if LLM API is available by creating client and making test call"""
+    print("\n🔍 DEBUG: check_llm_api_with_test_call() starting...")
+    print(f"  - OPENAI_API_KEY set: {bool(os.environ.get('OPENAI_API_KEY'))}")
+    print(f"  - AZURE_API_KEY set: {bool(os.environ.get('AZURE_API_KEY'))}")
+    print(f"  - AZURE_API_BASE: {os.environ.get('AZURE_API_BASE', 'Not set')}")
+
     try:
+        print("  - Attempting to create LLM client...")
         client, model = create_llm_client()
+        print(f"  - Client created successfully with model: {model}")
+        print("  - Making test API call...")
         client.chat.completions.create(
             model=model, messages=[{"role": "user", "content": "test"}], max_tokens=1
         )
+        print("  - ✅ Test API call succeeded!")
         return True, None
     except Exception as e:
+        print(f"  - ❌ Test API call failed: {type(e).__name__}: {e}")
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
         classifier_model = os.environ.get(
@@ -260,16 +270,20 @@ def check_llm_api_with_test_call():
 @pytest.fixture(scope="session", autouse=True)
 def llm_availability_check(request):
     """Handle LLM test session setup: show warning, check API, and skip if needed"""
+    print("\n🔍 DEBUG: llm_availability_check fixture started")
     # Don't show messages during collection-only mode
     # Check if we're in collect-only mode
     collect_only = request.config.getoption("--collect-only")
+    print(f"🔍 DEBUG: collect_only = {collect_only}")
 
     if collect_only:
         return
 
     # Check if LLM marker is being excluded
     markexpr = request.config.getoption("-m", default="")
+    print(f"🔍 DEBUG: markexpr = '{markexpr}'")
     if "not llm" in markexpr:
+        print("🔍 DEBUG: Skipping API check because 'not llm' in markers")
         return  # Don't show warning if explicitly excluding LLM tests
 
     # session.items contains the final filtered list of tests that will actually run
@@ -277,8 +291,10 @@ def llm_availability_check(request):
     llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
 
     if llm_tests:
+        print(f"\n🔍 DEBUG: llm_availability_check found {len(llm_tests)} LLM tests")
         # Check API connectivity and show appropriate message
         api_available, error_msg = check_llm_api_with_test_call()
+        print(f"🔍 DEBUG: API check result - available: {api_available}")
 
         if api_available:
             with force_pytest_output(request):
@@ -339,7 +355,20 @@ def llm_availability_check(request):
                 print("=" * 70 + "\n")
 
             # Skip all LLM tests if API is not available
+            print(f"🔍 DEBUG: Calling pytest.skip() to skip {len(llm_tests)} tests")
+            print(
+                f"🔍 DEBUG: pytest.skip() error message length: {len(error_msg)} chars"
+            )
+
+            # Try different approaches to skip tests
+            # Approach 1: Mark each test individually
+            for test in llm_tests:
+                print(f"🔍 DEBUG: Marking test as skipped: {test.nodeid}")
+                test.add_marker(pytest.mark.skip(reason="LLM API not available"))
+
+            # Approach 2: Also call pytest.skip() for the session
             pytest.skip(error_msg)
+            print("🔍 DEBUG: This line should NOT be printed (after pytest.skip)")
 
     return
 
