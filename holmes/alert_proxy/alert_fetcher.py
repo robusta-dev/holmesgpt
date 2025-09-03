@@ -65,6 +65,7 @@ class AlertFetcher:
         try:
             # Use proxy if available and configured
             if alertmanager.use_proxy and self.kube_proxy and self.kube_proxy.available:
+                logger.info(f"Using Kubernetes API proxy for {alertmanager.name}")
                 data = self.kube_proxy.get_alertmanager_alerts(
                     alertmanager.name,
                     alertmanager.namespace,
@@ -87,12 +88,27 @@ class AlertFetcher:
                     )
                     return []
 
+                # Log why we're not using proxy
+                if alertmanager.use_proxy:
+                    if not self.kube_proxy:
+                        logger.warning(
+                            f"Proxy requested but KubeProxy not initialized for {alertmanager.name}"
+                        )
+                    elif not self.kube_proxy.available:
+                        logger.warning(
+                            f"Proxy requested but not available for {alertmanager.name}"
+                        )
+                else:
+                    logger.info(f"Direct connection (no proxy) for {alertmanager.name}")
+
                 # Use urljoin to properly handle subpaths (e.g., /alertmanager for Mimir)
                 # Ensure base URL ends with / for proper path joining
                 base_url = alertmanager.url
                 if not base_url.endswith("/"):
                     base_url += "/"
                 url = urljoin(base_url, "api/v2/alerts")
+
+                logger.info(f"Making direct HTTP request to: {url}")
 
                 if not self.session:
                     logger.error("No session available for AlertManager fetch")
@@ -163,6 +179,35 @@ class AlertFetcher:
 
         except requests.Timeout:
             logger.error(f"Timeout fetching alerts from {alertmanager.name}")
+            if not alertmanager.use_proxy:
+                logger.info(f"  Timeout on direct connection to: {alertmanager.url}")
+                logger.info(
+                    "  This might indicate the service is not accessible from outside the cluster"
+                )
+                logger.info(
+                    "  Consider using kubectl proxy or port-forward to access the service"
+                )
+            return []
+        except requests.ConnectionError as e:
+            logger.error(
+                f"Connection error fetching alerts from {alertmanager.name}: {e}"
+            )
+            if not alertmanager.use_proxy and ".svc.cluster.local" in (
+                alertmanager.url or ""
+            ):
+                logger.error(
+                    "  ERROR: Trying to connect to cluster-internal URL from outside the cluster"
+                )
+                logger.error(f"  URL: {alertmanager.url}")
+                logger.error(
+                    "  This URL is only accessible from within the Kubernetes cluster"
+                )
+                logger.error("  Solutions:")
+                logger.error("    1. Run Holmes inside the cluster")
+                logger.error("    2. Use kubectl port-forward to access the service")
+                logger.error(
+                    "    3. Configure AlertManager auto-discovery (it will use kube proxy)"
+                )
             return []
         except Exception as e:
             error_msg = f"Error fetching alerts from {alertmanager.name}: {e}"

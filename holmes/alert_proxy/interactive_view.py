@@ -1017,6 +1017,9 @@ UI:
 
         self._update_console()
 
+        # Scroll console to bottom to see the new message
+        self.console_area.buffer.cursor_position = len(self.console_area.text)
+
     # Update methods
     def _update_list(self):
         """Update the alert list display."""
@@ -1082,7 +1085,11 @@ UI:
 
     def _update_console(self):
         """Update the console pane."""
-        # Remember if we were at the bottom
+        # Preserve cursor positions in all panes
+        list_cursor = self.list_area.buffer.cursor_position
+        inspector_cursor = self.inspector_area.buffer.cursor_position
+
+        # Remember if console was at the bottom
         was_at_bottom = False
         if (
             self.console_area.buffer.cursor_position
@@ -1090,10 +1097,14 @@ UI:
         ):
             was_at_bottom = True
 
-        # Update text
+        # Update console text
         self.console_area.text = self.console.get_text()
 
-        # Auto-scroll if we were at bottom
+        # Restore cursor positions
+        self.list_area.buffer.cursor_position = list_cursor
+        self.inspector_area.buffer.cursor_position = inspector_cursor
+
+        # Auto-scroll console if we were at bottom
         if self.console.get_lines() and was_at_bottom:
             self.console_area.buffer.cursor_position = len(self.console_area.text)
 

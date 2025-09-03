@@ -51,19 +51,41 @@ class AlertManagerDiscovery:
         discovered = []
 
         if self.k8s_available:
+            logger.info("Starting AlertManager discovery via multiple methods...")
+
             # Method 1: Service discovery
-            discovered.extend(self.discover_via_services())
+            services = self.discover_via_services()
+            logger.info(f"  Service discovery found: {len(services)} instance(s)")
+            for svc in services:
+                logger.info(
+                    f"    - {svc.namespace}/{svc.name} (port: {svc.port}, proxy: {svc.use_proxy})"
+                )
+            discovered.extend(services)
 
             # Method 2: StatefulSet/Deployment discovery
-            discovered.extend(self.discover_via_workloads())
+            workloads = self.discover_via_workloads()
+            logger.info(f"  Workload discovery found: {len(workloads)} instance(s)")
+            for wl in workloads:
+                logger.info(f"    - {wl.namespace}/{wl.name} (source: {wl.source})")
+            discovered.extend(workloads)
 
-            # Method 3: Pod label discovery
-            discovered.extend(self.discover_via_pod_labels())
+            # Method 3: Skip pod label discovery - we only want services
+            # Pods are redundant and can cause connection issues from outside the cluster
+            logger.info("  Skipping pod discovery (using services only)")
+        else:
+            logger.warning("Kubernetes not available, skipping k8s-based discovery")
 
         # Method 4: Environment variables or config
-        discovered.extend(self.discover_via_env())
+        env_instances = self.discover_via_env()
+        if env_instances:
+            logger.info(
+                f"  Environment discovery found: {len(env_instances)} instance(s)"
+            )
+            for env in env_instances:
+                logger.info(f"    - {env.name} (url: {env.url})")
+            discovered.extend(env_instances)
 
-        # Deduplicate by service name and namespace
+        # Simple deduplication by namespace/name
         seen_keys = set()
         unique = []
         for am in discovered:
@@ -71,8 +93,12 @@ class AlertManagerDiscovery:
             if key not in seen_keys:
                 unique.append(am)
                 seen_keys.add(key)
+            else:
+                logger.debug(f"  Skipping duplicate: {key}")
 
-        logger.debug(f"Discovered {len(unique)} AlertManager instance(s)")
+        logger.info(
+            f"Discovery complete: {len(unique)} unique AlertManager instance(s) found"
+        )
         return unique
 
     def discover_via_services(self) -> List[AlertManagerInstance]:
@@ -216,8 +242,13 @@ class AlertManagerDiscovery:
                                             name=pod.metadata.name,
                                             namespace=pod.metadata.namespace,
                                             url=url,
+                                            port=port.container_port,
                                             source="pod",
+                                            use_proxy=False,  # Don't use proxy for direct pod IPs
                                         )
+                                    )
+                                    logger.info(
+                                        f"Found AlertManager pod: {pod.metadata.name} at {pod.status.pod_ip}:{port.container_port}"
                                     )
                                     break
         except ApiException as e:

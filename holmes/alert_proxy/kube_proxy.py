@@ -29,6 +29,7 @@ class KubeProxy:
             self.cert = None
             self.ca_cert = None
             self.verify_ssl = True
+            logger.warning("KubeProxy: Kubernetes not available, proxy disabled")
             return
 
         try:
@@ -38,29 +39,80 @@ class KubeProxy:
             self.api_host = config.host
             self.headers = {}
 
+            logger.info(f"KubeProxy: API host: {self.api_host}")
+
             # Add authentication headers
             if config.api_key:
                 for key, value in config.api_key.items():
                     if key == "authorization":
                         self.headers["Authorization"] = value
+                        logger.info(f"KubeProxy: Using API key auth (key type: {key})")
 
+            # Handle client certificate - requests library needs both cert and key
             if config.cert_file:
-                self.cert = config.cert_file
+                # Check if we have both cert and key files
+                if hasattr(config, "key_file") and config.key_file:
+                    # requests library expects a tuple of (cert_file, key_file) for client certs
+                    self.cert = (config.cert_file, config.key_file)
+                    logger.info(
+                        f"KubeProxy: Client cert/key configured: {config.cert_file}, {config.key_file}"
+                    )
+                else:
+                    # Only cert file, no separate key file (might be combined in the cert file)
+                    self.cert = config.cert_file
+                    logger.info(
+                        f"KubeProxy: Client cert configured (no separate key): {config.cert_file}"
+                    )
+
+                # Validate cert file exists and is readable
+                try:
+                    import os
+
+                    if isinstance(self.cert, tuple):
+                        for cert_path in self.cert:
+                            if not os.path.exists(cert_path):
+                                logger.error(
+                                    f"KubeProxy: Certificate file not found: {cert_path}"
+                                )
+                                self.cert = None
+                    elif self.cert and not os.path.exists(self.cert):
+                        logger.error(
+                            f"KubeProxy: Certificate file not found: {self.cert}"
+                        )
+                        self.cert = None
+                except Exception as e:
+                    logger.error(f"KubeProxy: Error checking cert files: {e}")
+                    self.cert = None
             else:
                 self.cert = None
+                logger.info("KubeProxy: No client cert configured")
 
             if config.ssl_ca_cert:
                 self.ca_cert = config.ssl_ca_cert
+                logger.info(f"KubeProxy: CA cert configured: {config.ssl_ca_cert}")
+                # Validate CA cert file exists
+                try:
+                    import os
+
+                    if not os.path.exists(self.ca_cert):
+                        logger.error(
+                            f"KubeProxy: CA cert file not found: {self.ca_cert}"
+                        )
+                        self.ca_cert = None
+                except Exception as e:
+                    logger.error(f"KubeProxy: Error checking CA cert file: {e}")
             else:
                 self.ca_cert = None
+                logger.info("KubeProxy: No CA cert configured")
 
             # Whether to verify SSL
             self.verify_ssl = (
                 config.verify_ssl if hasattr(config, "verify_ssl") else True
             )
+            logger.info(f"KubeProxy: SSL verification: {self.verify_ssl}")
 
         except Exception as e:
-            logger.warning(f"Kubernetes API not available: {e}")
+            logger.warning(f"KubeProxy: Kubernetes API not available: {e}")
             self.available = False
 
     def get_service_proxy_url(
@@ -100,20 +152,32 @@ class KubeProxy:
         verify_param = False  # Default to no verification
         cert_param = None
 
+        logger.info("KubeProxy: Configuring SSL for proxy request")
+        logger.info(
+            f"  verify_ssl={self.verify_ssl}, ca_cert={self.ca_cert}, cert={self.cert}"
+        )
+
         if self.verify_ssl and self.ca_cert:
             # Use CA cert file for verification
             verify_param = self.ca_cert
+            logger.info(f"  Using CA cert for SSL verification: {self.ca_cert}")
         elif not self.verify_ssl:
             # Disable SSL verification
             verify_param = False
+            logger.info("  SSL verification disabled")
 
         # Handle client certificate if provided (only when SSL verification is enabled)
         if self.cert and self.verify_ssl:
             cert_param = self.cert
+            logger.info(f"  Using client cert: {self.cert}")
 
         # Make the request via API proxy
         try:
-            logger.debug(f"Making proxy request to {url}")
+            logger.info(f"Making proxy request to {url}")
+            logger.info(f"  Headers: {list(self.headers.keys())}")
+            logger.info(f"  Verify: {verify_param}")
+            logger.info(f"  Cert: {cert_param}")
+
             response = requests.request(
                 method=method,
                 url=url,
@@ -141,8 +205,35 @@ class KubeProxy:
                 )
                 return {}  # Return empty dict instead of None
 
+        except requests.exceptions.SSLError as e:
+            logger.error(f"SSL Error making proxy request to {service_name}: {e}")
+            logger.info(f"  SSL Error details: {str(e)}")
+            logger.info(f"  URL: {url}")
+            logger.info(f"  verify_param: {verify_param}")
+            logger.info(f"  cert_param: {cert_param}")
+            # Try to provide more helpful error messages
+            if "PEM lib" in str(e):
+                logger.error(
+                    "  This appears to be a certificate format issue. Check that cert files are valid PEM format."
+                )
+            elif "certificate verify failed" in str(e):
+                logger.error(
+                    "  Certificate verification failed. The CA cert may not match the server's certificate."
+                )
+            return {}
+        except requests.exceptions.ConnectionError as e:
+            logger.error(
+                f"Connection Error making proxy request to {service_name}: {e}"
+            )
+            return {}
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout making proxy request to {service_name}: {e}")
+            return {}
         except Exception as e:
             logger.error(f"Error making proxy request to {service_name}: {e}")
+            import traceback
+
+            logger.debug(f"  Traceback: {traceback.format_exc()}")
             return {}
 
     def get_alertmanager_alerts(

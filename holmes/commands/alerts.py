@@ -197,16 +197,14 @@ def list_alerts(
         max_alerts = 100
 
         # Fetch alerts using AlertManager
-        async def fetch_alerts():
-            import aiohttp
+        def fetch_alerts():
+            import requests  # type: ignore
             from holmes.alert_proxy.alert_manager import AlertManager
             from holmes.alert_proxy.alert_fetcher import AlertFetcher
             from holmes.alert_proxy.kube_proxy import KubeProxy
 
             # Create session
-            session = aiohttp.ClientSession(
-                timeout=aiohttp.ClientTimeout(total=10)  # 10 second timeout
-            )
+            session = requests.Session()
 
             try:
                 # Create components
@@ -231,7 +229,7 @@ def list_alerts(
                     console.print(
                         "[yellow]Discovering AlertManager instances...[/yellow]"
                     )
-                    await alert_manager.discover_alertmanagers()
+                    alert_manager.discover_alertmanagers()
                     if not alert_manager.alertmanager_instances:
                         console.print("[red]No AlertManager instances found[/red]")
                         return []
@@ -255,7 +253,7 @@ def list_alerts(
                     console.print(
                         "[yellow]No AlertManager URL provided, attempting auto-discovery...[/yellow]"
                     )
-                    await alert_manager.discover_alertmanagers()
+                    alert_manager.discover_alertmanagers()
                     if not alert_manager.alertmanager_instances:
                         console.print(
                             "[red]No AlertManager instances found. Specify --alertmanager-url or ensure AlertManager is running in the cluster.[/red]"
@@ -263,7 +261,7 @@ def list_alerts(
                         return []
 
                 # Fetch all alerts (no deduplication needed for list command)
-                all_alerts = await alert_manager.poll_all(deduplicate=False)
+                all_alerts = alert_manager.poll_all(deduplicate=False)
 
                 # Apply severity filter if specified
                 if severity:
@@ -277,14 +275,14 @@ def list_alerts(
 
             finally:
                 # Always close the session
-                await session.close()
+                session.close()
 
         # Fetch alerts
         try:
-            import asyncio
+            import requests
 
-            alerts = asyncio.run(fetch_alerts())
-        except asyncio.TimeoutError:
+            alerts = fetch_alerts()
+        except requests.Timeout:
             console.print(
                 "[red]Timeout: Unable to connect to AlertManager. Check your connection and try again.[/red]"
             )
