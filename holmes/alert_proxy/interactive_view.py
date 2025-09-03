@@ -1094,6 +1094,7 @@ UI:
         # Preserve cursor positions in all panes
         list_cursor = self.list_area.buffer.cursor_position
         inspector_cursor = self.inspector_area.buffer.cursor_position
+        console_cursor = self.console_area.buffer.cursor_position
 
         # Remember if console was at the bottom
         was_at_bottom = False
@@ -1110,9 +1111,13 @@ UI:
         self.list_area.buffer.cursor_position = list_cursor
         self.inspector_area.buffer.cursor_position = inspector_cursor
 
-        # Auto-scroll console if we were at bottom
+        # Auto-scroll console if we were at bottom, otherwise restore position
         if self.console.get_lines() and was_at_bottom:
             self.console_area.buffer.cursor_position = len(self.console_area.text)
+        else:
+            # Restore console cursor position if it's still valid
+            if console_cursor <= len(self.console_area.text):
+                self.console_area.buffer.cursor_position = console_cursor
 
     # Public methods
     def start(self):
