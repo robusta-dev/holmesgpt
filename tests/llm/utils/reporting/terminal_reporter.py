@@ -1072,6 +1072,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         # Skip entirely skipped tests
         if all(r.get("status") == "skipped" for r in results):
             total_skip += len(results)
+            total_runs += len(results)  # Count skipped tests in total runs
             continue
 
         runs = count_results(results, ResultType.ALL)
