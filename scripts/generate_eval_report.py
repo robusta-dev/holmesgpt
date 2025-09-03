@@ -17,7 +17,10 @@ def parse_args():
     parser.add_argument(
         "--output-file", required=True, help="Path to output markdown file"
     )
-    parser.add_argument("--models", help="Comma-separated list of models tested")
+    parser.add_argument(
+        "--models",
+        help="Comma-separated list of models tested (auto-detected if not provided)",
+    )
     return parser.parse_args()
 
 
@@ -33,6 +36,35 @@ def load_results(json_file: Path) -> Dict[str, Any]:
     else:
         # Custom format from our reporter
         return data
+
+
+def extract_models_from_results(results: Dict[str, Any]) -> List[str]:
+    """Extract unique model names from test results."""
+    models = set()
+
+    for test in results.get("tests", []):
+        # Skip deselected tests
+        if test.get("outcome") == "deselected":
+            continue
+
+        # Try to get model from user_properties
+        user_props = test.get("user_properties", [])
+        for prop in user_props:
+            if isinstance(prop, dict) and "model" in prop:
+                models.add(prop["model"])
+                break
+        else:
+            # Fallback to extracting from nodeid
+            nodeid = test.get("nodeid", "")
+            if "[" in nodeid and "-" in nodeid:
+                # Extract model from pattern like [test_case-model]
+                params = nodeid.split("[")[1].split("]")[0]
+                parts = params.split("-")
+                if len(parts) >= 2:
+                    model = "-".join(parts[1:])
+                    models.add(model)
+
+    return sorted(list(models))
 
 
 def parse_pytest_json(data: Dict) -> Dict[str, Any]:
@@ -110,10 +142,8 @@ def generate_summary_table(results: Dict[str, Any], models: List[str]) -> str:
         valid_tests = total - skipped
         success_rate = (passed / valid_tests * 100) if valid_tests > 0 else 0
 
-        # Format model name for display
-        display_model = model.replace("anthropic/", "").replace("-20241022", "")
-        if len(display_model) > 30:
-            display_model = display_model[:27] + "..."
+        # Use full model name for display
+        display_model = model
 
         # Add emoji indicator based on success rate
         if success_rate >= 95:
@@ -127,6 +157,177 @@ def generate_summary_table(results: Dict[str, Any], models: List[str]) -> str:
             f"| {display_model} | {passed} | {failed} | {skipped} | {total} | "
             f"{indicator} {success_rate:.1f}% |"
         )
+
+    return "\n".join(lines)
+
+
+def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
+    """Generate a heatmap dashboard showing each eval x model with color-coded pass rates."""
+    # Collect data by eval test and model
+    eval_model_stats: DefaultDict[str, DefaultDict[str, Dict[str, int]]] = defaultdict(
+        lambda: defaultdict(lambda: {"total": 0, "passed": 0})
+    )
+
+    all_evals: Set[str] = set()
+    all_models: Set[str] = set()
+
+    for test in results.get("tests", []):
+        # Skip deselected tests
+        if test.get("outcome") == "deselected":
+            continue
+
+        # Extract eval test case and model
+        eval_case = None
+        model = None
+
+        # Try to get from user_properties first
+        user_props = test.get("user_properties", [])
+        for prop in user_props:
+            if isinstance(prop, dict):
+                if "clean_test_case_id" in prop:
+                    eval_case = prop["clean_test_case_id"]
+                if "model" in prop:
+                    model = prop["model"]
+
+        # Fallback to nodeid parsing
+        if not eval_case or not model:
+            nodeid = test.get("nodeid", "")
+            if "[" in nodeid and "]" in nodeid:
+                params = nodeid.split("[")[1].split("]")[0]
+                parts = params.split("-")
+                if not eval_case and len(parts) >= 1:
+                    eval_case = parts[0]
+                if not model and len(parts) >= 2:
+                    model = "-".join(parts[1:])
+
+        if eval_case and model:
+            all_evals.add(eval_case)
+            all_models.add(model)
+            outcome = test.get("outcome", "unknown")
+
+            eval_model_stats[eval_case][model]["total"] += 1
+            if outcome == "passed":
+                eval_model_stats[eval_case][model]["passed"] += 1
+
+    if not all_evals or not all_models:
+        return ""
+
+    # Build the dashboard heatmap
+    lines = []
+    lines.append("## 📊 Evaluation Dashboard")
+    lines.append("")
+    lines.append(
+        "Real-time health status of all evaluations across models. Color coding:"
+    )
+    lines.append("- 🟢 **Green**: Passing 100% (stable)")
+    lines.append("- 🟡 **Yellow**: Passing 50-99% (flaky)")
+    lines.append("- 🔴 **Red**: Passing <50% (failing)")
+    lines.append("")
+
+    # Sort evals and models
+    sorted_evals = sorted(all_evals)
+    sorted_models = sorted(all_models)
+
+    # Format model names for display (keep full names)
+    display_models = []
+    for model in sorted_models:
+        display_model = model
+        display_models.append(display_model)
+
+    # Create table header
+    header = "| Eval ID | " + " | ".join(display_models) + " |"
+    separator = "|---------|" + "|".join(["-------"] * len(sorted_models)) + "|"
+
+    lines.append(header)
+    lines.append(separator)
+
+    # Data rows (one per eval)
+    for eval_case in sorted_evals:
+        row = [f"**{eval_case}**"]
+
+        for model in sorted_models:
+            stats = eval_model_stats[eval_case][model]
+            if stats["total"] > 0:
+                passed = stats["passed"]
+                total = stats["total"]
+                rate = (passed / total * 100) if total > 0 else 0
+
+                # Determine color and emoji based on pass rate
+                if rate == 100:
+                    cell = "🟢"  # Perfect pass
+                elif rate >= 90:
+                    cell = "🟢"  # Very good
+                elif rate >= 70:
+                    cell = "🟡"  # Flaky
+                elif rate >= 50:
+                    cell = "🟡"  # More flaky
+                elif rate > 0:
+                    cell = "🔴"  # Mostly failing
+                else:
+                    cell = "🔴"  # Complete failure
+
+                # Add hover text with details (for markdown that supports it)
+                cell = f"{cell}"
+            else:
+                cell = "⬜"  # No data
+
+            row.append(cell)
+
+        lines.append("| " + " | ".join(row) + " |")
+
+    # Add summary row (no separator needed in markdown tables)
+    summary_row = ["**SUMMARY**"]
+
+    for model in sorted_models:
+        total_passed = 0
+        total_tests = 0
+        for eval_case in sorted_evals:
+            stats = eval_model_stats[eval_case][model]
+            total_passed += stats["passed"]
+            total_tests += stats["total"]
+
+        if total_tests > 0:
+            overall_rate = total_passed / total_tests * 100
+            if overall_rate >= 95:
+                cell = f"🟢 {overall_rate:.0f}%"
+            elif overall_rate >= 80:
+                cell = f"🟡 {overall_rate:.0f}%"
+            else:
+                cell = f"🔴 {overall_rate:.0f}%"
+        else:
+            cell = "N/A"
+
+        summary_row.append(cell)
+
+    lines.append("| " + " | ".join(summary_row) + " |")
+
+    # Add detailed breakdown for reference
+    lines.append("")
+    lines.append("<details>")
+    lines.append("<summary>📈 Click for detailed pass rates</summary>")
+    lines.append("")
+    lines.append("| Eval ID | " + " | ".join(display_models) + " |")
+    lines.append("|---------|" + "|".join(["-------"] * len(sorted_models)) + "|")
+
+    for eval_case in sorted_evals:
+        row = [f"{eval_case}"]
+
+        for model in sorted_models:
+            stats = eval_model_stats[eval_case][model]
+            if stats["total"] > 0:
+                passed = stats["passed"]
+                total = stats["total"]
+                rate = (passed / total * 100) if total > 0 else 0
+                cell = f"{rate:.0f}% ({passed}/{total})"
+            else:
+                cell = "-"
+
+            row.append(cell)
+
+        lines.append("| " + " | ".join(row) + " |")
+
+    lines.append("")
+    lines.append("</details>")
 
     return "\n".join(lines)
 
@@ -189,16 +390,14 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
     sorted_models = sorted(all_models)
     sorted_tags = sorted(all_tags)
 
-    # Format model names for display
+    # Use full model names for display
     display_models = []
     for model in sorted_models:
-        display_model = model.replace("anthropic/", "").replace("-20241022", "")
-        if len(display_model) > 15:
-            display_model = display_model[:12] + "..."
+        display_model = model
         display_models.append(display_model)
 
     header = "| Tag | " + " | ".join(display_models) + " |"
-    separator = "|-----|" + "-------|" * len(sorted_models)
+    separator = "|-----|" + "|".join(["-------"] * len(sorted_models)) + "|"
 
     lines.append(header)
     lines.append(separator)
@@ -389,10 +588,8 @@ def generate_latency_comparison_table(results: Dict[str, Any]) -> str:
         p50 = timings[p50_idx] if p50_idx < len(timings) else timings[-1]
         p95 = timings[p95_idx] if p95_idx < len(timings) else timings[-1]
 
-        # Format model name for display
-        display_model = model.replace("anthropic/", "").replace("-20241022", "")
-        if len(display_model) > 30:
-            display_model = display_model[:27] + "..."
+        # Use full model name for display
+        display_model = model
 
         lines.append(
             f"| {display_model} | {avg_time:.1f} | {min_time:.1f} | "
@@ -477,8 +674,13 @@ def main():
     # Load results
     results = load_results(Path(args.json_file))
 
-    # Parse models
-    models = args.models.split(",") if args.models else []
+    # Parse models - auto-detect from results if not provided
+    if args.models:
+        models = args.models.split(",")
+    else:
+        models = extract_models_from_results(results)
+        if models:
+            print(f"Auto-detected models: {', '.join(models)}")
 
     # Generate report sections
     report_lines = []
@@ -502,6 +704,12 @@ def main():
         "and provide actionable insights."
     )
     report_lines.append("")
+
+    # Dashboard heatmap - show this first for quick overview
+    dashboard = generate_eval_dashboard_heatmap(results)
+    if dashboard:
+        report_lines.append(dashboard)
+        report_lines.append("")
 
     # Model accuracy comparison table
     report_lines.append("## Model Accuracy Comparison")
