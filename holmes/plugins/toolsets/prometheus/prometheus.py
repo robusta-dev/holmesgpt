@@ -92,23 +92,17 @@ class AMPConfig(PrometheusConfig):
     prometheus_ssl_enabled: bool = False
     assume_role_arn: Optional[str] = None
 
-    # cache the client
-    _aws_client: Optional[AWSPrometheusConnect] = None
-
     def is_amp(self) -> bool:
         return True
 
     def get_aws_client(self) -> Optional[AWSPrometheusConnect]:
-        if self._aws_client:
-            return self._aws_client
         try:
             base_config = BasePrometheusConfig(
                 url=self.prometheus_url,
                 disable_ssl=not self.prometheus_ssl_enabled,
                 additional_labels=self.additional_labels,
             )
-            # Prometrix client (SigV4 signing)
-            self._aws_client = AWSPrometheusConnect(
+            return AWSPrometheusConnect(
                 access_key=self.aws_access_key,
                 secret_key=self.aws_secret_access_key,
                 token=None,
@@ -117,7 +111,6 @@ class AMPConfig(PrometheusConfig):
                 assume_role_arn=self.assume_role_arn,
                 config=base_config,
             )
-            return self._aws_client
         except Exception:
             logging.exception("Failed to create aws client")
             return None
