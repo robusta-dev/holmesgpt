@@ -1,6 +1,5 @@
 import os
 from contextlib import contextmanager
-import traceback
 import pytest
 from pytest_shared_session_scope import (
     shared_session_scope_json,
@@ -221,69 +220,156 @@ def force_pytest_output(request):
 
 
 def check_llm_api_with_test_call():
-    """Check if LLM API is available by creating client and making test call"""
-    print("\n🔍 DEBUG: check_llm_api_with_test_call() starting...")
-    print(f"  - OPENAI_API_KEY set: {bool(os.environ.get('OPENAI_API_KEY'))}")
-    print(f"  - AZURE_API_KEY set: {bool(os.environ.get('AZURE_API_KEY'))}")
-    print(f"  - AZURE_API_BASE: {os.environ.get('AZURE_API_BASE', 'Not set')}")
+    """Check if LLM API is available by testing ALL models that will be used"""
+    import litellm
 
+    # Get all models that will be tested
+    # TODO: Get default model from global config instead of hardcoding "gpt-4o"
+    # Should use something like: Config().model or get_default_model()
+    models_str = os.environ.get("MODEL", "gpt-4o")
+    test_models = models_str.split(",")
+
+    # Also check the classifier model
+    # TODO: Get default model from global config instead of hardcoding "gpt-4o"
+    # Should use something like: Config().model or get_default_model()
+    classifier_model = os.environ.get(
+        "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
+    )
+
+    failed_models = []
+    error_messages = []
+
+    # Check each test model using the same method Holmes uses
+    for model_name in test_models:
+        model_name = model_name.strip()
+
+        try:
+            # Use LiteLLM directly to test the model, same as Holmes does
+            # This will automatically handle OpenAI, Azure, Anthropic, etc.
+            _ = litellm.completion(
+                model=model_name,
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=1,
+            )
+        except Exception as e:
+            failed_models.append(model_name)
+            # Extract more useful error message with provider info
+            error_str = str(e)
+            azure_base = os.environ.get("AZURE_API_BASE")
+
+            # Build helpful provider-specific message
+            if azure_base and not model_name.startswith("anthropic/"):
+                provider_msg = f"Tried to use AzureAI (model: {model_name}) because AZURE_API_BASE was set. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
+            elif model_name.startswith("azure/"):
+                provider_msg = f"Tried to use AzureAI (model: {model_name}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION."
+            elif model_name.startswith("anthropic/"):
+                provider_msg = f"Tried to use Anthropic (model: {model_name}). Check ANTHROPIC_API_KEY."
+            else:
+                provider_msg = f"Tried to use OpenAI (model: {model_name}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+
+            # Show both the helpful message and the full error (no truncation)
+            error_msg = f"{provider_msg}\n    Error: {error_str}"
+            error_messages.append(error_msg)
+
+    # Check classifier model (using the original logic for compatibility)
     try:
-        print("  - Attempting to create LLM client...")
         client, model = create_llm_client()
-        print(f"  - Client created successfully with model: {model}")
-        print("  - Making test API call...")
         client.chat.completions.create(
             model=model, messages=[{"role": "user", "content": "test"}], max_tokens=1
         )
-        print("  - ✅ Test API call succeeded!")
-        return True, None
     except Exception as e:
-        print(f"  - ❌ Test API call failed: {type(e).__name__}: {e}")
+        failed_models.append(f"classifier:{classifier_model}")
+        # Build helpful provider-specific message for classifier
+        azure_base = os.environ.get("AZURE_API_BASE")
+        if azure_base:
+            provider_msg = f"Tried to use AzureAI for classifier (model: {classifier_model}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
+        else:
+            provider_msg = f"Tried to use OpenAI for classifier (model: {classifier_model}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+        error_messages.append(f"{provider_msg}\n    Error: {str(e)}")
+
+    # Report results
+    if failed_models:
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
-        classifier_model = os.environ.get(
-            "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
-        )
 
-        # Build provider-specific message
-        if azure_base:
-            provider_msg = (
-                f"Tried to use AzureAI (model: {classifier_model}) because AZURE_API_BASE was set. "
-                "Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
-            )
-        else:
-            provider_msg = (
-                f"Tried to use OpenAI (model: {classifier_model}). "
-                "Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
-            )
-
-        # Add error info + stacktrace
-        error_msg = (
-            f"Exception: {type(e).__name__}: {e}\n"
-            f"{traceback.format_exc()}\n"
-            f"{provider_msg}"
-        )
+        error_msg = "Failed to validate API access for the following models:\n\n"
+        # Add spacing between error messages for better readability
+        formatted_errors = []
+        for msg in error_messages:
+            # Each error message already has provider_msg\n    Error: format
+            # Add bullet and proper indentation
+            formatted_errors.append(f"  - {msg}")
+        error_msg += "\n\n".join(formatted_errors)
+        error_msg += "\n\nEnvironment status:\n"
+        error_msg += f"  - OPENAI_API_KEY: {'set' if os.environ.get('OPENAI_API_KEY') else 'not set'}\n"
+        error_msg += f"  - ANTHROPIC_API_KEY: {'set' if os.environ.get('ANTHROPIC_API_KEY') else 'not set'}\n"
+        error_msg += f"  - AZURE_API_KEY: {'set' if os.environ.get('AZURE_API_KEY') else 'not set'}\n"
+        error_msg += f"  - AZURE_API_BASE: {azure_base or 'not set'}\n"
 
         return False, error_msg
+
+    return True, None
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Hook to modify test collection. Runs BEFORE any tests start.
+    This ensures we validate LLM availability before pytest starts executing tests.
+    """
+    # Don't validate during collection-only mode
+    if config.getoption("--collect-only"):
+        return
+
+    # Check if LLM marker is being excluded
+    markexpr = config.getoption("-m", default="")
+    if "not llm" in markexpr:
+        return
+
+    # Find all LLM tests
+    llm_tests = [item for item in items if item.get_closest_marker("llm")]
+
+    if llm_tests:
+        # Check API connectivity
+        api_available, error_msg = check_llm_api_with_test_call()
+
+        # Store the result in config to avoid re-checking later
+        config._llm_api_available = api_available
+        config._llm_api_error_msg = error_msg
+
+        if not api_available:
+            # Print skip message immediately
+            print("\n" + "=" * 70)
+            print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
+            print()
+            print(f"  Reason: {error_msg}")
+            print()
+            print("To see all available evals:")
+            print(
+                "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
+            )
+            print()
+            print("To run a specific eval:")
+            print("  poetry run pytest --no-cov -k 01_how_many_pods")
+            print("=" * 70 + "\n")
+
+            # Mark all LLM tests as skipped with the detailed error message
+            for test in llm_tests:
+                test.add_marker(pytest.mark.skip(reason=error_msg))
 
 
 @pytest.fixture(scope="session", autouse=True)
 def llm_availability_check(request):
-    """Handle LLM test session setup: show warning, check API, and skip if needed"""
-    print("\n🔍 DEBUG: llm_availability_check fixture started")
+    """Handle LLM test session setup: show warning message only"""
     # Don't show messages during collection-only mode
     # Check if we're in collect-only mode
     collect_only = request.config.getoption("--collect-only")
-    print(f"🔍 DEBUG: collect_only = {collect_only}")
 
     if collect_only:
         return
 
     # Check if LLM marker is being excluded
     markexpr = request.config.getoption("-m", default="")
-    print(f"🔍 DEBUG: markexpr = '{markexpr}'")
     if "not llm" in markexpr:
-        print("🔍 DEBUG: Skipping API check because 'not llm' in markers")
         return  # Don't show warning if explicitly excluding LLM tests
 
     # session.items contains the final filtered list of tests that will actually run
@@ -291,12 +377,18 @@ def llm_availability_check(request):
     llm_tests = [item for item in session.items if item.get_closest_marker("llm")]
 
     if llm_tests:
-        print(f"\n🔍 DEBUG: llm_availability_check found {len(llm_tests)} LLM tests")
-        # Check API connectivity and show appropriate message
-        api_available, error_msg = check_llm_api_with_test_call()
-        print(f"🔍 DEBUG: API check result - available: {api_available}")
+        # Use the cached result from pytest_collection_modifyitems if available
+        # Otherwise check now (this handles cases where the hook didn't run)
+        if hasattr(request.config, "_llm_api_available"):
+            api_available = request.config._llm_api_available
+            error_msg = request.config._llm_api_error_msg
+        else:
+            api_available, error_msg = check_llm_api_with_test_call()
 
+        # Only show messages if API is available (tests will run)
+        # Skip message is already shown by pytest_collection_modifyitems hook
         if api_available:
+            # API is available, tests will run, show warning
             with force_pytest_output(request):
                 print("\n" + "=" * 70)
                 print(f"⚠️  WARNING: About to run {len(llm_tests)} LLM evaluation tests")
@@ -338,37 +430,6 @@ def llm_availability_check(request):
                         "set BRAINTRUST_API_KEY environment variable with a key from https://braintrust.dev"
                     )
                 print("=" * 70 + "\n")
-        else:
-            with force_pytest_output(request):
-                print("\n" + "=" * 70)
-                print(f"ℹ️  INFO: {len(llm_tests)} LLM evaluation tests will be skipped")
-                print()
-                print(f"  Reason: {error_msg}")
-                print()
-                print("To see all available evals:")
-                print(
-                    "  poetry run pytest -m llm --collect-only -q --no-cov --disable-warnings"
-                )
-                print()
-                print("To run a specific eval:")
-                print("  poetry run pytest --no-cov -k 01_how_many_pods")
-                print("=" * 70 + "\n")
-
-            # Skip all LLM tests if API is not available
-            print(f"🔍 DEBUG: Calling pytest.skip() to skip {len(llm_tests)} tests")
-            print(
-                f"🔍 DEBUG: pytest.skip() error message length: {len(error_msg)} chars"
-            )
-
-            # Try different approaches to skip tests
-            # Approach 1: Mark each test individually
-            for test in llm_tests:
-                print(f"🔍 DEBUG: Marking test as skipped: {test.nodeid}")
-                test.add_marker(pytest.mark.skip(reason="LLM API not available"))
-
-            # Approach 2: Also call pytest.skip() for the session
-            pytest.skip(error_msg)
-            print("🔍 DEBUG: This line should NOT be printed (after pytest.skip)")
 
     return
 
