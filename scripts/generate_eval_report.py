@@ -3,10 +3,65 @@
 
 import argparse
 import json
+import os
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, DefaultDict, Set
+from typing import Dict, List, Any, DefaultDict, Set, Optional
 from collections import defaultdict
+from urllib.parse import quote
+
+# Global Braintrust configuration
+BRAINTRUST_ORG = os.environ.get("BRAINTRUST_ORG", "robustadev")
+BRAINTRUST_PROJECT = os.environ.get("BRAINTRUST_PROJECT", "HolmesGPT")
+
+
+def strip_provider_prefix(model_name: str) -> str:
+    """Strip common provider prefixes from model names for cleaner display.
+
+    Args:
+        model_name: Full model name potentially with provider prefix
+
+    Returns:
+        Model name with provider prefix removed
+    """
+    for prefix in ["anthropic/", "openai/", "azure/", "bedrock/", "vertex_ai/"]:
+        if model_name.startswith(prefix):
+            return model_name[len(prefix) :]
+    return model_name
+
+
+def get_rate_emoji(rate: float) -> str:
+    """Get emoji indicator based on success rate.
+
+    Args:
+        rate: Success rate percentage (0-100)
+
+    Returns:
+        Emoji string: 🟢 for 100%, 🔴 for 0%, 🟡 for anything in between
+    """
+    if rate == 100:
+        return "🟢"
+    elif rate == 0:
+        return "🔴"
+    else:
+        return "🟡"
+
+
+def extract_experiment_name_from_results(results: Dict[str, Any]) -> Optional[str]:
+    """Extract experiment name from test results if available.
+
+    Args:
+        results: Test results dictionary
+
+    Returns:
+        Experiment name string, or None if not found
+    """
+    for test in results.get("tests", []):
+        user_props = test.get("user_properties", [])
+        for prop in user_props:
+            if isinstance(prop, dict) and "braintrust_experiment" in prop:
+                return prop["braintrust_experiment"]
+    return None
 
 
 def parse_args():
@@ -22,6 +77,280 @@ def parse_args():
         help="Comma-separated list of models tested (auto-detected if not provided)",
     )
     return parser.parse_args()
+
+
+def get_braintrust_url(test_data: Dict[str, Any]) -> Optional[str]:
+    """Generate Braintrust URL for a test if span IDs are available.
+
+    Args:
+        test_data: Test result dictionary that may contain user_properties
+
+    Returns:
+        Braintrust URL string, or None if span IDs not available
+    """
+    # Check if Braintrust is configured
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return None
+
+    # Extract span IDs and experiment name from user_properties
+    user_props = test_data.get("user_properties", [])
+    span_id = None
+    root_span_id = None
+    experiment_name = None
+
+    for prop in user_props:
+        if isinstance(prop, dict):
+            if "braintrust_span_id" in prop:
+                span_id = prop["braintrust_span_id"]
+            if "braintrust_root_span_id" in prop:
+                root_span_id = prop["braintrust_root_span_id"]
+            if "braintrust_experiment" in prop:
+                experiment_name = prop["braintrust_experiment"]
+
+    if not span_id or not root_span_id:
+        return None
+
+    # Use global Braintrust config
+
+    # Use stored experiment name, or fall back to generating it
+    if not experiment_name:
+        branch = os.environ.get(
+            "GITHUB_REF_NAME", os.environ.get("BUILDKITE_BRANCH", "unknown")
+        )
+        experiment_name = os.environ.get("EXPERIMENT_ID", f"holmes-benchmark-{branch}")
+
+    # URL encode the experiment name
+    encoded_experiment_name = quote(experiment_name, safe="")
+
+    # Build URL with span IDs
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c=&r={span_id}&s={root_span_id}"
+
+    return url
+
+
+def get_braintrust_filter_url(
+    eval_case: str, model: str, experiment_name: Optional[str] = None
+) -> Optional[str]:
+    """Generate Braintrust URL with search filter for a specific eval/model combination.
+
+    Args:
+        eval_case: The test case ID (e.g., "01_how_many_pods")
+        model: The model name (e.g., "gpt-4o")
+        experiment_name: Optional experiment name, will be auto-detected if not provided
+
+    Returns:
+        Braintrust URL string with search filter, or None if Braintrust not configured
+    """
+    # Check if Braintrust is configured
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return None
+
+    # Use global Braintrust config
+
+    # Use provided experiment name or fall back to generating it
+    if not experiment_name:
+        branch = os.environ.get(
+            "GITHUB_REF_NAME", os.environ.get("BUILDKITE_BRANCH", "unknown")
+        )
+        experiment_name = os.environ.get("EXPERIMENT_ID", f"holmes-benchmark-{branch}")
+
+    # URL encode the experiment name
+    encoded_experiment_name = quote(experiment_name, safe="")
+
+    # Create the filter string for span_attributes.name
+    # The name format in Braintrust is typically: "test_case[model]"
+    span_name = f"{eval_case}[{model}]"
+
+    # Build the filter JSON structure
+    filter_obj = {
+        "filter": [
+            {
+                "text": f'span_attributes.name = "{span_name}"',
+                "label": f"Name equals {span_name}",
+                "originType": "form",
+            }
+        ]
+    }
+
+    # URL encode the filter (double encoding for the nested structure)
+    # First encode the inner text field
+    filter_obj["filter"][0]["text"] = quote(filter_obj["filter"][0]["text"], safe="")
+    filter_obj["filter"][0]["label"] = quote(filter_obj["filter"][0]["label"], safe="")
+
+    # Then encode the whole JSON
+    filter_json = json.dumps(filter_obj)
+    encoded_filter = quote(filter_json, safe="")
+
+    # Build URL with search filter
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c=&search={encoded_filter}"
+
+    return url
+
+
+def get_braintrust_tag_filter_url(
+    tag: str, experiment_name: Optional[str] = None
+) -> Optional[str]:
+    """Generate Braintrust URL with search filter for all tests with a specific tag.
+
+    Args:
+        tag: The tag name (e.g., "logs", "easy")
+        experiment_name: Optional experiment name, will be auto-detected if not provided
+
+    Returns:
+        Braintrust URL string with search filter, or None if Braintrust not configured
+    """
+    # Check if Braintrust is configured
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return None
+
+    # Use global Braintrust config
+
+    # Use provided experiment name or fall back to generating it
+    if not experiment_name:
+        branch = os.environ.get(
+            "GITHUB_REF_NAME", os.environ.get("BUILDKITE_BRANCH", "unknown")
+        )
+        experiment_name = os.environ.get("EXPERIMENT_ID", f"holmes-benchmark-{branch}")
+
+    # URL encode the experiment name
+    encoded_experiment_name = quote(experiment_name, safe="")
+
+    # Build the filter JSON structure for tags
+    import json
+
+    filter_obj = {
+        "filter": [
+            {
+                "text": f'tags includes ["{tag}"]',
+                "label": f"Tags includes {tag}",
+                "originType": "form",
+            }
+        ]
+    }
+
+    # URL encode the filter (double encoding for the nested structure)
+    # First encode the inner text field
+    filter_obj["filter"][0]["text"] = quote(filter_obj["filter"][0]["text"], safe="")
+    filter_obj["filter"][0]["label"] = quote(filter_obj["filter"][0]["label"], safe="")
+
+    # Then encode the whole JSON
+    filter_json = json.dumps(filter_obj)
+    encoded_filter = quote(filter_json, safe="")
+
+    # Build URL with search filter
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c=&search={encoded_filter}"
+
+    return url
+
+
+def get_braintrust_eval_filter_url(
+    eval_id: str, experiment_name: Optional[str] = None
+) -> Optional[str]:
+    """Generate Braintrust URL with search filter for all tests of a specific eval.
+
+    Args:
+        eval_id: The eval/test case ID (e.g., "01_how_many_pods")
+        experiment_name: Optional experiment name, will be auto-detected if not provided
+
+    Returns:
+        Braintrust URL string with search filter, or None if Braintrust not configured
+    """
+    # Check if Braintrust is configured
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return None
+
+    # Use global Braintrust config
+
+    # Use provided experiment name or fall back to generating it
+    if not experiment_name:
+        branch = os.environ.get(
+            "GITHUB_REF_NAME", os.environ.get("BUILDKITE_BRANCH", "unknown")
+        )
+        experiment_name = os.environ.get("EXPERIMENT_ID", f"holmes-benchmark-{branch}")
+
+    # URL encode the experiment name
+    encoded_experiment_name = quote(experiment_name, safe="")
+
+    # Build the filter JSON structure for metadata.eval_id
+    filter_obj = {
+        "filter": [
+            {
+                "text": f'metadata.eval_id = "{eval_id}"',
+                "label": f"metadata.eval_id equals {eval_id}",
+                "originType": "form",
+            }
+        ]
+    }
+
+    # URL encode the filter (double encoding for the nested structure)
+    # First encode the inner text field
+    filter_obj["filter"][0]["text"] = quote(filter_obj["filter"][0]["text"], safe="")
+    filter_obj["filter"][0]["label"] = quote(filter_obj["filter"][0]["label"], safe="")
+
+    # Then encode the whole JSON
+    filter_json = json.dumps(filter_obj)
+    encoded_filter = quote(filter_json, safe="")
+
+    # Build URL with search filter
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c=&search={encoded_filter}"
+
+    return url
+
+
+def get_braintrust_model_filter_url(
+    model: str, experiment_name: Optional[str] = None
+) -> Optional[str]:
+    """Generate Braintrust URL with search filter for all tests of a specific model.
+
+    Args:
+        model: The model name (e.g., "gpt-4o")
+        experiment_name: Optional experiment name, will be auto-detected if not provided
+
+    Returns:
+        Braintrust URL string with search filter, or None if Braintrust not configured
+    """
+    # Check if Braintrust is configured
+    if not os.environ.get("BRAINTRUST_API_KEY"):
+        return None
+
+    # Use global Braintrust config
+
+    # Use provided experiment name or fall back to generating it
+    if not experiment_name:
+        branch = os.environ.get(
+            "GITHUB_REF_NAME", os.environ.get("BUILDKITE_BRANCH", "unknown")
+        )
+        experiment_name = os.environ.get("EXPERIMENT_ID", f"holmes-benchmark-{branch}")
+
+    # URL encode the experiment name
+    encoded_experiment_name = quote(experiment_name, safe="")
+
+    # Build the filter JSON structure for metadata.model
+    import json
+
+    filter_obj = {
+        "filter": [
+            {
+                "text": f'metadata.model = "{model}"',
+                "label": f"metadata.model equals {model}",
+                "originType": "form",
+            }
+        ]
+    }
+
+    # URL encode the filter (double encoding for the nested structure)
+    # First encode the inner text field
+    filter_obj["filter"][0]["text"] = quote(filter_obj["filter"][0]["text"], safe="")
+    filter_obj["filter"][0]["label"] = quote(filter_obj["filter"][0]["label"], safe="")
+
+    # Then encode the whole JSON
+    filter_json = json.dumps(filter_obj)
+    encoded_filter = quote(filter_json, safe="")
+
+    # Build URL with search filter
+    url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}?c=&search={encoded_filter}"
+
+    return url
 
 
 def load_results(json_file: Path) -> Dict[str, Any]:
@@ -142,16 +471,11 @@ def generate_summary_table(results: Dict[str, Any], models: List[str]) -> str:
         valid_tests = total - skipped
         success_rate = (passed / valid_tests * 100) if valid_tests > 0 else 0
 
-        # Use full model name for display
-        display_model = model
+        # Strip provider prefix for cleaner display
+        display_model = strip_provider_prefix(model)
 
         # Add emoji indicator based on success rate
-        if success_rate >= 95:
-            indicator = "🟢"
-        elif success_rate >= 80:
-            indicator = "🟡"
-        else:
-            indicator = "🔴"
+        indicator = get_rate_emoji(success_rate)
 
         lines.append(
             f"| {display_model} | {passed} | {failed} | {skipped} | {total} | "
@@ -163,9 +487,17 @@ def generate_summary_table(results: Dict[str, Any], models: List[str]) -> str:
 
 def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     """Generate a heatmap dashboard showing each eval x model with color-coded pass rates."""
-    # Collect data by eval test and model
-    eval_model_stats: DefaultDict[str, DefaultDict[str, Dict[str, int]]] = defaultdict(
-        lambda: defaultdict(lambda: {"total": 0, "passed": 0})
+    # Collect data by eval test and model, including test references for Braintrust links
+    eval_model_stats: DefaultDict[str, DefaultDict[str, Dict[str, Any]]] = defaultdict(
+        lambda: defaultdict(
+            lambda: {
+                "total": 0,
+                "passed": 0,
+                "tests": [],
+                "total_duration": 0,
+                "total_cost": 0,
+            }
+        )
     )
 
     all_evals: Set[str] = set()
@@ -209,6 +541,25 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
             if outcome == "passed":
                 eval_model_stats[eval_case][model]["passed"] += 1
 
+            # Add duration if available
+            duration = (
+                test.get("call", {}).get("duration", 0) if test.get("call") else 0
+            )
+            if duration > 0:
+                eval_model_stats[eval_case][model]["total_duration"] += duration
+
+            # Add cost if available (from user_properties)
+            cost = 0
+            for prop in user_props:
+                if isinstance(prop, dict) and "cost" in prop:
+                    cost = prop["cost"]
+                    break
+            if cost > 0:
+                eval_model_stats[eval_case][model]["total_cost"] += cost
+
+            # Store the test data for potential Braintrust link
+            eval_model_stats[eval_case][model]["tests"].append(test)
+
     if not all_evals or not all_models:
         return ""
 
@@ -216,26 +567,51 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     lines = []
     lines.append("## 📊 Evaluation Dashboard")
     lines.append("")
-    lines.append(
-        "Real-time health status of all evaluations across models. Color coding:"
-    )
+    lines.append("Status of all evaluations across models. Color coding:")
     lines.append("- 🟢 **Green**: Passing 100% (stable)")
-    lines.append("- 🟡 **Yellow**: Passing 50-99% (flaky)")
-    lines.append("- 🔴 **Red**: Passing <50% (failing)")
+    lines.append("- 🟡 **Yellow**: Passing 1-99%")
+    lines.append("- 🔴 **Red**: Passing 0% (failing)")
     lines.append("")
 
     # Sort evals and models
     sorted_evals = sorted(all_evals)
     sorted_models = sorted(all_models)
 
-    # Format model names for display (keep full names)
-    display_models = []
+    # Extract experiment name from any test that has it (needed for URLs)
+    # We need to extract from the actual test data stored in eval_model_stats
+    experiment_name = None
+    for eval_case in sorted_evals:
+        for model in sorted_models:
+            stats = eval_model_stats[eval_case][model]
+            if stats.get("tests"):
+                for test in stats["tests"]:
+                    user_props = test.get("user_properties", [])
+                    for prop in user_props:
+                        if isinstance(prop, dict) and "braintrust_experiment" in prop:
+                            experiment_name = prop["braintrust_experiment"]
+                            break
+                    if experiment_name:
+                        break
+            if experiment_name:
+                break
+        if experiment_name:
+            break
+
+    # Format model names for display (strip provider prefix) and create links
+    display_model_headers = []
     for model in sorted_models:
-        display_model = model
-        display_models.append(display_model)
+        # Strip common provider prefixes for cleaner display
+        display_model = strip_provider_prefix(model)
+
+        # Create link to filter by this model
+        model_filter_url = get_braintrust_model_filter_url(model, experiment_name)
+        if model_filter_url:
+            display_model_headers.append(f"[{display_model}]({model_filter_url})")
+        else:
+            display_model_headers.append(display_model)
 
     # Create table header
-    header = "| Eval ID | " + " | ".join(display_models) + " |"
+    header = "| Eval ID | " + " | ".join(display_model_headers) + " |"
     separator = "|---------|" + "|".join(["-------"] * len(sorted_models)) + "|"
 
     lines.append(header)
@@ -243,7 +619,12 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
     # Data rows (one per eval)
     for eval_case in sorted_evals:
-        row = [f"**{eval_case}**"]
+        # Create link for the eval ID
+        eval_filter_url = get_braintrust_eval_filter_url(eval_case, experiment_name)
+        if eval_filter_url:
+            row = [f"[**{eval_case}**]({eval_filter_url})"]
+        else:
+            row = [f"**{eval_case}**"]
 
         for model in sorted_models:
             stats = eval_model_stats[eval_case][model]
@@ -252,22 +633,19 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 total = stats["total"]
                 rate = (passed / total * 100) if total > 0 else 0
 
-                # Determine color and emoji based on pass rate
-                if rate == 100:
-                    cell = "🟢"  # Perfect pass
-                elif rate >= 90:
-                    cell = "🟢"  # Very good
-                elif rate >= 70:
-                    cell = "🟡"  # Flaky
-                elif rate >= 50:
-                    cell = "🟡"  # More flaky
-                elif rate > 0:
-                    cell = "🔴"  # Mostly failing
-                else:
-                    cell = "🔴"  # Complete failure
+                # Get Braintrust filter URL for this eval/model combination
+                braintrust_url = get_braintrust_filter_url(
+                    eval_case, model, experiment_name
+                )
 
-                # Add hover text with details (for markdown that supports it)
-                cell = f"{cell}"
+                # Determine color and emoji based on pass rate
+                emoji = get_rate_emoji(rate)
+
+                # Create cell with link if available
+                if braintrust_url:
+                    cell = f"[{emoji}]({braintrust_url})"
+                else:
+                    cell = emoji
             else:
                 cell = "⬜"  # No data
 
@@ -288,12 +666,19 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
         if total_tests > 0:
             overall_rate = total_passed / total_tests * 100
-            if overall_rate >= 95:
-                cell = f"🟢 {overall_rate:.0f}%"
-            elif overall_rate >= 80:
-                cell = f"🟡 {overall_rate:.0f}%"
+
+            # Get model filter URL
+            model_filter_url = get_braintrust_model_filter_url(model, experiment_name)
+
+            # Create summary text with emoji
+            emoji = get_rate_emoji(overall_rate)
+            summary_text = f"{emoji} {overall_rate:.0f}%"
+
+            # Add link if available
+            if model_filter_url:
+                cell = f"[{summary_text}]({model_filter_url})"
             else:
-                cell = f"🔴 {overall_rate:.0f}%"
+                cell = summary_text
         else:
             cell = "N/A"
 
@@ -304,13 +689,26 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     # Add detailed breakdown for reference
     lines.append("")
     lines.append("<details>")
-    lines.append("<summary>📈 Click for detailed pass rates</summary>")
+    lines.append(
+        "<summary>📈 Click for detailed pass rates, timings, and costs</summary>"
+    )
     lines.append("")
-    lines.append("| Eval ID | " + " | ".join(display_models) + " |")
+    # Create display model names for the detailed table
+    display_models_detail = []
+    for model in sorted_models:
+        display_model = strip_provider_prefix(model)
+        display_models_detail.append(display_model)
+
+    lines.append("| Eval ID | " + " | ".join(display_models_detail) + " |")
     lines.append("|---------|" + "|".join(["-------"] * len(sorted_models)) + "|")
 
     for eval_case in sorted_evals:
-        row = [f"{eval_case}"]
+        # Create link for the eval ID in detailed breakdown
+        eval_filter_url = get_braintrust_eval_filter_url(eval_case, experiment_name)
+        if eval_filter_url:
+            row = [f"[{eval_case}]({eval_filter_url})"]
+        else:
+            row = [f"{eval_case}"]
 
         for model in sorted_models:
             stats = eval_model_stats[eval_case][model]
@@ -318,7 +716,41 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 passed = stats["passed"]
                 total = stats["total"]
                 rate = (passed / total * 100) if total > 0 else 0
-                cell = f"{rate:.0f}% ({passed}/{total})"
+
+                # Calculate average duration and cost if available
+                avg_duration = (
+                    stats["total_duration"] / stats["total"]
+                    if stats["total_duration"] > 0
+                    else 0
+                )
+                avg_cost = (
+                    stats["total_cost"] / stats["total"]
+                    if stats.get("total_cost", 0) > 0
+                    else 0
+                )
+
+                # Get Braintrust filter URL for this eval/model combination
+                braintrust_url = get_braintrust_filter_url(
+                    eval_case, model, experiment_name
+                )
+
+                # Determine emoji based on pass rate
+                emoji = get_rate_emoji(rate)
+
+                # Create multi-line cell with accuracy, time, and cost on separate lines
+                cell_parts = [f"{emoji} {rate:.0f}% ({passed}/{total})"]
+                if avg_duration > 0:
+                    cell_parts.append(f"⏱️ {avg_duration:.1f}s")
+                if avg_cost > 0:
+                    cell_parts.append(f"💰 ${avg_cost:.4f}")
+
+                cell_text = "<br>".join(cell_parts)
+
+                if braintrust_url:
+                    # For multi-line links, we need to wrap the whole thing
+                    cell = f"[{cell_text}]({braintrust_url})"
+                else:
+                    cell = cell_text
             else:
                 cell = "-"
 
@@ -379,6 +811,9 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
     if not all_tags or not all_models:
         return ""
 
+    # Extract experiment name from any test that has it (needed for URLs)
+    experiment_name = extract_experiment_name_from_results(results)
+
     # Build the table with tags as rows and models as columns
     lines = []
     lines.append("## Performance by Tag")
@@ -390,10 +825,10 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
     sorted_models = sorted(all_models)
     sorted_tags = sorted(all_tags)
 
-    # Use full model names for display
+    # Strip provider prefixes for cleaner display
     display_models = []
     for model in sorted_models:
-        display_model = model
+        display_model = strip_provider_prefix(model)
         display_models.append(display_model)
 
     header = "| Tag | " + " | ".join(display_models) + " |"
@@ -404,7 +839,12 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
 
     # Data rows (one per tag)
     for tag in sorted_tags:
-        row = [tag]
+        # Create tag link if available
+        tag_filter_url = get_braintrust_tag_filter_url(tag, experiment_name)
+        if tag_filter_url:
+            row = [f"[{tag}]({tag_filter_url})"]
+        else:
+            row = [tag]
 
         for model in sorted_models:
             stats = model_tag_stats[model][tag]
@@ -413,12 +853,7 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
                 total = stats["total"]
                 rate = passed / total * 100
                 # Add emoji based on rate
-                if rate >= 95:
-                    emoji = "🟢"
-                elif rate >= 80:
-                    emoji = "🟡"
-                else:
-                    emoji = "🔴"
+                emoji = get_rate_emoji(rate)
                 cell = f"{emoji} {rate:.0f}% ({passed}/{total})"
             else:
                 cell = "N/A"
@@ -438,12 +873,7 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
 
         if total_tests > 0:
             overall_rate = total_passed / total_tests * 100
-            if overall_rate >= 95:
-                emoji = "🟢"
-            elif overall_rate >= 80:
-                emoji = "🟡"
-            else:
-                emoji = "🔴"
+            emoji = get_rate_emoji(overall_rate)
             overall_row.append(
                 f"{emoji} {overall_rate:.0f}% ({total_passed}/{total_tests})"
             )
@@ -455,82 +885,64 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def generate_detailed_results(results: Dict[str, Any]) -> str:
-    """Generate detailed test results grouped by test case."""
-    test_cases: DefaultDict[str, DefaultDict[str, Dict[str, Any]]] = defaultdict(
-        lambda: defaultdict(dict)
-    )
+def generate_cost_comparison_table(results: Dict[str, Any]) -> str:
+    """Generate model cost comparison table."""
+    model_costs: DefaultDict[str, List[float]] = defaultdict(list)
 
     for test in results.get("tests", []):
         # Skip deselected tests
         if test.get("outcome") == "deselected":
             continue
 
-        # Extract test case from user_properties
-        test_case = "unknown"
-        model = "unknown"
-        for prop in test.get("user_properties", []):
+        # Extract model and cost from user_properties
+        model = None
+        cost = None
+
+        user_props = test.get("user_properties", [])
+        for prop in user_props:
             if isinstance(prop, dict):
-                if "clean_test_case_id" in prop:
-                    test_case = prop["clean_test_case_id"]
                 if "model" in prop:
                     model = prop["model"]
+                if "cost" in prop:
+                    cost = prop["cost"]
 
-        # Fallback to nodeid parsing if needed
-        if test_case == "unknown":
-            nodeid = test.get("nodeid", "")
-            if "[" in nodeid:
-                test_case = nodeid.split("[")[1].split("-")[0]
-
-        if model == "unknown":
+        # Fallback: try to extract model from nodeid if needed
+        if not model:
             nodeid = test.get("nodeid", "")
             if "-" in nodeid:
                 model = nodeid.split("-")[-1].rstrip("]")
 
-        outcome = test.get("outcome", "unknown")
-        duration = test.get("call", {}).get("duration", 0) if test.get("call") else 0
+        if model and cost is not None and cost > 0:
+            model_costs[model].append(cost)
 
-        test_cases[test_case][model] = {
-            "outcome": outcome,
-            "duration": duration,
-        }
+    if not model_costs:
+        return ""
 
-    # Get all unique models
-    all_models: Set[str] = set()
-    for test_case_results in test_cases.values():
-        all_models.update(test_case_results.keys())
-
-    sorted_models = sorted(all_models)
-
-    # Build detailed table
+    # Build markdown table
     lines = []
-    lines.append("\n### Detailed Test Results\n")
-    lines.append("| Test Case | " + " | ".join(sorted_models) + " |")
-    lines.append("|-----------|" + "|".join(["-------"] * len(sorted_models)) + "|")
+    lines.append("## Model Cost Comparison")
+    lines.append("")
+    lines.append("| Model | Avg Cost | Min Cost | Max Cost | Total Cost | Tests |")
+    lines.append("|-------|----------|----------|----------|------------|-------|")
 
-    for test_case in sorted(test_cases.keys()):
-        row = [test_case]
-        for model in sorted_models:
-            if model in test_cases[test_case]:
-                result = test_cases[test_case][model]
-                outcome = result["outcome"]
-                duration = result["duration"]
+    for model in sorted(model_costs.keys()):
+        costs = model_costs[model]
+        if not costs:
+            continue
 
-                # Format cell with outcome and time
-                if outcome == "passed":
-                    cell = f"✅ ({duration:.1f}s)"
-                elif outcome == "failed":
-                    cell = f"❌ ({duration:.1f}s)"
-                elif outcome == "skipped":
-                    cell = "⏭️"
-                else:
-                    cell = "?"
-            else:
-                cell = "-"
+        avg_cost = sum(costs) / len(costs)
+        min_cost = min(costs)
+        max_cost = max(costs)
+        total_cost = sum(costs)
+        num_tests = len(costs)
 
-            row.append(cell)
+        # Strip provider prefix for cleaner display
+        display_model = strip_provider_prefix(model)
 
-        lines.append("| " + " | ".join(row) + " |")
+        lines.append(
+            f"| {display_model} | ${avg_cost:.4f} | ${min_cost:.4f} | "
+            f"${max_cost:.4f} | ${total_cost:.2f} | {num_tests} |"
+        )
 
     return "\n".join(lines)
 
@@ -588,8 +1000,8 @@ def generate_latency_comparison_table(results: Dict[str, Any]) -> str:
         p50 = timings[p50_idx] if p50_idx < len(timings) else timings[-1]
         p95 = timings[p95_idx] if p95_idx < len(timings) else timings[-1]
 
-        # Use full model name for display
-        display_model = model
+        # Strip provider prefix for cleaner display
+        display_model = strip_provider_prefix(model)
 
         lines.append(
             f"| {display_model} | {avg_time:.1f} | {min_time:.1f} | "
@@ -694,14 +1106,17 @@ def main():
     report_lines.append(f"**Total Duration**: {results.get('duration', 0):.1f} seconds")
     report_lines.append("")
 
-    # Executive summary
-    report_lines.append("## Executive Summary")
+    # About this benchmark
+    report_lines.append("## About this Benchmark")
     report_lines.append("")
     report_lines.append(
-        "HolmesGPT is continuously evaluated against a comprehensive suite of "
-        "real-world Kubernetes troubleshooting scenarios. Our benchmarks test "
-        "the system's ability to diagnose issues, analyze observability data, "
-        "and provide actionable insights."
+        "HolmesGPT is continuously evaluated against 100+ real-world "
+        "Kubernetes and cloud troubleshooting scenarios."
+    )
+    report_lines.append("")
+    report_lines.append(
+        "If you find scenarios that HolmesGPT does not perform "
+        "well on, please consider adding them as evals to the benchmark."
     )
     report_lines.append("")
 
@@ -717,6 +1132,12 @@ def main():
     report_lines.append(generate_summary_table(results, models))
     report_lines.append("")
 
+    # Model cost comparison table
+    cost_table = generate_cost_comparison_table(results)
+    if cost_table:
+        report_lines.append(cost_table)
+        report_lines.append("")
+
     # Model latency comparison table
     latency_table = generate_latency_comparison_table(results)
     if latency_table:
@@ -729,16 +1150,29 @@ def main():
         report_lines.append(model_tag_table)
         report_lines.append("")
 
-    # Detailed results
-    report_lines.append(generate_detailed_results(results))
-    report_lines.append("")
-
     # Footer
     report_lines.append("---")
-    report_lines.append(
-        "*Results are automatically generated and updated weekly. "
-        "For detailed traces and analysis, see our [Braintrust dashboard](https://braintrust.dev).*"
-    )
+
+    # Try to get experiment URL from any test that has Braintrust data
+    experiment_url = None
+    experiment_name = extract_experiment_name_from_results(results)
+
+    if experiment_name:
+        # Build experiment URL without span IDs (just the experiment page)
+        encoded_experiment_name = quote(experiment_name, safe="")
+        experiment_url = f"https://www.braintrust.dev/app/{BRAINTRUST_ORG}/p/{BRAINTRUST_PROJECT}/experiments/{encoded_experiment_name}"
+
+    # Generate footer text with specific experiment link if available
+    if experiment_url and experiment_name:
+        report_lines.append(
+            f"*Results are automatically generated and updated weekly. "
+            f"View full traces and detailed analysis in [Braintrust experiment: {experiment_name}]({experiment_url}).*"
+        )
+    else:
+        report_lines.append(
+            "*Results are automatically generated and updated weekly. "
+            "For detailed traces and analysis, see our [Braintrust dashboard](https://braintrust.dev).*"
+        )
 
     # Write report
     output_path = Path(args.output_file)

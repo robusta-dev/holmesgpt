@@ -64,6 +64,13 @@ def set_trace_properties(request, eval_span) -> None:
             ("braintrust_root_span_id", str(eval_span.root_span_id))
         )
 
+    # Store the experiment name so we can generate correct URLs later
+    import os
+
+    experiment_name = os.environ.get("EXPERIMENT_ID")
+    if experiment_name:
+        request.node.user_properties.append(("braintrust_experiment", experiment_name))
+
 
 def update_property(request, key: str, value: Any) -> None:
     """Update an existing property value instead of appending a duplicate."""

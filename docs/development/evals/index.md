@@ -25,7 +25,37 @@ Install HolmesGPT python dependencies:
 poetry install --with=dev
 ```
 
-### Basic Commands
+### Quick Start: Using run_benchmarks_local.sh
+
+The easiest way to run benchmarks locally is using the `run_benchmarks_local.sh` script, which mirrors the exact behavior of our CI/CD workflow:
+
+```bash
+# Run with defaults (easy tests, default models, 1 iteration)
+./run_benchmarks_local.sh
+
+# Test specific models
+./run_benchmarks_local.sh 'gpt-4o,claude-sonnet-4'
+
+# Run with custom markers and iterations
+./run_benchmarks_local.sh 'gpt-4o' 'easy and kubernetes' 3
+
+# Filter specific tests by name
+./run_benchmarks_local.sh 'gpt-4o' 'easy' 1 '01_how_many_pods'
+
+# Run with parallel workers for faster execution
+./run_benchmarks_local.sh 'gpt-4o' 'easy' 1 '' 6
+```
+
+The script automatically:
+- Sets up all required environment variables
+- Runs tests with JSON report generation
+- Generates a markdown benchmark report with dashboard, costs, and timings
+- Saves a historical copy in `docs/benchmarks/history/`
+- Shows how to commit results
+
+### Manual Commands
+
+For more control, you can run pytest directly:
 
 ```bash
 # Run all easy evals - these should always pass assuming you have a kubernetes cluster with sufficient resources and a 'good enough model' (e.g. gpt-4o)

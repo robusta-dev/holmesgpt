@@ -239,35 +239,59 @@ def check_llm_api_with_test_call():
     failed_models = []
     error_messages = []
 
-    # Check each test model using the same method Holmes uses
+    # Check each test model using LiteLLM's built-in functions
     for model_name in test_models:
         model_name = model_name.strip()
 
+        # Step 1: Use LiteLLM's validate_environment to check for missing env vars
+        env_check = litellm.validate_environment(model=model_name)
+
+        # Get provider info for better error messages
+        provider_info = litellm.get_llm_provider(model_name)
+        actual_provider = provider_info[1] if provider_info else "unknown"
+
+        if not env_check["keys_in_environment"]:
+            # Environment is missing required keys
+            failed_models.append(model_name)
+            missing_keys = ", ".join(env_check["missing_keys"])
+
+            # Build helpful message based on provider and what's missing
+            if actual_provider == "azure":
+                provider_msg = f"Missing environment variables for Azure (model: {model_name}): {missing_keys}"
+            elif actual_provider == "anthropic":
+                provider_msg = f"Missing environment variables for Anthropic (model: {model_name}): {missing_keys}"
+            elif actual_provider == "openai":
+                provider_msg = f"Missing environment variables for OpenAI (model: {model_name}): {missing_keys}. Note: AZURE_API_BASE is set but this model uses OpenAI, not Azure."
+            else:
+                provider_msg = f"Missing environment variables for {actual_provider} (model: {model_name}): {missing_keys}"
+
+            error_messages.append(provider_msg)
+            continue  # Skip API test if env vars are missing
+
+        # Step 2: Environment is OK, now test if the API actually works
         try:
-            # Use LiteLLM directly to test the model, same as Holmes does
-            # This will automatically handle OpenAI, Azure, Anthropic, etc.
-            _ = litellm.completion(
+            resp = litellm.completion(
                 model=model_name,
                 messages=[{"role": "user", "content": "test"}],
-                max_tokens=1,
+                max_tokens=1000,
             )
+            print(resp)
         except Exception as e:
             failed_models.append(model_name)
-            # Extract more useful error message with provider info
             error_str = str(e)
-            azure_base = os.environ.get("AZURE_API_BASE")
 
-            # Build helpful provider-specific message
-            if azure_base and not model_name.startswith("anthropic/"):
-                provider_msg = f"Tried to use AzureAI (model: {model_name}) because AZURE_API_BASE was set. Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
-            elif model_name.startswith("azure/"):
-                provider_msg = f"Tried to use AzureAI (model: {model_name}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION."
-            elif model_name.startswith("anthropic/"):
-                provider_msg = f"Tried to use Anthropic (model: {model_name}). Check ANTHROPIC_API_KEY."
+            # Build helpful message for API failures (env vars present but call failed)
+            if actual_provider == "azure":
+                provider_msg = f"Azure API call failed (model: {model_name}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION."
+            elif actual_provider == "anthropic":
+                provider_msg = f"Anthropic API call failed (model: {model_name}). Check ANTHROPIC_API_KEY."
+            elif actual_provider == "openai":
+                provider_msg = f"OpenAI API call failed (model: {model_name}). Check OPENAI_API_KEY. Note: AZURE_API_BASE is set but this model uses OpenAI, not Azure."
             else:
-                provider_msg = f"Tried to use OpenAI (model: {model_name}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+                provider_msg = (
+                    f"{actual_provider} API call failed (model: {model_name})."
+                )
 
-            # Show both the helpful message and the full error (no truncation)
             error_msg = f"{provider_msg}\n    Error: {error_str}"
             error_messages.append(error_msg)
 
@@ -280,11 +304,13 @@ def check_llm_api_with_test_call():
     except Exception as e:
         failed_models.append(f"classifier:{classifier_model}")
         # Build helpful provider-specific message for classifier
+        # Note: create_llm_client() uses different logic than LiteLLM:
+        # It uses Azure if AZURE_API_BASE is set, regardless of model name
         azure_base = os.environ.get("AZURE_API_BASE")
         if azure_base:
-            provider_msg = f"Tried to use AzureAI for classifier (model: {classifier_model}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset them to use OpenAI."
+            provider_msg = f"Tried to use Azure for classifier (model: {classifier_model}). Check AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION, or unset AZURE_API_BASE to use OpenAI."
         else:
-            provider_msg = f"Tried to use OpenAI for classifier (model: {classifier_model}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure AI."
+            provider_msg = f"Tried to use OpenAI for classifier (model: {classifier_model}). Check OPENAI_API_KEY or set AZURE_API_BASE to use Azure."
         error_messages.append(f"{provider_msg}\n    Error: {str(e)}")
 
     # Report results
