@@ -2,56 +2,184 @@
 
 Turn cryptic alerts into actionable insights with AI enrichment.
 
-## Before vs After
+![Auto-enrich Prometheus alerts](../assets/auto-enrich-prometheus-alert.png)
 
-### Standard AlertManager Alert
-```
-🔴 HighMemoryUsage
-pod=api-server-abc123
-namespace=production
-Memory usage is above 90% for pod api-server-abc123
-```
+## Getting Started
 
-### With HolmesGPT Enrichment
-```
-🔴 HighMemoryUsage
-pod=api-server-abc123
-namespace=production
-Memory usage is above 90% for pod api-server-abc123
+=== "CLI (Local)"
 
-📊 AI Analysis:
-Impact: ~1,200 users experiencing 2.3s slower checkout page loads
-Root Cause: Memory leak from unclosed database connections after deploy at 14:32
-Action: Restart pod api-server-abc123 or scale deployment to 5 replicas
-Related: Database connection pool exhausted (see prometheus alert #4521)
-```
+    **1. Configure AlertManager URL:**
 
-## Quick Start
+    Option 1: Set in config file (`~/.holmes/config.yaml`):
+    ```yaml
+    alertmanager_url: http://localhost:9093
+    ```
 
-### 1. Start the Proxy (30 seconds)
+    Option 2: Set via environment variable:
+    ```bash
+    export ALERTMANAGER_URL=http://localhost:9093
+    ```
 
-```bash
-# Basic enrichment
-holmes alertmanager-proxy serve --port 8080
+    Option 3: Pass directly with `--alertmanager-url` flag after port-forwarding AlertManager (see examples below)
 
-# With Slack notifications
-holmes alertmanager-proxy serve --port 8080 --slack-webhook $SLACK_WEBHOOK
-```
+    **2. View and enrich alerts:**
 
-### 2. Configure AlertManager (1 minute)
+    ```bash
+    # View alerts from AlertManager (uses URL from config or environment)
+    holmes alerts view
 
-```yaml
-# alertmanager.yaml
-receivers:
-  - name: holmes-proxy
-    webhook_configs:
-      - url: http://holmes-proxy:8080/webhook
+    # Specify AlertManager URL manually (e.g., after port-forwarding)
+    holmes alerts view --alertmanager-url http://localhost:9093
 
-route:
-  receiver: holmes-proxy
-```
+    # With custom AI enrichment columns
+    holmes alerts view \
+      --alertmanager-url http://localhost:9093 \
+      --ai-column "affected_team=Which team owns this?" \
+      --ai-column "customer_impact=How many users affected?"
 
-### 3. Done!
+    # Filter by severity
+    holmes alerts view --alertmanager-url http://localhost:9093 --severity critical,warning
+    ```
+
+=== "Docker (Testing)"
+
+    **1. Start the proxy container:**
+
+    ```bash
+    # Basic setup
+    docker run -d \
+      --name holmes-proxy \
+      -e OPENAI_API_KEY=$OPENAI_API_KEY \
+      -p 8080:8080 \
+      ghcr.io/robusta-dev/holmesgpt \
+      holmes alertmanager-proxy serve
+
+    # With Slack notifications
+    docker run -d \
+      --name holmes-proxy \
+      -e OPENAI_API_KEY=$OPENAI_API_KEY \
+      -e SLACK_WEBHOOK_URL=$SLACK_WEBHOOK \
+      -p 8080:8080 \
+      ghcr.io/robusta-dev/holmesgpt \
+      holmes alertmanager-proxy serve
+    ```
+
+    **2. Configure AlertManager:**
+
+    ```yaml
+    # alertmanager.yaml
+    receivers:
+      - name: holmes-proxy
+        webhook_configs:
+          - url: http://host.docker.internal:8080/webhook  # On Mac/Windows
+          # - url: http://172.17.0.1:8080/webhook          # On Linux
+    ```
+
+    **3. Monitor the container:**
+
+    ```bash
+    # View logs
+    docker logs -f holmes-proxy
+
+    # Check health
+    curl http://localhost:8080/health
+
+    # Stop and remove
+    docker stop holmes-proxy
+    docker rm holmes-proxy
+    ```
+
+=== "Kubernetes (Production)"
+
+    **1. Create namespace and secrets:**
+
+    ```bash
+    kubectl create namespace holmes
+
+    # Create secret for API key
+    kubectl create secret generic holmes \
+      --from-literal=api-key=$OPENAI_API_KEY \
+      --from-literal=slack-webhook=$SLACK_WEBHOOK \
+      -n holmes
+    ```
+
+    **2. Deploy HolmesGPT Proxy:**
+
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: holmes-proxy
+      namespace: holmes
+    spec:
+      replicas: 2
+      selector:
+        matchLabels:
+          app: holmes-proxy
+      template:
+        metadata:
+          labels:
+            app: holmes-proxy
+        spec:
+          containers:
+          - name: proxy
+            image: ghcr.io/robusta-dev/holmesgpt:latest
+            command: ["holmes", "alertmanager-proxy", "serve"]
+            env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: holmes
+                  key: api-key
+            - name: SLACK_WEBHOOK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: holmes
+                  key: slack-webhook
+            ports:
+            - containerPort: 8080
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: holmes-proxy
+      namespace: holmes
+    spec:
+      selector:
+        app: holmes-proxy
+      ports:
+      - port: 8080
+        targetPort: 8080
+    ```
+
+    ```bash
+    kubectl apply -f holmes-proxy.yaml
+    ```
+
+    **3. Configure AlertManager:**
+
+    ```yaml
+    # alertmanager.yaml
+    receivers:
+      - name: holmes-proxy
+        webhook_configs:
+          - url: http://holmes-proxy.holmes.svc.cluster.local:8080/webhook
+
+    route:
+      receiver: holmes-proxy
+    ```
+
+    **4. Verify deployment:**
+
+    ```bash
+    # Check pod status
+    kubectl get pods -n holmes
+
+    # View logs
+    kubectl logs -f deployment/holmes-proxy -n holmes
+    ```
+
+## How It Works
 
 Every alert now includes:
 
@@ -114,74 +242,59 @@ holmes alertmanager-proxy serve \
   --ai-column "prevent=How to prevent this in future?"
 ```
 
-## Deployment
-
-### Kubernetes (Production)
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: holmes-proxy
-spec:
-  replicas: 2
-  template:
-    spec:
-      containers:
-      - name: proxy
-        image: ghcr.io/robusta-dev/holmesgpt:latest
-        command: ["holmes", "alertmanager-proxy", "serve"]
-        env:
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: holmes
-              key: api-key
-        - name: SLACK_WEBHOOK_URL
-          valueFrom:
-            secretKeyRef:
-              name: holmes
-              key: slack-webhook
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: holmes-proxy
-spec:
-  ports:
-  - port: 8080
-```
-
-### Docker (Testing)
-
-```bash
-docker run -d \
-  -e OPENAI_API_KEY=$OPENAI_API_KEY \
-  -e SLACK_WEBHOOK_URL=$SLACK_WEBHOOK \
-  -p 8080:8080 \
-  ghcr.io/robusta-dev/holmesgpt \
-  holmes alertmanager-proxy serve
-```
 
 ## Advanced Features
 
 ### Severity Filtering
 
-```bash
-# Only enrich critical alerts
-holmes alertmanager-proxy serve --severity critical,warning
-```
+Filter which alerts get enriched based on severity:
+
+=== "CLI"
+    ```bash
+    holmes alertmanager-proxy serve --severity critical,warning
+    ```
+
+=== "Docker"
+    ```bash
+    docker run -d \
+      -e OPENAI_API_KEY=$OPENAI_API_KEY \
+      -p 8080:8080 \
+      ghcr.io/robusta-dev/holmesgpt \
+      holmes alertmanager-proxy serve --severity critical,warning
+    ```
+
+=== "Kubernetes"
+    ```yaml
+    # In deployment spec
+    command: ["holmes", "alertmanager-proxy", "serve"]
+    args:
+      - "--port=8080"
+      - "--severity=critical,warning"
+    ```
+
 
 ## Monitoring
 
-```bash
-# Check proxy health
-curl http://holmes-proxy:8080/health
+=== "CLI/Docker"
+    ```bash
+    # Check proxy health
+    curl http://localhost:8080/health
 
-# View statistics
-curl http://holmes-proxy:8080/stats
-```
+    # View statistics
+    curl http://localhost:8080/stats
+    ```
 
+=== "Kubernetes"
+    ```bash
+    # Check proxy health
+    kubectl port-forward -n holmes svc/holmes-proxy 8080:8080
+    curl http://localhost:8080/health
+
+    # View statistics
+    curl http://localhost:8080/stats
+    ```
+
+Response example:
 ```json
 {
   "alerts_processed": 1523,
@@ -193,24 +306,75 @@ curl http://holmes-proxy:8080/stats
 
 ## Troubleshooting
 
-**Not receiving alerts?**
-```bash
-# Check connectivity
-curl -X POST http://holmes-proxy:8080/webhook -d '{}'
+### Not receiving alerts?
 
-# Enable debug logs
-holmes alertmanager-proxy serve -vv
-```
+=== "CLI"
+    ```bash
+    # Check connectivity
+    curl -X POST http://localhost:8080/webhook -d '{}'
 
-**Enrichment failing?**
-```bash
-# Test API key
-export OPENAI_API_KEY=sk-...
-holmes ask "test"
+    # Enable debug logs
+    holmes alertmanager-proxy serve -vv
+    ```
 
-# Check proxy logs
-kubectl logs -f deployment/holmes-proxy
-```
+=== "Docker"
+    ```bash
+    # Check connectivity
+    curl -X POST http://localhost:8080/webhook -d '{}'
+
+    # View container logs
+    docker logs -f holmes-proxy
+
+    # Run with debug logs
+    docker run -it \
+      -e OPENAI_API_KEY=$OPENAI_API_KEY \
+      -p 8080:8080 \
+      ghcr.io/robusta-dev/holmesgpt \
+      holmes alertmanager-proxy serve -vv
+    ```
+
+=== "Kubernetes"
+    ```bash
+    # Check connectivity
+    kubectl port-forward -n holmes svc/holmes-proxy 8080:8080
+    curl -X POST http://localhost:8080/webhook -d '{}'
+
+    # View pod logs
+    kubectl logs -f deployment/holmes-proxy -n holmes
+    ```
+
+### Enrichment failing?
+
+=== "CLI"
+    ```bash
+    # Test API key
+    export OPENAI_API_KEY=sk-...
+    holmes ask "test"
+
+    # Run with verbose logging
+    holmes alertmanager-proxy serve -vv
+    ```
+
+=== "Docker"
+    ```bash
+    # Test API key in container
+    docker run --rm \
+      -e OPENAI_API_KEY=$OPENAI_API_KEY \
+      ghcr.io/robusta-dev/holmesgpt \
+      holmes ask "test"
+
+    # Check container logs
+    docker logs holmes-proxy
+    ```
+
+=== "Kubernetes"
+    ```bash
+    # Check secret exists
+    kubectl get secret holmes -n holmes
+
+    # Check proxy logs
+    kubectl logs -f deployment/holmes-proxy -n holmes --tail=100
+    ```
 
 ## FAQ
 
