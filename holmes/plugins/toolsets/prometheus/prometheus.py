@@ -116,7 +116,6 @@ class AMPConfig(PrometheusConfig):
                     disable_ssl=not self.prometheus_ssl_enabled,
                     additional_labels=self.additional_labels,
                 )
-                # Rebuild the client (this will re-assume the role and get fresh creds)
                 self._aws_client = AWSPrometheusConnect(
                     access_key=self.aws_access_key,
                     secret_key=self.aws_secret_access_key,
@@ -129,7 +128,6 @@ class AMPConfig(PrometheusConfig):
                 self._aws_client_created_at = time.time()
             except Exception:
                 logging.exception("Failed to create/refresh AWS client")
-                # Preserve previous behavior: if build fails, return None (caller may raise later)
                 return self._aws_client
         return self._aws_client
 
