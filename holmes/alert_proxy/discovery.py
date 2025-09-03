@@ -45,24 +45,20 @@ class AlertManagerDiscovery:
             self.v1 = None
 
     def discover_all(self) -> List[AlertManagerInstance]:
-        """Discover all AlertManager instances using multiple methods."""
+        """Discover all AlertManager instances using service discovery."""
         discovered = []
 
         if self.k8s_available:
-            logger.info("Starting AlertManager discovery via multiple methods...")
+            logger.info("Discovering AlertManager instances via Kubernetes services...")
 
-            # Method 1: Service discovery
+            # Service discovery
             services = self.discover_via_services()
-            logger.info(f"  Service discovery found: {len(services)} instance(s)")
+            logger.info(f"  Found {len(services)} AlertManager service(s)")
             for svc in services:
                 logger.info(
                     f"    - {svc.namespace}/{svc.name} (port: {svc.port}, proxy: {svc.use_proxy})"
                 )
             discovered.extend(services)
-
-            # Skip workload and pod discovery - services are sufficient
-            # Direct workload/pod connections cause issues from outside the cluster
-            logger.info("  Skipping workload and pod discovery (using services only)")
         else:
             logger.warning("Kubernetes not available, skipping k8s-based discovery")
 
