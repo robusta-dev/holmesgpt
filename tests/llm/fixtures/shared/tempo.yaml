@@ -101,12 +101,6 @@ data:
             http:
               endpoint: 0.0.0.0:4318
 
-    ingester:
-      max_block_duration: 168h  # 1 week
-      trace_idle_period: 168h  # 1 week
-      max_block_bytes: 1000000000
-      complete_block_timeout: 168h  # 1 week
-
     compactor:
       compaction:
         block_retention: 17520h  # 2 years (730 days * 24 hours)
