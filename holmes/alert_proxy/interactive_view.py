@@ -1023,6 +1023,9 @@ UI:
     # Update methods
     def _update_list(self):
         """Update the alert list display."""
+        # Preserve cursor position before updating text
+        old_cursor_pos = self.list_area.buffer.cursor_position
+
         if not self.model:
             self.list_area.text = "\n Model not connected..."
             return
@@ -1056,6 +1059,9 @@ UI:
             self.selected_index,
             self.search_manager.get_current_filter(),
         )
+        # Restore cursor position if it's still valid
+        if old_cursor_pos <= len(self.list_area.text):
+            self.list_area.buffer.cursor_position = old_cursor_pos
 
     def _update_inspector(self):
         """Update the inspector pane."""
