@@ -118,6 +118,9 @@ When you have trace IDs from search results:
 
 **Time Series Metrics** (`query_metrics_range`) - Values over time intervals with step parameter to control granularity
 
+## Special workflow for performance issues
+When investigating performance issues in kubernetes via traces, call fetch_tempo_traces_comparative_sample. This tool provides comprehensive analysis for identifying patterns.
+
 ## Important Notes
 - TraceQL is the modern query language - prefer it over tag-based search
 - TraceQL metrics are computed from trace data, not traditional Prometheus metrics
