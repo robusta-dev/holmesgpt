@@ -729,8 +729,14 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 emoji = get_rate_emoji(rate)
 
                 # Create multi-line cell with accuracy, time, and cost on separate lines
+                # Only linkify the percentage line
+                if braintrust_url:
+                    percentage_line = f"[{emoji} {rate:.0f}%]({braintrust_url})"
+                else:
+                    percentage_line = f"{emoji} {rate:.0f}%"
+
                 cell_parts = [
-                    f"{emoji} {rate:.0f}%",
+                    percentage_line,
                     f"🔄 {passed}/{total}",  # Refresh/iterations icon showing test runs
                 ]
                 if avg_duration > 0:
@@ -738,13 +744,7 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 if avg_cost > 0:
                     cell_parts.append(f"💰 ${avg_cost:.2f}")
 
-                cell_text = "<br>".join(cell_parts)
-
-                if braintrust_url:
-                    # For multi-line links, we need to wrap the whole thing
-                    cell = f"[{cell_text}]({braintrust_url})"
-                else:
-                    cell = cell_text
+                cell = "<br>".join(cell_parts)
             else:
                 cell = "-"
 
