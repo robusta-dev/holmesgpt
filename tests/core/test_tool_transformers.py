@@ -46,7 +46,7 @@ class TestToolTransformField:
 
         # Create a concrete tool for testing
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> Mock:
+            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -79,7 +79,7 @@ class TestToolTransformField:
         """Test that tools work without transformers field."""
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> Mock:
+            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -182,7 +182,7 @@ class TestToolValidationIntegration:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> Mock:
+            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -200,7 +200,9 @@ class TestToolValidationIntegration:
         # Invalid transformers will cause validation to fail during model creation
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output",
@@ -317,7 +319,9 @@ class TestToolExecutionPipeline:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="This is a long test output that should be transformed",
@@ -343,7 +347,9 @@ class TestToolExecutionPipeline:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.ERROR,
                     error="Tool execution failed",
@@ -369,7 +375,9 @@ class TestToolExecutionPipeline:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(status=ToolResultStatus.NO_DATA, data="")
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -406,7 +414,9 @@ class TestToolExecutionPipeline:
             transforms = [Transformer(name="failing_transformer", config={})]
 
             class ConcreteTestTool(Tool):
-                def _invoke(self, params: Dict) -> StructuredToolResult:
+                def _invoke(
+                    self, params: Dict, user_approved: bool = False
+                ) -> StructuredToolResult:
                     return StructuredToolResult(
                         status=ToolResultStatus.SUCCESS, data="Test output"
                     )
@@ -460,7 +470,9 @@ class TestToolExecutionPipeline:
             ]
 
             class ConcreteTestTool(Tool):
-                def _invoke(self, params: Dict) -> StructuredToolResult:
+                def _invoke(
+                    self, params: Dict, user_approved: bool = False
+                ) -> StructuredToolResult:
                     return StructuredToolResult(
                         status=ToolResultStatus.SUCCESS,
                         data="Original text that should be transformed twice",
@@ -508,7 +520,9 @@ class TestToolExecutionPipeline:
             transforms = [Transformer(name="conditional_transformer", config={})]
 
             class ConcreteTestTool(Tool):
-                def _invoke(self, params: Dict) -> StructuredToolResult:
+                def _invoke(
+                    self, params: Dict, user_approved: bool = False
+                ) -> StructuredToolResult:
                     data = params.get("data", "short")
                     return StructuredToolResult(
                         status=ToolResultStatus.SUCCESS, data=data
@@ -547,7 +561,9 @@ class TestToolExecutionPipeline:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output to transform",
@@ -582,7 +598,9 @@ class TestToolExecutionPipeline:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output that will be transformed for performance measurement",
@@ -614,7 +632,9 @@ class TestToolExecutionPipeline:
         """Test that tools without transformers work exactly as before."""
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output without transformation",
@@ -656,7 +676,9 @@ class TestTransformerCachingOptimization:
         transformers = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output for transformation",
@@ -685,7 +707,9 @@ class TestTransformerCachingOptimization:
         transformers = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output for transformation",
@@ -720,7 +744,9 @@ class TestTransformerCachingOptimization:
         """Test that model_post_init handles tools with no transformers correctly."""
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output without transformers",
@@ -754,7 +780,9 @@ class TestTransformerCachingOptimization:
         ]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output for transformation",
@@ -793,7 +821,9 @@ class TestTransformerCachingOptimization:
         transformers = []
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output",
@@ -819,7 +849,9 @@ class TestTransformerCachingOptimization:
         transformers = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data="Test output for transformation",

@@ -104,7 +104,9 @@ class TestToolExecutionPipelineIntegration:
         class LogReaderTool(Tool):
             """Simulates a tool that reads large log files."""
 
-            def _invoke(self, params: Dict) -> StructuredToolResult:
+            def _invoke(
+                self, params: Dict, user_approved: bool = False
+            ) -> StructuredToolResult:
                 # Simulate reading a large log file
                 log_entries = [
                     "2024-01-01 10:00:00 INFO Starting application",
