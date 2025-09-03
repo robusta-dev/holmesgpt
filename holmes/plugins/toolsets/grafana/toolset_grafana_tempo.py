@@ -270,6 +270,7 @@ def validate_params(params: Dict[str, Any], expected_params: List[str]):
 #         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
 #
 
+
 # class GetTempoTraceById(Tool):
 #     def __init__(self, toolset: BaseGrafanaTempoToolset):
 #         super().__init__(
@@ -607,11 +608,11 @@ class SearchTracesByTags(Tool):
             description=(
                 "Search for traces using logfmt-encoded tags. "
                 "Uses the Tempo API endpoint: GET /api/search with 'tags' parameter. "
-                'Example: service.name="api" http.status_code="500"'
+                'Example: resource.service.name="api" http.status_code="500"'
             ),
             parameters={
                 "tags": ToolParameter(
-                    description='Logfmt-encoded span/process attributes (e.g., \'service.name="api" http.status_code="500"\')',
+                    description='Logfmt-encoded span/process attributes (e.g., \'resource.service.name="api" http.status_code="500"\')',
                     type="string",
                     required=True,
                 ),
@@ -817,7 +818,7 @@ class SearchTagValues(Tool):
             ),
             parameters={
                 "tag": ToolParameter(
-                    description="The tag name to get values for (e.g., 'service.name', 'http.status_code')",
+                    description="The tag name to get values for (e.g., 'resource.service.name', 'http.status_code')",
                     type="string",
                     required=True,
                 ),
@@ -887,7 +888,15 @@ class QueryMetricsInstant(Tool):
                 "Uses the Tempo API endpoint: GET /api/metrics/query. "
                 "TraceQL metrics compute aggregated metrics from trace data. "
                 "Returns a single value for the entire time range. "
-                "Basic syntax: {selector} | function(attribute) [by (grouping)]"
+                "Basic syntax: {selector} | function(attribute) [by (grouping)]\n\n"
+                "TraceQL metrics can help answer questions like:\n"
+                "- How many database calls across all systems are downstream of your application?\n"
+                "- What services beneath a given endpoint are failing?\n"
+                "- What services beneath an endpoint are slow?\n\n"
+                "TraceQL metrics help you answer these questions by parsing your traces in aggregate. "
+                "The instant version returns a single value for the query and is preferred over "
+                "query_metrics_range when you don't need the granularity of a full time-series but want "
+                "a total sum or single value computed across the whole time range."
             ),
             parameters={
                 "q": ToolParameter(
@@ -958,7 +967,12 @@ class QueryMetricsRange(Tool):
                 "Uses the Tempo API endpoint: GET /api/metrics/query_range. "
                 "Returns metrics computed at regular intervals (controlled by 'step' parameter). "
                 "Use this for graphing metrics over time or analyzing trends. "
-                "Basic syntax: {selector} | function(attribute) [by (grouping)]"
+                "Basic syntax: {selector} | function(attribute) [by (grouping)]\n\n"
+                "TraceQL metrics can help answer questions like:\n"
+                "- How many database calls across all systems are downstream of your application?\n"
+                "- What services beneath a given endpoint are failing?\n"
+                "- What services beneath an endpoint are slow?\n\n"
+                "TraceQL metrics help you answer these questions by parsing your traces in aggregate."
             ),
             parameters={
                 "q": ToolParameter(

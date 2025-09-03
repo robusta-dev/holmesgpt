@@ -36,7 +36,7 @@ Use `search_traces_by_query` with TraceQL syntax for powerful filtering:
 
 **Tag-based Search (legacy):**
 Use `search_traces_by_tags` with logfmt format when you need min/max duration filters:
-- Example: `service.name="api" http.status_code="500"`
+- Example: `resource.service.name="api" http.status_code="500"`
 - Supports `min_duration` and `max_duration` parameters
 
 ### 3. Analyzing Specific Traces
@@ -45,7 +45,12 @@ When you have trace IDs from search results:
 - Examine spans for errors, slow operations, and bottlenecks
 
 ### 4. Computing Metrics from Traces
-**TraceQL metrics** compute aggregated metrics from your trace data.
+**TraceQL metrics** compute aggregated metrics from your trace data, helping you answer critical questions like:
+- How many database calls across all systems are downstream of your application?
+- What services beneath a given endpoint are failing?
+- What services beneath an endpoint are slow?
+
+TraceQL metrics parse your traces in aggregate to provide RED (Rate, Error, Duration) metrics from trace data.
 
 **Supported Functions:**
 - `rate` - Calculate rate of spans/traces
@@ -114,9 +119,19 @@ When you have trace IDs from search results:
     { resource.service.name = "foo" } | rate() by (span.http.url) | topk(10)
     ```
 
-**Instant Metrics** (`query_metrics_instant`) - Single value for entire time range
+**Choosing Between Instant and Range Queries:**
 
-**Time Series Metrics** (`query_metrics_range`) - Values over time intervals with step parameter to control granularity
+**Instant Metrics** (`query_metrics_instant`) - Returns a single aggregated value for the entire time range. Use this when:
+- You need a total count or sum across the whole period
+- You want a single metric value (e.g., total error count, average latency)
+- You don't need to see how the metric changes over time
+- You're computing a KPI or summary statistic
+
+**Time Series Metrics** (`query_metrics_range`) - Returns values at regular intervals controlled by the 'step' parameter. Use this when:
+- You need to graph metrics over time or analyze trends
+- You want to see patterns, spikes, or changes in metrics
+- You're troubleshooting time-based issues
+- You need to correlate metrics with specific time periods
 
 ## Special workflow for performance issues
 When investigating performance issues in kubernetes via traces, call fetch_tempo_traces_comparative_sample. This tool provides comprehensive analysis for identifying patterns.
@@ -129,3 +144,4 @@ When investigating performance issues in kubernetes via traces, call fetch_tempo
 - All timestamps can be Unix epoch seconds or RFC3339 format
 - Use time filters (start/end) to improve query performance
 - To get information about Kubernetes resources try these first: resource.service.name, resource.k8s.pod.name, resource.k8s.namespace.name, resource.k8s.deployment.name, resource.k8s.node.name, resource.k8s.container.name
+- TraceQL and TraceQL metrics language are complex. If you get empty data, try to simplify your query and try again!
