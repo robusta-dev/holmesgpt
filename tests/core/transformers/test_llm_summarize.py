@@ -529,7 +529,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params):
+            def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS, data="Original short data"
                 )
@@ -572,7 +572,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params):
+            def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS,
                     data=original_data,  # This will be the input to the transformer
@@ -631,7 +631,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params):
+            def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
                     status=ToolResultStatus.SUCCESS, data=original_data
                 )
