@@ -4,6 +4,7 @@ import boto3
 import os
 import re
 import time
+import dateutil.parser
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 from urllib.parse import urljoin
 
@@ -30,10 +31,10 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT
+from holmes.common.env_vars import IS_OPENSHIFT, MAX_GRAPH_POINTS
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
 )
 from holmes.utils.keygen_utils import generate_random_key
 
@@ -231,6 +232,42 @@ def result_has_data(result: Dict) -> bool:
     return False
 
 
+def adjust_step_for_max_points(
+    start_timestamp: str,
+    end_timestamp: str,
+    step: float,
+) -> float:
+    """
+    Adjusts the step parameter to ensure the number of data points doesn't exceed max_points.
+    Max points is controlled by the PROMETHEUS_MAX_GRAPH_POINTS environment variable (default: 300).
+
+    Args:
+        start_timestamp: RFC3339 formatted start time
+        end_timestamp: RFC3339 formatted end time
+        step: The requested step duration in seconds
+
+    Returns:
+        Adjusted step value in seconds that ensures points <= max_points
+    """
+
+    start_dt = dateutil.parser.parse(start_timestamp)
+    end_dt = dateutil.parser.parse(end_timestamp)
+
+    time_range_seconds = (end_dt - start_dt).total_seconds()
+
+    current_points = time_range_seconds / step
+
+    # If current points exceed max, adjust the step
+    if current_points > MAX_GRAPH_POINTS:
+        adjusted_step = time_range_seconds / MAX_GRAPH_POINTS
+        logging.info(
+            f"Adjusting step from {step}s to {adjusted_step}s to limit points from {current_points:.0f} to {MAX_GRAPH_POINTS}"
+        )
+        return adjusted_step
+
+    return step
+
+
 def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]:
     results = {}
     if prometheus_auth_header:
@@ -403,7 +440,9 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -499,7 +538,9 @@ class ListAvailableMetrics(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -536,8 +577,9 @@ class ListAvailableMetrics(BasePrometheusTool):
                 verify_ssl=self.toolset.config.prometheus_ssl_enabled,
             )
 
-            if params.get("type_filter"):
-                metrics = filter_metrics_by_type(metrics, params.get("type_filter"))
+            type_filter = params.get("type_filter")
+            if type_filter:
+                metrics = filter_metrics_by_type(metrics, type_filter)
 
             output = ["Metric | Description | Type | Labels"]
             output.append("-" * 100)
@@ -604,7 +646,9 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -716,7 +760,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 ),
                 "start": ToolParameter(
                     description=standard_start_datetime_tool_param_description(
-                        DEFAULT_TIME_SPAN_SECONDS
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
                     ),
                     type="string",
                     required=False,
@@ -740,7 +784,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -755,9 +801,16 @@ class ExecuteRangeQuery(BasePrometheusTool):
             (start, end) = process_timestamps_to_rfc3339(
                 start_timestamp=params.get("start"),
                 end_timestamp=params.get("end"),
-                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+                default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
             )
             step = params.get("step", "")
+
+            step = adjust_step_for_max_points(
+                start_timestamp=start,
+                end_timestamp=end,
+                step=float(step) if step else MAX_GRAPH_POINTS,
+            )
+
             description = params.get("description", "")
             output_type = params.get("output_type", "Plain")
             payload = {
@@ -855,7 +908,7 @@ class PrometheusToolset(Toolset):
         super().__init__(
             name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

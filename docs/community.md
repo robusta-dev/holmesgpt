@@ -1,31 +1,23 @@
 # Community
 
-Join us for our regular community meetings to discuss the HolmesGPT roadmap and collaborate on the future of AI-powered troubleshooting.
+Join our community to collaborate on the future of AI-powered troubleshooting.
 
-## Community Meeting
+## Community Meetup Recording
 
-📅 **HolmesGPT Community Meetup**
+📹 **Watch our first HolmesGPT Community Meetup**
 
-**🗓️ Date:** Thursday, August 21, 2025
+We held our inaugural community meetup on August 21, 2025. Watch the recording to learn about:
 
-**📍 Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
+- HolmesGPT roadmap and upcoming features
+- Community Q&A and feedback
+- Ways to get involved with the project
 
-| Local Date & Time | Time Zone |
-|------------------|-----------|
-| Thursday, Aug 21 · 8:00 - 9:00 AM | PT (Pacific Time) |
-| Thursday, Aug 21 · 11:00 AM - 12:00 PM | ET (Eastern Time) |
-| Thursday, Aug 21 · 8:30 - 9:30 PM | IST (India Standard Time) |
+**[▶️ Watch Recording on YouTube](https://youtu.be/slQRc6nlFQU)**
 
-### Agenda
-- [📋 HolmesGPT Roadmap](https://github.com/orgs/robusta-dev/projects/2) - Review and discuss upcoming features
-- Community feedback and Q&A
-- Ways to get involved
+### Resources
 
-**Links:**
-
-- [🔗 Google Meet](https://meet.google.com/jxc-ujyf-xwy)
 - [📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0)
-- [📋 Roadmap](https://github.com/orgs/robusta-dev/projects/2)
+- [📋 HolmesGPT Roadmap](https://github.com/orgs/robusta-dev/projects/2)
 
 ## Get Involved
 

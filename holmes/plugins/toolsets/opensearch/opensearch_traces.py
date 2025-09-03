@@ -1,7 +1,6 @@
 import os
 import logging
 
-from typing import Any, Dict
 
 import requests  # type: ignore
 from cachetools import TTLCache  # type: ignore
@@ -20,7 +19,7 @@ from holmes.plugins.toolsets.opensearch.opensearch_utils import (
     get_search_url,
 )
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
-from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+from holmes.plugins.toolsets.utils import get_param_or_raise, toolset_name_for_one_liner
 
 TRACES_FIELDS_CACHE_KEY = "cached_traces_fields"
 
@@ -35,7 +34,9 @@ class GetTracesFields(Tool):
         self._toolset = toolset
         self._cache = None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             if not self._cache and self._toolset.opensearch_config.fields_ttl_seconds:
                 self._cache = TTLCache(
@@ -128,10 +129,12 @@ class TracesSearchQuery(Tool):
         self._toolset = toolset
         self._cache = None
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         err_msg = ""
         try:
-            body = json.loads(params.get("query"))
+            body = json.loads(get_param_or_raise(params, "query"))
             full_query = body
             full_query["size"] = int(
                 os.environ.get("OPENSEARCH_TRACES_SEARCH_SIZE", "5000")
@@ -196,7 +199,7 @@ class OpenSearchTracesToolset(BaseOpenSearchToolset):
         super().__init__(
             name="opensearch/traces",
             description="OpenSearch integration to fetch traces",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/opensearch-traces.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-status/",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

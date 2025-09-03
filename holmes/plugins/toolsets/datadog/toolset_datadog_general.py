@@ -319,7 +319,9 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         description = params.get("description", "API call")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the GET request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIGet Tool Invocation:")
@@ -455,7 +457,9 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         description = params.get("description", "Search")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the POST search request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIPostSearch Tool Invocation:")
@@ -577,7 +581,9 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
         category = params.get("category", "all")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: List API Resources ({category})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """List available API resources."""
         category = params.get("category", "all").lower()
 
