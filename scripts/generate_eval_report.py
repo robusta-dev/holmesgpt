@@ -667,18 +667,9 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
         if total_tests > 0:
             overall_rate = total_passed / total_tests * 100
 
-            # Get model filter URL
-            model_filter_url = get_braintrust_model_filter_url(model, experiment_name)
-
             # Create summary text with emoji
             emoji = get_rate_emoji(overall_rate)
-            summary_text = f"{emoji} {overall_rate:.0f}%"
-
-            # Add link if available
-            if model_filter_url:
-                cell = f"[{summary_text}]({model_filter_url})"
-            else:
-                cell = summary_text
+            cell = f"{emoji} {overall_rate:.0f}%"
         else:
             cell = "N/A"
 
@@ -738,11 +729,14 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 emoji = get_rate_emoji(rate)
 
                 # Create multi-line cell with accuracy, time, and cost on separate lines
-                cell_parts = [f"{emoji} {rate:.0f}% ({passed}/{total})"]
+                cell_parts = [
+                    f"{emoji} {rate:.0f}%",
+                    f"🔄 {passed}/{total}",  # Refresh/iterations icon showing test runs
+                ]
                 if avg_duration > 0:
                     cell_parts.append(f"⏱️ {avg_duration:.1f}s")
                 if avg_cost > 0:
-                    cell_parts.append(f"💰 ${avg_cost:.4f}")
+                    cell_parts.append(f"💰 ${avg_cost:.2f}")
 
                 cell_text = "<br>".join(cell_parts)
 
