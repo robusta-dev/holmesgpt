@@ -44,7 +44,9 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         url: str = params["url"]
 
         # Get headers from the toolset configuration
@@ -118,7 +120,7 @@ class NotionToolset(InternetBaseToolset):
             name="notion",
             description="Fetch notion webpages",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e9/Notion-logo.svg/2048px-Notion-logo.svg.png",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/notion.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/notion/",
             tools=[
                 FetchNotion(self),
             ],

@@ -11,7 +11,6 @@ from strenum import StrEnum
 
 from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
-from tests.llm.utils.test_helpers import truncate_output
 
 # Configuration
 MAX_ERROR_LINES = 10
@@ -30,9 +29,20 @@ def log(msg):
         logging.info(msg)
 
 
+def _truncate_output(data: str, max_lines: int = 10, label: str = "lines") -> str:
+    """Truncate output to max_lines for readability."""
+    lines = data.split("\n")
+    if len(lines) > max_lines:
+        preview_lines = lines[:max_lines]
+        remaining = len(lines) - max_lines
+        preview_lines.append(f"... [TRUNCATED: {remaining} more {label} not shown]")
+        return "\n".join(preview_lines)
+    return data
+
+
 def format_error_output(error_details: str) -> str:
     """Format error details with truncation if needed."""
-    return truncate_output(error_details, max_lines=MAX_ERROR_LINES)
+    return _truncate_output(error_details, max_lines=MAX_ERROR_LINES)
 
 
 class Operation(StrEnum):
@@ -113,11 +123,10 @@ def run_all_test_commands(
                     #    f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
                     # )
 
-                    # Store failure info for setup
+                    # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
-                        failed_setup_info[test_case.id] = (
-                            f"Setup timeout: Command timed out after {result.elapsed_time:.2f}s"
-                        )
+                        # Store the full error details without truncation for Braintrust
+                        failed_setup_info[test_case.id] = result.error_details
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(
@@ -138,11 +147,11 @@ def run_all_test_commands(
                     #    f"[{test_case.id}] {operation.value} failed: {result.error_details}"
                     # )
 
-                    # Store failure info for setup
+                    # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
-                        failed_setup_info[test_case.id] = (
-                            f"Setup failed: Command failed with {result.exit_info}"
-                        )
+                        # Store the full error details without truncation for Braintrust
+                        # This includes the script, exit code, stdout, and stderr
+                        failed_setup_info[test_case.id] = result.error_details
 
                     # Emit warning to make it visible in pytest output
                     warnings.warn(

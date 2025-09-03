@@ -38,14 +38,14 @@ class CoralogixLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="coralogix/logs",
             description="Toolset for interacting with Coralogix to fetch logs",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/coralogix_logs.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/coralogix-logs/",
             icon_url="https://avatars.githubusercontent.com/u/35295744?s=200&v=4",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             tags=[ToolsetTag.CORE],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
 
     def get_example_config(self):
         example_config = CoralogixConfig(

@@ -148,6 +148,7 @@ nav:
       - Interactive Mode: walkthrough/interactive-mode.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
+      - Investigating using AKS MCP Server: walkthrough/investigating-using-aks-mcp-server.md
 
   - AI Providers:
       - ai-providers/index.md
