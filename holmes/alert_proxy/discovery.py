@@ -41,10 +41,8 @@ class AlertManagerDiscovery:
         if self.k8s_available:
             api_client = self.kube_config.api_client
             self.v1 = client.CoreV1Api(api_client) if api_client else None
-            self.apps_v1 = client.AppsV1Api(api_client) if api_client else None
         else:
             self.v1 = None
-            self.apps_v1 = None
 
     def discover_all(self) -> List[AlertManagerInstance]:
         """Discover all AlertManager instances using multiple methods."""
@@ -62,16 +60,9 @@ class AlertManagerDiscovery:
                 )
             discovered.extend(services)
 
-            # Method 2: StatefulSet/Deployment discovery
-            workloads = self.discover_via_workloads()
-            logger.info(f"  Workload discovery found: {len(workloads)} instance(s)")
-            for wl in workloads:
-                logger.info(f"    - {wl.namespace}/{wl.name} (source: {wl.source})")
-            discovered.extend(workloads)
-
-            # Method 3: Skip pod label discovery - we only want services
-            # Pods are redundant and can cause connection issues from outside the cluster
-            logger.info("  Skipping pod discovery (using services only)")
+            # Skip workload and pod discovery - services are sufficient
+            # Direct workload/pod connections cause issues from outside the cluster
+            logger.info("  Skipping workload and pod discovery (using services only)")
         else:
             logger.warning("Kubernetes not available, skipping k8s-based discovery")
 
@@ -174,48 +165,6 @@ class AlertManagerDiscovery:
 
         return discovered
 
-    def discover_via_workloads(self) -> List[AlertManagerInstance]:
-        """Discover AlertManager via StatefulSets and Deployments."""
-        discovered = []
-
-        try:
-            # Check StatefulSets
-            assert self.apps_v1 is not None
-            statefulsets = self.apps_v1.list_stateful_set_for_all_namespaces()
-            for sts in statefulsets.items:
-                if self._is_alertmanager_workload(sts.metadata.name):
-                    # Try to construct service URL
-                    url = self._construct_url_from_workload(sts, "statefulset")
-                    if url:
-                        discovered.append(
-                            AlertManagerInstance(
-                                name=sts.metadata.name,
-                                namespace=sts.metadata.namespace,
-                                url=url,
-                                source="statefulset",
-                            )
-                        )
-
-            # Check Deployments
-            assert self.apps_v1 is not None
-            deployments = self.apps_v1.list_deployment_for_all_namespaces()
-            for dep in deployments.items:
-                if self._is_alertmanager_workload(dep.metadata.name):
-                    url = self._construct_url_from_workload(dep, "deployment")
-                    if url:
-                        discovered.append(
-                            AlertManagerInstance(
-                                name=dep.metadata.name,
-                                namespace=dep.metadata.namespace,
-                                url=url,
-                                source="deployment",
-                            )
-                        )
-        except ApiException as e:
-            logger.error(f"Failed to list workloads: {e}")
-
-        return discovered
-
     def discover_via_pod_labels(self) -> List[AlertManagerInstance]:
         """Discover AlertManager via pod labels."""
         discovered = []
@@ -292,25 +241,3 @@ class AlertManagerDiscovery:
 
         # Default to 9093 if service matches but no specific port found
         return 9093
-
-    def _is_alertmanager_workload(self, name: str) -> bool:
-        """Check if a workload name matches AlertManager patterns."""
-        for pattern in self.ALERTMANAGER_PATTERNS:
-            if re.match(pattern, name, re.IGNORECASE):
-                return True
-        return False
-
-    def _construct_url_from_workload(
-        self, workload, workload_type: str
-    ) -> Optional[str]:
-        """Construct AlertManager URL from workload."""
-        # For StatefulSets, assume headless service exists
-        if workload_type == "statefulset":
-            # Common pattern: alertmanager-name -> alertmanager-name (headless service)
-            service_name = workload.metadata.name
-            if "-alertmanager" in service_name:
-                service_name = service_name.replace("-alertmanager", "")
-            return f"http://{service_name}.{workload.metadata.namespace}.svc.cluster.local:9093"
-
-        # For Deployments, harder to guess service name
-        return None
