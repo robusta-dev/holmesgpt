@@ -1,4 +1,4 @@
-name: LLM Evaluation Benchmarks
+name: Run full eval benchmarks
 
 on:
   # Allow manual trigger
@@ -22,13 +22,6 @@ on:
   # # Run weekly on Sunday at 2 AM UTC
   # schedule:
   #   - cron: '0 2 * * 0'
-
-  # Run on PRs that modify eval-related files
-  pull_request:
-    paths:
-      - 'tests/llm/**'
-      - 'holmes/**'
-      - '.github/workflows/eval-benchmarks.yaml'
 
 jobs:
   run-benchmarks:
@@ -73,11 +66,6 @@ jobs:
             MODEL="gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4o"
             TEST_MARKERS="llm and (easy)"
             ITERATIONS="10"
-          else
-            # PR trigger - run minimal tests
-            MODEL="gpt-4o"
-            TEST_MARKERS="llm and (easy)"
-            ITERATIONS="1"
           fi
 
           # Build test command with markers
@@ -132,18 +120,8 @@ jobs:
         with:
           name: eval-results-${{ github.run_id }}
           path: |
-            eval_results.json
             evals_report.md
             docs/benchmarks/latest-results.md
-
-      - name: Comment PR with results
-        if: github.event_name == 'pull_request' && always()
-        uses: ./.github/actions/post-eval-comment
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          report-file: 'evals_report.md'
-          comment-identifier: '## LLM Evaluation Results'
-          delete-previous: 'false'  # Update instead of delete for benchmarks
 
       # TODO: Enable after testing
       # - name: Commit benchmark results

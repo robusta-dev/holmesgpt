@@ -1,4 +1,4 @@
-name: Evaluate LLM test cases
+name: Run eval regression tests
 
 on:
   pull_request:
