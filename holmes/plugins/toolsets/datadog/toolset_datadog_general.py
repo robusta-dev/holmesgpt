@@ -170,7 +170,7 @@ class DatadogGeneralToolset(Toolset):
         super().__init__(
             name="datadog/general",
             description="General-purpose Datadog API access for read-only operations including monitors, dashboards, SLOs, incidents, synthetics, and more",
-            docs_url="https://docs.datadoghq.com/api/latest/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -178,7 +178,6 @@ class DatadogGeneralToolset(Toolset):
                 DatadogAPIPostSearch(toolset=self),
                 ListDatadogAPIResources(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(
@@ -319,7 +318,9 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         description = params.get("description", "API call")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the GET request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIGet Tool Invocation:")
@@ -455,7 +456,9 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         description = params.get("description", "Search")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the POST search request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIPostSearch Tool Invocation:")
@@ -577,7 +580,9 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
         category = params.get("category", "all")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: List API Resources ({category})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """List available API resources."""
         category = params.get("category", "all").lower()
 

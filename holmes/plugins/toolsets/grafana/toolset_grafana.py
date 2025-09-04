@@ -1,6 +1,11 @@
 from typing import Dict, List
 from urllib.parse import urlencode, urljoin
-from holmes.core.tools import Tool, ToolParameter
+from holmes.core.tools import (
+    StructuredToolResult,
+    Tool,
+    ToolParameter,
+    ToolResultStatus,
+)
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 import requests  # type: ignore
 import logging
@@ -38,7 +43,9 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> str:  # type: ignore
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         url = urljoin(
             self._toolset._grafana_config.url, "/api/search?query=&type=dash-db"
         )
@@ -82,10 +89,24 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
                     f"Title: {dash['title']}\nURL: {dashboard_url}\n"
                 )
 
-            return "\n".join(formatted_dashboards) or "No dashboards found."
+            return StructuredToolResult(
+                status=ToolResultStatus.SUCCESS
+                if formatted_dashboards
+                else ToolResultStatus.NO_DATA,
+                data="\n".join(formatted_dashboards)
+                if formatted_dashboards
+                else "No dashboards found.",
+                url=url,
+                params=params,
+            )
         except requests.RequestException as e:
             logging.error(f"Error fetching dashboards: {str(e)}")
-            return f"Error fetching dashboards: {str(e)}"
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Error fetching dashboards: {str(e)}",
+                url=url,
+                params=params,
+            )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return (

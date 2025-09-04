@@ -178,7 +178,7 @@ def validate_params(params: Dict[str, Any], expected_params: List[str]):
 #         )
 #         self._toolset = toolset
 #
-#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
 #         # Create API instance
 #         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 #
@@ -242,7 +242,7 @@ def validate_params(params: Dict[str, Any], expected_params: List[str]):
 #         )
 #         self._toolset = toolset
 #
-#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
 #         # Create API instance
 #         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 #
@@ -286,7 +286,7 @@ def validate_params(params: Dict[str, Any], expected_params: List[str]):
 #         )
 #         self._toolset = toolset
 #
-#     def _invoke(self, params: Dict) -> StructuredToolResult:
+#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
 #         # Create API instance
 #         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 #
@@ -374,7 +374,9 @@ Examples:
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             # Build query
             if params.get("base_query"):
@@ -574,7 +576,9 @@ class SearchTracesByQuery(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -650,7 +654,9 @@ class SearchTracesByTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -708,7 +714,9 @@ class QueryTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -779,7 +787,9 @@ class SearchTagNames(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -851,7 +861,9 @@ class SearchTagValues(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -930,7 +942,9 @@ class QueryMetricsInstant(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
@@ -1016,7 +1030,9 @@ class QueryMetricsRange(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         try:
