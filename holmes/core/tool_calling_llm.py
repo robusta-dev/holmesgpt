@@ -545,16 +545,6 @@ class ToolCallingLLM:
             tool_response = tool.invoke(
                 tool_params, tool_number=tool_number, user_approved=user_approved
             )
-            if not isinstance(tool_response, StructuredToolResult):
-                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
-                logging.error(
-                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
-                )
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=tool_response,
-                    params=tool_params,
-                )
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -594,6 +584,17 @@ class ToolCallingLLM:
                 tool_params=tool_params,
                 user_approved=False,
                 tool_number=tool_number,
+            )
+
+        if not isinstance(tool_response, StructuredToolResult):
+            # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
+            logging.error(
+                f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
+            )
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=tool_response,
+                params=tool_params,
             )
 
         tool = self.tool_executor.get_tool_by_name(tool_name)
