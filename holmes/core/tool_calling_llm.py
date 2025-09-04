@@ -623,9 +623,11 @@ class ToolCallingLLM:
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
-        trace_span=DummySpan(),
+        trace_span=None,
         tool_number=None,
     ) -> ToolCallResult:
+        if trace_span is None:
+            trace_span = DummySpan()
         with trace_span.start_span(type="tool") as tool_span:
             if not hasattr(tool_to_call, "function"):
                 # Handle the union type - ChatCompletionMessageToolCall can be either
