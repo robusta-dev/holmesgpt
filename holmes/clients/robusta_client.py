@@ -14,8 +14,14 @@ class HolmesInfo(BaseModel):
     latest_version: Optional[str] = None
 
 
+class RobustaModelsResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    models: List[str]
+    default_model: Optional[str] = None
+
+
 @cache
-def fetch_robusta_models(account_id, token) -> Optional[List[str]]:
+def fetch_robusta_models(account_id, token) -> Optional[RobustaModelsResponse]:
     try:
         session_request = {"session_token": token, "account_id": account_id}
         resp = requests.post(
@@ -25,7 +31,7 @@ def fetch_robusta_models(account_id, token) -> Optional[List[str]]:
         )
         resp.raise_for_status()
         response_json = resp.json()
-        return response_json.get("models")
+        return RobustaModelsResponse(**response_json)
     except Exception:
         logging.exception("Failed to fetch robusta models")
         return None

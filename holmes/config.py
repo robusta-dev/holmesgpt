@@ -135,6 +135,7 @@ class Config(RobustaBaseConfig):
     _server_tool_executor: Optional[ToolExecutor] = None
 
     _toolset_manager: Optional[ToolsetManager] = None
+    _default_robusta_model: Optional[str] = None
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -170,19 +171,26 @@ class Config(RobustaBaseConfig):
                 self._load_default_robusta_config()
                 return
 
-            models = fetch_robusta_models(
+            robusta_models = fetch_robusta_models(
                 self.account_id, self.session_token.get_secret_value()
             )
-            if not models:
+            if not robusta_models:
                 self._load_default_robusta_config()
                 return
 
-            for model in models:
+            for model in robusta_models.models:
                 logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
+                    "name": model,
                     "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
                     "is_robusta_model": True,
                 }
+
+            if robusta_models.default_model:
+                logging.info(
+                    f"Setting default Robusta AI model to: {robusta_models.default_model}"
+                )
+                self._default_robusta_model = robusta_models.default_model
 
         except Exception:
             logging.exception("Failed to get all robusta models")
@@ -193,6 +201,7 @@ class Config(RobustaBaseConfig):
         if self._should_load_robusta_ai() and self.api_key:
             logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
+                "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
             }
@@ -525,32 +534,55 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
+    def _get_model_params(self, model_key: Optional[str] = None) -> dict:
+        if not self._model_list:
+            logging.info("No model list setup, using config model")
+            return {}
+
+        if model_key:
+            model_params = self._model_list.get(model_key)
+            if model_params is not None:
+                logging.info(f"Using model: {model_key}")
+                return model_params.copy()
+
+            logging.error(f"Couldn't find model: {model_key} in model list")
+
+        if self._default_robusta_model:
+            model_params = self._model_list.get(self._default_robusta_model)
+            if model_params is not None:
+                logging.info(
+                    f"Using default Robusta AI model: {self._default_robusta_model}"
+                )
+                return model_params.copy()
+
+            logging.error(
+                f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
+            )
+
+        first_model_params = next(iter(self._model_list.values())).copy()
+        logging.info("Using first model")
+        return first_model_params
+
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
         api_key = self.api_key
+        model_params = self._get_model_params(model_key)
         model = self.model
         api_base = self.api_base
         api_version = self.api_version
-        model_params = {}
-        if self._model_list:
-            # get requested model or the first credentials if no model requested.
-            model_params = (
-                self._model_list.get(model_key, {}).copy()
-                if model_key
-                else next(iter(self._model_list.values())).copy()
-            )
-            is_robusta_model = model_params.pop("is_robusta_model", False)
-            if is_robusta_model and self.api_key:
-                # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
-                api_key = self.api_key.get_secret_value()  # type: ignore
-            else:
-                api_key = model_params.pop("api_key", api_key)
-            model = model_params.pop("model", model)
-            # It's ok if the model does not have api base and api version, which are defaults to None.
-            # Handle both api_base and base_url - api_base takes precedence
-            model_api_base = model_params.pop("api_base", None)
-            model_base_url = model_params.pop("base_url", None)
-            api_base = model_api_base or model_base_url or api_base
-            api_version = model_params.pop("api_version", api_version)
+
+        is_robusta_model = model_params.pop("is_robusta_model", False)
+        if is_robusta_model and self.api_key:
+            # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
+            api_key = self.api_key.get_secret_value()  # type: ignore
+        else:
+            api_key = model_params.pop("api_key", api_key)
+                model = model_params.pop("model", model)
+        # It's ok if the model does not have api base and api version, which are defaults to None.
+        # Handle both api_base and base_url - api_base takes precedence
+        model_api_base = model_params.pop("api_base", None)
+        model_base_url = model_params.pop("base_url", None)
+        api_base = model_api_base or model_base_url or api_base
+        api_version = model_params.pop("api_version", api_version)
 
         return DefaultLLM(model, api_key, api_base, api_version, model_params, tracer)  # type: ignore
 
