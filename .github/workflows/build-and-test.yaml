@@ -1,8 +1,13 @@
-# this runs on every commit/PR to test that we are properly building binaries that work
+# This runs on every commit/PR to test that we are properly building binaries that work
 # we test this on each commit/PR to catch build problems early
 name: Build and test HolmesGPT
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
