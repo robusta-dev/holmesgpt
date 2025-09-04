@@ -115,8 +115,14 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
         # Run setup unless --skip-setup is set
         # Check port availability BEFORE running any setup scripts
-        # This allows us to fail fast if ports are unavailable
-        check_port_availability_early(test_cases)
+        # This returns a dict of test IDs to skip reasons
+        tests_to_skip_port_conflicts = check_port_availability_early(test_cases)
+        if tests_to_skip_port_conflicts:
+            log(
+                f"⚠️  {len(tests_to_skip_port_conflicts)} tests will be skipped due to port conflicts:"
+            )
+            for test_id, reason in tests_to_skip_port_conflicts.items():
+                log(f"     • {test_id}: {reason}")
 
         # Check skip-setup option
         skip_setup = request.config.getoption("--skip-setup")
@@ -132,12 +138,16 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         # Set up port forwards AFTER namespace/resources are created
         setup_all_port_forwards(test_cases)
 
+        port_configs = extract_port_forwards_from_test_cases(test_cases)
+
         data = {
             "test_cases_for_cleanup": [tc.id for tc in test_cases],
             "cleared_mock_directories": cleared_directories,
             "setup_failures": setup_failures,
             # Store port forward configs for cleanup (not the manager object)
-            "port_forward_configs": extract_port_forwards_from_test_cases(test_cases),
+            "port_forward_configs": port_configs,
+            # Store test IDs that should be skipped due to port conflicts
+            "tests_to_skip_port_conflicts": tests_to_skip_port_conflicts,
         }
     else:
         log(f"⚙️ Skipping before_test/after_test on worker {worker_id}")

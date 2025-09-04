@@ -158,6 +158,17 @@ def check_and_skip_test(
     if shared_test_infrastructure is None or request is None:
         return
 
+    # Check if test should be skipped due to port conflicts
+    tests_to_skip_port_conflicts = shared_test_infrastructure.get(
+        "tests_to_skip_port_conflicts", {}
+    )
+    if test_case.id in tests_to_skip_port_conflicts:
+        skip_reason = tests_to_skip_port_conflicts[test_case.id]
+        if request:
+            request.node.user_properties.append(("port_conflict_skip", True))
+            request.node.user_properties.append(("port_conflict_reason", skip_reason))
+        pytest.skip(f"Test skipped due to port conflict: {skip_reason}")
+
     setup_failures = shared_test_infrastructure.get("setup_failures", {})
     if test_case.id in setup_failures:
         setup_error_detail = setup_failures[test_case.id]

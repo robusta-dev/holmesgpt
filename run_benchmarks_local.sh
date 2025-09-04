@@ -109,7 +109,7 @@ echo ""
 PYTEST_CMD="poetry run pytest tests/llm/ -m \"$TEST_MARKERS\""
 [ -n "$K_FILTER" ] && PYTEST_CMD="$PYTEST_CMD -k \"$K_FILTER\""
 [ -n "$PARALLEL" ] && PYTEST_CMD="$PYTEST_CMD -n $PARALLEL"
-PYTEST_CMD="$PYTEST_CMD --no-cov --tb=short -v --json-report --json-report-file=eval_results.json"
+PYTEST_CMD="$PYTEST_CMD --no-cov --tb=short -v -s --json-report --json-report-file=eval_results.json"
 
 # Run evaluation benchmarks (same command as workflow)
 echo "Running pytest command:"

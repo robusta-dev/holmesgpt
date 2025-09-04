@@ -496,6 +496,8 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 "tests": [],
                 "total_duration": 0,
                 "total_cost": 0,
+                "setup_failures": 0,
+                "skipped": 0,
             }
         )
     )
@@ -540,6 +542,17 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
             eval_model_stats[eval_case][model]["total"] += 1
             if outcome == "passed":
                 eval_model_stats[eval_case][model]["passed"] += 1
+            elif outcome == "skipped":
+                eval_model_stats[eval_case][model]["skipped"] += 1
+
+            # Check for setup failures in user_properties
+            is_setup_failure = False
+            for prop in user_props:
+                if isinstance(prop, dict) and prop.get("is_setup_failure"):
+                    is_setup_failure = True
+                    break
+            if is_setup_failure:
+                eval_model_stats[eval_case][model]["setup_failures"] += 1
 
             # Add duration if available
             duration = (
@@ -571,6 +584,10 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     lines.append("- 🟢 **Green**: Passing 100% (stable)")
     lines.append("- 🟡 **Yellow**: Passing 1-99%")
     lines.append("- 🔴 **Red**: Passing 0% (failing)")
+    lines.append("- ⚠️ **Warning**: Setup failure (environment/infrastructure issue)")
+    lines.append(
+        "- ⏭️ **Skip**: Test skipped (e.g., known issue or precondition not met)"
+    )
     lines.append("")
 
     # Sort evals and models
@@ -631,15 +648,28 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
             if stats["total"] > 0:
                 passed = stats["passed"]
                 total = stats["total"]
-                rate = (passed / total * 100) if total > 0 else 0
+                skipped = stats["skipped"]
+                setup_failures = stats["setup_failures"]
+
+                # Calculate rate based on non-skipped, non-setup-failed tests
+                valid_tests = total - skipped - setup_failures
+                if valid_tests > 0:
+                    rate = passed / valid_tests * 100
+                else:
+                    rate = 0
 
                 # Get Braintrust filter URL for this eval/model combination
                 braintrust_url = get_braintrust_filter_url(
                     eval_case, model, experiment_name
                 )
 
-                # Determine color and emoji based on pass rate
-                emoji = get_rate_emoji(rate)
+                # Determine emoji based on status
+                if setup_failures == total:
+                    emoji = "⚠️"  # All runs had setup failures
+                elif skipped == total:
+                    emoji = "⏭️"  # All runs were skipped
+                else:
+                    emoji = get_rate_emoji(rate)
 
                 # Create cell with link if available
                 if braintrust_url:
@@ -659,13 +689,22 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     for model in sorted_models:
         total_passed = 0
         total_tests = 0
+        total_skipped = 0
+        total_setup_failures = 0
         for eval_case in sorted_evals:
             stats = eval_model_stats[eval_case][model]
             total_passed += stats["passed"]
             total_tests += stats["total"]
+            total_skipped += stats.get("skipped", 0)
+            total_setup_failures += stats.get("setup_failures", 0)
 
         if total_tests > 0:
-            overall_rate = total_passed / total_tests * 100
+            # Calculate rate based on valid runs (exclude skipped and setup failures)
+            valid_tests = total_tests - total_skipped - total_setup_failures
+            if valid_tests > 0:
+                overall_rate = total_passed / valid_tests * 100
+            else:
+                overall_rate = 0
 
             # Create summary text with emoji
             emoji = get_rate_emoji(overall_rate)
@@ -706,17 +745,25 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
             if stats["total"] > 0:
                 passed = stats["passed"]
                 total = stats["total"]
-                rate = (passed / total * 100) if total > 0 else 0
+                skipped = stats.get("skipped", 0)
+                setup_failures = stats.get("setup_failures", 0)
+
+                # Calculate rate based on non-skipped, non-setup-failed tests
+                valid_tests = total - skipped - setup_failures
+                if valid_tests > 0:
+                    rate = passed / valid_tests * 100
+                else:
+                    rate = 0
 
                 # Calculate average duration and cost if available
                 avg_duration = (
-                    stats["total_duration"] / stats["total"]
-                    if stats["total_duration"] > 0
+                    stats["total_duration"] / valid_tests
+                    if stats["total_duration"] > 0 and valid_tests > 0
                     else 0
                 )
                 avg_cost = (
-                    stats["total_cost"] / stats["total"]
-                    if stats.get("total_cost", 0) > 0
+                    stats["total_cost"] / valid_tests
+                    if stats.get("total_cost", 0) > 0 and valid_tests > 0
                     else 0
                 )
 
@@ -725,20 +772,49 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                     eval_case, model, experiment_name
                 )
 
-                # Determine emoji based on pass rate
-                emoji = get_rate_emoji(rate)
+                # Determine emoji based on status - should match the main table
+                if setup_failures == total:
+                    emoji = "⚠️"  # All runs had setup failures
+                elif skipped == total:
+                    emoji = "⏭️"  # All runs were skipped
+                else:
+                    emoji = get_rate_emoji(rate)
 
                 # Create multi-line cell with accuracy, time, and cost on separate lines
-                # Only linkify the percentage line
+                # Only linkify the percentage/status line
                 if braintrust_url:
-                    percentage_line = f"[{emoji} {rate:.0f}%]({braintrust_url})"
+                    if setup_failures == total or skipped == total:
+                        # For full setup failures or skips, just show the icon
+                        percentage_line = f"[{emoji}]({braintrust_url})"
+                    else:
+                        percentage_line = f"[{emoji} {rate:.0f}%]({braintrust_url})"
                 else:
-                    percentage_line = f"{emoji} {rate:.0f}%"
+                    if setup_failures == total or skipped == total:
+                        percentage_line = f"{emoji}"
+                    else:
+                        percentage_line = f"{emoji} {rate:.0f}%"
 
-                cell_parts = [
-                    percentage_line,
-                    f"🔄 {passed}/{total}",  # Refresh/iterations icon showing test runs
-                ]
+                # Show more detailed breakdown when there are setup failures or skips
+                if setup_failures > 0 or skipped > 0:
+                    breakdown_parts = []
+                    if passed > 0:
+                        breakdown_parts.append(f"{passed}✓")
+                    failed = valid_tests - passed if valid_tests > 0 else 0
+                    if failed > 0:
+                        breakdown_parts.append(f"{failed}✗")
+                    if setup_failures > 0:
+                        breakdown_parts.append(f"{setup_failures}⚠️")
+                    if skipped > 0:
+                        breakdown_parts.append(f"{skipped}⏭️")
+                    cell_parts = [
+                        percentage_line,
+                        f"🔄 {'/'.join(breakdown_parts)}",
+                    ]
+                else:
+                    cell_parts = [
+                        percentage_line,
+                        f"🔄 {passed}/{total}",  # Refresh/iterations icon showing test runs
+                    ]
                 if avg_duration > 0:
                     cell_parts.append(f"⏱️ {avg_duration:.1f}s")
                 if avg_cost > 0:
