@@ -475,6 +475,7 @@ def _collect_test_results_from_stats(terminalreporter):
                     "mock_data_failure": False,
                     "braintrust_span_id": None,
                     "braintrust_root_span_id": None,
+                    "clean_test_case_id": None,  # Not available for skipped tests
                 }
                 continue
             elif when != "call":
@@ -534,12 +535,28 @@ def _collect_test_results_from_stats(terminalreporter):
             else:
                 test_type = "unknown"
 
+            # Handle error cases - if there's an error, show it instead of generic message
+            actual_output = user_props.get("actual", "Unknown")
+            if actual_output in ["Test not executed", "Unknown"]:
+                # Check if we have error information
+                error_type = user_props.get("error_type")
+                error_message = user_props.get("error_message")
+                if error_type and error_message:
+                    # Format error for display - keep it concise for table
+                    if len(error_message) > 80:
+                        # Truncate long error messages but keep the important part
+                        actual_output = f"{error_type}: {error_message[:80]}..."
+                    else:
+                        actual_output = f"{error_type}: {error_message}"
+                elif error_type:
+                    actual_output = f"Error: {error_type}"
+
             # Store result (use nodeid as key to avoid duplicates)
             test_results[nodeid] = {
                 "nodeid": nodeid,
                 "test_type": test_type,
                 "expected": user_props.get("expected", "Unknown"),
-                "actual": user_props.get("actual", "Unknown"),
+                "actual": actual_output,
                 "tools_called": user_props.get("tools_called", []),
                 "expected_correctness_score": float(
                     user_props.get("expected_correctness_score", 1.0)
@@ -553,44 +570,67 @@ def _collect_test_results_from_stats(terminalreporter):
                 "mock_data_failure": mock_data_failure,
                 "user_prompt": user_props.get("user_prompt", ""),
                 "is_setup_failure": user_props.get("is_setup_failure", False),
-                "error_message": str(report.longrepr)
-                if hasattr(report, "longrepr") and report.longrepr
-                else None,
+                "model": user_props.get("model", "Unknown"),
+                "clean_test_case_id": user_props.get("clean_test_case_id"),
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),
+                # Cost tracking
+                "cost": user_props.get("cost", 0.0),
+                "total_tokens": user_props.get("total_tokens", 0),
+                "prompt_tokens": user_props.get("prompt_tokens", 0),
+                "completion_tokens": user_props.get("completion_tokens", 0),
+                # Tag tracking for performance analysis
+                "tags": user_props.get("tags", []),
+                # Error tracking for better reporting
+                "error_type": user_props.get("error_type"),
+                "error_message": user_props.get(
+                    "error_message",
+                    str(report.longrepr)
+                    if hasattr(report, "longrepr") and report.longrepr
+                    else None,
+                ),
             }
 
-    # Create TestResult objects to get test_id and test_name properties
+    # Extract test case names for all results
     results_with_ids = []
     for result in test_results.values():
-        # Create a temporary TestResult to extract IDs
-        temp_result = TestResult(
-            nodeid=result["nodeid"],
-            expected=result["expected"],
-            actual=result["actual"],
-            pass_fail="",  # Will be set later
-            tools_called=result["tools_called"],
-            logs="",  # Will be set later
-            test_type=result["test_type"],
-            execution_time=result["execution_time"],
-            expected_correctness_score=result["expected_correctness_score"],
-            user_prompt=result["user_prompt"],
-            actual_correctness_score=result["actual_correctness_score"],
-            mock_data_failure=result["mock_data_failure"],
-        )
+        # If we have a clean test case ID from the test, use it
+        # This is set in test_ask_holmes.py, test_investigate.py, and test_workload_health.py
+        # via: request.node.user_properties.append(("clean_test_case_id", test_case.id))
+        # It provides the clean test case ID without model suffixes that pytest adds when
+        # parameterizing with multiple models (e.g., "01_how_many_pods" instead of
+        # "01_how_many_pods-gpt-4o" or "01_how_many_pods-anthropic/claude-3-5-sonnet")
+        # Note: This won't be available for skipped tests (they never enter the test function body)
+        # or tests that fail during early setup before user_properties are set
+        if result.get("clean_test_case_id"):
+            result["test_case_name"] = result["clean_test_case_id"]
+        else:
+            # Fallback: Create a temporary TestResult to extract test case name from nodeid
+            temp_result = TestResult(
+                nodeid=result["nodeid"],
+                expected=result["expected"],
+                actual=result["actual"],
+                pass_fail="",  # Will be set later
+                tools_called=result["tools_called"],
+                logs="",  # Will be set later
+                test_type=result["test_type"],
+                execution_time=result["execution_time"],
+                expected_correctness_score=result["expected_correctness_score"],
+                user_prompt=result["user_prompt"],
+                actual_correctness_score=result["actual_correctness_score"],
+                mock_data_failure=result["mock_data_failure"],
+            )
+            # Add extracted test case name to the result dict
+            result["test_case_name"] = temp_result.test_case_name
 
-        # Add extracted IDs to the result dict
-        result["test_id"] = temp_result.test_id
-        result["test_name"] = temp_result.test_name
         results_with_ids.append(result)
 
-    # Sort results by test_type then test_id for consistent ordering
+    # Sort results by test_type then test_case_name for consistent ordering
     sorted_results = sorted(
         results_with_ids,
         key=lambda r: (
             r["test_type"],
-            int(r["test_id"]) if r["test_id"].isdigit() else 999,
-            r["test_name"],
+            r["test_case_name"],
         ),
     )
 

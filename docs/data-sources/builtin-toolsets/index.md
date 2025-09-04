@@ -17,12 +17,11 @@ HolmesGPT includes pre-built integrations for popular monitoring and observabili
 -   [:material-clock:{ .lg .middle } **Datetime**](datetime.md)
 -   [:simple-docker:{ .lg .middle } **Docker**](docker.md)
 -   [:material-github:{ .lg .middle } **GitHub**](github.md)
--   [:simple-grafana:{ .lg .middle } **Loki**](grafanaloki.md)
--   [:simple-grafana:{ .lg .middle } **Tempo**](grafanatempo.md)
 -   [:material-package:{ .lg .middle } **Helm**](helm.md)
 -   [:material-web:{ .lg .middle } **Internet**](internet.md)
 -   [:simple-apachekafka:{ .lg .middle } **Kafka**](kafka.md)
 -   [:simple-kubernetes:{ .lg .middle } **Kubernetes**](kubernetes.md)
+-   [:simple-grafana:{ .lg .middle } **Loki**](grafanaloki.md)
 -   [:simple-mongodb:{ .lg .middle } **MongoDB Atlas**](mongodb-atlas.md)
 -   [:simple-newrelic:{ .lg .middle } **New Relic**](newrelic.md)
 -   [:simple-notion:{ .lg .middle } **Notion**](notion.md)
@@ -33,6 +32,7 @@ HolmesGPT includes pre-built integrations for popular monitoring and observabili
 -   [:material-robot:{ .lg .middle } **Robusta**](robusta.md)
 -   [:material-ticket:{ .lg .middle } **ServiceNow**](servicenow.md)
 -   [:material-forum:{ .lg .middle } **Slab**](slab.md)
+-   [:simple-grafana:{ .lg .middle } **Tempo**](grafanatempo.md)
 
 </div>
 
