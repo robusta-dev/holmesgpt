@@ -18,6 +18,7 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 DEFAULT_LOG_LIMIT = 100
 SECONDS_PER_DAY = 24 * 60 * 60
 DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
+DEFAULT_GRAPH_TIME_SPAN_SECONDS = 1 * SECONDS_PER_DAY  # 1 day in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
@@ -174,7 +175,9 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         return params
 
-    def _invoke(self, params: dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),

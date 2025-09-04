@@ -147,7 +147,9 @@ class GetActiveAlerts(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             db_config = self.toolset.database_config()
             api_client = self.toolset.api_client()
