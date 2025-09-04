@@ -33,7 +33,7 @@ class GitToolset(Toolset):
         super().__init__(
             name="git",
             description="Runs git commands to read repos and create PRs",
-            docs_url="https://docs.github.com/en/rest",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/github/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -249,7 +249,9 @@ class GitReadFileWithLineNumbers(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         filepath = params["filepath"]
         try:
             headers = {"Authorization": f"token {self.toolset.git_credentials}"}
@@ -293,7 +295,9 @@ class GitListFiles(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             headers = {"Authorization": f"token {self.toolset.git_credentials}"}
             url = f"https://api.github.com/repos/{self.toolset.git_repo}/git/trees/{self.toolset.git_branch}?recursive=1"
@@ -334,7 +338,9 @@ class GitListOpenPRs(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             prs = self.toolset.list_open_prs()
             formatted = [
@@ -402,7 +408,9 @@ class GitExecuteChanges(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
                 status=ToolResultStatus.ERROR,
@@ -620,7 +628,9 @@ class GitUpdatePR(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             line = params["line"]
             filename = params["filename"]

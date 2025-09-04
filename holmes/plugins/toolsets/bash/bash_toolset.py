@@ -6,7 +6,12 @@ import re
 import string
 from typing import Dict, Any, Optional
 
+import sentry_sdk
 
+
+from holmes.common.env_vars import (
+    BASH_TOOL_UNSAFE_ALLOW_ALL,
+)
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
@@ -77,7 +82,9 @@ class KubectlRunImageCommand(BaseBashTool):
         command_str = get_param_or_raise(params, "command")
         return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i -- {command_str}"
 
-    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         timeout = params.get("timeout", 60)
 
         image = get_param_or_raise(params, "image")
@@ -92,9 +99,29 @@ class KubectlRunImageCommand(BaseBashTool):
                 params=params,
             )
 
-        validate_image_and_commands(
-            image=image, container_command=command_str, config=self.toolset.config
-        )
+        try:
+            validate_image_and_commands(
+                image=image, container_command=command_str, config=self.toolset.config
+            )
+        except ValueError as e:
+            # Report unsafe kubectl run command attempt to Sentry
+            sentry_sdk.capture_event(
+                {
+                    "message": f"Unsafe kubectl run command attempted: {image}",
+                    "level": "warning",
+                    "extra": {
+                        "image": image,
+                        "command": command_str,
+                        "namespace": namespace,
+                        "error": str(e),
+                    },
+                }
+            )
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=str(e),
+                params=params,
+            )
 
         pod_name = (
             "holmesgpt-debug-pod-"
@@ -137,7 +164,9 @@ class RunBashCommand(BaseBashTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Dict[str, Any]) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         command_str = params.get("command")
         timeout = params.get("timeout", 60)
 
@@ -154,18 +183,34 @@ class RunBashCommand(BaseBashTool):
                 error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
                 params=params,
             )
-        try:
-            safe_command_str = make_command_safe(command_str, self.toolset.config)
-            return execute_bash_command(
-                cmd=safe_command_str, timeout=timeout, params=params
-            )
-        except (argparse.ArgumentError, ValueError) as e:
-            logging.info(f"Refusing LLM tool call {command_str}", exc_info=True)
-            return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
-                error=f"Refusing to execute bash command. Only some commands are supported and this is likely because requested command is unsupported. Error: {str(e)}",
-                params=params,
-            )
+
+        command_to_execute = command_str
+
+        # Only run the safety check if user has NOT approved the command
+        if not user_approved:
+            try:
+                command_to_execute = make_command_safe(command_str, self.toolset.config)
+
+            except (argparse.ArgumentError, ValueError) as e:
+                with sentry_sdk.configure_scope() as scope:
+                    scope.set_extra("command", command_str)
+                    scope.set_extra("error", str(e))
+                    scope.set_extra("unsafe_allow_all", BASH_TOOL_UNSAFE_ALLOW_ALL)
+                    sentry_sdk.capture_exception(e)
+
+                if not BASH_TOOL_UNSAFE_ALLOW_ALL:
+                    logging.info(f"Refusing LLM tool call {command_str}")
+
+                    return StructuredToolResult(
+                        status=ToolResultStatus.APPROVAL_REQUIRED,
+                        error=f"Refusing to execute bash command. {str(e)}",
+                        params=params,
+                        invocation=command_str,
+                    )
+
+        return execute_bash_command(
+            cmd=command_to_execute, timeout=timeout, params=params
+        )
 
     def get_parameterized_one_liner(self, params: Dict[str, Any]) -> str:
         command = params.get("command", "N/A")

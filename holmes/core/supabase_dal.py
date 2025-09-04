@@ -131,7 +131,7 @@ class SupabaseDal:
                         raise Exception(
                             "No robusta token provided to Holmes.\n"
                             "Please set a valid Robusta UI token.\n "
-                            "See https://docs.robusta.dev/master/configuration/ai-analysis.html#choosing-and-configuring-an-ai-provider for instructions."
+                            "See https://holmesgpt.dev/ai-providers/ for instructions."
                         )
                     env_replacement_token = get_env_replacement(token)
                     if env_replacement_token:
@@ -143,7 +143,7 @@ class SupabaseDal:
                             "Ensure your Helm chart or environment variables are set correctly.\n "
                             "If you store the token in a secret, you must also pass "
                             "the environment variable ROBUSTA_UI_TOKEN to Holmes.\n "
-                            "See https://docs.robusta.dev/master/configuration/ai-analysis.html#configuring-holmesgpt-access-to-saas-data for instructions."
+                            "See https://holmesgpt.dev/data-sources/builtin-toolsets/robusta/ for instructions."
                         )
                     try:
                         decoded = base64.b64decode(token)

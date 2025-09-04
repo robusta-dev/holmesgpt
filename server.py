@@ -23,7 +23,6 @@ import time
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from holmes.utils.robusta import load_robusta_api_key
 from holmes.utils.stream import stream_investigate_formatter, stream_chat_formatter
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -32,6 +31,7 @@ from holmes.common.env_vars import (
     LOG_PERFORMANCE,
     SENTRY_DSN,
     ENABLE_TELEMETRY,
+    DEVELOPMENT_MODE,
     SENTRY_TRACES_SAMPLE_RATE,
 )
 from holmes.core.supabase_dal import SupabaseDal
@@ -82,6 +82,7 @@ dal = SupabaseDal(config.cluster_name)
 
 
 def sync_before_server_start():
+    config.load_robusta_api_key(dal=dal)
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -93,13 +94,17 @@ def sync_before_server_start():
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
-    if is_official_release():
-        logging.info("Initializing sentry...")
+    # Initialize Sentry for official releases or when development mode is enabled
+    if is_official_release() or DEVELOPMENT_MODE:
+        environment = "production" if is_official_release() else "development"
+        logging.info(f"Initializing sentry for {environment} environment...")
+
         sentry_sdk.init(
             dsn=SENTRY_DSN,
             send_default_pii=False,
             traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
             profiles_sample_rate=0,
+            environment=environment,
         )
         sentry_sdk.set_tags(
             {
@@ -107,10 +112,13 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
                 "cluster_name": config.cluster_name,
                 "model_name": config.model,
                 "version": get_version(),
+                "environment": environment,
             }
         )
     else:
-        logging.info("Skipping sentry initialization for custom version")
+        logging.info(
+            "Skipping sentry initialization - not an official release and DEVELOPMENT_MODE not enabled"
+        )
 
 app = FastAPI()
 
@@ -184,7 +192,7 @@ def stream_investigate_issues(req: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-    load_robusta_api_key(dal=dal, config=config)
+    config.load_robusta_api_key(dal=dal)
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -219,7 +227,6 @@ def workload_health_check(request: WorkloadHealthRequest):
                 "toolsets": ai.tool_executor.toolsets,
                 "response_format": workload_health_structured_output,
                 "cluster_name": config.cluster_name,
-                "investigation_id": ai.investigation_id,
             },
         )
 
@@ -251,7 +258,7 @@ def workload_health_conversation(
     request: WorkloadHealthChatRequest,
 ):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -280,7 +287,7 @@ def workload_health_conversation(
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -319,7 +326,7 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        load_robusta_api_key(dal=dal, config=config)
+        config.load_robusta_api_key(dal=dal)
 
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
