@@ -43,7 +43,7 @@ jobs:
       MAC_BUILD_HASH: ${{ steps.calc-hash.outputs.MAC_BUILD_HASH }}
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Download MacOS artifact
       uses: actions/download-artifact@v4
       with:
@@ -62,7 +62,7 @@ jobs:
       LINUX_BUILD_HASH: ${{ steps.calc-hash.outputs.LINUX_BUILD_HASH }}
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Download Linux artifact
       uses: actions/download-artifact@v4
       with:
@@ -81,7 +81,7 @@ jobs:
       TAG_NAME: ${{ github.ref_name }}
     steps:
     - name: Checkout homebrew-holmesgpt repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
       with:
         repository: robusta-dev/homebrew-holmesgpt
         token: ${{ secrets.MULTIREPO_GITHUB_TOKEN }}

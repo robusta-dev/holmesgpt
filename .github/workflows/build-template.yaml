@@ -40,7 +40,7 @@ env:
 jobs:
   # Main build job with matrix strategy for multiple OS
   build:
-    name: Build (${{ matrix.os }}${{ fromJson(inputs.python-versions-matrix)[0] != fromJson(inputs.python-versions-matrix)[1] && format(', Python {0}', matrix.python-version) || '' }})
+    name: Build (${{ matrix.os }}, Python ${{ matrix.python-version }})
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +75,7 @@ jobs:
         curl -sSL https://install.python-poetry.org | python3 - --version ${{ env.POETRY_VERSION }}
         C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry config virtualenvs.create false
         C:\Users\runneradmin\AppData\Roaming\Python\Scripts\poetry install --no-root
-        # Updated GITHUB_PATH works on next steps, not current step somehow
+        #NOTE(mainred): Updated GITHUB_PATH works on next steps, not current step somehow
         echo "C:\Users\runneradmin\AppData\Roaming\Python\Scripts" >> $env:GITHUB_PATH
 
     # Linux-specific system dependencies
@@ -191,7 +191,7 @@ jobs:
 
     # Upload artifacts
     - name: Upload build artifacts
-      if: inputs.is-release
+      if: ${{ inputs.is-release }}
       uses: actions/upload-artifact@v4
       with:
         name: holmes-${{ matrix.os }}-${{ github.run_number }}
@@ -199,10 +199,11 @@ jobs:
           holmes-${{ matrix.os }}-${{ github.run_number }}.tar.gz
           holmes-${{ matrix.os }}-${{ github.run_number }}.zip
         retention-days: 30
+        if-no-files-found: error
 
     # Release asset upload (only on release events)
     - name: Upload release asset
-      if: inputs.is-release
+      if: ${{ inputs.is-release }}
       uses: actions/upload-release-asset@v1.0.2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
