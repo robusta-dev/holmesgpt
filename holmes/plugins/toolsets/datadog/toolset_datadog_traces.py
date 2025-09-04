@@ -211,7 +211,9 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
         filter_str = ", ".join(filters) if filters else "all"
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Traces ({filter_str})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the tool to fetch traces."""
         if not self.toolset.dd_config:
             return StructuredToolResult(
@@ -375,7 +377,9 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
         trace_id = params.get("trace_id", "unknown")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Trace Details ({trace_id})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the tool to fetch trace details."""
         if not self.toolset.dd_config:
             return StructuredToolResult(
@@ -556,7 +560,9 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
         filter_str = ", ".join(filters) if filters else "all"
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Spans ({filter_str})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the tool to search spans."""
         if not self.toolset.dd_config:
             return StructuredToolResult(

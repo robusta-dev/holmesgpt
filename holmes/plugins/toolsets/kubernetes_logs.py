@@ -63,15 +63,15 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/kubernetes.html#logs",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
             is_default=True,
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
             tags=[ToolsetTag.CORE],
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
         enabled, disabled_reason = self.health_check()
         prerequisite.enabled = enabled
         prerequisite.disabled_reason = disabled_reason
