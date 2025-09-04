@@ -433,17 +433,17 @@ lxml = ["lxml"]
 
 [[package]]
 name = "boto3"
-version = "1.40.22"
+version = "1.40.23"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "boto3-1.40.22-py3-none-any.whl", hash = "sha256:ecc468266a018f77869fd9cc3564500c3c1b658eb6d8e20351ec88cc06258dbf"},
-    {file = "boto3-1.40.22.tar.gz", hash = "sha256:9972752b50fd376576a6e04a7d6afc69762a368f29b85314598edb62c1894663"},
+    {file = "boto3-1.40.23-py3-none-any.whl", hash = "sha256:9826fb6abcdda2f016a939b81e94d1a9e1147ae897a523f366cf5a1558936356"},
+    {file = "boto3-1.40.23.tar.gz", hash = "sha256:ca5e2f767a7b759b0bb5c7e5c665effa1512799e763823e68d04e7c10b1399d5"},
 ]
 
 [package.dependencies]
-botocore = ">=1.40.22,<1.41.0"
+botocore = ">=1.40.23,<1.41.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.13.0,<0.14.0"
 
@@ -452,13 +452,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.40.22"
+version = "1.40.23"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "botocore-1.40.22-py3-none-any.whl", hash = "sha256:df50788fc71250dd884a4e2b60931103416bfba5baa85d2e150b8434ded7e61e"},
-    {file = "botocore-1.40.22.tar.gz", hash = "sha256:eb800ece2cd67777ebb09a67a0d1628db3aea4f2ccbf1d8bf7dbf8504d1f3b71"},
+    {file = "botocore-1.40.23-py3-none-any.whl", hash = "sha256:487cced8f9346f7d1038e9158c56b6ecf6d839dd43e345bc730053c8cf321ed3"},
+    {file = "botocore-1.40.23.tar.gz", hash = "sha256:de07cceaf9b142c183e165d303a0eee289c34d63f63e6b7a640406d6bacfb646"},
 ]
 
 [package.dependencies]
@@ -2153,13 +2153,13 @@ adal = ["adal (>=1.0.2)"]
 
 [[package]]
 name = "litellm"
-version = "1.76.1"
+version = "1.76.2"
 description = "Library to easily interface with LLM API providers"
 optional = false
 python-versions = "!=2.7.*,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,!=3.7.*,>=3.8"
 files = [
-    {file = "litellm-1.76.1-py3-none-any.whl", hash = "sha256:938f05075372f26098211ea9b3cb0a6bb7b46111330226b70d42d40bd307812f"},
-    {file = "litellm-1.76.1.tar.gz", hash = "sha256:d5a3a3efda04999b60ec0d1c29c1eaaa12f89a7b29db4bda691c7fb55b4fa6ad"},
+    {file = "litellm-1.76.2-py3-none-any.whl", hash = "sha256:a9a2ef64a598b5b4ae245f1de6afc400856477cd6f708ff633d95e2275605a45"},
+    {file = "litellm-1.76.2.tar.gz", hash = "sha256:fc7af111fa0f06943d8dbebed73f88000f9902f0d0ee0882c57d0bd5c1a37ecb"},
 ]
 
 [package.dependencies]
@@ -4492,13 +4492,13 @@ crt = ["botocore[crt] (>=1.37.4,<2.0a.0)"]
 
 [[package]]
 name = "sentry-sdk"
-version = "2.35.2"
+version = "2.36.0"
 description = "Python client for Sentry (https://sentry.io)"
 optional = false
 python-versions = ">=3.6"
 files = [
-    {file = "sentry_sdk-2.35.2-py2.py3-none-any.whl", hash = "sha256:38c98e3cbb620dd3dd80a8d6e39c753d453dd41f8a9df581b0584c19a52bc926"},
-    {file = "sentry_sdk-2.35.2.tar.gz", hash = "sha256:e9e8f3c795044beb59f2c8f4c6b9b0f9779e5e604099882df05eec525e782cc6"},
+    {file = "sentry_sdk-2.36.0-py2.py3-none-any.whl", hash = "sha256:0f95586a141068d215376e5bf8ebd279e126f7f42805e9570190ef82a7e232b3"},
+    {file = "sentry_sdk-2.36.0.tar.gz", hash = "sha256:af9260e8155e41e8217615a453828e98aa40740865ac4b16b1ccb6a63b4b2e31"},
 ]
 
 [package.dependencies]
@@ -5319,4 +5319,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "1ebd28e4cd75a4e4ee50230f065980d52aee0272564681185cdd7135eea1531d"
+content-hash = "948e8b473c526ef7bcc15511a88e036bf25e9f5b1816e5b1cc1f792ef8d3ba29"
