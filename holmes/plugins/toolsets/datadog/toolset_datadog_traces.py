@@ -57,7 +57,6 @@ class DatadogTracesToolset(Toolset):
                 FetchDatadogTraceById(toolset=self),
                 FetchDatadogSpansByFilter(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         self._reload_instructions()

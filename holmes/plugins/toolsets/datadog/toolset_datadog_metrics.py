@@ -580,7 +580,6 @@ class DatadogMetricsToolset(Toolset):
                 QueryMetricsMetadata(toolset=self),
                 ListMetricTags(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         self._reload_instructions()

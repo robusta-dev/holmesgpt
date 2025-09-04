@@ -178,7 +178,6 @@ class DatadogGeneralToolset(Toolset):
                 DatadogAPIPostSearch(toolset=self),
                 ListDatadogAPIResources(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(
