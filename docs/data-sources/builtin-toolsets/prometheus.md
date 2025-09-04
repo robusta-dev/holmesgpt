@@ -4,98 +4,60 @@ Connect HolmesGPT to Prometheus for metrics analysis and query generation. This 
 
 ## Prerequisites
 
-- A running and accessible Prometheus server
-- Ensure HolmesGPT can connect to the Prometheus endpoint
+- A running and accessible Prometheus server (or compatible service)
+- Network access from HolmesGPT to the Prometheus endpoint
+
+### Supported Prometheus Providers
+
+HolmesGPT works with standard Prometheus and these managed services:
+
+- **[Coralogix](coralogix.md#metrics-configuration-prometheus)** - Full-stack observability platform
+- **[Grafana Cloud (Mimir)](../prometheus-providers/grafana-cloud.md)** - Hosted Prometheus/Mimir service
+- **[Amazon Managed Prometheus (AMP)](../prometheus-providers/amazon-managed-prometheus.md)** - AWS managed Prometheus service
+- **VictoriaMetrics** - Prometheus-compatible monitoring solution
 
 ## Configuration
 
+```yaml-toolset-config
+# __CLI_EXTRA__: export PROMETHEUS_URL="http://your-prometheus:9090" && holmes ask "show me CPU usage"
+toolsets:
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: http://<your-prometheus-service>:9090
+
+      # Optional authentication:
+      #headers:
+      #    Authorization: "Basic <base_64_encoded_string>"
+
+      # Optional SSL/TLS settings:
+      #prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
+
+      # Optional label filtering:
+      #additional_labels:  # Add extra label selectors to all Prometheus queries
+      #    cluster: "production"
+      #    region: "us-west-2"
+```
+
+### Validation
+
 === "CLI"
 
-    Create or edit your `~/.holmes/config.yaml`:
-
-    ```yaml
-    toolsets:
-        prometheus/metrics:
-            enabled: true
-            config:
-                prometheus_url: http://<your-prometheus-service>:9090
-
-                # Optional authentication:
-                #headers:
-                #    Authorization: "Basic <base_64_encoded_string>"
-
-                # Optional SSL/TLS settings:
-                #prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-
-                # Optional label filtering:
-                #additional_labels:  # Add extra label selectors to all Prometheus queries
-                #    cluster: "production"
-                #    region: "us-west-2"
-    ```
-
-    💡 **Alternative**: Set the `PROMETHEUS_URL` environment variable instead of using the config file:
+    Test your connection:
     ```bash
-    export PROMETHEUS_URL="http://your-prometheus:9090"
-    holmes ask "show me CPU usage"
+    holmes ask "Show me the CPU usage for the last hour"
     ```
 
 === "HolmesGPT Helm Chart"
 
-    Configure Prometheus in your `values.yaml`:
-
-    ```yaml
-    holmes:
-      toolsets:
-        prometheus/metrics:
-          enabled: true
-          config:
-            prometheus_url: http://<your-prometheus-service>:9090
-
-            # Optional authentication:
-            #headers:
-            #    Authorization: "Basic <base_64_encoded_string>"
-
-            # Optional SSL/TLS settings:
-            #prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-
-            # Optional label filtering:
-            #additional_labels:  # Add extra label selectors to all Prometheus queries
-            #    cluster: "production"
-            #    region: "us-west-2"
-    ```
+    After deploying, test the API endpoint directly. See [HTTP API Reference](../../reference/http-api.md) for details.
 
 === "Robusta Helm Chart"
 
-    When using Robusta's integrated HolmesGPT, configure Prometheus in your `values.yaml`:
-
-    ```yaml
-    globalConfig:
-      custom_toolsets:
-        prometheus/metrics:
-          enabled: true
-          config:
-            prometheus_url: http://<your-prometheus-service>:9090
-
-            # Optional authentication:
-            #headers:
-            #    Authorization: "Basic <base_64_encoded_string>"
-
-            # Optional SSL/TLS settings:
-            #prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-
-            # Optional label filtering:
-            #additional_labels:  # Add extra label selectors to all Prometheus queries
-            #    cluster: "production"
-            #    region: "us-west-2"
+    Open **Ask Holmes** in the Robusta SaaS platform and ask:
     ```
-
-## Validation
-
-To test your connection, run:
-
-```bash
-holmes ask "Show me the CPU usage for the last hour"
-```
+    Show me the CPU usage for the last hour
+    ```
 
 ## Troubleshooting
 
@@ -139,82 +101,25 @@ This will print all possible Prometheus service URLs in your cluster. Pick the o
 
 You can further customize the Prometheus toolset with the following options:
 
-=== "CLI"
-
-    ```yaml
-    toolsets:
-      prometheus/metrics:
-        enabled: true
-        config:
-          prometheus_url: http://<prometheus-host>:9090
-          healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
-          headers:
-            Authorization: "Basic <base_64_encoded_string>"
-          metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
-          metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
-          fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
-          fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
-          tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
-          prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-          additional_labels:  # Add extra label selectors to all Prometheus queries (optional)
-            cluster: "production"
-            region: "us-west-2"
-    ```
-
-=== "HolmesGPT Helm Chart"
-
-    ```yaml
-    holmes:
-      toolsets:
-        prometheus/metrics:
-          enabled: true
-          config:
-            prometheus_url: http://<prometheus-host>:9090
-            healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
-            headers:
-              Authorization: "Basic <base_64_encoded_string>"
-            metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
-            metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
-            fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
-            fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
-            tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
-            prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-            additional_labels:  # Add extra label selectors to all Prometheus queries (optional)
-              cluster: "production"
-              region: "us-west-2"
-    ```
-
-=== "Robusta Helm Chart"
-
-    ```yaml
-    globalConfig:
-      custom_toolsets:
-        prometheus/metrics:
-          enabled: true
-          config:
-            prometheus_url: http://<prometheus-host>:9090
-            healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
-            headers:
-              Authorization: "Basic <base_64_encoded_string>"
-            metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
-            metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
-            fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
-            fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
-            tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
-            prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
-            additional_labels:  # Add extra label selectors to all Prometheus queries (optional)
-              cluster: "production"
-              region: "us-west-2"
-
-    # Note: Some Robusta versions require additional RBAC permissions:
-    customClusterRoleRules:
-      - apiGroups: [""]
-        resources: ["services"]
-        verbs: ["get", "list", "watch"]
-      - apiGroups: ["apps"]
-        resources: ["deployments", "replicasets", "daemonsets", "statefulsets"]
-        verbs: ["get", "list", "watch"]
-    ```
+```yaml-toolset-config
+toolsets:
+  prometheus/metrics:
+    enabled: true
+    config:
+      prometheus_url: http://<prometheus-host>:9090
+      healthcheck: "-/healthy"  # Path for health checking (default: -/healthy)
+      headers:
+        Authorization: "Basic <base_64_encoded_string>"
+      metrics_labels_time_window_hrs: 48  # Time window (hours) for fetching labels (default: 48)
+      metrics_labels_cache_duration_hrs: 12  # How long to cache labels (hours, default: 12)
+      fetch_labels_with_labels_api: false  # Use labels API instead of series API (default: false)
+      fetch_metadata_with_series_api: false  # Use series API for metadata (default: false)
+      tool_calls_return_data: true  # If false, disables returning Prometheus data (default: true)
+      prometheus_ssl_enabled: true  # Set to false to disable SSL verification (default: true)
+      additional_labels:  # Add extra label selectors to all Prometheus queries (optional)
+        cluster: "production"
+        region: "us-west-2"
+```
 
 **Config option explanations:**
 
@@ -260,80 +165,3 @@ The `CERTIFICATE` environment variable applies globally to all HTTPS connections
 | execute_prometheus_instant_query | Execute an instant PromQL query |
 | execute_prometheus_range_query | Execute a range PromQL query for time series data |
 | get_current_time | Get current timestamp for time-based queries |
-
----
-
-## Coralogix Prometheus Configuration
-
-To use a Coralogix PromQL endpoint with HolmesGPT:
-
-1. Go to [Coralogix Documentation](https://coralogix.com/docs/integrations/coralogix-endpoints/#promql) and choose the relevant PromQL endpoint for your region.
-2. In Coralogix, create an API key with permissions to query metrics (Data Flow → API Keys).
-3. Create a Kubernetes secret for the API key and expose it as an environment variable in your Helm values:
-
-    ```yaml
-    holmes:
-      additionalEnvVars:
-        - name: CORALOGIX_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: coralogix-api-key
-              key: CORALOGIX_API_KEY
-    ```
-
-4. Add the following under your toolsets in the Helm chart:
-
-    ```yaml
-    holmes:
-      toolsets:
-        prometheus/metrics:
-          enabled: true
-          config:
-            healthcheck: "/api/v1/query?query=up"  # This is important for Coralogix
-            prometheus_url: "https://prom-api.eu2.coralogix.com"  # Use your region's endpoint
-            headers:
-              token: "{{ env.CORALOGIX_API_KEY }}"
-            metrics_labels_time_window_hrs: 72
-            metrics_labels_cache_duration_hrs: 12
-            fetch_labels_with_labels_api: true
-            tool_calls_return_data: true
-            fetch_metadata_with_series_api: true
-    ```
-
----
-
-## Grafana Cloud (Mimir) Configuration
-
-To connect HolmesGPT to Grafana Cloud's Prometheus/Mimir endpoint:
-
-1. **Create a service account token in Grafana Cloud:**
-   - Navigate to "Administration → Service accounts"
-   - Create a new service account
-   - Generate a service account token (starts with `glsa_`)
-
-2. **Find your Prometheus datasource UID:**
-   ```bash
-   curl -H "Authorization: Bearer YOUR_GLSA_TOKEN" \
-        "https://YOUR-INSTANCE.grafana.net/api/datasources" | \
-        jq '.[] | select(.type=="prometheus") | {name, uid}'
-   ```
-
-3. **Configure HolmesGPT:**
-   ```yaml
-   holmes:
-     toolsets:
-       prometheus/metrics:
-         enabled: true
-         config:
-           prometheus_url: https://YOUR-INSTANCE.grafana.net/api/datasources/proxy/uid/PROMETHEUS_DATASOURCE_UID
-           fetch_labels_with_labels_api: false  # Important for Mimir
-           fetch_metadata_with_series_api: true  # Important for Mimir
-           headers:
-             Authorization: Bearer YOUR_GLSA_TOKEN
-   ```
-
-**Important notes:**
-
-- Use the proxy endpoint URL format `/api/datasources/proxy/uid/` - this handles authentication and routing to Mimir automatically
-- Set `fetch_labels_with_labels_api: false` for optimal Mimir compatibility
-- Set `fetch_metadata_with_series_api: true` for proper metadata retrieval
