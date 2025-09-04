@@ -342,3 +342,141 @@ def test_mcp_servers_from_config(toolset_manager):
     assert len(toolset_manager.toolsets) == 1
     assert "mcp1" in toolset_manager.toolsets
     assert toolset_manager.toolsets["mcp1"]["type"] == ToolsetType.MCP.value
+
+
+# Tests for transformer config merging functionality
+
+
+def test_inject_fast_model_with_existing_transformers():
+    """Test that global fast model is injected into existing transformer configs."""
+    from holmes.core.transformers import Transformer
+
+    global_fast_model = "gpt-4o-mini"
+
+    # Create toolset with existing transformers (should get injection)
+    toolset = YAMLToolset(
+        name="test_toolset",
+        tags=[ToolsetTag.CORE],
+        description="Test toolset",
+        transformers=[
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "Custom"},
+            )
+        ],
+    )
+
+    manager = ToolsetManager(global_fast_model=global_fast_model)
+    manager._inject_fast_model_into_transformers([toolset])
+
+    # Verify injection occurred
+    assert toolset.transformers is not None
+    config_dict = {t.name: t.config for t in toolset.transformers}
+
+    # Should have global_fast_model injected, original config preserved
+    assert config_dict["llm_summarize"]["global_fast_model"] == "gpt-4o-mini"
+    assert config_dict["llm_summarize"]["input_threshold"] == 1000  # Original
+    assert config_dict["llm_summarize"]["prompt"] == "Custom"  # Original
+
+
+def test_no_injection_when_no_transformers():
+    """Test that no injection occurs when toolset has no transformers (new behavior)."""
+
+    global_fast_model = "gpt-4o-mini"
+
+    # Create toolset without transformers
+    toolset = YAMLToolset(
+        name="test_toolset", tags=[ToolsetTag.CORE], description="Test toolset"
+    )
+
+    manager = ToolsetManager(global_fast_model=global_fast_model)
+    manager._inject_fast_model_into_transformers([toolset])
+
+    # No injection should occur when toolset has no transformers
+    assert toolset.transformers is None
+
+
+def test_no_injection_when_no_global_fast_model():
+    """Test that nothing happens when no global fast model is provided."""
+    from holmes.core.transformers import Transformer
+
+    toolset = YAMLToolset(
+        name="test_toolset",
+        tags=[ToolsetTag.CORE],
+        description="Test toolset",
+        transformers=[
+            Transformer(name="llm_summarize", config={"input_threshold": 1000})
+        ],
+    )
+    original_transformers = toolset.transformers
+
+    manager = ToolsetManager()  # No global fast model
+    manager._inject_fast_model_into_transformers([toolset])
+
+    # Toolset configs should remain unchanged (no injection)
+    assert toolset.transformers == original_transformers
+    assert "global_fast_model" not in toolset.transformers[0].config
+
+
+def test_injection_only_affects_llm_summarize_transformers():
+    """Test that injection only affects llm_summarize transformers, not others."""
+    from holmes.core.transformers import Transformer
+
+    global_fast_model = "gpt-4o-mini"
+
+    toolset = YAMLToolset(
+        name="test_toolset",
+        tags=[ToolsetTag.CORE],
+        description="Test toolset",
+        transformers=[
+            Transformer(name="llm_summarize", config={"input_threshold": 1000}),
+            Transformer(name="custom_transformer", config={"param": "value"}),
+        ],
+    )
+
+    manager = ToolsetManager(global_fast_model=global_fast_model)
+    manager._inject_fast_model_into_transformers([toolset])
+
+    # Check that only llm_summarize got injection
+    config_dict = {t.name: t.config for t in toolset.transformers}
+
+    assert "llm_summarize" in config_dict
+    assert "custom_transformer" in config_dict
+    assert config_dict["llm_summarize"]["global_fast_model"] == "gpt-4o-mini"
+    assert "global_fast_model" not in config_dict["custom_transformer"]
+    assert config_dict["custom_transformer"]["param"] == "value"  # Unchanged
+
+
+@patch("holmes.core.toolset_manager.load_builtin_toolsets")
+def test_list_all_toolsets_applies_fast_model_injection(mock_load_builtin_toolsets):
+    """Integration test that global fast model is injected during toolset loading."""
+    from holmes.core.transformers import Transformer
+
+    # Create toolset with transformers
+    toolset = YAMLToolset(
+        name="kubernetes",
+        tags=[ToolsetTag.CORE],
+        description="Kubernetes toolset",
+        transformers=[
+            Transformer(
+                name="llm_summarize",
+                config={"input_threshold": 1000, "prompt": "K8s prompt"},
+            )
+        ],
+    )
+    mock_load_builtin_toolsets.return_value = [toolset]
+
+    # Create manager with CLI fast_model
+    global_fast_model = "azure/gpt-4.1"
+    manager = ToolsetManager(global_fast_model=global_fast_model)
+
+    # Load toolsets (this triggers injection)
+    result = manager._list_all_toolsets(check_prerequisites=False)
+
+    # Verify the toolset received the global_fast_model injection
+    kubernetes_toolset = next(t for t in result if t.name == "kubernetes")
+    config_dict = {t.name: t.config for t in kubernetes_toolset.transformers}
+
+    assert config_dict["llm_summarize"]["global_fast_model"] == "azure/gpt-4.1"
+    assert config_dict["llm_summarize"]["input_threshold"] == 1000  # Original
+    assert config_dict["llm_summarize"]["prompt"] == "K8s prompt"  # Original
