@@ -182,7 +182,9 @@ class GetTempoTraces(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api_key = self._toolset.grafana_config.api_key
         headers = self._toolset.grafana_config.headers
 
@@ -250,7 +252,9 @@ class GetTempoTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         api_key = self._toolset.grafana_config.api_key
         headers = self._toolset.grafana_config.headers
         start, end = process_timestamps_to_int(
@@ -297,7 +301,9 @@ class GetTempoTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         labels_mapping = self._toolset.grafana_config.labels
         labels = list(labels_mapping.model_dump().values())
 
@@ -381,7 +387,9 @@ Examples:
         )
         self._toolset = toolset
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             # Build query
             if params.get("base_query"):
@@ -551,7 +559,7 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
             icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanatempo.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanatempo/",
             tools=[
                 FetchTracesSimpleComparison(self),
                 GetTempoTraces(self),

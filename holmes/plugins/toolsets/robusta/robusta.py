@@ -45,7 +45,9 @@ class FetchRobustaFinding(Tool):
             logging.error(error)
             return {"error": error}
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         finding_id = params[PARAM_FINDING_ID]
         try:
             finding = self._fetch_finding(finding_id)
@@ -113,7 +115,9 @@ class FetchResourceRecommendation(Tool):
             )
         return None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             recommendations = self._resource_recommendation(params)
             if recommendations:
@@ -171,7 +175,9 @@ class FetchConfigurationChanges(Tool):
             )
         return None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             changes = self._fetch_change_history(params)
             if changes:
@@ -213,7 +219,7 @@ class RobustaToolset(Toolset):
         super().__init__(
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             description="Fetches alerts metadata and change history",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/robusta/",
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[
