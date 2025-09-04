@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: replicas-mismatch-alert-14
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: deployment-replicas
+    interval: 30s
+    rules:
+    - alert: KubeReplicasMismatch
+      expr: |
+        kube_deployment_spec_replicas{namespace="app-14"} !=
+        kube_deployment_status_replicas_available{namespace="app-14"}
+      for: 5m
+      labels:
+        severity: warning
+        namespace: app-14
+        team: platform
+      annotations:
+        summary: "Deployment replica mismatch detected"
+        description: "Deployment in namespace app-14 has fewer replicas than desired. Service capacity may be reduced."
+        impact: "Reduced service capacity, potential performance degradation"
+        dashboard: "https://grafana.example.com/d/k8s-resources/replica-status"

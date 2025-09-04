@@ -37,6 +37,18 @@ def pytest_addoption(parser):
         default=False,
         help="Only run before_test setup commands, skip the actual test execution",
     )
+    parser.addoption(
+        "--create-alerts",
+        action="store_true",
+        default=False,
+        help="Deploy Prometheus alerts for evals (for demos)",
+    )
+    parser.addoption(
+        "--prometheus-label",
+        action="store",
+        default="",
+        help="Override Prometheus label selector (e.g., 'kube-prometheus', 'prometheus-operator')",
+    )
 
 
 def pytest_configure(config):
