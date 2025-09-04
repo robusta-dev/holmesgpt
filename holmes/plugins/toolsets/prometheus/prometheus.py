@@ -92,35 +92,44 @@ class AMPConfig(PrometheusConfig):
     prometheus_ssl_enabled: bool = False
     assume_role_arn: Optional[str] = None
 
-    # cache the client
+    # Refresh the AWS client (and its STS creds) every N seconds (default: 15 minutes)
+    refresh_interval_seconds: int = 900
+
     _aws_client: Optional[AWSPrometheusConnect] = None
+    _aws_client_created_at: float = 0.0
 
     def is_amp(self) -> bool:
         return True
 
+    def _should_refresh_client(self) -> bool:
+        if not self._aws_client:
+            return True
+        return (
+            time.time() - self._aws_client_created_at
+        ) >= self.refresh_interval_seconds
+
     def get_aws_client(self) -> Optional[AWSPrometheusConnect]:
-        if self._aws_client:
-            return self._aws_client
-        try:
-            base_config = BasePrometheusConfig(
-                url=self.prometheus_url,
-                disable_ssl=not self.prometheus_ssl_enabled,
-                additional_labels=self.additional_labels,
-            )
-            # Prometrix client (SigV4 signing)
-            self._aws_client = AWSPrometheusConnect(
-                access_key=self.aws_access_key,
-                secret_key=self.aws_secret_access_key,
-                token=None,
-                region=self.aws_region,
-                service_name=self.aws_service_name,
-                assume_role_arn=self.assume_role_arn,
-                config=base_config,
-            )
-            return self._aws_client
-        except Exception:
-            logging.exception("Failed to create aws client")
-            return None
+        if not self._aws_client or self._should_refresh_client():
+            try:
+                base_config = BasePrometheusConfig(
+                    url=self.prometheus_url,
+                    disable_ssl=not self.prometheus_ssl_enabled,
+                    additional_labels=self.additional_labels,
+                )
+                self._aws_client = AWSPrometheusConnect(
+                    access_key=self.aws_access_key,
+                    secret_key=self.aws_secret_access_key,
+                    token=None,
+                    region=self.aws_region,
+                    service_name=self.aws_service_name,
+                    assume_role_arn=self.assume_role_arn,
+                    config=base_config,
+                )
+                self._aws_client_created_at = time.time()
+            except Exception:
+                logging.exception("Failed to create/refresh AWS client")
+                return self._aws_client
+        return self._aws_client
 
 
 class BasePrometheusTool(Tool):
