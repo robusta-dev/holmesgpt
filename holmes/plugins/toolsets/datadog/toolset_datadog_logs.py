@@ -151,11 +151,10 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="datadog/logs",
             description="Toolset for fetching logs from Datadog, including historical data for pods no longer in the cluster",
-            docs_url="https://docs.datadoghq.com/api/latest/logs/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[],  # Initialize with empty tools first
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         # Now that parent is initialized and self.name exists, create the tool
