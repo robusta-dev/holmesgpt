@@ -1,0 +1,103 @@
+# Robusta AI
+
+Access multiple AI models from different providers through Robusta's unified API, without managing individual API keys.
+
+!!! info "Robusta SaaS Feature"
+    Robusta AI is available exclusively for [Robusta SaaS](../installation/ui-installation.md#web-ui-robusta) customers running HolmesGPT in Kubernetes. It provides access to various AI models through a single managed endpoint.
+
+## Overview
+
+Robusta AI simplifies AI model access by:
+
+- **Multi-provider access**: Access a wide variety of models from different providers (OpenAI, Anthropic, and others) through a single interface
+- **No API key management**: Use models from multiple providers without managing individual API keys
+
+## Prerequisites
+
+1. **Robusta SaaS account**: You must have an active Robusta platform subscription
+2. **Kubernetes deployment**: Robusta AI is only available when running HolmesGPT as a server in Kubernetes (not available in CLI mode)
+3. **Robusta platform integration**: Your cluster must be connected to the Robusta platform with a valid `robusta_sink` token
+
+## Configuration
+
+Robusta AI is automatically enabled when:
+
+1. HolmesGPT is deployed in [Kubernetes via the Robusta Helm chart](https://docs.robusta.dev/master/index.html)
+2. [A valid Robusta sink is configured in the Robusta Helm Chart](https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html)
+3. The `ROBUSTA_AI` environment variable is set to `true`
+
+### Enabling Robusta AI
+
+Add to the Robusta Helm values:
+
+```yaml
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_AI
+      value: "true"
+```
+
+In most cases, no additional configuration is needed. If you have a valid Robusta deployment, HolmesGPT will automatically:
+
+2. Authenticate with the Robusta platform
+2. Fetch available models for your account
+3. Make them available for selection
+
+### Disabling Robusta AI
+
+To explicitly disable Robusta AI (for example, if you prefer using your own API keys):
+
+```yaml
+# values.yaml for Helm deployment
+additionalEnvVars:
+  - name: ROBUSTA_AI
+    value: "false"
+```
+
+## How It Works
+
+1. **Authentication**: HolmesGPT reads your Robusta token from the cluster configuration
+2. **Session creation**: A session token is created with the Robusta platform
+3. **Model discovery**: Available models are fetched from `https://api.robusta.dev/api/llm/models`
+4. **Proxy access**: Models are accessed through Robusta's proxy endpoint at `https://api.robusta.dev/llm/{model_name}`
+5. **Automatic refresh**: Authentication tokens are automatically refreshed when they expire
+
+## Available Models
+
+The specific models available depend on your Robusta subscription plan. Typically includes:
+
+- OpenAI models (GPT-4o, GPT-4.1, GPT-5, etc.)
+- Anthropic models (Claude 4.0 Sonnet, etc.)
+```
+
+## Usage
+
+### With Robusta UI
+
+When Robusta AI is enabled, models appear in the model selector dropdown in the Robusta UI. Users can select any available model for their investigations.
+
+## Troubleshooting
+
+### Models not appearing
+
+Check that:
+
+1. Your Robusta token is valid and not expired
+2. HolmesGPT can reach `api.robusta.dev`
+3. `ROBUSTA_AI` is set to `true`
+4. Check logs for authentication errors
+
+## Environment Variables
+
+| Variable | Description | Default |
+|----------|------------|---------|
+| `ROBUSTA_AI` | Enable/disable Robusta AI | Auto-detected |
+| `ROBUSTA_API_ENDPOINT` | Robusta API endpoint (different for on-premise users) | `https://api.robusta.dev` |
+
+## See Also
+
+- [Using Multiple Providers](using-multiple-providers.md) - Configure multiple AI providers
+- [Kubernetes Installation](../installation/kubernetes-installation.md) - Deploy HolmesGPT in Kubernetes
+- [Robusta Platform Documentation](https://docs.robusta.dev) - Learn more about Robusta platform integration
+
+TODO: add a section for people storing robusta sink token in secrets
