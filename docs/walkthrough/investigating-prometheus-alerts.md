@@ -1,20 +1,12 @@
-# Investigating Prometheus Alerts
+# Investigating Prometheus Alerts Locally
 
-HolmesGPT provides two ways to investigate Prometheus/AlertManager alerts:
+View and analyze AlertManager alerts with AI-powered insights using the interactive TUI.
 
-1. **Interactive Viewer** - Real-time monitoring and AI enrichment in a terminal UI
+![Auto-enrich Prometheus alerts](../assets/auto-enrich-prometheus-alert.png)
 
-```
-holmes alerts view
-```
+## Overview
 
-2. **Command-line Investigation** - One-time investigation of specific alerts
-
-```
-holmes investigate alertmanager
-```
-
-![Single Alert Investigation](../assets/alertmanager-single-alert-investigation.gif)
+The `holmes alerts view` command provides an interactive terminal UI for viewing and enriching AlertManager alerts in real-time. Perfect for local development and troubleshooting.
 
 ## Prerequisites
 
@@ -22,11 +14,23 @@ holmes investigate alertmanager
 - An AI provider API key configured ([setup guide](../ai-providers/index.md))
 - Access to your AlertManager instance (auto-discovery works in Kubernetes)
 
-## Interactive Alert Viewer
+## Configuration
 
-The interactive viewer provides a real-time dashboard for monitoring and enriching alerts with AI insights.
+**Set up AlertManager URL:**
 
-### Quick Start
+Option 1: Configure in `~/.holmes/config.yaml`:
+```yaml
+alerrtmanager_url: http://localhost:9093
+```
+
+Option 2: Set environment variable:
+```bash
+export ALERTMANAGER_URL=http://localhost:9093
+```
+
+Option 3: Pass directly via command line (see examples below)
+
+## Quick Start
 
 ```bash
 # Auto-discover AlertManager in your cluster - no configuration needed!
@@ -45,9 +49,7 @@ holmes alerts view \
   --ai-column "affected_team=which team owns this service"
 ```
 
-### Features
-
-The interactive viewer includes:
+## Features
 
 - **Real-time Updates** - Polls AlertManager every 30 seconds
 - **Auto-discovery** - Automatically finds AlertManager instances in Kubernetes
@@ -63,7 +65,7 @@ The interactive viewer includes:
     - Manual: Press 'e' to enrich selected alert or 'E' for all alerts
     - Automatic: Use `--enable-enrichment` flag to enrich all alerts on startup
 
-### Keyboard Shortcuts
+## Keyboard Shortcuts
 
 **Navigation:**
 
@@ -86,9 +88,9 @@ The interactive viewer includes:
 - `?` - Show help
 - `q` - Quit
 
-## Command-line Tools
+## Additional Commands
 
-### List Alerts
+### List Alerts (Non-Interactive)
 
 Quickly list all current alerts in table or JSON format:
 
@@ -109,81 +111,30 @@ holmes alerts list --severity critical
 holmes alerts list --label "namespace=production"
 ```
 
-### Investigate Alerts
+## Examples
 
-For one-time investigation of specific alerts without the interactive UI, use the `investigate` command.
-
-#### Step 1: Access AlertManager
-
-If AlertManager isn't publicly accessible, forward it to your local machine:
+**Monitor production alerts locally:**
 
 ```bash
-kubectl port-forward svc/<Your-Alertmanager-Service> 9093:9093
-```
+# Port-forward production AlertManager
+kubectl port-forward -n monitoring svc/alertmanager 9093:9093
 
-#### Step 2: Create a Test Alert (Optional)
-
-Deploy a crashing workload and create a test alert:
-
-```bash
-# Deploy broken pod
-kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
-
-# Send test alert to AlertManager
-curl -X POST http://localhost:9093/api/v1/alerts \
-  -H "Content-Type: application/json" \
-  -d '[
-    {
-      "labels": {
-        "alertname": "KubePodCrashLooping",
-        "severity": "warning",
-        "namespace": "default",
-        "pod": "payment-processing-worker",
-        "container": "worker",
-        "job": "kubernetes-pods"
-      },
-      "annotations": {
-        "description": "Pod default/payment-processing-worker is crash looping",
-        "summary": "Pod is in CrashLoopBackOff state"
-      },
-      "generatorURL": "http://prometheus:9090/graph?g0.expr=increase%28kube_pod_container_status_restarts_total%5B1h%5D%29%20%3E%205",
-      "startsAt": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-    }
-  ]'
-```
-
-#### Step 3: Run Investigation
-
-Investigate all alerts or specific ones:
-
-```bash
-# Investigate all active alerts
-holmes investigate alertmanager --alertmanager-url http://localhost:9093
-
-# Investigate specific alert by name
-holmes investigate alertmanager \
+# View with enrichment
+holmes alerts view \
   --alertmanager-url http://localhost:9093 \
-  --alertmanager-alertname "KubePodCrashLooping"
+  --enable-enrichment \
+  --ai-column "runbook=step-by-step resolution"
 ```
 
-![AlertManager Alert Investigation](../assets/alertmanager-all-alert-investigation.png)
-
-#### Filtering Alerts
-
-The `holmes investigate alertmanager` command supports many flags. For example, to investigate only critical alerts or alerts in a specific namespace, you can use the `--alertmanager-label` flag:
+**Custom AI analysis columns:**
 
 ```bash
-# Critical alerts only
-holmes investigate alertmanager \
-  --alertmanager-url http://localhost:9093 \
-  --alertmanager-label "severity=critical"
-
-# Production namespace issues
-holmes investigate alertmanager \
-  --alertmanager-url http://localhost:9093 \
-  --alertmanager-label "namespace=production"
+holmes alerts view \
+  --ai-column "root_cause=identify the technical root cause" \
+  --ai-column "affected_team=which team owns this service" \
+  --ai-column "business_impact=what is the business impact" \
+  --ai-column "suggested_action=recommend immediate action"
 ```
-
 
 ## What's Next?
 - **[Add new data sources](../data-sources/index.md)** - Connect HolmesGPT to your databases, APM tools, and custom APIs for deeper investigations.

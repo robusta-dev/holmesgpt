@@ -147,8 +147,8 @@ nav:
       - walkthrough/index.md
       - Interactive Mode: walkthrough/interactive-mode.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
-      - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
-      - Auto-Enrich Prometheus Alerts: walkthrough/auto-enrich-prometheus-alerts.md
+      - Investigating Prometheus Alerts Locally: walkthrough/investigating-prometheus-alerts.md
+      - Auto-Enrich Prometheus Alerts in Production: walkthrough/auto-enrich-prometheus-alerts.md
       - Investigating using AKS MCP Server: walkthrough/investigating-using-aks-mcp-server.md
 
   - AI Providers:
