@@ -2,8 +2,9 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import Dict, List, Optional, Type, Union, Callable
+from typing import Dict, List, Optional, Type, Union, Callable, Any
 
+from holmes.core.models import ToolApprovalDecision, ToolCallResult
 
 import sentry_sdk
 from openai import BadRequestError
@@ -119,23 +120,6 @@ def _process_cost_info(
         logging.debug(f"Could not extract cost information: {e}")
 
 
-def format_tool_result_data(tool_result: StructuredToolResult) -> str:
-    tool_response = tool_result.data
-    if isinstance(tool_result.data, str):
-        tool_response = tool_result.data
-    else:
-        try:
-            if isinstance(tool_result.data, BaseModel):
-                tool_response = tool_result.data.model_dump_json(indent=2)
-            else:
-                tool_response = json.dumps(tool_result.data, indent=2)
-        except Exception:
-            tool_response = str(tool_result.data)
-    if tool_result.status == ToolResultStatus.ERROR:
-        tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
-    return tool_response
-
-
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
 # However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
 # We should fix this in the future
@@ -215,52 +199,6 @@ def truncate_messages_to_fit_context(
     return messages
 
 
-class ToolCallResult(BaseModel):
-    tool_call_id: str
-    tool_name: str
-    description: str
-    result: StructuredToolResult
-    size: Optional[int] = None
-
-    def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        if self.result.params:
-            content = (
-                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
-                + content
-            )
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "name": self.tool_name,
-            "content": content,
-        }
-
-    def as_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "tool_name": self.tool_name,
-            "description": self.description,
-            "role": "tool",
-            "result": result_dump,
-        }
-
-    def as_streaming_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "description": self.description,
-            "name": self.tool_name,
-            "result": result_dump,
-        }
-
-
 class LLMResult(LLMCosts):
     tool_calls: Optional[List[ToolCallResult]] = None
     result: Optional[str] = None
@@ -291,8 +229,8 @@ class ToolCallingLLM:
         ] = None
 
     def process_tool_decisions(
-        self, messages: List[Dict[str, str]], tool_decisions: List
-    ) -> List[Dict[str, str]]:
+        self, messages: List[Dict[str, Any]], tool_decisions: List[ToolApprovalDecision]
+    ) -> List[Dict[str, Any]]:
         """
         Process tool approval decisions and execute approved tools.
 
@@ -373,7 +311,7 @@ class ToolCallingLLM:
                     )()
 
                     # Execute the tool
-                    tool_result = self._invoke_tool(
+                    llm_tool_result = self._invoke_llm_tool_call(
                         tool_to_call=mock_tool_call,
                         previous_tool_calls=[],
                         trace_span=DummySpan(),
@@ -381,7 +319,7 @@ class ToolCallingLLM:
                     )
 
                     # Add tool result to messages
-                    messages.append(tool_result.as_tool_call_message())
+                    messages.append(llm_tool_result.as_tool_call_message())
 
                 except Exception as e:
                     # Add error message if tool execution failed
