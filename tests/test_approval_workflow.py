@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from server import app
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
 from holmes.utils.stream import StreamEvents
-from holmes.core.tool_calling_llm import ToolCallResult, ToolCallingLLM
+from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.llm import LLM
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
@@ -126,7 +126,8 @@ def test_streaming_chat_approval_workflow_requires_approval(
         tool_name: str,
         tool_params: dict,
         user_approved: bool,
-        tool_number: Optional[int] = None) -> StructuredToolResult:
+        tool_number: Optional[int] = None,
+    ) -> StructuredToolResult:
         return StructuredToolResult(
             status=ToolResultStatus.APPROVAL_REQUIRED,
             data="Command requires approval",
