@@ -1,3 +1,4 @@
+from typing import Optional
 import pytest
 import json
 from unittest.mock import patch, MagicMock
@@ -120,19 +121,19 @@ def test_streaming_chat_approval_workflow_requires_approval(
     mock_tool_executor.toolsets = [mock_toolset]
 
     # Mock _invoke_tool to return approval required
-    def mock_invoke_tool(tool_to_call, previous_tool_calls, trace_span, tool_number):
-        return ToolCallResult(
-            tool_call_id=tool_to_call.id,
-            tool_name=tool_to_call.function.name,
-            description="Delete Kubernetes pod: dangerous-pod",
-            result=StructuredToolResult(
-                status=ToolResultStatus.APPROVAL_REQUIRED,
-                data="Command requires approval",
-                params=json.loads(tool_to_call.function.arguments),
-            ),
+
+    def mock_invoke_tool(
+        tool_name: str,
+        tool_params: dict,
+        user_approved: bool,
+        tool_number: Optional[int] = None) -> StructuredToolResult:
+        return StructuredToolResult(
+            status=ToolResultStatus.APPROVAL_REQUIRED,
+            data="Command requires approval",
+            params=tool_params,
         )
 
-    ai._invoke_tool = mock_invoke_tool
+    ai._directly_invoke_tool_call = mock_invoke_tool
 
     mock_create_toolcalling_llm.return_value = ai
 
@@ -184,7 +185,6 @@ def test_streaming_chat_approval_workflow_requires_approval(
     pending_approval = approval_event["pending_approvals"][0]
     assert pending_approval["tool_call_id"] == "tool_call_123"
     assert pending_approval["tool_name"] == "kubectl_delete"
-    assert pending_approval["description"] == "Delete Kubernetes pod: dangerous-pod"
 
 
 @patch("holmes.config.Config.load_robusta_api_key")

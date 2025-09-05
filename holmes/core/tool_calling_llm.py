@@ -659,7 +659,7 @@ class ToolCallingLLM:
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
-            description=tool.get_parameterized_one_liner(tool_params) if tool else "",
+            description=str(tool.get_parameterized_one_liner(tool_params)) if tool else "",
             result=tool_response,
         )
 
