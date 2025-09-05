@@ -1,12 +1,147 @@
-Use Tempo when investigating latency or performance issues. Tempo provides traces information for application running on the cluster.
+Grafana Tempo provides distributed tracing data through its REST API. Each tool maps directly to a specific Tempo API endpoint.
+
 Assume every application provides tempo traces.
-1. Start by identifying an initial filter to use. This can be a pod name, a deployment name or a service name
-2. Call fetch_tempo_traces_comparative_sample first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns. For other issues not related to performance, you can start with fetch_tempo_traces.
-3. Use `fetch_tempo_traces` setting the appropriate query params
-    - Use the min_duration filter to ensure you get traces that trigger the alert when you are investigating a performance issue
-    - If possible, use start and end date to narrow down your search.
-        - Use fetch_finding_by_id if you are provided with a finding/alert id. It will contain details about when the alert was triggered
-    - Use at least one of the following argument to ensure you get relevant traces: `service_name`, `pod_name` or `deployment_name`.
-4. When you have a specific trace ID to investigate, use `fetch_tempo_trace_by_id` to get detailed information about that trace.
-5. Look at the duration of each span in any single trace and deduce any issues.
-6. ALWAYS fetch the logs for a pod once you identify a span that is taking a long time. There may be an explanation for the slowness in the logs.
+
+## API Endpoints and Tool Mapping
+
+1. **Trace Search** (GET /api/search)
+   - `search_traces_by_query`: Use with 'q' parameter for TraceQL queries
+   - `search_traces_by_tags`: Use with 'tags' parameter for logfmt queries
+
+2. **Trace Details** (GET /api/v2/traces/{trace_id})
+   - `query_trace_by_id`: Retrieve full trace data
+
+3. **Tag Discovery**
+   - `search_tag_names` (GET /api/v2/search/tags): List available tags
+   - `search_tag_values` (GET /api/v2/search/tag/{tag}/values): Get values for a tag
+
+4. **TraceQL Metrics**
+   - `query_metrics_instant` (GET /api/metrics/query): Single value computation
+   - `query_metrics_range` (GET /api/metrics/query_range): Time series data
+
+## Usage Workflow
+
+### 1. Discovering Available Data
+Start by understanding what tags and values exist:
+- Use `search_tag_names` to discover available tags
+- Use `search_tag_values` to see all values for a specific tag (e.g., service names)
+
+### 2. Searching for Traces
+**TraceQL Search (recommended):**
+Use `search_traces_by_query` with TraceQL syntax for powerful filtering:
+- Find errors: `{span.http.status_code>=400}`
+- Service traces: `{resource.service.name="api"}`
+- Slow traces: `{duration>100ms}`
+- Complex queries: `{resource.service.name="api" && span.http.status_code=500 && duration>1s}`
+
+**Tag-based Search (legacy):**
+Use `search_traces_by_tags` with logfmt format when you need min/max duration filters:
+- Example: `resource.service.name="api" http.status_code="500"`
+- Supports `min_duration` and `max_duration` parameters
+
+### 3. Analyzing Specific Traces
+When you have trace IDs from search results:
+- Use `query_trace_by_id` to get full trace details
+- Examine spans for errors, slow operations, and bottlenecks
+
+### 4. Computing Metrics from Traces
+**TraceQL metrics** compute aggregated metrics from your trace data, helping you answer critical questions like:
+- How many database calls across all systems are downstream of your application?
+- What services beneath a given endpoint are failing?
+- What services beneath an endpoint are slow?
+
+TraceQL metrics parse your traces in aggregate to provide RED (Rate, Error, Duration) metrics from trace data.
+
+**Supported Functions:**
+- `rate` - Calculate rate of spans/traces
+- `count_over_time` - Count spans/traces over time
+- `sum_over_time` - Sum span attributes
+- `avg_over_time` - Average of span attributes
+- `max_over_time` - Maximum value over time
+- `min_over_time` - Minimum value over time
+- `quantile_over_time` - Calculate quantiles
+- `histogram_over_time` - Generate histogram data
+- `compare` - Compare metrics between time periods
+
+**Modifiers:**
+- `topk` - Return top N results
+- `bottomk` - Return bottom N results
+
+**TraceQL Metrics Query Examples:**
+
+1. **rate** - Calculate error rate by service and HTTP route:
+   ```
+   { resource.service.name = "foo" && status = error } | rate() by (span.http.route)
+   ```
+
+2. **count_over_time** - Count spans by HTTP status code:
+   ```
+   { name = "GET /:endpoint" } | count_over_time() by (span.http.status_code)
+   ```
+
+3. **sum_over_time** - Sum HTTP response sizes by service:
+   ```
+   { name = "GET /:endpoint" } | sum_over_time(span.http.response.size) by (resource.service.name)
+   ```
+
+4. **avg_over_time** - Average duration by HTTP status code:
+   ```
+   { name = "GET /:endpoint" } | avg_over_time(duration) by (span.http.status_code)
+   ```
+
+5. **max_over_time** - Maximum response size by HTTP target:
+   ```
+   { name = "GET /:endpoint" } | max_over_time(span.http.response.size) by (span.http.target)
+   ```
+
+6. **min_over_time** - Minimum duration by HTTP target:
+   ```
+   { name = "GET /:endpoint" } | min_over_time(duration) by (span.http.target)
+   ```
+
+7. **quantile_over_time** - Calculate multiple percentiles (99th, 90th, 50th) with exemplars:
+   ```
+   { span:name = "GET /:endpoint" } | quantile_over_time(duration, .99, .9, .5) by (span.http.target) with (exemplars=true)
+   ```
+
+8. **histogram_over_time** - Build duration histogram grouped by custom attribute:
+   ```
+   { name = "GET /:endpoint" } | histogram_over_time(duration) by (span.foo)
+   ```
+
+9. **compare** - Compare error spans against baseline (10 attributes):
+   ```
+   { resource.service.name="a" && span.http.path="/myapi" } | compare({status=error}, 10)
+   ```
+
+10. **Using topk modifier** - Find top 10 endpoints by request rate:
+    ```
+    { resource.service.name = "foo" } | rate() by (span.http.url) | topk(10)
+    ```
+
+**Choosing Between Instant and Range Queries:**
+
+**Instant Metrics** (`query_metrics_instant`) - Returns a single aggregated value for the entire time range. Use this when:
+- You need a total count or sum across the whole period
+- You want a single metric value (e.g., total error count, average latency)
+- You don't need to see how the metric changes over time
+- You're computing a KPI or summary statistic
+
+**Time Series Metrics** (`query_metrics_range`) - Returns values at regular intervals controlled by the 'step' parameter. Use this when:
+- You need to graph metrics over time or analyze trends
+- You want to see patterns, spikes, or changes in metrics
+- You're troubleshooting time-based issues
+- You need to correlate metrics with specific time periods
+
+## Special workflow for performance issues
+When investigating performance issues in kubernetes via traces, call fetch_tempo_traces_comparative_sample. This tool provides comprehensive analysis for identifying patterns.
+
+## Important Notes
+- TraceQL is the modern query language - prefer it over tag-based search
+- TraceQL metrics are computed from trace data, not traditional Prometheus metrics
+- TraceQL metrics is an experimental feature that computes RED (Rate, Error, Duration) metrics from trace data
+- Common attributes to use in queries: resource.service.name, span.http.route, span.http.status_code, span.http.target, status, name, duration
+- All timestamps can be Unix epoch seconds or RFC3339 format
+- Use time filters (start/end) to improve query performance
+- To get information about Kubernetes resources try these first: resource.service.name, resource.k8s.pod.name, resource.k8s.namespace.name, resource.k8s.deployment.name, resource.k8s.node.name, resource.k8s.container.name
+- TraceQL and TraceQL metrics language are complex. If you get empty data, try to simplify your query and try again!
