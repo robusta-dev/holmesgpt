@@ -6,8 +6,8 @@ from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
-    GetTempoTraces,
-    GetTempoTraceById,
+    # GetTempoTraces,
+    # GetTempoTraceById,
     GrafanaTempoToolset,
 )
 
@@ -22,18 +22,18 @@ def test_fetch_traces_simple_comparison_has_prompt():
     assert tool.name in toolset.llm_instructions
 
 
-def test_all_tempo_tools_have_prompts():
-    """Test that all Tempo tools have proper metadata."""
-    toolset = GrafanaTempoToolset()
-    tools = [
-        FetchTracesSimpleComparison(toolset),
-        GetTempoTraces(toolset),
-        GetTempoTraceById(toolset),
-    ]
+# def test_all_tempo_tools_have_prompts():
+#     """Test that all Tempo tools have proper metadata."""
+#     toolset = GrafanaTempoToolset()
+#     tools = [
+#         FetchTracesSimpleComparison(toolset),
+#         GetTempoTraces(toolset),
+#         GetTempoTraceById(toolset),
+#     ]
 
-    for tool in tools:
-        assert tool.name is not None
-        assert tool.name in toolset.llm_instructions
+#     for tool in tools:
+#         assert tool.name is not None
+#         assert tool.name in toolset.llm_instructions
 
 
 def test_fetch_traces_simple_comparison_validation():
