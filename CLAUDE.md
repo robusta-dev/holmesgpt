@@ -18,6 +18,12 @@ poetry run pre-commit install
 ```
 
 ### Testing
+
+```bash
+# Install test dependencies with Poetry
+poetry install --with dev
+```
+
 ```bash
 # Run all non-LLM tests (unit and integration tests)
 make test-without-llm
