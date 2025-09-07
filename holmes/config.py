@@ -83,6 +83,9 @@ class Config(RobustaBaseConfig):
     session_token: Optional[SecretStr] = None
 
     model: Optional[str] = "gpt-4o"
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
+    fast_model: Optional[str] = None
     max_steps: int = 40
     cluster_name: Optional[str] = None
 
@@ -123,7 +126,8 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    should_try_robusta_ai: bool = False
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
@@ -140,6 +144,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
+                global_fast_model=self.fast_model,
             )
         return self._toolset_manager
 
@@ -227,6 +232,7 @@ class Config(RobustaBaseConfig):
         Returns:
             Config instance with merged settings
         """
+
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -250,7 +256,10 @@ class Config(RobustaBaseConfig):
         kwargs = {}
         for field_name in [
             "model",
+            "fast_model",
             "api_key",
+            "api_base",
+            "api_version",
             "max_steps",
             "alertmanager_url",
             "alertmanager_username",
@@ -517,8 +526,10 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key: Optional[str] = None
+        api_key = self.api_key
         model = self.model
+        api_base = self.api_base
+        api_version = self.api_version
         model_params = {}
         if self._model_list:
             # get requested model or the first credentials if no model requested.
@@ -530,12 +541,18 @@ class Config(RobustaBaseConfig):
             is_robusta_model = model_params.pop("is_robusta_model", False)
             if is_robusta_model and self.api_key:
                 # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
-                api_key = self.api_key.get_secret_value()
+                api_key = self.api_key.get_secret_value()  # type: ignore
             else:
                 api_key = model_params.pop("api_key", api_key)
             model = model_params.pop("model", model)
+            # It's ok if the model does not have api base and api version, which are defaults to None.
+            # Handle both api_base and base_url - api_base takes precedence
+            model_api_base = model_params.pop("api_base", None)
+            model_base_url = model_params.pop("base_url", None)
+            api_base = model_api_base or model_base_url or api_base
+            api_version = model_params.pop("api_version", api_version)
 
-        return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
+        return DefaultLLM(model, api_key, api_base, api_version, model_params, tracer)  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
