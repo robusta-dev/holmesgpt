@@ -573,7 +573,7 @@ class Config(RobustaBaseConfig):
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             api_key = self.api_key.get_secret_value()  # type: ignore
         else:
-            api_key = model_params.pop("api_key", self.api_key)
+            api_key = model_params.pop("api_key", None)
 
         model = model_params.pop("model", self.model)
         # It's ok if the model does not have api base and api version, which are defaults to None.
