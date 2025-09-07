@@ -664,13 +664,14 @@ class TestGrafanaTempoToolset:
         tool_names = [tool.name for tool in toolset.tools]
 
         expected_tools = [
-            "search_traces_by_query",
-            "search_traces_by_tags",
-            "query_trace_by_id",
-            "search_tag_names",
-            "search_tag_values",
-            "query_metrics_instant",
-            "query_metrics_range",
+            "tempo_search_traces_by_query",
+            "tempo_search_traces_by_tags",
+            "tempo_query_trace_by_id",
+            "tempo_search_tag_names",
+            "tempo_search_tag_values",
+            "tempo_query_metrics_instant",
+            "tempo_query_metrics_range",
+            "tempo_fetch_traces_comparative_sample",
         ]
 
         for expected in expected_tools:

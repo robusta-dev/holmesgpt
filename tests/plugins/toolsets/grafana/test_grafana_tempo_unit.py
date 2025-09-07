@@ -14,7 +14,7 @@ def test_fetch_traces_simple_comparison_has_prompt():
     """Test that FetchTracesSimpleComparison tool has proper metadata."""
     toolset = GrafanaTempoToolset()
     tool = FetchTracesSimpleComparison(toolset)
-    assert tool.name == "fetch_tempo_traces_comparative_sample"
+    assert tool.name == "tempo_fetch_traces_comparative_sample"
     assert tool.name is not None
     assert toolset.llm_instructions is not None
     assert tool.name in toolset.llm_instructions

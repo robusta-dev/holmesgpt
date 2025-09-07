@@ -122,7 +122,7 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
 class FetchTracesSimpleComparison(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="fetch_tempo_traces_comparative_sample",
+            name="tempo_fetch_traces_comparative_sample",
             description="""Fetches statistics and representative samples of fast, slow, and typical traces for performance analysis. Requires either a `base_query` OR at least one of `service_name`, `pod_name`, `namespace_name`, `deployment_name`, `node_name`.
 
 Important: call this tool first when investigating performance issues via traces. This tool provides comprehensive analysis for identifying patterns.
@@ -158,7 +158,11 @@ Examples:
                     required=False,
                 ),
                 "base_query": ToolParameter(
-                    description="Custom TraceQL filter",
+                    description=(
+                        "Custom TraceQL filter. Supports span/resource attributes, "
+                        "duration, and aggregates (count(), avg(), min(), max(), sum()). "
+                        "Examples: '{span.http.status_code>=400}', '{duration>100ms}'"
+                    ),
                     type="string",
                     required=False,
                 ),
@@ -350,15 +354,36 @@ Examples:
 class SearchTracesByQuery(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="search_traces_by_query",
+            name="tempo_search_traces_by_query",
             description=(
                 "Search for traces using TraceQL query language. "
-                "Uses the Tempo API endpoint: GET /api/search with 'q' parameter. "
-                'TraceQL allows complex filtering like: {resource.service.name="api"} && {span.http.status_code=500}'
+                "Uses the Tempo API endpoint: GET /api/search with 'q' parameter.\n\n"
+                "TraceQL can select traces based on:\n"
+                "- Span and resource attributes\n"
+                "- Timing and duration\n"
+                "- Aggregate functions:\n"
+                "  • count() - Count number of spans\n"
+                "  • avg(attribute) - Calculate average\n"
+                "  • min(attribute) - Find minimum value\n"
+                "  • max(attribute) - Find maximum value\n"
+                "  • sum(attribute) - Sum values\n\n"
+                "Examples:\n"
+                '- Specific operation: {resource.service.name = "frontend" && name = "POST /api/orders"}\n'
+                '- Error traces: {resource.service.name="frontend" && name = "POST /api/orders" && status = error}\n'
+                '- HTTP errors: {resource.service.name="frontend" && name = "POST /api/orders" && span.http.status_code >= 500}\n'
+                '- Multi-service: {span.service.name="frontend" && name = "GET /api/products/{id}"} && {span.db.system="postgresql"}\n'
+                "- With aggregates: { status = error } | by(resource.service.name) | count() > 1"
             ),
             parameters={
                 "q": ToolParameter(
-                    description="TraceQL query (e.g., '{resource.service.name=\"api\" && span.http.status_code=500}')",
+                    description=(
+                        "TraceQL query. Supports filtering by span/resource attributes, "
+                        "duration, and aggregate functions (count(), avg(), min(), max(), sum()). "
+                        "Examples: '{resource.service.name = \"frontend\"}', "
+                        '\'{resource.service.name="frontend" && name = "POST /api/orders" && status = error}\', '
+                        '\'{resource.service.name="frontend" && name = "POST /api/orders" && span.http.status_code >= 500}\', '
+                        "'{} | count() > 10'"
+                    ),
                     type="string",
                     required=True,
                 ),
@@ -422,15 +447,15 @@ class SearchTracesByQuery(Tool):
 class SearchTracesByTags(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="search_traces_by_tags",
+            name="tempo_search_traces_by_tags",
             description=(
                 "Search for traces using logfmt-encoded tags. "
                 "Uses the Tempo API endpoint: GET /api/search with 'tags' parameter. "
-                'Example: resource.service.name="api" http.status_code="500"'
+                'Example: service.name="api" http.status_code="500"'
             ),
             parameters={
                 "tags": ToolParameter(
-                    description='Logfmt-encoded span/process attributes (e.g., \'resource.service.name="api" http.status_code="500"\')',
+                    description='Logfmt-encoded span/process attributes (e.g., \'service.name="api" http.status_code="500"\')',
                     type="string",
                     required=True,
                 ),
@@ -506,7 +531,7 @@ class SearchTracesByTags(Tool):
 class QueryTraceById(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="query_trace_by_id",
+            name="tempo_query_trace_by_id",
             description=(
                 "Retrieve detailed trace information by trace ID. "
                 "Uses the Tempo API endpoint: GET /api/v2/traces/{trace_id}. "
@@ -568,7 +593,7 @@ class QueryTraceById(Tool):
 class SearchTagNames(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="search_tag_names",
+            name="tempo_search_tag_names",
             description=(
                 "Discover available tag names across traces. "
                 "Uses the Tempo API endpoint: GET /api/v2/search/tags. "
@@ -646,7 +671,7 @@ class SearchTagNames(Tool):
 class SearchTagValues(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="search_tag_values",
+            name="tempo_search_tag_values",
             description=(
                 "Get all values for a specific tag. "
                 "Uses the Tempo API endpoint: GET /api/v2/search/tag/{tag}/values. "
@@ -724,7 +749,7 @@ class SearchTagValues(Tool):
 class QueryMetricsInstant(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="query_metrics_instant",
+            name="tempo_query_metrics_instant",
             description=(
                 "Compute a single TraceQL metric value across time range. "
                 "Uses the Tempo API endpoint: GET /api/metrics/query. "
@@ -803,7 +828,7 @@ class QueryMetricsInstant(Tool):
 class QueryMetricsRange(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
-            name="query_metrics_range",
+            name="tempo_query_metrics_range",
             description=(
                 "Get time series data from TraceQL metrics queries. "
                 "Uses the Tempo API endpoint: GET /api/metrics/query_range. "
