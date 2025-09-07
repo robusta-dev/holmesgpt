@@ -21,7 +21,9 @@ class RobustaModelsResponse(BaseModel):
 
 
 @cache
-def fetch_robusta_models(account_id, token) -> Optional[RobustaModelsResponse]:
+def fetch_robusta_models(
+    account_id: str, token: str
+) -> Optional[RobustaModelsResponse]:
     try:
         session_request = {"session_token": token, "account_id": account_id}
         resp = requests.post(

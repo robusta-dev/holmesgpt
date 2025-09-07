@@ -173,7 +173,7 @@ class Config(RobustaBaseConfig):
             robusta_models = fetch_robusta_models(
                 self.account_id, self.session_token.get_secret_value()
             )
-            if not robusta_models:
+            if not robusta_models or not robusta_models.models:
                 self._load_default_robusta_config()
                 return
 
@@ -204,6 +204,7 @@ class Config(RobustaBaseConfig):
                 "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
+                "model": "gpt-4o",
             }
 
     def _should_load_robusta_ai(self) -> bool:
