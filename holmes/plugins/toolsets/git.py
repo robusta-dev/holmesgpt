@@ -33,7 +33,7 @@ class GitToolset(Toolset):
         super().__init__(
             name="git",
             description="Runs git commands to read repos and create PRs",
-            docs_url="https://docs.github.com/en/rest",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/github/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
