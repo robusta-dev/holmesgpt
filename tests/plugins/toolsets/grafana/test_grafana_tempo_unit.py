@@ -6,8 +6,6 @@ from holmes.core.tools import ToolResultStatus
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
-    # GetTempoTraces,
-    # GetTempoTraceById,
     GrafanaTempoToolset,
 )
 
@@ -22,18 +20,13 @@ def test_fetch_traces_simple_comparison_has_prompt():
     assert tool.name in toolset.llm_instructions
 
 
-# def test_all_tempo_tools_have_prompts():
-#     """Test that all Tempo tools have proper metadata."""
-#     toolset = GrafanaTempoToolset()
-#     tools = [
-#         FetchTracesSimpleComparison(toolset),
-#         GetTempoTraces(toolset),
-#         GetTempoTraceById(toolset),
-#     ]
-
-#     for tool in tools:
-#         assert tool.name is not None
-#         assert tool.name in toolset.llm_instructions
+def test_all_tempo_tools_have_prompts():
+    """Test that all Tempo tools have proper metadata."""
+    toolset = GrafanaTempoToolset()
+    # Check FetchTracesSimpleComparison specifically
+    tool = FetchTracesSimpleComparison(toolset)
+    assert tool.name is not None
+    assert tool.name in toolset.llm_instructions
 
 
 def test_fetch_traces_simple_comparison_validation():
@@ -144,8 +137,8 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
             params={
                 "service_name": "frontend",
                 "sample_count": 2,
-                "start_datetime": "-3600",
-                "end_datetime": "0",
+                "start": "-3600",
+                "end": "0",
             }
         )
 
@@ -220,9 +213,9 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
         query = call_args["q"]
         assert 'resource.service.name=~".*api.*"' in query
         assert 'resource.k8s.namespace.name=~".*production.*"' in query
-        assert 'resource.k8s.deployment.name=~".*api\\-server.*"' in query
-        assert 'resource.k8s.pod.name=~".*api\\-pod.*"' in query
-        assert 'resource.k8s.node.name=~".*node\\-1.*"' in query
+        assert 'resource.k8s.deployment.name=~".*api-server.*"' in query
+        assert 'resource.k8s.pod.name=~".*api-pod.*"' in query
+        assert 'resource.k8s.node.name=~".*node-1.*"' in query
 
 
 def test_fetch_traces_simple_comparison_with_base_query():
@@ -372,11 +365,50 @@ def test_build_k8s_filters():
     # Test regex match filters
     regex_filters = toolset.build_k8s_filters(params, use_exact_match=False)
     assert len(regex_filters) == 5
-    assert 'resource.service.name=~".*my\\-service.*"' in regex_filters
-    assert 'resource.k8s.pod.name=~".*my\\-pod.*"' in regex_filters
-    assert 'resource.k8s.namespace.name=~".*my\\-namespace.*"' in regex_filters
-    assert 'resource.k8s.deployment.name=~".*my\\-deployment.*"' in regex_filters
-    assert 'resource.k8s.node.name=~".*my\\-node.*"' in regex_filters
+    assert 'resource.service.name=~".*my-service.*"' in regex_filters
+    assert 'resource.k8s.pod.name=~".*my-pod.*"' in regex_filters
+    assert 'resource.k8s.namespace.name=~".*my-namespace.*"' in regex_filters
+    assert 'resource.k8s.deployment.name=~".*my-deployment.*"' in regex_filters
+    assert 'resource.k8s.node.name=~".*my-node.*"' in regex_filters
+
+
+def test_fetch_traces_simple_comparison_with_negative_start_time():
+    """Test FetchTracesSimpleComparison with negative start time."""
+    config = GrafanaTempoConfig(
+        api_key="test_key",
+        url="http://localhost:3000",
+        grafana_datasource_uid="tempo_uid",
+    )
+    toolset = GrafanaTempoToolset()
+    toolset._grafana_config = config
+    tool = FetchTracesSimpleComparison(toolset)
+
+    mock_traces = {"traces": [{"traceID": "trace-1", "durationMs": 100}]}
+
+    with patch(
+        "holmes.plugins.toolsets.grafana.toolset_grafana_tempo.GrafanaTempoAPI"
+    ) as mock_api_class:
+        mock_api = MagicMock()
+        mock_api_class.return_value = mock_api
+        mock_api.search_traces_by_query.return_value = mock_traces
+        mock_api.query_trace_by_id_v2.return_value = {"batches": []}
+
+        # Test with negative start (-7200 = 2 hours before end)
+        result = tool.invoke(
+            params={
+                "service_name": "test",
+                "start": "-7200",  # 2 hours ago
+                "end": "0",  # Now
+            }
+        )
+
+        assert result.status == ToolResultStatus.SUCCESS
+
+        # Verify the search was called with positive timestamps
+        call_args = mock_api.search_traces_by_query.call_args[1]
+        assert call_args["start"] > 0
+        assert call_args["end"] > 0
+        assert call_args["end"] - call_args["start"] == 7200
 
 
 def test_build_k8s_filters_with_special_characters():
@@ -401,11 +433,11 @@ def test_build_k8s_filters_with_special_characters():
     # Test regex match filters - all special chars should be escaped
     regex_filters = toolset.build_k8s_filters(params, use_exact_match=False)
     assert len(regex_filters) == 5
-    assert 'resource.service.name=~".*test\\.service\\[1\\].*"' in regex_filters
-    assert 'resource.k8s.pod.name=~".*pod\\-with\\(parens\\).*"' in regex_filters
-    assert 'resource.k8s.namespace.name=~".*namespace\\.\\*.*"' in regex_filters
-    assert 'resource.k8s.deployment.name=~".*deploy\\+test.*"' in regex_filters
-    assert 'resource.k8s.node.name=~".*node\\^name\\$.*"' in regex_filters
+    assert 'resource.service.name=~".*test.service[1].*"' in regex_filters
+    assert 'resource.k8s.pod.name=~".*pod-with(parens).*"' in regex_filters
+    assert 'resource.k8s.namespace.name=~".*namespace.*.*"' in regex_filters
+    assert 'resource.k8s.deployment.name=~".*deploy+test.*"' in regex_filters
+    assert 'resource.k8s.node.name=~".*node^name$.*"' in regex_filters
 
     # Test exact match with quotes
     params_with_quotes = {

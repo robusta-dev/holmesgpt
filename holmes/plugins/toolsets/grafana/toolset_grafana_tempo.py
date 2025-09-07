@@ -10,25 +10,23 @@ from holmes.core.tools import (
     ToolParameter,
     ToolResultStatus,
 )
+from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaTempoConfig,
 )
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
     process_timestamps_to_int,
+    standard_start_datetime_tool_param_description,
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
 TEMPO_API_USE_POST = False  # Use GET method for direct API mapping
-
-ONE_HOUR_IN_SECONDS = 3600
-DEFAULT_TRACES_TIME_SPAN_SECONDS = DEFAULT_TIME_SPAN_SECONDS  # 7 days
-DEFAULT_TAGS_TIME_SPAN_SECONDS = 8 * ONE_HOUR_IN_SECONDS  # 8 hours
 
 
 class BaseGrafanaTempoToolset(BaseGrafanaToolset):
@@ -109,207 +107,13 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
 
         return filters
 
-
-def validate_params(params: Dict[str, Any], expected_params: List[str]):
-    for param in expected_params:
-        if param in params and params[param] not in (None, "", [], {}):
-            return None
-
-    return f"At least one of the following argument is expected but none were set: {expected_params}"
-
-
-# class GetTempoTraces(Tool):
-#     def __init__(self, toolset: BaseGrafanaTempoToolset):
-#         super().__init__(
-#             name="fetch_tempo_traces",
-#             description="""Lists Tempo traces. At least one of `service_name`, `pod_name` or `deployment_name` argument is required.""",
-#             parameters={
-#                 "min_duration": ToolParameter(
-#                     description="The minimum duration of traces to fetch, e.g., '5s' for 5 seconds.",
-#                     type="string",
-#                     required=True,
-#                 ),
-#                 "service_name": ToolParameter(
-#                     description="Filter traces by service name",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "pod_name": ToolParameter(
-#                     description="Filter traces by pod name",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "namespace_name": ToolParameter(
-#                     description="Filter traces by namespace",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "deployment_name": ToolParameter(
-#                     description="Filter traces by deployment name",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "node_name": ToolParameter(
-#                     description="Filter traces by node",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "start_datetime": ToolParameter(
-#                     description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "end_datetime": ToolParameter(
-#                     description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "limit": ToolParameter(
-#                     description="Maximum number of traces to return. Defaults to 50",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "sort": ToolParameter(
-#                     description="One of 'descending', 'ascending' or 'none' for no sorting. Defaults to descending",
-#                     type="string",
-#                     required=False,
-#                 ),
-#             },
-#         )
-#         self._toolset = toolset
-#
-#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
-#         # Create API instance
-#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-#
-#         invalid_params_error = validate_params(
-#             params, ["service_name", "pod_name", "deployment_name"]
-#         )
-#         if invalid_params_error:
-#             return StructuredToolResult(
-#                 status=ToolResultStatus.ERROR,
-#                 error=invalid_params_error,
-#                 params=params,
-#             )
-#
-#         start, end = process_timestamps_to_int(
-#             params.get("start_datetime"),
-#             params.get("end_datetime"),
-#             default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
-#         )
-#
-#         filters = self._toolset.build_k8s_filters(params, use_exact_match=True)
-#
-#         filters.append(f'duration>{get_param_or_raise(params, "min_duration")}')
-#
-#         query = " && ".join(filters)
-#         query = f"{{{query}}}"
-#
-#         traces = api.search_traces_by_query(
-#             q=query,
-#             start=start,
-#             end=end,
-#             limit=params.get("limit", 50),
-#         )
-#         return StructuredToolResult(
-#             status=ToolResultStatus.SUCCESS,
-#             data=format_traces_list(traces),
-#             params=params,
-#             invocation=query,
-#         )
-#
-#     def get_parameterized_one_liner(self, params: Dict) -> str:
-#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Traces (min_duration={params.get('min_duration')})"
-
-
-# class GetTempoTags(Tool):
-#     def __init__(self, toolset: BaseGrafanaTempoToolset):
-#         super().__init__(
-#             name="fetch_tempo_tags",
-#             description="List the tags available in Tempo",
-#             parameters={
-#                 "start_datetime": ToolParameter(
-#                     description=f"The beginning time boundary for the search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TAGS_TIME_SPAN_SECONDS}",
-#                     type="string",
-#                     required=False,
-#                 ),
-#                 "end_datetime": ToolParameter(
-#                     description="The ending time boundary for the search period. String in RFC3339 format. Defaults to NOW().",
-#                     type="string",
-#                     required=False,
-#                 ),
-#             },
-#         )
-#         self._toolset = toolset
-#
-#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
-#         # Create API instance
-#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-#
-#         start, end = process_timestamps_to_int(
-#             start=params.get("start_datetime"),
-#             end=params.get("end_datetime"),
-#             default_time_span_seconds=DEFAULT_TAGS_TIME_SPAN_SECONDS,
-#         )
-#
-#         try:
-#             data = api.search_tag_names_v2(start=start, end=end)
-#             return StructuredToolResult(
-#                 status=ToolResultStatus.SUCCESS,
-#                 data=yaml.dump(data.get("scopes")),
-#                 params=params,
-#             )
-#         except Exception as e:
-#             return StructuredToolResult(
-#                 status=ToolResultStatus.ERROR,
-#                 error=f"Failed to retrieve tags: {str(e)}",
-#                 params=params,
-#             )
-#
-#     def get_parameterized_one_liner(self, params: Dict) -> str:
-#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo tags"
-#
-
-
-# class GetTempoTraceById(Tool):
-#     def __init__(self, toolset: BaseGrafanaTempoToolset):
-#         super().__init__(
-#             name="fetch_tempo_trace_by_id",
-#             description="""Retrieves detailed information about a Tempo trace using its trace ID. Use this to investigate a trace.""",
-#             parameters={
-#                 "trace_id": ToolParameter(
-#                     description="The unique trace ID to fetch.",
-#                     type="string",
-#                     required=True,
-#                 ),
-#             },
-#         )
-#         self._toolset = toolset
-#
-#     def _invoke(self, params: Dict, user_approved: bool = False) -> StructuredToolResult:
-#         # Create API instance
-#         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
-#
-#         labels_mapping = self._toolset.grafana_config.labels
-#         labels = list(labels_mapping.model_dump().values())
-#
-#         # Get raw trace data
-#         trace_data = api.query_trace_by_id_v2(
-#             trace_id=get_param_or_raise(params, "trace_id")
-#         )
-#
-#         # Process the trace data (new API returns raw data)
-#         formatted_trace = process_trace(trace_data, labels)
-#
-#         return StructuredToolResult(
-#             status=ToolResultStatus.SUCCESS,
-#             data=formatted_trace,
-#             params=params,
-#         )
-#
-#     def get_parameterized_one_liner(self, params: Dict) -> str:
-#         return f"{toolset_name_for_one_liner(self._toolset.name)}: Fetched Tempo Trace (trace_id={params.get('trace_id')})"
-#
+    @staticmethod
+    def adjust_start_end_time(params: Dict) -> Tuple[int, int]:
+        return process_timestamps_to_int(
+            start=params.get("start"),
+            end=params.get("end"),
+            default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
+        )
 
 
 class FetchTracesSimpleComparison(Tool):
@@ -360,19 +164,29 @@ Examples:
                     type="integer",
                     required=False,
                 ),
-                "start_datetime": ToolParameter(
-                    description=f"The beginning time boundary for the trace search period. String in RFC3339 format. If a negative integer, the number of seconds relative to the end_timestamp. Defaults to -{DEFAULT_TRACES_TIME_SPAN_SECONDS}",
+                "start": ToolParameter(
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
                     type="string",
                     required=False,
                 ),
-                "end_datetime": ToolParameter(
-                    description="The ending time boundary for the trace search period. String in RFC3339 format. Defaults to NOW().",
+                "end": ToolParameter(
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
             },
         )
         self._toolset = toolset
+
+    @staticmethod
+    def validate_params(params: Dict[str, Any], expected_params: List[str]):
+        for param in expected_params:
+            if param in params and params[param] not in (None, "", [], {}):
+                return None
+
+        return f"At least one of the following argument is expected but none were set: {expected_params}"
 
     def _invoke(
         self, params: dict, user_approved: bool = False
@@ -386,7 +200,7 @@ Examples:
                 filters = self._toolset.build_k8s_filters(params, use_exact_match=False)
 
                 # Validate that at least one parameter was provided
-                invalid_params_error = validate_params(
+                invalid_params_error = FetchTracesSimpleComparison.validate_params(
                     params,
                     [
                         "service_name",
@@ -407,11 +221,7 @@ Examples:
 
             sample_count = params.get("sample_count", 3)
 
-            start, end = process_timestamps_to_int(
-                params.get("start_datetime"),
-                params.get("end_datetime"),
-                default_time_span_seconds=DEFAULT_TRACES_TIME_SPAN_SECONDS,
-            )
+            start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
             # Create API instance
             api = GrafanaTempoAPI(
@@ -534,9 +344,6 @@ Examples:
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Simple Tempo Traces Comparison"
 
 
-# New tools matching GrafanaTempoAPI methods
-
-
 class SearchTracesByQuery(Tool):
     def __init__(self, toolset: BaseGrafanaTempoToolset):
         super().__init__(
@@ -558,13 +365,15 @@ class SearchTracesByQuery(Tool):
                     required=False,
                 ),
                 "start": ToolParameter(
-                    description="Start time in Unix epoch seconds",
-                    type="integer",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
+                    type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time in Unix epoch seconds",
-                    type="integer",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
                     required=False,
                 ),
                 "spss": ToolParameter(
@@ -581,12 +390,14 @@ class SearchTracesByQuery(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.search_traces_by_query(
                 q=params["q"],
                 limit=params.get("limit"),
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 spss=params.get("spss"),
             )
             return StructuredToolResult(
@@ -636,13 +447,15 @@ class SearchTracesByTags(Tool):
                     required=False,
                 ),
                 "start": ToolParameter(
-                    description="Start time in Unix epoch seconds",
-                    type="integer",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
+                    type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time in Unix epoch seconds",
-                    type="integer",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
                     required=False,
                 ),
                 "spss": ToolParameter(
@@ -659,14 +472,16 @@ class SearchTracesByTags(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.search_traces_by_tags(
                 tags=params["tags"],
                 min_duration=params.get("min_duration"),
                 max_duration=params.get("max_duration"),
                 limit=params.get("limit"),
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 spss=params.get("spss"),
             )
             return StructuredToolResult(
@@ -701,13 +516,15 @@ class QueryTraceById(Tool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Optional start time in Unix epoch seconds",
-                    type="integer",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
+                    type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="Optional end time in Unix epoch seconds",
-                    type="integer",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
                     required=False,
                 ),
             },
@@ -719,11 +536,13 @@ class QueryTraceById(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             trace_data = api.query_trace_by_id_v2(
                 trace_id=params["trace_id"],
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
             )
 
             # Return raw trace data as YAML for readability
@@ -764,13 +583,15 @@ class SearchTagNames(Tool):
                     required=False,
                 ),
                 "start": ToolParameter(
-                    description="Start time in Unix epoch seconds",
-                    type="integer",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
+                    type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time in Unix epoch seconds",
-                    type="integer",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
                     required=False,
                 ),
                 "limit": ToolParameter(
@@ -792,12 +613,14 @@ class SearchTagNames(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.search_tag_names_v2(
                 scope=params.get("scope"),
                 q=params.get("q"),
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 limit=params.get("limit"),
                 max_stale_values=params.get("max_stale_values"),
             )
@@ -838,13 +661,15 @@ class SearchTagValues(Tool):
                     required=False,
                 ),
                 "start": ToolParameter(
-                    description="Start time in Unix epoch seconds",
-                    type="integer",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
+                    type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time in Unix epoch seconds",
-                    type="integer",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
+                    type="string",
                     required=False,
                 ),
                 "limit": ToolParameter(
@@ -866,12 +691,14 @@ class SearchTagValues(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.search_tag_values_v2(
                 tag=params["tag"],
                 q=params.get("q"),
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 limit=params.get("limit"),
                 max_stale_values=params.get("max_stale_values"),
             )
@@ -924,12 +751,14 @@ class QueryMetricsInstant(Tool):
                     required=True,
                 ),
                 "start": ToolParameter(
-                    description="Start time (Unix seconds/nanoseconds/RFC3339)",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
                     type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time (Unix seconds/nanoseconds/RFC3339)",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
@@ -947,11 +776,13 @@ class QueryMetricsInstant(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.query_metrics_instant(
                 q=params["q"],
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 since=params.get("since"),
             )
             return StructuredToolResult(
@@ -1007,12 +838,14 @@ class QueryMetricsRange(Tool):
                     required=False,
                 ),
                 "start": ToolParameter(
-                    description="Start time (Unix seconds/nanoseconds/RFC3339)",
+                    description=standard_start_datetime_tool_param_description(
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
+                    ),
                     type="string",
                     required=False,
                 ),
                 "end": ToolParameter(
-                    description="End time (Unix seconds/nanoseconds/RFC3339)",
+                    description=STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
                     type="string",
                     required=False,
                 ),
@@ -1035,12 +868,14 @@ class QueryMetricsRange(Tool):
     ) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
+        start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
+
         try:
             result = api.query_metrics_range(
                 q=params["q"],
                 step=params.get("step"),
-                start=params.get("start"),
-                end=params.get("end"),
+                start=start,
+                end=end,
                 since=params.get("since"),
                 exemplars=params.get("exemplars"),
             )
@@ -1069,9 +904,6 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanatempo/",
             tools=[
                 FetchTracesSimpleComparison(self),
-                # GetTempoTraces(self),
-                # GetTempoTraceById(self),
-                # GetTempoTags(self),
                 SearchTracesByQuery(self),
                 SearchTracesByTags(self),
                 QueryTraceById(self),

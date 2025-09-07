@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch, ANY
 
 import pytest
 
@@ -64,8 +64,8 @@ class TestSearchTracesByQuery:
             mock_search.assert_called_once_with(
                 q='{resource.service.name="api"}',
                 limit=10,
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 spss=None,
             )
 
@@ -130,8 +130,8 @@ class TestSearchTracesByTags:
                 min_duration="100ms",
                 max_duration="5s",
                 limit=None,
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 spss=None,
             )
 
@@ -155,8 +155,8 @@ class TestQueryTraceById:
             assert result.status == ToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 trace_id="abc123",
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
             )
 
     def test_query_trace_by_id_with_time_range(self, tempo_toolset):
@@ -228,8 +228,8 @@ class TestSearchTagNames:
             mock_search.assert_called_once_with(
                 scope="resource",
                 q='{resource.cluster="prod"}',
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 limit=50,
                 max_stale_values=None,
             )
@@ -300,8 +300,8 @@ class TestQueryMetricsInstant:
             assert result.status == ToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 q="{ } | histogram_quantile(.95)",
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 since="1h",
             )
 
@@ -342,8 +342,8 @@ class TestQueryMetricsRange:
             mock_query.assert_called_once_with(
                 q='{ service.name="api" } | rate()',
                 step="5m",
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 since="3h",
                 exemplars=None,
             )
@@ -368,11 +368,167 @@ class TestQueryMetricsRange:
             mock_query.assert_called_once_with(
                 q="{ } | rate()",
                 step=None,
-                start=None,
-                end=None,
+                start=ANY,
+                end=ANY,
                 since=None,
                 exemplars=100,
             )
+
+
+class TestNegativeTimestamps:
+    """Test handling of negative timestamps across all tools."""
+
+    def test_search_traces_with_negative_start(self, tempo_toolset):
+        """Test search with negative start time (relative to end)."""
+        tool = SearchTracesByQuery(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.search_traces_by_query"
+        ) as mock_search:
+            mock_search.return_value = {"traces": []}
+
+            # Use negative start (-3600 = 1 hour before end)
+            result = tool._invoke(
+                {"q": '{resource.service.name="api"}', "start": "-3600"}
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            # Verify start was converted to a positive timestamp
+            args, kwargs = mock_search.call_args
+            assert kwargs["start"] > 0
+            assert kwargs["end"] > kwargs["start"]
+            # Start should be exactly 3600 seconds before end
+            assert kwargs["end"] - kwargs["start"] == 3600
+
+    def test_query_trace_with_negative_timestamps(self, tempo_toolset):
+        """Test trace query with both negative start and end."""
+        tool = QueryTraceById(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_trace_by_id_v2"
+        ) as mock_query:
+            mock_query.return_value = {"batches": []}
+
+            # Both negative: end relative to now, start relative to end
+            result = tool._invoke(
+                {
+                    "trace_id": "test123",
+                    "start": "-7200",  # 2 hours before end
+                    "end": "-3600",  # 1 hour before now
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # Both should be positive timestamps
+            assert kwargs["start"] > 0
+            assert kwargs["end"] > 0
+            # Start should be before end
+            assert kwargs["start"] < kwargs["end"]
+            # Time span should be 7200 seconds (2 hours)
+            assert kwargs["end"] - kwargs["start"] == 7200
+
+    def test_metrics_with_inverted_timestamps(self, tempo_toolset):
+        """Test that start/end are automatically inverted if start > end."""
+        tool = QueryMetricsInstant(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_instant"
+        ) as mock_query:
+            mock_query.return_value = {"status": "success", "data": {}}
+
+            # Provide timestamps in wrong order
+            now = 1234567890
+            result = tool._invoke(
+                {
+                    "q": "{ } | rate()",
+                    "start": now + 3600,  # 1 hour after "end"
+                    "end": now,
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # Timestamps should be inverted
+            assert kwargs["start"] == now
+            assert kwargs["end"] == now + 3600
+
+    def test_tag_search_with_rfc3339_and_negative(self, tempo_toolset):
+        """Test mixing RFC3339 and negative timestamps."""
+        tool = SearchTagNames(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.search_tag_names_v2"
+        ) as mock_search:
+            mock_search.return_value = {"scopes": {}}
+
+            result = tool._invoke(
+                {
+                    "start": "-3600",  # Negative (relative)
+                    "end": "2024-01-01T12:00:00Z",  # RFC3339
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_search.call_args
+            # Start should be 3600 seconds before the RFC3339 end time
+            assert kwargs["start"] > 0
+            assert kwargs["end"] > 0
+            assert kwargs["end"] - kwargs["start"] == 3600
+
+    def test_all_tools_handle_negative_start(self, tempo_toolset):
+        """Test that all tools correctly handle negative start values."""
+        test_cases = [
+            (SearchTracesByQuery(tempo_toolset), {"q": "{}", "start": "-1800"}),
+            (
+                SearchTracesByTags(tempo_toolset),
+                {"tags": "test=value", "start": "-1800"},
+            ),
+            (QueryTraceById(tempo_toolset), {"trace_id": "123", "start": "-1800"}),
+            (SearchTagNames(tempo_toolset), {"start": "-1800"}),
+            (SearchTagValues(tempo_toolset), {"tag": "service.name", "start": "-1800"}),
+            (
+                QueryMetricsInstant(tempo_toolset),
+                {"q": "{ } | rate()", "start": "-1800"},
+            ),
+            (QueryMetricsRange(tempo_toolset), {"q": "{ } | rate()", "start": "-1800"}),
+        ]
+
+        for tool, params in test_cases:
+            # Patch the specific API method for each tool
+            api_method = tool._invoke.__qualname__.split(".")[0].lower()
+            if "fetch" in api_method:
+                api_method = "search_traces_by_query"
+            elif "searchtracesbyquery" in api_method:
+                api_method = "search_traces_by_query"
+            elif "searchtracesbytags" in api_method:
+                api_method = "search_traces_by_tags"
+            elif "querytracebyid" in api_method:
+                api_method = "query_trace_by_id_v2"
+            elif "searchtagnames" in api_method:
+                api_method = "search_tag_names_v2"
+            elif "searchtagvalues" in api_method:
+                api_method = "search_tag_values_v2"
+            elif "querymetricsinstant" in api_method:
+                api_method = "query_metrics_instant"
+            elif "querymetricsrange" in api_method:
+                api_method = "query_metrics_range"
+
+            with patch(
+                f"holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.{api_method}"
+            ) as mock_method:
+                mock_method.return_value = {"status": "success"}
+
+                result = tool._invoke(params)
+                assert result.status == ToolResultStatus.SUCCESS
+
+                # Verify the negative start was converted properly
+                if mock_method.called:
+                    args, kwargs = mock_method.call_args
+                    if "start" in kwargs:
+                        assert (
+                            kwargs["start"] > 0
+                        )  # Should be converted to positive timestamp
 
 
 class TestGrafanaTempoToolset:
