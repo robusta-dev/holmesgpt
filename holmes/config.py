@@ -206,6 +206,7 @@ class Config(RobustaBaseConfig):
                 "is_robusta_model": True,
                 "model": "gpt-4o",
             }
+            self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
