@@ -29,7 +29,6 @@ from holmes.plugins.runbooks import (
 
 # Source plugin imports moved to their respective create methods to speed up startup
 if TYPE_CHECKING:
-    from holmes.core.llm import LLM
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
@@ -184,6 +183,7 @@ class Config(RobustaBaseConfig):
                     "name": model,
                     "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
                     "is_robusta_model": True,
+                    "model": "gpt-4o",  # Robusta AI model is using openai like API.
                 }
 
             if robusta_models.default_model:
@@ -563,10 +563,8 @@ class Config(RobustaBaseConfig):
         logging.info("Using first model")
         return first_model_params
 
-    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key = self.api_key
+    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
         model_params = self._get_model_params(model_key)
-        model = self.model
         api_base = self.api_base
         api_version = self.api_version
 
@@ -575,16 +573,20 @@ class Config(RobustaBaseConfig):
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             api_key = self.api_key.get_secret_value()  # type: ignore
         else:
-            api_key = model_params.pop("api_key", api_key)
-                model = model_params.pop("model", model)
+            api_key = model_params.pop("api_key", self.api_key)
+
+        model = model_params.pop("model", self.model)
         # It's ok if the model does not have api base and api version, which are defaults to None.
         # Handle both api_base and base_url - api_base takes precedence
         model_api_base = model_params.pop("api_base", None)
         model_base_url = model_params.pop("base_url", None)
         api_base = model_api_base or model_base_url or api_base
         api_version = model_params.pop("api_version", api_version)
+        model_name = model_params.pop("name", None) or model_key or model
 
-        return DefaultLLM(model, api_key, api_base, api_version, model_params, tracer)  # type: ignore
+        return DefaultLLM(
+            model, api_key, api_base, api_version, model_params, tracer, model_name
+        )  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
