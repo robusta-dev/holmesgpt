@@ -330,7 +330,7 @@ def _get_status_emoji(
         Emoji string representing the status
     """
     if all_skipped:
-        return "⏭️"
+        return "➖"
     if setup_fail:
         return "🔧"
     if pass_pct == 100.0:

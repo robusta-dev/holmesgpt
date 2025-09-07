@@ -79,7 +79,7 @@ class TestStatus:
     @property
     def markdown_symbol(self) -> str:
         if self.is_skipped:
-            return ":arrow_right_hook:"
+            return ":minus:"
         elif self.is_setup_failure:
             return ":construction:"
         elif self.is_mock_failure:

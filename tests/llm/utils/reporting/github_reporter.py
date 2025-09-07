@@ -136,7 +136,7 @@ def generate_markdown_report(sorted_results: List[dict]) -> Tuple[str, List[dict
 
     markdown += "\n\n**Legend**\n"
     markdown += "\n- :white_check_mark: the test was successful"
-    markdown += "\n- :arrow_right_hook: the test was skipped"
+    markdown += "\n- :minus: the test was skipped"
     markdown += (
         "\n- :warning: the test failed but is known to be flaky or known to fail"
     )

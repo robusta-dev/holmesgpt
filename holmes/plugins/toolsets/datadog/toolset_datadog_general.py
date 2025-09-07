@@ -170,7 +170,7 @@ class DatadogGeneralToolset(Toolset):
         super().__init__(
             name="datadog/general",
             description="General-purpose Datadog API access for read-only operations including monitors, dashboards, SLOs, incidents, synthetics, and more",
-            docs_url="https://docs.datadoghq.com/api/latest/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -178,7 +178,6 @@ class DatadogGeneralToolset(Toolset):
                 DatadogAPIPostSearch(toolset=self),
                 ListDatadogAPIResources(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(

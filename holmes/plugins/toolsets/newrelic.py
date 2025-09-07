@@ -37,7 +37,7 @@ class GetLogs(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -77,7 +77,7 @@ class GetLogs(BaseNewRelicTool):
 
         try:
             logging.info(f"Getting New Relic logs for app {app} since {since}")
-            response = requests.post(url, headers=headers, json=query)
+            response = requests.post(url, headers=headers, json=query)  # type: ignore[arg-type]
 
             if response.status_code == 200:
                 return success(response.json())
@@ -115,7 +115,7 @@ class GetTraces(BaseNewRelicTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -160,7 +160,7 @@ class GetTraces(BaseNewRelicTool):
 
         try:
             logging.info(f"Getting New Relic traces with duration > {duration}s")
-            response = requests.post(url, headers=headers, json=query)
+            response = requests.post(url, headers=headers, json=query)  # type: ignore[arg-type]
 
             if response.status_code == 200:
                 return success(response.json())
@@ -193,7 +193,7 @@ class NewRelicToolset(Toolset):
         super().__init__(
             name="newrelic",
             description="Toolset for interacting with New Relic to fetch logs and traces",
-            docs_url="https://docs.newrelic.com/docs/apis/nerdgraph-api/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/newrelic/",
             icon_url="https://companieslogo.com/img/orig/NEWR-de5fcb2e.png?t=1720244493",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
