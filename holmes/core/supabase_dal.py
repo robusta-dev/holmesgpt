@@ -339,7 +339,7 @@ class SupabaseDal:
         data.extend(unzipped_files)
         return data
 
-    def get_issue_from_db(self, issue_id: str, table: str):
+    def get_issue_from_db(self, issue_id: str, table: str) -> Optional[Dict]:
         issue_response = (
             self.client.table(table).select("*").filter("id", "eq", issue_id).execute()
         )
