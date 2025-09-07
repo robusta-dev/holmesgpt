@@ -83,6 +83,7 @@ class Config(RobustaBaseConfig):
     session_token: Optional[SecretStr] = None
 
     model: Optional[str] = "gpt-4o"
+    fast_model: Optional[str] = None
     max_steps: int = 40
     cluster_name: Optional[str] = None
 
@@ -140,6 +141,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
+                global_fast_model=self.fast_model,
             )
         return self._toolset_manager
 
@@ -227,6 +229,7 @@ class Config(RobustaBaseConfig):
         Returns:
             Config instance with merged settings
         """
+
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -250,6 +253,7 @@ class Config(RobustaBaseConfig):
         kwargs = {}
         for field_name in [
             "model",
+            "fast_model",
             "api_key",
             "max_steps",
             "alertmanager_url",
