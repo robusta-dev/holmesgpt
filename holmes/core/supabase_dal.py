@@ -37,6 +37,7 @@ from holmes.utils.global_instructions import Instructions
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
 ISSUES_TABLE = "Issues"
+GROUPED_ISSUES_TABLE = "GroupedIssues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
@@ -338,6 +339,14 @@ class SupabaseDal:
         data.extend(unzipped_files)
         return data
 
+    def get_issue_from_db(self, issue_id: str, table: str):
+        issue_response = (
+            self.client.table(table).select("*").filter("id", "eq", issue_id).execute()
+        )
+        if len(issue_response.data):
+            return issue_response.data[0]
+        return None
+
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no
         # foreign key relation between Issues and Evidence.
@@ -347,14 +356,11 @@ class SupabaseDal:
             return None
         issue_data = None
         try:
-            issue_response = (
-                self.client.table(ISSUES_TABLE)
-                .select("*")
-                .filter("id", "eq", issue_id)
-                .execute()
-            )
-            if len(issue_response.data):
-                issue_data = issue_response.data[0]
+            issue_data = self.get_issue_from_db(issue_id, ISSUES_TABLE)
+            if issue_data and issue_data["source"] == "prometheus":
+                logging.debug("Getting alert %s from GroupedIssuesTable", issue_id)
+                # This issue will have the complete alert duration information
+                issue_data = self.get_issue_from_db(issue_id, GROUPED_ISSUES_TABLE)
 
         except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
