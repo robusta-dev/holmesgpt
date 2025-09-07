@@ -37,6 +37,12 @@ def pytest_addoption(parser):
         default=False,
         help="Only run before_test setup commands, skip the actual test execution",
     )
+    parser.addoption(
+        "--only-cleanup",
+        action="store_true",
+        default=False,
+        help="Only run after_test cleanup commands, skip the actual test execution",
+    )
 
 
 def pytest_configure(config):

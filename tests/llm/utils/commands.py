@@ -54,7 +54,12 @@ class CommandResult:
         )
 
 
-def _invoke_command(command: str, cwd: str, timeout: Optional[int] = None) -> str:
+def _invoke_command(
+    command: str,
+    cwd: str,
+    timeout: Optional[int] = None,
+    suppress_logging: bool = False,
+) -> str:
     try:
         actual_timeout = timeout if timeout is not None else EVAL_SETUP_TIMEOUT
         logging.debug(f"Running `{command}` in {cwd} with timeout {actual_timeout}s")
@@ -82,9 +87,10 @@ def _invoke_command(command: str, cwd: str, timeout: Optional[int] = None) -> st
 
         return output
     except subprocess.CalledProcessError as e:
-        truncated_command = _truncate_script(command)
-        message = f"Command `{truncated_command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
-        logging.error(message)
+        if not suppress_logging:
+            truncated_command = _truncate_script(command)
+            message = f"Command `{truncated_command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}"
+            logging.error(message)
         raise e
 
 
@@ -116,7 +122,9 @@ def run_commands(
             if hasattr(test_case, "setup_timeout") and test_case.setup_timeout
             else None
         )
-        _invoke_command(command=script, cwd=test_case.folder, timeout=timeout)
+        _invoke_command(
+            command=script, cwd=test_case.folder, timeout=timeout, suppress_logging=True
+        )
 
         elapsed_time = time.time() - start_time
         return CommandResult(
@@ -127,7 +135,44 @@ def run_commands(
         )
     except subprocess.CalledProcessError as e:
         elapsed_time = time.time() - start_time
-        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}\n\nScript that failed:\n$ {_truncate_script(script)}"
+
+        # Always add pod diagnostics for any failure during setup
+        extra_diagnostics = ""
+        if test_case.id and operation == "setup":
+            # Try to get pod status for debugging
+            try:
+                # Extract just the numeric ID from the test case (e.g., "999" from "999_test_pod_diagnostics")
+                test_id = (
+                    test_case.id.split("_")[0] if "_" in test_case.id else test_case.id
+                )
+                # grep -E uses extended regex to match either:
+                # - ^NAMESPACE: lines starting with "NAMESPACE" (the header line)
+                # - {test_id}: any line containing the test ID (e.g., "999" for app-999 namespace)
+                diagnostic_cmd = (
+                    f"kubectl get pods -A | grep -E '(^NAMESPACE|{test_id})'"
+                )
+                pod_status_result = subprocess.run(
+                    diagnostic_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    cwd=test_case.folder,
+                )
+                if pod_status_result.stdout:
+                    extra_diagnostics = f"\n\nPod status for debugging (command: {diagnostic_cmd}):\n{pod_status_result.stdout}"
+                else:
+                    # If no pods found, still show the command that was run
+                    extra_diagnostics = f"\n\nPod status for debugging (command: {diagnostic_cmd}):\nNo matching pods found"
+            except Exception as e:
+                extra_diagnostics = f"\n\nFailed to get pod diagnostics: {str(e)}"
+
+        # Log the error with diagnostics included
+        truncated_command = _truncate_script(script)
+        log_message = f"Command `{truncated_command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}{extra_diagnostics}"
+        logging.error(log_message)
+
+        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}{extra_diagnostics}\n\nScript that failed:\n$ {_truncate_script(script)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",

@@ -590,8 +590,43 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     )
     lines.append("")
 
-    # Sort evals and models
-    sorted_evals = sorted(all_evals)
+    # Custom sort function to prioritize by status
+    def get_eval_sort_key(eval_case):
+        """Sort key that prioritizes: real runs (pass/fail) > setup failures > skips"""
+        # Get the worst status across all models for this eval
+        has_real_runs = False
+        all_setup_failures = True
+        all_skipped = True
+
+        for model in all_models:
+            stats = eval_model_stats[eval_case][model]
+            if stats["total"] > 0:
+                setup_failures = stats.get("setup_failures", 0)
+                skipped = stats.get("skipped", 0)
+                valid_tests = stats["total"] - setup_failures - skipped
+
+                if valid_tests > 0:
+                    has_real_runs = True
+                    all_setup_failures = False
+                    all_skipped = False
+                elif setup_failures > 0:
+                    all_skipped = False
+
+        # Return tuple for sorting: (priority_group, eval_name)
+        # Priority groups: 0 = real runs, 1 = setup failures, 2 = skipped
+        if has_real_runs:
+            priority = 0
+        elif all_setup_failures and not all_skipped:
+            priority = 1
+        elif all_skipped:
+            priority = 2
+        else:
+            priority = 1  # Mixed setup failures and skips
+
+        return (priority, eval_case)
+
+    # Sort evals with custom function, models alphabetically
+    sorted_evals = sorted(all_evals, key=get_eval_sort_key)
     sorted_models = sorted(all_models)
 
     # Extract experiment name from any test that has it (needed for URLs)
@@ -636,12 +671,17 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
     # Data rows (one per eval)
     for eval_case in sorted_evals:
-        # Create link for the eval ID
+        # Create absolute GitHub URL to test_case.yaml file
+        github_url = f"https://github.com/robusta-dev/holmesgpt/blob/master/tests/llm/fixtures/test_ask_holmes/{eval_case}/test_case.yaml"
+
+        # Create link for Braintrust
         eval_filter_url = get_braintrust_eval_filter_url(eval_case, experiment_name)
+
+        # Create cell with both GitHub link and Braintrust link
         if eval_filter_url:
-            row = [f"[**{eval_case}**]({eval_filter_url})"]
+            row = [f"[**{eval_case}**]({github_url}) [🔗]({eval_filter_url})"]
         else:
-            row = [f"**{eval_case}**"]
+            row = [f"[**{eval_case}**]({github_url})"]
 
         for model in sorted_models:
             stats = eval_model_stats[eval_case][model]
@@ -733,12 +773,17 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     lines.append("|---------|" + "|".join(["-------"] * len(sorted_models)) + "|")
 
     for eval_case in sorted_evals:
-        # Create link for the eval ID in detailed breakdown
+        # Create absolute GitHub URL to test_case.yaml file
+        github_url = f"https://github.com/robusta-dev/holmesgpt/blob/master/tests/llm/fixtures/test_ask_holmes/{eval_case}/test_case.yaml"
+
+        # Create link for Braintrust in detailed breakdown
         eval_filter_url = get_braintrust_eval_filter_url(eval_case, experiment_name)
+
+        # Create cell with both GitHub link and Braintrust link
         if eval_filter_url:
-            row = [f"[{eval_case}]({eval_filter_url})"]
+            row = [f"[{eval_case}]({github_url}) [🔗]({eval_filter_url})"]
         else:
-            row = [f"{eval_case}"]
+            row = [f"[{eval_case}]({github_url})"]
 
         for model in sorted_models:
             stats = eval_model_stats[eval_case][model]

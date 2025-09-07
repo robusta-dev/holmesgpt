@@ -149,10 +149,35 @@ def check_and_skip_test(
     if test_case.skip:
         pytest.skip(test_case.skip_reason or "Test skipped")
 
-    # Check if --only-setup is set
+    # Check for setup failures FIRST - before any other skips
+    if shared_test_infrastructure is not None and request is not None:
+        setup_failures = shared_test_infrastructure.get("setup_failures", {})
+        if test_case.id in setup_failures:
+            setup_error_detail = setup_failures[test_case.id]
+            request.node.user_properties.append(("is_setup_failure", True))
+            request.node.user_properties.append(
+                ("setup_failure_detail", setup_error_detail)
+            )
+
+            # Just pass the full error detail through - no parsing needed
+            raise SetupFailureError(
+                message=setup_error_detail,
+                test_id=test_case.id,
+                command="Setup script",
+                output=setup_error_detail,  # Full details including stdout/stderr
+            )
+
+    # Check if --only-setup is set (AFTER checking for setup failures)
     if request and request.config.getoption("--only-setup", False):
         print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
         pytest.skip("Skipping test execution due to --only-setup flag")
+
+    # Check if --only-cleanup is set
+    if request and request.config.getoption("--only-cleanup", False):
+        print(
+            "   ⚙️  --only-cleanup mode: Skipping test execution, only running cleanup"
+        )
+        pytest.skip("Skipping test execution due to --only-cleanup flag")
 
     # Check for setup failures - early return if no infrastructure or request
     if shared_test_infrastructure is None or request is None:
@@ -168,22 +193,6 @@ def check_and_skip_test(
             request.node.user_properties.append(("port_conflict_skip", True))
             request.node.user_properties.append(("port_conflict_reason", skip_reason))
         pytest.skip(f"Test skipped due to port conflict: {skip_reason}")
-
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        setup_error_detail = setup_failures[test_case.id]
-        request.node.user_properties.append(("is_setup_failure", True))
-        request.node.user_properties.append(
-            ("setup_failure_detail", setup_error_detail)
-        )
-
-        # Just pass the full error detail through - no parsing needed
-        raise SetupFailureError(
-            message=setup_error_detail,
-            test_id=test_case.id,
-            command="Setup script",
-            output=setup_error_detail,  # Full details including stdout/stderr
-        )
 
 
 class MockHelper:

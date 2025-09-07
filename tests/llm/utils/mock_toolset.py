@@ -644,6 +644,9 @@ class MockToolsetManager:
                 # Never mock the runbook toolset - it needs to actually fetch runbooks
                 if toolset.name == "runbook":
                     continue
+                # Never mock the core_investigation toolset - TodoWrite and other investigation tools should always run live
+                if toolset.name == "core_investigation":
+                    continue
 
                 # Create wrapped tools
                 wrapped_tools = [

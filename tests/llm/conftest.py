@@ -124,19 +124,27 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             for test_id, reason in tests_to_skip_port_conflicts.items():
                 log(f"     • {test_id}: {reason}")
 
-        # Check skip-setup option
+        # Check skip-setup option and only-cleanup option
         skip_setup = request.config.getoption("--skip-setup")
+        only_cleanup = request.config.getoption("--only-cleanup", False)
 
-        if test_cases and not skip_setup:
+        # Skip setup if --skip-setup or --only-cleanup is set
+        if test_cases and not skip_setup and not only_cleanup:
             setup_failures = run_all_test_setup(test_cases)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
             setup_failures = {}
+        elif only_cleanup:
+            log("⚙️ Skipping test setup due to --only-cleanup flag")
+            setup_failures = {}
         else:
             setup_failures = {}
 
-        # Set up port forwards AFTER namespace/resources are created
-        setup_all_port_forwards(test_cases)
+        # Set up port forwards AFTER namespace/resources are created (unless only-cleanup)
+        if not only_cleanup:
+            setup_all_port_forwards(test_cases)
+        else:
+            log("⚙️ Skipping port forward setup due to --only-cleanup flag")
 
         port_configs = extract_port_forwards_from_test_cases(test_cases)
 
@@ -163,8 +171,9 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         if not isinstance(test_case_ids, list):
             test_case_ids = []
 
-        # Check skip-cleanup option
+        # Check skip-cleanup option and only-cleanup option
         skip_cleanup = request.config.getoption("--skip-cleanup")
+        only_cleanup = request.config.getoption("--only-cleanup", False)
 
         # Always clean up port forwards regardless of skip_cleanup flag
         port_forward_configs = data.get("port_forward_configs", [])
@@ -175,7 +184,8 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             except Exception as e:
                 log(f"⚠️ Error cleaning up port forwards: {e}")
 
-        if test_case_ids and not skip_cleanup:
+        # Run cleanup if --only-cleanup is set OR if not skipping cleanup
+        if test_case_ids and (only_cleanup or not skip_cleanup):
             # Reconstruct test cases from IDs
             from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 
@@ -202,6 +212,8 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
                 )
 
                 # Only run the after_test commands, not port forward cleanup
+                if only_cleanup:
+                    log("⚙️ Running cleanup due to --only-cleanup flag")
                 run_all_test_commands(cleanup_test_cases, Operation.CLEANUP)
         elif skip_cleanup:
             log("⚙️ Skipping test cleanup due to --skip-cleanup flag")

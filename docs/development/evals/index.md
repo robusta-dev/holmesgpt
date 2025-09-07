@@ -189,6 +189,13 @@ RUN_LIVE=true ITERATIONS=10 poetry run pytest tests/llm/ -n 10
 
 When tests fail, use these techniques to investigate:
 
+**CLI Flags for Debugging:**
+
+- `--skip-setup`: Skip `before_test` commands (useful when resources already exist)
+- `--skip-cleanup`: Skip `after_test` commands (useful for inspecting resources after test)
+- `--only-setup`: Only run `before_test` commands, skip test execution
+- `--only-cleanup`: Only run `after_test` commands, skip setup and test execution
+
 ```bash
 # 1. Verbose output to see details
 RUN_LIVE=true pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test"
@@ -201,6 +208,12 @@ RUN_LIVE=true pytest -k "test" --skip-setup --skip-cleanup
 
 # 4. Clean up when done debugging
 RUN_LIVE=true pytest -k "test" --skip-setup
+
+# 5. Or just run cleanup without the test
+RUN_LIVE=true pytest -k "test" --only-cleanup
+
+# 6. Test only setup commands without running the actual test
+RUN_LIVE=true pytest -k "test" --only-setup
 ```
 
 ## Model Comparison Workflow
