@@ -376,13 +376,17 @@ class TestGrafanaTempoAPI:
         http_error = HTTPError("404 Not Found")
         http_error.response = MagicMock()
         http_error.response.status_code = 404
+        http_error.response.text = "Not found"
         mock_response.raise_for_status.side_effect = http_error
         mock_get.return_value = mock_response
 
-        with pytest.raises(HTTPError) as exc_info:
+        from holmes.plugins.toolsets.grafana.grafana_tempo_api import TempoAPIError
+
+        with pytest.raises(TempoAPIError) as exc_info:
             api_get.query_trace_by_id_v2("nonexistent")
 
-        assert "404 Not Found" in str(exc_info.value)
+        assert "404" in str(exc_info.value)
+        assert exc_info.value.status_code == 404
 
     @patch("requests.get")
     def test_special_characters_in_path_params(self, mock_get, api_get):

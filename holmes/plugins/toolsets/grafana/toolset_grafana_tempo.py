@@ -3,7 +3,7 @@ from typing import Any, Dict, Tuple, cast, List
 
 import yaml  # type: ignore
 
-from holmes.common.env_vars import load_bool
+from holmes.common.env_vars import load_bool, MAX_GRAPH_POINTS
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
@@ -23,6 +23,9 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
     process_timestamps_to_int,
     standard_start_datetime_tool_param_description,
+    adjust_step_for_max_points,
+    seconds_to_duration_string,
+    duration_string_to_seconds,
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
@@ -762,11 +765,6 @@ class QueryMetricsInstant(Tool):
                     type="string",
                     required=False,
                 ),
-                "since": ToolParameter(
-                    description="Duration string (e.g., '1h', '30m')",
-                    type="string",
-                    required=False,
-                ),
             },
         )
         self._toolset = toolset
@@ -783,7 +781,6 @@ class QueryMetricsInstant(Tool):
                 q=params["q"],
                 start=start,
                 end=end,
-                since=params.get("since"),
             )
             return StructuredToolResult(
                 status=ToolResultStatus.SUCCESS,
@@ -849,11 +846,6 @@ class QueryMetricsRange(Tool):
                     type="string",
                     required=False,
                 ),
-                "since": ToolParameter(
-                    description="Duration string (e.g., '3h', '1d')",
-                    type="string",
-                    required=False,
-                ),
                 "exemplars": ToolParameter(
                     description="Maximum number of exemplars to return",
                     type="integer",
@@ -870,13 +862,22 @@ class QueryMetricsRange(Tool):
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
+        # Calculate appropriate step
+        step_param = params.get("step")
+        step_seconds = duration_string_to_seconds(step_param) if step_param else None
+        adjusted_step = adjust_step_for_max_points(
+            end - start,
+            int(MAX_GRAPH_POINTS),
+            step_seconds,
+        )
+        step = seconds_to_duration_string(adjusted_step)
+
         try:
             result = api.query_metrics_range(
                 q=params["q"],
-                step=params.get("step"),
+                step=step,
                 start=start,
                 end=end,
-                since=params.get("since"),
                 exemplars=params.get("exemplars"),
             )
             return StructuredToolResult(

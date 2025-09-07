@@ -293,7 +293,6 @@ class TestQueryMetricsInstant:
             result = tool._invoke(
                 {
                     "q": "{ } | histogram_quantile(.95)",
-                    "since": "1h",
                 }
             )
 
@@ -302,7 +301,6 @@ class TestQueryMetricsInstant:
                 q="{ } | histogram_quantile(.95)",
                 start=ANY,
                 end=ANY,
-                since="1h",
             )
 
 
@@ -333,7 +331,6 @@ class TestQueryMetricsRange:
                 {
                     "q": '{ service.name="api" } | rate()',
                     "step": "5m",
-                    "since": "3h",
                 }
             )
 
@@ -344,7 +341,6 @@ class TestQueryMetricsRange:
                 step="5m",
                 start=ANY,
                 end=ANY,
-                since="3h",
                 exemplars=None,
             )
 
@@ -367,10 +363,9 @@ class TestQueryMetricsRange:
             assert result.status == ToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 q="{ } | rate()",
-                step=None,
+                step=ANY,  # step will be auto-calculated
                 start=ANY,
                 end=ANY,
-                since=None,
                 exemplars=100,
             )
 
@@ -529,6 +524,136 @@ class TestNegativeTimestamps:
                         assert (
                             kwargs["start"] > 0
                         )  # Should be converted to positive timestamp
+
+
+class TestQueryMetricsRangeWithStepAdjustment:
+    """Test QueryMetricsRange with automatic step adjustment."""
+
+    def test_metrics_range_with_no_step_auto_calculates(self, tempo_toolset):
+        """Test that step is automatically calculated when not provided."""
+        tool = QueryMetricsRange(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_range"
+        ) as mock_query:
+            mock_query.return_value = {"status": "success", "data": {}}
+
+            # Provide a 1-hour time range
+            result = tool._invoke(
+                {
+                    "q": "{ } | rate()",
+                    "start": 1000000,
+                    "end": 1003600,  # 1 hour later
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # With 3600 seconds and MAX_GRAPH_POINTS=300, min step = ceil(3600/300) = 12
+            # The function should convert this to "12s"
+            assert kwargs["step"] == "12s"
+
+    def test_metrics_range_with_small_step_gets_adjusted(self, tempo_toolset):
+        """Test that a too-small step gets adjusted to prevent too many points."""
+        tool = QueryMetricsRange(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_range"
+        ) as mock_query:
+            mock_query.return_value = {"status": "success", "data": {}}
+
+            # 1-day time range with 1-minute step would be 1440 points
+            result = tool._invoke(
+                {
+                    "q": "{ } | rate()",
+                    "start": 1000000,
+                    "end": 1086400,  # 1 day later
+                    "step": "1m",  # Too small - would create too many points
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/300) = 288
+            # The function should adjust to "288s" = "4m48s"
+            assert kwargs["step"] == "4m48s"
+
+    def test_metrics_range_with_large_step_unchanged(self, tempo_toolset):
+        """Test that a sufficiently large step is not adjusted."""
+        tool = QueryMetricsRange(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_range"
+        ) as mock_query:
+            mock_query.return_value = {"status": "success", "data": {}}
+
+            result = tool._invoke(
+                {
+                    "q": "{ } | rate()",
+                    "start": 1000000,
+                    "end": 1003600,  # 1 hour later
+                    "step": "5m",  # 300s is larger than minimum
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # Step should remain "5m" since it's already large enough
+            assert kwargs["step"] == "5m"
+
+    def test_metrics_range_with_bare_number_step(self, tempo_toolset):
+        """Test that bare number steps (seconds) work correctly."""
+        tool = QueryMetricsRange(tempo_toolset)
+
+        with patch(
+            "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_range"
+        ) as mock_query:
+            mock_query.return_value = {"status": "success", "data": {}}
+
+            result = tool._invoke(
+                {
+                    "q": "{ } | rate()",
+                    "start": 1000000,
+                    "end": 1000300,  # 5 minutes later
+                    "step": "30",  # 30 seconds as bare number
+                }
+            )
+
+            assert result.status == ToolResultStatus.SUCCESS
+            args, kwargs = mock_query.call_args
+            # Step should be "30s" since 30 seconds is fine for 300 second range
+            assert kwargs["step"] == "30s"
+
+    def test_metrics_range_step_adjustment_various_ranges(self, tempo_toolset):
+        """Test step adjustment for various time ranges."""
+        tool = QueryMetricsRange(tempo_toolset)
+
+        test_cases = [
+            # (start, end, input_step, expected_step)
+            (1000000, 1000060, None, "1s"),  # 1 minute, no step -> "1s"
+            (1000000, 1000060, "1", "1s"),  # 1 minute, 1s step -> "1s"
+            (1000000, 1003600, "10s", "12s"),  # 1 hour, 10s step -> adjusted to 12s
+            (1000000, 1604800, None, "33m36s"),  # 1 week, no step -> "33m36s"
+            (1000000, 1604800, "1h", "1h"),  # 1 week, 1h step -> remains "1h"
+        ]
+
+        for start, end, input_step, expected in test_cases:
+            with patch(
+                "holmes.plugins.toolsets.grafana.grafana_tempo_api.GrafanaTempoAPI.query_metrics_range"
+            ) as mock_query:
+                mock_query.return_value = {"status": "success", "data": {}}
+
+                params = {"q": "{ } | rate()", "start": start, "end": end}
+                if input_step:
+                    params["step"] = input_step
+
+                result = tool._invoke(params)
+
+                assert result.status == ToolResultStatus.SUCCESS
+                args, kwargs = mock_query.call_args
+                assert (
+                    kwargs["step"] == expected
+                ), f"For range {end-start}s with step {input_step}, expected {expected} but got {kwargs['step']}"
 
 
 class TestGrafanaTempoToolset:
