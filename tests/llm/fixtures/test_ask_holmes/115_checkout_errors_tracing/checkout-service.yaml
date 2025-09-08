@@ -18,7 +18,16 @@ stringData:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
     # Configure OpenTelemetry
-    resource = Resource.create({"service.name": "checkout-service"})
+    # Build resource attributes including K8s metadata from environment
+    resource_attributes = {
+        "service.name": "checkout-service",
+        "k8s.namespace.name": os.environ.get("K8S_NAMESPACE", "unknown"),
+        "k8s.deployment.name": "checkout",
+        "k8s.pod.name": os.environ.get("K8S_POD_NAME", "unknown"),
+        "k8s.node.name": os.environ.get("K8S_NODE_NAME", "unknown"),
+        "k8s.container.name": "checkout"
+    }
+    resource = Resource.create(resource_attributes)
     provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(provider)
 
@@ -150,6 +159,18 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         startupProbe:
           httpGet:
             path: /health

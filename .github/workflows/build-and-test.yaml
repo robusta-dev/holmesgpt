@@ -1,8 +1,13 @@
-# this runs on every commit/PR to test that we are properly building binaries that work
+# This runs on every commit/PR to test that we are properly building binaries that work
 # we test this on each commit/PR to catch build problems early
 name: Build and test HolmesGPT
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   check:
@@ -19,7 +24,7 @@ jobs:
           virtualenvs-path: .venv
           installer-parallel: true
       - name: Install dependencies
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-root --with dev
       - uses: pre-commit/action@v3.0.1
   build:
     needs: check
@@ -44,7 +49,7 @@ jobs:
 
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
-          poetry install --no-root
+          poetry install --no-root --with dev
 
           sudo apt-get install -y binutils
           pyinstaller holmes_cli.py \
