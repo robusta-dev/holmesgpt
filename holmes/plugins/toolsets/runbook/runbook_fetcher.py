@@ -21,13 +21,28 @@ class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
 
     def __init__(self, toolset: "RunbookToolset"):
+        # Load available runbooks from catalog
+        from holmes.plugins.runbooks import load_runbook_catalog
+
+        catalog = load_runbook_catalog()
+        available_runbooks = []
+        if catalog:
+            available_runbooks = [entry.link for entry in catalog.catalog]
+
+        # Build description with available runbooks
+        runbook_list = (
+            ", ".join([f'"{rb}"' for rb in available_runbooks])
+            if available_runbooks
+            else '"networking/dns_troubleshooting_instructions.md", "upgrade/upgrade_troubleshooting_instructions.md"'
+        )
+
         super().__init__(
             name="fetch_runbook",
             description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
                 # use link as a more generic term for runbook path, considering we may have external links in the future
                 "link": ToolParameter(
-                    description="The link to the runbook",
+                    description=f"The link to the runbook (non-empty string required). Must be one of: {runbook_list}",
                     type="string",
                     required=True,
                 ),
@@ -38,7 +53,19 @@ class RunbookFetcher(Tool):
     def _invoke(
         self, params: dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        link: str = params["link"]
+        link: str = params.get("link", "")
+
+        # Validate link is not empty
+        if not link or not link.strip():
+            err_msg = (
+                "Runbook link cannot be empty. Please provide a valid runbook path."
+            )
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
 
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
         if self.toolset.config and "additional_search_paths" in self.toolset.config:

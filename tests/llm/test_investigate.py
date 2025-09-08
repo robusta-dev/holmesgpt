@@ -57,6 +57,7 @@ class MockConfig(Config):
                 test_case_folder=self._test_case.folder,
                 mock_generation_config=self._mock_generation_config,
                 mock_policy=self._test_case.mock_policy,
+                mock_overrides=getattr(self._test_case, "mock_overrides", None),
             )
 
             # With the new file-based mock system, mocks are loaded from disk automatically
@@ -153,6 +154,12 @@ def test_investigate(
                         holmes_duration = time.time() - start_time
                     # Log duration directly to eval_span
                     eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+                # Check for any mock errors that occurred during tool execution
+                # This will raise an exception if any mock data errors happened
+                from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+                check_for_mock_errors(request)
 
                 # Evaluate and log results inside the span context
                 assert result, "No result returned by investigate_issues()"

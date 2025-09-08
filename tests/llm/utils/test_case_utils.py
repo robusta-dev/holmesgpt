@@ -95,6 +95,9 @@ class HolmesTestCase(BaseModel):
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
     )
+    mock_overrides: Optional[Dict[str, str]] = (
+        None  # Per-toolset mock policy overrides: {"toolset_name": "always_mock|never_mock|inherit"}
+    )
     description: Optional[str] = None
     generate_mocks: Optional[bool] = None
     toolsets: Optional[Dict[str, Any]] = None

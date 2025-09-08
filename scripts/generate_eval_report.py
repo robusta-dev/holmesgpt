@@ -79,6 +79,44 @@ def get_rate_emoji(rate: float) -> str:
         return "🟡"
 
 
+def format_test_cell(
+    passed: int,
+    total: int,
+    skipped: int = 0,
+    setup_failures: int = 0,
+    mock_failures: int = 0,
+) -> str:
+    """Format a test result cell with emoji and percentage.
+
+    Args:
+        passed: Number of tests passed
+        total: Total number of tests
+        skipped: Number of skipped tests
+        setup_failures: Number of setup failures
+        mock_failures: Number of mock failures
+
+    Returns:
+        Formatted string for the table cell
+    """
+    if total == 0:
+        return "N/A"
+
+    # Calculate total non-run tests (skipped, setup failures, mock failures)
+    total_skipped = skipped + setup_failures + mock_failures
+    valid_tests = total - total_skipped
+
+    if valid_tests > 0:
+        rate = passed / valid_tests * 100
+        # Add emoji based on rate
+        emoji = get_rate_emoji(rate)
+
+        # Build the main cell: emoji percentage (passed/valid)
+        return f"{emoji} {rate:.0f}% ({passed}/{valid_tests})"
+    else:
+        # All tests were skipped/failed setup
+        return "⚪️ -"
+
+
 def get_test_status_emoji(
     stats: Dict[str, Any],
     total: int,
@@ -908,44 +946,19 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                     stats, total, passed, skipped, setup_failures, valid_tests
                 )
 
-                # Create multi-line cell with accuracy, time, and cost on separate lines
-                # Only linkify the percentage/status line
-                if braintrust_url:
-                    if setup_failures == total or skipped == total:
-                        # For full setup failures or skips, just show the icon
-                        percentage_line = f"[{emoji}]({braintrust_url})"
-                    else:
-                        percentage_line = f"[{emoji} {rate:.0f}%]({braintrust_url})"
+                # Build the cell parts with simplified format
+                if valid_tests > 0:
+                    # Show percentage with passed/valid in parentheses
+                    status_line = f"{emoji} {rate:.0f}% ({passed}/{valid_tests})"
                 else:
-                    if setup_failures == total or skipped == total:
-                        percentage_line = f"{emoji}"
-                    else:
-                        percentage_line = f"{emoji} {rate:.0f}%"
+                    # All tests were skipped/failed setup
+                    status_line = "⚪️ -"
 
-                # Show more detailed breakdown when there are setup failures, mock failures, or skips
-                mock_failures = stats.get("mock_failures", 0)
-                if setup_failures > 0 or skipped > 0 or mock_failures > 0:
-                    breakdown_parts = []
-                    if passed > 0:
-                        breakdown_parts.append(f"{passed}✓")
-                    failed = valid_tests - passed if valid_tests > 0 else 0
-                    if failed > 0:
-                        breakdown_parts.append(f"{failed}✗")
-                    if mock_failures > 0:
-                        breakdown_parts.append(f"{mock_failures}🔧")
-                    if setup_failures > 0:
-                        breakdown_parts.append(f"{setup_failures}⚠️")
-                    if skipped > 0:
-                        breakdown_parts.append(f"{skipped}⏭️")
-                    cell_parts = [
-                        percentage_line,
-                        f"🔄 {'/'.join(breakdown_parts)}",
-                    ]
+                # Add Braintrust link if available
+                if braintrust_url:
+                    cell_parts = [f"[{status_line}]({braintrust_url})"]
                 else:
-                    cell_parts = [
-                        percentage_line,
-                        f"🔄 {passed}/{total}",  # Refresh/iterations icon showing test runs
-                    ]
+                    cell_parts = [status_line]
                 if avg_duration > 0:
                     cell_parts.append(f"⏱️ {avg_duration:.1f}s")
                 if avg_cost > 0:
@@ -968,8 +981,16 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
     """Generate a table showing model performance by tag."""
     # Collect data by model and tag
-    model_tag_stats: DefaultDict[str, DefaultDict[str, Dict[str, int]]] = defaultdict(
-        lambda: defaultdict(lambda: {"total": 0, "passed": 0})
+    model_tag_stats: DefaultDict[str, DefaultDict[str, Dict[str, Any]]] = defaultdict(
+        lambda: defaultdict(
+            lambda: {
+                "total": 0,
+                "passed": 0,
+                "skipped": 0,
+                "setup_failures": 0,
+                "mock_failures": 0,
+            }
+        )
     )
 
     all_tags: Set[str] = set()
@@ -983,6 +1004,8 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
         # Extract model and tags from user_properties
         model = None
         tags = []
+        is_setup_failure = False
+        is_mock_failure = False
 
         user_props = test.get("user_properties", [])
 
@@ -992,6 +1015,10 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
                     model = prop["model"]
                 if "tags" in prop:
                     tags = prop["tags"]
+                if prop.get("is_setup_failure"):
+                    is_setup_failure = True
+                if prop.get("mock_data_failure"):
+                    is_mock_failure = True
 
         if not model:
             # Fallback: try to extract from nodeid
@@ -1008,6 +1035,13 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
                 model_tag_stats[model][tag]["total"] += 1
                 if outcome == "passed":
                     model_tag_stats[model][tag]["passed"] += 1
+                elif outcome == "skipped":
+                    model_tag_stats[model][tag]["skipped"] += 1
+
+                if is_setup_failure:
+                    model_tag_stats[model][tag]["setup_failures"] += 1
+                if is_mock_failure:
+                    model_tag_stats[model][tag]["mock_failures"] += 1
 
     if not all_tags or not all_models:
         return ""
@@ -1032,8 +1066,8 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
         display_model = get_model_display_name(model)
         display_models.append(display_model)
 
-    header = "| Tag | " + " | ".join(display_models) + " |"
-    separator = "|-----|" + "|".join(["-------"] * len(sorted_models)) + "|"
+    header = "| Tag | " + " | ".join(display_models) + " | Warnings |"
+    separator = "|-----|" + "|".join(["-------"] * len(sorted_models)) + "|----------|"
 
     lines.append(header)
     lines.append(separator)
@@ -1047,39 +1081,73 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
         else:
             row = [tag]
 
+        # Collect totals for warnings across all models
+        total_skipped_all = 0
+
         for model in sorted_models:
             stats = model_tag_stats[model][tag]
-            if stats["total"] > 0:
-                passed = stats["passed"]
-                total = stats["total"]
-                rate = passed / total * 100
-                # Add emoji based on rate
-                emoji = get_rate_emoji(rate)
-                cell = f"{emoji} {rate:.0f}% ({passed}/{total})"
-            else:
-                cell = "N/A"
+            cell = format_test_cell(
+                passed=stats["passed"],
+                total=stats["total"],
+                skipped=stats.get("skipped", 0),
+                setup_failures=stats.get("setup_failures", 0),
+                mock_failures=stats.get("mock_failures", 0),
+            )
             row.append(cell)
+
+            # Accumulate all types of skipped tests
+            total_skipped_all += (
+                stats.get("skipped", 0)
+                + stats.get("setup_failures", 0)
+                + stats.get("mock_failures", 0)
+            )
+
+        # Build simplified warnings cell
+        warnings_cell = (
+            f"⚠️ {total_skipped_all} skipped" if total_skipped_all > 0 else ""
+        )
+        row.append(warnings_cell)
 
         lines.append("| " + " | ".join(row) + " |")
 
     # Add Overall row
     overall_row = ["**Overall**"]
+    grand_total_skipped_all = 0
+
     for model in sorted_models:
         total_passed = 0
         total_tests = 0
+        total_skipped = 0
+        total_setup_failures = 0
+        total_mock_failures = 0
+
         for tag in sorted_tags:
             stats = model_tag_stats[model][tag]
             total_passed += stats["passed"]
             total_tests += stats["total"]
+            total_skipped += stats.get("skipped", 0)
+            total_setup_failures += stats.get("setup_failures", 0)
+            total_mock_failures += stats.get("mock_failures", 0)
 
-        if total_tests > 0:
-            overall_rate = total_passed / total_tests * 100
-            emoji = get_rate_emoji(overall_rate)
-            overall_row.append(
-                f"{emoji} {overall_rate:.0f}% ({total_passed}/{total_tests})"
-            )
-        else:
-            overall_row.append("N/A")
+        cell = format_test_cell(
+            passed=total_passed,
+            total=total_tests,
+            skipped=total_skipped,
+            setup_failures=total_setup_failures,
+            mock_failures=total_mock_failures,
+        )
+        overall_row.append(cell)
+
+        # Accumulate all types of skipped tests
+        grand_total_skipped_all += (
+            total_skipped + total_setup_failures + total_mock_failures
+        )
+
+    # Build simplified warnings for overall row
+    warnings_cell = (
+        f"⚠️ {grand_total_skipped_all} skipped" if grand_total_skipped_all > 0 else ""
+    )
+    overall_row.append(warnings_cell)
 
     lines.append("| " + " | ".join(overall_row) + " |")
 

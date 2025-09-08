@@ -100,7 +100,6 @@ markers = [
     "datetime: Tests involving datetime functionality",
     "logs: Tests involving log processing",
     "context_window: Tests involving context window handling",
-    "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
     "runbooks: Tests involving runbook functionality",
     "misleading-history: Tests with misleading historical data",

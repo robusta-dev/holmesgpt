@@ -93,6 +93,9 @@ def retry_on_throttle(
     while attempt <= len(retry_delays):
         try:
             # Try to execute the function
+            # Add request back to kwargs if it exists (it was extracted for our use but func may need it)
+            if request is not None:
+                kwargs["request"] = request
             result = func(*args, **kwargs)
 
             # If we had to retry, issue a pytest warning and store retry info

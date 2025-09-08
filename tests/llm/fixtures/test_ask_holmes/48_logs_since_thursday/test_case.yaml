@@ -3,7 +3,6 @@ user_prompt: "Show me the logs for the pod `robusta-holmes` since last Thursday"
 tags:
   - logs
   - datetime
-  - synthetic
   - medium  # Holmes fetches data excluding Thurday and starting Friday in 5% of cases
 expected_output:
   - 2025-06-12 The database at my.postgresql.com has become unavailable

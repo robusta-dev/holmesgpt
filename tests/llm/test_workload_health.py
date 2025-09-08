@@ -58,6 +58,8 @@ class MockConfig(Config):
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
             request=self._request,
+            mock_policy=getattr(self._test_case, "mock_policy", "inherit"),
+            mock_overrides=getattr(self._test_case, "mock_overrides", None),
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
@@ -122,6 +124,12 @@ def test_health_check(
                     )
                     holmes_duration = time.time() - start_time
                     eval_span.log(metadata={"Holmes Duration": holmes_duration})
+
+            # Check for any mock errors that occurred during tool execution
+            # This will raise an exception if any mock data errors happened
+            from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+            check_for_mock_errors(request)
 
             assert result, "No result returned by workload_health_check()"
 

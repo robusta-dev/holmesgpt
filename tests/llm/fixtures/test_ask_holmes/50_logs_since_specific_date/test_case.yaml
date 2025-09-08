@@ -1,7 +1,6 @@
 user_prompt: "What are the errors in pod robusta-holmes since June 12?"
 tags:
   - logs
-  - synthetic
   - medium
 expected_output: |
   The following issues are mentioned either as direct quotes or in summarized form. It's ok if specific dates are not mentioned:

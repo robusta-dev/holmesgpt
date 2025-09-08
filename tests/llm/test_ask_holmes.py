@@ -185,6 +185,7 @@ def ask_holmes(
             mock_generation_config=mock_generation_config,
             request=request,
             mock_policy=test_case.mock_policy,
+            mock_overrides=test_case.mock_overrides,
         )
 
     tool_executor = ToolExecutor(toolset_manager.toolsets)
@@ -243,4 +244,12 @@ def ask_holmes(
         holmes_duration = time.time() - start_time
         # Log duration directly to eval_span
         eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+    # Check for any mock errors that occurred during tool execution
+    # This will raise an exception if any mock data errors happened
+    if request:
+        from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+        check_for_mock_errors(request)
+
     return result

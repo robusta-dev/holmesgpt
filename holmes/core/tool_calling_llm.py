@@ -546,17 +546,6 @@ class ToolCallingLLM:
                 tool_params, tool_number=tool_number, user_approved=user_approved
             )
         except Exception as e:
-            # Re-raise MockDataErrors so they can be properly handled by test infrastructure
-            if any(
-                mock_type in type(e).__name__
-                for mock_type in [
-                    "MockDataError",
-                    "MockDataNotFoundError",
-                    "MockDataCorruptedError",
-                ]
-            ):
-                raise
-
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
