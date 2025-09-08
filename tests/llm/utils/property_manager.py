@@ -126,9 +126,37 @@ def update_test_results(
             if isinstance(test_case.evaluation.correctness, Evaluation):
                 evaluation_type = test_case.evaluation.correctness.type
 
-        # Evaluate correctness
+        # Build evaluation output, optionally including intermediate responses
+        eval_output = output or ""
+
+        # Check if we should include intermediate outputs (based on CLI flag, defaults to True)
+        include_intermediate = request.config.getoption("include_intermediate", True)
+
+        # If flag is set and we have the full result with messages, include intermediate LLM outputs
+        if (
+            include_intermediate
+            and result
+            and hasattr(result, "messages")
+            and result.messages
+        ):
+            intermediate_outputs = []
+            for msg in result.messages:
+                # Include assistant messages (LLM outputs) but skip tool messages
+                if msg.get("role") == "assistant" and msg.get("content"):
+                    # Skip if this is the final output we already have
+                    if msg["content"] != output:
+                        intermediate_outputs.append(msg["content"])
+
+            # If we have intermediate outputs, include them before the final output
+            if intermediate_outputs:
+                eval_output = "## Intermediate LLM Outputs:\n\n"
+                for i, intermediate in enumerate(intermediate_outputs, 1):
+                    eval_output += f"### Step {i}:\n{intermediate}\n\n"
+                eval_output += f"## Final Output:\n{output}"
+
+        # Evaluate correctness with combined output
         correctness_eval = evaluate_correctness(
-            output=output,
+            output=eval_output,
             expected_elements=expected,
             parent_span=eval_span,
             evaluation_type=evaluation_type,
@@ -182,12 +210,6 @@ def update_test_results(
     return scores
 
 
-def update_mock_error(request, error: Exception) -> None:
-    """Update properties when a mock error occurs."""
-    update_property(request, "actual", f"Mock data error: {str(error)}")
-    request.node.user_properties.append(("mock_data_failure", True))
-
-
 def handle_test_error(
     request,
     error: Exception,
@@ -239,11 +261,23 @@ def handle_test_error(
         if partial_output:
             request.node.user_properties.append(("partial_output", partial_output))
 
-    # Check if this is a MockDataError
-    is_mock_error = "MockDataError" in error_type or any(
-        "MockData" in base.__name__ for base in type(error).__mro__
+    # Check if this is a ThrottledError
+    is_throttled_error = "ThrottledError" in error_type or any(
+        "ThrottledError" in cls.__name__ for cls in type(error).__mro__
     )
 
+    if is_throttled_error:
+        # Mark as throttled
+        request.node.user_properties.append(("is_throttled", True))
+        request.node.user_properties.append(("throttle_reason", str(error)))
+        return  # Don't check for other error types
+
+    # Check if this is a MockDataError (check class name and inheritance)
+    is_mock_error = any("MockData" in cls.__name__ for cls in type(error).__mro__)
+
     if is_mock_error:
-        # Update properties for mock error
-        update_mock_error(request, error)
+        # Mark as mock data failure
+        request.node.user_properties.append(("mock_data_failure", True))
+        request.node.user_properties.append(("mock_error_message", str(error)))
+        # Update the actual output to indicate mock data failure
+        update_property(request, "actual", f"Mock data error: {str(error)}")

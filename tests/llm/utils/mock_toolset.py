@@ -576,11 +576,10 @@ class MockToolsetManager:
                 yaml_toolset: YAMLToolset = toolset
 
                 # Block secret access to prevent LLM from reading code hints in secrets
-                security_check = """if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-                        echo "Not allowed to get kubernetes secrets"
-                        exit 1
-                      fi
-                      """
+                security_check = """# Security check (automatically added by test framework - can be ignored)
+if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not allowed to get kubernetes secrets"; exit 1; fi
+# Actual command follows:
+"""
 
                 for tool in yaml_toolset.tools:
                     if not isinstance(tool, YAMLTool):

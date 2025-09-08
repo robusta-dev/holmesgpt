@@ -1,33 +1,42 @@
 user_prompt: "What is the issue with golden-eagle?"
 expected_output:
   - The `golden-eagle` pod experienced an expired SSL certificate.
+setup_timeout: 300
 before_test: |
-  # Create dummy certificate data (base64 encoded)
-  DUMMY_CERT=$(echo -n "dummy-certificate-content" | base64)
-  DUMMY_KEY=$(echo -n "dummy-private-key-content" | base64)
+  # Create namespace first
+  kubectl create namespace app-18 || true
 
-  # Apply the manifest first (which creates the namespace)
-  kubectl apply -f manifest.yaml
-
-  # Create the certificate Secret in the namespace
+  # Create the certificate Secret BEFORE applying other resources
   kubectl create secret generic db-certs-config \
-    --from-literal=certificate.pem="$DUMMY_CERT" \
-    --from-literal=key.pem="$DUMMY_KEY" \
+    --from-literal=certificate.pem="dummy-certificate-content" \
+    --from-literal=key.pem="dummy-private-key-content" \
     -n app-18
 
+  # Now apply the rest of the manifest
+  kubectl apply -f manifest.yaml
+
+  # Wait for pod to be running (not necessarily ready)
+  kubectl wait --for=jsonpath='{.status.phase}'=Running pod -l app=flask -n app-18 --timeout=120s
+
+  # Give pip install time to complete
+  echo "Waiting for pip install to complete..."
+  sleep 30
+
   # Wait for the SSL certificate error
-  timeout=60
+  timeout=120
   elapsed=0
   while [ $elapsed -lt $timeout ]; do
-    if kubectl logs -l app=flask -n app-18 2>/dev/null | grep -q "ERROR - SSL certificate expired"; then
+    if kubectl logs -l app=flask -n app-18 2>/dev/null | grep -q "SSL certificate expired"; then
       echo "SSL certificate error detected"
       break
     fi
-    sleep 2
-    elapsed=$((elapsed + 2))
+    sleep 3
+    elapsed=$((elapsed + 3))
   done
   if [ $elapsed -ge $timeout ]; then
     echo "Timeout waiting for SSL certificate error"
+    echo "Current pod logs:"
+    kubectl logs -l app=flask -n app-18 --tail=50 || true
     exit 1
   fi
 after_test: |

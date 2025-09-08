@@ -15,7 +15,7 @@ tags:
 port_forwards:
   - namespace: app-100
     service: loki
-    local_port: 3100
+    local_port: 3110
     remote_port: 3100
 
 before_test: |

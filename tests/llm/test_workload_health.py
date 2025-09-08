@@ -22,6 +22,7 @@ from tests.llm.utils.test_case_utils import (
     check_and_skip_test,
     get_models,
 )
+from tests.llm.utils.retry_handler import retry_on_throttle
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     set_trace_properties,
@@ -111,7 +112,14 @@ def test_health_check(
                 # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
                 with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
                     start_time = time.time()
-                    result = workload_health_check(request=input)
+                    retry_enabled = request.config.getoption("retry_on_throttle", True)
+                    result = retry_on_throttle(
+                        workload_health_check,
+                        request=input,
+                        retry_enabled=retry_enabled,
+                        test_id=test_case.id,
+                        model=model,
+                    )
                     holmes_duration = time.time() - start_time
                     eval_span.log(metadata={"Holmes Duration": holmes_duration})
 

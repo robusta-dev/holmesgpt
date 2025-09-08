@@ -147,11 +147,10 @@ spec:
           failureThreshold: 24
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
+            memory: "32Mi"
+            cpu: "10m"
           limits:
             memory: "256Mi"
-            cpu: "200m"
       volumes:
       - name: app
         secret:

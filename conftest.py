@@ -43,6 +43,30 @@ def pytest_addoption(parser):
         default=False,
         help="Only run after_test cleanup commands, skip the actual test execution",
     )
+    parser.addoption(
+        "--retry-on-throttle",
+        action="store_true",
+        default=True,
+        help="Retry tests when encountering API throttling/overload errors (default: True)",
+    )
+    parser.addoption(
+        "--no-retry-on-throttle",
+        action="store_false",
+        dest="retry_on_throttle",
+        help="Disable retrying tests on API throttling/overload errors",
+    )
+    parser.addoption(
+        "--include-intermediate",
+        action="store_true",
+        default=True,
+        help="Include intermediate LLM outputs when evaluating correctness (default: True)",
+    )
+    parser.addoption(
+        "--no-include-intermediate",
+        action="store_false",
+        dest="include_intermediate",
+        help="Exclude intermediate LLM outputs from evaluation (only use final answer)",
+    )
 
 
 def pytest_configure(config):

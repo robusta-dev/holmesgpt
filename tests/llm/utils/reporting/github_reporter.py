@@ -146,6 +146,7 @@ def generate_markdown_report(sorted_results: List[dict]) -> Tuple[str, List[dict
     markdown += (
         "\n- :wrench: the test failed due to mock data issues (not a code regression)"
     )
+    markdown += "\n- :no_entry_sign: the test was throttled by API rate limits/overload"
     markdown += "\n- :x: the test failed and should be fixed before merging the PR"
 
     return (

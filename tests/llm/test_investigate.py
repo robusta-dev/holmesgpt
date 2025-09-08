@@ -25,6 +25,7 @@ from tests.llm.utils.test_case_utils import (
     check_and_skip_test,
     get_models,
 )
+from tests.llm.utils.retry_handler import retry_on_throttle
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     set_trace_properties,
@@ -136,11 +137,18 @@ def test_investigate(
                         "Holmes Run", type=SpanType.TASK.value
                     ) as holmes_span:
                         start_time = time.time()
-                        result = investigate_issues(
+                        retry_enabled = request.config.getoption(
+                            "retry_on_throttle", True
+                        )
+                        result = retry_on_throttle(
+                            investigate_issues,
                             investigate_request=investigate_request,
                             config=config,
                             dal=mock_dal,
                             trace_span=holmes_span,
+                            retry_enabled=retry_enabled,
+                            test_id=test_case.id,
+                            model=model,
                         )
                         holmes_duration = time.time() - start_time
                     # Log duration directly to eval_span

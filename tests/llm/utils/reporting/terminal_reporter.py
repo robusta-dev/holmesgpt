@@ -19,7 +19,8 @@ class ResultType(Enum):
     SKIPPED = "skipped"
     SETUP_FAILED = "setup_failed"
     MOCK_FAILED = "mock_failed"
-    VALID_RUNS = "valid_runs"  # Not skipped or setup failed
+    THROTTLED = "throttled"  # API throttling/overload
+    VALID_RUNS = "valid_runs"  # Not skipped, setup failed, or throttled
     ALL = "all"
 
 
@@ -51,22 +52,27 @@ def count_results(results: List[dict], result_type: ResultType) -> int:
     if result_type == ResultType.MOCK_FAILED:
         return sum(1 for r in results if r.get("mock_data_failure", False))
 
+    if result_type == ResultType.THROTTLED:
+        return sum(1 for r in results if r.get("is_throttled", False))
+
     if result_type == ResultType.FAILED:
-        # Real failures (not mock or setup)
+        # Real failures (not mock, setup, or throttled)
         return sum(
             1
             for r in results
             if not TestStatus(r).passed
             and not r.get("mock_data_failure", False)
             and not r.get("is_setup_failure", False)
+            and not r.get("is_throttled", False)
             and r.get("status") != "skipped"
         )
 
     if result_type == ResultType.VALID_RUNS:
-        # Runs that actually executed (not skipped or setup failed)
+        # Runs that actually executed (not skipped, setup failed, or throttled)
         skipped = count_results(results, ResultType.SKIPPED)
         setup_failed = count_results(results, ResultType.SETUP_FAILED)
-        return len(results) - skipped - setup_failed
+        throttled = count_results(results, ResultType.THROTTLED)
+        return len(results) - skipped - setup_failed - throttled
 
     raise ValueError(f"Unknown result type: {result_type}")
 
@@ -317,7 +323,10 @@ def _get_llm_analysis(result: TestResult) -> str:
 
 
 def _get_status_emoji(
-    pass_pct: float, setup_fail: bool = False, all_skipped: bool = False
+    pass_pct: float,
+    setup_fail: bool = False,
+    all_skipped: bool = False,
+    all_throttled: bool = False,
 ) -> str:
     """Get the appropriate emoji based on pass percentage and status.
 
@@ -325,10 +334,13 @@ def _get_status_emoji(
         pass_pct: Pass percentage (0-100)
         setup_fail: Whether all runs were setup failures
         all_skipped: Whether all runs were skipped
+        all_throttled: Whether all runs were throttled
 
     Returns:
         Emoji string representing the status
     """
+    if all_throttled:
+        return "🚫"
     if all_skipped:
         return "➖"
     if setup_fail:
@@ -1026,6 +1038,24 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     if not sorted_results:
         return
 
+    # Check if any tests had retries
+    tests_with_retries = 0
+    total_retry_time = 0
+    for result in sorted_results:
+        if result.get("had_retries", False):
+            tests_with_retries += 1
+            total_retry_time += result.get("retry_wait_time", 0)
+
+    # Display retry warning prominently if any retries occurred
+    if tests_with_retries > 0:
+        console.print(
+            f"\n[bold yellow]⚠️  API THROTTLING DETECTED[/bold yellow]\n"
+            f"[yellow]{tests_with_retries} test(s) required retries due to API rate limiting/overload[/yellow]\n"
+            f"[yellow]Total time spent waiting for retries: {total_retry_time}s ({total_retry_time // 60}m {total_retry_time % 60}s)[/yellow]\n"
+            f"[dim]Use --no-retry-on-throttle to disable automatic retries[/dim]\n",
+            style="warning",
+        )
+
     # Group results by test name (without iteration number)
     test_groups: Dict[str, List[dict]] = defaultdict(list)
 
@@ -1082,6 +1112,8 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         # Determine pass percentage display
         all_skipped = all(r.get("status") == "skipped" for r in results)
         all_setup_fail = setup_failures == runs
+        throttled = count_results(results, ResultType.THROTTLED)
+        all_throttled = throttled == runs
 
         # Calculate pass percentage from valid runs
         valid_runs = count_results(results, ResultType.VALID_RUNS)
@@ -1100,7 +1132,9 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         total_mock_fail += mock_failures
 
         # Format pass percentage with color (no emoji)
-        if all_skipped:
+        if all_throttled:
+            pass_pct_str = "[red]Throttled[/red]"
+        elif all_skipped:
             pass_pct_str = "[cyan]Skipped[/cyan]"
         elif all_setup_fail:
             pass_pct_str = "[magenta]Setup Fail[/magenta]"

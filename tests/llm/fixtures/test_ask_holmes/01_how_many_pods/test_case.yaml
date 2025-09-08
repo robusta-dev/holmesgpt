@@ -9,3 +9,4 @@ after_test: |
 tags:
   - counting
   - easy
+  - qa
