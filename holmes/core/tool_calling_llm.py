@@ -169,6 +169,24 @@ def truncate_messages_to_fit_context(
     Raises:
         Exception: If non-tool messages exceed available context space
     """
+
+    def _fit_prefix_by_tokens(text: str, token_budget: int) -> int:
+        # Minimal helper: return char index of longest prefix whose token count <= token_budget
+        if token_budget <= 0:
+            return 0
+        lo, hi, best = 0, len(text), 0
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            if (
+                count_tokens_fn([{"role": "tool", "content": text[:mid]}])
+                <= token_budget
+            ):
+                best = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return best
+
     messages_except_tools = [
         message for message in messages if message["role"] != "tool"
     ]
@@ -189,10 +207,14 @@ def truncate_messages_to_fit_context(
         return TruncationResult(truncated_messages=messages, truncations=[])
 
     available_space = (
-        max_context_size - message_size_without_tools - maximum_output_token
+        max_context_size
+        - message_size_without_tools
+        - reserved_for_output_tokens  # use the same reservation consistently
     )
     remaining_space = available_space
-    tool_call_messages.sort(key=lambda x: len(x["content"]))
+    tool_call_messages.sort(  # sort by token size for fairness with a token budget
+        key=lambda x: count_tokens_fn([{"role": "tool", "content": x["content"]}])
+    )
 
     truncations: List[TruncationMetadata] = []
 
@@ -202,15 +224,34 @@ def truncate_messages_to_fit_context(
     for i, msg in enumerate(tool_call_messages):
         remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
-        needed_space = len(msg["content"])
+        needed_space = count_tokens_fn(
+            [{"role": "tool", "content": msg["content"]}]
+        )  # compare tokens to token budget
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
             truncation_notice = "\n\n[TRUNCATED]"
+            notice_tokens = count_tokens_fn(
+                [{"role": "tool", "content": truncation_notice}]
+            )  # keep math in tokens
             # Ensure the indicator fits in the allocated space
-            if allocated_space > len(truncation_notice):
-                trunc_index = allocated_space - len(truncation_notice)
-                msg["content"] = msg["content"][:trunc_index] + truncation_notice
+            if allocated_space > notice_tokens:
+                # Convert list content to string only when truncating to avoid type error
+                original = msg["content"]
+                if not isinstance(original, str):
+                    original = "".join(
+                        part if isinstance(part, str) else str(part)
+                        for part in original
+                    )
+                content_budget = (
+                    allocated_space - notice_tokens
+                )  # tokens available for original content
+                trunc_index = _fit_prefix_by_tokens(
+                    original, content_budget
+                )  # char index that fits token budget
+                msg["content"] = (
+                    original[:trunc_index] + truncation_notice
+                )  # keep char indexes as requested
                 truncations.append(
                     TruncationMetadata(
                         tool_call_id=msg["tool_call_id"],
@@ -222,7 +263,11 @@ def truncate_messages_to_fit_context(
                     f"Truncating tool message '{msg['name']}' from {needed_space} to {trunc_index} tokens"
                 )
             else:
-                msg["content"] = truncation_notice[:allocated_space]
+                # Only part/all of the notice fits; slice notice by token budget, output remains a string
+                notice_fit_chars = _fit_prefix_by_tokens(
+                    truncation_notice, allocated_space
+                )
+                msg["content"] = truncation_notice[:notice_fit_chars]
                 truncations.append(
                     TruncationMetadata(
                         tool_call_id=msg["tool_call_id"],
