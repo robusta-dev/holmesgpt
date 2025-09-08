@@ -7,7 +7,6 @@ expected_output:
 tags:
   - kubernetes
   - medium
-  - answer-given-wrong-place # LLM gave the answer in intermediate steps, not final answer, so harder for user to see
   - qa
 before_test: |
   kubectl create namespace app-03

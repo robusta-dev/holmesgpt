@@ -53,7 +53,7 @@ before_test: |
   kubectl apply -f checkout-service.yaml -n app-115
 
   echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=180s
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-115 -l app=checkout
@@ -62,13 +62,13 @@ before_test: |
   kubectl apply -f traffic-generator.yaml -n app-115
 
   echo "⏳ Waiting for traffic generator pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=180s
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-115
 
   echo "⏰ Letting traffic generator run for 45 seconds to generate requests"
-  sleep 20
+  sleep 45
 
   echo "🔍 Verifying traffic generator log entries"
   if kubectl logs -n app-115 -l app=traffic-generator --tail=-1 | grep -q "WITH promo_code"; then
