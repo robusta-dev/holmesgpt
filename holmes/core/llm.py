@@ -61,31 +61,39 @@ class LLM:
 class DefaultLLM(LLM):
     model: str
     api_key: Optional[str]
-    base_url: Optional[str]
+    api_base: Optional[str]
+    api_version: Optional[str]
     args: Dict
 
     def __init__(
         self,
         model: str,
         api_key: Optional[str] = None,
+        api_base: Optional[str] = None,
+        api_version: Optional[str] = None,
         args: Optional[Dict] = None,
-        tracer=None,
+        tracer: Optional[Any] = None,
+        name: Optional[str] = None,
     ):
         self.model = model
         self.api_key = api_key
+        self.api_base = api_base
+        self.api_version = api_version
         self.args = args or {}
         self.tracer = tracer
+        self.name = name
 
-        if not self.args:
-            self.check_llm(self.model, self.api_key)
+        self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
 
-    def check_llm(self, model: str, api_key: Optional[str]):
+    def check_llm(
+        self,
+        model: str,
+        api_key: Optional[str],
+        api_base: Optional[str],
+        api_version: Optional[str],
+    ):
         logging.debug(f"Checking LiteLLM model {model}")
-        # TODO: this WAS a hack to get around the fact that we can't pass in an api key to litellm.validate_environment
-        # so without this hack it always complains that the environment variable for the api key is missing
-        # to fix that, we always set an api key in the standard format that litellm expects (which is ${PROVIDER}_API_KEY)
-        # TODO: we can now handle this better - see https://github.com/BerriAI/litellm/issues/4375#issuecomment-2223684750
-        lookup = litellm.get_llm_provider(self.model)
+        lookup = litellm.get_llm_provider(model)
         if not lookup:
             raise Exception(f"Unknown provider for model {model}")
         provider = lookup[1]
@@ -124,11 +132,22 @@ class DefaultLLM(LLM):
         ):
             model_requirements = {"keys_in_environment": True, "missing_keys": []}
         else:
-            #
-            api_key_env_var = f"{provider.upper()}_API_KEY"
-            if api_key:
-                os.environ[api_key_env_var] = api_key
-            model_requirements = litellm.validate_environment(model=model)
+            model_requirements = litellm.validate_environment(
+                model=model, api_key=api_key, api_base=api_base
+            )
+            # validate_environment does not accept api_version, and as a special case for Azure OpenAI Service,
+            # when all the other AZURE environments are set expect AZURE_API_VERSION, validate_environment complains
+            # the missing of it even after the api_version is set.
+            # TODO: There's an open PR in litellm to accept api_version in validate_environment, we can leverage this
+            # change if accepted to ignore the following check.
+            # https://github.com/BerriAI/litellm/pull/13808
+            if (
+                provider == "azure"
+                and ["AZURE_API_VERSION"] == model_requirements["missing_keys"]
+                and api_version is not None
+            ):
+                model_requirements["missing_keys"] = []
+                model_requirements["keys_in_environment"] = True
 
         if not model_requirements["keys_in_environment"]:
             raise Exception(
@@ -229,12 +248,16 @@ class DefaultLLM(LLM):
             ]  # can be removed after next litelm version
 
         self.args.setdefault("temperature", temperature)
+
+        self._add_cache_control_to_last_message(messages)
+
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-
         result = litellm_to_use.completion(
             model=self.model,
             api_key=self.api_key,
+            base_url=self.api_base,
+            api_version=self.api_version,
             messages=messages,
             response_format=response_format,
             drop_params=drop_params,
@@ -266,3 +289,60 @@ class DefaultLLM(LLM):
                 f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens"
             )
             return 4096
+
+    def _add_cache_control_to_last_message(
+        self, messages: List[Dict[str, Any]]
+    ) -> None:
+        """
+        Add cache_control to the last non-user message for Anthropic prompt caching.
+        Removes any existing cache_control from previous messages to avoid accumulation.
+        """
+        # First, remove any existing cache_control from all messages
+        for msg in messages:
+            content = msg.get("content")
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and "cache_control" in block:
+                        del block["cache_control"]
+                        logging.debug(
+                            f"Removed existing cache_control from {msg.get('role')} message"
+                        )
+
+        # Find the last non-user message to add cache_control to.
+        # Adding cache_control to user message requires changing its structure, so we avoid it
+        # This avoids breaking parse_messages_tags which only processes user messages
+        target_msg = None
+        for msg in reversed(messages):
+            if msg.get("role") != "user":
+                target_msg = msg
+                break
+
+        if not target_msg:
+            logging.debug("No non-user message found for cache_control")
+            return
+
+        content = target_msg.get("content")
+
+        if content is None:
+            return
+
+        if isinstance(content, str):
+            # Convert string to structured format with cache_control
+            target_msg["content"] = [
+                {
+                    "type": "text",
+                    "text": content,
+                    "cache_control": {"type": "ephemeral"},
+                }
+            ]
+            logging.debug(
+                f"Added cache_control to {target_msg.get('role')} message (converted from string)"
+            )
+        elif isinstance(content, list) and content:
+            # Add cache_control to the last content block
+            last_block = content[-1]
+            if isinstance(last_block, dict) and "type" in last_block:
+                last_block["cache_control"] = {"type": "ephemeral"}
+                logging.debug(
+                    f"Added cache_control to {target_msg.get('role')} message (structured content)"
+                )

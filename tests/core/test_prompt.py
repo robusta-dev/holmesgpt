@@ -1,5 +1,3 @@
-import uuid
-
 import pytest
 from unittest.mock import Mock
 from rich.console import Console
@@ -31,7 +29,6 @@ def test_build_initial_ask_messages_basic(console, mock_tool_executor):
         "Test prompt",
         None,
         mock_tool_executor,
-        str(uuid.uuid4()),
         None,
         None,
     )
@@ -54,7 +51,6 @@ def test_build_initial_ask_messages_with_system_prompt_additions(
         "Test prompt",
         None,
         mock_tool_executor,
-        str(uuid.uuid4()),
         None,
         system_additions,
     )
@@ -80,7 +76,6 @@ def test_build_initial_ask_messages_with_file(console, mock_tool_executor, tmp_p
         "Test prompt",
         [test_file],
         mock_tool_executor,
-        str(uuid.uuid4()),
         None,
         None,
     )
@@ -105,7 +100,6 @@ def test_build_initial_ask_messages_with_runbooks(console, mock_tool_executor):
         "Test prompt",
         None,
         mock_tool_executor,
-        str(uuid.uuid4()),
         runbooks,
         None,
     )
@@ -135,7 +129,6 @@ def test_build_initial_ask_messages_all_parameters(
         "Test prompt",
         [test_file],
         mock_tool_executor,
-        str(uuid.uuid4()),
         runbooks,
         system_additions,
     )

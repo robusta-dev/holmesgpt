@@ -29,7 +29,6 @@ from holmes.plugins.runbooks import (
 
 # Source plugin imports moved to their respective create methods to speed up startup
 if TYPE_CHECKING:
-    from holmes.core.llm import LLM
     from holmes.core.tool_calling_llm import IssueInvestigator, ToolCallingLLM
     from holmes.plugins.destinations.slack import SlackDestination
     from holmes.plugins.sources.github import GitHubSource
@@ -83,6 +82,9 @@ class Config(RobustaBaseConfig):
     session_token: Optional[SecretStr] = None
 
     model: Optional[str] = "gpt-4o"
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
+    fast_model: Optional[str] = None
     max_steps: int = 40
     cluster_name: Optional[str] = None
 
@@ -123,7 +125,8 @@ class Config(RobustaBaseConfig):
     # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
     # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
     custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
+    should_try_robusta_ai: bool = False
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
@@ -131,6 +134,7 @@ class Config(RobustaBaseConfig):
     _server_tool_executor: Optional[ToolExecutor] = None
 
     _toolset_manager: Optional[ToolsetManager] = None
+    _default_robusta_model: Optional[str] = None
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -140,6 +144,7 @@ class Config(RobustaBaseConfig):
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
+                global_fast_model=self.fast_model,
             )
         return self._toolset_manager
 
@@ -165,19 +170,27 @@ class Config(RobustaBaseConfig):
                 self._load_default_robusta_config()
                 return
 
-            models = fetch_robusta_models(
+            robusta_models = fetch_robusta_models(
                 self.account_id, self.session_token.get_secret_value()
             )
-            if not models:
+            if not robusta_models or not robusta_models.models:
                 self._load_default_robusta_config()
                 return
 
-            for model in models:
+            for model in robusta_models.models:
                 logging.info(f"Loading Robusta AI model: {model}")
                 self._model_list[model] = {
+                    "name": model,
                     "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
                     "is_robusta_model": True,
+                    "model": "gpt-4o",  # Robusta AI model is using openai like API.
                 }
+
+            if robusta_models.default_model:
+                logging.info(
+                    f"Setting default Robusta AI model to: {robusta_models.default_model}"
+                )
+                self._default_robusta_model = robusta_models.default_model
 
         except Exception:
             logging.exception("Failed to get all robusta models")
@@ -188,9 +201,12 @@ class Config(RobustaBaseConfig):
         if self._should_load_robusta_ai() and self.api_key:
             logging.info("Loading default Robusta AI model")
             self._model_list[ROBUSTA_AI_MODEL_NAME] = {
+                "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
+                "model": "gpt-4o",
             }
+            self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
 
     def _should_load_robusta_ai(self) -> bool:
         if not self.should_try_robusta_ai:
@@ -227,6 +243,7 @@ class Config(RobustaBaseConfig):
         Returns:
             Config instance with merged settings
         """
+
         config_from_file: Optional[Config] = None
         if config_file is not None and config_file.exists():
             logging.debug(f"Loading config from {config_file}")
@@ -250,7 +267,10 @@ class Config(RobustaBaseConfig):
         kwargs = {}
         for field_name in [
             "model",
+            "fast_model",
             "api_key",
+            "api_base",
+            "api_version",
             "max_steps",
             "alertmanager_url",
             "alertmanager_username",
@@ -516,24 +536,59 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "LLM":
-        api_key: Optional[str] = None
-        model = self.model
-        model_params = {}
-        if self._model_list:
-            # get requested model or the first credentials if no model requested.
-            model_params = (
-                self._model_list.get(model_key, {}).copy()
-                if model_key
-                else next(iter(self._model_list.values())).copy()
-            )
-            if model_params.get("is_robusta_model") and self.api_key:
-                api_key = self.api_key.get_secret_value()
-            else:
-                api_key = model_params.pop("api_key", api_key)
-            model = model_params.pop("model", model)
+    def _get_model_params(self, model_key: Optional[str] = None) -> dict:
+        if not self._model_list:
+            logging.info("No model list setup, using config model")
+            return {}
 
-        return DefaultLLM(model, api_key, model_params, tracer)  # type: ignore
+        if model_key:
+            model_params = self._model_list.get(model_key)
+            if model_params is not None:
+                logging.info(f"Using model: {model_key}")
+                return model_params.copy()
+
+            logging.error(f"Couldn't find model: {model_key} in model list")
+
+        if self._default_robusta_model:
+            model_params = self._model_list.get(self._default_robusta_model)
+            if model_params is not None:
+                logging.info(
+                    f"Using default Robusta AI model: {self._default_robusta_model}"
+                )
+                return model_params.copy()
+
+            logging.error(
+                f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
+            )
+
+        first_model_params = next(iter(self._model_list.values())).copy()
+        logging.info("Using first model")
+        return first_model_params
+
+    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
+        model_params = self._get_model_params(model_key)
+        api_base = self.api_base
+        api_version = self.api_version
+
+        is_robusta_model = model_params.pop("is_robusta_model", False)
+        if is_robusta_model and self.api_key:
+            # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
+            api_key = self.api_key.get_secret_value()  # type: ignore
+        else:
+            api_key = model_params.pop("api_key", None)
+
+        model = model_params.pop("model", self.model)
+        # It's ok if the model does not have api base and api version, which are defaults to None.
+        # Handle both api_base and base_url - api_base takes precedence
+        model_api_base = model_params.pop("api_base", None)
+        model_base_url = model_params.pop("base_url", None)
+        api_base = model_api_base or model_base_url or api_base
+        api_version = model_params.pop("api_version", api_version)
+        model_name = model_params.pop("name", None) or model_key or model
+
+        return DefaultLLM(
+            model, api_key, api_base, api_version, model_params, tracer, model_name
+        )  # type: ignore
 
     def get_models_list(self) -> List[str]:
         if self._model_list:
