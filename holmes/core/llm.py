@@ -72,7 +72,8 @@ class DefaultLLM(LLM):
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
         args: Optional[Dict] = None,
-        tracer=None,
+        tracer: Optional[Any] = None,
+        name: Optional[str] = None,
     ):
         self.model = model
         self.api_key = api_key
@@ -80,6 +81,7 @@ class DefaultLLM(LLM):
         self.api_version = api_version
         self.args = args or {}
         self.tracer = tracer
+        self.name = name
 
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
 

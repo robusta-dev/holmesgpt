@@ -3800,6 +3800,23 @@ pytest = ">=5.0.0"
 python-dotenv = ">=0.9.1"
 
 [[package]]
+name = "pytest-responses"
+version = "0.5.1"
+description = "py.test integration for responses"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pytest_responses-0.5.1-py2.py3-none-any.whl", hash = "sha256:4172e565b94ac1ea3b10aba6e40855ad60cd7f141476b2d8a47e4b5f250be734"},
+]
+
+[package.dependencies]
+pytest = ">=2.5"
+responses = "*"
+
+[package.extras]
+tests = ["flake8"]
+
+[[package]]
 name = "pytest-shared-session-scope"
 version = "0.4.0"
 description = "Pytest session-scoped fixture that works with xdist"
@@ -5319,4 +5336,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "c8ac23cbe9c68f1cd71d7a409c31b8e276f847bdb67d875d8928ef6b4b07e5dc"
+content-hash = "34e951fa027f712d739155b3d6bbafe1c47183d4dc05645f367ba7d1bf051ffe"
