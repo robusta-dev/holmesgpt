@@ -1,6 +1,10 @@
 from unittest.mock import patch
 from pydantic import SecretStr
 from holmes.config import Config
+from holmes.clients.robusta_client import RobustaModelsResponse
+
+
+ROBUSTA_TEST_MODELS = RobustaModelsResponse(models=["Robusta/test"], default_model=None)
 
 
 def fake_load_robusta_api_key(config, _):
@@ -16,7 +20,7 @@ def test_cli_not_loading_robusta_ai(*, monkeypatch):
 
 
 @patch("holmes.config.ROBUSTA_AI", True)
-@patch("holmes.config.fetch_robusta_models", return_value=["Robusta/test"])
+@patch("holmes.config.fetch_robusta_models", return_value=ROBUSTA_TEST_MODELS)
 @patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
 def test_server_loads_robusta_ai_when_true(mock_cluster, mock_fetch, *, monkeypatch):
     def fake_loader(self, dal):
@@ -30,7 +34,7 @@ def test_server_loads_robusta_ai_when_true(mock_cluster, mock_fetch, *, monkeypa
 
 
 @patch("holmes.config.ROBUSTA_AI", None)
-@patch("holmes.config.fetch_robusta_models", return_value=["Robusta/test"])
+@patch("holmes.config.fetch_robusta_models", return_value=ROBUSTA_TEST_MODELS)
 @patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
 def test_server_loads_robusta_ai_when_not_exists_and_not_other_models(
     mock_cluster, mock_fetch, *, monkeypatch
@@ -53,7 +57,7 @@ def test_server_not_loads_robusta_ai_when_false(mock_cluster, *, monkeypatch):
 
 
 @patch("holmes.config.ROBUSTA_AI", True)
-@patch("holmes.config.fetch_robusta_models", return_value=["Robusta/test"])
+@patch("holmes.config.fetch_robusta_models", return_value=ROBUSTA_TEST_MODELS)
 @patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
 @patch(
     "holmes.config.parse_models_file",
@@ -102,7 +106,7 @@ def test_server_not_loads_robusta_ai_when_no_env_var_and_model_list_exists(
 
 
 @patch("holmes.config.ROBUSTA_AI", True)
-@patch("holmes.config.fetch_robusta_models", return_value=["Robusta/test"])
+@patch("holmes.config.fetch_robusta_models", return_value=ROBUSTA_TEST_MODELS)
 @patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
 def test_server_loads_robusta_ai_when_model_var_exists(
     mock_cluster, mock_fetch, *, monkeypatch

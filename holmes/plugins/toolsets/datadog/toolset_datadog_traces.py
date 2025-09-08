@@ -49,7 +49,7 @@ class DatadogTracesToolset(Toolset):
         super().__init__(
             name="datadog/traces",
             description="Toolset for interacting with Datadog APM to fetch and analyze traces",
-            docs_url="https://docs.datadoghq.com/api/latest/spans/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -57,7 +57,6 @@ class DatadogTracesToolset(Toolset):
                 FetchDatadogTraceById(toolset=self),
                 FetchDatadogSpansByFilter(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         self._reload_instructions()

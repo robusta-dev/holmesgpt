@@ -571,7 +571,7 @@ class DatadogMetricsToolset(Toolset):
         super().__init__(
             name="datadog/metrics",
             description="Toolset for fetching metrics and metadata from Datadog, including historical data for pods no longer in the cluster",
-            docs_url="https://docs.datadoghq.com/api/latest/metrics/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -580,7 +580,6 @@ class DatadogMetricsToolset(Toolset):
                 QueryMetricsMetadata(toolset=self),
                 ListMetricTags(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         self._reload_instructions()
