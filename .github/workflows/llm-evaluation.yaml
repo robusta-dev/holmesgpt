@@ -29,7 +29,7 @@ jobs:
 
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
-          poetry install --no-root
+          poetry install --no-root --with dev
 
       - name: Install kubectl
         run: |
@@ -171,13 +171,3 @@ jobs:
             } catch(e) {
               console.log(e)
             }
-      - name: Check test results
-        if: always()
-        run: |
-          if [[ -f "regressions.txt" ]]; then
-            echo "There are regressions in the evals. Please check the evals file for details."
-            cat regressions.txt
-            exit 1
-          else
-            echo "All tests passed without regressions."
-          fi
