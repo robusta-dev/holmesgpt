@@ -34,7 +34,6 @@ from holmes.common.env_vars import (
     DEVELOPMENT_MODE,
     SENTRY_TRACES_SAMPLE_RATE,
 )
-from holmes.core.supabase_dal import SupabaseDal
 from holmes.config import Config
 from holmes.core.conversations import (
     build_chat_messages,
@@ -78,11 +77,10 @@ def init_logging():
 
 init_logging()
 config = Config.load_from_env()
-dal = SupabaseDal(config.cluster_name)
+dal = config.dal
 
 
 def sync_before_server_start():
-    config.load_robusta_api_key(dal=dal)
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
@@ -110,7 +108,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
             {
                 "account_id": dal.account_id,
                 "cluster_name": config.cluster_name,
-                "model_name": config.model,
+                "model_name": config.model,  # TODO: move the seletion of model.
                 "version": get_version(),
                 "environment": environment,
             }
@@ -192,7 +190,6 @@ def stream_investigate_issues(req: InvestigateRequest):
 
 @app.post("/api/workload_health_check")
 def workload_health_check(request: WorkloadHealthRequest):
-    config.load_robusta_api_key(dal=dal)
     try:
         resource = request.resource
         workload_alerts: list[str] = []
@@ -258,7 +255,6 @@ def workload_health_conversation(
     request: WorkloadHealthChatRequest,
 ):
     try:
-        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -287,7 +283,6 @@ def workload_health_conversation(
 @app.post("/api/issue_chat")
 def issue_conversation(issue_chat_request: IssueChatRequest):
     try:
-        config.load_robusta_api_key(dal=dal)
         ai = config.create_toolcalling_llm(dal=dal, model=issue_chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
 
@@ -326,8 +321,6 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        config.load_robusta_api_key(dal=dal)
-
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(

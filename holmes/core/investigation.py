@@ -26,7 +26,6 @@ def investigate_issues(
     model: Optional[str] = None,
     trace_span=DummySpan(),
 ) -> InvestigationResult:
-    config.load_robusta_api_key(dal=dal)
     context = dal.get_issue_data(investigate_request.context.get("robusta_issue_id"))
 
     resource_instructions = dal.get_resource_instructions(
@@ -80,7 +79,6 @@ def get_investigation_context(
     config: Config,
     request_structured_output_from_llm: Optional[bool] = None,
 ):
-    config.load_robusta_api_key(dal=dal)
     ai = config.create_issue_investigator(dal=dal, model=investigate_request.model)
 
     raw_data = investigate_request.model_dump()

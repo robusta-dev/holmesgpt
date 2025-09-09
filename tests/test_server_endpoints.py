@@ -9,17 +9,13 @@ def client():
     return TestClient(app)
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_chat_all_fields(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
     client,
 ):
-    mock_load_robusta_api_key.return_value = None
-
     mock_ai = MagicMock()
     mock_ai.messages_call.return_value = MagicMock(
         result="This is a mock analysis with tools and follow-up actions.",
@@ -78,17 +74,13 @@ def test_api_chat_all_fields(
         assert "pre_action_notification_text" in action
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_issue_chat_all_fields(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
     client,
 ):
-    mock_load_robusta_api_key.return_value = None
-
     mock_ai = MagicMock()
     mock_ai.messages_call.return_value = MagicMock(
         result="This is a mock analysis for issue chat.",
@@ -140,17 +132,13 @@ def test_api_issue_chat_all_fields(
         assert "result" in tool_call
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_api_workload_health_chat(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
     client,
 ):
-    mock_load_robusta_api_key.return_value = None
-
     mock_ai = MagicMock()
     mock_ai.messages_call.return_value = MagicMock(
         result="This is a mock analysis for workload health chat.",
@@ -205,7 +193,6 @@ def test_api_workload_health_chat(
         assert "result" in tool_call
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_workload_issues")
@@ -217,11 +204,8 @@ def test_api_workload_health_check(
     mock_get_workload_issues,
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
     client,
 ):
-    mock_load_robusta_api_key.return_value = None
-
     mock_ai = MagicMock()
     mock_ai.prompt_call.return_value = MagicMock(
         result="This is a mock analysis for workload health check.",

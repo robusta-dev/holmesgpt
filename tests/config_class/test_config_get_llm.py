@@ -36,7 +36,7 @@ def test_config_get_llm_no_default_model_fallback_to_first_available_model(
 ):
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access_key_id")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret_access_key")
-    server_config._default_robusta_model = None
+    server_config.llm_model_registry._default_robusta_model = None  # type: ignore
     llm: DefaultLLM = server_config._get_llm()
     assert llm.name == "bedrock/custom_ai_model"
     assert llm.model == "bedrock/custom_ai_model"
