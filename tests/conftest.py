@@ -4,8 +4,9 @@ import yaml
 from holmes.config import Config
 
 DEFAULT_ROBUSTA_MODEL = "Robusta/gpt-5-mini preview (minimal reasoning)"
+ROBUSTA_SONNET_4_MODEL = "Robusta/sonnet-4 preview"
 ROBUSTA_MODELS = [
-    "Robusta/sonnet-4 preview",
+    ROBUSTA_SONNET_4_MODEL,
     "Robusta/gpt-5-mini preview (minimal reasoning)",
     "Robusta/gpt-5 preview (minimal reasoning)",
     "Robusta/gpt-4o",

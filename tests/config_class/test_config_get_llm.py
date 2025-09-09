@@ -1,7 +1,7 @@
 from holmes.config import Config
 from holmes.core.llm import DefaultLLM
 
-from tests.conftest import DEFAULT_ROBUSTA_MODEL
+from tests.conftest import DEFAULT_ROBUSTA_MODEL, ROBUSTA_SONNET_4_MODEL
 
 
 def test_config_get_llm_no_model_key_returns_default_model(server_config: Config):
@@ -41,3 +41,18 @@ def test_config_get_llm_no_default_model_fallback_to_first_available_model(
     assert llm.name == "bedrock/custom_ai_model"
     assert llm.model == "bedrock/custom_ai_model"
     assert llm.api_key == "existing_api_key"
+
+
+def test_config_get_llm_with_robusta_model_returns_updated_api_key(
+    server_config: Config, storage_dal_mock
+):
+    llm: DefaultLLM = server_config._get_llm(ROBUSTA_SONNET_4_MODEL)
+    assert llm.name == ROBUSTA_SONNET_4_MODEL
+    assert llm.api_key == "mock_account_id mock_session_token"
+
+    storage_dal_mock.get_ai_credentials.return_value = (
+        "mock_account_id",
+        "new_session_token",
+    )
+    llm = server_config._get_llm(ROBUSTA_SONNET_4_MODEL)
+    assert llm.api_key == "mock_account_id new_session_token"
