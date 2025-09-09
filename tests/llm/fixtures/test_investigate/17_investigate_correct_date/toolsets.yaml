@@ -9,8 +9,6 @@ toolsets:
     enabled: false
   kubernetes/kube-lineage-extras:
     enabled: false
-  internet:
-    enabled: false
   bash:
     enabled: false
   helm/core:
