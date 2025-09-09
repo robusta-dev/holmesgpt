@@ -6,6 +6,7 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
+import sentry_sdk
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
 
@@ -445,11 +446,13 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
+        sentry_sdk.set_tag("requested_model", model_key)
         model_params = self.llm_model_registry.get_model_params(model_key)
         api_base = self.api_base
         api_version = self.api_version
 
         is_robusta_model = model_params.pop("is_robusta_model", False)
+        sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             account_id, token = self.dal.get_ai_credentials()
@@ -465,7 +468,7 @@ class Config(RobustaBaseConfig):
         api_base = model_api_base or model_base_url or api_base
         api_version = model_params.pop("api_version", api_version)
         model_name = model_params.pop("name", None) or model_key or model
-
+        sentry_sdk.set_tag("model_name", model_name)
         return DefaultLLM(
             model, api_key, api_base, api_version, model_params, tracer, model_name
         )  # type: ignore
