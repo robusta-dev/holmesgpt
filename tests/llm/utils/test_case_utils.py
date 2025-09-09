@@ -311,18 +311,50 @@ class MockHelper:
                 logging.debug(f"Successfully loaded test case {test_case_id}")
                 test_cases.append(test_case)
             except ValidationError as e:
+                error_msg = (
+                    f"\n❌ VALIDATION ERROR in test case: {test_case_folder.name}\n"
+                )
+                error_msg += "=" * 60 + "\n"
+
+                # Check for common issues first
+                if (
+                    not config_dict.get("user_prompt")
+                    and self._test_cases_folder.name == "test_ask_holmes"
+                ):
+                    error_msg += "Missing required field: 'user_prompt'\n"
+                    error_msg += "Note: Use 'user_prompt' instead of 'question' for ask_holmes tests\n"
+
+                if "id" in config_dict:
+                    error_msg += "⚠️  Found 'id' field in test_case.yaml - this should not be included\n"
+                    error_msg += (
+                        "   (ID is automatically derived from the directory name)\n"
+                    )
+
+                if "description" in config_dict and not config_dict.get("user_prompt"):
+                    error_msg += (
+                        "⚠️  Found 'description' but missing 'user_prompt' field\n"
+                    )
+
+                # Check for tag issues
                 problematic_tags = []
                 for error in e.errors():
                     if error["type"] == "literal_error" and "tags" in str(error["loc"]):
                         problematic_tags.append(error["input"])
 
                 if problematic_tags:
-                    error_msg = (
-                        f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
-                    )
-                    error_msg += f"Problematic tags: {', '.join(problematic_tags)}\n"
-                    error_msg += f"Allowed tags; {get_allowed_tags_list()}"
-                    print(error_msg)
+                    error_msg += f"Invalid tags: {', '.join(problematic_tags)}\n"
+                    error_msg += f"Allowed tags: {get_allowed_tags_list()}\n"
+
+                # Show all validation errors
+                error_msg += "\nDetailed validation errors:\n"
+                for error in e.errors():
+                    loc = " -> ".join(str(item) for item in error["loc"])
+                    error_msg += f"  - {loc}: {error['msg']}\n"
+                    if error.get("input") is not None:
+                        error_msg += f"    Input value: {error['input']}\n"
+
+                error_msg += "=" * 60
+                print(error_msg)
                 raise e
             except FileNotFoundError:
                 logging.debug(
