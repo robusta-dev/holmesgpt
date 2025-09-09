@@ -1,4 +1,5 @@
 # ruff: noqa: E402
+import json
 import os
 from typing import List, Optional
 
@@ -108,7 +109,6 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
             {
                 "account_id": dal.account_id,
                 "cluster_name": config.cluster_name,
-                "model_name": config.model,  # TODO: move the seletion of model.
                 "version": get_version(),
                 "environment": environment,
             }
@@ -380,7 +380,7 @@ def chat(chat_request: ChatRequest):
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": config.get_models_list()}
+    return {"model_name": json.dumps(config.get_models_list())}
 
 
 if __name__ == "__main__":

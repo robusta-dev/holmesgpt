@@ -72,7 +72,7 @@ def test_config_get_llm_with_model_list_api_base_version(monkeypatch, tmp_path):
         "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
     )
 
-    config = Config(model="test-model")
+    config = Config()
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -107,9 +107,7 @@ def test_config_get_llm_model_list_overrides_config_values(monkeypatch, tmp_path
         "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
     )
 
-    config = Config(
-        model="test-model", api_base="https://config.api.base", api_version="2023-01-01"
-    )
+    config = Config(api_base="https://config.api.base", api_version="2023-01-01")
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -144,9 +142,7 @@ def test_config_get_llm_model_list_defaults_to_config_values(monkeypatch, tmp_pa
         "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
     )
 
-    config = Config(
-        model="test-model", api_base="https://config.api.base", api_version="2023-01-01"
-    )
+    config = Config(api_base="https://config.api.base", api_version="2023-01-01")
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -244,7 +240,6 @@ def test_config_get_llm_with_specific_model_from_model_list(monkeypatch, tmp_pat
     )
 
     config = Config(
-        model="default-model",
         api_base="https://config.default.base",
         api_version="2023-01-01",
     )

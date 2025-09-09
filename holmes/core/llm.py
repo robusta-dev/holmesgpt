@@ -372,10 +372,29 @@ class LLMModelRegistry:
     def _init_models(self):
         self._llms = self._parse_models_file(MODEL_LIST_FILE_LOCATION)
 
-        if not self._should_load_robusta_ai():
-            return
+        if self._should_load_robusta_ai():
+            self.configure_robusta_ai_model()
 
-        self.configure_robusta_ai_model()
+        if self._should_load_config_model():
+            self._llms[self.config.model] = self._create_model_entry(
+                model=self.config.model,
+                model_name=self.config.model,
+                base_url=self.config.api_base,
+                is_robusta_model=False,
+            )
+
+    def _should_load_config_model(self) -> bool:
+        if self.config.model is not None:
+            return True
+
+        # backward compatibility - in the past config.model was set by default to gpt-4o.
+        # so we need to check if the user has set an OPENAI_API_KEY to load the config model.
+        has_openai_key = os.environ.get("OPENAI_API_KEY")
+        if has_openai_key:
+            self.config.model = "gpt-4o"
+            return True
+
+        return False
 
     def configure_robusta_ai_model(self) -> None:
         try:
@@ -485,10 +504,24 @@ class LLMModelRegistry:
 
         return models
 
-    def _create_robusta_model_entry(self, model: str) -> dict[str, Any]:
+    def _create_robusta_model_entry(self, model_name: str) -> dict[str, Any]:
+        return self._create_model_entry(
+            model="gpt-4o",  # Robusta AI model is using openai like API.
+            model_name=model_name,
+            base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
+            is_robusta_model=True,
+        )
+
+    def _create_model_entry(
+        self,
+        model: str,
+        model_name: str,
+        base_url: Optional[str] = None,
+        is_robusta_model: Optional[bool] = None,
+    ) -> dict[str, Any]:
         return {
-            "name": model,
-            "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
-            "is_robusta_model": True,
-            "model": "gpt-4o",  # Robusta AI model is using openai like API.
+            "name": model_name,
+            "base_url": base_url,
+            "is_robusta_model": is_robusta_model,
+            "model": model,
         }

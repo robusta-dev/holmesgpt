@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import os.path
@@ -48,12 +47,7 @@ class SupportedTicketSources(str, Enum):
 
 
 class Config(RobustaBaseConfig):
-    api_key: Optional[SecretStr] = (
-        None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
-    )
-    account_id: Optional[str] = None
-    #
-    model: Optional[str] = "gpt-4o"
+    model: Optional[str] = None
     api_base: Optional[str] = None
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
@@ -334,7 +328,7 @@ class Config(RobustaBaseConfig):
             tool_executor=tool_executor,
             runbook_manager=runbook_manager,
             max_steps=self.max_steps,
-            llm=self._get_llm(self.model),
+            llm=self._get_llm(),
             cluster_name=self.cluster_name,
         )
 
@@ -460,7 +454,7 @@ class Config(RobustaBaseConfig):
         else:
             api_key = model_params.pop("api_key", None)
 
-        model = model_params.pop("model", self.model)
+        model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.
         # Handle both api_base and base_url - api_base takes precedence
         model_api_base = model_params.pop("api_base", None)
@@ -474,10 +468,11 @@ class Config(RobustaBaseConfig):
         )  # type: ignore
 
     def get_models_list(self) -> List[str]:
+        # TODO: handle no models...
         if self.llm_model_registry and self.llm_model_registry.models:
-            return json.dumps(list(self.llm_model_registry.models.keys()))  # type: ignore
+            return list(self.llm_model_registry.models.keys())
 
-        return json.dumps([self.model])  # type: ignore
+        return []
 
 
 class TicketSource(BaseModel):

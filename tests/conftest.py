@@ -1,3 +1,5 @@
+from pathlib import Path
+from typing import Optional
 import pytest
 import yaml
 
@@ -50,3 +52,12 @@ def server_config(tmp_path, monkeypatch, responses):
     monkeypatch.setenv("CLUSTER_NAME", "test-cluster")
 
     return Config.load_from_env()
+
+
+@pytest.fixture(autouse=False)
+def cli_config():
+    return get_cli_config()
+
+
+def get_cli_config(config_file: Optional[Path] = None, **kwargs):
+    return Config.load_from_file(config_file, **kwargs)
