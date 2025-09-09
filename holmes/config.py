@@ -452,8 +452,8 @@ class Config(RobustaBaseConfig):
         is_robusta_model = model_params.pop("is_robusta_model", False)
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
-            _, token = self.dal.get_ai_credentials()
-            api_key = token
+            account_id, token = self.dal.get_ai_credentials()
+            api_key = f"{account_id} {token}"
         else:
             api_key = model_params.pop("api_key", None)
 
