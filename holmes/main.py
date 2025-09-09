@@ -980,12 +980,12 @@ def check(
     slack_channel: Optional[str] = typer.Option(
         None,
         "--slack-channel",
-        help="Slack channel for inline check alerts (e.g., #alerts)",
+        help="Slack channel for inline check alerts (e.g., #alerts). Requires SLACK_TOKEN environment variable or slack_token in config file. Cannot be used with --slack-webhook.",
     ),
     slack_webhook: Optional[str] = typer.Option(
         None,
         "--slack-webhook",
-        help="Slack webhook URL for inline check alerts",
+        help="Slack webhook URL for inline check alerts. Standalone option that doesn't require a bot token. Cannot be used with --slack-channel.",
     ),
     mode: Optional[str] = typer.Option(
         "alert",
@@ -1036,6 +1036,15 @@ def check(
     import yaml
 
     console = init_logging(verbose)
+
+    # Validate mutually exclusive Slack options
+    if slack_channel and slack_webhook:
+        console.print(
+            "[red]Error: --slack-channel and --slack-webhook are mutually exclusive.[/red]\n"
+            "Use --slack-webhook for webhook-based alerts (no token required) OR\n"
+            "Use --slack-channel with SLACK_TOKEN environment variable for bot-based alerts."
+        )
+        raise typer.Exit(1)
 
     # Handle inline check
     temp_file = False

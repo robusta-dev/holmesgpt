@@ -353,7 +353,10 @@ class CheckRunner:
                     "[yellow]    To fix: Use --mode monitor or configure destinations:[/yellow]"
                 )
                 self.console.print(
-                    "[yellow]    • For inline checks: --slack-webhook URL --slack-channel #channel[/yellow]"
+                    "[yellow]    • For inline checks: --slack-webhook URL (standalone, no token needed)[/yellow]"
+                )
+                self.console.print(
+                    "[yellow]    • Or: --slack-channel #channel (requires SLACK_TOKEN env var)[/yellow]"
                 )
                 self.console.print(
                     "[yellow]    • For YAML config: Add 'destinations' section with slack/pagerduty config[/yellow]\n"
@@ -457,18 +460,100 @@ class CheckRunner:
 
         return results
 
+    def _format_slack_webhook_payload(self, check: Check, result: CheckResult) -> dict:
+        """Format a consistent Slack message payload for webhook delivery."""
+        # Determine color based on status
+        color_map = {
+            CheckStatus.PASS: "good",  # green
+            CheckStatus.FAIL: "danger",  # red
+            CheckStatus.ERROR: "warning",  # yellow
+        }
+        color = color_map.get(result.status, "danger")
+
+        # Build fields
+        fields = [
+            {
+                "title": "Query",
+                "value": check.query,
+                "short": False,
+            }
+        ]
+
+        if check.description:
+            fields.append(
+                {
+                    "title": "Description",
+                    "value": check.description,
+                    "short": False,
+                }
+            )
+
+        if check.tags:
+            fields.append(
+                {
+                    "title": "Tags",
+                    "value": ", ".join(check.tags),
+                    "short": True,
+                }
+            )
+
+        # Build payload
+        return {
+            "text": f"Holmes Health Check: {check.name}",
+            "attachments": [
+                {
+                    "color": color,
+                    "title": check.name,
+                    "text": result.message,
+                    "fields": fields,
+                    "footer": f"Holmes • {result.status.value.upper()}",
+                    "ts": int(time.time()),
+                }
+            ],
+        }
+
     def _send_alerts(self, check: Check, result: CheckResult):
         """Send alerts to configured destinations."""
         from holmes.plugins.destinations.slack.plugin import SlackDestination
         from holmes.plugins.destinations.pagerduty.plugin import PagerDutyDestination
-        from holmes.core.issue import Issue
+        from holmes.core.issue import Issue, IssueStatus
         from holmes.core.tool_calling_llm import LLMResult
+        import requests  # type:ignore
 
         for dest_name in check.destinations:
             if dest_name == "slack":
-                # Get Slack configuration
+                # Check if we have a webhook URL in destinations config
+                destinations_config = getattr(self, "_destinations_config", {})
+                slack_dest_config = destinations_config.get(dest_name, {})
+                webhook_url = (
+                    slack_dest_config.webhook_url if slack_dest_config else None
+                )
+
+                if webhook_url:
+                    # Use webhook URL for posting
+                    try:
+                        webhook_payload = self._format_slack_webhook_payload(
+                            check, result
+                        )
+                        response = requests.post(webhook_url, json=webhook_payload)
+                        response.raise_for_status()
+
+                        self.console.print(
+                            "  [green]Alert sent to Slack via webhook[/green]"
+                        )
+                    except Exception as e:
+                        self.console.print(
+                            f"  [red]Failed to send Slack webhook alert: {str(e)}[/red]"
+                        )
+                    continue
+
+                # Fall back to token-based approach
                 slack_token = self.config.slack_token
-                slack_channel = self.config.slack_channel
+                slack_channel = (
+                    slack_dest_config.channel
+                    if slack_dest_config and slack_dest_config.channel
+                    else self.config.slack_channel
+                )
 
                 if not slack_token or not slack_channel:
                     if self.verbose:
@@ -492,23 +577,32 @@ class CheckRunner:
                         raise ValueError(f"Invalid token type: {type(slack_token)}")
 
                     # Create a mock issue for the check result
+                    # Set presentation_status for color coding but don't show in title
+                    issue_status = (
+                        IssueStatus.OPEN
+                        if result.status == CheckStatus.FAIL
+                        else IssueStatus.CLOSED
+                    )
                     issue = Issue(
                         id=f"check-{check.name}",
-                        name=f"Health Check Failed: {check.name}",
+                        name=f"Health Check: {check.name}",
                         source_type="holmes-check",
+                        presentation_status=issue_status,
+                        show_status_in_title=False,  # Don't append "- open/closed" for health checks
                         raw={
                             "check": check.name,
                             "description": check.description,
                             "query": check.query,
                             "result": result.message,
                             "tags": check.tags,
+                            "status": result.status.value,
                         },
                         source_instance_id="holmes-check",
                     )
 
                     # Create a mock LLM result
                     llm_result = LLMResult(
-                        result=f"**Check Failed**: {check.name}\n\n{result.message}\n\nQuery: {check.query}",
+                        result=result.message,
                         tool_calls=[],
                     )
 
@@ -516,10 +610,9 @@ class CheckRunner:
                     slack = SlackDestination(token_str, slack_channel)
                     slack.send_issue(issue, llm_result)
 
-                    if self.verbose:
-                        self.console.print(
-                            f"  [green]Alert sent to Slack channel {slack_channel}[/green]"
-                        )
+                    self.console.print(
+                        f"  [green]Alert sent to Slack channel {slack_channel}[/green]"
+                    )
                 except Exception as e:
                     self.console.print(
                         f"  [red]Failed to send Slack alert: {str(e)}[/red]"
@@ -539,23 +632,32 @@ class CheckRunner:
 
                 try:
                     # Create a mock issue for the check result
+                    # Set presentation_status for color coding but don't show in title
+                    issue_status = (
+                        IssueStatus.OPEN
+                        if result.status == CheckStatus.FAIL
+                        else IssueStatus.CLOSED
+                    )
                     issue = Issue(
                         id=f"check-{check.name}",
-                        name=f"Health Check Failed: {check.name}",
+                        name=f"Health Check: {check.name}",
                         source_type="holmes-check",
+                        presentation_status=issue_status,
+                        show_status_in_title=False,  # Don't append "- open/closed" for health checks
                         raw={
                             "check": check.name,
                             "description": check.description,
                             "query": check.query,
                             "result": result.message,
                             "tags": check.tags,
+                            "status": result.status.value,
                         },
                         source_instance_id="holmes-check",
                     )
 
                     # Create a mock LLM result
                     llm_result = LLMResult(
-                        result=f"**Check Failed**: {check.name}\n\n{result.message}\n\nQuery: {check.query}",
+                        result=result.message,
                         tool_calls=[],
                     )
 
