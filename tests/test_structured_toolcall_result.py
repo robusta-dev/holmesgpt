@@ -2,9 +2,8 @@ import json
 import pytest
 from pydantic import BaseModel
 
+from holmes.core.models import ToolCallResult, format_tool_result_data
 from holmes.core.tools import StructuredToolResult, ToolResultStatus
-
-from holmes.core.tool_calling_llm import format_tool_result_data, ToolCallResult
 
 
 class DummyResult(BaseModel):
