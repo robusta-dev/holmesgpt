@@ -22,7 +22,7 @@ Robusta AI simplifies AI model access by:
 
 Robusta AI is automatically enabled when:
 
-1. HolmesGPT is deployed in [Kubernetes via the Robusta Helm chart](https://docs.robusta.dev/master/index.html)
+1. HolmesGPT is deployed in [Kubernetes via the Robusta Helm chart](https://docs.robusta.dev/master/setup-robusta/installation/index.html)
 2. [A valid Robusta sink is configured in the Robusta Helm Chart](https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html)
 3. The `ROBUSTA_AI` environment variable is set to `true`
 
@@ -31,6 +31,7 @@ Robusta AI is automatically enabled when:
 Add to the Robusta Helm values:
 
 ```yaml
+# Add to generated_values.yaml
 holmes:
   additionalEnvVars:
     - name: ROBUSTA_AI
@@ -48,7 +49,7 @@ In most cases, no additional configuration is needed. If you have a valid Robust
 To explicitly disable Robusta AI (for example, if you prefer using your own API keys):
 
 ```yaml
-# values.yaml for Helm deployment
+# Add to generated_values.yaml
 additionalEnvVars:
   - name: ROBUSTA_AI
     value: "false"
@@ -72,9 +73,9 @@ The specific models available depend on your Robusta subscription plan. Typicall
 
 ## Usage
 
-### With Robusta UI
-
 When Robusta AI is enabled, models appear in the model selector dropdown in the Robusta UI. Users can select any available model for their investigations.
+
+![Model Selection with Robusta AI](../assets/robusta-ai-model-selection-ui.png)
 
 ## Troubleshooting
 
