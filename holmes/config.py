@@ -466,6 +466,7 @@ class Config(RobustaBaseConfig):
         api_version = model_params.pop("api_version", api_version)
         model_name = model_params.pop("name", None) or model_key or model
         sentry_sdk.set_tag("model_name", model_name)
+        logging.info(f"Creating LLM with model: {model_name}")
         return DefaultLLM(
             model, api_key, api_base, api_version, model_params, tracer, model_name
         )  # type: ignore
