@@ -135,7 +135,7 @@ The toolset can directly connect to a Tempo instance without proxying through a 
 ### Finding Slow Traces
 
 ```bash
-homes ask "Find traces where the payment service is taking longer than 1 second"
+homles ask "Find traces where the payment service is taking longer than 1 second"
 ```
 
 Holmes will use TraceQL to search for slow operations:
@@ -146,7 +146,7 @@ Holmes will use TraceQL to search for slow operations:
 ### Analyzing Errors
 
 ```bash
-homes ask "Show me traces with HTTP 500 errors in the frontend service"
+homles ask "Show me traces with HTTP 500 errors in the frontend service"
 ```
 
 Holmes will search using:
