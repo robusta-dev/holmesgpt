@@ -137,6 +137,7 @@ nav:
       - walkthrough/index.md
       - Interactive Mode: walkthrough/interactive-mode.md
       - Health Checks: walkthrough/health-checks.md
+      - Kubernetes Operator for Health Checks: walkthrough/operator-health-checks.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
