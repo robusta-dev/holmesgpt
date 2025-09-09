@@ -463,8 +463,7 @@ class LLMModelRegistry:
         self, model_key: Optional[str] = None
     ) -> dict:  # TODO: fix logic
         if not self._llms:
-            logging.info("No model list setup, using config model")
-            return {}
+            raise Exception("No llm models were loaded")
 
         if model_key:
             model_params = self._llms.get(model_key)

@@ -133,6 +133,8 @@ class Config(RobustaBaseConfig):
             logging.info(
                 f"loaded models: {list(self.llm_model_registry.models.keys())}"
             )
+        else:
+            logging.warning("no llm models were loaded")
 
     @classmethod
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
@@ -439,6 +441,7 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
+    # TODO: move this to the llm model registry
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
         sentry_sdk.set_tag("requested_model", model_key)
         model_params = self.llm_model_registry.get_model_params(model_key)
