@@ -9,6 +9,7 @@ ALLOWED_HELM_COMMANDS: dict[str, dict] = {
         "notes": {},
         "values": {},
         "metadata": {},
+        "chart": {},
     },
     "status": {},
     "history": {},
@@ -43,7 +44,6 @@ ALLOWED_HELM_COMMANDS: dict[str, dict] = {
     "plugin": {
         "list": {},
     },
-    # Completion
     "completion": {},
 }
 

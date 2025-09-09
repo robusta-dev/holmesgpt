@@ -302,6 +302,18 @@ class TestKubectlIntegration:
             # Quote normalization in grep
             ('kubectl get pods | grep "nginx"', "kubectl get pods | grep nginx"),
             ("kubectl get pods | grep 'nginx'", "kubectl get pods | grep nginx"),
+            (
+                "kubectl get pod --show-labels -o wide -n default",
+                "kubectl get pod --show-labels -o wide -n default",
+            ),
+            (
+                "kubectl get pod --show-labels -o wide my_name -n default",
+                "kubectl get pod --show-labels -o wide my_name -n default",
+            ),
+            (
+                "kubectl get service -A --show-labels -o wide",
+                "kubectl get service -A --show-labels -o wide",
+            ),
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):

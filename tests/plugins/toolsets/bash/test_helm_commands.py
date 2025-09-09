@@ -73,6 +73,10 @@ class TestHelmCliSafeCommands:
                 "helm get all myrelease -n production",
                 "helm get all myrelease -n production",
             ),
+            (
+                "helm get chart myrelease -n production",
+                "helm get chart myrelease -n production",
+            ),
             # Status commands
             ("helm status myrelease", "helm status myrelease"),
             (

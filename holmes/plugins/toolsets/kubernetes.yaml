@@ -7,6 +7,7 @@ toolsets:
       - core
     prerequisites:
       - command: "kubectl version --client"
+    enabled: False
 
     # Note: Many tools in this toolset use transformers with llm_summarize
     # to automatically summarize large kubectl outputs when a fast model is configured.

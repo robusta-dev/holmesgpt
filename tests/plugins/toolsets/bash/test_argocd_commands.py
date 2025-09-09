@@ -57,6 +57,10 @@ class TestArgoCDCliSafeCommands:
                 "argocd app history myapp --revision 5",
                 "argocd app history myapp --revision 5",
             ),
+            (
+                "argocd app history myapp --app-namespace default",
+                "argocd app history myapp --app-namespace default",
+            ),
             ("argocd app manifests myapp", "argocd app manifests myapp"),
             (
                 "argocd app manifests myapp --source live",

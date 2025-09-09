@@ -1,0 +1,14 @@
+# Kubectl Run Image
+
+The tool `kubectl_run_image` allows you to run temporary containers in Kubernetes:
+- Runs `kubectl run <pod-name> --image=<image> --namespace=<namespace> --rm --attach --restart=Never -i -- <command>`
+- The pod is automatically cleaned up after execution (--rm flag)
+- Only whitelisted images and command patterns are allowed for security
+- Use this for debugging, network testing, or running one-off commands in your cluster
+- Examples: network diagnostics, file system checks, application debugging
+
+Parameters:
+- `image`: The container image to run (must be in allowed list)
+- `command`: The command to execute in the container (must match allowed patterns)
+- `namespace`: Kubernetes namespace to run in (defaults to "default")
+- `timeout`: Command timeout in seconds (defaults to 60)
