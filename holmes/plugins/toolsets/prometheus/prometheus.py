@@ -284,7 +284,7 @@ def result_has_data(result: Dict) -> bool:
 def adjust_step_for_max_points(
     start_timestamp: str,
     end_timestamp: str,
-    step: float,
+    step: Optional[float] = None,
 ) -> float:
     """
     Adjusts the step parameter to ensure the number of data points doesn't exceed max_points.
@@ -293,7 +293,7 @@ def adjust_step_for_max_points(
     Args:
         start_timestamp: RFC3339 formatted start time
         end_timestamp: RFC3339 formatted end time
-        step: The requested step duration in seconds
+        step: The requested step duration in seconds (None for auto-calculation)
 
     Returns:
         Adjusted step value in seconds that ensures points <= max_points
@@ -303,6 +303,14 @@ def adjust_step_for_max_points(
     end_dt = dateutil.parser.parse(end_timestamp)
 
     time_range_seconds = (end_dt - start_dt).total_seconds()
+
+    # If no step provided, calculate a reasonable default
+    # Aim for ~60 data points across the time range (1 per minute for hourly, etc)
+    if step is None:
+        step = max(1, time_range_seconds / 60)
+        logging.debug(
+            f"No step provided, defaulting to {step}s for {time_range_seconds}s range"
+        )
 
     current_points = time_range_seconds / step
 
@@ -322,6 +330,79 @@ def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]
     if prometheus_auth_header:
         results["Authorization"] = prometheus_auth_header
     return results
+
+
+def create_data_summary_for_large_result(
+    result_data: Dict, query: str, data_size_chars: int, is_range_query: bool = False
+) -> Dict[str, Any]:
+    """
+    Create a summary for large Prometheus results instead of returning full data.
+
+    Args:
+        result_data: The Prometheus data result
+        query: The original PromQL query
+        data_size_chars: Size of the data in characters
+        is_range_query: Whether this is a range query (vs instant query)
+
+    Returns:
+        Dictionary with summary information and suggestions
+    """
+    if is_range_query:
+        series_list = result_data.get("result", [])
+        num_items = len(series_list)
+
+        # Calculate statistics for range queries
+        total_points = 0
+        for series in series_list[:10]:  # Sample first 10 series
+            points = len(series.get("values", []))
+            total_points += points
+
+        avg_points_per_series = (
+            total_points / min(10, num_items) if num_items > 0 else 0
+        )
+        estimated_total_points = avg_points_per_series * num_items
+
+        # Create a sample of just the metadata (labels) without values
+        sample_metrics = []
+        for series in series_list[:10]:  # Sample first 10 series
+            sample_metrics.append(series.get("metric", {}))
+
+        sample_json = json.dumps(sample_metrics, indent=2)
+        if len(sample_json) > 2000:
+            sample_json = sample_json[:2000] + "\n... (truncated)"
+
+        return {
+            "message": f"Data too large to return ({data_size_chars:,} characters). Query returned {num_items} time series with approximately {estimated_total_points:,.0f} total data points.",
+            "series_count": num_items,
+            "estimated_total_points": int(estimated_total_points),
+            "data_size_characters": data_size_chars,
+            "sample_data": sample_json,
+            "suggestion": f'Consider using topk({min(5, num_items)}, {query}) to limit results to the top {min(5, num_items)} series. To also capture remaining data as \'other\': topk({min(5, num_items)}, {query}) or label_replace((sum({query}) - sum(topk({min(5, num_items)}, {query}))), "pod", "other", "", "")',
+        }
+    else:
+        # Instant query
+        result_type = result_data.get("resultType", "")
+        result_list = result_data.get("result", [])
+        num_items = len(result_list)
+
+        # Create a sample of just the metadata (labels) without values
+        sample_metrics = []
+        for item in result_list[:10]:  # Sample first 10 results
+            if isinstance(item, dict):
+                sample_metrics.append(item.get("metric", {}))
+
+        sample_json = json.dumps(sample_metrics, indent=2)
+        if len(sample_json) > 2000:
+            sample_json = sample_json[:2000] + "\n... (truncated)"
+
+        return {
+            "message": f"Data too large to return ({data_size_chars:,} characters). Query returned {num_items} results.",
+            "result_count": num_items,
+            "result_type": result_type,
+            "data_size_characters": data_size_chars,
+            "sample_data": sample_json,
+            "suggestion": f'Consider using topk({min(5, num_items)}, {query}) to limit results. To also capture remaining data as \'other\': topk({min(5, num_items)}, {query}) or label_replace((sum({query}) - sum(topk({min(5, num_items)}, {query}))), "instance", "other", "", "")',
+        }
 
 
 def fetch_metrics_labels_with_series_api(
@@ -743,8 +824,31 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     "query": query,
                 }
 
+                # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
-                    response_data["data"] = data.get("data")
+                    result_data = data.get("data", {})
+
+                    # Estimate the size of the data
+                    data_str_preview = json.dumps(result_data)
+                    data_size_chars = len(data_str_preview)
+
+                    # If data is too large (>80K chars), provide summary instead
+                    if data_size_chars > 80000:
+                        response_data["data_summary"] = (
+                            create_data_summary_for_large_result(
+                                result_data,
+                                query,
+                                data_size_chars,
+                                is_range_query=False,
+                            )
+                        )
+                        logging.info(
+                            f"Prometheus instant query returned large dataset: "
+                            f"{response_data['data_summary'].get('result_count', 0)} results, "
+                            f"{data_size_chars:,} characters. Returning summary instead of full data."
+                        )
+                    else:
+                        response_data["data"] = result_data
 
                 data_str = json.dumps(response_data, indent=2)
                 return StructuredToolResult(
@@ -857,12 +961,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 end_timestamp=params.get("end"),
                 default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
             )
-            step = params.get("step", "")
+            step = params.get("step")
 
+            # adjust_step_for_max_points handles None case and converts to float
             step = adjust_step_for_max_points(
                 start_timestamp=start,
                 end_timestamp=end,
-                step=float(step) if step else MAX_GRAPH_POINTS,
+                step=float(step) if step else None,
             )
 
             description = params.get("description", "")
@@ -906,8 +1011,29 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     "output_type": output_type,
                 }
 
+                # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
-                    response_data["data"] = data.get("data")
+                    result_data = data.get("data", {})
+
+                    # Estimate the size of the data
+                    data_str_preview = json.dumps(result_data)
+                    data_size_chars = len(data_str_preview)
+
+                    # If data is too large (>80K chars), provide summary instead
+                    if data_size_chars > 80000:
+                        response_data["data_summary"] = (
+                            create_data_summary_for_large_result(
+                                result_data, query, data_size_chars, is_range_query=True
+                            )
+                        )
+                        logging.info(
+                            f"Prometheus range query returned large dataset: "
+                            f"{response_data['data_summary'].get('series_count', 0)} series, "
+                            f"{data_size_chars:,} characters. Returning summary instead of full data."
+                        )
+                    else:
+                        response_data["data"] = result_data
+
                 data_str = json.dumps(response_data, indent=2)
 
                 return StructuredToolResult(

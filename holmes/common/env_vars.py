@@ -73,4 +73,4 @@ LOG_LLM_USAGE_RESPONSE = load_bool("LOG_LLM_USAGE_RESPONSE", False)
 # For CLI only, enable user approval for potentially sensitive commands that would otherwise be rejected
 ENABLE_CLI_TOOL_APPROVAL = load_bool("ENABLE_CLI_TOOL_APPROVAL", True)
 
-MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 300))
+MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 200))
