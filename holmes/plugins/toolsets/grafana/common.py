@@ -66,3 +66,15 @@ def ensure_grafana_uid_or_return_error_result(
         )
     else:
         return None
+
+
+class GrafanaTempoLabelsConfig(BaseModel):
+    pod: str = "k8s.pod.name"
+    namespace: str = "k8s.namespace.name"
+    deployment: str = "k8s.deployment.name"
+    node: str = "k8s.node.name"
+    service: str = "service.name"
+
+
+class GrafanaTempoConfig(GrafanaConfig):
+    labels: GrafanaTempoLabelsConfig = GrafanaTempoLabelsConfig()
