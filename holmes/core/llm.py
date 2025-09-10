@@ -459,16 +459,14 @@ class LLMModelRegistry:
 
         return True
 
-    def get_model_params(
-        self, model_key: Optional[str] = None
-    ) -> dict:  # TODO: fix logic
+    def get_model_params(self, model_key: Optional[str] = None) -> dict:
         if not self._llms:
             raise Exception("No llm models were loaded")
 
         if model_key:
             model_params = self._llms.get(model_key)
             if model_params is not None:
-                logging.info(f"Using model: {model_key}")
+                logging.info(f"Using selected model: {model_key}")
                 return model_params.copy()
 
             logging.error(f"Couldn't find model: {model_key} in model list")
@@ -485,9 +483,9 @@ class LLMModelRegistry:
                 f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
             )
 
-        first_model_params = next(iter(self._llms.values())).copy()
-        logging.info("Using first model")
-        return first_model_params
+        model_key, first_model_params = next(iter(self._llms.items()))
+        logging.info(f"Using first available model: {model_key}")
+        return first_model_params.copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
         return self._llms[name]  # type: ignore

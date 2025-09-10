@@ -134,7 +134,7 @@ class Config(RobustaBaseConfig):
                 f"loaded models: {list(self.llm_model_registry.models.keys())}"
             )
         else:
-            logging.warning("no llm models were loaded")
+            logging.warning("No llm models were loaded")
 
     @classmethod
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
@@ -472,7 +472,6 @@ class Config(RobustaBaseConfig):
         )  # type: ignore
 
     def get_models_list(self) -> List[str]:
-        # TODO: handle no models...
         if self.llm_model_registry and self.llm_model_registry.models:
             return list(self.llm_model_registry.models.keys())
 
