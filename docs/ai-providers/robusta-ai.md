@@ -17,6 +17,8 @@ Robusta AI simplifies AI model access by:
 1. **Robusta SaaS account**: You must have an active Robusta platform subscription
 2. **Kubernetes deployment**: Robusta AI is only available when running HolmesGPT as a server in Kubernetes (not available in CLI mode)
 3. **Robusta platform integration**: Your cluster must be connected to the Robusta platform with a valid `robusta_sink` token
+4. **Robusta version**: Requires Robusta version 0.22.0 or higher
+5. **Robusta UI sink enabled**: The [Robusta UI sink must be configured](https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html) and operational
 
 ## Configuration
 
@@ -26,9 +28,24 @@ Robusta AI is automatically enabled when:
 2. [A valid Robusta sink is configured in the Robusta Helm Chart](https://docs.robusta.dev/master/configuration/sinks/RobustaUI.html)
 3. The `ROBUSTA_AI` environment variable is set to `true`
 
-### Enabling Robusta AI
+### Quick Setup
 
-Add to the Robusta Helm values:
+The simplest way to enable HolmesGPT with Robusta AI is to add this to your Robusta Helm values:
+
+```yaml
+# Add to generated_values.yaml
+enableHolmesGPT: true
+```
+
+This automatically:
+
+1. Deploys HolmesGPT as a server in Kubernetes
+2. Enables Robusta AI integration
+3. Sets up the necessary authentication
+
+### Manual Configuration
+
+For more granular control, you can manually configure Robusta AI:
 
 ```yaml
 # Add to generated_values.yaml
@@ -38,9 +55,32 @@ holmes:
       value: "true"
 ```
 
+### Using Existing Robusta Tokens in Secrets
+
+If your Robusta token is already stored in a Kubernetes secret (common in existing Robusta deployments), you can reference it in HolmesGPT configuration:
+
+```yaml
+# Add to generated_values.yaml
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: robusta-token-secret
+          key: token
+    - name: ROBUSTA_AI
+      value: "true"
+```
+
+Common scenarios for existing secrets:
+
+ - **Existing Robusta UI sink**: If you already have a `robusta_sink` configured, the token is typically stored in a secret named `robusta-token` or similar
+ - **Multi-environment deployments**: Use the same secret across different namespaces or clusters
+ - **GitOps workflows**: Reference existing secrets managed by ArgoCD or Flux
+
 In most cases, no additional configuration is needed. If you have a valid Robusta deployment, HolmesGPT will automatically:
 
-2. Authenticate with the Robusta platform
+1. Authenticate with the Robusta platform
 2. Fetch available models for your account
 3. Make them available for selection
 
@@ -50,9 +90,10 @@ To explicitly disable Robusta AI (for example, if you prefer using your own API 
 
 ```yaml
 # Add to generated_values.yaml
-additionalEnvVars:
-  - name: ROBUSTA_AI
-    value: "false"
+holmes:
+  additionalEnvVars:
+    - name: ROBUSTA_AI
+      value: "false"
 ```
 
 ## How It Works
@@ -69,7 +110,6 @@ The specific models available depend on your Robusta subscription plan. Typicall
 
 - OpenAI models (GPT-4o, GPT-4.1, GPT-5, etc.)
 - Anthropic models (Claude 4.0 Sonnet, etc.)
-```
 
 ## Usage
 
@@ -100,5 +140,3 @@ Check that:
 - [Using Multiple Providers](using-multiple-providers.md) - Configure multiple AI providers
 - [Kubernetes Installation](../installation/kubernetes-installation.md) - Deploy HolmesGPT in Kubernetes
 - [Robusta Platform Documentation](https://docs.robusta.dev) - Learn more about Robusta platform integration
-
-TODO: add a section for people storing robusta sink token in secrets
