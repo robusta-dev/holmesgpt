@@ -243,6 +243,7 @@ def workload_health_check(request: WorkloadHealthRequest):
             analysis=ai_call.result,
             tool_calls=ai_call.tool_calls,
             instructions=instructions,
+            metadata=ai_call.metadata,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -274,6 +275,7 @@ def workload_health_conversation(
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            metadata=llm_call.metadata,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -303,6 +305,7 @@ def issue_conversation(issue_chat_request: IssueChatRequest):
             analysis=llm_call.result,
             tool_calls=llm_call.tool_calls,
             conversation_history=llm_call.messages,
+            metadata=llm_call.metadata,
         )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
@@ -375,6 +378,7 @@ def chat(chat_request: ChatRequest):
                 tool_calls=llm_call.tool_calls,
                 conversation_history=llm_call.messages,
                 follow_up_actions=follow_up_actions,
+                metadata=llm_call.metadata,
             )
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
