@@ -1,18 +1,21 @@
+from pathlib import Path
+from typing import Optional
 import pytest
 import yaml
 
 from holmes.config import Config
 
 DEFAULT_ROBUSTA_MODEL = "Robusta/gpt-5-mini preview (minimal reasoning)"
+ROBUSTA_SONNET_4_MODEL = "Robusta/sonnet-4 preview"
 ROBUSTA_MODELS = [
-    "Robusta/sonnet-4 preview",
+    ROBUSTA_SONNET_4_MODEL,
     "Robusta/gpt-5-mini preview (minimal reasoning)",
     "Robusta/gpt-5 preview (minimal reasoning)",
     "Robusta/gpt-4o",
 ]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture(autouse=True, scope="function")
 def clear_all_caches():
     """Clear all function caches that may affect test isolation."""
     try:
@@ -42,8 +45,19 @@ def server_config(tmp_path, monkeypatch, responses):
     }
 
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
-    monkeypatch.setattr("holmes.config.ROBUSTA_AI", True)
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
+    monkeypatch.setattr("holmes.core.llm.ROBUSTA_AI", True)
     monkeypatch.setenv("CLUSTER_NAME", "test-cluster")
 
     return Config.load_from_env()
+
+
+@pytest.fixture(autouse=False)
+def cli_config():
+    return get_cli_config()
+
+
+def get_cli_config(config_file: Optional[Path] = None, **kwargs):
+    return Config.load_from_file(config_file, **kwargs)
