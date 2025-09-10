@@ -45,10 +45,10 @@ spec:
           value: "true"
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "100m"
+            memory: "128Mi"
+            cpu: "20m"
           limits:
-            memory: "1Gi"
+            memory: "512Mi"
         readinessProbe:
           tcpSocket:
             port: 9092

@@ -27,6 +27,7 @@ from tests.llm.utils.test_case_utils import (
 )
 
 from holmes.core.prompt import build_initial_ask_messages
+from tests.llm.utils.retry_handler import retry_on_throttle
 
 from tests.llm.utils.property_manager import (
     set_initial_properties,
@@ -88,23 +89,35 @@ def test_ask_holmes(
                         **{"now.return_value": mocked_datetime, "side_effect": None}
                     )
                     with set_test_env_vars(test_case):
-                        result = ask_holmes(
-                            test_case=test_case,
-                            model=model,
-                            tracer=tracer,
-                            eval_span=eval_span,
-                            mock_generation_config=mock_generation_config,
+                        retry_enabled = request.config.getoption(
+                            "retry_on_throttle", True
+                        )
+                        result = retry_on_throttle(
+                            ask_holmes,
+                            test_case,  # positional arg
+                            model,  # positional arg
+                            tracer,  # positional arg
+                            eval_span,  # positional arg
+                            mock_generation_config,  # positional arg
                             request=request,
+                            retry_enabled=retry_enabled,
+                            test_id=test_case.id,
+                            model=model,  # Also pass for logging in retry_handler
                         )
             else:
                 with set_test_env_vars(test_case):
-                    result = ask_holmes(
-                        test_case=test_case,
-                        model=model,
-                        tracer=tracer,
-                        eval_span=eval_span,
-                        mock_generation_config=mock_generation_config,
+                    retry_enabled = request.config.getoption("retry_on_throttle", True)
+                    result = retry_on_throttle(
+                        ask_holmes,
+                        test_case,  # positional arg
+                        model,  # positional arg
+                        tracer,  # positional arg
+                        eval_span,  # positional arg
+                        mock_generation_config,  # positional arg
                         request=request,
+                        retry_enabled=retry_enabled,
+                        test_id=test_case.id,
+                        model=model,  # Also pass for logging in retry_handler
                     )
 
     except Exception as e:
@@ -172,6 +185,7 @@ def ask_holmes(
             mock_generation_config=mock_generation_config,
             request=request,
             mock_policy=test_case.mock_policy,
+            mock_overrides=test_case.mock_overrides,
         )
 
     tool_executor = ToolExecutor(toolset_manager.toolsets)
@@ -230,4 +244,12 @@ def ask_holmes(
         holmes_duration = time.time() - start_time
         # Log duration directly to eval_span
         eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+    # Check for any mock errors that occurred during tool execution
+    # This will raise an exception if any mock data errors happened
+    if request:
+        from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+        check_for_mock_errors(request)
+
     return result

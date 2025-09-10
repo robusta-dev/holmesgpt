@@ -58,7 +58,7 @@ export BRAINTRUST_ORG=your-org
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10
 
 # Compare with different model
-RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude4 MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy' -n 10
 ```
 
 ### Key Environment Variables

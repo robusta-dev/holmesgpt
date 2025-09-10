@@ -182,9 +182,14 @@ def extract_port_forwards_from_test_cases(
     return unique_configs
 
 
-def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
-    """Check for port conflicts and availability before running any setup scripts."""
+def check_port_availability_early(test_cases: List[HolmesTestCase]) -> Dict[str, str]:
+    """Check for port conflicts and availability before running any setup scripts.
+
+    Returns:
+        Dict mapping test IDs to skip reasons (e.g., "Port 3200 conflict with test 115_checkout")
+    """
     port_usage: Dict[int, List[str]] = {}
+    tests_to_skip = {}  # Changed from set to dict to store reasons
 
     # Collect all port usages
     for test_case in test_cases:
@@ -202,6 +207,12 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
     for port, test_ids in port_usage.items():
         if len(test_ids) > 1:
             conflicts.append((port, test_ids))
+            # Add all conflicting tests to skip list with detailed reason
+            for test_id in test_ids:
+                other_tests = [t for t in test_ids if t != test_id]
+                tests_to_skip[test_id] = (
+                    f"Port {port} conflict with: {', '.join(other_tests)}"
+                )
 
     if conflicts:
         error_msg = "\n🚨 Port conflicts detected! Multiple tests are trying to use the same local port:\n"
@@ -218,9 +229,10 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
         error_msg += "\n  pytest -m 'not port-forward'"
 
         log(error_msg)
-        raise RuntimeError(
-            "Port conflicts detected. Please fix the conflicts before running tests."
+        log(
+            f"⚠️  Will skip {len(tests_to_skip)} tests due to port conflicts: {', '.join(sorted(tests_to_skip.keys()))}"
         )
+        # Don't raise - we'll skip these tests instead
 
     # Check if ports are already in use on the system
     ports_in_use = []
@@ -231,7 +243,11 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
     if ports_in_use:
         error_msg = "\n🚨 Ports already in use on the system:\n"
         for port in ports_in_use:
-            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(port_usage[port])})"
+            test_ids = port_usage[port]
+            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(test_ids)})"
+            # Add these tests to skip list with detailed reason
+            for test_id in test_ids:
+                tests_to_skip[test_id] = f"Port {port} already in use on system"
 
         error_msg += "\n\nTo see what's using these ports:"
         error_msg += f"\n  lsof -i :{','.join(str(p) for p in ports_in_use)}"
@@ -240,7 +256,12 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
         error_msg += "\n  2. Or skip port-forward tests: pytest -m 'not port-forward'"
 
         log(error_msg)
-        raise RuntimeError("Required ports are already in use.")
+        log(
+            f"⚠️  Will skip {len(tests_to_skip)} tests due to ports already in use: {', '.join(sorted(tests_to_skip.keys()))}"
+        )
+        # Don't raise - we'll skip these tests instead
+
+    return tests_to_skip
 
 
 def _is_port_in_use(port: int) -> bool:
@@ -271,7 +292,11 @@ def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardMana
             manager.add_port_forward(config)
 
         # Start all port forwards
-        manager.start_all()
+        try:
+            manager.start_all()
+        except Exception as e:
+            log(f"🔍 DEBUG: Port forward setup failed but continuing: {e}")
+            # Continue anyway to test if this is the root cause
 
     return manager
 

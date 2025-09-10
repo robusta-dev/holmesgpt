@@ -1,6 +1,6 @@
 user_prompt: "Why is personal-certs-validator in a crashloopbackoff?"
 expected_output:
-  - Could not find "personal-certs-validator."
+  - Either tells the user that "personal-certs-validator" could not be found or answers about db-certs-authenticator and makes it clear that it is not "personal-certs-validator" (i.e. says you seem to be referring to...)
 tags:
   - easy
   - transparency

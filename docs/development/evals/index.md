@@ -25,7 +25,37 @@ Install HolmesGPT python dependencies:
 poetry install --with=dev
 ```
 
-### Basic Commands
+### Quick Start: Using run_benchmarks_local.sh
+
+The easiest way to run benchmarks locally is using the `run_benchmarks_local.sh` script, which mirrors the exact behavior of our CI/CD workflow:
+
+```bash
+# Run with defaults (easy tests, default models, 1 iteration)
+./run_benchmarks_local.sh
+
+# Test specific models
+./run_benchmarks_local.sh 'gpt-4o,claude-sonnet-4'
+
+# Run with custom markers and iterations
+./run_benchmarks_local.sh 'gpt-4o' 'easy and kubernetes' 3
+
+# Filter specific tests by name
+./run_benchmarks_local.sh 'gpt-4o' 'easy' 1 '01_how_many_pods'
+
+# Run with parallel workers for faster execution
+./run_benchmarks_local.sh 'gpt-4o' 'easy' 1 '' 6
+```
+
+The script automatically:
+- Sets up all required environment variables
+- Runs tests with JSON report generation
+- Generates a markdown benchmark report with dashboard, costs, and timings
+- Saves a historical copy in `docs/benchmarks/history/`
+- Shows how to commit results
+
+### Manual Commands
+
+For more control, you can run pytest directly:
 
 ```bash
 # Run all easy evals - these should always pass assuming you have a kubernetes cluster with sufficient resources and a 'good enough model' (e.g. gpt-4o)
@@ -48,7 +78,7 @@ RUN_LIVE=true MODEL=gpt-4o poetry run pytest -m 'llm and easy'
 
 # Test with Claude
 # Note: CLASSIFIER_MODEL must be set to OpenAI or Azure as Anthropic models are not currently supported for classification
-RUN_LIVE=true MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
+RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest -m 'llm and easy'
 
 # Test with Azure OpenAI
 # Set required Azure environment variables for your deployment
@@ -71,13 +101,13 @@ HolmesGPT supports running evaluations across multiple models simultaneously to 
 ```bash
 # Test multiple models in a single run
 # Models are specified as comma-separated list
-RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4o \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' --no-cov
 
 # Run with multiple iterations for statistically significant results
 RUN_LIVE=true ITERATIONS=10 \
-  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 \
+  MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' -n 10
 
@@ -159,6 +189,13 @@ RUN_LIVE=true ITERATIONS=10 poetry run pytest tests/llm/ -n 10
 
 When tests fail, use these techniques to investigate:
 
+**CLI Flags for Debugging:**
+
+- `--skip-setup`: Skip `before_test` commands (useful when resources already exist)
+- `--skip-cleanup`: Skip `after_test` commands (useful for inspecting resources after test)
+- `--only-setup`: Only run `before_test` commands, skip test execution
+- `--only-cleanup`: Only run `after_test` commands, skip setup and test execution
+
 ```bash
 # 1. Verbose output to see details
 RUN_LIVE=true pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test"
@@ -171,6 +208,12 @@ RUN_LIVE=true pytest -k "test" --skip-setup --skip-cleanup
 
 # 4. Clean up when done debugging
 RUN_LIVE=true pytest -k "test" --skip-setup
+
+# 5. Or just run cleanup without the test
+RUN_LIVE=true pytest -k "test" --only-cleanup
+
+# 6. Test only setup commands without running the actual test
+RUN_LIVE=true pytest -k "test" --only-setup
 ```
 
 ## Model Comparison Workflow
@@ -182,7 +225,7 @@ RUN_LIVE=true pytest -k "test" --skip-setup
 ```bash
 # Compare multiple models simultaneously - RECOMMENDED approach
 RUN_LIVE=true ITERATIONS=10 \
-  MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022,gpt-4o-mini \
+  MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4o \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' -n 10
 
@@ -205,7 +248,7 @@ For cases where you need separate experiments or different configurations per mo
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=baseline_gpt4o MODEL=gpt-4o pytest -n 10 tests/llm/
 
 # 2. Compare with Claude (using GPT-4 as classifier since Anthropic models can't classify)
-RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude35 MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
+RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=claude4 MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o pytest -n 10 tests/llm/
 
 # 3. Test a smaller model
 RUN_LIVE=true ITERATIONS=10 EXPERIMENT_ID=gpt4o_mini MODEL=gpt-4o-mini pytest -n 10 tests/llm/
@@ -221,8 +264,30 @@ export BRAINTRUST_API_KEY=your-key
 export BRAINTRUST_ORG=your-org
 
 # Then run any evaluation command - results will be tracked automatically
-RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-3-5-sonnet-20241022 pytest -m 'llm and easy'
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 pytest -m 'llm and easy'
 ```
+
+### CI/CD Benchmarking
+
+HolmesGPT includes a [GitHub Actions workflow](https://github.com/robusta-dev/holmesgpt/blob/main/.github/workflows/eval-benchmarks.yml) for automated benchmarking that runs:
+
+**Automatically:**
+- **Weekly** - Every Sunday at 2 AM UTC with comprehensive testing (`llm and easy` markers, 10 iterations)
+- **On Pull Requests** - When eval-related files are modified (minimal testing with 1 iteration)
+
+**Manually:**
+- Navigate to Actions tab → "LLM Evaluation Benchmarks" → Run workflow
+- Customize models, markers, and iterations
+
+**Workflow Parameters:**
+- `models`: Comma-separated list (e.g., `gpt-4o,anthropic/claude-sonnet-4-20250514`)
+- `test_markers`: Pytest markers (e.g., `llm and easy`, `llm and medium`, `llm`)
+- `iterations`: Number of test iterations
+
+Benchmark results are automatically:
+- Published to `docs/benchmarks/latest-results.md`
+- Archived with timestamps in `docs/benchmarks/history/`
+- Posted as PR comments when tests run on pull requests
 
 ## Test Markers
 

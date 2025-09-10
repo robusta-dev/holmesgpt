@@ -217,7 +217,6 @@ user_prompt: "Show me the logs for the pod `robusta-holmes` since last Thursday"
 tags:
   - logs
   - datetime
-  - synthetic
 expected_output:
   - Database unavailable
   - Memory pressure

@@ -25,6 +25,7 @@ from tests.llm.utils.test_case_utils import (
     check_and_skip_test,
     get_models,
 )
+from tests.llm.utils.retry_handler import retry_on_throttle
 from tests.llm.utils.property_manager import (
     set_initial_properties,
     set_trace_properties,
@@ -56,6 +57,7 @@ class MockConfig(Config):
                 test_case_folder=self._test_case.folder,
                 mock_generation_config=self._mock_generation_config,
                 mock_policy=self._test_case.mock_policy,
+                mock_overrides=getattr(self._test_case, "mock_overrides", None),
             )
 
             # With the new file-based mock system, mocks are loaded from disk automatically
@@ -136,15 +138,28 @@ def test_investigate(
                         "Holmes Run", type=SpanType.TASK.value
                     ) as holmes_span:
                         start_time = time.time()
-                        result = investigate_issues(
+                        retry_enabled = request.config.getoption(
+                            "retry_on_throttle", True
+                        )
+                        result = retry_on_throttle(
+                            investigate_issues,
                             investigate_request=investigate_request,
                             config=config,
                             dal=mock_dal,
                             trace_span=holmes_span,
+                            retry_enabled=retry_enabled,
+                            test_id=test_case.id,
+                            model=model,
                         )
                         holmes_duration = time.time() - start_time
                     # Log duration directly to eval_span
                     eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+                # Check for any mock errors that occurred during tool execution
+                # This will raise an exception if any mock data errors happened
+                from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+                check_for_mock_errors(request)
 
                 # Evaluate and log results inside the span context
                 assert result, "No result returned by investigate_issues()"
