@@ -3,7 +3,7 @@ from typing import Dict, Optional
 from pydantic import BaseModel
 import datetime
 
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 
 class GrafanaConfig(BaseModel):
@@ -61,7 +61,7 @@ def ensure_grafana_uid_or_return_error_result(
 ) -> Optional[StructuredToolResult]:
     if not config.grafana_datasource_uid:
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR,
+            status=StructuredToolResultStatus.ERROR,
             error="This tool only works when the toolset is configued ",
         )
     else:

@@ -15,7 +15,7 @@ tags:
 port_forwards:
   - namespace: app-115
     service: tempo
-    local_port: 3200
+    local_port: 3201
     remote_port: 3200
 
 before_test: |
