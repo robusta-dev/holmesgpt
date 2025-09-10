@@ -379,7 +379,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-        metadata = {}
+        metadata: Dict[Any, Any] = {}
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -832,7 +832,7 @@ class ToolCallingLLM:
         )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
-        metadata = {}
+        metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
 
