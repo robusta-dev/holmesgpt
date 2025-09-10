@@ -35,7 +35,7 @@ def test_api_chat_all_fields(
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "What can you do?"},
         ],
-        metadata={}
+        metadata={},
     )
     mock_create_toolcalling_llm.return_value = mock_ai
 
@@ -105,7 +105,7 @@ def test_api_issue_chat_all_fields(
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "I have an issue with my deployment."},
         ],
-        metadata={}
+        metadata={},
     )
     mock_create_toolcalling_llm.return_value = mock_ai
 
@@ -168,7 +168,7 @@ def test_api_workload_health_chat(
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Check the workload health."},
         ],
-        metadata={}
+        metadata={},
     )
     mock_create_toolcalling_llm.return_value = mock_ai
 
@@ -236,7 +236,7 @@ def test_api_workload_health_check(
                 "result": {"status": "success", "data": "Workload is healthy"},
             }
         ],
-        metadata={}
+        metadata={},
     )
     mock_create_toolcalling_llm.return_value = mock_ai
 
