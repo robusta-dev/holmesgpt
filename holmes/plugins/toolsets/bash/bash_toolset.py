@@ -1,7 +1,7 @@
 import argparse
 import logging
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import sentry_sdk
 
@@ -10,7 +10,6 @@ from holmes.common.env_vars import (
     BASH_TOOL_UNSAFE_ALLOW_ALL,
 )
 from holmes.core.tools import (
-    CallablePrerequisite,
     StructuredToolResult,
     Tool,
     ToolParameter,
@@ -19,16 +18,13 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.bash.common.bash import execute_bash_command
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
 class BaseBashExecutorToolset(Toolset):
-    config: Optional[BashExecutorConfig] = None
 
     def get_example_config(self):
-        example_config = BashExecutorConfig()
-        return example_config.model_dump()
+        return {}
 
 
 class BaseBashTool(Tool):
@@ -128,9 +124,9 @@ class BashExecutorToolset(BaseBashExecutorToolset):
                 "enabled and used with extreme caution due to significant security risks. "
                 "Ensure that only trusted users have access to this tool."
             ),
-            docs_url="",  # TODO: Add relevant documentation URL
+            docs_url="", # TODO: Add relevant documentation URL
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
-            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            prerequisites=[],
             tools=[RunBashCommand(self)],
             tags=[ToolsetTag.CORE],
             is_default=True,
@@ -143,10 +139,3 @@ class BashExecutorToolset(BaseBashExecutorToolset):
             os.path.join(os.path.dirname(__file__), "bash_instructions.jinja2")
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
-
-    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
-        if config:
-            self.config = BashExecutorConfig(**config)
-        else:
-            self.config = BashExecutorConfig()
-        return True, ""

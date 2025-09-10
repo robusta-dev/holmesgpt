@@ -171,6 +171,7 @@ nav:
           - AWS: data-sources/builtin-toolsets/aws.md
           - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
           - Azure SQL Database: data-sources/builtin-toolsets/azure-sql.md
+          - Bash: data-sources/builtin-toolsets/bash.md
           - Confluence: data-sources/builtin-toolsets/confluence.md
           - Coralogix logs: data-sources/builtin-toolsets/coralogix-logs.md
           - DataDog: data-sources/builtin-toolsets/datadog.md
@@ -183,6 +184,7 @@ nav:
           - Internet: data-sources/builtin-toolsets/internet.md
           - Kafka: data-sources/builtin-toolsets/kafka.md
           - Kubernetes: data-sources/builtin-toolsets/kubernetes.md
+          - Kubectl Run Image: data-sources/builtin-toolsets/kubectl-run-image.md
           - MongoDB Atlas: data-sources/builtin-toolsets/mongodb-atlas.md
           - New Relic: data-sources/builtin-toolsets/newrelic.md
           - Notion: data-sources/builtin-toolsets/notion.md

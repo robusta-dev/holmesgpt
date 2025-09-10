@@ -1,6 +1,5 @@
 from typing import Any, Optional
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.kubectl.constants import (
     SAFE_NAME_PATTERN,
     SAFE_NAMESPACE_PATTERN,
@@ -39,9 +38,7 @@ class KubectlCommand(BashCommand):
         for sub_command in self.sub_commands:
             sub_command.add_parser(action_subparsers)
 
-    def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         """
         Validate common kubectl command fields to prevent injection attacks.
         Raises ValueError if validation fails.
@@ -80,19 +77,16 @@ class KubectlCommand(BashCommand):
             for sub_command in self.sub_commands:
                 if command.action == sub_command.name:
                     if hasattr(sub_command, "validate_command"):
-                        sub_command.validate_command(command, original_command, config)
+                        sub_command.validate_command(command, original_command)
                     break
 
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         if command.cmd == "kubectl":
             for sub_command in self.sub_commands:
                 if command.action == sub_command.name:
                     return sub_command.stringify_command(
                         command=command,
                         original_command=original_command,
-                        config=config,
                     )
             raise ValueError(
                 f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"

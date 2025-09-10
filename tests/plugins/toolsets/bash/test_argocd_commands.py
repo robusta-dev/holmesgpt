@@ -8,7 +8,6 @@ These tests verify:
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 

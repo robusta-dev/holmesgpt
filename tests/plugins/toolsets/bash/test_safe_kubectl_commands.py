@@ -11,28 +11,7 @@ Covers kubectl commands.
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.config import (
-    BashExecutorConfig,
-    KubectlConfig,
-    KubectlImageConfig,
-)
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
-
-
-TEST_CONFIG = BashExecutorConfig(
-    kubectl=KubectlConfig(
-        allowed_images=[
-            KubectlImageConfig(
-                image="busybox",
-                allowed_commands=["cat /etc/resolv.conf", "nslookup .*"],
-            ),
-            KubectlImageConfig(
-                image="registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3",
-                allowed_commands=["cat /etc/resolv.conf"],
-            ),
-        ]
-    )
-)
 
 
 class TestKubectlIntegration:
@@ -317,7 +296,7 @@ class TestKubectlIntegration:
         ],
     )
     def test_kubectl_round_trip(self, input_command: str, expected_output: str):
-        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        output_command = make_command_safe(input_command)
         # print(f"* EXPECTED:\n{expected_output}")
         # print(f"* ACTUAL:\n{output_command}")
         assert output_command == expected_output
@@ -345,7 +324,7 @@ class TestShlexEscaping:
         self, input_command: str, expected_output: str
     ):
         """Test that complex parameters are safely handled by shlex escaping."""
-        output_command = make_command_safe(input_command, config=TEST_CONFIG)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
     def test_shlex_escaping_security(self):
@@ -358,7 +337,7 @@ class TestShlexEscaping:
         for cmd in dangerous_commands:
             # Should not raise an exception due to character validation
             try:
-                result = make_command_safe(cmd, config=TEST_CONFIG)
+                result = make_command_safe(cmd)
                 # Verify the dangerous parts are properly quoted in the output
                 assert ";" in result or "|" in result or "&" in result
             except ValueError as e:

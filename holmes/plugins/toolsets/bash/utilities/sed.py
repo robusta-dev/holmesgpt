@@ -3,7 +3,6 @@ import re
 from typing import Any, Optional
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 
 # Blocked sed commands for security
@@ -48,13 +47,13 @@ class SedCommand(BashCommand):
         return sed_parser
 
     def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+        self, command: Any, original_command: str
     ) -> None:
         if hasattr(command, "options") and command.options:
             validate_sed_options(command.options)
 
     def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+        self, command: Any, original_command: str
     ) -> str:
         parts = ["sed"]
 
