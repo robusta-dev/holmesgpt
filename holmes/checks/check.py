@@ -239,7 +239,11 @@ class CheckRunner:
 
         for name, dest_config in destinations.items():
             if name == "slack":
-                # Check Slack configuration
+                # If webhook URL is provided, no need to check for token/channel
+                if dest_config.webhook_url:
+                    continue
+
+                # Check Slack configuration for token-based approach
                 slack_token = self.config.slack_token
                 slack_channel = self.config.slack_channel
 
