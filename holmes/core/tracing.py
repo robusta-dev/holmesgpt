@@ -101,13 +101,18 @@ class SpanType(Enum):
 class DummySpan:
     """A no-op span implementation for when tracing is disabled."""
 
-    def start_span(self, name: str, span_type=None, **kwargs):
+    def start_span(self, name: Optional[str] = None, span_type=None, **kwargs):
         return DummySpan()
 
     def log(self, *args, **kwargs):
         pass
 
     def end(self):
+        pass
+
+    def set_attributes(
+        self, name: Optional[str] = None, type=None, span_attributes=None
+    ) -> None:
         pass
 
     def __enter__(self):

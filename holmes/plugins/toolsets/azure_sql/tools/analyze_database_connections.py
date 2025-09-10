@@ -151,7 +151,9 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             hours_back = params.get("hours_back", 2)
 

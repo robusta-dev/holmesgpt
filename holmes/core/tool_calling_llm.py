@@ -2,7 +2,8 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type, Union, Callable, Any
+
 
 import sentry_sdk
 from openai import BadRequestError
@@ -320,6 +321,9 @@ class ToolCallingLLM:
         self.max_steps = max_steps
         self.tracer = tracer
         self.llm = llm
+        self.approval_callback: Optional[
+            Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
+        ] = None
 
     def prompt_call(
         self,
@@ -507,20 +511,44 @@ class ToolCallingLLM:
             perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
+                futures_tool_numbers: dict[
+                    concurrent.futures.Future, Optional[int]
+                ] = {}
+                tool_number: Optional[int]
                 for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
-                    futures.append(
-                        executor.submit(
-                            self._invoke_tool,
-                            tool_to_call=t,
-                            previous_tool_calls=tool_calls,
-                            trace_span=trace_span,
-                            tool_number=tool_number_offset + tool_index,
-                        )
+                    tool_number = tool_number_offset + tool_index
+                    future = executor.submit(
+                        self._invoke_llm_tool_call,
+                        tool_to_call=t,
+                        previous_tool_calls=tool_calls,
+                        trace_span=trace_span,
+                        tool_number=tool_number,
                     )
+                    futures_tool_numbers[future] = tool_number
+                    futures.append(future)
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
+
+                    tool_number = (
+                        futures_tool_numbers[future]
+                        if future in futures_tool_numbers
+                        else None
+                    )
+
+                    if (
+                        tool_call_result.result.status
+                        == ToolResultStatus.APPROVAL_REQUIRED
+                    ):
+                        with trace_span.start_span(type="tool") as tool_span:
+                            tool_call_result = self._handle_tool_call_approval(
+                                tool_call_result=tool_call_result,
+                                tool_number=tool_number,
+                            )
+                            ToolCallingLLM._log_tool_call_result(
+                                tool_span, tool_call_result
+                            )
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
@@ -536,97 +564,28 @@ class ToolCallingLLM:
 
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
 
-    def _invoke_tool(
+    def _directly_invoke_tool_call(
         self,
-        tool_to_call: ChatCompletionMessageToolCall,
-        previous_tool_calls: list[dict],
-        trace_span=DummySpan(),
-        tool_number=None,
-    ) -> ToolCallResult:
-        # Handle the union type - ChatCompletionMessageToolCall can be either
-        # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
-        # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
-        # We use hasattr to check for the 'function' attribute as it's more flexible
-        # and doesn't require importing the specific type.
-        if hasattr(tool_to_call, "function"):
-            tool_name = tool_to_call.function.name
-            tool_arguments = tool_to_call.function.arguments
-        else:
-            # This is a custom tool call - we don't support these currently
-            logging.error(f"Unsupported custom tool call: {tool_to_call}")
-            return ToolCallResult(
-                tool_call_id=tool_to_call.id,
-                tool_name="unknown",
-                description="NA",
-                result=StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error="Custom tool calls are not supported",
-                    params=None,
-                ),
-            )
-
-        tool_params = None
-        try:
-            tool_params = json.loads(tool_arguments)
-        except Exception:
-            logging.warning(
-                f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
-            )
-        tool_call_id = tool_to_call.id
+        tool_name: str,
+        tool_params: dict,
+        user_approved: bool,
+        tool_number: Optional[int] = None,
+    ) -> StructuredToolResult:
         tool = self.tool_executor.get_tool_by_name(tool_name)
-
-        if (not tool) or (tool_params is None):
+        if not tool:
             logging.warning(
-                f"Skipping tool execution for {tool_name}: args: {tool_arguments}"
+                f"Skipping tool execution for {tool_name}: args: {tool_params}"
             )
-            return ToolCallResult(
-                tool_call_id=tool_call_id,
-                tool_name=tool_name,
-                description="NA",
-                result=StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Failed to find tool {tool_name}",
-                    params=tool_params,
-                ),
+            return StructuredToolResult(
+                status=ToolResultStatus.ERROR,
+                error=f"Failed to find tool {tool_name}",
+                params=tool_params,
             )
-
-        tool_response = None
-
-        # Create tool span if tracing is enabled
-        tool_span = trace_span.start_span(name=tool_name, type="tool")
 
         try:
-            tool_response = prevent_overly_repeated_tool_call(
-                tool_name=tool.name,
-                tool_params=tool_params,
-                tool_calls=previous_tool_calls,
+            tool_response = tool.invoke(
+                tool_params, tool_number=tool_number, user_approved=user_approved
             )
-            if not tool_response:
-                tool_response = tool.invoke(tool_params, tool_number=tool_number)
-
-            if not isinstance(tool_response, StructuredToolResult):
-                # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
-                logging.error(
-                    f"Tool {tool.name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
-                )
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
-                    data=tool_response,
-                    params=tool_params,
-                )
-
-            # Log tool execution to trace span
-            tool_span.log(
-                input=tool_params,
-                output=tool_response.data,
-                metadata={
-                    "status": tool_response.status.value,
-                    "error": tool_response.error,
-                    "description": tool.get_parameterized_one_liner(tool_params),
-                    "structured_tool_result": tool_response,
-                },
-            )
-
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -636,20 +595,157 @@ class ToolCallingLLM:
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
+        return tool_response
 
-            # Log error to trace span
-            tool_span.log(
-                input=tool_params, output=str(e), metadata={"status": "ERROR"}
+    def _get_tool_call_result(
+        self,
+        tool_call_id: str,
+        tool_name: str,
+        tool_arguments: str,
+        previous_tool_calls: list[dict],
+        tool_number: Optional[int] = None,
+    ) -> ToolCallResult:
+        tool_params = {}
+        try:
+            tool_params = json.loads(tool_arguments)
+        except Exception:
+            logging.warning(
+                f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
-        finally:
-            # End tool span
-            tool_span.end()
+
+        tool_response = prevent_overly_repeated_tool_call(
+            tool_name=tool_name,
+            tool_params=tool_params,
+            tool_calls=previous_tool_calls,
+        )
+
+        if not tool_response:
+            tool_response = self._directly_invoke_tool_call(
+                tool_name=tool_name,
+                tool_params=tool_params,
+                user_approved=False,
+                tool_number=tool_number,
+            )
+
+        if not isinstance(tool_response, StructuredToolResult):
+            # Should never be needed but ensure Holmes does not crash if one of the tools does not return the right type
+            logging.error(
+                f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
+            )
+            tool_response = StructuredToolResult(
+                status=ToolResultStatus.SUCCESS,
+                data=tool_response,
+                params=tool_params,
+            )
+
+        tool = self.tool_executor.get_tool_by_name(tool_name)
+
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
-            description=tool.get_parameterized_one_liner(tool_params),
+            description=tool.get_parameterized_one_liner(tool_params) if tool else "",
             result=tool_response,
         )
+
+    @staticmethod
+    def _log_tool_call_result(tool_span, tool_call_result: ToolCallResult):
+        tool_span.set_attributes(name=tool_call_result.tool_name)
+        tool_span.log(
+            input=tool_call_result.result.params,
+            output=tool_call_result.result.data,
+            error=tool_call_result.result.error,
+            metadata={
+                "status": tool_call_result.result.status,
+                "description": tool_call_result.description,
+            },
+        )
+
+    def _invoke_llm_tool_call(
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
+        trace_span=None,
+        tool_number=None,
+    ) -> ToolCallResult:
+        if trace_span is None:
+            trace_span = DummySpan()
+        with trace_span.start_span(type="tool") as tool_span:
+            if not hasattr(tool_to_call, "function"):
+                # Handle the union type - ChatCompletionMessageToolCall can be either
+                # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
+                # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
+                # We use hasattr to check for the 'function' attribute as it's more flexible
+                # and doesn't require importing the specific type.
+                tool_name = "Unknown_Custom_Tool"
+                logging.error(f"Unsupported custom tool call: {tool_to_call}")
+                tool_call_result = ToolCallResult(
+                    tool_call_id=tool_to_call.id,
+                    tool_name=tool_name,
+                    description="NA",
+                    result=StructuredToolResult(
+                        status=ToolResultStatus.ERROR,
+                        error="Custom tool calls are not supported",
+                        params=None,
+                    ),
+                )
+            else:
+                tool_name = tool_to_call.function.name
+                tool_arguments = tool_to_call.function.arguments
+                tool_id = tool_to_call.id
+                tool_call_result = self._get_tool_call_result(
+                    tool_id,
+                    tool_name,
+                    tool_arguments,
+                    previous_tool_calls=previous_tool_calls,
+                    tool_number=tool_number,
+                )
+            ToolCallingLLM._log_tool_call_result(tool_span, tool_call_result)
+            return tool_call_result
+
+    def _handle_tool_call_approval(
+        self,
+        tool_call_result: ToolCallResult,
+        tool_number: Optional[int],
+    ) -> ToolCallResult:
+        """
+        Handle approval for a single tool call if required.
+
+        Args:
+            tool_call_result: A single tool call result that may require approval
+            tool_number: The tool call number
+
+        Returns:
+            Updated tool call result with approved/denied status
+        """
+
+        # If no approval callback, convert to ERROR because it is assumed the client may not be able to handle approvals
+        if not self.approval_callback:
+            tool_call_result.result.status = ToolResultStatus.ERROR
+            return tool_call_result
+
+        # Get approval from user
+        approved, feedback = self.approval_callback(tool_call_result.result)
+
+        if approved:
+            logging.debug(
+                f"User approved command: {tool_call_result.result.invocation}"
+            )
+            new_response = self._directly_invoke_tool_call(
+                tool_name=tool_call_result.tool_name,
+                tool_params=tool_call_result.result.params or {},
+                user_approved=True,
+                tool_number=tool_number,
+            )
+            tool_call_result.result = new_response
+        else:
+            # User denied - update to error
+            feedback_text = f" User feedback: {feedback}" if feedback else ""
+            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.error = (
+                f"User denied command execution.{feedback_text}"
+            )
+
+        return tool_call_result
 
     @staticmethod
     def __load_post_processing_user_prompt(
@@ -840,15 +936,15 @@ class ToolCallingLLM:
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
-                    futures.append(
-                        executor.submit(
-                            self._invoke_tool,
-                            tool_to_call=t,  # type: ignore
-                            previous_tool_calls=tool_calls,
-                            trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
-                            tool_number=tool_number_offset + tool_index,
-                        )
+                    tool_number = tool_number_offset + tool_index
+                    future = executor.submit(
+                        self._invoke_llm_tool_call,
+                        tool_to_call=t,  # type: ignore
+                        previous_tool_calls=tool_calls,
+                        trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
+                        tool_number=tool_number,
                     )
+                    futures.append(future)
                     yield StreamMessage(
                         event=StreamEvents.START_TOOL,
                         data={"tool_name": t.function.name, "id": t.id},
