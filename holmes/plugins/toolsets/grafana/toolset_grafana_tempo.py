@@ -8,7 +8,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
@@ -219,7 +219,7 @@ Examples:
                 )
                 if invalid_params_error:
                     return StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
+                        status=StructuredToolResultStatus.ERROR,
                         error=invalid_params_error,
                         params=params,
                     )
@@ -258,7 +258,7 @@ Examples:
             traces = all_traces_response.get("traces", [])
             if not traces:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="No traces found matching the query",
                     params=params,
                 )
@@ -335,14 +335,14 @@ Examples:
 
             # Return as YAML for readability
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False, sort_keys=False),
                 params=params,
             )
 
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Error fetching traces: {str(e)}",
                 params=params,
             )
@@ -429,13 +429,13 @@ class SearchTracesByQuery(Tool):
                 spss=params.get("spss"),
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -513,13 +513,13 @@ class SearchTracesByTags(Tool):
                 spss=params.get("spss"),
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -575,13 +575,13 @@ class QueryTraceById(Tool):
 
             # Return raw trace data as YAML for readability
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(trace_data, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -653,13 +653,13 @@ class SearchTagNames(Tool):
                 max_stale_values=params.get("max_stale_values"),
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -731,13 +731,13 @@ class SearchTagValues(Tool):
                 max_stale_values=params.get("max_stale_values"),
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -808,13 +808,13 @@ class QueryMetricsInstant(Tool):
                 end=end,
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -906,13 +906,13 @@ class QueryMetricsRange(Tool):
                 exemplars=params.get("exemplars"),
             )
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=yaml.dump(result, default_flow_style=False),
                 params=params,
             )
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )

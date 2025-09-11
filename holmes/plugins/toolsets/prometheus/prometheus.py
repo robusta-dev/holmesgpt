@@ -17,7 +17,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -496,13 +496,13 @@ class ListPrometheusRules(BasePrometheusTool):
     ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
                 params=params,
             )
         if self.toolset.config.is_amp():
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Tool not supported in AMP",
                 params=params,
             )
@@ -515,7 +515,7 @@ class ListPrometheusRules(BasePrometheusTool):
                     logging.debug("rules returned from cache")
 
                     return StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS,
+                        status=StructuredToolResultStatus.SUCCESS,
                         data=cached_rules,
                         params=params,
                     )
@@ -539,28 +539,28 @@ class ListPrometheusRules(BasePrometheusTool):
             if self._cache:
                 self._cache.set(PROMETHEUS_RULES_CACHE_KEY, data)
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=data,
                 params=params,
             )
         except requests.Timeout:
             logging.warning("Timeout while fetching prometheus rules", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Request timed out while fetching rules",
                 params=params,
             )
         except RequestException as e:
             logging.warning("Failed to fetch prometheus rules", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Network error while fetching rules: {str(e)}",
                 params=params,
             )
         except Exception as e:
             logging.warning("Failed to process prometheus rules", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -595,7 +595,7 @@ class ListAvailableMetrics(BasePrometheusTool):
     ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
                 params=params,
             )
@@ -612,7 +612,7 @@ class ListAvailableMetrics(BasePrometheusTool):
             name_filter = params.get("name_filter")
             if not name_filter:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error="Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing.",
                     params=params,
                 )
@@ -646,7 +646,7 @@ class ListAvailableMetrics(BasePrometheusTool):
 
             table_output = "\n".join(output)
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=table_output,
                 params=params,
             )
@@ -654,21 +654,21 @@ class ListAvailableMetrics(BasePrometheusTool):
         except requests.Timeout:
             logging.warn("Timeout while fetching prometheus metrics", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Request timed out while fetching metrics",
                 params=params,
             )
         except RequestException as e:
             logging.warn("Failed to fetch prometheus metrics", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Network error while fetching metrics: {str(e)}",
                 params=params,
             )
         except Exception as e:
             logging.warn("Failed to process prometheus metrics", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -703,7 +703,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
     ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
                 params=params,
             )
@@ -748,7 +748,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
 
                 data_str = json.dumps(response_data, indent=2)
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=data_str,
                     params=params,
                 )
@@ -764,14 +764,14 @@ class ExecuteInstantQuery(BasePrometheusTool):
                 except json.JSONDecodeError:
                     pass
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
                     params=params,
                 )
 
             # For other status codes, just return the status code and content
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
@@ -779,14 +779,14 @@ class ExecuteInstantQuery(BasePrometheusTool):
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Connection error to Prometheus: {str(e)}",
                 params=params,
             )
         except Exception as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error executing query: {str(e)}",
                 params=params,
             )
@@ -843,7 +843,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
     ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Prometheus is not configured. Prometheus URL is missing",
                 params=params,
             )
@@ -911,7 +911,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 data_str = json.dumps(response_data, indent=2)
 
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=data_str,
                     params=params,
                 )
@@ -926,13 +926,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 except json.JSONDecodeError:
                     pass
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Query execution failed. HTTP {response.status_code}: {error_msg}",
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Query execution failed with unexpected status code: {response.status_code}. Response: {str(response.content)}",
                 params=params,
             )
@@ -940,14 +940,14 @@ class ExecuteRangeQuery(BasePrometheusTool):
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Connection error to Prometheus: {str(e)}",
                 params=params,
             )
         except Exception as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error executing query: {str(e)}",
                 params=params,
             )

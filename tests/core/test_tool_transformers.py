@@ -11,7 +11,7 @@ from holmes.core.tools import (
     YAMLToolset,
     ToolsetYamlFromConfig,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.core.transformers import (
     registry,
@@ -204,7 +204,7 @@ class TestToolValidationIntegration:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output",
                 )
 
@@ -235,7 +235,7 @@ class TestToolValidationIntegration:
 
         # Tool should still work despite invalid transformer
         result = tool.invoke({})
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
     def test_yaml_tool_validation(self):
         """Test YAMLTool transformer validation."""
@@ -323,7 +323,7 @@ class TestToolExecutionPipeline:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="This is a long test output that should be transformed",
                 )
 
@@ -337,7 +337,7 @@ class TestToolExecutionPipeline:
         result = tool.invoke({})
 
         # Should have applied transformation
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data is not None
         assert "mock_transformed:" in result.data
         assert "This is a long test output that should be transformed" in result.data
@@ -351,7 +351,7 @@ class TestToolExecutionPipeline:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error="Tool execution failed",
                     data="Some error output",
                 )
@@ -366,7 +366,7 @@ class TestToolExecutionPipeline:
         result = tool.invoke({})
 
         # Should not have applied transformation due to error status
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "mock_transformed:" not in str(result.data)
         assert result.data == "Some error output"
 
@@ -378,7 +378,9 @@ class TestToolExecutionPipeline:
             def _invoke(
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
-                return StructuredToolResult(status=ToolResultStatus.NO_DATA, data="")
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.NO_DATA, data=""
+                )
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
                 return "test command"
@@ -390,7 +392,7 @@ class TestToolExecutionPipeline:
         result = tool.invoke({})
 
         # Should not have applied transformation due to empty data
-        assert result.status == ToolResultStatus.NO_DATA
+        assert result.status == StructuredToolResultStatus.NO_DATA
         assert result.data == ""
 
     def test_transformer_failure_handling(self):
@@ -418,7 +420,7 @@ class TestToolExecutionPipeline:
                     self, params: Dict, user_approved: bool = False
                 ) -> StructuredToolResult:
                     return StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS, data="Test output"
+                        status=StructuredToolResultStatus.SUCCESS, data="Test output"
                     )
 
                 def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -434,7 +436,7 @@ class TestToolExecutionPipeline:
                 result = tool.invoke({})
 
                 # Should return original data when transformer fails
-                assert result.status == ToolResultStatus.SUCCESS
+                assert result.status == StructuredToolResultStatus.SUCCESS
                 assert result.data == "Test output"
 
                 # Should log warning about transformer failure
@@ -474,7 +476,7 @@ class TestToolExecutionPipeline:
                     self, params: Dict, user_approved: bool = False
                 ) -> StructuredToolResult:
                     return StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS,
+                        status=StructuredToolResultStatus.SUCCESS,
                         data="Original text that should be transformed twice",
                     )
 
@@ -490,7 +492,7 @@ class TestToolExecutionPipeline:
             result = tool.invoke({})
 
             # Should have applied both transformations in sequence
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert result.data is not None
             assert "second_transformed:" in result.data
             assert "mock_transformed:" in result.data
@@ -525,7 +527,7 @@ class TestToolExecutionPipeline:
                 ) -> StructuredToolResult:
                     data = params.get("data", "short")
                     return StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS, data=data
+                        status=StructuredToolResultStatus.SUCCESS, data=data
                     )
 
                 def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -565,7 +567,7 @@ class TestToolExecutionPipeline:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output to transform",
                     url="http://example.com",
                     invocation="test command",
@@ -587,7 +589,7 @@ class TestToolExecutionPipeline:
         assert "mock_transformed:" in result.data
 
         # Other fields should be preserved
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.url == "http://example.com"
         assert result.invocation == "test command"
         assert result.params == {"test": "param"}
@@ -602,7 +604,7 @@ class TestToolExecutionPipeline:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output that will be transformed for performance measurement",
                 )
 
@@ -636,7 +638,7 @@ class TestToolExecutionPipeline:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output without transformation",
                 )
 
@@ -652,7 +654,7 @@ class TestToolExecutionPipeline:
         result = tool.invoke({})
 
         # Should return unchanged result
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data == "Test output without transformation"
 
 
@@ -680,7 +682,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output for transformation",
                 )
 
@@ -711,7 +713,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output for transformation",
                 )
 
@@ -748,7 +750,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output without transformers",
                 )
 
@@ -767,7 +769,7 @@ class TestTransformerCachingOptimization:
 
         # Verify tool still works correctly
         result = tool.invoke({})
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data == "Test output without transformers"
 
     def test_transformer_initialization_failure_handling(self):
@@ -784,7 +786,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output for transformation",
                 )
 
@@ -813,7 +815,7 @@ class TestTransformerCachingOptimization:
 
         # Verify tool still works with the successful transformer
         result = tool.invoke({})
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "mock_transformed:" in result.data
 
     def test_transformer_initialization_empty_transformers_list(self):
@@ -825,7 +827,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output",
                 )
 
@@ -841,7 +843,7 @@ class TestTransformerCachingOptimization:
 
         # Tool should still work correctly
         result = tool.invoke({})
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data == "Test output"
 
     def test_performance_optimization_prevents_recreation(self):
@@ -853,7 +855,7 @@ class TestTransformerCachingOptimization:
                 self, params: Dict, user_approved: bool = False
             ) -> StructuredToolResult:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="Test output for transformation",
                 )
 

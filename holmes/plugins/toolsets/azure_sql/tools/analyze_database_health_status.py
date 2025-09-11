@@ -2,7 +2,7 @@ import logging
 from typing import Dict
 from datetime import datetime, timezone
 
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLTool,
     BaseAzureSQLToolset,
@@ -145,7 +145,7 @@ class AnalyzeDatabaseHealthStatus(BaseAzureSQLTool):
             report_text = self._build_health_report(health_data, db_config)
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=report_text,
                 params=params,
             )
@@ -153,7 +153,7 @@ class AnalyzeDatabaseHealthStatus(BaseAzureSQLTool):
             error_msg = f"Failed to generate health report: {str(e)}"
             logging.error(error_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
             )
