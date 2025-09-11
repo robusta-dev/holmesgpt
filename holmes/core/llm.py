@@ -162,24 +162,20 @@ class DefaultLLM(LLM):
                 f"model {model} requires the following environment variables: {model_requirements['missing_keys']}"
             )
 
-    def _strip_model_prefix(self) -> str:
+    def _get_model_name_variants_for_lookup(self) -> list[str]:
         """
-        Helper function to strip 'openai/' prefix from model name if it exists.
-        model cost is taken from here which does not have the openai prefix
-        https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+        Generate model name variants to try when looking up in litellm.model_cost.
+        Returns a list of names to try in order: exact, lowercase, without prefix, etc.
         """
-        model_name = self.model
-        prefixes = ["openai/", "bedrock/", "vertex_ai/", "anthropic/"]
+        names_to_try = [self.model, self.model.lower()]
 
-        for prefix in prefixes:
-            if model_name.startswith(prefix):
-                return model_name[len(prefix) :]
+        # If there's a prefix, also try without it
+        if "/" in self.model:
+            base_model = self.model.split("/", 1)[1]
+            names_to_try.extend([base_model, base_model.lower()])
 
-        return model_name
-
-        # this unfortunately does not seem to work for azure if the deployment name is not a well-known model name
-        # if not litellm.supports_function_calling(model=model):
-        #    raise Exception(f"model {model} does not support function calling. You must use HolmesGPT with a model that supports function calling.")
+        # Remove duplicates while preserving order (dict.fromkeys maintains insertion order in Python 3.7+)
+        return list(dict.fromkeys(names_to_try))
 
     def get_context_window_size(self) -> int:
         if OVERRIDE_MAX_CONTENT_SIZE:
@@ -188,14 +184,20 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_CONTENT_SIZE
 
-        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
-        try:
-            return litellm.model_cost[model_name]["max_input_tokens"]
-        except Exception:
-            logging.warning(
-                f"Couldn't find model's name {model_name} in litellm's model list, fallback to 128k tokens for max_input_tokens"
-            )
-            return 128000
+        # Try each name variant
+        for name in self._get_model_name_variants_for_lookup():
+            try:
+                return litellm.model_cost[name]["max_input_tokens"]
+            except Exception:
+                continue
+
+        # Log which lookups we tried
+        logging.warning(
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
+            f"using default 128k tokens for max_input_tokens. "
+            f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
+        )
+        return 128000
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
@@ -289,14 +291,20 @@ class DefaultLLM(LLM):
             )
             return OVERRIDE_MAX_OUTPUT_TOKEN
 
-        model_name = os.environ.get("MODEL_TYPE", self._strip_model_prefix())
-        try:
-            return litellm.model_cost[model_name]["max_output_tokens"]
-        except Exception:
-            logging.warning(
-                f"Couldn't find model's name {model_name} in litellm's model list, fallback to 4096 tokens for max_output_tokens"
-            )
-            return 4096
+        # Try each name variant
+        for name in self._get_model_name_variants_for_lookup():
+            try:
+                return litellm.model_cost[name]["max_output_tokens"]
+            except Exception:
+                continue
+
+        # Log which lookups we tried
+        logging.warning(
+            f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
+            f"using default 4096 tokens for max_output_tokens. "
+            f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
+        )
+        return 4096
 
     def _add_cache_control_to_last_message(
         self, messages: List[Dict[str, Any]]
