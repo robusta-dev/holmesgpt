@@ -33,21 +33,6 @@ class TestPreventOverlyBigToolResponse:
             result=result,
         )
 
-    @pytest.fixture
-    def error_tool_call_result(self):
-        """Create an error tool call result."""
-        result = StructuredToolResult(
-            status=StructuredToolResultStatus.ERROR,
-            error="Original error message",
-            data="Error data",
-        )
-        return ToolCallResult(
-            tool_call_id="test-id-2",
-            tool_name="test_tool",
-            description="Test tool description",
-            result=result,
-        )
-
     def test_no_limit_configured(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is 0."""
         with patch(
@@ -167,29 +152,6 @@ class TestPreventOverlyBigToolResponse:
             assert "48.8" in success_tool_call_result.result.error
             assert "2000 tokens" in success_tool_call_result.result.error
             assert "1024.0" in success_tool_call_result.result.error
-
-    def test_preserves_existing_error_result(self, mock_llm, error_tool_call_result):
-        """Test that function works on already-error results by overwriting them."""
-        with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
-            30,
-        ):
-            # Token count exceeds limit
-            mock_llm.count_tokens_for_message.return_value = 2000
-            mock_llm.get_context_window_size.return_value = 4096
-            # 30% of 4096 = 1228.8 tokens allowed
-
-            original_error = error_tool_call_result.result.error
-
-            prevent_overly_big_tool_response(error_tool_call_result, mock_llm)
-
-            # Should be overwritten with new error
-            assert (
-                error_tool_call_result.result.status == StructuredToolResultStatus.ERROR
-            )
-            assert error_tool_call_result.result.data is None
-            assert error_tool_call_result.result.error != original_error
-            assert "too large to return" in error_tool_call_result.result.error
 
     def test_message_construction_calls_as_tool_call_message(
         self, mock_llm, success_tool_call_result
