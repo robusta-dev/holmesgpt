@@ -37,6 +37,7 @@ from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
@@ -54,6 +55,9 @@ from holmes.utils.stream import StreamEvents, StreamMessage
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
+
+
+TRUNCATION_NOTICE = "\n\n[TRUNCATED]"
 
 
 class LLMCosts(BaseModel):
@@ -189,44 +193,45 @@ def truncate_messages_to_fit_context(
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            truncation_notice = "\n\n[TRUNCATED]"
-            # Ensure the indicator fits in the allocated space
-            if allocated_space > len(truncation_notice):
-                original = (
-                    msg["content"]
-                    if isinstance(msg["content"], str)
-                    else str(msg["content"])
-                )
-                msg["content"] = (
-                    original[: allocated_space - len(truncation_notice)]
-                    + truncation_notice
-                )
-                truncations.append(
-                    TruncationMetadata(
-                        tool_call_id=msg.get("tool_call_id"),
-                        start_index=0,
-                        end_index=allocated_space - len(truncation_notice),
-                    )
-                )
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
-                )
-            else:
-                msg["content"] = truncation_notice[:allocated_space]
-                truncations.append(
-                    TruncationMetadata(
-                        tool_call_id=msg.get("tool_call_id"),
-                        start_index=0,
-                        end_index=allocated_space,
-                    )
-                )
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-                )
-            msg.pop("token_count", None)  # Remove token_count if present
+            truncation_metadata = _truncate_tool_message(
+                msg, allocated_space, needed_space
+            )
+            truncations.append(truncation_metadata)
 
         remaining_space -= allocated_space
     return TruncationResult(truncated_messages=messages, truncations=truncations)
+
+
+def _truncate_tool_message(
+    msg: dict, allocated_space: int, needed_space: int
+) -> TruncationMetadata:
+    msg_content = msg["content"]
+    tool_call_id = msg["tool_call_id"]
+    tool_name = msg["name"]
+
+    # Ensure the indicator fits in the allocated space
+    if allocated_space > len(TRUNCATION_NOTICE):
+        original = msg_content if isinstance(msg_content, str) else str(msg_content)
+        msg["content"] = (
+            original[: allocated_space - len(TRUNCATION_NOTICE)] + TRUNCATION_NOTICE
+        )
+        end_index = allocated_space - len(TRUNCATION_NOTICE)
+    else:
+        msg["content"] = TRUNCATION_NOTICE[:allocated_space]
+        end_index = allocated_space
+
+    msg.pop("token_count", None)  # Remove token_count if present
+    logging.info(
+        f"Truncating tool message '{tool_name}' from {needed_space} to {allocated_space} tokens"
+    )
+    truncation_metadata = TruncationMetadata(
+        tool_call_id=tool_call_id,
+        start_index=0,
+        end_index=end_index,
+        tool_name=tool_name,
+        original_token_count=needed_space,
+    )
+    return truncation_metadata
 
 
 class LLMResult(LLMCosts):
@@ -381,6 +386,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -738,12 +744,15 @@ class ToolCallingLLM:
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
     ) -> TruncationResult:
-        return truncate_messages_to_fit_context(
+        truncated_res = truncate_messages_to_fit_context(
             messages,
             max_context_size,
             maximum_output_token,
             self.llm.count_tokens_for_message,
         )
+        if truncated_res.truncations:
+            sentry_helper.capture_tool_truncations(truncated_res.truncations)
+        return truncated_res
 
     def call_stream(
         self,
@@ -841,6 +850,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue

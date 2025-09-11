@@ -9,6 +9,8 @@ class TruncationMetadata(BaseModel):
     tool_call_id: str
     start_index: int
     end_index: int
+    tool_name: str
+    original_token_count: int
 
 
 class TruncationResult(BaseModel):
