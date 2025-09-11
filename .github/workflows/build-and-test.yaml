@@ -24,7 +24,7 @@ jobs:
           virtualenvs-path: .venv
           installer-parallel: true
       - name: Install dependencies
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-interaction --no-root --with dev
       - uses: pre-commit/action@v3.0.1
   build:
     needs: check
@@ -49,7 +49,7 @@ jobs:
 
           curl -sSL https://install.python-poetry.org | python3 - --version 1.4.0
           poetry config virtualenvs.create false
-          poetry install --no-root
+          poetry install --no-root --with dev
 
           sudo apt-get install -y binutils
           pyinstaller holmes_cli.py \
