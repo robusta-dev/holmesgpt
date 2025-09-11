@@ -62,6 +62,7 @@ def stream_investigate_formatter(
                         "sections": sections or {},
                         "analysis": text_response,
                         "instructions": runbooks or [],
+                        "metadata": message.data.get("metadata") or {},
                     },
                 )
             else:
@@ -83,6 +84,7 @@ def stream_chat_formatter(
                         "analysis": message.data.get("content"),
                         "conversation_history": message.data.get("messages"),
                         "follow_up_actions": followups,
+                        "metadata": message.data.get("metadata") or {},
                     },
                 )
             else:
