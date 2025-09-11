@@ -79,11 +79,21 @@ Configure HolmesGPT to use local models with Ollama.
     !!! note "Ollama Service"
         You'll need to deploy Ollama as a service in your cluster. The `OLLAMA_API_BASE` should point to your Ollama service endpoint.
 
-## Using CLI Parameters
+### Using Environment Variables
+
+```bash
+export OLLAMA_API_BASE="http://localhost:11434"
+export MODEL="ollama_chat/<your-ollama-model>"
+holmes ask "what pods are failing?"
+```
+
+
+### Using CLI Parameters
 
 You can also specify the model directly as a command-line parameter:
 
 ```bash
+export OLLAMA_API_BASE="http://localhost:11434"
 holmes ask "what pods are failing?" --model="ollama_chat/<your-ollama-model>"
 ```
 

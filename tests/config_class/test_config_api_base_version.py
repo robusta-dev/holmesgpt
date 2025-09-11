@@ -68,14 +68,15 @@ def test_config_get_llm_with_model_list_api_base_version(monkeypatch, tmp_path):
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
-    config = Config(model="test-model")
+    config = Config()
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
         mock_default_llm.return_value = mock_llm_instance
-
         result = config._get_llm("test-model")
 
         mock_default_llm.assert_called_once_with(
@@ -102,11 +103,11 @@ def test_config_get_llm_model_list_overrides_config_values(monkeypatch, tmp_path
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
-
-    config = Config(
-        model="test-model", api_base="https://config.api.base", api_version="2023-01-01"
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
     )
+
+    config = Config(api_base="https://config.api.base", api_version="2023-01-01")
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -137,11 +138,11 @@ def test_config_get_llm_model_list_defaults_to_config_values(monkeypatch, tmp_pa
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
-
-    config = Config(
-        model="test-model", api_base="https://config.api.base", api_version="2023-01-01"
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
     )
+
+    config = Config(api_base="https://config.api.base", api_version="2023-01-01")
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -181,13 +182,15 @@ def test_config_get_llm_with_non_none_model_list_first_model_fallback(
         },
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config()
 
     # Verify _model_list is not None after initialization
-    assert config._model_list is not None
-    assert len(config._model_list) == 2
+    assert config.llm_model_registry is not None
+    assert len(config.llm_model_registry.models) == 2
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -232,17 +235,18 @@ def test_config_get_llm_with_specific_model_from_model_list(monkeypatch, tmp_pat
         },
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config(
-        model="default-model",
         api_base="https://config.default.base",
         api_version="2023-01-01",
     )
 
     # Verify _model_list is not None after initialization
-    assert config._model_list is not None
-    assert len(config._model_list) == 3
+    assert config.llm_model_registry is not None
+    assert len(config.llm_model_registry.models) == 3
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
@@ -275,7 +279,9 @@ def test_config_get_llm_with_base_url_only(monkeypatch, tmp_path):
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config()
 
@@ -310,7 +316,9 @@ def test_config_get_llm_api_base_overrides_base_url(monkeypatch, tmp_path):
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config()
 
@@ -346,7 +354,9 @@ def test_config_get_llm_neither_api_base_nor_base_url_uses_config(
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config(api_base="https://config.fallback.base")
 
@@ -382,7 +392,9 @@ def test_config_get_llm_both_params_popped_from_model_params(monkeypatch, tmp_pa
         }
     }
     temp_config_file.write_text(yaml.dump(data))
-    monkeypatch.setattr("holmes.config.MODEL_LIST_FILE_LOCATION", str(temp_config_file))
+    monkeypatch.setattr(
+        "holmes.core.llm.MODEL_LIST_FILE_LOCATION", str(temp_config_file)
+    )
 
     config = Config()
 
