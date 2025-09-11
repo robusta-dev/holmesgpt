@@ -21,7 +21,7 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
             relative_pct = (
                 (messages_token - max_tokens_allowed) / messages_token
             ) * 100
-            error_message = f"The tool call result is too large to return: {messages_token} tokens.\nThe maximum allowed tokens is {max_tokens_allowed} which is {format(relative_pct, '.1f')} smaller.\nInstructions for the LLM: try to repeat the query but proactively narrow down the result so that the tool answer fits within the allowed number of tokens."
+            error_message = f"The tool call result is too large to return: {messages_token} tokens.\nThe maximum allowed tokens is {max_tokens_allowed} which is {format(relative_pct, '.1f')}% smaller.\nInstructions for the LLM: try to repeat the query but proactively narrow down the result so that the tool answer fits within the allowed number of tokens."
             tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.data = None
             tool_call_result.result.error = error_message
