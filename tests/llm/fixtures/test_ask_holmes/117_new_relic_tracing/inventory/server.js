@@ -1,6 +1,9 @@
 // Node 18+
-import express from "express";
-import pino from "pino";
+// NOTE: Using CommonJS instead of ES modules due to New Relic Kubernetes operator limitations.
+// The operator currently injects instrumentation using --require which only works with CommonJS.
+// ES modules would need --loader/--experimental-loader support which is not yet available.
+const express = require("express");
+const pino = require("pino");
 
 const PORT = process.env.PORT || 7000;
 const level = process.env.LOG_LEVEL || (process.env.LOG === "1" ? "info" : "silent");
@@ -10,12 +13,12 @@ const app = express();
 app.use(express.json());
 
 // Health check
-app.get("/healthz", (req, res) => {
+app.get("/healthz", function healthCheck(req, res) {
   res.json({ ok: true, service: "inventory" });
 });
 
 // Inventory check endpoint
-app.post("/inventory/check", (req, res) => {
+app.post("/inventory/check", function inventoryCheck(req, res) {
   const { itemId = "sku-1", qty = 1 } = req.body;
   const available = Number(qty) <= 5;
   log.info({ itemId, qty, available }, "inventory.check");

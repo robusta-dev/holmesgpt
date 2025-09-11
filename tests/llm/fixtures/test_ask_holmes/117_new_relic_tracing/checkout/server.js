@@ -1,10 +1,11 @@
 // Node 18+
-import express from "express";
-import crypto from "node:crypto";
-import pino from "pino";
-import pkg from "pg";
-
-const { Pool } = pkg;
+// NOTE: Using CommonJS instead of ES modules due to New Relic Kubernetes operator limitations.
+// The operator currently injects instrumentation using --require which only works with CommonJS.
+// ES modules would need --loader/--experimental-loader support which is not yet available.
+const express = require("express");
+const crypto = require("node:crypto");
+const pino = require("pino");
+const { Pool } = require("pg");
 
 // ----- config -----
 const PORT = process.env.PORT || 3000;
@@ -50,12 +51,12 @@ const app = express();
 app.use(express.json());
 
 // Health check
-app.get("/healthz", (req, res) => {
+app.get("/healthz", function healthCheck(req, res) {
   res.json({ ok: true, service: "checkout" });
 });
 
 // Main order processing endpoint
-app.post("/orders", async (req, res) => {
+app.post("/orders", async function processOrder(req, res) {
   try {
     const body = req.body;
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
