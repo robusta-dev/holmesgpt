@@ -1,0 +1,26 @@
+description: |
+  This demo environment in the app-117 namespace runs three microservices—checkout (Node.js),
+  inventory (Node.js), and risk (Python/Flask)—alongside a Postgres 16 database with an orders table.
+  Checkout orchestrates requests by calling Inventory for stock checks, Risk for fraud scoring,
+  and then writing to Postgres before replying to the client. Each service exposes a /healthz endpoint,
+  logs via standard libraries, and is labeled for New Relic auto-instrumentation, so traces stitch
+  across all components.
+
+user_prompt:
+- "N/A"
+
+expected_output:
+  - N/A
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+  - newrelic
+
+before_test: |
+  ./setup.sh
+
+after_test: |
+  kubectl delete namespace app-117 || true

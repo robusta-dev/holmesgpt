@@ -1,0 +1,8 @@
+{
+  "name": "checkout",
+  "version": "1.0.1",
+  "type": "module",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "pino": "^9.0.0" },
+  "engines": { "node": ">=18" }
+}
