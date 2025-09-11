@@ -330,7 +330,7 @@ class TestQueryMetricsRange:
             result = tool._invoke(
                 {
                     "q": '{ service.name="api" } | rate()',
-                    "step": "5m",
+                    "step": "8m",
                 }
             )
 
@@ -338,7 +338,7 @@ class TestQueryMetricsRange:
             assert "result" in result.data
             mock_query.assert_called_once_with(
                 q='{ service.name="api" } | rate()',
-                step="5m",
+                step="8m",
                 start=ANY,
                 end=ANY,
                 exemplars=None,
@@ -549,9 +549,9 @@ class TestQueryMetricsRangeWithStepAdjustment:
 
             assert result.status == ToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 3600 seconds and MAX_GRAPH_POINTS=300, min step = ceil(3600/300) = 12
-            # The function should convert this to "12s"
-            assert kwargs["step"] == "12s"
+            # With 3600 seconds and MAX_GRAPH_POINTS=200, min step = ceil(3600/200) = 18
+            # The function should convert this to "18s"
+            assert kwargs["step"] == "18s"
 
     def test_metrics_range_with_small_step_gets_adjusted(self, tempo_toolset):
         """Test that a too-small step gets adjusted to prevent too many points."""
@@ -574,9 +574,9 @@ class TestQueryMetricsRangeWithStepAdjustment:
 
             assert result.status == ToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/300) = 288
-            # The function should adjust to "288s" = "4m48s"
-            assert kwargs["step"] == "4m48s"
+            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/200) = 432
+            # The function should adjust to "432s" = "7m12s"
+            assert kwargs["step"] == "7m12s"
 
     def test_metrics_range_with_large_step_unchanged(self, tempo_toolset):
         """Test that a sufficiently large step is not adjusted."""
@@ -632,8 +632,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
             # (start, end, input_step, expected_step)
             (1000000, 1000060, None, "1s"),  # 1 minute, no step -> "1s"
             (1000000, 1000060, "1", "1s"),  # 1 minute, 1s step -> "1s"
-            (1000000, 1003600, "10s", "12s"),  # 1 hour, 10s step -> adjusted to 12s
-            (1000000, 1604800, None, "33m36s"),  # 1 week, no step -> "33m36s"
+            (1000000, 1003600, "10s", "18s"),  # 1 hour, 10s step -> adjusted to 18s
+            (1000000, 1604800, None, "50m24s"),  # 1 week, no step -> "50m24s"
             (1000000, 1604800, "1h", "1h"),  # 1 week, 1h step -> remains "1h"
         ]
 

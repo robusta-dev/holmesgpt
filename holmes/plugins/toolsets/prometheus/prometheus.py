@@ -1186,13 +1186,8 @@ class PrometheusToolset(Toolset):
                     f"Failed to connect to Prometheus at {url}: HTTP {response.status_code}",
                 )
 
-        except RequestException:
-            return (
-                False,
-                f"Failed to initialize using url={url}",
-            )
         except Exception as e:
-            logging.exception("Failed to initialize Prometheus")
+            logging.exception("Failed to initialize Prometheus", exc_info=True)
             return (
                 False,
                 f"Failed to initialize using url={url}. Unexpected error: {str(e)}",
