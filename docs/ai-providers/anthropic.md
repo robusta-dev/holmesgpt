@@ -36,11 +36,6 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
 
     # Configure at least one model using modelList
     modelList:
-      claude-sonnet-35:
-        api_key: "{{ env.ANTHROPIC_API_KEY }}"
-        model: anthropic/claude-3-5-sonnet-20241022
-        temperature: 1
-
       claude-sonnet-4:
         api_key: "{{ env.ANTHROPIC_API_KEY }}"
         model: claude-sonnet-4-20250514
@@ -49,9 +44,14 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
           budget_tokens: 10000
           type: enabled
 
+      claude-opus-4:
+        api_key: "{{ env.ANTHROPIC_API_KEY }}"
+        model: anthropic/claude-opus-4-1-20250805
+        temperature: 1
+
     # Optional: Set default model (use modelList key name, not the model path)
     config:
-      model: "claude-sonnet-35"  # This refers to the key name in modelList above
+      model: "claude-sonnet-4"  # This refers to the key name in modelList above
     ```
 
 === "Robusta Helm Chart"
@@ -76,11 +76,6 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
 
       # Configure at least one model using modelList
       modelList:
-        claude-sonnet-35:
-          api_key: "{{ env.ANTHROPIC_API_KEY }}"
-          model: anthropic/claude-3-5-sonnet-20241022
-          temperature: 1
-
         claude-sonnet-4:
           api_key: "{{ env.ANTHROPIC_API_KEY }}"
           model: claude-sonnet-4-20250514
@@ -89,9 +84,14 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
             budget_tokens: 10000
             type: enabled
 
+        claude-opus-4:
+          api_key: "{{ env.ANTHROPIC_API_KEY }}"
+          model: anthropic/claude-opus-4-1-20250805
+          temperature: 1
+
       # Optional: Set default model (use modelList key name, not the model path)
       config:
-        model: "claude-sonnet-35"  # This refers to the key name in modelList above
+        model: "claude-sonnet-4"  # This refers to the key name in modelList above
     ```
 
 ## Using CLI Parameters

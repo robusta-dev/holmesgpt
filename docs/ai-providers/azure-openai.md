@@ -39,23 +39,23 @@ Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-ser
 
     # Configure at least one model using modelList
     modelList:
-      azure-gpt-4o:
+      azure-gpt-41:
         api_key: "{{ env.AZURE_API_KEY }}"
-        model: azure/gpt-4o
+        model: azure/gpt-4.1
         api_base: https://your-resource.openai.azure.com/
         api_version: "2025-01-01-preview"
         temperature: 0
 
       azure-gpt-5:
         api_key: "{{ env.AZURE_API_KEY }}"
-        model: azure/gpt-5-chat
+        model: azure/gpt-5
         api_base: https://your-resource.openai.azure.com/
         api_version: "2025-01-01-preview"
         temperature: 1
 
     # Optional: Set default model (use modelList key name, not the model path)
     config:
-      model: "azure-gpt-4o"  # This refers to the key name in modelList above
+      model: "azure-gpt-41"  # This refers to the key name in modelList above
     ```
 
 === "Robusta Helm Chart"
@@ -80,23 +80,23 @@ Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-ser
 
       # Configure at least one model using modelList
       modelList:
-        azure-gpt-4o:
+        azure-gpt-41:
           api_key: "{{ env.AZURE_API_KEY }}"
-          model: azure/gpt-4o
+          model: azure/gpt-4.1
           api_base: https://your-resource.openai.azure.com/
           api_version: "2025-01-01-preview"
           temperature: 0
 
         azure-gpt-5:
           api_key: "{{ env.AZURE_API_KEY }}"
-          model: azure/gpt-5-chat
+          model: azure/gpt-5
           api_base: https://your-resource.openai.azure.com/
           api_version: "2025-01-01-preview"
           temperature: 1
 
       # Optional: Set default model (use modelList key name, not the model path)
       config:
-        model: "azure-gpt-4o"  # This refers to the key name in modelList above
+        model: "azure-gpt-41"  # This refers to the key name in modelList above
     ```
 
 ## Using CLI Parameters
