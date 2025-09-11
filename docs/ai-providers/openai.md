@@ -82,9 +82,9 @@ Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do
 
       # Configure at least one model using modelList
       modelList:
-        gpt-4o:
+        gpt-4.1:
           api_key: "{{ env.OPENAI_API_KEY }}"
-          model: openai/gpt-4o
+          model: openai/gpt-4.1
           temperature: 0
 
         gpt-4o-mini:
@@ -100,8 +100,7 @@ Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do
 
       # Optional: Set default model (use modelList key name, not the model path)
       config:
-        model: "gpt-4o"  # This refers to the key name in modelList above
-    ```
+        model: "gpt-4.1"  # This refers to the key name in modelList above
 
 ## Using CLI Parameters
 
