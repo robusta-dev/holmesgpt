@@ -37,7 +37,7 @@ metadata:
   name: low-cpu-deployment
   namespace: app-159
 spec:
-  replicas: 10
+  replicas: 45
   selector:
     matchLabels:
       app: low-cpu
@@ -105,127 +105,127 @@ spec:
       limits:
         cpu: "500m"
         memory: "64Mi"
-# ---
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: z-cpu-heavy-2
-#   namespace: app-159
-#   labels:
-#     app: high-cpu
-#     test: high-cardinality
-#     cpu-consumer: "heavy"
-# spec:
-#   containers:
-#   - name: app
-#     image: alpine:latest
-#     command: ["/bin/sh"]
-#     args:
-#     - -c
-#     - |
-#       apk add --no-cache bc >/dev/null 2>&1
-#       # Heavy CPU usage - 75% load
-#       while true; do
-#         timeout 0.75s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-#         sleep 0.25
-#       done
-#     resources:
-#       requests:
-#         cpu: "50m"
-#         memory: "32Mi"
-#       limits:
-#         cpu: "500m"
-#         memory: "64Mi"
-# ---
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: z-cpu-heavy-3
-#   namespace: app-159
-#   labels:
-#     app: high-cpu
-#     test: high-cardinality
-#     cpu-consumer: "heavy"
-# spec:
-#   containers:
-#   - name: app
-#     image: alpine:latest
-#     command: ["/bin/sh"]
-#     args:
-#     - -c
-#     - |
-#       apk add --no-cache bc >/dev/null 2>&1
-#       # Heavy CPU usage - 70% load
-#       while true; do
-#         timeout 0.7s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-#         sleep 0.3
-#       done
-#     resources:
-#       requests:
-#         cpu: "50m"
-#         memory: "32Mi"
-#       limits:
-#         cpu: "500m"
-#         memory: "64Mi"
-# ---
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: z-cpu-heavy-4
-#   namespace: app-159
-#   labels:
-#     app: high-cpu
-#     test: high-cardinality
-#     cpu-consumer: "heavy"
-# spec:
-#   containers:
-#   - name: app
-#     image: alpine:latest
-#     command: ["/bin/sh"]
-#     args:
-#     - -c
-#     - |
-#       apk add --no-cache bc >/dev/null 2>&1
-#       # Heavy CPU usage - 65% load
-#       while true; do
-#         timeout 0.65s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-#         sleep 0.35
-#       done
-#     resources:
-#       requests:
-#         cpu: "50m"
-#         memory: "32Mi"
-#       limits:
-#         cpu: "500m"
-#         memory: "64Mi"
-# ---
-# apiVersion: v1
-# kind: Pod
-# metadata:
-#   name: z-cpu-heavy-5
-#   namespace: app-159
-#   labels:
-#     app: high-cpu
-#     test: high-cardinality
-#     cpu-consumer: "heavy"
-# spec:
-#   containers:
-#   - name: app
-#     image: alpine:latest
-#     command: ["/bin/sh"]
-#     args:
-#     - -c
-#     - |
-#       apk add --no-cache bc >/dev/null 2>&1
-#       # Heavy CPU usage - 60% load
-#       while true; do
-#         timeout 0.6s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-#         sleep 0.4
-#       done
-#     resources:
-#       requests:
-#         cpu: "50m"
-#         memory: "32Mi"
-#       limits:
-#         cpu: "500m"
-#         memory: "64Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: z-cpu-heavy-2
+  namespace: app-159
+  labels:
+    app: high-cpu
+    test: high-cardinality
+    cpu-consumer: "heavy"
+spec:
+  containers:
+  - name: app
+    image: alpine:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      apk add --no-cache bc >/dev/null 2>&1
+      # Heavy CPU usage - 75% load
+      while true; do
+        timeout 0.75s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.25
+      done
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "500m"
+        memory: "64Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: z-cpu-heavy-3
+  namespace: app-159
+  labels:
+    app: high-cpu
+    test: high-cardinality
+    cpu-consumer: "heavy"
+spec:
+  containers:
+  - name: app
+    image: alpine:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      apk add --no-cache bc >/dev/null 2>&1
+      # Heavy CPU usage - 70% load
+      while true; do
+        timeout 0.7s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.3
+      done
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "500m"
+        memory: "64Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: z-cpu-heavy-4
+  namespace: app-159
+  labels:
+    app: high-cpu
+    test: high-cardinality
+    cpu-consumer: "heavy"
+spec:
+  containers:
+  - name: app
+    image: alpine:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      apk add --no-cache bc >/dev/null 2>&1
+      # Heavy CPU usage - 65% load
+      while true; do
+        timeout 0.65s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.35
+      done
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "500m"
+        memory: "64Mi"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: z-cpu-heavy-5
+  namespace: app-159
+  labels:
+    app: high-cpu
+    test: high-cardinality
+    cpu-consumer: "heavy"
+spec:
+  containers:
+  - name: app
+    image: alpine:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      apk add --no-cache bc >/dev/null 2>&1
+      # Heavy CPU usage - 60% load
+      while true; do
+        timeout 0.6s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.4
+      done
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "32Mi"
+      limits:
+        cpu: "500m"
+        memory: "64Mi"
