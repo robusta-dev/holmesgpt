@@ -39,7 +39,9 @@ spec:
         - name: app
           image: node:20-alpine
           workingDir: /work
-          command: ["node","server.js"]
+          # New Relic instrumentation is injected via init containers and NODE_OPTIONS
+          # to ensure it loads before any other modules, including database drivers
+          command: ["node", "server.js"]
           env:
             - { name: PORT, value: "7000" }
             - { name: LOG_LEVEL, value: "info" } # change/remove to mute
@@ -181,7 +183,12 @@ spec:
             - { name: RISK_BASE_URL,       value: "http://risk.app-117.svc.cluster.local:8000" }
             - { name: TIMEOUT_MS, value: "400" }
             - { name: LOG_LEVEL, value: "info" } # change/remove to mute
-          command: ["node","server.js"]
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          # New Relic instrumentation is injected via init containers and NODE_OPTIONS
+          # to ensure it loads before any other modules, including database drivers
+          command: ["node", "server.js"]
           ports: [{ containerPort: 3000 }]
           volumeMounts:
             - { name: work, mountPath: /work }

@@ -1,27 +1,27 @@
 // Node 18+
-import http from "node:http";
-import { URL } from "node:url";
+import express from "express";
 import crypto from "node:crypto";
 import pino from "pino";
+import pkg from "pg";
 
+const { Pool } = pkg;
+
+// ----- config -----
 const PORT = process.env.PORT || 3000;
 const INVENTORY_BASE_URL = process.env.INVENTORY_BASE_URL || "http://localhost:7000";
 const RISK_BASE_URL = process.env.RISK_BASE_URL || "http://localhost:8000";
 const TIMEOUT_MS = Number(process.env.TIMEOUT_MS || 400);
+// Build DSN from individual components since K8s doesn't do variable substitution
+const PG_DSN = `postgresql://${process.env.POSTGRES_USER}:${process.env.POSTGRES_PASSWORD}@postgres.app-117.svc.cluster.local:5432/${process.env.POSTGRES_DB}`;
 
-// logging (off by default)
+// logging (off by default unless LOG_LEVEL or LOG=1)
 const level = process.env.LOG_LEVEL || (process.env.LOG === "1" ? "info" : "silent");
 const log = pino({ level });
 
-function readJson(req) {
-  return new Promise((resolve, reject) => {
-    let data = "";
-    req.on("data", c => (data += c));
-    req.on("end", () => { try { resolve(data ? JSON.parse(data) : {}); } catch (e) { reject(e); } });
-    req.on("error", reject);
-  });
-}
+// db pool (pg auto-instrumented by NR agent if present)
+const pool = new Pool({ connectionString: PG_DSN });
 
+// ----- utils -----
 async function fetchJson(url, { method = "GET", headers = {}, body, timeout = TIMEOUT_MS } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
@@ -34,81 +34,115 @@ async function fetchJson(url, { method = "GET", headers = {}, body, timeout = TI
     });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };
-  } finally { clearTimeout(t); }
+  } finally {
+    clearTimeout(t);
+  }
 }
 
-// optional hooks for demo
+// optional hooks (for demo tracing/logging of internal phases)
 async function preInventory(ctx)  { log.debug({ ctx }, "preInventory"); }
 async function postInventory(ctx) { log.debug({ ctx }, "postInventory"); }
 async function preRisk(ctx)       { log.debug({ ctx }, "preRisk"); }
 async function postRisk(ctx)      { log.debug({ ctx }, "postRisk"); }
 
-const server = http.createServer(async (req, res) => {
+// ----- server -----
+const app = express();
+app.use(express.json());
+
+// Health check
+app.get("/healthz", (req, res) => {
+  res.json({ ok: true, service: "checkout" });
+});
+
+// Main order processing endpoint
+app.post("/orders", async (req, res) => {
   try {
-    if (req.method === "GET" && req.url === "/healthz") {
-      res.writeHead(200, { "content-type": "application/json" });
-      return res.end(JSON.stringify({ ok: true, service: "checkout" }));
+    const body = req.body;
+    const requestId = req.headers["x-request-id"] || crypto.randomUUID();
+
+    // forward correlation + W3C trace headers
+    const fwd = {
+      "x-request-id": requestId,
+      ...(req.headers.traceparent ? { traceparent: req.headers.traceparent } : {}),
+      ...(req.headers.tracestate ? { tracestate: req.headers.tracestate } : {})
+    };
+
+    const ctx = {
+      requestId,
+      userId: body.userId || "anon",
+      itemId: body.itemId || "sku-1",
+      qty: Number(body.qty ?? 1),
+      amount: Number(body.amount ?? 0)
+    };
+    log.info({ path: "/orders", ctx }, "received");
+
+    // 1) inventory
+    await preInventory(ctx);
+    const inv = await fetchJson(new URL("/inventory/check", INVENTORY_BASE_URL), {
+      method: "POST",
+      headers: fwd,
+      body: { itemId: ctx.itemId, qty: ctx.qty }
+    });
+    await postInventory({ ...ctx, invStatus: inv.status });
+    if (inv.status !== 200 || !inv.json?.available) {
+      return res.status(409).json({ ok: false, stage: "inventory", reason: "not_available" });
     }
 
-    if (req.method === "POST" && req.url === "/orders") {
-      const body = await readJson(req);
-      const requestId = req.headers["x-request-id"] || crypto.randomUUID();
-
-      const fwd = {
-        "x-request-id": requestId,
-        ...(req.headers.traceparent ? { traceparent: req.headers.traceparent } : {}),
-        ...(req.headers.tracestate ? { tracestate: req.headers.tracestate } : {})
-      };
-
-      const ctx = {
-        requestId,
-        userId: body.userId || "anon",
-        itemId: body.itemId || "sku-1",
-        qty: Number(body.qty ?? 1),
-        amount: Number(body.amount ?? 0)
-      };
-      log.info({ path: "/orders", ctx }, "received");
-
-      // 1) inventory
-      await preInventory(ctx);
-      const inv = await fetchJson(new URL("/inventory/check", INVENTORY_BASE_URL), {
-        method: "POST", headers: fwd, body: { itemId: ctx.itemId, qty: ctx.qty }
-      });
-      await postInventory({ ...ctx, invStatus: inv.status });
-      if (inv.status !== 200 || !inv.json?.available) {
-        res.writeHead(409, { "content-type": "application/json" });
-        return res.end(JSON.stringify({ ok: false, stage: "inventory", reason: "not_available" }));
-      }
-
-      // 2) risk
-      await preRisk(ctx);
-      const risk = await fetchJson(new URL("/risk/score", RISK_BASE_URL), {
-        method: "POST", headers: fwd,
-        body: { userId: ctx.userId, amount: ctx.amount, itemId: ctx.itemId, qty: ctx.qty }
-      });
-      await postRisk({ ...ctx, riskStatus: risk.status, score: risk.json?.score });
-      if (risk.status !== 200 || risk.json?.isFraud) {
-        res.writeHead(403, { "content-type": "application/json" });
-        return res.end(JSON.stringify({ ok: false, stage: "risk", reason: "suspected_fraud", score: risk.json?.score }));
-      }
-
-      res.writeHead(200, { "content-type": "application/json", "x-request-id": requestId });
-      return res.end(JSON.stringify({
-        ok: true,
-        orderId: "o_" + requestId.slice(0, 8),
-        inventory: { available: true },
-        risk: { isFraud: false, score: risk.json?.score ?? 0 },
-        status: "PLACED"
-      }));
+    // 2) risk
+    await preRisk(ctx);
+    const risk = await fetchJson(new URL("/risk/score", RISK_BASE_URL), {
+      method: "POST",
+      headers: fwd,
+      body: { userId: ctx.userId, amount: ctx.amount, itemId: ctx.itemId, qty: ctx.qty }
+    });
+    await postRisk({ ...ctx, riskStatus: risk.status, score: risk.json?.score });
+    if (risk.status !== 200 || risk.json?.isFraud) {
+      return res.status(403).json({ ok: false, stage: "risk", reason: "suspected_fraud", score: risk.json?.score });
     }
 
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "not_found" }));
+    // 3) persist order (single INSERT)
+    try {
+      await pool.query(
+        "INSERT INTO orders (order_id, user_id, item_id, qty, amount, status) VALUES ($1,$2,$3,$4,$5,$6)",
+        [requestId, ctx.userId, ctx.itemId, ctx.qty, ctx.amount, "PLACED"]
+      );
+      log.info({ orderId: requestId }, "order insertepleased");
+    } catch (dbErr) {
+      log.error({ err: dbErr?.message || dbErr }, "db insert failed");
+      return res.status(500).json({ ok: false, stage: "db", error: String(dbErr?.message || dbErr) });
+    }
+
+    // success
+    res.set("x-request-id", requestId);
+    res.json({
+      ok: true,
+      orderId: requestId,
+      inventory: { available: true },
+      risk: { isFraud: false, score: risk.json?.score ?? 0 },
+      status: "PLACED"
+    });
   } catch (e) {
     log.error({ err: e?.message || String(e) }, "unhandled");
-    res.writeHead(500, { "content-type": "application/json" });
-    res.end(JSON.stringify({ ok: false, stage: "unknown", error: String(e) }));
+    res.status(500).json({ ok: false, stage: "unknown", error: String(e) });
   }
 });
 
-server.listen(PORT, () => log.info({ port: PORT }, "listening"));
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "not_found" });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  log.error({ err: err?.message || String(err) }, "unhandled");
+  res.status(500).json({ ok: false, stage: "unknown", error: String(err) });
+});
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  log.info("shutdown");
+  try { await pool.end(); } catch {}
+  server.close(() => process.exit(0));
+});
+
+const server = app.listen(PORT, () => log.info({ port: PORT }, "listening"));

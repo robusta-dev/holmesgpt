@@ -1,19 +1,12 @@
 apiVersion: newrelic.com/v1alpha2
 kind: Instrumentation
 metadata:
-  name: nr-node
+  name: nr-node-app-117
   namespace: newrelic
 spec:
   agent:
     language: nodejs
     image: newrelic/newrelic-node-init:latest
-    env:
-      - name: NEW_RELIC_APP_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['app.kubernetes.io/name']
-      - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
-        value: "true"
   namespaceLabelSelector:
     matchExpressions:
       - key: "kubernetes.io/metadata.name"
@@ -23,19 +16,12 @@ spec:
 apiVersion: newrelic.com/v1alpha2
 kind: Instrumentation
 metadata:
-  name: nr-python
+  name: nr-python-app-117
   namespace: newrelic
 spec:
   agent:
     language: python
     image: newrelic/newrelic-python-init:latest
-    env:
-      - name: NEW_RELIC_APP_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.labels['app.kubernetes.io/name']
-      - name: NEW_RELIC_DISTRIBUTED_TRACING_ENABLED
-        value: "true"
   namespaceLabelSelector:
     matchExpressions:
       - key: "kubernetes.io/metadata.name"
