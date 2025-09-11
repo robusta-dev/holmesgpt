@@ -471,10 +471,6 @@ class ToolCallingLLM:
                         else None
                     )
 
-                    prevent_overly_big_tool_response(
-                        tool_call_result=tool_call_result, llm=self.llm
-                    )
-
                     if (
                         tool_call_result.result.status
                         == StructuredToolResultStatus.APPROVAL_REQUIRED
@@ -637,6 +633,11 @@ class ToolCallingLLM:
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
                 )
+
+            prevent_overly_big_tool_response(
+                tool_call_result=tool_call_result, llm=self.llm
+            )
+
             ToolCallingLLM._log_tool_call_result(tool_span, tool_call_result)
             return tool_call_result
 
@@ -890,9 +891,6 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    prevent_overly_big_tool_response(
-                        tool_call_result=tool_call_result, llm=self.llm
-                    )
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 

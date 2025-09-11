@@ -6,7 +6,8 @@ from holmes.core.tools_utils.data_types import ToolCallResult
 
 def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM):
     if (
-        0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+        tool_call_result.result.status == StructuredToolResultStatus.SUCCESS
+        and 0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
         and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
     ):
         message = tool_call_result.as_tool_call_message()

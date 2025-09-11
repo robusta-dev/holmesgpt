@@ -79,5 +79,5 @@ MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 300))
 # Number between 0 and 100
 # Setting to either 0 or any number above 100 disables the logic that limits tool response size
 TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT = float(
-    os.environ.get("TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT", 0)
+    os.environ.get("TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT", 10)
 )
