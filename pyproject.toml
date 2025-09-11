@@ -115,6 +115,7 @@ markers = [
     "traces: Tests where the ai is expected to find the solution using the traces",
     "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
     "datadog: DataDog toolset",
+    "newrelic: New Relic toolset",
     "storage: Disk related, like I/O or disk space"
 ]
 
