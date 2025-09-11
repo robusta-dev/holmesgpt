@@ -22,6 +22,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
+from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
     get_param_or_raise,
@@ -931,7 +932,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 "step": ToolParameter(
                     description="Query resolution step width in duration format or float number of seconds",
                     type="number",
-                    required=True,
+                    required=False,
                 ),
                 "output_type": ToolParameter(
                     description="Specifies how to interpret the Prometheus result. Use 'Plain' for raw values, 'Bytes' to format byte values, 'Percentage' to scale 0–1 values into 0–100%, or 'CPUUsage' to convert values to cores (e.g., 500 becomes 500m, 2000 becomes 2).",
@@ -961,13 +962,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 end_timestamp=params.get("end"),
                 default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
             )
-            step = params.get("step")
+            step = parse_duration_to_seconds(params.get("step"))
 
             # adjust_step_for_max_points handles None case and converts to float
             step = adjust_step_for_max_points(
                 start_timestamp=start,
                 end_timestamp=end,
-                step=float(step) if step else None,
+                step=step,
             )
 
             description = params.get("description", "")
