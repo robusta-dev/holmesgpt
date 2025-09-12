@@ -532,7 +532,9 @@ class LLMModelRegistry:
         }
 
 
-def get_llm_usage(llm_response: Union[ModelResponse, CustomStreamWrapper]) -> dict:
+def get_llm_usage(
+    llm_response: Union[ModelResponse, CustomStreamWrapper, TextCompletionResponse],
+) -> dict:
     usage: dict = {}
     if (
         (
@@ -548,5 +550,5 @@ def get_llm_usage(llm_response: Union[ModelResponse, CustomStreamWrapper]) -> di
     elif isinstance(llm_response, CustomStreamWrapper):
         complete_response = litellm.stream_chunk_builder(chunks=llm_response)  # type: ignore
         if complete_response:
-            return get_llm_usage(complete_response)  # type: ignore
+            return get_llm_usage(complete_response)
     return usage
