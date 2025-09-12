@@ -173,7 +173,7 @@ nav:
           - Azure Kubernetes Service: data-sources/builtin-toolsets/aks.md
           - Azure SQL Database: data-sources/builtin-toolsets/azure-sql.md
           - Confluence: data-sources/builtin-toolsets/confluence.md
-          - Coralogix logs: data-sources/builtin-toolsets/coralogix-logs.md
+          - Coralogix: data-sources/builtin-toolsets/coralogix.md
           - DataDog: data-sources/builtin-toolsets/datadog.md
           - Datetime: data-sources/builtin-toolsets/datetime.md
           - Docker: data-sources/builtin-toolsets/docker.md
@@ -190,6 +190,8 @@ nav:
           - OpenSearch logs: data-sources/builtin-toolsets/opensearch-logs.md
           - OpenSearch status: data-sources/builtin-toolsets/opensearch-status.md
           - Prometheus: data-sources/builtin-toolsets/prometheus.md
+          - Prometheus (Grafana Cloud): data-sources/prometheus-providers/grafana-cloud.md
+          - Prometheus (Amazon Managed): data-sources/prometheus-providers/amazon-managed-prometheus.md
           - RabbitMQ: data-sources/builtin-toolsets/rabbitmq.md
           - Robusta: data-sources/builtin-toolsets/robusta.md
           - ServiceNow: data-sources/builtin-toolsets/servicenow.md
