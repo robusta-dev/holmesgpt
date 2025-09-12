@@ -422,6 +422,7 @@ class ToolCallingLLM:
                     )
                     costs.total_cost += post_processing_cost
 
+                    self.llm.count_tokens_for_message(messages)
                     perf_timing.end(f"- completed in {i} iterations -")
                     return LLMResult(
                         result=post_processed_response,
@@ -863,6 +864,7 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                self.llm.count_tokens_for_message(messages)
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
