@@ -32,7 +32,10 @@ from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools_utils.tool_context_window_limiter import (
+    prevent_overly_big_tool_response,
+)
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils.global_instructions import (
     Instructions,
@@ -40,6 +43,11 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tools_utils.data_types import (
+    TruncationResult,
+    ToolCallResult,
+    TruncationMetadata,
+)
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -117,34 +125,6 @@ def _process_cost_info(
                 costs.total_cost += cost
     except Exception as e:
         logging.debug(f"Could not extract cost information: {e}")
-
-
-class TruncationMetadata(BaseModel):
-    tool_call_id: str
-    start_index: int
-    end_index: int
-
-
-class TruncationResult(BaseModel):
-    truncated_messages: List[dict]
-    truncations: List[TruncationMetadata]
-
-
-def format_tool_result_data(tool_result: StructuredToolResult) -> str:
-    tool_response = tool_result.data
-    if isinstance(tool_result.data, str):
-        tool_response = tool_result.data
-    else:
-        try:
-            if isinstance(tool_result.data, BaseModel):
-                tool_response = tool_result.data.model_dump_json(indent=2)
-            else:
-                tool_response = json.dumps(tool_result.data, indent=2)
-        except Exception:
-            tool_response = str(tool_result.data)
-    if tool_result.status == ToolResultStatus.ERROR:
-        tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
-    return tool_response
 
 
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
@@ -247,52 +227,6 @@ def truncate_messages_to_fit_context(
 
         remaining_space -= allocated_space
     return TruncationResult(truncated_messages=messages, truncations=truncations)
-
-
-class ToolCallResult(BaseModel):
-    tool_call_id: str
-    tool_name: str
-    description: str
-    result: StructuredToolResult
-    size: Optional[int] = None
-
-    def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        if self.result.params:
-            content = (
-                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
-                + content
-            )
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "name": self.tool_name,
-            "content": content,
-        }
-
-    def as_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "tool_name": self.tool_name,
-            "description": self.description,
-            "role": "tool",
-            "result": result_dump,
-        }
-
-    def as_streaming_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "description": self.description,
-            "name": self.tool_name,
-            "result": result_dump,
-        }
 
 
 class LLMResult(LLMCosts):
@@ -539,7 +473,7 @@ class ToolCallingLLM:
 
                     if (
                         tool_call_result.result.status
-                        == ToolResultStatus.APPROVAL_REQUIRED
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
                     ):
                         with trace_span.start_span(type="tool") as tool_span:
                             tool_call_result = self._handle_tool_call_approval(
@@ -577,7 +511,7 @@ class ToolCallingLLM:
                 f"Skipping tool execution for {tool_name}: args: {tool_params}"
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to find tool {tool_name}",
                 params=tool_params,
             )
@@ -591,7 +525,7 @@ class ToolCallingLLM:
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
@@ -633,7 +567,7 @@ class ToolCallingLLM:
                 f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=tool_response,
                 params=tool_params,
             )
@@ -683,7 +617,7 @@ class ToolCallingLLM:
                     tool_name=tool_name,
                     description="NA",
                     result=StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
+                        status=StructuredToolResultStatus.ERROR,
                         error="Custom tool calls are not supported",
                         params=None,
                     ),
@@ -699,6 +633,11 @@ class ToolCallingLLM:
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
                 )
+
+            prevent_overly_big_tool_response(
+                tool_call_result=tool_call_result, llm=self.llm
+            )
+
             ToolCallingLLM._log_tool_call_result(tool_span, tool_call_result)
             return tool_call_result
 
@@ -720,7 +659,7 @@ class ToolCallingLLM:
 
         # If no approval callback, convert to ERROR because it is assumed the client may not be able to handle approvals
         if not self.approval_callback:
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             return tool_call_result
 
         # Get approval from user
@@ -740,7 +679,7 @@ class ToolCallingLLM:
         else:
             # User denied - update to error
             feedback_text = f" User feedback: {feedback}" if feedback else ""
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.error = (
                 f"User denied command execution.{feedback_text}"
             )
@@ -952,7 +891,6 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
 

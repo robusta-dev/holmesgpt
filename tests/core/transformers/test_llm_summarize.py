@@ -519,7 +519,11 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
     @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
     def test_integration_with_tools_non_expanding_logic(self, mock_default_llm):
         """Test integration with the tools.py non-expanding logic."""
-        from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
+        from holmes.core.tools import (
+            Tool,
+            StructuredToolResult,
+            StructuredToolResultStatus,
+        )
         from holmes.core.transformers import Transformer
 
         # Create a mock expanding transformer response
@@ -531,7 +535,8 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         class TestTool(Tool):
             def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS, data="Original short data"
+                    status=StructuredToolResultStatus.SUCCESS,
+                    data="Original short data",
                 )
 
             def get_parameterized_one_liner(self, params):
@@ -560,7 +565,11 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
     @patch("holmes.core.transformers.llm_summarize.DefaultLLM")
     def test_non_expanding_logic_with_debug_logging(self, mock_default_llm):
         """Test that explicitly verifies the non-expanding logic is triggered."""
-        from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
+        from holmes.core.tools import (
+            Tool,
+            StructuredToolResult,
+            StructuredToolResultStatus,
+        )
         from holmes.core.transformers import Transformer
 
         # Create a mock expanding transformer response that's much larger than original
@@ -574,7 +583,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         class TestTool(Tool):
             def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=original_data,  # This will be the input to the transformer
                 )
 
@@ -624,7 +633,11 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         self, mock_default_llm
     ):
         """Test comparing expanding vs reducing scenarios to ensure logic works correctly."""
-        from holmes.core.tools import Tool, StructuredToolResult, ToolResultStatus
+        from holmes.core.tools import (
+            Tool,
+            StructuredToolResult,
+            StructuredToolResultStatus,
+        )
         from holmes.core.transformers import Transformer
 
         original_data = "This is some longer original data that should be summarized by the transformer if it works properly and produces a smaller result"
@@ -633,7 +646,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         class TestTool(Tool):
             def _invoke(self, params, user_approved: bool = False):
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS, data=original_data
+                    status=StructuredToolResultStatus.SUCCESS, data=original_data
                 )
 
             def get_parameterized_one_liner(self, params):

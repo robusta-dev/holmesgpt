@@ -7,7 +7,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -80,7 +80,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -121,7 +121,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             metrics = data.get("metrics", [])
             if not metrics:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     data="Your filter returned no metrics. Change your filter and try again",
                     params=params,
                 )
@@ -133,7 +133,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 output.append(metric)
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data="\n".join(output),
                 params=params,
             )
@@ -152,7 +152,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
@@ -165,7 +165,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                 f"Failed to query Datadog metrics for params: {params}", exc_info=True
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params,
             )
@@ -222,7 +222,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -262,7 +262,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
             if not series:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     error="The query returned no data. Please check your query syntax and time range.",
                     params=params,
                 )
@@ -317,7 +317,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
             data_str = json.dumps(response_data, indent=2)
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=data_str,
                 params=params,
             )
@@ -336,7 +336,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
@@ -350,7 +350,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params,
             )
@@ -380,7 +380,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -396,7 +396,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
 
             if not metric_names:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error="metric_names cannot be empty",
                     params=params,
                 )
@@ -442,14 +442,14 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
 
             if not results and errors:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error="Failed to retrieve metadata for all metrics",
                     data=json.dumps(response_data, indent=2),
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=json.dumps(response_data, indent=2),
                 params=params,
             )
@@ -461,7 +461,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params,
             )
@@ -496,7 +496,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -519,7 +519,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=data,
                 params=params,
             )
@@ -540,7 +540,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
@@ -554,7 +554,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
                 exc_info=True,
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params,
             )
