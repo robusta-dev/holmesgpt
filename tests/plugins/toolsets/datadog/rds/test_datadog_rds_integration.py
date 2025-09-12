@@ -15,7 +15,7 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
     DatadogRDSConfig,
 )
 from holmes.plugins.toolsets.datadog.datadog_api import DataDogRequestError
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ def test_generate_performance_report_success(mock_execute, datadog_rds_toolset):
 
     result = tool._invoke(params)
 
-    assert result.status == ToolResultStatus.SUCCESS
+    assert result.status == StructuredToolResultStatus.SUCCESS
     assert isinstance(result.data, str)
 
     # Check report content
@@ -226,7 +226,7 @@ def test_generate_performance_report_with_issues(mock_execute, datadog_rds_tools
         {"db_instance_identifier": "test-instance", "start_time": "-3600"}
     )
 
-    assert result.status == ToolResultStatus.SUCCESS
+    assert result.status == StructuredToolResultStatus.SUCCESS
 
     report = result.data
     assert "ISSUES DETECTED" in report
@@ -318,7 +318,7 @@ def test_get_top_worst_performing_instances(mock_execute, datadog_rds_toolset):
 
     result = tool._invoke(params)
 
-    assert result.status == ToolResultStatus.SUCCESS
+    assert result.status == StructuredToolResultStatus.SUCCESS
     assert isinstance(result.data, str)
 
     # Check report format
@@ -395,7 +395,7 @@ def test_top_worst_performing_sort_by_cpu(mock_execute, datadog_rds_toolset):
     )
     result = tool._invoke({"top_n": 10, "start_time": "-3600", "sort_by": "cpu"})
 
-    assert result.status == ToolResultStatus.SUCCESS
+    assert result.status == StructuredToolResultStatus.SUCCESS
     report = result.data
 
     # When sorted by CPU, instance-1 (95%) should appear before instance-2 (40%)
@@ -430,7 +430,7 @@ def test_no_instances_found(mock_execute, datadog_rds_toolset):
     )
     result = tool._invoke({"top_n": 5, "start_time": "-3600"})
 
-    assert result.status == ToolResultStatus.NO_DATA
+    assert result.status == StructuredToolResultStatus.NO_DATA
     assert "No RDS instances found" in result.data
 
 
@@ -457,7 +457,7 @@ def test_api_error_handling(mock_execute, datadog_rds_toolset):
     )
 
     # The tool should succeed but with no metrics collected due to API errors
-    assert result.status == ToolResultStatus.SUCCESS
+    assert result.status == StructuredToolResultStatus.SUCCESS
     report = result.data
     assert (
         "Database is operating within normal parameters. No significant issues detected."
@@ -481,7 +481,7 @@ def test_missing_required_parameter(datadog_rds_toolset):
     # Missing db_instance_identifier
     result = tool._invoke({"start_time": "-3600"})
 
-    assert result.status == ToolResultStatus.ERROR
+    assert result.status == StructuredToolResultStatus.ERROR
     assert "db_instance_identifier" in result.error
 
 
@@ -575,7 +575,7 @@ def test_performance_report_formatting(datadog_rds_toolset):
             {"db_instance_identifier": "test-db", "start_time": "-300"}
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         report = result.data
 
         # Check report structure
@@ -621,7 +621,7 @@ def test_top_worst_performing_no_metrics(datadog_rds_toolset):
         )
         result = tool._invoke({"top_n": 5, "start_time": "-3600"})
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         report = result.data
 
         # Should show 0 instances analyzed (no metrics found)

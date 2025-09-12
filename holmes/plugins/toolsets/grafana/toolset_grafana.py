@@ -4,7 +4,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 import requests  # type: ignore
@@ -90,9 +90,9 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS
+                status=StructuredToolResultStatus.SUCCESS
                 if formatted_dashboards
-                else ToolResultStatus.NO_DATA,
+                else StructuredToolResultStatus.NO_DATA,
                 data="\n".join(formatted_dashboards)
                 if formatted_dashboards
                 else "No dashboards found.",
@@ -102,7 +102,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
         except requests.RequestException as e:
             logging.error(f"Error fetching dashboards: {str(e)}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Error fetching dashboards: {str(e)}",
                 url=url,
                 params=params,

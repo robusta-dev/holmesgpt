@@ -6,7 +6,7 @@ Change the TEST_** variables defined below based on the content in opensearch to
 import os
 import pytest
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.coralogix.api import health_check
 from holmes.plugins.toolsets.coralogix.toolset_coralogix_logs import (
     CoralogixLogsToolset,
@@ -93,7 +93,7 @@ def test_basic_query(coralogix_logs_toolset):
         FetchPodLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
     )
     print(result.data)
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     assert TEST_SEARCH_TERM in result.data
 
@@ -106,7 +106,7 @@ def test_search_term(coralogix_logs_toolset):
     )
 
     print(result.data)
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     lines = result.data.split("\n")[2:]  # skips headers lines for "link" and "query"
     # print(lines)
@@ -125,7 +125,7 @@ def test_search_term_with_dates(coralogix_logs_toolset):
         )
     )
 
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     print(result.data)
     lines = result.data.split("\n")

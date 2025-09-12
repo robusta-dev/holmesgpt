@@ -13,7 +13,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -29,7 +29,6 @@ class BaseBashExecutorToolset(Toolset):
 
 class BaseBashTool(Tool):
     toolset: BaseBashExecutorToolset
-
 
 class RunBashCommand(BaseBashTool):
     def __init__(self, toolset: BaseBashExecutorToolset):
@@ -67,14 +66,14 @@ class RunBashCommand(BaseBashTool):
 
         if not command_str:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="The 'command' parameter is required and was not provided.",
                 params=params,
             )
 
         if not isinstance(command_str, str):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
                 params=params,
             )
@@ -97,7 +96,7 @@ class RunBashCommand(BaseBashTool):
                     logging.info(f"Refusing LLM tool call {command_str}")
 
                     return StructuredToolResult(
-                        status=ToolResultStatus.APPROVAL_REQUIRED,
+                        status=StructuredToolResultStatus.APPROVAL_REQUIRED,
                         error=f"Refusing to execute bash command. {str(e)}",
                         params=params,
                         invocation=command_str,

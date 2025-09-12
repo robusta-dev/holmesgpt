@@ -10,7 +10,7 @@ from holmes.core.tools import (
 )
 
 from pydantic import BaseModel, PrivateAttr
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from requests.auth import HTTPDigestAuth  # type: ignore
 import gzip
 import io
@@ -90,15 +90,15 @@ class MongoDBAtlasBaseTool(Tool):
         if response.ok:
             res = response.json()
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS
+                status=StructuredToolResultStatus.SUCCESS
                 if res.get(field, [])
-                else ToolResultStatus.NO_DATA,
+                else StructuredToolResultStatus.NO_DATA,
                 data=res,
                 params=params,
             )
         else:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed {self.name}.\n{response.text}",
                 return_code=response.status_code,
                 params=params,
@@ -130,7 +130,7 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -157,7 +157,7 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -193,7 +193,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -230,14 +230,14 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
                 )
                 data = f"last 4 hours eventTypeName and # of occurrences list: {events_counter} \n to get more information about a given eventTypeName call atlas_return_events_type_from_project"
                 status = (
-                    ToolResultStatus.SUCCESS
+                    StructuredToolResultStatus.SUCCESS
                     if events_counter
-                    else ToolResultStatus.NO_DATA
+                    else StructuredToolResultStatus.NO_DATA
                 )
                 return StructuredToolResult(status=status, data=data, params=params)
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Failed {self.name}. \n{response.text}",
                     return_code=response.status_code,
                     params=params,
@@ -245,7 +245,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -287,11 +287,13 @@ class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
                 with gzip.GzipFile(fileobj=io.BytesIO(response.content)) as gz:
                     text_data = gz.read().decode("utf-8")
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS, data=text_data, params=params
+                    status=StructuredToolResultStatus.SUCCESS,
+                    data=text_data,
+                    params=params,
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Failed {self.name}. \n{response.text}",
                     return_code=response.status_code,
                     params=params,
@@ -299,7 +301,7 @@ class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -340,7 +342,7 @@ class ReturnEventTypeFromProject(MongoDBAtlasBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception {self.name}: {str(e)}",
                 params=params,
             )

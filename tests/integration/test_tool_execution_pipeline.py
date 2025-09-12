@@ -13,7 +13,7 @@ from holmes.core.tools import (
     Tool,
     YAMLTool,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.core.transformers import (
     registry,
@@ -88,7 +88,7 @@ class TestToolExecutionPipelineIntegration:
         result = tool.invoke({})
 
         # Should have executed successfully
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Should have applied transformation (output should be summarized)
         assert result.data is not None
@@ -121,7 +121,7 @@ class TestToolExecutionPipelineIntegration:
                 large_log = "\n".join(log_entries)
 
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=large_log,
                     invocation="tail -n 1000 /var/log/app.log",
                 )
@@ -140,7 +140,7 @@ class TestToolExecutionPipelineIntegration:
         result = tool.invoke({})
 
         # Should have executed successfully
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Should have applied transformation
         assert result.data is not None
@@ -193,7 +193,7 @@ class TestToolExecutionPipelineIntegration:
                 result = tool.invoke({})
 
                 # Tool execution should still succeed
-                assert result.status == ToolResultStatus.SUCCESS
+                assert result.status == StructuredToolResultStatus.SUCCESS
 
                 # Should contain original output since first transformer failed
                 # but second transformer should still be applied
@@ -223,7 +223,7 @@ class TestToolExecutionPipelineIntegration:
         result = tool.invoke({})
 
         # Should execute successfully
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Should NOT have applied transformation (output too short)
         assert "SUMMARIZED:" not in result.data
@@ -258,7 +258,7 @@ class TestToolExecutionPipelineIntegration:
                 result = tool.invoke({})
 
                 # Should execute successfully
-                assert result.status == ToolResultStatus.SUCCESS
+                assert result.status == StructuredToolResultStatus.SUCCESS
 
                 # Should have applied transformation
                 assert "SLOW_TRANSFORMED:" in result.data
@@ -312,7 +312,7 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         result = tool.invoke({})
 
         # Should execute successfully
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Should have applied transformation (output should be summarized)
         assert "SUMMARIZED:" in result.data
@@ -334,7 +334,7 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         # Even if transformer modifies the output, the result structure should be preserved
         result = tool.invoke({})
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.invocation is not None  # Debug info preserved
         assert "echo" in result.invocation  # Original command preserved
 
