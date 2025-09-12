@@ -2,23 +2,7 @@ New Relic provides distributed tracing data along with logs and metrics.
 
 Assume every application has New Relic tracing data.
 
-## API Endpoints and Tool Mapping
-
-1. **Run NRQL query and get the results** (POST https://api.newrelic.com/graphql with a special payload)
-    Allows running an NRQL query. The following payload is used with the supplied NRQL query parameter, `nrql_query`.
-
-    ```
-    query:
-    {
-        actor {
-            account(id: ACCOUNT_ID) {
-                nrql(query: "{nrql_query}") {
-                    results
-                }
-            }
-        }
-    }
-    ```
+Use `nrql_query` to run a NRQL query.
 
 **NRQL (New Relic Query Language)** is used to query all telemetry data in New Relic. The main event types are:
 
@@ -40,3 +24,4 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 
 - If you already have an application name, you can query its traces directly
 - **Time range is recommended**: While not strictly required, most queries should include SINCE for performance
+- *Important*:
