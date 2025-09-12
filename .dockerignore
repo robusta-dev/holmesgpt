@@ -1,0 +1,94 @@
+# Git files
+.git
+.gitignore
+.github
+
+# Python files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist
+build
+.eggs
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Virtual environments
+venv
+env
+ENV
+.venv
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# CI/CD files
+.github
+.github/**
+
+# Google Cloud credentials
+gha-creds-*.json
+.config/gcloud/
+gcloud-credentials.json
+application_default_credentials.json
+adc.json
+keyfile.json
+service-account*.json
+*-service-account.json
+google-credentials.json
+GOOGLE_APPLICATION_CREDENTIALS
+
+# AWS credentials
+.aws/
+aws-credentials
+credentials
+
+# Azure credentials
+azure-credentials.json
+.azure/
+
+# Private keys (be specific to avoid breaking SSL certs if needed)
+private.key
+id_rsa
+id_rsa.*
+*.private.key
+*.private.pem
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.tar
+*.tar.gz
+*.zip
+
+# Local development config (but not app configs)
+.holmes/
+~/.holmes/
+config.local.yaml
+config.local.yml
+*.local.*

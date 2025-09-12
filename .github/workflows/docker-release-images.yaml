@@ -20,6 +20,7 @@ jobs:
       with:
         project_id: 'genuine-flight-317411'
         workload_identity_provider: 'projects/429189597230/locations/global/workloadIdentityPools/github/providers/robusta-repos' # prod
+        create_credentials_file: false  # Prevent credential file from being written to disk
 
     - name: Set up gcloud CLI
       uses: google-github-actions/setup-gcloud@v2
@@ -28,7 +29,6 @@ jobs:
 
     - name: Configure Docker Registry
       run: gcloud auth configure-docker us-central1-docker.pkg.dev
-
 
     - name: Update package version
       run: |
