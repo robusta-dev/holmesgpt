@@ -122,8 +122,14 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         # Check skip-setup option
         skip_setup = request.config.getoption("--skip-setup")
 
+        # Get Prometheus alert flags
+        create_alerts = request.config.getoption("--create-alerts")
+        prometheus_label = request.config.getoption("--prometheus-label")
+
         if test_cases and not skip_setup:
-            setup_failures = run_all_test_setup(test_cases)
+            setup_failures = run_all_test_setup(
+                test_cases, create_alerts, prometheus_label
+            )
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
             setup_failures = {}
@@ -156,6 +162,10 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
         # Check skip-cleanup option
         skip_cleanup = request.config.getoption("--skip-cleanup")
+
+        # Get Prometheus alert flags for cleanup
+        create_alerts = request.config.getoption("--create-alerts")
+        prometheus_label = request.config.getoption("--prometheus-label")
 
         # Always clean up port forwards regardless of skip_cleanup flag
         port_forward_configs = data.get("port_forward_configs", [])
@@ -193,7 +203,12 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
                 )
 
                 # Only run the after_test commands, not port forward cleanup
-                run_all_test_commands(cleanup_test_cases, Operation.CLEANUP)
+                run_all_test_commands(
+                    cleanup_test_cases,
+                    Operation.CLEANUP,
+                    create_alerts,
+                    prometheus_label,
+                )
         elif skip_cleanup:
             log("⚙️ Skipping test cleanup due to --skip-cleanup flag")
 
@@ -232,7 +247,7 @@ def check_llm_api_with_test_call():
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
         classifier_model = os.environ.get(
-            "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
+            "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4.1")
         )
 
         # Build provider-specific message
