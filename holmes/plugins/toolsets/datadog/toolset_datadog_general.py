@@ -13,7 +13,7 @@ from holmes.core.tools import (
     ToolParameter,
     Toolset,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
@@ -170,7 +170,7 @@ class DatadogGeneralToolset(Toolset):
         super().__init__(
             name="datadog/general",
             description="General-purpose Datadog API access for read-only operations including monitors, dashboards, SLOs, incidents, synthetics, and more",
-            docs_url="https://docs.datadoghq.com/api/latest/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -178,7 +178,6 @@ class DatadogGeneralToolset(Toolset):
                 DatadogAPIPostSearch(toolset=self),
                 ListDatadogAPIResources(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(
@@ -334,7 +333,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
 
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -351,7 +350,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         if not is_allowed:
             logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
                 params=params,
             )
@@ -382,13 +381,13 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
                 > self.toolset.dd_config.max_response_size
             ):
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Response too large (>{self.toolset.dd_config.max_response_size} bytes)",
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_str,
                 params=params,
             )
@@ -408,7 +407,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
                 error_msg = f"API error {e.status_code}: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
@@ -419,7 +418,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         except Exception as e:
             logging.exception(f"Failed to query Datadog API: {params}", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -470,7 +469,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
 
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -487,7 +486,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         if not is_allowed:
             logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
                 params=params,
             )
@@ -518,13 +517,13 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
                 > self.toolset.dd_config.max_response_size
             ):
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Response too large (>{self.toolset.dd_config.max_response_size} bytes)",
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_str,
                 params=params,
             )
@@ -544,7 +543,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
                 error_msg = f"API error {e.status_code}: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "body": body}) if url else None,
@@ -553,7 +552,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         except Exception as e:
             logging.exception(f"Failed to query Datadog API: {params}", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -692,7 +691,7 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
             matching_categories = {k: v for k, v in resources.items() if category in k}
             if not matching_categories:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Unknown category: {category}. Available: {', '.join(resources.keys())}",
                     params=params,
                 )
@@ -716,7 +715,7 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
         output.append("Example: datadog_api_get with endpoint='/api/v1/monitors'")
 
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data="\n".join(output),
             params=params,
         )

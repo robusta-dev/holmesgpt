@@ -8,7 +8,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel, Field
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.datadog.datadog_api import (
     DatadogBaseConfig,
@@ -151,11 +151,10 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         super().__init__(
             name="datadog/logs",
             description="Toolset for fetching logs from Datadog, including historical data for pods no longer in the cluster",
-            docs_url="https://docs.datadoghq.com/api/latest/logs/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[],  # Initialize with empty tools first
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         # Now that parent is initialized and self.name exists, create the tool
@@ -168,7 +167,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         if not self.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params.model_dump(),
             )
@@ -183,13 +182,13 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                 if raw_logs:
                     logs_str = format_logs(raw_logs)
                     return StructuredToolResult(
-                        status=ToolResultStatus.SUCCESS,
+                        status=StructuredToolResultStatus.SUCCESS,
                         data=logs_str,
                         params=params.model_dump(),
                     )
 
             return StructuredToolResult(
-                status=ToolResultStatus.NO_DATA,
+                status=StructuredToolResultStatus.NO_DATA,
                 params=params.model_dump(),
             )
 
@@ -203,7 +202,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params.model_dump(),
                 invocation=json.dumps(e.payload),
@@ -214,7 +213,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                 f"Failed to query Datadog logs for params: {params}", exc_info=True
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
                 params=params.model_dump(),
             )
@@ -235,11 +234,11 @@ class DatadogLogsToolset(BasePodLoggingToolset):
 
             result = self.fetch_pod_logs(healthcheck_params)
 
-            if result.status == ToolResultStatus.ERROR:
+            if result.status == StructuredToolResultStatus.ERROR:
                 error_msg = result.error or "Unknown error during healthcheck"
                 logging.error(f"Datadog healthcheck failed: {error_msg}")
                 return False, f"Datadog healthcheck failed: {error_msg}"
-            elif result.status == ToolResultStatus.NO_DATA:
+            elif result.status == StructuredToolResultStatus.NO_DATA:
                 error_msg = "No logs were found in the last 48 hours using wildcards for pod and namespace. Is the configuration correct?"
                 logging.error(f"Datadog healthcheck failed: {error_msg}")
                 return False, f"Datadog healthcheck failed: {error_msg}"

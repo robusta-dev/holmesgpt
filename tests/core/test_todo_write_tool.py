@@ -1,4 +1,4 @@
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.investigator.core_investigation import TodoWriteTool
 from holmes.plugins.toolsets.investigator.model import TaskStatus
 
@@ -16,7 +16,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
         result = tool._invoke({})
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
         assert "0 tasks" in result.data
         assert "Investigation plan updated" in result.data
@@ -43,7 +43,7 @@ class TestTodoWriteTool:
 
         result = tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
         assert "2 tasks" in result.data
         assert "Investigation plan updated" in result.data
@@ -58,7 +58,7 @@ class TestTodoWriteTool:
 
         result = tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
         assert "1 tasks" in result.data
         assert "Investigation plan updated" in result.data
@@ -81,7 +81,7 @@ class TestTodoWriteTool:
         result = tool._invoke(params)
 
         # Should handle gracefully and return error
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "Failed to process tasks" in result.error
 
     def test_get_parameterized_one_liner(self):

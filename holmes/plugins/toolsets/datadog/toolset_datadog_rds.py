@@ -10,7 +10,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -97,7 +97,7 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -150,7 +150,7 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
             formatted_report = self._format_report(report)
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=formatted_report,
                 params=params,
             )
@@ -158,7 +158,7 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
         except Exception as e:
             logging.error(f"Error generating RDS performance report: {str(e)}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to generate RDS performance report: {str(e)}",
                 params=params,
             )
@@ -397,7 +397,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
     ) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -416,7 +416,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
 
             if not instances:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     data="No RDS instances found with metrics in the specified time range",
                     params=params,
                 )
@@ -443,7 +443,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
             report += f"\n\nInstances:\n{json.dumps(worst_performers, indent=2)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=report,
                 params=params,
             )
@@ -451,7 +451,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
         except Exception as e:
             logging.error(f"Error getting top worst performing RDS instances: {str(e)}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to get top worst performing RDS instances: {str(e)}",
                 params=params,
             )

@@ -5,6 +5,7 @@ import litellm
 from pydantic import BaseModel, Field
 from holmes.core.investigation_structured_output import process_response_into_sections
 from functools import partial
+import logging
 
 
 class StreamEvents(str, Enum):
@@ -61,6 +62,7 @@ def stream_investigate_formatter(
                         "sections": sections or {},
                         "analysis": text_response,
                         "instructions": runbooks or [],
+                        "metadata": message.data.get("metadata") or {},
                     },
                 )
             else:
@@ -82,9 +84,16 @@ def stream_chat_formatter(
                         "analysis": message.data.get("content"),
                         "conversation_history": message.data.get("messages"),
                         "follow_up_actions": followups,
+                        "metadata": message.data.get("metadata") or {},
                     },
                 )
             else:
                 yield create_sse_message(message.event.value, message.data)
     except litellm.exceptions.RateLimitError as e:
         yield create_rate_limit_error_message(str(e))
+    except Exception as e:
+        logging.error(e)
+        if "Model is getting throttled" in str(e):  # happens for bedrock
+            yield create_rate_limit_error_message(str(e))
+        else:
+            yield create_sse_error_message(description=str(e), error_code=1, msg=str(e))

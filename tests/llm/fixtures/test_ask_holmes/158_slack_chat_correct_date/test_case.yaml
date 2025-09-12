@@ -1,0 +1,10 @@
+user_prompt:
+- "**@user_U02T52YMHH9** • 2025-09-08T11:32:33Z • (in thread)
+
+  <@U08QARDG9LZ>
+  Investigate this alert and when did it happen
+  **Do not return an investigation without any relevant times/dates. This investigation is a failure without any dates explicitly listed**
+  "
+
+expected_output:
+  - This must mention the date 2025-08-23

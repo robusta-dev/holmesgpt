@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import get_param_or_raise, toolset_name_for_one_liner
 
 
@@ -42,14 +42,14 @@ class GetLogs(BaseNewRelicTool):
     ) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=msg,
                 params=params,
             )
 
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )
@@ -79,7 +79,7 @@ class GetLogs(BaseNewRelicTool):
 
         try:
             logging.info(f"Getting New Relic logs for app {app} since {since}")
-            response = requests.post(url, headers=headers, json=query)
+            response = requests.post(url, headers=headers, json=query)  # type: ignore[arg-type]
 
             if response.status_code == 200:
                 return success(response.json())
@@ -122,14 +122,14 @@ class GetTraces(BaseNewRelicTool):
     ) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=msg,
                 params=params,
             )
 
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )
@@ -164,7 +164,7 @@ class GetTraces(BaseNewRelicTool):
 
         try:
             logging.info(f"Getting New Relic traces with duration > {duration}s")
-            response = requests.post(url, headers=headers, json=query)
+            response = requests.post(url, headers=headers, json=query)  # type: ignore[arg-type]
 
             if response.status_code == 200:
                 return success(response.json())
@@ -197,7 +197,7 @@ class NewRelicToolset(Toolset):
         super().__init__(
             name="newrelic",
             description="Toolset for interacting with New Relic to fetch logs and traces",
-            docs_url="https://docs.newrelic.com/docs/apis/nerdgraph-api/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/newrelic/",
             icon_url="https://companieslogo.com/img/orig/NEWR-de5fcb2e.png?t=1720244493",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
