@@ -8,7 +8,6 @@ These tests verify:
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -56,6 +55,10 @@ class TestArgoCDCliSafeCommands:
             (
                 "argocd app history myapp --revision 5",
                 "argocd app history myapp --revision 5",
+            ),
+            (
+                "argocd app history myapp --app-namespace default",
+                "argocd app history myapp --app-namespace default",
             ),
             ("argocd app manifests myapp", "argocd app manifests myapp"),
             (

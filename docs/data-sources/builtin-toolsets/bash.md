@@ -1,8 +1,12 @@
-# Bash Toolset
+# Bash Toolset ✓
+
+!!! info "Enabled by Default"
+    This toolset is enabled by default and should typically remain enabled.
 
 The bash toolset provides secure execution of common command-line tools used for troubleshooting and system analysis. It replaces multiple YAML-based toolsets with a single, comprehensive toolset that includes safety validation and command parsing.
 
-**⚠️ Security Note**: This toolset executes commands on the system where Holmes is running. Only validated, safe commands are allowed, and the toolset is disabled by default for security reasons.
+
+**⚠️ Security Note**: This toolset executes commands on the system where Holmes is running. Only validated, safe commands are allowed. The toolset includes built-in safety validation and command parsing.
 
 ## Supported Commands
 
@@ -70,17 +74,6 @@ The bash toolset supports the following categories of commands:
 - `tr` - Character translation and deletion
 - `base64` - Base64 encoding/decoding
 
-### Special Tools
-
-**kubectl_run_image**
-
-Creates temporary debug pods in Kubernetes clusters for diagnostic commands:
-
-- Runs commands in specified container images
-- Automatically cleans up temporary pods
-- Supports custom namespaces and timeouts
-- Useful for network debugging, DNS resolution, and environment inspection
-
 ## Command Validation
 
 All commands undergo security validation before execution:
@@ -89,3 +82,12 @@ All commands undergo security validation before execution:
 - Dangerous operations are blocked (file writes, system calls, etc.)
 - Commands are parsed and validated for safety
 - Pipe operations between supported commands are allowed
+
+## Configuration
+
+The bash tool can be configured with the following environment variables:
+
+| Env var                    | Default value |                                                                                                      Description                                                                                                     |
+|----------------------------|:-------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+| BASH_TOOL_UNSAFE_ALLOW_ALL | false         | Disables safety checks and allow Holmes to run any bash command immediately and without warning. This is unsafe because Holmes could mutate state, share secrets or even irreparably delete production environments. |
+| ENABLE_CLI_TOOL_APPROVAL   | true          | Allow Holmes to ask for approval before running potentially unsafe commands.                                                                                                                                         |

@@ -131,6 +131,9 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         # dont' expose build-in toolsets path
         toolset.path = None
 
+    print("****************** load_builtin_toolsets")
+    for toolset in all_toolsets:
+        print(f"toolset={toolset.name} enabled={toolset.enabled}")
     return all_toolsets  # type: ignore
 
 

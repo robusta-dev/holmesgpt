@@ -9,7 +9,6 @@ These tests verify:
 
 import pytest
 import argparse
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -293,6 +292,18 @@ class TestAzureCliSafeCommands:
             (
                 "az monitor metrics list --resource /subscriptions/12345/resourceGroups/mygroup/providers/Microsoft.Compute/virtualMachines/myvm --start-time 2023-01-01T00:00:00Z --end-time 2023-01-02T00:00:00Z",
                 "az monitor metrics list --resource /subscriptions/12345/resourceGroups/mygroup/providers/Microsoft.Compute/virtualMachines/myvm --start-time 2023-01-01T00:00:00Z --end-time 2023-01-02T00:00:00Z",
+            ),
+            (
+                "az aks check-network outbound --name foobar --resource-group foobar",
+                "az aks check-network outbound --name foobar --resource-group foobar",
+            ),
+            (
+                "az aks check-network inbound --name foobar --resource-group foobar",
+                "az aks check-network inbound --name foobar --resource-group foobar",
+            ),
+            (
+                "az vmss list -g foobar --query '[*].name' -o tsv --only-show-errors",
+                "az vmss list -g foobar --query '[*].name' -o tsv --only-show-errors",
             ),
             # Commands with debug flags
             ("az vm list --debug", "az vm list --debug"),

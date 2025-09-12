@@ -2,7 +2,6 @@ import argparse
 from typing import Any, Optional
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import (
     whitelist_validator,
@@ -34,12 +33,12 @@ class KubectlDescribeCommand(BashCommand):
         return parser
 
     def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+        self, command: Any, original_command: str
     ) -> None:
         pass
 
     def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
+        self, command: Any, original_command: str
     ) -> str:
         parts = ["kubectl", "describe", command.resource_type]
 

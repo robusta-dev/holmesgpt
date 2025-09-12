@@ -10,7 +10,6 @@ This module tests the Docker CLI integration in the bash toolset, ensuring:
 
 import argparse
 import pytest
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -34,7 +33,16 @@ class TestDockerCliSafeCommands:
             ("docker ps -s", "docker ps -s"),
             ("docker ps --latest", "docker ps --latest"),
             ("docker ps -l", "docker ps -l"),
+            ("docker logs container_id", "docker logs container_id"),
+            ("docker top container_id", "docker top container_id"),
+            ("docker events", "docker events"),
+            ("docker history my_image_id", "docker history my_image_id"),
+            ("docker diff container_id", "docker diff container_id"),
             # Container management (read-only)
+            (
+                "docker inspect container_or_image_id",
+                "docker inspect container_or_image_id",
+            ),
             ("docker container ls", "docker container ls"),
             ("docker container list", "docker container list"),
             ("docker container ls -a", "docker container ls -a"),

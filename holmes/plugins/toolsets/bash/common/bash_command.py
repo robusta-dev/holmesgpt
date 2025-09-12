@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import argparse
 from typing import Any, Optional
 
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 
 
@@ -19,9 +18,7 @@ class BashCommand(ABC):
         pass
 
     @abstractmethod
-    def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         """
         Validate the parsed command to ensure it's safe.
         Raises ValueError if validation fails.
@@ -29,9 +26,7 @@ class BashCommand(ABC):
         pass
 
     @abstractmethod
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         """
         Convert the parsed command back to a safe command string.
         """
@@ -69,7 +64,7 @@ class SimpleBashCommand(BashCommand):
         )
         return parser
 
-    def validate_command(self, command, original_command, config):
+    def validate_command(self, command, original_command):
         for option in command.options:
             allowed = False if self.allowed_options else True
 
@@ -121,9 +116,7 @@ class SimpleBashCommand(BashCommand):
                     f"option {option} is not part of the allowed options: {self.allowed_options}"
                 )
 
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         parts = [self.name]
 
         parts.extend(command.options)

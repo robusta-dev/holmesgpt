@@ -42,17 +42,7 @@ serviceAccount:
   imagePullSecrets: []
   annotations: {}
 
-toolsets:
-  kubernetes/core:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
-  robusta:
-    enabled: true
-  internet:
-    enabled: true
-  prometheus/metrics:
-    enabled: true
+toolsets: {}
 mcp_servers: {}
 
 resources:

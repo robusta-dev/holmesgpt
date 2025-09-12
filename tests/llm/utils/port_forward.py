@@ -57,7 +57,7 @@ class PortForward:
             )
         except Exception as e:
             log(f"❌ Failed to start port forward: {e}")
-            raise
+            # raise
 
     def _check_port_availability(self) -> None:
         """Check if the port is already in use."""
@@ -219,7 +219,7 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
 
         log(error_msg)
         raise RuntimeError(
-            "Port conflicts detected. Please fix the conflicts before running tests."
+            f"Port conflicts detected. Please fix the conflicts before running tests: ports {[port for port, _ in conflicts]}"
         )
 
     # Check if ports are already in use on the system

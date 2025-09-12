@@ -9,7 +9,6 @@ This module tests the Helm CLI integration in the bash toolset, ensuring:
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -72,6 +71,10 @@ class TestHelmCliSafeCommands:
             (
                 "helm get all myrelease -n production",
                 "helm get all myrelease -n production",
+            ),
+            (
+                "helm get chart myrelease -n production",
+                "helm get chart myrelease -n production",
             ),
             # Status commands
             ("helm status myrelease", "helm status myrelease"),

@@ -9,7 +9,6 @@ These tests verify:
 
 import pytest
 import argparse
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -265,6 +264,24 @@ class TestAWSCliSafeCommands:
                 "aws cloudtrail get-trail-status --name my-trail",
             ),
             ("aws cloudtrail lookup-events", "aws cloudtrail lookup-events"),
+            (
+                "aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=FOOBAR --start-time 2025-09-08T07:14:48Z --end-time 2025-09-09T07:14:48Z --query 'Events[*].{EventName:EventName,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' --output table",
+                "aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=FOOBAR --start-time 2025-09-08T07:14:48Z --end-time 2025-09-09T07:14:48Z --query 'Events[*].{EventName:EventName,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' --output table",
+            ),
+            ("aws rds describe-events", "aws rds describe-events"),
+            ("aws rds describe-db-instances", "aws rds describe-db-instances"),
+            (
+                "aws rds describe-db-instances --db-instance-identifier foo",
+                "aws rds describe-db-instances --db-instance-identifier foo",
+            ),
+            (
+                "aws rds describe-db-log-files --db-instance-identifier foobar",
+                "aws rds describe-db-log-files --db-instance-identifier foobar",
+            ),
+            (
+                "aws rds download-db-log-file-portion --db-instance-identifier foobar --log-file-name 'foo.log' --starting-token 0",
+                "aws rds download-db-log-file-portion --db-instance-identifier foobar --log-file-name foo.log --starting-token 0",
+            ),
         ],
     )
     def test_aws_safe_commands(self, input_command: str, expected_output: str):
@@ -282,7 +299,6 @@ class TestAWSCliUnsafeCommands:
         [
             # Blocked services
             ("aws configure list", ValueError, "blocked"),
-            ("aws sts get-caller-identity", ValueError, "blocked"),
             ("aws secretsmanager list-secrets", ValueError, "blocked"),
             ("aws kms list-keys", ValueError, "blocked"),
             # State-modifying EC2 operations

@@ -183,6 +183,7 @@ ALLOWED_AWS_COMMANDS: dict[str, dict] = {
         "describe-account-quotas": {},
         "describe-orderable-db-instance-options": {},
         "describe-valid-db-instance-modifications": {},
+        "download-db-log-file-portion": {},
         "list-tags-for-resource": {},
     },
     "dynamodb": {

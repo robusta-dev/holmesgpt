@@ -8,27 +8,7 @@ potentially dangerous or unauthorized kubectl commands by raising ArgumentError.
 import re
 import pytest
 import argparse
-from holmes.plugins.toolsets.bash.common.config import (
-    BashExecutorConfig,
-    KubectlConfig,
-    KubectlImageConfig,
-)
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
-
-TEST_CONFIG = BashExecutorConfig(
-    kubectl=KubectlConfig(
-        allowed_images=[
-            KubectlImageConfig(
-                image="busybox",
-                allowed_commands=["cat /etc/resolv.conf", "nslookup .*"],
-            ),
-            KubectlImageConfig(
-                image="registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3",
-                allowed_commands=["cat /etc/resolv.conf"],
-            ),
-        ]
-    )
-)
 
 
 class TestIncorrectKubectlCommands:
@@ -103,7 +83,7 @@ class TestIncorrectKubectlCommands:
             else None
         )
         with pytest.raises(Exception, match=match):
-            make_command_safe(command, config=TEST_CONFIG)
+            make_command_safe(command)
 
     @pytest.mark.parametrize(
         "command,partial_error_message_content",
@@ -125,7 +105,7 @@ class TestIncorrectKubectlCommands:
             else None
         )
         with pytest.raises(Exception, match=match):
-            make_command_safe(command, config=TEST_CONFIG)
+            make_command_safe(command)
 
     def test_mixed_safe_and_unsafe_kubectl_commands_raise_error(self):
         """Test that mixing safe and unsafe kubectl commands still raises ArgumentError."""
@@ -137,10 +117,10 @@ class TestIncorrectKubectlCommands:
 
     def test_empty_command_returns_empty_string(self):
         """Test that empty commands return empty string."""
-        assert make_command_safe("", config=TEST_CONFIG) == ""
-        assert make_command_safe("   ", config=TEST_CONFIG) == ""
+        assert make_command_safe("") == ""
+        assert make_command_safe("   ") == ""
 
     def test_only_pipe_returns_empty_string(self):
         """Test that command with only pipe character returns empty string."""
-        assert make_command_safe("|", config=TEST_CONFIG) == ""
-        assert make_command_safe("| |", config=TEST_CONFIG) == ""
+        assert make_command_safe("|") == ""
+        assert make_command_safe("| |") == ""
