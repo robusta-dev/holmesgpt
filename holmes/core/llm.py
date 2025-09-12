@@ -3,7 +3,7 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import ModelResponse, TextCompletionResponse
 import sentry_sdk
 
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -530,3 +530,25 @@ class LLMModelRegistry:
             "is_robusta_model": is_robusta_model,
             "model": model,
         }
+
+
+def get_llm_usage(
+    llm_response: Union[ModelResponse, CustomStreamWrapper, TextCompletionResponse],
+) -> dict:
+    usage: dict = {}
+    if (
+        (
+            isinstance(llm_response, ModelResponse)
+            or isinstance(llm_response, TextCompletionResponse)
+        )
+        and hasattr(llm_response, "usage")
+        and llm_response.usage
+    ):  # type: ignore
+        usage["prompt_tokens"] = llm_response.usage.prompt_tokens  # type: ignore
+        usage["completion_tokens"] = llm_response.usage.completion_tokens  # type: ignore
+        usage["total_tokens"] = llm_response.usage.total_tokens  # type: ignore
+    elif isinstance(llm_response, CustomStreamWrapper):
+        complete_response = litellm.stream_chunk_builder(chunks=llm_response)  # type: ignore
+        if complete_response:
+            return get_llm_usage(complete_response)
+    return usage
