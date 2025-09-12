@@ -57,7 +57,7 @@ class PrometheusConfig(BaseModel):
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
     query_response_size_limit: Optional[int] = (
-        80000  # Limit the max number of characters in a query result to proactively prevent truncation and advise LLM to query less data
+        50000  # Limit the max number of characters in a query result to proactively prevent truncation and advise LLM to query less data
     )
 
     @field_validator("prometheus_url")
