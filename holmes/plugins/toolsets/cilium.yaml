@@ -28,7 +28,7 @@ toolsets:
     tags:
       - cli
     prerequisites:
-      - command: "cilium version"
+      - command: "cilium status"
     config:
       timeout: 300 # Default timeout in seconds - connectivity tests can take 5+ minutes to complete
 
@@ -59,100 +59,48 @@ toolsets:
         description: "Run connectivity tests in a specific namespace (SLOW: 5+ minutes - use as last resort)"
         command: "cilium connectivity test --test-namespace {{ namespace }}"
 
-      # Endpoint Management
-      - name: "cilium_endpoint_list"
-        description: "List all Cilium endpoints (pods with networking)"
-        command: "cilium endpoint list"
-
-      - name: "cilium_endpoint_get"
-        description: "Get detailed information about a specific endpoint by ID"
-        command: "cilium endpoint get {{ endpoint_id }}"
-
-      - name: "cilium_endpoint_health"
-        description: "Check health status of all endpoints"
-        command: "cilium endpoint health"
-
-      - name: "cilium_endpoint_logs"
-        description: "Show logs for a specific endpoint"
-        command: "cilium endpoint log {{ endpoint_id }}"
-
-      # Service and Load Balancing
-      - name: "cilium_service_list"
-        description: "List all Cilium services and load balancer mappings"
-        command: "cilium service list"
-
-      - name: "cilium_service_get"
-        description: "Get detailed information about a specific service by ID"
-        command: "cilium service get {{ service_id }}"
-
-      - name: "cilium_loadbalancer_list"
-        description: "List load balancer backend mappings"
-        command: "cilium bpf lb list"
-
-      # Network Policy
-      - name: "cilium_policy_get"
-        description: "Get network policies applied to an endpoint"
-        command: "cilium endpoint get {{ endpoint_id }} -o jsonpath='{.policy}'"
-
-      - name: "cilium_policy_trace"
-        description: "Trace policy decisions for traffic between source and destination"
-        command: "cilium policy trace --src-endpoint {{ src_endpoint }} --dst-endpoint {{ dst_endpoint }}"
-
-      - name: "cilium_policy_trace_verbose"
-        description: "Detailed policy trace with verbose output"
-        command: "cilium policy trace --src-endpoint {{ src_endpoint }} --dst-endpoint {{ dst_endpoint }} --verbose"
-
-      # Network Monitoring
-      - name: "cilium_monitor"
-        description: "Monitor Cilium datapath events in real-time"
-        command: "timeout 30 cilium monitor"
-
-      - name: "cilium_monitor_verbose"
-        description: "Monitor datapath events with verbose output"
-        command: "timeout 30 cilium monitor --verbose"
-
-      # Node and Cluster Information
-      - name: "cilium_node_list"
-        description: "List all nodes in the Cilium cluster"
-        command: "cilium node list"
-
+      # Cluster and Node Information
       - name: "cilium_clustermesh_status"
         description: "Display cluster mesh status for multi-cluster networking"
         command: "cilium clustermesh status"
 
-      # BPF Maps and Debugging
-      - name: "cilium_bpf_map_list"
-        description: "List all BPF maps used by Cilium"
-        command: "cilium bpf map list"
-
-      - name: "cilium_bpf_endpoint_list"
-        description: "List endpoints from BPF maps"
-        command: "cilium bpf endpoint list"
-
-      - name: "cilium_debuginfo"
-        description: "Generate debug information bundle for troubleshooting"
-        command: "cilium debuginfo"
-
-      # Additional Cilium Tools
-      - name: "cilium_features"
+      # Features and Configuration
+      - name: "cilium_features_status"
         description: "Report which features are enabled in Cilium agents"
-        command: "cilium features"
+        command: "cilium features status"
 
+      # BGP Control Plane
       - name: "cilium_bgp_peers"
-        description: "List BGP peers for nodes running Cilium"
-        command: "cilium bgp peers"
+        description: "List BGP peers for nodes running Cilium (requires BGP enabled)"
+        command: "cilium bgp peers || echo 'BGP not enabled or not properly configured'"
 
       - name: "cilium_bgp_routes"
-        description: "List BGP routes for nodes running Cilium"
-        command: "cilium bgp routes"
+        description: "List BGP routes for nodes running Cilium (requires BGP enabled)"
+        command: "cilium bgp routes || echo 'BGP not enabled or not properly configured'"
 
+      # Encryption (requires Cilium 1.18+)
+      - name: "cilium_encryption_status"
+        description: "Show encryption status and configuration (requires Cilium 1.18+)"
+        command: "cilium encryption status || echo 'Encryption status not supported in this Cilium version'"
+
+      # System Diagnostics
       - name: "cilium_sysdump"
         description: "Collect system information for troubleshooting Cilium issues"
-        command: "cilium sysdump --output-filename cilium-sysdump.zip"
+        command: "cilium sysdump --output-filename cilium-sysdump-$(date +%Y%m%d-%H%M%S).zip"
 
-      - name: "cilium_encryption_status"
-        description: "Show encryption status and configuration"
-        command: "cilium encryption status"
+      # Installation and Upgrade
+      - name: "cilium_install_status"
+        description: "Check Cilium installation status in the cluster"
+        command: "cilium status --wait"
+
+      - name: "cilium_context"
+        description: "Display the current Kubernetes context configuration"
+        command: "cilium context"
+
+      # Multicast (only works if multicast is enabled)
+      - name: "cilium_multicast_groups"
+        description: "List multicast groups and their members (requires multicast enabled)"
+        command: "cilium multicast list group || echo 'Multicast not enabled in this cluster'"
 
   hubble/observability:
     description: "Hubble network observability tools for monitoring and troubleshooting network flows"
@@ -160,6 +108,11 @@ toolsets:
     icon_url: "https://raw.githubusercontent.com/cilium/hubble/main/Documentation/images/hubble_logo.png"
     llm_instructions: |
       Use Hubble to observe and analyze network traffic flows in your Kubernetes cluster.
+
+      IMPORTANT: Hubble commands require a running Hubble server (hubble-relay) to be accessible.
+      If Hubble server is not available, these commands will fail with connection errors.
+      Use 'cilium hubble enable' to enable Hubble if needed.
+
       Hubble provides deep visibility into:
       - HTTP/gRPC/DNS traffic flows
       - Network policy drops and allows
@@ -173,26 +126,23 @@ toolsets:
         3. Look for dropped flows to identify policy issues
         4. Check DNS resolution problems
         5. Analyze L7 protocols for application-level issues
-        6. Use agent-events and debug-events when Cilium itself is problematic
-
-      For Cilium troubleshooting specifically:
-      - Use hubble_observe_agent_events to see Cilium agent state changes
-      - Use hubble_observe_debug_events for detailed debugging information
-      - These are particularly useful when Cilium components are failing or misconfigured
+        6. Use policy verdicts to understand network policy behavior
 
       Use time windows and limits to focus on recent events during incident investigation.
+      Note: Some advanced features like agent-events and debug-events may not be available in all Hubble versions.
     tags:
       - cli
     prerequisites:
       - command: "hubble version"
+      - command: "hubble status || echo 'Hubble server not accessible - commands may fail'"
     config:
       timeout: 300 # Default timeout in seconds for potentially long-running commands
 
     tools:
       # Flow Observation
       - name: "hubble_observe"
-        description: "Observe network flows in real-time (last 1000 flows)"
-        command: "hubble observe --last 100"
+        description: "Observe network flows in real-time (last 100 flows)"
+        command: "hubble observe --last 1000"
 
       - name: "hubble_observe_follow"
         description: "Follow network flows in real-time as they happen"
@@ -203,7 +153,7 @@ toolsets:
         command: "hubble observe --namespace {{ namespace }} --last 100"
 
       - name: "hubble_observe_pod"
-        description: "Observe flows to/from a specific pod"
+        description: "Observe flows to/from a specific pod (format: namespace/pod-name)"
         command: "hubble observe --pod {{ pod_name }} --last 100"
 
       - name: "hubble_observe_since"
@@ -233,7 +183,7 @@ toolsets:
         command: "hubble observe --verdict FORWARDED --last 100"
 
       - name: "hubble_observe_service"
-        description: "Observe flows to/from a specific service"
+        description: "Observe flows to/from a specific service (format: namespace/service-name)"
         command: "hubble observe --service {{ service_name }} --last 100"
 
       - name: "hubble_observe_port"
@@ -242,11 +192,11 @@ toolsets:
 
       # Flow Filtering and Analysis
       - name: "hubble_observe_from_pod"
-        description: "Observe flows originating from a specific pod"
+        description: "Observe flows originating from a specific pod (format: namespace/pod-name)"
         command: "hubble observe --from-pod {{ namespace }}/{{ pod_name }} --last 100"
 
       - name: "hubble_observe_to_pod"
-        description: "Observe flows destined to a specific pod"
+        description: "Observe flows destined to a specific pod (format: namespace/pod-name)"
         command: "hubble observe --to-pod {{ namespace }}/{{ pod_name }} --last 100"
 
       - name: "hubble_observe_between_namespaces"
@@ -273,25 +223,12 @@ toolsets:
       # Security and Policy Analysis
       - name: "hubble_observe_security_events"
         description: "Observe security-related network events and policy violations"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe --type drop --type policy-verdict --last 100"
+        command: "hubble observe --verdict DROPPED --last 100"
+
+      - name: "hubble_observe_policy_verdicts"
+        description: "Show policy verdict events (allows and denies)"
+        command: "hubble observe --type policy-verdict --last 100"
 
       - name: "hubble_observe_l7_traffic"
         description: "Show L7 (application-layer) traffic flows"
         command: "hubble observe --type l7 --last 100"
-
-      # Cilium Agent and Debug Events
-      - name: "hubble_observe_agent_events"
-        description: "Observe Cilium agent events for troubleshooting agent issues"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe agent-events --last 100"
-
-      - name: "hubble_observe_debug_events"
-        description: "Observe Cilium debug events for detailed troubleshooting"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe debug-events --last 100"
-
-      - name: "hubble_observe_agent_events_follow"
-        description: "Follow Cilium agent events in real-time"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe agent-events --follow"
-
-      - name: "hubble_observe_debug_events_follow"
-        description: "Follow Cilium debug events in real-time"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe debug-events --follow"
