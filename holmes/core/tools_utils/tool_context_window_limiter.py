@@ -2,6 +2,7 @@ from holmes.common.env_vars import TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.tools_utils.data_types import ToolCallResult
+from holmes.utils import sentry_helper
 
 
 def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM):
@@ -14,8 +15,8 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
 
         messages_token = llm.count_tokens_for_message(messages=[message])
         context_window_size = llm.get_context_window_size()
-        max_tokens_allowed = (
-            context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT / 100
+        max_tokens_allowed: int = int(
+            context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
         )
 
         if messages_token > max_tokens_allowed:
@@ -26,3 +27,7 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
             tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.data = None
             tool_call_result.result.error = error_message
+
+            sentry_helper.capture_toolcall_contains_too_many_tokens(
+                tool_call_result, messages_token, max_tokens_allowed
+            )
