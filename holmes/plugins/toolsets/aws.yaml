@@ -3,6 +3,7 @@ toolsets:
     description: "Set of tools to audit AWS security"
     docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/aws/"
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
+    enabled: False
     tags:
       - cli
     prerequisites:
