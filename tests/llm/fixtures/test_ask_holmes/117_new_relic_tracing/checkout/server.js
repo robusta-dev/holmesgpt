@@ -61,11 +61,9 @@ app.post("/orders", async function processOrder(req, res) {
     const body = req.body;
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
 
-    // forward correlation + W3C trace headers
+    // forward correlation header
     const fwd = {
-      "x-request-id": requestId,
-      ...(req.headers.traceparent ? { traceparent: req.headers.traceparent } : {}),
-      ...(req.headers.tracestate ? { tracestate: req.headers.tracestate } : {})
+      "x-request-id": requestId
     };
 
     const ctx = {
