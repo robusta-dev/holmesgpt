@@ -27,7 +27,7 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, get_llm_usage
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
@@ -424,6 +424,7 @@ class ToolCallingLLM:
 
                     self.llm.count_tokens_for_message(messages)
                     perf_timing.end(f"- completed in {i} iterations -")
+                    metadata["usage"] = get_llm_usage(full_response)
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -865,6 +866,7 @@ class ToolCallingLLM:
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
                 self.llm.count_tokens_for_message(messages)
+                metadata["usage"] = get_llm_usage(full_response)
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
