@@ -56,6 +56,9 @@ class PrometheusConfig(BaseModel):
     rules_cache_duration_seconds: Union[int, None] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
+    query_response_size_limit: Optional[int] = (
+        80000  # Limit the max number of characters in a query result to proactively prevent truncation and advise LLM to query less data
+    )
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
@@ -833,8 +836,12 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     data_str_preview = json.dumps(result_data)
                     data_size_chars = len(data_str_preview)
 
-                    # If data is too large (>80K chars), provide summary instead
-                    if data_size_chars > 80000:
+                    # Provide summary if data is too large
+                    if (
+                        self.toolset.config.query_response_size_limit
+                        and data_size_chars
+                        > self.toolset.config.query_response_size_limit
+                    ):
                         response_data["data_summary"] = (
                             create_data_summary_for_large_result(
                                 result_data,
@@ -1020,8 +1027,12 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     data_str_preview = json.dumps(result_data)
                     data_size_chars = len(data_str_preview)
 
-                    # If data is too large (>80K chars), provide summary instead
-                    if data_size_chars > 80000:
+                    # Provide summary if data is too large
+                    if (
+                        self.toolset.config.query_response_size_limit
+                        and data_size_chars
+                        > self.toolset.config.query_response_size_limit
+                    ):
                         response_data["data_summary"] = (
                             create_data_summary_for_large_result(
                                 result_data, query, data_size_chars, is_range_query=True

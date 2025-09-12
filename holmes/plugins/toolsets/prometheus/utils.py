@@ -1,7 +1,5 @@
 import re
-from typing import Optional
-
-from git import Union
+from typing import Optional, Union
 
 
 def parse_duration_to_seconds(v: Optional[Union[str, float, int]]) -> Optional[float]:
