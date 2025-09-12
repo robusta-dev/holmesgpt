@@ -143,10 +143,15 @@ toolsets:
       - name: "hubble_observe"
         description: "Observe network flows in real-time (last 100 flows)"
         command: "hubble observe --last 1000"
-
-      - name: "hubble_observe_follow"
-        description: "Follow network flows in real-time as they happen"
-        command: "timeout {{ config.timeout | default(30) }} hubble observe --follow"
+        transformers:
+          - name: llm_summarize
+            config:
+              input_threshold: 1000
+              prompt: |
+                Summarize this hubble observe output focusing on
+                - Notable traffic patterns.
+                - Traffic drops of any kind, source, destingation, protocol, etc.
+                - Errors that might indicate network issues.
 
       - name: "hubble_observe_namespace"
         description: "Observe flows for a specific namespace"
