@@ -15,15 +15,114 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
 
 ## Configuration
 
-### Environment Variables
+=== "Holmes CLI"
 
-```bash
-export AWS_REGION_NAME="us-east-1"  # Replace with your region
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
+    ```bash
+    export AWS_REGION_NAME="us-east-1"  # Replace with your region
+    export AWS_ACCESS_KEY_ID="your-access-key"
+    export AWS_SECRET_ACCESS_KEY="your-secret-key"
 
-holmes ask "what pods are failing?" --model="bedrock/<your-bedrock-model>"
-```
+    holmes ask "what pods are failing?" --model="bedrock/<your-bedrock-model>"
+    ```
+
+=== "Holmes Helm Chart"
+
+    **Create Kubernetes Secret:**
+    ```bash
+    kubectl create secret generic holmes-secrets \
+      --from-literal=aws-access-key-id="AKIA..." \
+      --from-literal=aws-secret-access-key="your-secret-key" \
+      -n <namespace>
+    ```
+
+    **Configure Helm Values:**
+    ```yaml
+    # values.yaml
+    additionalEnvVars:
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: holmes-secrets
+            key: aws-access-key-id
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: holmes-secrets
+            key: aws-secret-access-key
+
+    # Configure at least one model using modelList
+    modelList:
+      bedrock-claude-35-sonnet:
+        aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+        aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+        aws_region_name: us-east-1
+        model: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0
+        temperature: 1
+
+      bedrock-claude-sonnet-4:
+        aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+        aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+        aws_region_name: eu-south-2
+        model: bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
+        temperature: 1
+        thinking:
+          budget_tokens: 10000
+          type: enabled
+
+    # Optional: Set default model (use modelList key name, not the model path)
+    config:
+      model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
+    ```
+
+=== "Robusta Helm Chart"
+
+    **Create Kubernetes Secret:**
+    ```bash
+    kubectl create secret generic robusta-holmes-secret \
+      --from-literal=aws-access-key-id="AKIA..." \
+      --from-literal=aws-secret-access-key="your-secret-key" \
+      -n <namespace>
+    ```
+
+    **Configure Helm Values:**
+    ```yaml
+    # values.yaml
+    holmes:
+      additionalEnvVars:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: robusta-holmes-secret
+              key: aws-access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: robusta-holmes-secret
+              key: aws-secret-access-key
+
+      # Configure at least one model using modelList
+      modelList:
+        bedrock-claude-35-sonnet:
+          aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+          aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+          aws_region_name: us-east-1
+          model: bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0
+          temperature: 1
+
+        bedrock-claude-sonnet-4:
+          aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+          aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+          aws_region_name: eu-south-2
+          model: bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
+          temperature: 1
+          thinking:
+            budget_tokens: 10000
+            type: enabled
+
+      # Optional: Set default model (use modelList key name, not the model path)
+      config:
+        model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
+    ```
 
 ### Finding Your AWS Credentials
 
