@@ -3,6 +3,7 @@ from enum import Enum
 import json
 import logging
 from typing import Any, Optional, Dict, Tuple, Set
+from urllib.parse import urlencode
 from holmes.core.tools import (
     CallablePrerequisite,
     ToolsetTag,
@@ -137,6 +138,49 @@ def format_logs(raw_logs: list[dict]) -> str:
     return "\n".join(logs)
 
 
+def generate_datadog_logs_url(
+    dd_config: DatadogLogsConfig,
+    params: FetchPodLogsParams,
+    storage_tier: DataDogStorageTier,
+) -> str:
+    """Generate a Datadog web UI URL for the logs query."""
+    # Extract the base domain from the API URL
+    # Convert https://api.datadoghq.com to https://app.datadoghq.com
+    # or https://api.datadoghq.eu to https://app.datadoghq.eu
+    base_url = str(dd_config.site_api_url).replace("/api.", "/app.")
+    if base_url.endswith("/"):
+        base_url = base_url[:-1]
+
+    # Build the query string
+    query = f"{dd_config.labels.namespace}:{params.namespace}"
+    query += f" {dd_config.labels.pod}:{params.pod_name}"
+    if params.filter:
+        filter = params.filter.replace('"', '\\"')
+        query += f' "{filter}"'
+
+    # Process timestamps for URL parameters
+    (from_time, to_time) = process_timestamps_to_rfc3339(
+        start_timestamp=params.start_time,
+        end_timestamp=params.end_time,
+        default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+    )
+
+    # Build URL parameters
+    url_params = {
+        "query": query,
+        "from_ts": from_time,
+        "to_ts": to_time,
+        "storage": storage_tier.value,
+    }
+
+    # Add indexes if not default
+    if dd_config.indexes != ["*"]:
+        url_params["index"] = ",".join(dd_config.indexes)
+
+    # Construct the full URL
+    return f"{base_url}/logs?{urlencode(url_params)}"
+
+
 class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
 
@@ -181,14 +225,48 @@ class DatadogLogsToolset(BasePodLoggingToolset):
 
                 if raw_logs:
                     logs_str = format_logs(raw_logs)
+                    # Generate Datadog web UI URL
+                    datadog_url = generate_datadog_logs_url(
+                        self.dd_config, params, storage_tier
+                    )
+                    logs_with_link = f"{logs_str}\n\nView in Datadog: {datadog_url}"
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.SUCCESS,
-                        data=logs_str,
+                        data=logs_with_link,
                         params=params.model_dump(),
                     )
 
+            # Include detailed context about what was searched
+            query = f"{self.dd_config.labels.namespace}:{params.namespace} {self.dd_config.labels.pod}:{params.pod_name}"
+            if params.filter:
+                query += f' "{params.filter}"'
+
+            # Format time range with actual defaults
+            if params.start_time:
+                start_desc = params.start_time
+            else:
+                start_desc = f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
+
+            end_desc = params.end_time or "now"
+            time_range = f"{start_desc} to {end_desc}"
+
+            # Generate Datadog web UI URL for the last storage tier checked
+            datadog_url = generate_datadog_logs_url(
+                self.dd_config, params, self.dd_config.storage_tiers[-1]
+            )
+
+            error_msg = (
+                f"No logs found.\n"
+                f"Query: {query}\n"
+                f"Time range: {time_range}\n"
+                f"Limit: {params.limit or self.dd_config.default_limit}\n"
+                f"Storage tiers checked: {', '.join([tier.value for tier in self.dd_config.storage_tiers])}\n"
+                f"View in Datadog: {datadog_url}"
+            )
+
             return StructuredToolResult(
                 status=StructuredToolResultStatus.NO_DATA,
+                error=error_msg,
                 params=params.model_dump(),
             )
 
@@ -199,7 +277,31 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             if e.status_code == 429:
                 error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
             else:
-                error_msg = f"Exception while querying Datadog: {str(e)}"
+                # Include full API error details and query context
+                error_msg = (
+                    f"Datadog API error (status {e.status_code}): {e.response_text}"
+                )
+                query = f"{self.dd_config.labels.namespace}:{params.namespace} {self.dd_config.labels.pod}:{params.pod_name}"
+                if params.filter:
+                    query += f' "{params.filter}"'
+                error_msg += f"\nQuery: {query}"
+
+                # Format time range with actual defaults
+                if params.start_time:
+                    start_desc = params.start_time
+                else:
+                    start_desc = (
+                        f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
+                    )
+
+                end_desc = params.end_time or "now"
+                error_msg += f"\nTime range: {start_desc} to {end_desc}"
+
+                # Add Datadog web UI URL even for errors
+                datadog_url = generate_datadog_logs_url(
+                    self.dd_config, params, self.dd_config.storage_tiers[0]
+                )
+                error_msg += f"\nView in Datadog: {datadog_url}"
 
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
