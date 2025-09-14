@@ -13,7 +13,7 @@ from holmes.plugins.toolsets.internet.internet import (
 )
 from holmes.core.tools import (
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
@@ -59,13 +59,13 @@ class FetchNotion(Tool):
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to retrieve content from {url}",
                 params=params,
             )
 
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=self.parse_notion_content(content),
             params=params,
         )

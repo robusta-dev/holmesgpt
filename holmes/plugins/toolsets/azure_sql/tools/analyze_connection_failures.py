@@ -2,7 +2,11 @@ import logging
 from typing import Dict, Tuple
 from datetime import datetime, timezone
 
-from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    ToolParameter,
+    StructuredToolResultStatus,
+)
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLTool,
     BaseAzureSQLToolset,
@@ -242,7 +246,7 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
             # Check for errors
             if "error" in analysis_data:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=analysis_data["error"],
                     params=params,
                 )
@@ -253,7 +257,7 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=report_text,
                 params=params,
             )
@@ -263,7 +267,7 @@ class AnalyzeConnectionFailures(BaseAzureSQLTool):
                 f"Error in analyze_connection_failures: {str(e)}", exc_info=True
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to analyze connection failures: {str(e)}",
                 params=params,
             )

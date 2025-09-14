@@ -1,5 +1,5 @@
 from unittest.mock import Mock, patch
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.datadog.toolset_datadog_logs import (
     DatadogLogsToolset,
     DatadogLogsConfig,
@@ -75,7 +75,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.error is None
 
         # Check that all 300 logs are present in reverse order (oldest first)
@@ -126,7 +126,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.error is None
 
         # Check that only 80 logs are returned
@@ -177,7 +177,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.error is None
 
         # Check that logs from online archives are returned
@@ -230,7 +230,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.error is None
 
         # Check that logs are returned
@@ -277,7 +277,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.error is None
 
         # Verify three API calls were made (two failed with 429, one succeeded)
@@ -293,7 +293,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert result.data == "The toolset is missing its configuration"
 
         # Verify no API calls were made
@@ -316,7 +316,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(self.fetch_params)
 
         # Verify
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert (
             "Datadog API rate limit exceeded. Failed after 5 retry attempts."
             in result.error
@@ -353,7 +353,7 @@ class TestDatadogToolsetFetchPodLogs:
         result = self.toolset.fetch_pod_logs(params)
 
         # Verify
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Check the API call included the filter
         call_args = mock_post.call_args
