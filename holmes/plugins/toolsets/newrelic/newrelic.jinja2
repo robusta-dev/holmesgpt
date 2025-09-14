@@ -16,7 +16,7 @@ Use `nrql_query` to run a NRQL query.
 #### 1. Discovering Available Data
 
 Start by understanding what's available. Here are some examples:
-- Use `SELECT keyset() FROM EventType` to discover available attributes (replace EventType with Transaction, Span, Log, or Metric)
+- **ALWAYS** Start by getting all the available attributes names for what you are looking for. For example, to get it for any for Transaction in the last 24 hours, use: SELECT keyset() FROM Transaction SINCE 24 hours ago
 - After you find the keyset `appName`, you can use it to get the available applications: `SELECT uniques(appName) FROM Transaction SINCE 1 hour ago`
 Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition to Transaction, Span, Log, or Metric.
 
@@ -24,7 +24,3 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 
 - If you already have an application name, you can query its traces directly
 - **Time range is recommended**: While not strictly required, most queries should include SINCE for performance
-- **Important NRQL FACET Rule**: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
-  ❌ INCORRECT: `SELECT transactionType FROM Transaction FACET transactionType`
-  ✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
-  ✅ CORRECT: `SELECT average(duration) FROM Transaction FACET transactionType`

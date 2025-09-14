@@ -20,28 +20,19 @@ class ExecuteNRQLQuery(Tool):
         super().__init__(
             name="newrelic_execute_nrql_query",
             description="Get Traces, APM, Spans, Logs and more by executing a NRQL query in New Relic. "
-            "Returns the result of the NRQL function. "
+            "Returns the result of the NRQL function."
             "IMPORTANT: If results are empty, verify your attribute names are correct - use SELECT keyset() to discover available attributes for any event type",
             parameters={
                 "query": ToolParameter(
-                    description="""The NRQL query string to execute. Common event types:
+                    description="""The NRQL query string to execute.
 
-• Transaction - High-level application transactions (APM). Each event represents a single request/response cycle through your app. Includes attributes like duration, request.method, request.uri, appName, traceId.
-  Example: SELECT average(duration) FROM Transaction WHERE appName = 'myapp' SINCE 1 hour ago
+MANDATORY: Before querying any event type, ALWAYS run `SELECT keyset() FROM <EventType> SINCE <timeframe>` to discover available attributes. Never use attributes without confirming they exist first.
 
-• Span - Low-level distributed tracing spans. Each event represents one operation (a DB query, external call, function call). Links together into full traces via traceId and parentId.
-  Example: SELECT * FROM Span WHERE trace.id = 'abc123' SINCE 1 day ago
+Example: Before querying Transactions, run: `SELECT keyset() FROM Transaction SINCE 24 hours ago`
 
-• Log - Raw log events ingested into New Relic Logs. Attributes include message, timestamp, service.name, and any custom fields.
-  Example: SELECT * FROM Log WHERE service.name = 'api-service' AND level = 'ERROR' SINCE 30 minutes ago
-
-**Important NRQL FACET Rule**: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
-  ❌ INCORRECT: `SELECT transactionType FROM Transaction FACET transactionType`
-  ✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
-  ✅ CORRECT: `SELECT average(duration) FROM Transaction FACET transactionType`
-
-Note: To see all available keys, for example for Transaction, use: SELECT keyset() FROM Transaction SINCE 24 hours ago
-Note: To see all available event types in your account, use: SHOW EVENT TYPES SINCE 1 day ago""",
+Important NRQL FACET Rule: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
+✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
+❌ INCORRECT: `SELECT count(*), transactionType FROM Transaction FACET transactionType`""",
                     type="string",
                     required=True,
                 ),
