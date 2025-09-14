@@ -1,7 +1,6 @@
 description: Tests if Holmes first tries to use available tools to investigate before falling back to suggesting enabling new tools
 user_prompt: "Our Kafka cluster is experiencing high consumer lag. Can you investigate?"
-expected_output:
-  "Result must include a tool call to Prometheus"
+expected_output: "Result must include a tool call to Prometheus"
 tags:
   - transparency
   - prometheus
