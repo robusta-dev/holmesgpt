@@ -492,7 +492,7 @@ class LLMModelRegistry:
             )
 
         model_key, first_model_params = next(iter(self._llms.items()))
-        logging.info(f"Using first available model: {model_key}")
+        logging.debug(f"Using first available model: {model_key}")
         return first_model_params.copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
