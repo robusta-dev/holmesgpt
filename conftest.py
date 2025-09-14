@@ -164,5 +164,6 @@ def storage_dal_mock():
 def responses():
     with responses_.RequestsMock() as rsps:
         rsps.add_passthru("https://www.braintrust.dev")
+        rsps.add_passthru("https://api.braintrust.dev")  # Allow Braintrust API calls
         rsps.add_passthru("http://localhost")
         yield rsps
