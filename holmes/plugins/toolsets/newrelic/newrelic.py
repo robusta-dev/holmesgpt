@@ -19,7 +19,9 @@ class ExecuteNRQLQuery(Tool):
     def __init__(self, toolset: "NewRelicToolset"):
         super().__init__(
             name="newrelic_execute_nrql_query",
-            description="Get Traces, APM, Spans, Logs and more by executing a NRQL query in New Relic.",
+            description="Get Traces, APM, Spans, Logs and more by executing a NRQL query in New Relic. "
+            "Returns the result of the NRQL function. "
+            "IMPORTANT: If results are empty, verify your attribute names are correct - use SELECT keyset() to discover available attributes for any event type",
             parameters={
                 "query": ToolParameter(
                     description="""The NRQL query string to execute. Common event types:
@@ -32,6 +34,11 @@ class ExecuteNRQLQuery(Tool):
 
 • Log - Raw log events ingested into New Relic Logs. Attributes include message, timestamp, service.name, and any custom fields.
   Example: SELECT * FROM Log WHERE service.name = 'api-service' AND level = 'ERROR' SINCE 30 minutes ago
+
+**Important NRQL FACET Rule**: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
+  ❌ INCORRECT: `SELECT transactionType FROM Transaction FACET transactionType`
+  ✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
+  ✅ CORRECT: `SELECT average(duration) FROM Transaction FACET transactionType`
 
 Note: To see all available keys, for example for Transaction, use: SELECT keyset() FROM Transaction SINCE 24 hours ago
 Note: To see all available event types in your account, use: SHOW EVENT TYPES SINCE 1 day ago""",

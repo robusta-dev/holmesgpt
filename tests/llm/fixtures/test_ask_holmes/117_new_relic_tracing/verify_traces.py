@@ -38,14 +38,8 @@ def main():
 
             result = nr_api.execute_nrql_query(nrql_query)
 
-            # Extract faceted results
-            facets = (
-                result.get("data", {})
-                .get("actor", {})
-                .get("account", {})
-                .get("nrql", {})
-                .get("results", [])
-            )
+            # The API now returns results directly as a list
+            facets = result
 
             # Collect unique status codes
             status_codes = set()

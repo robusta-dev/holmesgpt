@@ -78,14 +78,14 @@ class NewRelicAPI:
 
         return data
 
-    def execute_nrql_query(self, nrql_query: str) -> Dict[str, Any]:
+    def execute_nrql_query(self, nrql_query: str) -> list:
         """Execute an NRQL query via the NewRelic GraphQL API.
 
         Args:
             nrql_query: The NRQL query string to execute
 
         Returns:
-            dict: The query results from NewRelic
+            list: The query results from NewRelic (extracted from the nested response)
 
         Raises:
             requests.exceptions.HTTPError: If the API request fails
@@ -107,4 +107,13 @@ class NewRelicAPI:
         }
 
         logger.info(f"Executing NRQL query: {nrql_query}")
-        return self._make_request(graphql_query)
+        response = self._make_request(graphql_query)
+
+        # Extract just the results array from the nested response
+        try:
+            results = response["data"]["actor"]["account"]["nrql"]["results"]
+            return results
+        except (KeyError, TypeError) as e:
+            raise Exception(
+                f"Failed to extract results from NewRelic response: {e}"
+            ) from e
