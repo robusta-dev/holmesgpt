@@ -10,6 +10,7 @@ tags:
   - kubernetes
   - context_window
   - medium
+  - prometheus
 
 # Custom timeout for setup (needs 5 min for metrics + setup time)
 setup_timeout: 420  # 7 minutes total
@@ -18,7 +19,7 @@ setup_timeout: 420  # 7 minutes total
 port_forwards:
   - namespace: default
     service: robusta-kube-prometheus-st-prometheus
-    local_port: 9159  # Unique port for test 159
+    local_port: 9090
     remote_port: 9090
 
 before_test: |

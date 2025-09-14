@@ -74,6 +74,7 @@ class HolmesTestCase(BaseModel):
     skip_reason: Optional[str] = None
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
+    include_tool_calls: Optional[bool] = False  # Include tool calls in LLM evaluation
     before_test: Optional[str] = None
     after_test: Optional[str] = None
     setup_timeout: Optional[int] = None  # Override default setup timeout in seconds
