@@ -470,7 +470,7 @@ def fetch_metrics_labels_with_series_api(
         url=series_url,
         headers=headers,
         params=params,
-        timeout=60,
+        timeout=45,
         verify=verify_ssl,
         method="GET",
     )
@@ -662,7 +662,7 @@ class ListPrometheusRules(BasePrometheusTool):
                 config=self.toolset.config,
                 url=rules_url,
                 params=params,
-                timeout=180,
+                timeout=40,
                 verify=self.toolset.config.prometheus_ssl_enabled,
                 headers=self.toolset.config.headers,
                 method="GET",
@@ -1060,7 +1060,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 url=url,
                 headers=self.toolset.config.headers,
                 data=payload,
-                timeout=120,
+                timeout=60,
                 verify=self.toolset.config.prometheus_ssl_enabled,
                 method="POST",
             )
