@@ -168,5 +168,8 @@ def responses():
         rsps.add_passthru(
             "https://api.newrelic.com/graphql"
         )  # Allow New Relic API calls
+        rsps.add_passthru(
+            "https://api.eu.newrelic.com/graphql"
+        )  # Allow New Relic API calls
         rsps.add_passthru("http://localhost")
         yield rsps

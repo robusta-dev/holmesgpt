@@ -35,9 +35,27 @@ MANDATORY: Before querying any event type, ALWAYS run `SELECT keyset() FROM <Eve
 
 Example: Before querying Transactions, run: `SELECT keyset() FROM Transaction SINCE 24 hours ago`
 
-Important NRQL FACET Rule: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
-✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
-❌ INCORRECT: `SELECT count(*), transactionType FROM Transaction FACET transactionType`""",
+### ⚠️ Critical Rule: NRQL `FACET` Usa ge
+
+When using **FACET** in NRQL:
+- Any **non-constant value** in the `SELECT` clause **must be aggregated**.
+- The attribute you **FACET** on must **not appear in `SELECT`** unless it’s wrapped in an aggregation.
+
+#### ✅ Correct
+```nrql
+-- Aggregated metric + facet
+SELECT count(*) FROM Transaction FACET transactionType
+
+-- Multiple aggregations with facet
+SELECT count(*), average(duration) FROM Transaction FACET transactionType
+```
+
+#### ❌ Incorrect
+```nrql
+-- Not allowed: raw attribute in SELECT
+SELECT count(*), transactionType FROM Transaction FACET transactionType
+```
+""",
                     type="string",
                     required=True,
                 ),

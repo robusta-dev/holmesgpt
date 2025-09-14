@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Verify that New Relic has received traces from all services with expected status codes."""
 
+import argparse
 import os
 import sys
 import time
@@ -14,20 +15,37 @@ from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
 
 
 def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Verify New Relic traces")
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=30,
+        help="Maximum number of retry attempts (default: 30)",
+    )
+    parser.add_argument(
+        "--retry-interval",
+        type=int,
+        default=5,
+        help="Seconds between retries (default: 5)",
+    )
+    args = parser.parse_args()
+
     # Get credentials from environment
     account_id = os.environ.get("NEW_RELIC_ACCOUNT_ID")
     api_key = os.environ.get("NEW_RELIC_API_KEY")
+    is_eu = bool(os.getenv("NEW_RELIC_IS_EU", False))
 
     if not account_id or not api_key:
         print("Error: NEW_RELIC_ACCOUNT_ID and NEW_RELIC_API_KEY must be set")
         sys.exit(1)
 
     # Initialize New Relic API client
-    nr_api = NewRelicAPI(api_key=api_key, account_id=account_id, is_eu_datacenter=False)
+    nr_api = NewRelicAPI(api_key=api_key, account_id=account_id, is_eu_datacenter=is_eu)
 
     # Retry parameters
-    max_attempts = 30
-    retry_interval = 5
+    max_attempts = args.max_attempts
+    retry_interval = args.retry_interval
 
     for attempt in range(1, max_attempts + 1):
         print(f"Checking for traces in New Relic (attempt {attempt}/{max_attempts})...")
@@ -40,24 +58,25 @@ def main():
 
             # The API now returns results directly as a list
             facets = result
+            print(f"Raw result from API: {result}")
 
             # Collect unique status codes
             status_codes = set()
 
             print("Current facets:")
             for facet in facets:
-                app_name = facet.get("appName", "")
-                status_code = facet.get("http.statusCode", "")
+                # New Relic returns status code in the facet data
+                status_code = facet.get("http.statusCode", facet.get("facet", ""))
                 if status_code:
                     status_codes.add(str(status_code))
-                print(f"  {app_name}:{status_code} - count: {facet.get('count', 0)}")
+                print(f"  Status {status_code} - count: {facet.get('count', 0)}")
 
             # Check if we have all required services and status codes
             required_codes = {"200", "403", "409"}
 
             missing_codes = required_codes - status_codes
 
-            if not not missing_codes:
+            if not missing_codes:
                 print("✓ Found all expected status codes: 200, 403, 409")
                 sys.exit(0)
 

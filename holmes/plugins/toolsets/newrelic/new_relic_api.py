@@ -25,7 +25,11 @@ class NewRelicAPI:
             is_eu_datacenter: If True, use EU datacenter URL. Defaults to False (US).
         """
         self.api_key = api_key
-        self.account_id = account_id
+        # Validate account_id is numeric to prevent injection
+        try:
+            self.account_id = int(account_id)
+        except ValueError:
+            raise ValueError(f"Invalid account_id: must be numeric, got '{account_id}'")
         self.is_eu_datacenter = is_eu_datacenter
 
     def _get_api_url(self) -> str:
@@ -39,7 +43,7 @@ class NewRelicAPI:
         return "https://api.newrelic.com/graphql"
 
     def _make_request(
-        self, graphql_query: Dict[str, str], timeout: int = 30
+        self, graphql_query: Dict[str, Any], timeout: int = 30
     ) -> Dict[str, Any]:
         """Make HTTP POST request to NewRelic GraphQL API.
 
@@ -91,19 +95,21 @@ class NewRelicAPI:
             requests.exceptions.HTTPError: If the API request fails
             Exception: If GraphQL returns errors
         """
-        # Build the GraphQL query
+        # Build the GraphQL query using variables to prevent injection
+        # Note: New Relic's GraphQL API requires the account ID to be inline, but we can use variables for the NRQL query
         graphql_query = {
             "query": f"""
-            {{
+            query ExecuteNRQL($nrqlQuery: Nrql!) {{
                 actor {{
                     account(id: {self.account_id}) {{
-                        nrql(query: "{nrql_query}") {{
+                        nrql(query: $nrqlQuery) {{
                             results
                         }}
                     }}
                 }}
             }}
-            """
+            """,
+            "variables": {"nrqlQuery": nrql_query},
         }
 
         logger.info(f"Executing NRQL query: {nrql_query}")

@@ -21,7 +21,7 @@ tags:
 before_test: |
   ./setup.sh
   ./traffic.sh
-  python3 verify_traces.py
+  python3 verify_traces.py --max-attempts 30 --retry-interval 5
 
 after_test: |
   kubectl delete namespace app-117 || true

@@ -61,6 +61,9 @@ app.post("/orders", async function processOrder(req, res) {
     const body = req.body;
     const requestId = req.headers["x-request-id"] || crypto.randomUUID();
 
+    // Set the correlation header immediately for all response paths
+    res.setHeader("x-request-id", requestId);
+
     // forward correlation header
     const fwd = {
       "x-request-id": requestId
@@ -112,7 +115,6 @@ app.post("/orders", async function processOrder(req, res) {
     }
 
     // success
-    res.set("x-request-id", requestId);
     res.json({
       ok: true,
       orderId: requestId,
