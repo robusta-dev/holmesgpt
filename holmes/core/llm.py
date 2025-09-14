@@ -90,6 +90,7 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
         self.name = name
+        self.max_context_size = self.args.pop("max_context_size", None)
 
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
 
@@ -178,6 +179,9 @@ class DefaultLLM(LLM):
         return list(dict.fromkeys(names_to_try))
 
     def get_context_window_size(self) -> int:
+        if self.max_context_size:
+            return self.max_context_size
+
         if OVERRIDE_MAX_CONTENT_SIZE:
             logging.debug(
                 f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}"
