@@ -20,13 +20,18 @@ class ExecuteNRQLQuery(Tool):
         super().__init__(
             name="newrelic_execute_nrql_query",
             description="Get Traces, APM, Spans, Logs and more by executing a NRQL query in New Relic. "
-            "Returns the result of the NRQL function."
-            "IMPORTANT: If results are empty, verify your attribute names are correct - use SELECT keyset() to discover available attributes for any event type",
+            "Returns the result of the NRQL function. "
+            "⚠️ CRITICAL: NRQL silently returns empty results for invalid queries instead of errors. "
+            "If you get empty results, your query likely has issues such as: "
+            "1) Wrong attribute names (use SELECT keyset() first to verify), "
+            "2) Type mismatches (string vs numeric fields), "
+            "3) Wrong event type. "
+            "Always verify attribute names and types before querying.",
             parameters={
                 "query": ToolParameter(
                     description="""The NRQL query string to execute.
 
-MANDATORY: Before querying any event type, ALWAYS run `SELECT keyset() FROM <EventType> SINCE <timeframe>` to discover available attributes. Never use attributes without confirming they exist first.
+MANDATORY: Before querying any event type, ALWAYS run `SELECT keyset() FROM <EventType> SINCE <timeframe>` to discover available attributes. Never use attributes without confirming they exist first. Make sure to remember which fields are stringKeys, numericKeys or booleanKeys as this will be important in subsequent queries.
 
 Example: Before querying Transactions, run: `SELECT keyset() FROM Transaction SINCE 24 hours ago`
 
