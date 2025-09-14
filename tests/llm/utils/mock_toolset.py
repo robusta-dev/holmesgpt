@@ -551,6 +551,15 @@ class MockToolsetManager:
         """Configure builtin toolsets with custom definitions."""
         configured = []
 
+        # First, validate that all custom definitions reference existing toolsets
+        builtin_names = {ts.name for ts in builtin_toolsets}
+        for definition in custom_definitions:
+            if definition.name not in builtin_names:
+                raise RuntimeError(
+                    f"Toolset '{definition.name}' referenced in toolsets.yaml does not exist. "
+                    f"Available toolsets: {', '.join(sorted(builtin_names))}"
+                )
+
         for toolset in builtin_toolsets:
             # Replace RunbookToolset with one that has test folder search path
             if toolset.name == "runbook":
@@ -620,11 +629,31 @@ class MockToolsetManager:
                     try:
                         # TODO: add timeout
                         toolset.check_prerequisites()
-                    except Exception:
-                        logging.error(
-                            f"check_prerequisites failed for toolset {toolset.name}.",
-                            exc_info=True,
-                        )
+
+                        # If this toolset was explicitly enabled in the test config but failed prerequisites,
+                        # the test should fail
+                        if (
+                            definition
+                            and definition.enabled
+                            and toolset.status != ToolsetStatusEnum.ENABLED
+                        ):
+                            raise RuntimeError(
+                                f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
+                                f"but failed prerequisites check: {toolset.error or 'Unknown error'}"
+                            )
+                    except Exception as e:
+                        # If this toolset was explicitly enabled in the test config, re-raise the error
+                        if definition and definition.enabled:
+                            raise RuntimeError(
+                                f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
+                                f"but failed prerequisites check: {str(e)}"
+                            ) from e
+                        else:
+                            # Otherwise just log it - it was enabled by default, not explicitly
+                            logging.error(
+                                f"check_prerequisites failed for toolset {toolset.name}.",
+                                exc_info=True,
+                            )
                 else:
                     # In MOCK/GENERATE modes, just set status to ENABLED for enabled toolsets
                     toolset.status = ToolsetStatusEnum.ENABLED
