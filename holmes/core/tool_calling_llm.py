@@ -425,6 +425,7 @@ class ToolCallingLLM:
                     self.llm.count_tokens_for_message(messages)
                     perf_timing.end(f"- completed in {i} iterations -")
                     metadata["usage"] = get_llm_usage(full_response)
+                    metadata["max_tokens"] = max_context_size
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -867,6 +868,7 @@ class ToolCallingLLM:
             if not tools_to_call:
                 self.llm.count_tokens_for_message(messages)
                 metadata["usage"] = get_llm_usage(full_response)
+                metadata["max_tokens"] = max_context_size
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
