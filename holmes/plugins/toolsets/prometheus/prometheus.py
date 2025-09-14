@@ -46,7 +46,7 @@ class PrometheusConfig(BaseModel):
     prometheus_url: Optional[str]
     healthcheck: str = "-/healthy"
     # Setting to None will remove the time window from the request for labels
-    metrics_labels_time_window_hrs: Union[int, None] = 48
+    metrics_labels_time_window_hrs: Union[int, None] = 1
     # Setting to None will disable the cache
     metrics_labels_cache_duration_hrs: Union[int, None] = 12
     fetch_labels_with_labels_api: bool = False
@@ -217,7 +217,7 @@ def fetch_metadata(
         config=config,
         url=metadata_url,
         headers=headers,
-        timeout=60,
+        timeout=30,
         verify=verify_ssl,
         method="GET",
     )
@@ -245,23 +245,41 @@ def fetch_metadata_with_series_api(
     headers: Dict,
     config,
     verify_ssl: bool = True,
-) -> Dict:
+) -> Tuple[Dict, bool]:
+    """
+    Fetches metadata using the series API.
+
+    Returns:
+        Tuple[Dict, bool]: (metadata dict, is_truncated flag)
+    """
     url = urljoin(prometheus_url, "api/v1/series")
-    params: Dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+    limit = 100
+    # If pattern doesn't contain regex metacharacters, wrap with .* for backward compatibility
+    # Otherwise use as-is for full regex support
+    if not any(c in metric_name for c in r"^$.*+?{}[]|()\\"):
+        # Simple string - do substring match
+        pattern = f".*{metric_name}.*"
+    else:
+        # Already a regex pattern
+        pattern = metric_name
+    params: Dict = {"match[]": f'{{__name__=~"{pattern}"}}', "limit": str(limit)}
 
     response = do_request(
         config=config,
         url=url,
         headers=headers,
         params=params,
-        timeout=60,
+        timeout=35,
         verify=verify_ssl,
         method="GET",
     )
     response.raise_for_status()
-    metrics = response.json()["data"]
+    response_data = response.json()
+    metrics = response_data.get("data", [])
 
     metadata: Dict = {}
+    is_truncated = len(metrics) >= limit
+
     for metric_data in metrics:
         metric_name = metric_data.get("__name__")
         if not metric_name:
@@ -275,7 +293,7 @@ def fetch_metadata_with_series_api(
         labels = {k for k in metric_data.keys() if k != "__name__"}
         metric["labels"].update(labels)
 
-    return metadata
+    return metadata, is_truncated
 
 
 def result_has_data(result: Dict) -> bool:
@@ -417,16 +435,31 @@ def fetch_metrics_labels_with_series_api(
     metric_name: str,
     config=None,
     verify_ssl: bool = True,
-) -> dict:
-    """This is a slow query. Takes 5+ seconds to run"""
+) -> Tuple[dict, bool]:
+    """
+    This is a slow query. Takes 5+ seconds to run.
+
+    Returns:
+        Tuple[dict, bool]: (metrics_labels dict, is_truncated flag)
+    """
     cache_key = f"metrics_labels_series_api:{metric_name}"
     if cache:
         cached_result = cache.get(cache_key)
         if cached_result:
+            # Cached results are tuples
             return cached_result
 
     series_url = urljoin(prometheus_url, "api/v1/series")
-    params: dict = {"match[]": f'{{__name__=~".*{metric_name}.*"}}', "limit": "10000"}
+    limit = 10000
+    # If pattern doesn't contain regex metacharacters, wrap with .* for backward compatibility
+    # Otherwise use as-is for full regex support
+    if not any(c in metric_name for c in r"^$.*+?{}[]|()\\"):
+        # Simple string - do substring match
+        pattern = f".*{metric_name}.*"
+    else:
+        # Already a regex pattern
+        pattern = metric_name
+    params: dict = {"match[]": f'{{__name__=~"{pattern}"}}', "limit": str(limit)}
 
     if metrics_labels_time_window_hrs is not None:
         params["end"] = int(time.time())
@@ -442,9 +475,12 @@ def fetch_metrics_labels_with_series_api(
         method="GET",
     )
     series_response.raise_for_status()
-    series = series_response.json()["data"]
+    series_data = series_response.json()
+    series = series_data.get("data", [])
 
     metrics_labels: dict = {}
+    is_truncated = len(series) >= limit
+
     for serie in series:
         metric_name = serie["__name__"]
         # Add all labels except __name__
@@ -453,10 +489,12 @@ def fetch_metrics_labels_with_series_api(
             metrics_labels[metric_name].update(labels)
         else:
             metrics_labels[metric_name] = labels
-    if cache:
-        cache.set(cache_key, metrics_labels)
 
-    return metrics_labels
+    result = (metrics_labels, is_truncated)
+    if cache:
+        cache.set(cache_key, result)
+
+    return result
 
 
 def fetch_metrics_labels_with_labels_api(
@@ -515,11 +553,19 @@ def fetch_metrics(
     headers: Dict,
     config=None,
     verify_ssl: bool = True,
-) -> dict:
+) -> Tuple[dict, bool]:
+    """
+    Fetches metrics and their metadata.
+
+    Returns:
+        Tuple[dict, bool]: (metrics dict, is_truncated flag)
+    """
     metrics = None
+    is_truncated = False
     should_fetch_labels = True
+
     if should_fetch_metadata_with_series_api:
-        metrics = fetch_metadata_with_series_api(
+        metrics, is_truncated = fetch_metadata_with_series_api(
             prometheus_url=prometheus_url,
             metric_name=metric_name,
             headers=headers,
@@ -538,6 +584,8 @@ def fetch_metrics(
 
     if should_fetch_labels:
         metrics_labels = {}
+        labels_truncated = False
+
         if should_fetch_labels_with_labels_api:
             metrics_labels = fetch_metrics_labels_with_labels_api(
                 prometheus_url=prometheus_url,
@@ -549,7 +597,7 @@ def fetch_metrics(
                 verify_ssl=verify_ssl,
             )
         else:
-            metrics_labels = fetch_metrics_labels_with_series_api(
+            metrics_labels, labels_truncated = fetch_metrics_labels_with_series_api(
                 prometheus_url=prometheus_url,
                 cache=cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
@@ -558,19 +606,20 @@ def fetch_metrics(
                 config=config,
                 verify_ssl=verify_ssl,
             )
+            is_truncated = is_truncated or labels_truncated
 
         for metric_name in metrics:
             if metric_name in metrics_labels:
                 metrics[metric_name]["labels"] = metrics_labels[metric_name]
 
-    return metrics
+    return metrics, is_truncated
 
 
 class ListPrometheusRules(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="list_prometheus_rules",
-            description="List all defined prometheus rules. Will show the prometheus rules description, expression and annotations",
+            description="List all defined Prometheus rules (api/v1/rules). Will show the Prometheus rules description, expression and annotations",
             parameters={},
             toolset=toolset,
         )
@@ -658,7 +707,7 @@ class ListAvailableMetrics(BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="list_available_metrics",
-            description="List all the available metrics to query from prometheus, including their types (counter, gauge, histogram, summary) and available labels.",
+            description="List all the available metrics to query from prometheus, including their types (counter, gauge, histogram, summary) and available labels. Use regex OR patterns (|) to search for multiple metric patterns in a single efficient call instead of making multiple separate queries.",
             parameters={
                 "type_filter": ToolParameter(
                     description="Optional filter to only return a specific metric type. Can be one of counter, gauge, histogram, summary",
@@ -666,7 +715,16 @@ class ListAvailableMetrics(BasePrometheusTool):
                     required=False,
                 ),
                 "name_filter": ToolParameter(
-                    description="Only the metrics partially or fully matching this name will be returned",
+                    description=(
+                        "Regular expression pattern to filter metrics by name. "
+                        "Use regex OR (|) to check multiple patterns at once - this reduces latency significantly! "
+                        "Examples: 'cpu|memory|disk' (metrics containing any of these), "
+                        "'^(node|container|pod)_' (starts with node_, container_, or pod_), "
+                        "'(errors?|fail|timeout)' (error-related metrics), "
+                        "'kafka.*(lag|offset|consumer)' (kafka metrics with specific keywords), "
+                        "'^(up|.*_up|.*_health)$' (health/status metrics). "
+                        "Checking many patterns in one call is much faster than multiple separate calls!"
+                    ),
                     type="string",
                     required=True,
                 ),
@@ -698,11 +756,11 @@ class ListAvailableMetrics(BasePrometheusTool):
             if not name_filter:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.ERROR,
-                    error="Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing.",
+                    error="Error: cannot run tool 'list_available_metrics'. The param 'name_filter' is required but is missing. Please provide a regex pattern to filter metrics (e.g., 'cpu', '^node_', 'kafka.*lag').",
                     params=params,
                 )
 
-            metrics = fetch_metrics(
+            metrics, is_truncated = fetch_metrics(
                 prometheus_url=prometheus_url,
                 cache=self._cache,
                 metrics_labels_time_window_hrs=metrics_labels_time_window_hrs,
@@ -727,6 +785,16 @@ class ListAvailableMetrics(BasePrometheusTool):
                 )
                 output.append(
                     f"{metric} | {info['description']} | {info['type']} | {labels_str}"
+                )
+
+            # Add truncation notice if results were limited
+            if is_truncated:
+                output.append("-" * 100)
+                output.append(
+                    f"NOTE: Results were truncated. There may be more metrics matching the regex '{name_filter}'."
+                )
+                output.append(
+                    "Consider using a more specific regex pattern to see all results (e.g., '^exact_metric_name' for exact prefix match)."
                 )
 
             table_output = "\n".join(output)
