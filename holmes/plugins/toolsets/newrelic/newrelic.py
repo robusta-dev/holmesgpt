@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
 import yaml
@@ -54,7 +54,7 @@ Important NRQL FACET Rule: When using FACET in queries, the faceted attribute MU
 
         result = api.execute_nrql_query(params["query"])
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=yaml.dump(result, default_flow_style=False),
             params=params,
         )

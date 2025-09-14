@@ -9,7 +9,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -99,7 +99,7 @@ class ListShards(BaseOpenSearchTool):
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         shards = client.client.cat.shards()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(shards),
             params=params,
         )
@@ -132,7 +132,7 @@ class GetClusterSettings(BaseOpenSearchTool):
             include_defaults=True, flat_settings=True
         )
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(response),
             params=params,
         )
@@ -163,7 +163,7 @@ class GetClusterHealth(BaseOpenSearchTool):
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         health = client.client.cluster.health()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(health),
             params=params,
         )
@@ -187,7 +187,7 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
     ) -> StructuredToolResult:
         hosts = [host for client in self.toolset.clients for host in client.hosts]
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(hosts),
             params=params,
         )
