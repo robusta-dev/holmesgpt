@@ -165,5 +165,8 @@ def responses():
     with responses_.RequestsMock() as rsps:
         rsps.add_passthru("https://www.braintrust.dev")
         rsps.add_passthru("https://api.braintrust.dev")  # Allow Braintrust API calls
+        rsps.add_passthru(
+            "https://api.newrelic.com/graphql"
+        )  # Allow New Relic API calls
         rsps.add_passthru("http://localhost")
         yield rsps
