@@ -9,7 +9,7 @@ toolsets:
   prometheus/metrics:
     enabled: true
 
-  grafana/dashboards:
+  grafana/grafana:
     enabled: true
 
   # Explicitly disable all AWS toolsets
