@@ -39,6 +39,9 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
 from holmes.utils.keygen_utils import generate_random_key
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
+PROMETHEUS_SERIES_QUERY_LIMIT = (
+    100  # Default limit for series API queries to prevent overwhelming responses
+)
 
 
 class PrometheusConfig(BaseModel):
@@ -239,6 +242,27 @@ def fetch_metadata(
     return metrics
 
 
+def prepare_prometheus_pattern(metric_name: str) -> str:
+    """
+    Prepare a pattern for Prometheus regex matching.
+
+    If the input doesn't contain regex metacharacters, wrap with .* for backward compatibility.
+    Otherwise, use as-is for full regex support.
+
+    Args:
+        metric_name: The metric name or pattern to prepare
+
+    Returns:
+        A properly formatted pattern for Prometheus regex matching
+    """
+    if not any(c in metric_name for c in r"^$.*+?{}[]|()\\"):
+        # Simple string - do substring match
+        return f".*{metric_name}.*"
+    else:
+        # Already a regex pattern
+        return metric_name
+
+
 def fetch_metadata_with_series_api(
     prometheus_url: str,
     metric_name: str,
@@ -253,15 +277,8 @@ def fetch_metadata_with_series_api(
         Tuple[Dict, bool]: (metadata dict, is_truncated flag)
     """
     url = urljoin(prometheus_url, "api/v1/series")
-    limit = 100
-    # If pattern doesn't contain regex metacharacters, wrap with .* for backward compatibility
-    # Otherwise use as-is for full regex support
-    if not any(c in metric_name for c in r"^$.*+?{}[]|()\\"):
-        # Simple string - do substring match
-        pattern = f".*{metric_name}.*"
-    else:
-        # Already a regex pattern
-        pattern = metric_name
+    limit = PROMETHEUS_SERIES_QUERY_LIMIT
+    pattern = prepare_prometheus_pattern(metric_name)
     params: Dict = {"match[]": f'{{__name__=~"{pattern}"}}', "limit": str(limit)}
 
     response = do_request(
@@ -450,15 +467,8 @@ def fetch_metrics_labels_with_series_api(
             return cached_result
 
     series_url = urljoin(prometheus_url, "api/v1/series")
-    limit = 10000
-    # If pattern doesn't contain regex metacharacters, wrap with .* for backward compatibility
-    # Otherwise use as-is for full regex support
-    if not any(c in metric_name for c in r"^$.*+?{}[]|()\\"):
-        # Simple string - do substring match
-        pattern = f".*{metric_name}.*"
-    else:
-        # Already a regex pattern
-        pattern = metric_name
+    limit = PROMETHEUS_SERIES_QUERY_LIMIT
+    pattern = prepare_prometheus_pattern(metric_name)
     params: dict = {"match[]": f'{{__name__=~"{pattern}"}}', "limit": str(limit)}
 
     if metrics_labels_time_window_hrs is not None:
