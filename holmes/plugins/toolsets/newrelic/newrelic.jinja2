@@ -24,3 +24,7 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 
 - If you already have an application name, you can query its traces directly
 - **Time range is recommended**: While not strictly required, most queries should include SINCE for performance
+- **Important NRQL FACET Rule**: When using FACET in queries, the faceted attribute MUST NOT appear in the SELECT clause.
+  ❌ INCORRECT: `SELECT transactionType FROM Transaction FACET transactionType`
+  ✅ CORRECT: `SELECT count(*) FROM Transaction FACET transactionType`
+  ✅ CORRECT: `SELECT average(duration) FROM Transaction FACET transactionType`

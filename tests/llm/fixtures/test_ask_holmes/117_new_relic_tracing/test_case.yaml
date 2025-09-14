@@ -7,20 +7,21 @@ description: |
   across all components.
 
 user_prompt:
-- "N/A"
+- What http status code we have for /orders today
 
 expected_output:
-  - N/A
+  - code are 200, 403, 409
 
 tags:
-  - kubernetes
-  - hard
   - chain-of-causation
   - traces
   - newrelic
+  - network
 
 before_test: |
   ./setup.sh
+  ./traffic.sh
+  python3 verify_traces.py
 
 after_test: |
   kubectl delete namespace app-117 || true
