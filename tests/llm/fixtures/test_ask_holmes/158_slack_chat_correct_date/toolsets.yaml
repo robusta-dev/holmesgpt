@@ -3,6 +3,8 @@ toolsets:
     enabled: false
   prometheus/metrics:
     enabled: true
+    config:
+      prometheus_url: http://localhost:9090
   kubernetes/core:
     enabled: true
   kubernetes/logs:
