@@ -22,8 +22,8 @@ RATE_LIMIT_REMAINING_SECONDS_HEADER = "X-RateLimit-Reset"
 # Cache for OpenAPI spec
 _openapi_spec_cache: Dict[str, Any] = {}
 
-# Relative time pattern
-RELATIVE_TIME_PATTERN = re.compile(r"^-?(\d+)([hdwmsy]|min)$|^now$", re.IGNORECASE)
+# Relative time pattern (m = minutes, mo = months)
+RELATIVE_TIME_PATTERN = re.compile(r"^-?(\d+)([hdwsy]|min|m|mo)$|^now$", re.IGNORECASE)
 
 
 def convert_api_url_to_app_url(api_url: Union[str, AnyUrl]) -> str:
@@ -500,14 +500,16 @@ def convert_relative_time(time_str: str) -> Tuple[str, str]:
         delta = timedelta(seconds=amount)
     elif unit == "min":
         delta = timedelta(minutes=amount)
+    elif unit == "m":
+        delta = timedelta(minutes=amount)  # m = minutes
     elif unit == "h":
         delta = timedelta(hours=amount)
     elif unit == "d":
         delta = timedelta(days=amount)
     elif unit == "w":
         delta = timedelta(weeks=amount)
-    elif unit == "m":
-        delta = timedelta(days=amount * 30)  # Approximate
+    elif unit == "mo":
+        delta = timedelta(days=amount * 30)  # mo = months (approximate)
     elif unit == "y":
         delta = timedelta(days=amount * 365)  # Approximate
     else:
