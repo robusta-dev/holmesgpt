@@ -194,18 +194,6 @@ def execute_datadog_http_request(
 
     if response.status_code == 200:
         response_data = response.json()
-        # Log response size but not full content (could be large)
-        if isinstance(response_data, dict):
-            logging.info(f"  Response Keys: {list(response_data.keys())}")
-            if "data" in response_data:
-                data_len = (
-                    len(response_data["data"])
-                    if isinstance(response_data["data"], list)
-                    else 1
-                )
-                logging.info(f"  Data Items Count: {data_len}")
-        else:
-            logging.info(f"  Response Type: {type(response_data).__name__}")
         return response_data
 
     else:
@@ -265,7 +253,7 @@ def fetch_openapi_spec(
 
         for ver in versions_to_fetch:
             try:
-                logging.info(f"Fetching Datadog OpenAPI spec for {ver}...")
+                logging.debug(f"Fetching Datadog OpenAPI spec for {ver}...")
                 response = requests.get(spec_urls[ver], timeout=30)
                 if response.status_code == 200:
                     # Parse YAML to dict

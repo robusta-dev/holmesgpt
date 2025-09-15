@@ -240,7 +240,7 @@ class DatadogGeneralToolset(Toolset):
             self.dd_config = dd_config
 
             # Fetch OpenAPI spec on startup for better error messages and documentation
-            logging.info("Fetching Datadog OpenAPI specification...")
+            logging.debug("Fetching Datadog OpenAPI specification...")
             self.openapi_spec = fetch_openapi_spec(version="both")
             if self.openapi_spec:
                 logging.info(

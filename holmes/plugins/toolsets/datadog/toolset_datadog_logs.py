@@ -137,10 +137,22 @@ def format_logs(raw_logs: list[dict]) -> str:
     logs = []
 
     for raw_log_item in raw_logs:
+        # Extract timestamp - Datadog returns it in ISO format
+        timestamp = raw_log_item.get("attributes", {}).get("timestamp", "")
+        if not timestamp:
+            # Fallback to @timestamp if timestamp is not in attributes
+            timestamp = raw_log_item.get("attributes", {}).get("@timestamp", "")
+
+        # Extract message
         message = raw_log_item.get("attributes", {}).get(
             "message", json.dumps(raw_log_item)
         )
-        logs.append(message)
+
+        # Format as: [timestamp] message
+        if timestamp:
+            logs.append(f"[{timestamp}] {message}")
+        else:
+            logs.append(message)
 
     return "\n".join(logs)
 
@@ -151,6 +163,8 @@ def generate_datadog_logs_url(
     storage_tier: DataDogStorageTier,
 ) -> str:
     """Generate a Datadog web UI URL for the logs query."""
+    from holmes.plugins.toolsets.utils import process_timestamps_to_int
+
     # Extract the base domain from the API URL
     # Convert https://api.datadoghq.com to https://app.datadoghq.com
     # or https://api.datadoghq.eu to https://app.datadoghq.eu
@@ -165,18 +179,23 @@ def generate_datadog_logs_url(
         filter = params.filter.replace('"', '\\"')
         query += f' "{filter}"'
 
-    # Process timestamps for URL parameters
-    (from_time, to_time) = process_timestamps_to_rfc3339(
-        start_timestamp=params.start_time,
-        end_timestamp=params.end_time,
+    # Process timestamps - get Unix timestamps in seconds
+    (from_time_seconds, to_time_seconds) = process_timestamps_to_int(
+        start=params.start_time,
+        end=params.end_time,
         default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
     )
 
-    # Build URL parameters
+    # Convert to milliseconds for Datadog web UI
+    from_time_ms = from_time_seconds * 1000
+    to_time_ms = to_time_seconds * 1000
+
+    # Build URL parameters matching Datadog's web UI format
     url_params = {
         "query": query,
-        "from_ts": from_time,
-        "to_ts": to_time,
+        "from_ts": str(from_time_ms),
+        "to_ts": str(to_time_ms),
+        "live": "true",
         "storage": storage_tier.value,
     }
 
@@ -371,7 +390,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         Returns (success, error_message).
         """
         try:
-            logging.info("Performing Datadog configuration healthcheck...")
+            logging.debug("Performing Datadog configuration healthcheck...")
             healthcheck_params = FetchPodLogsParams(
                 namespace="*",
                 pod_name="*",

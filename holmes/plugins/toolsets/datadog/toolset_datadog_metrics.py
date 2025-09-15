@@ -743,7 +743,7 @@ class DatadogMetricsToolset(Toolset):
 
     def _perform_healthcheck(self, dd_config: DatadogMetricsConfig) -> Tuple[bool, str]:
         try:
-            logging.info("Performing Datadog metrics configuration healthcheck...")
+            logging.debug("Performing Datadog metrics configuration healthcheck...")
 
             url = f"{dd_config.site_api_url}/api/v1/validate"
             headers = get_headers(dd_config)
