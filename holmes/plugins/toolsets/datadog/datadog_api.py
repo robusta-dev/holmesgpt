@@ -174,15 +174,9 @@ def execute_datadog_http_request(
     timeout: int,
     method: str = "POST",
 ) -> Any:
-    # Log the request details
-    logging.info("Datadog API Request:")
-    logging.info(f"  Method: {method}")
-    logging.info(f"  URL: {url}")
-    logging.info(f"  Headers: {json.dumps(sanitize_headers(headers), indent=2)}")
-    logging.info(
-        f"  {'Params' if method == 'GET' else 'Payload'}: {json.dumps(payload_or_params, indent=2)}"
+    logging.debug(
+        f"Datadog API Request: Method: {method} URL: {url} Headers: {json.dumps(sanitize_headers(headers), indent=2)} {'Params' if method == 'GET' else 'Payload'}: {json.dumps(payload_or_params, indent=2)} Timeout: {timeout}s"
     )
-    logging.info(f"  Timeout: {timeout}s")
 
     if method == "GET":
         response = requests.get(
@@ -194,9 +188,9 @@ def execute_datadog_http_request(
         )
 
     # Log the response details
-    logging.info("Datadog API Response:")
-    logging.info(f"  Status Code: {response.status_code}")
-    logging.info(f"  Response Headers: {dict(sanitize_headers(response.headers))}")
+    logging.debug(
+        f"Datadog API Response: Status Code: {response.status_code} Response Headers: {dict(sanitize_headers(response.headers))}"
+    )
 
     if response.status_code == 200:
         response_data = response.json()

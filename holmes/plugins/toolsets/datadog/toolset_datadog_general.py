@@ -274,7 +274,7 @@ class DatadogGeneralToolset(Toolset):
             )
 
             if data.get("valid", False):
-                logging.info("Datadog general API healthcheck completed successfully")
+                logging.debug("Datadog general API healthcheck completed successfully")
                 return True, ""
             else:
                 error_msg = "Datadog API key validation failed"
