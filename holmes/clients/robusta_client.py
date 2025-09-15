@@ -17,7 +17,9 @@ class HolmesInfo(BaseModel):
 class RobustaModelsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     models: List[str]
-    models_args: Dict[str, Any] = Field(default_factory=dict, alias="models_holmes_args")
+    models_args: Dict[str, Any] = Field(
+        default_factory=dict, alias="models_holmes_args"
+    )
     default_model: Optional[str] = None
 
 
