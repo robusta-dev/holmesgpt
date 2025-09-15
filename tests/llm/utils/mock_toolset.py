@@ -13,8 +13,8 @@ import pytest
 
 from holmes.core.tools import (
     StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
-    ToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
     YAMLTool,
@@ -520,7 +520,7 @@ class MockableToolWrapper(Tool):
 
             # Return error result so LLM can continue (but test will fail later)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Mock data error: {str(e)}",
                 data=None,
             )
