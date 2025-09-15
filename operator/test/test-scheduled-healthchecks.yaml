@@ -1,0 +1,110 @@
+# ScheduledHealthCheck resources for recurring checks
+# These create HealthCheck resources on a cron schedule
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: nginx-health-schedule
+  namespace: holmes-system
+spec:
+  schedule: "0 * * * *"  # Every hour at :00
+  checkSpec:
+    query: "Are all pods in deployment 'nginx-test' in namespace 'test-app' healthy and running?"
+    timeout: 30
+    mode: monitor
+  enabled: true
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: broken-app-schedule
+  namespace: holmes-system
+spec:
+  schedule: "30 * * * *"  # Every hour at :30
+  checkSpec:
+    query: "Are all pods in deployment 'broken-app' in namespace 'test-app' running without crashes?"
+    timeout: 30
+    mode: monitor
+  enabled: true
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: memory-schedule
+  namespace: holmes-system
+spec:
+  schedule: "0 */2 * * *"  # Every 2 hours
+  checkSpec:
+    query: "Are all pods in namespace 'test-app' using less than 80% of their memory limits?"
+    timeout: 45
+    mode: monitor
+  enabled: true
+---
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: node-schedule
+  namespace: holmes-system
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  checkSpec:
+    query: "Are all nodes in the cluster in Ready state?"
+    timeout: 20
+    mode: monitor
+  enabled: true
+---
+# Example of a disabled scheduled check
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: disabled-schedule
+  namespace: holmes-system
+spec:
+  schedule: "0 */12 * * *"  # Would run every 12 hours if enabled
+  checkSpec:
+    query: "This check should not run because it's disabled"
+    timeout: 30
+    mode: monitor
+  enabled: false  # This schedule is disabled
+---
+# Frequent check for testing (every 5 minutes)
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: frequent-test-schedule
+  namespace: holmes-system
+  annotations:
+    description: "Test scheduled check that runs frequently - good for testing"
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  checkSpec:
+    query: "Is the nginx-service in namespace 'test-app' accessible and responding to requests?"
+    timeout: 15
+    mode: monitor
+  enabled: true
+---
+# Schedule with alerting enabled
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: critical-service-schedule
+  namespace: holmes-system
+spec:
+  schedule: "*/10 * * * *"  # Every 10 minutes
+  checkSpec:
+    query: "Is the critical payment service healthy with response times under 500ms?"
+    timeout: 30
+    mode: alert  # Send alerts on failure
+    destinations:
+      - type: slack
+        config:
+          channel: "#critical-alerts"
+      - type: pagerduty
+        config:
+          integrationKeyRef:
+            name: pagerduty-secret
+            key: integration-key
+  enabled: true
+  concurrencyPolicy: Forbid  # Don't allow overlapping runs
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 10

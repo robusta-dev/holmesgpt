@@ -46,6 +46,62 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 
 ---
 
+### `/api/check/execute` (POST)
+**Description:** Execute a health check query. This endpoint is used by the Holmes operator to execute checks.
+
+#### Request Fields
+
+| Field         | Required | Default   | Type      | Description                                      |
+|---------------|----------|-----------|-----------|--------------------------------------------------|
+| query         | Yes      |           | string    | The health check query to evaluate              |
+| timeout       | No       | 30        | integer   | Timeout in seconds for check execution          |
+| mode          | No       | "monitor" | string    | Execution mode: "alert" or "monitor"            |
+| destinations  | No       | []        | list      | Alert destinations (for alert mode)             |
+
+#### Request Headers
+
+| Header        | Required | Description                                      |
+|---------------|----------|--------------------------------------------------|
+| X-Check-Name  | No       | Identifier for the check (namespace/name)       |
+
+**Example**
+```bash
+curl -X POST http://<HOLMES-URL>/api/check/execute \
+  -H "Content-Type: application/json" \
+  -H "X-Check-Name: default/frontend-health" \
+  -d '{
+    "query": "Are all pods in deployment 'frontend' healthy?",
+    "timeout": 30,
+    "mode": "alert",
+    "destinations": [
+      {
+        "type": "slack",
+        "config": {
+          "channel": "#alerts"
+        }
+      }
+    ]
+  }'
+```
+
+**Example Response**
+```json
+{
+  "status": "pass",
+  "message": "All pods are healthy with 3/3 replicas ready",
+  "duration": 2.5,
+  "rationale": "Deployment 'frontend' has 3 ready replicas out of 3 desired. All pods are running without restarts.",
+  "error": null
+}
+```
+
+**Status Values:**
+- `pass`: Check passed successfully
+- `fail`: Check failed (condition not met)
+- `error`: Check could not be executed (e.g., authentication issues, timeouts)
+
+---
+
 ### `/api/investigate` (POST)
 **Description:** Initiate an automated investigation of an issue or incident.
 

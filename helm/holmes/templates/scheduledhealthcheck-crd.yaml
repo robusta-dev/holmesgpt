@@ -1,0 +1,185 @@
+{{- if .Values.operator.enabled }}
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: scheduledhealthchecks.holmes.robusta.dev
+spec:
+  group: holmes.robusta.dev
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            required:
+            - schedule
+            - checkSpec
+            properties:
+              schedule:
+                type: string
+                description: "Cron schedule for the check (e.g., '*/5 * * * *' for every 5 minutes)"
+                pattern: "^(\\*|([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])|\\*\\/([0-9]|1[0-9]|2[0-9]|3[0-9]|4[0-9]|5[0-9])) (\\*|([0-9]|1[0-9]|2[0-3])|\\*\\/([0-9]|1[0-9]|2[0-3])) (\\*|([1-9]|1[0-9]|2[0-9]|3[0-1])|\\*\\/([1-9]|1[0-9]|2[0-9]|3[0-1])) (\\*|([1-9]|1[0-2])|\\*\\/([1-9]|1[0-2])) (\\*|([0-6])|\\*\\/([0-6]))$"
+              checkSpec:
+                type: object
+                description: "Specification for the health check to run"
+                required:
+                - query
+                properties:
+                  query:
+                    type: string
+                    description: "The health check query to evaluate"
+                  timeout:
+                    type: integer
+                    description: "Timeout in seconds for check execution"
+                    default: 30
+                    minimum: 1
+                    maximum: 300
+                  mode:
+                    type: string
+                    description: "Execution mode: alert or monitor"
+                    enum:
+                    - alert
+                    - monitor
+                    default: monitor
+                  destinations:
+                    type: array
+                    description: "Alert destinations for failed checks"
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                          - slack
+                          - pagerduty
+                        config:
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+              enabled:
+                type: boolean
+                description: "Enable or disable scheduled execution"
+                default: true
+              concurrencyPolicy:
+                type: string
+                description: "How to handle concurrent executions"
+                enum:
+                - Allow
+                - Forbid
+                - Replace
+                default: Forbid
+              successfulJobsHistoryLimit:
+                type: integer
+                description: "Number of successful executions to keep in history"
+                default: 3
+                minimum: 0
+                maximum: 100
+              failedJobsHistoryLimit:
+                type: integer
+                description: "Number of failed executions to keep in history"
+                default: 3
+                minimum: 0
+                maximum: 100
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
+            description: "Status of the scheduled health check"
+            properties:
+              lastScheduleTime:
+                type: string
+                format: date-time
+                description: "Time of last scheduled execution"
+              lastSuccessfulTime:
+                type: string
+                format: date-time
+                description: "Time of last successful execution"
+              lastResult:
+                type: string
+                description: "Result of last execution: pass, fail, or error"
+                enum:
+                - pass
+                - fail
+                - error
+              message:
+                type: string
+                description: "Message from last execution"
+              jobId:
+                type: string
+                description: "ID of the scheduled job"
+              active:
+                type: array
+                description: "List of currently running HealthCheck references"
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    uid:
+                      type: string
+              conditions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                    status:
+                      type: string
+                    lastTransitionTime:
+                      type: string
+                      format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
+              history:
+                type: array
+                description: "Execution history"
+                items:
+                  type: object
+                  properties:
+                    executionTime:
+                      type: string
+                      format: date-time
+                    result:
+                      type: string
+                    duration:
+                      type: number
+                    checkName:
+                      type: string
+                      description: "Name of the HealthCheck resource created"
+    subresources:
+      status: {}
+    additionalPrinterColumns:
+    - name: Schedule
+      type: string
+      description: "Cron schedule"
+      jsonPath: .spec.schedule
+    - name: Enabled
+      type: boolean
+      description: "Whether scheduling is enabled"
+      jsonPath: .spec.enabled
+    - name: Last Result
+      type: string
+      description: "Last execution result"
+      jsonPath: .status.lastResult
+    - name: Last Run
+      type: date
+      description: "Last execution time"
+      jsonPath: .status.lastScheduleTime
+    - name: Age
+      type: date
+      jsonPath: .metadata.creationTimestamp
+  scope: Namespaced
+  names:
+    plural: scheduledhealthchecks
+    singular: scheduledhealthcheck
+    kind: ScheduledHealthCheck
+    shortNames:
+    - shc
+{{- end }}

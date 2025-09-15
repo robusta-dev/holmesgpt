@@ -6,14 +6,23 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 
 ## What's New
 
-### Health Checks & Monitoring
-HolmesGPT can now continuously monitor your infrastructure health with the new `holmes check` command:
+### Kubernetes Operator for Health Checks
+HolmesGPT now provides Kubernetes-native health check management through Custom Resource Definitions (CRDs):
+- **HealthCheck CRD**: One-time checks that execute immediately for quick diagnostics
+- **ScheduledHealthCheck CRD**: Recurring checks on cron schedules for continuous monitoring
+- Native Kubernetes management with `kubectl`
+- Follows the familiar Job/CronJob pattern
+
+[Learn more about the operator →](walkthrough/operator-health-checks.md)
+
+### CLI Health Checks & Monitoring
+Monitor your infrastructure health with the `holmes check` command:
 - Define health checks as simple yes/no questions
 - Run checks in parallel for faster monitoring
 - Send alerts to Slack or PagerDuty when checks fail
 - Set failure thresholds to handle transient issues
 
-[Learn more about health checks →](walkthrough/health-checks.md)
+[Learn more about CLI health checks →](walkthrough/health-checks.md)
 
 ## Quick Start
 

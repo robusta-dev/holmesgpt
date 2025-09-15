@@ -1,92 +1,57 @@
-# Test HealthCheck resources for local testing
+# One-time HealthCheck resources for immediate execution
+# These checks run immediately when created and show results in their status
 ---
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: nginx-health
+  name: quick-nginx-check
   namespace: holmes-system
 spec:
   query: "Are all pods in deployment 'nginx-test' in namespace 'test-app' healthy and running?"
-  schedule: "0 * * * *"  # Every hour at :00
   timeout: 30
-  mode: monitor  # Just log, don't alert
-  enabled: true
+  mode: monitor
 ---
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: broken-app-check
+  name: quick-broken-app-check
   namespace: holmes-system
 spec:
   query: "Are all pods in deployment 'broken-app' in namespace 'test-app' running without crashes?"
-  schedule: "30 * * * *"  # Every hour at :30
   timeout: 30
   mode: monitor
-  enabled: true
 ---
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: memory-check
+  name: quick-memory-check
   namespace: holmes-system
 spec:
   query: "Are all pods in namespace 'test-app' using less than 80% of their memory limits?"
-  schedule: "0 */2 * * *"  # Every 2 hours
   timeout: 45
   mode: monitor
-  enabled: true
 ---
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: node-check
+  name: quick-node-check
   namespace: holmes-system
 spec:
   query: "Are all nodes in the cluster in Ready state?"
-  schedule: "0 */6 * * *"  # Every 6 hours
   timeout: 20
   mode: monitor
-  enabled: true
 ---
-# Example of a disabled check
+# Example with alert mode
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: disabled-check
+  name: quick-critical-check
   namespace: holmes-system
 spec:
-  query: "This check should not run because it's disabled"
-  schedule: "0 */12 * * *"  # Would run every 12 hours if enabled
+  query: "Is the database connection pool healthy with less than 80% connections used?"
   timeout: 30
-  mode: monitor
-  enabled: false  # This check is disabled
----
-# Check that can be triggered manually
-apiVersion: holmes.robusta.dev/v1alpha1
-kind: HealthCheck
-metadata:
-  name: manual-check
-  namespace: holmes-system
-  annotations:
-    description: "Run with: kubectl annotate healthcheck manual-check holmes.robusta.dev/run-now=true"
-spec:
-  query: "Is the nginx-service in namespace 'test-app' accessible?"
-  schedule: "0 0 * * *"  # Daily at midnight (but we'll trigger manually)
-  timeout: 15
-  mode: monitor
-  enabled: true
----
-# One-time check example (no schedule)
-apiVersion: holmes.robusta.dev/v1alpha1
-kind: HealthCheck
-metadata:
-  name: one-time-check
-  namespace: holmes-system
-  annotations:
-    description: "One-time check - trigger with: kubectl annotate healthcheck one-time-check holmes.robusta.dev/run-now=true"
-spec:
-  query: "Check if the database connection is working properly"
-  # No schedule field - this check will only run when manually triggered
-  timeout: 30
-  mode: monitor
-  enabled: true
+  mode: alert  # This would send alerts if destinations are configured
+  destinations:
+    - type: slack
+      config:
+        channel: "#alerts"

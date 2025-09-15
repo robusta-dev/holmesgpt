@@ -11,10 +11,10 @@ metadata:
   name: {{ .Release.Name }}-holmes-operator
 rules:
 - apiGroups: ["holmes.robusta.dev"]
-  resources: ["healthchecks"]
-  verbs: ["get", "list", "watch", "patch", "update"]
+  resources: ["healthchecks", "scheduledhealthchecks"]
+  verbs: ["get", "list", "watch", "patch", "update", "create", "delete"]
 - apiGroups: ["holmes.robusta.dev"]
-  resources: ["healthchecks/status"]
+  resources: ["healthchecks/status", "scheduledhealthchecks/status"]
   verbs: ["get", "patch", "update"]
 - apiGroups: [""]
   resources: ["events"]

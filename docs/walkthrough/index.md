@@ -74,7 +74,8 @@ kubectl delete pod user-profile-import
 
 ## Next Steps
 
-- **[Set up health checks](./health-checks.md)** - Monitor your infrastructure and get alerts
+- **[Set up health checks](./health-checks.md)** - Monitor your infrastructure via CLI
+- **[Deploy operator for health checks](./operator-health-checks.md)** - Kubernetes-native health check management with CRDs
 - **[Add integrations](../data-sources/index.md)** - Connect monitoring tools like Prometheus, Grafana, and DataDog
 - **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
 - **[Join our Slack](https://bit.ly/robusta-slack){:target="_blank"}** - Get help from the community

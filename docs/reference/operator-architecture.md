@@ -2,7 +2,11 @@
 
 ## Overview
 
-The Holmes Operator extends Holmes with Kubernetes-native health check capabilities using Custom Resource Definitions (CRDs). It follows a distributed architecture where scheduling and orchestration are handled by a lightweight operator, while check execution is performed by the stateless Holmes API servers.
+The Holmes Operator extends Holmes with Kubernetes-native health check capabilities using Custom Resource Definitions (CRDs). Following the Kubernetes Job/CronJob pattern, it provides two CRD types:
+- **HealthCheck**: One-time execution checks that run immediately when created
+- **ScheduledHealthCheck**: Recurring checks that create HealthCheck resources on a cron schedule
+
+The architecture maintains separation of concerns with a lightweight operator handling orchestration while stateless Holmes API servers perform the actual check execution.
 
 ## Architecture Components
 
@@ -22,11 +26,18 @@ Stateless FastAPI servers that:
 - Share LLM rate limits and resource pools
 
 ### 3. HealthCheck CRD
-Kubernetes custom resource that defines:
-- Check queries and configuration
-- Scheduling (cron format)
-- Alert destinations
-- Execution history and status
+One-time execution resource that:
+- Runs immediately upon creation
+- Stores execution results in status
+- Can be re-run via annotation
+- Maintains audit trail of checks
+
+### 4. ScheduledHealthCheck CRD
+Recurring check resource that:
+- Defines cron schedule for checks
+- Creates HealthCheck resources at scheduled times
+- Tracks execution history
+- Manages concurrency and history limits
 
 ## Architecture Diagram
 
@@ -55,42 +66,81 @@ Kubernetes custom resource that defines:
 │  │   └──────────┘  └──────────┘  └──────────┘             │
 │  └─────────────────────────────────────────┘                │
 │                                                              │
-│  ┌────────────────────────────┐                             │
-│  │    HealthCheck CRDs        │                             │
-│  └────────────────────────────┘                             │
+│  ┌────────────────────────────┐  ┌──────────────────────┐  │
+│  │    HealthCheck CRDs        │  │ ScheduledHealthCheck │  │
+│  │    (One-time execution)    │  │     CRDs (Recurring) │  │
+│  └────────────────────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## CRD Specification
 
-### HealthCheck Resource
+### HealthCheck Resource (One-time)
 
 ```yaml
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: frontend-health
+  name: frontend-health-check
   namespace: default
+  labels:
+    # Set by ScheduledHealthCheck if created by schedule
+    holmes.robusta.dev/scheduled-by: frontend-schedule
 spec:
   # Check definition
   query: "Are all pods in deployment 'frontend' healthy with at least 2 ready replicas?"
-  schedule: "*/5 * * * *"  # Cron format (every 5 minutes)
   timeout: 30  # seconds
-
-  # Alert configuration
   mode: alert  # or "monitor" (no alerts)
   destinations:
     - type: slack
       config:
         channel: "#alerts"
-    - type: pagerduty
-      config:
-        integrationKeyRef:
-          name: pagerduty-secret
-          key: integration-key
 
-  # Execution control
-  enabled: true  # Enable or disable the check
+status:
+  # Execution phase
+  phase: Completed  # Pending/Running/Completed
+  startTime: "2024-01-01T00:00:00Z"
+  completionTime: "2024-01-01T00:00:02Z"
+
+  # Result
+  result: pass  # pass/fail/error
+  message: "All pods healthy with 3/3 replicas ready"
+  rationale: "Deployment 'frontend' has 3 ready replicas out of 3 desired."
+  duration: 2.0
+
+  # Conditions
+  conditions:
+    - type: Complete
+      status: "True"
+      lastTransitionTime: "2024-01-01T00:00:02Z"
+      reason: Pass
+      message: "Check completed successfully"
+```
+
+### ScheduledHealthCheck Resource (Recurring)
+
+```yaml
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: frontend-schedule
+  namespace: default
+spec:
+  # Schedule
+  schedule: "*/5 * * * *"  # Cron format (every 5 minutes)
+
+  # Check specification (same as HealthCheck spec)
+  checkSpec:
+    query: "Are all pods in deployment 'frontend' healthy with at least 2 ready replicas?"
+    timeout: 30
+    mode: alert
+    destinations:
+      - type: slack
+        config:
+          channel: "#alerts"
+
+  # Schedule control
+  enabled: true  # Enable or disable the schedule
   concurrencyPolicy: Forbid  # Allow/Forbid/Replace concurrent runs
 
   # History limits
@@ -98,30 +148,28 @@ spec:
   failedJobsHistoryLimit: 3
 
 status:
-  # Execution timestamps
-  lastScheduleTime: "2024-01-01T00:00:00Z"
-  lastSuccessfulTime: "2024-01-01T00:00:00Z"
+  # Last execution
+  lastScheduleTime: "2024-01-01T00:05:00Z"
+  lastSuccessfulTime: "2024-01-01T00:05:00Z"
+  lastResult: pass
+  message: "Check completed successfully"
 
-  # Latest result
-  lastResult: pass  # pass/fail/error
-  message: "All pods healthy with 3/3 replicas ready"
+  # Active checks
+  active:
+    - name: frontend-schedule-20240101-000500-abc123
+      namespace: default
+      uid: "12345-67890"
 
-  # Kubernetes conditions
-  conditions:
-    - type: Ready
-      status: "True"
-      lastTransitionTime: "2024-01-01T00:00:00Z"
-      reason: CheckPassed
-      message: "Check executed successfully"
-
-  # Execution history
+  # History (references to created HealthChecks)
   history:
-    - executionTime: "2024-01-01T00:00:00Z"
-      result: pass
-      duration: 2.5
     - executionTime: "2024-01-01T00:05:00Z"
       result: pass
+      duration: 2.5
+      checkName: frontend-schedule-20240101-000500-abc123
+    - executionTime: "2024-01-01T00:00:00Z"
+      result: pass
       duration: 2.3
+      checkName: frontend-schedule-20240101-000000-def456
 ```
 
 ## API Integration
@@ -237,25 +285,30 @@ subjects:
 
 ## Key Design Decisions
 
-### 1. Distributed Architecture
+### 1. Job/CronJob Pattern
+- **Decision**: Separate HealthCheck and ScheduledHealthCheck CRDs
+- **Rationale**: Clear semantics, immediate feedback for one-time checks, follows K8s patterns
+- **Trade-off**: Two CRDs instead of one, but clearer user experience
+
+### 2. Distributed Architecture
 - **Decision**: Separate operator from API servers
 - **Rationale**: Better scalability, fault isolation, and resource efficiency
 - **Trade-off**: Slightly more complex deployment
 
-### 2. HTTP Communication
+### 3. HTTP Communication
 - **Decision**: Operator calls API via HTTP instead of direct execution
 - **Rationale**: Reuses existing API infrastructure, enables horizontal scaling
 - **Trade-off**: Network latency, requires service discovery
 
-### 3. APScheduler for Scheduling
+### 4. APScheduler for Scheduling
 - **Decision**: Use APScheduler library instead of Kubernetes CronJobs
 - **Rationale**: More efficient for frequent checks, better resource pooling
 - **Trade-off**: Scheduling logic in operator instead of native K8s
 
-### 4. Status in CRD
-- **Decision**: Store execution results in CRD status
-- **Rationale**: Kubernetes-native, accessible via kubectl
-- **Trade-off**: Limited history, status size constraints
+### 5. HealthCheck Resources as History
+- **Decision**: ScheduledHealthCheck creates HealthCheck resources
+- **Rationale**: Natural audit trail, reusable checks, clear execution records
+- **Trade-off**: More resources created, requires cleanup strategy
 
 ## Monitoring and Observability
 
@@ -272,17 +325,23 @@ The operator exposes Prometheus metrics:
 
 ### kubectl Integration
 ```bash
-# List all health checks
-kubectl get healthchecks
+# List one-time checks
+kubectl get healthcheck
 
-# View check details
-kubectl describe healthcheck frontend-health
+# List scheduled checks
+kubectl get scheduledhealthcheck
 
-# View check status
-kubectl get healthcheck frontend-health -o jsonpath='{.status}'
+# View check execution
+kubectl describe healthcheck frontend-health-check
 
-# Suspend a check
-kubectl patch healthcheck frontend-health --type='merge' -p '{"spec":{"suspend":true}}'
+# View schedule status
+kubectl describe scheduledhealthcheck frontend-schedule
+
+# Get checks created by a schedule
+kubectl get healthcheck -l holmes.robusta.dev/scheduled-by=frontend-schedule
+
+# Disable a schedule
+kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":{"enabled":false}}'
 ```
 
 ## Security Considerations
@@ -321,23 +380,6 @@ kubectl patch healthcheck frontend-health --type='merge' -p '{"spec":{"suspend":
 - [ ] Grafana dashboard integration
 - [ ] Cost tracking per check
 
-## Migration from CLI
-
-Users can migrate from CLI-based checks to operator-managed checks:
-
-1. Convert `checks.yaml` to HealthCheck CRDs
-2. Deploy operator alongside existing setup
-3. Gradually migrate checks
-4. Deprecate CLI-based scheduling
-
-Example migration:
-```bash
-# Old CLI approach
-holmes check --checks-file checks.yaml
-
-# New operator approach
-kubectl apply -f healthchecks/
-```
 
 ## Troubleshooting
 
