@@ -258,7 +258,9 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
         error_msg += "\n  2. Or skip port-forward tests: pytest -m 'not port-forward'"
 
         log(error_msg)
-        raise RuntimeError("Required ports are already in use.")
+        raise RuntimeError(
+            f"Required ports are already in use. Run 'lsof -i :{','.join(str(p) for p in ports_in_use)}' to see what's using them."
+        )
 
 
 def _is_port_in_use(port: int) -> bool:
