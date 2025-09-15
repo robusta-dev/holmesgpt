@@ -90,9 +90,12 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
         self.name = name
-        self.max_context_size = self.args.pop("max_context_size", None)
-
+        self.update_custom_args()
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
+
+    def update_custom_args(self):
+        self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
+        self.args.pop("custom_args", None)
 
     def check_llm(
         self,
@@ -539,7 +542,7 @@ class LLMModelRegistry:
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
-            **args,
+            "custom_args": args,
         }
 
 
