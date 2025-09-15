@@ -536,14 +536,16 @@ class LLMModelRegistry:
         is_robusta_model: Optional[bool] = None,
         args: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        args = args or {}
-        return {
+        entry = {
             "name": model_name,
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
-            "custom_args": args,
         }
+        if args:
+            entry["custom_args"] = args
+
+        return entry
 
 
 def get_llm_usage(
