@@ -3,6 +3,7 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional, Dict, Union, Tuple
+from urllib.parse import urlparse, urlunparse
 import requests  # type: ignore
 from pydantic import AnyUrl, BaseModel
 from requests.structures import CaseInsensitiveDict  # type: ignore
@@ -23,6 +24,69 @@ _openapi_spec_cache: Dict[str, Any] = {}
 
 # Relative time pattern
 RELATIVE_TIME_PATTERN = re.compile(r"^-?(\d+)([hdwmsy]|min)$|^now$", re.IGNORECASE)
+
+
+def convert_api_url_to_app_url(api_url: Union[str, AnyUrl]) -> str:
+    """
+    Convert a Datadog API URL to the corresponding web app URL.
+
+    Handles various URL formats:
+    - https://api.datadoghq.com -> https://app.datadoghq.com
+    - https://api.datadoghq.eu -> https://app.datadoghq.eu
+    - https://api.us5.datadoghq.com -> https://app.us5.datadoghq.com
+    - Also handles URLs with paths like https://api.datadoghq.com/api/v1
+
+    Args:
+        api_url: The API URL to convert
+
+    Returns:
+        The web app URL without trailing slash
+    """
+    url_str = str(api_url)
+    parsed = urlparse(url_str)
+
+    # Replace 'api.' subdomain with 'app.' in the hostname
+    # This handles cases like:
+    # - api.datadoghq.com -> app.datadoghq.com
+    # - api.datadoghq.eu -> app.datadoghq.eu
+    # - api.us5.datadoghq.com -> app.us5.datadoghq.com
+    if parsed.hostname and parsed.hostname.startswith("api."):
+        new_hostname = "app." + parsed.hostname[4:]
+        # Reconstruct the netloc with the new hostname
+        if parsed.port:
+            new_netloc = f"{new_hostname}:{parsed.port}"
+        else:
+            new_netloc = new_hostname
+    else:
+        # If it doesn't start with 'api.', keep the hostname as is
+        # This handles edge cases where the URL might not follow the pattern
+        new_netloc = parsed.netloc
+
+    # Remove any /api path segments if present
+    # Some configurations might include /api/v1 or similar in the base URL
+    new_path = parsed.path
+    if new_path.startswith("/api/"):
+        new_path = new_path[4:]  # Remove '/api' prefix
+    elif new_path == "/api":
+        new_path = "/"
+
+    # Reconstruct the URL with the app subdomain
+    app_url = urlunparse(
+        (
+            parsed.scheme,
+            new_netloc,
+            new_path,
+            "",  # params
+            "",  # query
+            "",  # fragment
+        )
+    )
+
+    # Remove trailing slash
+    if app_url.endswith("/"):
+        app_url = app_url[:-1]
+
+    return app_url
 
 
 class DatadogBaseConfig(BaseModel):

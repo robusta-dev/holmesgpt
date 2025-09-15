@@ -50,11 +50,10 @@ def generate_datadog_metrics_url(
     to_time: int,
 ) -> str:
     """Generate a Datadog web UI URL for the metrics query."""
-    # Extract the base domain from the API URL
-    # Convert https://api.datadoghq.com to https://app.datadoghq.com
-    base_url = str(dd_config.site_api_url).replace("/api.", "/app.")
-    if base_url.endswith("/"):
-        base_url = base_url[:-1]
+    from holmes.plugins.toolsets.datadog.datadog_api import convert_api_url_to_app_url
+
+    # Convert API URL to app URL using the shared helper
+    base_url = convert_api_url_to_app_url(dd_config.site_api_url)
 
     # Convert timestamps to milliseconds for Datadog UI
     from_ms = from_time * 1000
@@ -117,6 +116,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
 
         url = None
         query_params = None
+        datadog_url = None  # Initialize URL for consistent access
 
         try:
             from_time_str = params.get("from_time")
@@ -184,42 +184,27 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
                     f"Datadog API error (status {e.status_code}): {e.response_text}"
                 )
                 if params:
-                    error_msg += f"\nQuery: {params.get('query', 'not specified')}"
+                    # ListActiveMetrics parameters: from_time, host, tag_filter
+                    if params.get("host"):
+                        error_msg += f"\nHost filter: {params.get('host')}"
+                    if params.get("tag_filter"):
+                        error_msg += f"\nTag filter: {params.get('tag_filter')}"
 
-                    start_time = params.get("start_time")
-                    end_time = params.get("end_time")
-
-                    if start_time:
-                        start_desc = start_time
+                    from_time_param = params.get("from_time")
+                    if from_time_param:
+                        time_desc = from_time_param
                     else:
-                        start_desc = (
-                            f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
-                        )
+                        time_desc = f"default (last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours)"
+                    error_msg += f"\nTime range: {time_desc}"
 
-                    end_desc = end_time or "now"
-                    error_msg += f"\nTime range: {start_desc} to {end_desc}"
-
-                    # Add Datadog web UI URL even for errors (if we have time info)
-                    if "query" in params and params.get("query"):
-                        try:
-                            (from_time, to_time) = process_timestamps_to_int(
-                                start=params.get("from_time"),
-                                end=params.get("to_time"),
-                                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
-                            )
-                            datadog_url = generate_datadog_metrics_url(
-                                self.toolset.dd_config,
-                                params.get("query", ""),
-                                from_time,
-                                to_time,
-                            )
-                            error_msg += f"\nView in Datadog: {datadog_url}"
-                        except Exception:
-                            pass  # Skip URL generation if timestamps can't be processed
+                    # Note: We cannot generate a Datadog Metrics Explorer URL for ListActiveMetrics
+                    # because the Metrics Explorer requires a specific metric query,
+                    # while ListActiveMetrics just lists available metrics without querying any specific one
 
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
+                url=datadog_url,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
                 if url and query_params
@@ -233,6 +218,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=f"Exception while querying Datadog: {str(e)}",
+                url=datadog_url,
                 params=params,
             )
 
@@ -295,6 +281,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
 
         url = None
         query_params = None
+        datadog_url = None  # Initialize URL for consistent access
 
         try:
             query = get_param_or_raise(params, "query")
@@ -346,9 +333,19 @@ class QueryMetrics(BaseDatadogMetricsTool):
                     f"Time range: {start_desc} to {end_desc}\n"
                     "Please check your query syntax and ensure data exists for this time range."
                 )
+
+                # Generate Datadog web UI URL even for no data
+                datadog_url = generate_datadog_metrics_url(
+                    self.toolset.dd_config,
+                    query,
+                    from_time,
+                    to_time,
+                )
+
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.NO_DATA,
                     error=error_msg,
+                    url=datadog_url,
                     params=params,
                 )
 
@@ -400,10 +397,19 @@ class QueryMetrics(BaseDatadogMetricsTool):
                 "data": {"resultType": "matrix", "result": prometheus_result},
             }
 
+            # Generate Datadog web UI URL
+            datadog_url = generate_datadog_metrics_url(
+                self.toolset.dd_config,
+                query,
+                from_time,
+                to_time,
+            )
+
             data_str = json.dumps(response_data, indent=2)
             return StructuredToolResult(
                 status=StructuredToolResultStatus.SUCCESS,
                 data=data_str,
+                url=datadog_url,
                 params=params,
             )
 
@@ -459,6 +465,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
+                url=datadog_url,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
                 if url and query_params
@@ -663,38 +670,9 @@ class ListMetricTags(BaseDatadogMetricsTool):
                     f"Datadog API error (status {e.status_code}): {e.response_text}"
                 )
                 if params:
-                    error_msg += f"\nQuery: {params.get('query', 'not specified')}"
-
-                    start_time = params.get("start_time")
-                    end_time = params.get("end_time")
-
-                    if start_time:
-                        start_desc = start_time
-                    else:
-                        start_desc = (
-                            f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
-                        )
-
-                    end_desc = end_time or "now"
-                    error_msg += f"\nTime range: {start_desc} to {end_desc}"
-
-                    # Add Datadog web UI URL even for errors (if we have time info)
-                    if "query" in params and params.get("query"):
-                        try:
-                            (from_time, to_time) = process_timestamps_to_int(
-                                start=params.get("from_time"),
-                                end=params.get("to_time"),
-                                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
-                            )
-                            datadog_url = generate_datadog_metrics_url(
-                                self.toolset.dd_config,
-                                params.get("query", ""),
-                                from_time,
-                                to_time,
-                            )
-                            error_msg += f"\nView in Datadog: {datadog_url}"
-                        except Exception:
-                            pass  # Skip URL generation if timestamps can't be processed
+                    error_msg += (
+                        f"\nMetric name: {params.get('metric_name', 'not specified')}"
+                    )
 
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,

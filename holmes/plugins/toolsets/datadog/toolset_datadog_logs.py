@@ -164,13 +164,10 @@ def generate_datadog_logs_url(
 ) -> str:
     """Generate a Datadog web UI URL for the logs query."""
     from holmes.plugins.toolsets.utils import process_timestamps_to_int
+    from holmes.plugins.toolsets.datadog.datadog_api import convert_api_url_to_app_url
 
-    # Extract the base domain from the API URL
-    # Convert https://api.datadoghq.com to https://app.datadoghq.com
-    # or https://api.datadoghq.eu to https://app.datadoghq.eu
-    base_url = str(dd_config.site_api_url).replace("/api.", "/app.")
-    if base_url.endswith("/"):
-        base_url = base_url[:-1]
+    # Convert API URL to app URL using the shared helper
+    base_url = convert_api_url_to_app_url(dd_config.site_api_url)
 
     # Build the query string
     query = f"{dd_config.labels.namespace}:{params.namespace}"
@@ -259,6 +256,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.SUCCESS,
                         data=logs_with_link,
+                        url=datadog_url,
                         params=params.model_dump(),
                     )
 
@@ -314,15 +312,26 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             return StructuredToolResult(
                 status=StructuredToolResultStatus.NO_DATA,
                 error=error_msg,
+                url=datadog_url,
                 params=params.model_dump(),
             )
 
         except DataDogRequestError as e:
             logging.exception(e, exc_info=True)
 
+            # Always try to generate Datadog URL for debugging
+            try:
+                datadog_url = generate_datadog_logs_url(
+                    self.dd_config, params, self.dd_config.storage_tiers[0]
+                )
+            except Exception:
+                datadog_url = None
+
             # Provide more specific error message for rate limiting failures
             if e.status_code == 429:
                 error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
+                if datadog_url:
+                    error_msg += f"\nView in Datadog: {datadog_url}"
             elif e.status_code == 400:
                 # Use enhanced error message for validation errors
                 error_msg = enhance_error_message(
@@ -338,11 +347,9 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                     query += f' "{params.filter}"'
                 error_msg += f"\n\nQuery attempted: {query}"
 
-                # Add Datadog web UI URL
-                datadog_url = generate_datadog_logs_url(
-                    self.dd_config, params, self.dd_config.storage_tiers[0]
-                )
-                error_msg += f"\nView in Datadog: {datadog_url}"
+                # Add Datadog web UI URL to error message
+                if datadog_url:
+                    error_msg += f"\nView in Datadog: {datadog_url}"
             else:
                 # Include full API error details and query context
                 error_msg = (
@@ -361,15 +368,14 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                 )
                 error_msg += f"\nTime range: {from_time} to {to_time}"
 
-                # Add Datadog web UI URL even for errors
-                datadog_url = generate_datadog_logs_url(
-                    self.dd_config, params, self.dd_config.storage_tiers[0]
-                )
-                error_msg += f"\nView in Datadog: {datadog_url}"
+                # Add Datadog web UI URL to error message
+                if datadog_url:
+                    error_msg += f"\nView in Datadog: {datadog_url}"
 
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
+                url=datadog_url,
                 params=params.model_dump(),
                 invocation=json.dumps(e.payload),
             )
