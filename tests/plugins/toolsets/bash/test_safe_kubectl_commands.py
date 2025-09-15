@@ -95,6 +95,13 @@ class TestKubectlIntegration:
                 "kubectl events --types=Normal,Warning",
             ),
             ("kubectl events --watch", "kubectl events --watch"),
+            # Basic kubectl cluster-info commands
+            ("kubectl cluster-info", "kubectl cluster-info"),
+            ("kubectl cluster-info dump", "kubectl cluster-info dump"),
+            (
+                "kubectl cluster-info --output=yaml",
+                "kubectl cluster-info --output=yaml",
+            ),
             # kubectl get with grep
             ("kubectl get pods | grep nginx", "kubectl get pods | grep nginx"),
             (

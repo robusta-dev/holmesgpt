@@ -11,6 +11,7 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_events import KubectlEventsCom
 from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import KubectlLogsCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_top import KubectlTopCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_get import KubectlGetCommand
+from holmes.plugins.toolsets.bash.kubectl.kubectl_cluster_info import KubectlClusterInfoCommand
 
 
 class KubectlCommand(BashCommand):
@@ -23,6 +24,7 @@ class KubectlCommand(BashCommand):
             KubectlLogsCommand(),
             KubectlTopCommand(),
             KubectlGetCommand(),
+            KubectlClusterInfoCommand(),
         ]
 
     def add_parser(self, parent_parser: Any):
@@ -89,7 +91,7 @@ class KubectlCommand(BashCommand):
                         original_command=original_command,
                     )
             raise ValueError(
-                f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"
+                f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run, cluster-info"
             )
         else:
             raise ValueError(f"Unsupported command {command.tool_name}")
