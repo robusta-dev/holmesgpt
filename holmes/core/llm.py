@@ -428,7 +428,8 @@ class LLMModelRegistry:
 
             for model in robusta_models.models:
                 logging.info(f"Loading Robusta AI model: {model}")
-                self._llms[model] = self._create_robusta_model_entry(model)
+                args = robusta_models.models_args.get(model)
+                self._llms[model] = self._create_robusta_model_entry(model, args)
 
             if robusta_models.default_model:
                 logging.info(
@@ -513,12 +514,15 @@ class LLMModelRegistry:
 
         return models
 
-    def _create_robusta_model_entry(self, model_name: str) -> dict[str, Any]:
+    def _create_robusta_model_entry(
+        self, model_name: str, args: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         return self._create_model_entry(
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
+            args=args or {},
         )
 
     def _create_model_entry(
@@ -527,12 +531,15 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
+        args: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
+        args = args or {}
         return {
             "name": model_name,
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
+            **args,
         }
 
 
