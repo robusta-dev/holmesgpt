@@ -11,7 +11,7 @@ from holmes.core.tools import (
 )
 
 from pydantic import BaseModel, PrivateAttr
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
@@ -86,9 +86,9 @@ class ServiceNowBaseTool(Tool):
         response.raise_for_status()
         res = response.json()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS
+            status=StructuredToolResultStatus.SUCCESS
             if res.get(field, [])
-            else ToolResultStatus.NO_DATA,
+            else StructuredToolResultStatus.NO_DATA,
             data=res,
             params=params,
         )
@@ -139,7 +139,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -173,7 +173,7 @@ class ReturnChange(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -213,7 +213,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )

@@ -71,16 +71,16 @@ modelList:
     temperature: 0
 
   # Azure OpenAI Models
-  azure-4o:
+  azure-41:
     api_key: "{{ env.AZURE_API_KEY }}"
-    model: azure/gpt-4o
+    model: azure/gpt-4.1
     api_base: https://your-resource.openai.azure.com/
     api_version: "2025-01-01-preview"
     temperature: 0
 
   azure-gpt-5:
     api_key: "{{ env.AZURE_API_KEY }}"
-    model: azure/gpt-5-chat
+    model: azure/gpt-5
     api_base: https://your-resource.openai.azure.com/
     api_version: "2025-01-01-preview"
     temperature: 1 # only 1 is supported for gpt-5 models

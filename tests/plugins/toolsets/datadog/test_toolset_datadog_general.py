@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock, patch
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
     DatadogGeneralToolset,
     is_endpoint_allowed,
@@ -127,21 +127,11 @@ class TestDatadogGeneralToolset:
         list_tool = toolset.tools[2]  # ListDatadogAPIResources
 
         # Test listing all resources
-        result = list_tool._invoke({"category": "all"})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert "monitors" in result.data.lower()
-        assert "dashboards" in result.data.lower()
-
-        # Test filtering by category
-        result = list_tool._invoke({"category": "monitors"})
-        assert result.status == ToolResultStatus.SUCCESS
+        result = list_tool._invoke({})
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "monitor" in result.data.lower()
-        assert "GET /api/v1/monitor" in result.data
-
-        # Test invalid category
-        result = list_tool._invoke({"category": "invalid_category"})
-        assert result.status == ToolResultStatus.ERROR
-        assert "Unknown category" in result.error
+        assert "dashboard" in result.data.lower()
+        assert "POST     /api/v1/monitor" in result.data
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_general.execute_datadog_http_request"
@@ -170,7 +160,7 @@ class TestDatadogGeneralToolset:
             }
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "test_response" in result.data
 
         # Test blocked endpoint
@@ -178,7 +168,7 @@ class TestDatadogGeneralToolset:
             {"endpoint": "/api/v1/monitor/create", "description": "Create monitor"}
         )
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "blacklisted operation" in result.error
 
     def test_example_config(self):
