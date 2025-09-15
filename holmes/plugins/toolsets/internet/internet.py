@@ -15,7 +15,7 @@ from markdownify import markdownify
 from bs4 import BeautifulSoup
 
 import requests  # type: ignore
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
@@ -186,7 +186,7 @@ class FetchWebpage(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
         url: str = params["url"]
 
         additional_headers = (
@@ -197,7 +197,7 @@ class FetchWebpage(Tool):
         if not content:
             logging.error(f"Failed to retrieve content from {url}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to retrieve content from {url}",
                 params=params,
             )
@@ -209,7 +209,7 @@ class FetchWebpage(Tool):
             content = html_to_markdown(content)
 
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=content,
             params=params,
         )

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import os.path
@@ -6,16 +5,13 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, List, Optional, Union
 
+import sentry_sdk
 import yaml  # type: ignore
-from pydantic import BaseModel, ConfigDict, FilePath, SecretStr
+from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
 
 
-from holmes.clients.robusta_client import fetch_robusta_models
-from holmes.core.llm import DefaultLLM
+from holmes.core.llm import DefaultLLM, LLMModelRegistry
 from holmes.common.env_vars import (
-    ROBUSTA_AI,
-    LOAD_ALL_ROBUSTA_MODELS,
-    ROBUSTA_API_ENDPOINT,
     ROBUSTA_CONFIG_PATH,
 )
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -40,15 +36,9 @@ if TYPE_CHECKING:
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.config import config_path_dir
 from holmes.utils.definitions import RobustaConfig
-from holmes.utils.env import replace_env_vars_values
-from holmes.utils.file_utils import load_yaml_file
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
 DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
-MODEL_LIST_FILE_LOCATION = os.environ.get(
-    "MODEL_LIST_FILE_LOCATION", "/etc/holmes/config/model_list.yaml"
-)
-ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
 class SupportedTicketSources(str, Enum):
@@ -56,32 +46,8 @@ class SupportedTicketSources(str, Enum):
     PAGERDUTY = "pagerduty"
 
 
-def is_old_toolset_config(
-    toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]],
-) -> bool:
-    # old config is a list of toolsets
-    if isinstance(toolsets, list):
-        return True
-    return False
-
-
-def parse_models_file(path: str):
-    models = load_yaml_file(path, raise_error=False, warn_not_found=False)
-
-    for _, params in models.items():
-        params = replace_env_vars_values(params)
-
-    return models
-
-
 class Config(RobustaBaseConfig):
-    api_key: Optional[SecretStr] = (
-        None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
-    )
-    account_id: Optional[str] = None
-    session_token: Optional[SecretStr] = None
-
-    model: Optional[str] = "gpt-4o"
+    model: Optional[str] = None
     api_base: Optional[str] = None
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
@@ -133,8 +99,10 @@ class Config(RobustaBaseConfig):
 
     _server_tool_executor: Optional[ToolExecutor] = None
 
-    _toolset_manager: Optional[ToolsetManager] = None
-    _default_robusta_model: Optional[str] = None
+    # TODO: Separate those fields to facade class, this shouldn't be part of the config.
+    _toolset_manager: Optional[ToolsetManager] = PrivateAttr(None)
+    _llm_model_registry: Optional[LLMModelRegistry] = PrivateAttr(None)
+    _dal: Optional[SupabaseDal] = PrivateAttr(None)
 
     @property
     def toolset_manager(self) -> ToolsetManager:
@@ -148,88 +116,25 @@ class Config(RobustaBaseConfig):
             )
         return self._toolset_manager
 
-    def model_post_init(self, __context: Any) -> None:
-        self._model_list = parse_models_file(MODEL_LIST_FILE_LOCATION)
+    @property
+    def dal(self) -> SupabaseDal:
+        if not self._dal:
+            self._dal = SupabaseDal(self.cluster_name)  # type: ignore
+        return self._dal
 
-        if not self._should_load_robusta_ai():
-            return
-
-        self.configure_robusta_ai_model()
-
-    def configure_robusta_ai_model(self) -> None:
-        try:
-            if not self.cluster_name or not LOAD_ALL_ROBUSTA_MODELS:
-                self._load_default_robusta_config()
-                return
-
-            if not self.api_key:
-                dal = SupabaseDal(self.cluster_name)
-                self.load_robusta_api_key(dal)
-
-            if not self.account_id or not self.session_token:
-                self._load_default_robusta_config()
-                return
-
-            robusta_models = fetch_robusta_models(
-                self.account_id, self.session_token.get_secret_value()
-            )
-            if not robusta_models or not robusta_models.models:
-                self._load_default_robusta_config()
-                return
-
-            for model in robusta_models.models:
-                logging.info(f"Loading Robusta AI model: {model}")
-                self._model_list[model] = {
-                    "name": model,
-                    "base_url": f"{ROBUSTA_API_ENDPOINT}/llm/{model}",
-                    "is_robusta_model": True,
-                    "model": "gpt-4o",  # Robusta AI model is using openai like API.
-                }
-
-            if robusta_models.default_model:
-                logging.info(
-                    f"Setting default Robusta AI model to: {robusta_models.default_model}"
-                )
-                self._default_robusta_model = robusta_models.default_model
-
-        except Exception:
-            logging.exception("Failed to get all robusta models")
-            # fallback to default behavior
-            self._load_default_robusta_config()
-
-    def _load_default_robusta_config(self):
-        if self._should_load_robusta_ai() and self.api_key:
-            logging.info("Loading default Robusta AI model")
-            self._model_list[ROBUSTA_AI_MODEL_NAME] = {
-                "name": ROBUSTA_AI_MODEL_NAME,
-                "base_url": ROBUSTA_API_ENDPOINT,
-                "is_robusta_model": True,
-                "model": "gpt-4o",
-            }
-            self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
-
-    def _should_load_robusta_ai(self) -> bool:
-        if not self.should_try_robusta_ai:
-            return False
-
-        # ROBUSTA_AI were set in the env vars, so we can use it directly
-        if ROBUSTA_AI is not None:
-            return ROBUSTA_AI
-
-        # MODEL is set in the env vars, e.g. the user is using a custom model
-        # so we don't need to load the robusta AI model and keep the behavior backward compatible
-        if "MODEL" in os.environ:
-            return False
-
-        # if the user has provided a model list, we don't need to load the robusta AI model
-        if self._model_list:
-            return False
-
-        return True
+    @property
+    def llm_model_registry(self) -> LLMModelRegistry:
+        if not self._llm_model_registry:
+            self._llm_model_registry = LLMModelRegistry(self, dal=self.dal)
+        return self._llm_model_registry
 
     def log_useful_info(self):
-        if self._model_list:
-            logging.info(f"loaded models: {list(self._model_list.keys())}")
+        if self.llm_model_registry and self.llm_model_registry.models:
+            logging.info(
+                f"Loaded models: {list(self.llm_model_registry.models.keys())}"
+            )
+        else:
+            logging.warning("No llm models were loaded")
 
     @classmethod
     def load_from_file(cls, config_file: Optional[Path], **kwargs) -> "Config":
@@ -536,48 +441,23 @@ class Config(RobustaBaseConfig):
             raise ValueError("--slack-channel must be specified")
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
-    def _get_model_params(self, model_key: Optional[str] = None) -> dict:
-        if not self._model_list:
-            logging.info("No model list setup, using config model")
-            return {}
-
-        if model_key:
-            model_params = self._model_list.get(model_key)
-            if model_params is not None:
-                logging.info(f"Using model: {model_key}")
-                return model_params.copy()
-
-            logging.error(f"Couldn't find model: {model_key} in model list")
-
-        if self._default_robusta_model:
-            model_params = self._model_list.get(self._default_robusta_model)
-            if model_params is not None:
-                logging.info(
-                    f"Using default Robusta AI model: {self._default_robusta_model}"
-                )
-                return model_params.copy()
-
-            logging.error(
-                f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
-            )
-
-        first_model_params = next(iter(self._model_list.values())).copy()
-        logging.info("Using first model")
-        return first_model_params
-
+    # TODO: move this to the llm model registry
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
-        model_params = self._get_model_params(model_key)
+        sentry_sdk.set_tag("requested_model", model_key)
+        model_params = self.llm_model_registry.get_model_params(model_key)
         api_base = self.api_base
         api_version = self.api_version
 
         is_robusta_model = model_params.pop("is_robusta_model", False)
-        if is_robusta_model and self.api_key:
+        sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
+        if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
-            api_key = self.api_key.get_secret_value()  # type: ignore
+            account_id, token = self.dal.get_ai_credentials()
+            api_key = f"{account_id} {token}"
         else:
             api_key = model_params.pop("api_key", None)
 
-        model = model_params.pop("model", self.model)
+        model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.
         # Handle both api_base and base_url - api_base takes precedence
         model_api_base = model_params.pop("api_base", None)
@@ -585,23 +465,17 @@ class Config(RobustaBaseConfig):
         api_base = model_api_base or model_base_url or api_base
         api_version = model_params.pop("api_version", api_version)
         model_name = model_params.pop("name", None) or model_key or model
-
+        sentry_sdk.set_tag("model_name", model_name)
+        logging.info(f"Creating LLM with model: {model_name}")
         return DefaultLLM(
             model, api_key, api_base, api_version, model_params, tracer, model_name
         )  # type: ignore
 
     def get_models_list(self) -> List[str]:
-        if self._model_list:
-            return json.dumps(list(self._model_list.keys()))  # type: ignore
+        if self.llm_model_registry and self.llm_model_registry.models:
+            return list(self.llm_model_registry.models.keys())
 
-        return json.dumps([self.model])  # type: ignore
-
-    def load_robusta_api_key(self, dal: SupabaseDal):
-        if ROBUSTA_AI:
-            account_id, token = dal.get_ai_credentials()
-            self.api_key = SecretStr(f"{account_id} {token}")
-            self.account_id = account_id
-            self.session_token = SecretStr(token)
+        return []
 
 
 class TicketSource(BaseModel):

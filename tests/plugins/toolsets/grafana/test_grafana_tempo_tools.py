@@ -2,7 +2,7 @@ from unittest.mock import patch, ANY
 
 import pytest
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import TempoAPIError
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
@@ -59,7 +59,7 @@ class TestSearchTracesByQuery:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert "traces" in result.data
             mock_search.assert_called_once_with(
                 q='{resource.service.name="api"}',
@@ -80,7 +80,7 @@ class TestSearchTracesByQuery:
 
             result = tool._invoke({"q": "{invalid}"})
 
-            assert result.status == ToolResultStatus.ERROR
+            assert result.status == StructuredToolResultStatus.ERROR
             assert "API Error" in result.error
 
     def test_search_traces_by_query_tempo_api_error(self, tempo_toolset):
@@ -99,7 +99,7 @@ class TestSearchTracesByQuery:
 
             result = tool._invoke({"q": "{invalid syntax}"})
 
-            assert result.status == ToolResultStatus.ERROR
+            assert result.status == StructuredToolResultStatus.ERROR
             assert "invalid TraceQL query: unexpected token" in result.error
             assert "400" in result.error
 
@@ -124,7 +124,7 @@ class TestSearchTracesByTags:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_search.assert_called_once_with(
                 tags='service.name="api" http.status_code="500"',
                 min_duration="100ms",
@@ -152,7 +152,7 @@ class TestQueryTraceById:
 
             result = tool._invoke({"trace_id": "abc123"})
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 trace_id="abc123",
                 start=ANY,
@@ -176,7 +176,7 @@ class TestQueryTraceById:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 trace_id="abc123",
                 start=1234567890,
@@ -204,7 +204,7 @@ class TestSearchTagNames:
 
             result = tool._invoke({})
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert "scopes" in result.data
 
     def test_search_tag_names_with_filters(self, tempo_toolset):
@@ -224,7 +224,7 @@ class TestSearchTagNames:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_search.assert_called_once_with(
                 scope="resource",
                 q='{resource.cluster="prod"}',
@@ -254,7 +254,7 @@ class TestSearchTagValues:
 
             result = tool._invoke({"tag": "service.name"})
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert "tagValues" in result.data
 
     def test_search_tag_values_error(self, tempo_toolset):
@@ -268,7 +268,7 @@ class TestSearchTagValues:
 
             result = tool._invoke({"tag": "invalid.tag"})
 
-            assert result.status == ToolResultStatus.ERROR
+            assert result.status == StructuredToolResultStatus.ERROR
             assert "Tag not found" in result.error
 
 
@@ -296,7 +296,7 @@ class TestQueryMetricsInstant:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 q="{ } | histogram_quantile(.95)",
                 start=ANY,
@@ -330,15 +330,15 @@ class TestQueryMetricsRange:
             result = tool._invoke(
                 {
                     "q": '{ service.name="api" } | rate()',
-                    "step": "5m",
+                    "step": "8m",
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert "result" in result.data
             mock_query.assert_called_once_with(
                 q='{ service.name="api" } | rate()',
-                step="5m",
+                step="8m",
                 start=ANY,
                 end=ANY,
                 exemplars=None,
@@ -360,7 +360,7 @@ class TestQueryMetricsRange:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
                 q="{ } | rate()",
                 step=ANY,  # step will be auto-calculated
@@ -387,7 +387,7 @@ class TestNegativeTimestamps:
                 {"q": '{resource.service.name="api"}', "start": "-3600"}
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             # Verify start was converted to a positive timestamp
             args, kwargs = mock_search.call_args
             assert kwargs["start"] > 0
@@ -413,7 +413,7 @@ class TestNegativeTimestamps:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
             # Both should be positive timestamps
             assert kwargs["start"] > 0
@@ -442,7 +442,7 @@ class TestNegativeTimestamps:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
             # Timestamps should be inverted
             assert kwargs["start"] == now
@@ -464,7 +464,7 @@ class TestNegativeTimestamps:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_search.call_args
             # Start should be 3600 seconds before the RFC3339 end time
             assert kwargs["start"] > 0
@@ -515,7 +515,7 @@ class TestNegativeTimestamps:
                 mock_method.return_value = {"status": "success"}
 
                 result = tool._invoke(params)
-                assert result.status == ToolResultStatus.SUCCESS
+                assert result.status == StructuredToolResultStatus.SUCCESS
 
                 # Verify the negative start was converted properly
                 if mock_method.called:
@@ -547,11 +547,11 @@ class TestQueryMetricsRangeWithStepAdjustment:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 3600 seconds and MAX_GRAPH_POINTS=300, min step = ceil(3600/300) = 12
-            # The function should convert this to "12s"
-            assert kwargs["step"] == "12s"
+            # With 3600 seconds and MAX_GRAPH_POINTS=200, min step = ceil(3600/200) = 18
+            # The function should convert this to "18s"
+            assert kwargs["step"] == "18s"
 
     def test_metrics_range_with_small_step_gets_adjusted(self, tempo_toolset):
         """Test that a too-small step gets adjusted to prevent too many points."""
@@ -572,11 +572,11 @@ class TestQueryMetricsRangeWithStepAdjustment:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/300) = 288
-            # The function should adjust to "288s" = "4m48s"
-            assert kwargs["step"] == "4m48s"
+            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/200) = 432
+            # The function should adjust to "432s" = "7m12s"
+            assert kwargs["step"] == "7m12s"
 
     def test_metrics_range_with_large_step_unchanged(self, tempo_toolset):
         """Test that a sufficiently large step is not adjusted."""
@@ -596,7 +596,7 @@ class TestQueryMetricsRangeWithStepAdjustment:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
             # Step should remain "5m" since it's already large enough
             assert kwargs["step"] == "5m"
@@ -619,7 +619,7 @@ class TestQueryMetricsRangeWithStepAdjustment:
                 }
             )
 
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
             # Step should be "30s" since 30 seconds is fine for 300 second range
             assert kwargs["step"] == "30s"
@@ -632,8 +632,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
             # (start, end, input_step, expected_step)
             (1000000, 1000060, None, "1s"),  # 1 minute, no step -> "1s"
             (1000000, 1000060, "1", "1s"),  # 1 minute, 1s step -> "1s"
-            (1000000, 1003600, "10s", "12s"),  # 1 hour, 10s step -> adjusted to 12s
-            (1000000, 1604800, None, "33m36s"),  # 1 week, no step -> "33m36s"
+            (1000000, 1003600, "10s", "18s"),  # 1 hour, 10s step -> adjusted to 18s
+            (1000000, 1604800, None, "50m24s"),  # 1 week, no step -> "50m24s"
             (1000000, 1604800, "1h", "1h"),  # 1 week, 1h step -> remains "1h"
         ]
 
@@ -649,7 +649,7 @@ class TestQueryMetricsRangeWithStepAdjustment:
 
                 result = tool._invoke(params)
 
-                assert result.status == ToolResultStatus.SUCCESS
+                assert result.status == StructuredToolResultStatus.SUCCESS
                 args, kwargs = mock_query.call_args
                 assert (
                     kwargs["step"] == expected

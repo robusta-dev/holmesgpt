@@ -8,7 +8,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -79,7 +79,7 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             if c.connection_status == ClusterConnectionStatus.SUCCESS
         ]
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS, data=available_clusters
+            status=StructuredToolResultStatus.SUCCESS, data=available_clusters
         )
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -112,12 +112,14 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
                 cluster_id=params.get("cluster_id")
             )
             result = get_cluster_status(cluster_config)
-            return StructuredToolResult(status=ToolResultStatus.SUCCESS, data=result)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.SUCCESS, data=result
+            )
 
         except Exception as e:
             logging.info("Failed to process RabbitMQ cluster status", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error fetching RabbitMQ cluster status: {str(e)}",
                 data=None,
             )

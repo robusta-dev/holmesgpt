@@ -17,7 +17,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -94,7 +94,7 @@ class KubectlRunImageCommand(BaseBashTool):
 
         if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
                 params=params,
             )
@@ -118,7 +118,7 @@ class KubectlRunImageCommand(BaseBashTool):
                 }
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -172,14 +172,14 @@ class RunBashCommand(BaseBashTool):
 
         if not command_str:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="The 'command' parameter is required and was not provided.",
                 params=params,
             )
 
         if not isinstance(command_str, str):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
                 params=params,
             )
@@ -202,7 +202,7 @@ class RunBashCommand(BaseBashTool):
                     logging.info(f"Refusing LLM tool call {command_str}")
 
                     return StructuredToolResult(
-                        status=ToolResultStatus.APPROVAL_REQUIRED,
+                        status=StructuredToolResultStatus.APPROVAL_REQUIRED,
                         error=f"Refusing to execute bash command. {str(e)}",
                         params=params,
                         invocation=command_str,

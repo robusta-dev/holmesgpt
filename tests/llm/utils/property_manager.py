@@ -126,8 +126,8 @@ def update_test_results(
             if isinstance(test_case.evaluation.correctness, Evaluation):
                 evaluation_type = test_case.evaluation.correctness.type
 
-        # Build evaluation output, optionally including intermediate responses
-        eval_output = output or ""
+        # Build evaluation output, optionally including intermediate responses and tool calls
+        evaluation_output = output or ""
 
         # Check if we should include intermediate outputs (based on CLI flag, defaults to True)
         include_intermediate = request.config.getoption("include_intermediate", True)
@@ -149,14 +149,36 @@ def update_test_results(
 
             # If we have intermediate outputs, include them before the final output
             if intermediate_outputs:
-                eval_output = "## Intermediate LLM Outputs:\n\n"
+                evaluation_output = "## Intermediate LLM Outputs:\n\n"
                 for i, intermediate in enumerate(intermediate_outputs, 1):
-                    eval_output += f"### Step {i}:\n{intermediate}\n\n"
-                eval_output += f"## Final Output:\n{output}"
+                    evaluation_output += f"### Step {i}:\n{intermediate}\n\n"
+                evaluation_output += f"## Final Output:\n{output}"
+
+        # Also include tool calls if requested
+        if (
+            test_case.include_tool_calls
+            and result
+            and hasattr(result, "tool_calls")
+            and result.tool_calls
+        ):
+            # Format tool calls as a string to include in evaluation
+            tool_calls_text = "\n\n# Tool Calls\n\n"
+            for i, tc in enumerate(result.tool_calls, 1):
+                tool_calls_text += f"* Tool #{i}: {tc.description}\n"
+                if hasattr(tc, "result") and tc.result:
+                    # Don't truncate - LLM judge needs complete output for accurate evaluation
+                    output_text = str(tc.result)
+                    # Indent the output for readability
+                    indented_output = "\n".join(
+                        f"  {line}" for line in output_text.split("\n")
+                    )
+                    tool_calls_text += f"Output:\n{indented_output}\n"
+                tool_calls_text += "---\n"
+            evaluation_output = evaluation_output + tool_calls_text
 
         # Evaluate correctness with combined output
         correctness_eval = evaluate_correctness(
-            output=eval_output,
+            output=evaluation_output,
             expected_elements=expected,
             parent_span=eval_span,
             evaluation_type=evaluation_type,

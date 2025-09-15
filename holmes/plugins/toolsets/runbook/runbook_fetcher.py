@@ -6,7 +6,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -62,7 +62,7 @@ class RunbookFetcher(Tool):
             )
             logging.error(err_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=err_msg,
                 params=params,
             )
@@ -79,7 +79,7 @@ class RunbookFetcher(Tool):
             )
             logging.error(err_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=err_msg,
                 params=params,
             )
@@ -123,7 +123,7 @@ class RunbookFetcher(Tool):
                     </example>
                 """)
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=wrapped_content,
                     params=params,
                 )
@@ -131,7 +131,7 @@ class RunbookFetcher(Tool):
             err_msg = f"Failed to read runbook {runbook_path}: {str(e)}"
             logging.error(err_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=err_msg,
                 params=params,
             )

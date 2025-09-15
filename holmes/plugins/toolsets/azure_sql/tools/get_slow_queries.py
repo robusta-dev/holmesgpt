@@ -1,7 +1,11 @@
 import logging
 from typing import Dict, List, Tuple
 
-from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    ToolParameter,
+    StructuredToolResultStatus,
+)
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLTool,
     BaseAzureSQLToolset,
@@ -125,7 +129,7 @@ class GetSlowQueries(BaseAzureSQLTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=report_text,
                 params=params,
             )
@@ -133,7 +137,7 @@ class GetSlowQueries(BaseAzureSQLTool):
             error_msg = f"Failed to get slow queries: {str(e)}"
             logging.error(error_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
             )

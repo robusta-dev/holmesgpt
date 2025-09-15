@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
@@ -40,14 +40,14 @@ class GetLogs(BaseNewRelicTool):
     def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=msg,
                 params=params,
             )
 
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )
@@ -118,14 +118,14 @@ class GetTraces(BaseNewRelicTool):
     def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
         def success(msg: Any) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=msg,
                 params=params,
             )
 
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )

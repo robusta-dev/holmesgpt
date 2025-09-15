@@ -160,6 +160,7 @@ nav:
       - Ollama: ai-providers/ollama.md
       - OpenAI: ai-providers/openai.md
       - OpenAI-Compatible: ai-providers/openai-compatible.md
+      - Robusta AI: ai-providers/robusta-ai.md
       - Using Multiple Providers: ai-providers/using-multiple-providers.md
 
   - Data Sources:

@@ -51,7 +51,9 @@ class TestConfigFastModelFlow:
 
         try:
             # Mock dependencies to avoid side effects
-            with patch("holmes.config.parse_models_file", return_value={}):
+            with patch(
+                "holmes.core.llm.LLMModelRegistry._parse_models_file", return_value={}
+            ):
                 config = Config.load_from_file(config_path)
 
             # Verify fast_model is loaded
@@ -72,7 +74,10 @@ class TestConfigFastModelFlow:
             with patch(
                 "holmes.config.Config._Config__get_cluster_name", return_value=None
             ):
-                with patch("holmes.config.parse_models_file", return_value={}):
+                with patch(
+                    "holmes.core.llm.LLMModelRegistry._parse_models_file",
+                    return_value={},
+                ):
                     config = Config.load_from_env()
 
         # Verify fast_model is loaded from env
@@ -93,7 +98,9 @@ class TestConfigFastModelFlow:
 
         try:
             # Mock dependencies to avoid side effects
-            with patch("holmes.config.parse_models_file", return_value={}):
+            with patch(
+                "holmes.core.llm.LLMModelRegistry._parse_models_file", return_value={}
+            ):
                 # CLI option overrides file config
                 config = Config.load_from_file(
                     config_path, fast_model="claude-3-sonnet"
