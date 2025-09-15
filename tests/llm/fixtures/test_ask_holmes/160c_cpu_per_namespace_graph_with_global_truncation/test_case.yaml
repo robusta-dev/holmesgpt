@@ -24,5 +24,8 @@ port_forwards:
 
 include_tool_calls: true
 
+skip: true
+skip_reason: "the override of TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT below doesn't work as the env var is read once at startup. need to find another way to test this"
+
 test_env_vars:
   TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT: "5"
