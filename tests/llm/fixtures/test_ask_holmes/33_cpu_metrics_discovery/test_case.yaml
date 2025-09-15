@@ -1,0 +1,17 @@
+user_prompt: "What CPU metrics are available in this cluster? List all the CPU-related metrics that Prometheus is collecting."
+
+expected_output:
+  - "Must call get_metric_names tool with cpu related filters - this tool call must return non-empty results"
+  - "Must include the metric container_cpu_usage_seconds_total"
+
+tags:
+  - prometheus
+  - easy
+
+include_tool_calls: true
+
+port_forwards:
+  - namespace: default
+    service: robusta-kube-prometheus-st-prometheus
+    local_port: 9090
+    remote_port: 9090

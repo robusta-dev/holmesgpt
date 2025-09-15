@@ -3,7 +3,6 @@ tags:
   - runbooks
   - transparency
   - medium
-  - prometheus
 
 expected_output: |
   - Finds Lambda performance troubleshooting runbook
