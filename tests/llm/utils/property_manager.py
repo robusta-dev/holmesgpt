@@ -128,14 +128,12 @@ def update_test_results(
             and result.tool_calls
         ):
             # Format tool calls as a string to include in evaluation
-            tool_calls_text = "\n\n=== Tool Calls ===\n"
+            tool_calls_text = "\n\n# Tool Calls\n\n"
             for i, tc in enumerate(result.tool_calls, 1):
-                tool_calls_text += f"\nTool #{i}: {tc.description}\n"
-                if hasattr(tc, "output") and tc.output:
-                    # Truncate very long outputs
-                    output_text = str(tc.output)
-                    if len(output_text) > 500:
-                        output_text = output_text[:500] + "... [truncated]"
+                tool_calls_text += f"* Tool #{i}: {tc.description}\n"
+                if hasattr(tc, "result") and tc.result:
+                    # Don't truncate - LLM judge needs complete output for accurate evaluation
+                    output_text = str(tc.result)
                     # Indent the output for readability
                     indented_output = "\n".join(
                         f"  {line}" for line in output_text.split("\n")

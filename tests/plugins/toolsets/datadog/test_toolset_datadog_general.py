@@ -127,21 +127,11 @@ class TestDatadogGeneralToolset:
         list_tool = toolset.tools[2]  # ListDatadogAPIResources
 
         # Test listing all resources
-        result = list_tool._invoke({"category": "all"})
-        assert result.status == StructuredToolResultStatus.SUCCESS
-        assert "monitors" in result.data.lower()
-        assert "dashboards" in result.data.lower()
-
-        # Test filtering by category
-        result = list_tool._invoke({"category": "monitors"})
+        result = list_tool._invoke({})
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert "monitor" in result.data.lower()
-        assert "GET /api/v1/monitor" in result.data
-
-        # Test invalid category
-        result = list_tool._invoke({"category": "invalid_category"})
-        assert result.status == StructuredToolResultStatus.ERROR
-        assert "Unknown category" in result.error
+        assert "dashboard" in result.data.lower()
+        assert "POST     /api/v1/monitor" in result.data
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_general.execute_datadog_http_request"
