@@ -1,4 +1,7 @@
-user_prompt: "Show me a graph of CPU usage per pod in the app-159 namespace over the last 5 minutes with 10 second resolution. Then tell me which pods are using the most CPU based on that prometheus graph data."
+user_prompt:
+- "Show me a graph of CPU usage per pod in the app-159 namespace over the last 5 minutes with 10 second resolution. Then tell me which pods are using the most CPU based on that prometheus graph data."
+- "Show me a graph of CPU usage per pod in the app-159 namespace"
+- "What pods are using the most CPU in the app-159 namespace based on Prometheus?"
 
 expected_output:
 #  - "Should execute a Prometheus query with topk() to limit the number of series"
