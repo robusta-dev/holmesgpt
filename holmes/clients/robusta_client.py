@@ -1,8 +1,8 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import requests  # type: ignore
 from functools import cache
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from holmes.common.env_vars import ROBUSTA_API_ENDPOINT
 
 HOLMES_GET_INFO_URL = f"{ROBUSTA_API_ENDPOINT}/api/holmes/get_info"
@@ -17,6 +17,7 @@ class HolmesInfo(BaseModel):
 class RobustaModelsResponse(BaseModel):
     model_config = ConfigDict(extra="ignore")
     models: List[str]
+    models_args: Dict[str, Any] = Field(default_factory=dict, alias="models_holmes_args")
     default_model: Optional[str] = None
 
 
