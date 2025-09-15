@@ -543,7 +543,7 @@ class LLMModelRegistry:
             "model": model,
         }
         if args:
-            entry["custom_args"] = args
+            entry["custom_args"] = args  # type: ignore[assignment]
 
         return entry
 
