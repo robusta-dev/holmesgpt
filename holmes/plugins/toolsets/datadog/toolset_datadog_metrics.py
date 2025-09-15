@@ -84,7 +84,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="list_active_datadog_metrics",
-            description=f"List active metrics from Datadog for the last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours. This includes metrics that have actively reported data points, including from pods no longer in the cluster.",
+            description=f"[datadog/metrics toolset] List active metrics from Datadog for the last {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours. This includes metrics that have actively reported data points, including from pods no longer in the cluster.",
             parameters={
                 "from_time": ToolParameter(
                     description=f"Start time for listing metrics. Can be an RFC3339 formatted datetime (e.g. '2023-03-01T10:30:00Z') or a negative integer for relative seconds from now (e.g. -86400 for 24 hours ago). Defaults to {ACTIVE_METRICS_DEFAULT_LOOK_BACK_HOURS} hours ago",
@@ -250,7 +250,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="query_datadog_metrics",
-            description="Query timeseries data from Datadog for a specific metric, including historical data for pods no longer in the cluster",
+            description="[datadog/metrics toolset] Query timeseries data from Datadog for a specific metric, including historical data for pods no longer in the cluster",
             parameters={
                 "query": ToolParameter(
                     description="The metric query string (e.g., 'system.cpu.user{host:myhost}')",
@@ -485,7 +485,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="get_datadog_metric_metadata",
-            description="Get metadata about one or more metrics including their type, description, unit, and other properties",
+            description="[datadog/metrics toolset] Get metadata about one or more metrics including their type, description, unit, and other properties",
             parameters={
                 "metric_names": ToolParameter(
                     description="Comma-separated list of metric names to get metadata for (e.g., 'system.cpu.user, system.mem.used')",
@@ -601,7 +601,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
     def __init__(self, toolset: "DatadogMetricsToolset"):
         super().__init__(
             name="list_datadog_metric_tags",
-            description="List all available tags and aggregations for a specific metric. This helps in building queries by showing what dimensions are available for filtering.",
+            description="[datadog/metrics toolset] List all available tags and aggregations for a specific metric. This helps in building queries by showing what dimensions are available for filtering.",
             parameters={
                 "metric_name": ToolParameter(
                     description="The name of the metric to get tags for (e.g., 'system.cpu.user', 'container.memory.usage')",
@@ -772,7 +772,7 @@ class DatadogMetricsToolset(Toolset):
         if not config:
             return (
                 False,
-                TOOLSET_CONFIG_MISSING_ERROR,
+                "Datadog metrics toolset requires configuration. Please provide: dd_api_key, dd_app_key, and site_api_url in your Holmes config. For more details, see https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             )
 
         try:

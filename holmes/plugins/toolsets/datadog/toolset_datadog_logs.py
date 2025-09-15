@@ -17,6 +17,8 @@ from holmes.plugins.toolsets.datadog.datadog_api import (
     execute_paginated_datadog_http_request,
     get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
+    enhance_error_message,
+    preprocess_time_fields,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
@@ -100,23 +102,28 @@ def fetch_paginated_logs(
         "page": {"limit": calculate_page_size(params, dd_config, [])},
     }
 
+    # Preprocess time fields to ensure correct format
+    processed_payload = preprocess_time_fields(payload, "/api/v2/logs/events/search")
+
     logs, cursor = execute_paginated_datadog_http_request(
         url=url,
         headers=headers,
-        payload_or_params=payload,
+        payload_or_params=processed_payload,
         timeout=dd_config.request_timeout,
     )
 
     while cursor and len(logs) < limit:
-        payload["page"]["cursor"] = cursor
+        processed_payload["page"]["cursor"] = cursor
+        processed_payload["page"]["limit"] = calculate_page_size(
+            params, dd_config, logs
+        )
         new_logs, cursor = execute_paginated_datadog_http_request(
             url=url,
             headers=headers,
-            payload_or_params=payload,
+            payload_or_params=processed_payload,
             timeout=dd_config.request_timeout,
         )
         logs += new_logs
-        payload["page"]["limit"] = calculate_page_size(params, dd_config, logs)
 
     # logs are fetched descending order. Unified logging API follows the pattern of kubectl logs where oldest logs are first
     logs.reverse()
@@ -236,32 +243,53 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                         params=params.model_dump(),
                     )
 
-            # Include detailed context about what was searched
+            # Include detailed diagnostic context
             query = f"{self.dd_config.labels.namespace}:{params.namespace} {self.dd_config.labels.pod}:{params.pod_name}"
             if params.filter:
                 query += f' "{params.filter}"'
 
-            # Format time range with actual defaults
-            if params.start_time:
-                start_desc = params.start_time
-            else:
-                start_desc = f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
-
-            end_desc = params.end_time or "now"
-            time_range = f"{start_desc} to {end_desc}"
+            # Get actual time range used
+            (from_time, to_time) = process_timestamps_to_rfc3339(
+                start_timestamp=params.start_time,
+                end_timestamp=params.end_time,
+                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+            )
 
             # Generate Datadog web UI URL for the last storage tier checked
             datadog_url = generate_datadog_logs_url(
                 self.dd_config, params, self.dd_config.storage_tiers[-1]
             )
 
+            # Build diagnostic information
+            diagnostics: Dict[str, Any] = {
+                "query_executed": query,
+                "time_range": f"{from_time} to {to_time}",
+                "indexes_searched": self.dd_config.indexes,
+                "storage_tiers_checked": [
+                    tier.value for tier in self.dd_config.storage_tiers
+                ],
+                "field_mappings": {
+                    "namespace_field": self.dd_config.labels.namespace,
+                    "pod_field": self.dd_config.labels.pod,
+                },
+                "limit": params.limit or self.dd_config.default_limit,
+                "datadog_url": datadog_url,
+            }
+
+            # Format diagnostic info as structured text
             error_msg = (
-                f"No logs found.\n"
-                f"Query: {query}\n"
-                f"Time range: {time_range}\n"
-                f"Limit: {params.limit or self.dd_config.default_limit}\n"
-                f"Storage tiers checked: {', '.join([tier.value for tier in self.dd_config.storage_tiers])}\n"
-                f"View in Datadog: {datadog_url}"
+                f"No logs found.\n\n"
+                f"Diagnostic Information:\n"
+                f"----------------------\n"
+                f"Query executed: {diagnostics['query_executed']}\n"
+                f"Time range: {diagnostics['time_range']}\n"
+                f"Indexes searched: {diagnostics['indexes_searched']}\n"
+                f"Storage tiers checked: {', '.join(str(tier) for tier in diagnostics.get('storage_tiers_checked', []))}\n"
+                f"Field mappings:\n"
+                f"  - Namespace field: {diagnostics.get('field_mappings', {}).get('namespace_field', 'N/A')}\n"
+                f"  - Pod field: {diagnostics.get('field_mappings', {}).get('pod_field', 'N/A')}\n"
+                f"Limit: {diagnostics['limit']}\n\n"
+                f"View in Datadog: {diagnostics['datadog_url']}"
             )
 
             return StructuredToolResult(
@@ -276,6 +304,26 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             # Provide more specific error message for rate limiting failures
             if e.status_code == 429:
                 error_msg = f"Datadog API rate limit exceeded. Failed after {MAX_RETRY_COUNT_ON_RATE_LIMIT} retry attempts."
+            elif e.status_code == 400:
+                # Use enhanced error message for validation errors
+                error_msg = enhance_error_message(
+                    e,
+                    "/api/v2/logs/events/search",
+                    "POST",
+                    str(self.dd_config.site_api_url),
+                )
+
+                # Add query context
+                query = f"{self.dd_config.labels.namespace}:{params.namespace} {self.dd_config.labels.pod}:{params.pod_name}"
+                if params.filter:
+                    query += f' "{params.filter}"'
+                error_msg += f"\n\nQuery attempted: {query}"
+
+                # Add Datadog web UI URL
+                datadog_url = generate_datadog_logs_url(
+                    self.dd_config, params, self.dd_config.storage_tiers[0]
+                )
+                error_msg += f"\nView in Datadog: {datadog_url}"
             else:
                 # Include full API error details and query context
                 error_msg = (
@@ -286,16 +334,13 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                     query += f' "{params.filter}"'
                 error_msg += f"\nQuery: {query}"
 
-                # Format time range with actual defaults
-                if params.start_time:
-                    start_desc = params.start_time
-                else:
-                    start_desc = (
-                        f"default (last {DEFAULT_TIME_SPAN_SECONDS // 86400} days)"
-                    )
-
-                end_desc = params.end_time or "now"
-                error_msg += f"\nTime range: {start_desc} to {end_desc}"
+                # Get actual time range used
+                (from_time, to_time) = process_timestamps_to_rfc3339(
+                    start_timestamp=params.start_time,
+                    end_timestamp=params.end_time,
+                    default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+                )
+                error_msg += f"\nTime range: {from_time} to {to_time}"
 
                 # Add Datadog web UI URL even for errors
                 datadog_url = generate_datadog_logs_url(
@@ -356,7 +401,7 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         if not config:
             return (
                 False,
-                TOOLSET_CONFIG_MISSING_ERROR,
+                "Datadog logs toolset requires configuration. Please provide: dd_api_key, dd_app_key, and site_api_url in your Holmes config. For more details, see https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             )
 
         try:
