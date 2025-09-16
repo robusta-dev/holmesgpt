@@ -6,10 +6,19 @@
 * Combine multiple patterns with regex OR (|) to reduce API calls:
   - `{__name__=~"node_cpu.*|node_memory.*|node_disk.*"}` - get all node resource metrics in one call
   - `{__name__=~"container.*|pod.*|kube.*"}` - get all Kubernetes-related metrics
-  - `{namespace=~"default|kube-system|monitoring"}` - metrics from multiple namespaces
+  - `{namespace=~"example1|example2|example3"}` - metrics from multiple namespaces
 * Use `get_metric_metadata` after discovering names to get types/descriptions if needed
 * Use `get_label_values` to discover pods, namespaces, jobs: e.g., get_label_values(label="pod")
 * Only use `get_series` when you need full label sets (slower than other methods)
+
+## Retrying queries that return too much data
+* When a Prometheus query returns too much data (e.g., truncation error), you MUST retry with a more specific query or less data points or topk/bottomk
+* NEVER EVER EVER answer a question based on Prometheus data that was truncated as you might be missing important information and give the totally wrong answer
+* Prefer telling the user you can't answer the question because of too much data rather than answering based on incomplete data
+* You are also able to show graphs to the user (using the promql embed functionality mentioned below) so you can show users graphs and THEY can interpret the data themselves, even if you can't answer.
+* Do NOT hestitate to try alternative queries and try to reduce the amount of data returned until you get a successful query
+* Be extremely, extremely cautious when answering based on get_label_values because the existence of a label value says NOTHING about the metric value itself (is it high, low, or perhaps the label exists in Prometheus but its an older series not present right now)
+* DO NOT give answers about metrics based on what 'is typically the case' or 'common knowledge' - if you can't see the actual metric value, you MUST NEVER EVER answer about it - just tell the user your limitations due to the size of the data
 
 ## Alert Investigation & Query Execution
 * When investigating a Prometheus alert, ALWAYS call list_prometheus_rules to get the alert definition
@@ -37,24 +46,19 @@
 * ALWAYS use `topk()` or `bottomk()` to limit the number of series returned
 * Standard pattern for high-cardinality queries:
   - Use `topk(5, <your_query>)` to get the top 5 series
-  - Example: `topk(5, rate(container_cpu_usage_seconds_total{namespace="default"}[5m]))`
+  - Example: `topk(5, rate(container_cpu_usage_seconds_total{namespace="example"}[5m]))`
   - This prevents context overflow and focuses on the most relevant data
 * To also capture the aggregate of remaining series as "other":
   ```
-  topk(5, rate(container_cpu_usage_seconds_total{namespace="default"}[5m]))
-  or
-  label_replace(
-    (sum(rate(container_cpu_usage_seconds_total{namespace="default"}[5m])) - sum(topk(5, rate(container_cpu_usage_seconds_total{namespace="default"}[5m])))),
-    "pod", "other", "", ""
-  )
+  topk(5, rate(container_cpu_usage_seconds_total{namespace="example"}[5m])) or label_replace((sum(rate(container_cpu_usage_seconds_total{namespace="example"}[5m])) - sum(topk(5, rate(container_cpu_usage_seconds_total{namespace="example"}[5m])))), "pod", "other", "", "")
   ```
 * Common high-cardinality scenarios requiring topk():
   - Pod-level metrics in namespaces with many pods
   - Container-level CPU/memory metrics
   - HTTP metrics with many endpoints or status codes
   - Any query returning more than 10 time series
-* For initial exploration, use instant queries with `count()` to check cardinality:
-  - Example: `count(count by (pod) (container_cpu_usage_seconds_total{namespace="default"}))`
+* For initial exploration, you may use instant queries with `count()` to check cardinality:
+  - Example: `count(count by (pod) (container_cpu_usage_seconds_total{namespace="example"}))`
   - If count > 10, use topk() in your range query
 * When doing queries, always extend the time range, to 15 min before and after the alert start time
 * ALWAYS embed the execution results into your answer
