@@ -242,9 +242,9 @@ Examples:
             import logging
 
             logger = logging.getLogger(__name__)
-            logger.info(f"Tempo query: {stats_query}")
+            logger.debug(f"Tempo query: {stats_query}")
 
-            logger.info(f"start: {start}, end: {end}")
+            logger.debug(f"start: {start}, end: {end}")
 
             all_traces_response = api.search_traces_by_query(
                 q=stats_query,
@@ -253,7 +253,7 @@ Examples:
                 limit=1000,
             )
 
-            logger.info(f"Response: {all_traces_response}")
+            logger.debug(f"Response: {all_traces_response}")
 
             traces = all_traces_response.get("traces", [])
             if not traces:
