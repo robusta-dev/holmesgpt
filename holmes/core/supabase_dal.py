@@ -262,6 +262,7 @@ class SupabaseDal:
                 .select("*")
                 .eq("account_id", self.account_id)
                 .in_("issue_id", changes_ids)
+                .neq("enrichment_type", "text_file")
                 .execute()
             )
             if not len(change_data_response.data):
@@ -370,8 +371,8 @@ class SupabaseDal:
         evidence = (
             self.client.table(EVIDENCE_TABLE)
             .select("*")
-            .filter("issue_id", "eq", issue_id)
-            .filter("enrichment_type", "neq", "text_file")
+            .eq("issue_id", issue_id)
+            .neq("enrichment_type", "text_file")
             .execute()
         )
         data = self.extract_relevant_issues(evidence)
@@ -519,6 +520,7 @@ class SupabaseDal:
                 self.client.table(EVIDENCE_TABLE)
                 .select("data, enrichment_type")
                 .in_("issue_id", unique_issues)
+                .neq("enrichment_type", "text_file")
                 .execute()
             )
 
