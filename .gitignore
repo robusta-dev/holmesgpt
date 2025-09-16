@@ -118,6 +118,9 @@ celerybeat.pid
 # Environments
 *.env
 .env
+
+# Local values files with secrets
+helm/holmes/values.local.yaml
 .venv
 env/
 venv/

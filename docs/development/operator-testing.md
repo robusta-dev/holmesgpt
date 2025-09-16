@@ -4,17 +4,52 @@ This guide covers building, testing, and developing the Holmes Operator for Kube
 
 ## Quick Start
 
+There are two ways to provide API keys for local development:
+
+### Method 1: Environment Variables (Recommended)
 ```bash
-# Set your API key
+# Export your API key locally
 export OPENAI_API_KEY="sk-..."  # or ANTHROPIC_API_KEY
 
-# Start development with auto-reload
-skaffold dev
+# Skaffold will inject it into containers using setValueTemplates
+skaffold dev --default-repo=<your-registry>
 
-# Everything is now running:
-# - API: http://localhost:9090
-# - Operator metrics: http://localhost:9091
-# - Test health checks deployed automatically
+# To install in a different namespace (default is holmes-operator)
+skaffold dev --default-repo=<your-registry> --namespace=my-namespace
+
+# If you get CRD conflicts from previous installations:
+# CRDs are cluster-scoped and retain Helm ownership metadata
+kubectl delete crd healthchecks.holmes.robusta.dev
+kubectl delete crd scheduledhealthchecks.holmes.robusta.dev
+
+```
+
+### Method 2: Local Values File
+```bash
+# Create a local values file (already gitignored)
+cp helm/holmes/values.local.yaml.example helm/holmes/values.local.yaml
+# Edit values.local.yaml and add your API key
+
+# Tell Skaffold to use your local values file
+skaffold dev --default-repo=<your-registry> \
+  --profile=dev \
+  -f skaffold.yaml \
+  --helm-set-file helm.releases[0].valuesFiles[1]=helm/holmes/values.local.yaml
+```
+
+Note: You'll likely need to override the default registry as you won't have access to it
+Examples: docker.io/yourusername or ghcr.io/yourusername
+
+# Skaffold will:
+# 1. Build and push Docker images to your registry
+# 2. Deploy to your Kubernetes cluster
+# 3. Automatically set up port-forwarding from cluster services to localhost
+# 4. Stream logs and watch for code changes (hot reload in dev mode)
+
+# After deployment, you can access services locally via Skaffold's port-forwarding:
+# - API: http://localhost:9090 (forwards to holmes-holmes-api service port 8080 in cluster)
+# - Operator metrics: http://localhost:9091 (forwards to holmes-holmes-operator deployment port 8080)
+# - Test health checks are deployed automatically in holmes-system namespace
 ```
 
 ## Prerequisites
@@ -23,11 +58,14 @@ skaffold dev
 2. **Skaffold** - Install with `brew install skaffold` (macOS) or from [skaffold.dev](https://skaffold.dev)
 3. **API key** - OpenAI or Anthropic API key set as environment variable
 
+Note: The skaffold.yaml is configured to build linux/amd64 images by default (required for most Kubernetes clusters) regardless of your host machine's architecture. This may be slower on ARM machines due to emulation.
+
 ## Development Workflow
 
 ```bash
 # Start development mode with hot reload
-skaffold dev
+# Note: Override the default registry if you don't have access to it
+skaffold dev --default-repo=<your-registry>
 ```
 
 **Running Operator Locally**
@@ -47,6 +85,29 @@ HOLMES_API_URL=http://localhost:9090 \
 ```
 
 ## Testing the Operator
+
+**Deploy Test Resources**
+
+```bash
+# Deploy test resources as needed for testing
+
+# Option 1: Deploy everything at once
+kubectl apply -f operator/test/test-deployment.yaml     # Sample nginx app
+kubectl apply -f operator/test/test-healthchecks.yaml   # Sample health checks
+kubectl apply -f operator/test/test-scheduled-healthchecks.yaml
+
+# Option 2: Deploy only what you need
+# Just the test app:
+kubectl apply -f operator/test/test-deployment.yaml
+
+# Just a basic health check:
+kubectl apply -f operator/test/test-healthchecks.yaml
+
+# Clean up when done
+kubectl delete -f operator/test/test-healthchecks.yaml
+kubectl delete -f operator/test/test-scheduled-healthchecks.yaml
+kubectl delete -f operator/test/test-deployment.yaml
+```
 
 **Basic Testing**
 
@@ -96,6 +157,12 @@ kubectl annotate scheduledhealthcheck frequent-test-schedule -n holmes-system \
 **Testing Alert Destinations**
 
 ```bash
+# Note: Slack integration requires SLACK_TOKEN environment variable
+# For testing, add to helm/holmes/values.local.yaml:
+# additionalEnvVars:
+#   - name: SLACK_TOKEN
+#     value: "xoxb-your-slack-token"
+
 # Create check with Slack alerts
 kubectl apply -f - <<EOF
 apiVersion: holmes.robusta.dev/v1alpha1
@@ -111,6 +178,8 @@ spec:
     - type: slack
       config:
         channel: "#alerts"
+        # Note: slack_token must be configured in Holmes deployment
+        # The token is not specified per-check for security reasons
 EOF
 
 # Watch execution and alert sending
@@ -124,7 +193,7 @@ kubectl logs -l app=holmes-operator -n holmes-system -f
 docker build -t holmes-operator:latest operator/
 
 # One-time deployment
-skaffold run
+skaffold run --default-repo=<your-registry>
 
 # Clean up
 skaffold delete
@@ -146,6 +215,7 @@ operator/
 ## What Gets Deployed
 
 Running `skaffold dev` deploys:
+
 - Holmes API Server with `/api/check/execute` endpoint
 - Holmes Operator to manage HealthCheck CRDs
 - Test applications and sample health checks
@@ -155,14 +225,13 @@ Running `skaffold dev` deploys:
 **Environment Variables**
 
 ```bash
-# Operator configuration
+# Operator configuration (set in container)
 HOLMES_API_URL=http://holmes-api:8080  # API endpoint
 LOG_LEVEL=INFO                         # Logging level
 
-# API keys (set before running Skaffold)
-export OPENAI_API_KEY="sk-..."
-# or
-export ANTHROPIC_API_KEY="..."
+# API keys are passed to containers via one of these methods:
+# Method 1: Export locally, Skaffold injects via setValueTemplates (see skaffold.yaml dev profile)
+# Method 2: Create helm/holmes/values.local.yaml with your keys (gitignored)
 ```
 
 

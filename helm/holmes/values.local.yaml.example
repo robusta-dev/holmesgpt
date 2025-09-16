@@ -1,0 +1,14 @@
+# Local development values - DO NOT COMMIT WITH REAL KEYS
+# Copy this to values.local.yaml and add your API keys
+# values.local.yaml is already gitignored
+
+# Add your API keys and integration tokens here
+additionalEnvVars:
+  - name: OPENAI_API_KEY
+    value: "sk-your-key-here"
+  # - name: ANTHROPIC_API_KEY
+  #   value: "your-anthropic-key"
+  # - name: SLACK_TOKEN
+  #   value: "xoxb-your-slack-bot-token"
+  # - name: SLACK_CHANNEL
+  #   value: "#general"

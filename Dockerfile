@@ -58,12 +58,7 @@ RUN chmod 777 argocd
 RUN ./argocd --help
 
 # Install Helm
-RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" \
-    | tee /etc/apt/sources.list.d/helm-stable-debian.list \
-    && apt-get update \
-    && apt-get install -y helm \
-    && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
@@ -139,7 +134,7 @@ COPY --from=builder /app/argocd /usr/local/bin/argocd
 RUN argocd --help
 
 # Set up Helm
-COPY --from=builder /usr/bin/helm /usr/local/bin/helm
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 RUN chmod 555 /usr/local/bin/helm
 RUN helm version
 

@@ -186,12 +186,27 @@ spec:
 
 **Destinations**
 
-Configure where alerts are sent:
+Configure where alerts are sent. Note that destination credentials must be configured at the Holmes deployment level:
+
+```yaml
+# Option 1: Create a values file (values-slack.yaml)
+additionalEnvVars:
+  - name: SLACK_TOKEN
+    value: "xoxb-your-slack-token"
+  - name: SLACK_CHANNEL
+    value: "#default-channel"
+
+# Then deploy:
+# helm upgrade holmes robusta/holmes -f values-slack.yaml
+
+# Option 2: For local development, add to helm/holmes/values.local.yaml
+# (already gitignored)
+```
 
 ```yaml
 spec:
   destinations:
-    # Slack
+    # Slack (requires SLACK_TOKEN env var in Holmes deployment)
     - type: slack
       config:
         channel: "#alerts"

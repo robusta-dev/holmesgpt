@@ -34,18 +34,18 @@ deploy:
           image: me-west1-docker.pkg.dev/robusta-development/development/holmes-dev
           operator.image: me-west1-docker.pkg.dev/robusta-development/development/holmes-operator-dev
         createNamespace: true
-        namespace: holmes-system
+        namespace: holmes-operator
         wait: true
-  kubectl: {}  # Also deploy manifests from kustomize
+  # Note: kubectl: {} removed - test deployments should be applied manually when needed
 portForward:
   - resourceType: service
     resourceName: holmes-holmes-api
-    namespace: holmes-system
+    namespace: holmes-operator
     port: 8080
     localPort: 9090
   - resourceType: deployment
     resourceName: holmes-holmes-operator
-    namespace: holmes-system
+    namespace: holmes-operator
     port: 8080
     localPort: 9091  # Kopf health endpoint
 verify:
@@ -58,7 +58,7 @@ verify:
         - -c
         - |
           echo "Waiting for operator..."
-          kubectl wait --for=condition=available deployment/holmes-holmes-operator -n holmes-system --timeout=60s
+          kubectl wait --for=condition=available deployment/holmes-holmes-operator -n holmes-operator --timeout=60s
           echo "Operator is ready!"
   - name: verify-api
     container:
@@ -68,7 +68,7 @@ verify:
       args:
         - -c
         - |
-          kubectl wait --for=condition=available deployment/holmes-holmes -n holmes-system --timeout=60s
+          kubectl wait --for=condition=available deployment/holmes-holmes -n holmes-operator --timeout=60s
           echo "API is ready!"
 profiles:
   # Profile for development with hot reload
@@ -77,13 +77,30 @@ profiles:
       - command: dev
     build:
       local:
-        push: false
+        push: true  # Need to push when using remote registry
     deploy:
       helm:
         releases:
           - name: holmes
+            chartPath: helm/holmes
+            namespace: holmes-operator
+            createNamespace: true
+            valuesFiles:
+              - helm/holmes/values.dev.yaml
+            # Use setValueTemplates to inject environment variables
+            setValueTemplates:
+              additionalEnvVars[0].name: OPENAI_API_KEY
+              additionalEnvVars[0].value: "{{.OPENAI_API_KEY}}"
+              additionalEnvVars[1].name: ANTHROPIC_API_KEY
+              additionalEnvVars[1].value: "{{.ANTHROPIC_API_KEY}}"
+              additionalEnvVars[2].name: SLACK_TOKEN
+              additionalEnvVars[2].value: "{{.SLACK_TOKEN}}"
+              additionalEnvVars[3].name: SLACK_CHANNEL
+              additionalEnvVars[3].value: "{{.SLACK_CHANNEL}}"
             setValues:
               # Development overrides
+              image: me-west1-docker.pkg.dev/robusta-development/development/holmes-dev
+              operator.image: me-west1-docker.pkg.dev/robusta-development/development/holmes-operator-dev
               logLevel: DEBUG
               operator.logLevel: DEBUG
               # Skip service account creation if testing locally
@@ -91,7 +108,7 @@ profiles:
     portForward:
       - resourceType: deployment
         resourceName: holmes-holmes-operator
-        namespace: holmes-system
+        namespace: holmes-operator
         port: 8080  # Kopf health endpoint
         localPort: 9091
 
