@@ -324,43 +324,18 @@ class ToolCallingLLM:
             decision = decisions_by_id.get(tool_call_id)
 
             if decision and decision.approved:
-                # Execute the approved tool
                 try:
-                    # Use original params from the tool call
-                    params = json.loads(tool_call["function"]["arguments"])
 
-                    # Create a tool call object for execution
-
-                    # Create the tool call object that _invoke_tool expects
-                    mock_tool_call = type(
-                        "MockToolCall",
-                        (),
-                        {
-                            "id": tool_call_id,
-                            "function": type(
-                                "MockFunction",
-                                (),
-                                {
-                                    "name": tool_call["function"]["name"],
-                                    "arguments": json.dumps(params),
-                                },
-                            )(),
-                        },
-                    )()
-
-                    # Execute the tool
+                    tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
                     llm_tool_result = self._invoke_llm_tool_call(
-                        tool_to_call=mock_tool_call,
+                        tool_to_call=tool_call_obj,
                         previous_tool_calls=[],
                         trace_span=DummySpan(),
                         tool_number=None,
                     )
-
-                    # Add tool result to messages
                     messages.append(llm_tool_result.as_tool_call_message())
 
                 except Exception as e:
-                    # Add error message if tool execution failed
                     logging.error(
                         f"Failed to execute approved tool {tool_call_id}: {e}"
                     )

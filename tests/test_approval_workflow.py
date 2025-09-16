@@ -63,19 +63,19 @@ def create_mock_tool_call(
     return mock_tool_call
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
+@patch("holmes.core.supabase_dal.SupabaseDal._SupabaseDal__load_robusta_config")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_streaming_chat_approval_workflow_requires_approval(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
+    mock_load_robusta_config,
     client,
 ):
     """Test that streaming chat requests approval for dangerous commands"""
 
     # Setup mocks
-    mock_load_robusta_api_key.return_value = None
+    mock_load_robusta_config.return_value = None
     mock_get_global_instructions.return_value = []
 
     # Create real ToolCallingLLM with mocked dependencies
@@ -188,19 +188,19 @@ def test_streaming_chat_approval_workflow_requires_approval(
     assert pending_approval["tool_name"] == "kubectl_delete"
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
+@patch("holmes.core.supabase_dal.SupabaseDal._SupabaseDal__load_robusta_config")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_streaming_chat_approval_workflow_approve_and_execute(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
+    mock_load_robusta_config,
     client,
 ):
     """Test that streaming chat executes approved commands"""
 
     # Setup mocks
-    mock_load_robusta_api_key.return_value = None
+    mock_load_robusta_config.return_value = None
     mock_get_global_instructions.return_value = []
 
     # Create real ToolCallingLLM with mocked dependencies
@@ -324,19 +324,19 @@ def test_streaming_chat_approval_workflow_approve_and_execute(
     assert tool_decisions[0].approved is True
 
 
-@patch("holmes.config.Config.load_robusta_api_key")
+@patch("holmes.core.supabase_dal.SupabaseDal._SupabaseDal__load_robusta_config")
 @patch("holmes.config.Config.create_toolcalling_llm")
 @patch("holmes.core.supabase_dal.SupabaseDal.get_global_instructions_for_account")
 def test_streaming_chat_approval_workflow_reject_command(
     mock_get_global_instructions,
     mock_create_toolcalling_llm,
-    mock_load_robusta_api_key,
+    mock_load_robusta_config,
     client,
 ):
     """Test that streaming chat handles rejected commands"""
 
     # Setup mocks
-    mock_load_robusta_api_key.return_value = None
+    mock_load_robusta_config.return_value = None
     mock_get_global_instructions.return_value = []
 
     # Create real ToolCallingLLM with mocked dependencies
