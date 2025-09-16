@@ -119,9 +119,32 @@ def update_test_results(
             if isinstance(test_case.evaluation.correctness, Evaluation):
                 evaluation_type = test_case.evaluation.correctness.type
 
+        # Prepare output for evaluation - include tool calls if requested
+        evaluation_output = output
+        if (
+            test_case.include_tool_calls
+            and result
+            and hasattr(result, "tool_calls")
+            and result.tool_calls
+        ):
+            # Format tool calls as a string to include in evaluation
+            tool_calls_text = "\n\n# Tool Calls\n\n"
+            for i, tc in enumerate(result.tool_calls, 1):
+                tool_calls_text += f"* Tool #{i}: {tc.description}\n"
+                if hasattr(tc, "result") and tc.result:
+                    # Don't truncate - LLM judge needs complete output for accurate evaluation
+                    output_text = str(tc.result)
+                    # Indent the output for readability
+                    indented_output = "\n".join(
+                        f"  {line}" for line in output_text.split("\n")
+                    )
+                    tool_calls_text += f"Output:\n{indented_output}\n"
+                tool_calls_text += "---\n"
+            evaluation_output = output + tool_calls_text
+
         # Evaluate correctness
         correctness_eval = evaluate_correctness(
-            output=output,
+            output=evaluation_output,
             expected_elements=expected,
             parent_span=eval_span,
             evaluation_type=evaluation_type,

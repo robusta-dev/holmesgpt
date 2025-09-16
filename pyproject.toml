@@ -31,7 +31,7 @@ bs4 = "^0.0.2"
 markdownify = "^1.1.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "^1.75.4"
+litellm = "1.77.1"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 kubernetes = "^32.0.1"
@@ -114,7 +114,8 @@ markers = [
     "traces: Tests where the ai is expected to find the solution using the traces",
     "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
     "datadog: DataDog toolset",
-    "storage: Disk related, like I/O or disk space"
+    "storage: Disk related, like I/O or disk space",
+    "prometheus: Tests involving Prometheus metrics"
 ]
 
 addopts = [
@@ -144,4 +145,4 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 38
+fail_under = 46

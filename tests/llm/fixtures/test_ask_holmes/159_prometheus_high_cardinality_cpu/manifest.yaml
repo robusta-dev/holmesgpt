@@ -50,29 +50,20 @@ spec:
     spec:
       containers:
       - name: app
-        image: alpine:latest
+        image: busybox
         command: ["/bin/sh"]
         args:
         - -c
         - |
-          apk add --no-cache bc >/dev/null 2>&1
-          cp /scripts/cpu-load.sh /tmp/cpu-load.sh
-          chmod +x /tmp/cpu-load.sh
-          CPU_PERCENT=5 /tmp/cpu-load.sh
-        volumeMounts:
-        - name: script
-          mountPath: /scripts
+          while [ true ]; do
+            sleep 5
+          done
         resources:
           requests:
             cpu: "10m"
             memory: "32Mi"
           limits:
-            cpu: "100m"
             memory: "64Mi"
-      volumes:
-      - name: script
-        configMap:
-          name: cpu-script
 ---
 # Deploy 5 high-CPU pods with names starting with 'z'
 apiVersion: v1
@@ -124,10 +115,10 @@ spec:
     - -c
     - |
       apk add --no-cache bc >/dev/null 2>&1
-      # Heavy CPU usage - 75% load
+      # Heavy CPU usage - 80% load
       while true; do
-        timeout 0.75s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-        sleep 0.25
+        timeout 0.8s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.2
       done
     resources:
       requests:
@@ -155,10 +146,10 @@ spec:
     - -c
     - |
       apk add --no-cache bc >/dev/null 2>&1
-      # Heavy CPU usage - 70% load
+      # Heavy CPU usage - 80% load
       while true; do
-        timeout 0.7s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-        sleep 0.3
+        timeout 0.8s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.2
       done
     resources:
       requests:
@@ -186,10 +177,10 @@ spec:
     - -c
     - |
       apk add --no-cache bc >/dev/null 2>&1
-      # Heavy CPU usage - 65% load
+      # Heavy CPU usage - 80% load
       while true; do
-        timeout 0.65s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-        sleep 0.35
+        timeout 0.8s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.2
       done
     resources:
       requests:
@@ -217,10 +208,10 @@ spec:
     - -c
     - |
       apk add --no-cache bc >/dev/null 2>&1
-      # Heavy CPU usage - 60% load
+      # Heavy CPU usage - 80% load
       while true; do
-        timeout 0.6s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
-        sleep 0.4
+        timeout 0.8s sh -c 'while true; do echo "scale=5000; 4*a(1)" | bc -l > /dev/null; done' 2>/dev/null
+        sleep 0.2
       done
     resources:
       requests:

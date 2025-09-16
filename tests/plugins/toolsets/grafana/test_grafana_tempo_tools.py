@@ -549,9 +549,9 @@ class TestQueryMetricsRangeWithStepAdjustment:
 
             assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 3600 seconds and MAX_GRAPH_POINTS=200, min step = ceil(3600/200) = 18
-            # The function should convert this to "18s"
-            assert kwargs["step"] == "18s"
+            # With 3600 seconds and MAX_GRAPH_POINTS=100, min step = ceil(3600/100) = 36
+            # The function should convert this to "36s"
+            assert kwargs["step"] == "36s"
 
     def test_metrics_range_with_small_step_gets_adjusted(self, tempo_toolset):
         """Test that a too-small step gets adjusted to prevent too many points."""
@@ -574,9 +574,9 @@ class TestQueryMetricsRangeWithStepAdjustment:
 
             assert result.status == StructuredToolResultStatus.SUCCESS
             args, kwargs = mock_query.call_args
-            # With 86400 seconds and MAX_GRAPH_POINTS=300, min step = ceil(86400/200) = 432
-            # The function should adjust to "432s" = "7m12s"
-            assert kwargs["step"] == "7m12s"
+            # With 86400 seconds and MAX_GRAPH_POINTS=100, min step = ceil(86400/100) = 864
+            # The function should adjust to "864s" = "14m24s"
+            assert kwargs["step"] == "14m24s"
 
     def test_metrics_range_with_large_step_unchanged(self, tempo_toolset):
         """Test that a sufficiently large step is not adjusted."""
@@ -632,9 +632,14 @@ class TestQueryMetricsRangeWithStepAdjustment:
             # (start, end, input_step, expected_step)
             (1000000, 1000060, None, "1s"),  # 1 minute, no step -> "1s"
             (1000000, 1000060, "1", "1s"),  # 1 minute, 1s step -> "1s"
-            (1000000, 1003600, "10s", "18s"),  # 1 hour, 10s step -> adjusted to 18s
-            (1000000, 1604800, None, "50m24s"),  # 1 week, no step -> "50m24s"
-            (1000000, 1604800, "1h", "1h"),  # 1 week, 1h step -> remains "1h"
+            (1000000, 1003600, "10s", "36s"),  # 1 hour, 10s step -> adjusted to 36s
+            (1000000, 1604800, None, "1h40m48s"),  # 1 week, no step -> "1h40m48s"
+            (
+                1000000,
+                1604800,
+                "1h",
+                "1h40m48s",
+            ),  # 1 week, 1h step -> adjusted to 1h40m48s
         ]
 
         for start, end, input_step, expected in test_cases:

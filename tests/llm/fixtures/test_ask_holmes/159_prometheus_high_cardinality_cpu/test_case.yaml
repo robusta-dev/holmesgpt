@@ -1,4 +1,7 @@
-user_prompt: "Show me a graph of CPU usage per pod in the app-159 namespace over the last 5 minutes with 10 second resolution. Then tell me which pods are using the most CPU based on that prometheus graph data."
+user_prompt:
+- "Show me a graph of CPU usage per pod in the app-159 namespace over the last 5 minutes with 10 second resolution. Then tell me which pods are using the most CPU based on that prometheus graph data."
+- "Show me a graph of CPU usage per pod in the app-159 namespace"
+- "What pods are using the most CPU in the app-159 namespace based on Prometheus?"
 
 expected_output:
 #  - "Should execute a Prometheus query with topk() to limit the number of series"
@@ -10,6 +13,7 @@ tags:
   - kubernetes
   - context_window
   - medium
+  - prometheus
 
 # Custom timeout for setup (needs 5 min for metrics + setup time)
 setup_timeout: 420  # 7 minutes total
@@ -18,7 +22,7 @@ setup_timeout: 420  # 7 minutes total
 port_forwards:
   - namespace: default
     service: robusta-kube-prometheus-st-prometheus
-    local_port: 9159  # Unique port for test 159
+    local_port: 9090
     remote_port: 9090
 
 before_test: |
@@ -26,7 +30,7 @@ before_test: |
   kubectl wait --for=condition=Ready pod -l app.kubernetes.io/name=prometheus -n default --timeout=60s || true
 
   # Deploy the high-cardinality pod setup
-  kubectl apply -f tests/llm/fixtures/test_ask_holmes/159_prometheus_high_cardinality_cpu/manifest.yaml
+  kubectl apply -f ./manifest.yaml
 
   # Wait for all pods to be running
   kubectl wait --for=condition=Ready pod -l test=high-cardinality -n app-159 --timeout=120s

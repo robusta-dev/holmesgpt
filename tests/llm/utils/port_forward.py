@@ -184,35 +184,49 @@ def extract_port_forwards_from_test_cases(
 
 def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
     """Check for port conflicts and availability before running any setup scripts."""
-    port_usage: Dict[int, List[str]] = {}
+    # Track port usage by service to detect real conflicts
+    # Key: local_port, Value: Dict[service_key -> List[test_ids]]
+    port_service_usage: Dict[int, Dict[str, List[str]]] = {}
 
     # Collect all port usages
     for test_case in test_cases:
         if test_case.port_forwards:
             for config in test_case.port_forwards:
                 local_port = config["local_port"]
+                # Create a unique key for the service
+                service_key = (
+                    f"{config['namespace']}/{config['service']}:{config['remote_port']}"
+                )
                 test_id = test_case.id
 
-                if local_port not in port_usage:
-                    port_usage[local_port] = []
-                port_usage[local_port].append(test_id)
+                if local_port not in port_service_usage:
+                    port_service_usage[local_port] = {}
 
-    # Check for conflicts between tests
+                if service_key not in port_service_usage[local_port]:
+                    port_service_usage[local_port][service_key] = []
+
+                port_service_usage[local_port][service_key].append(test_id)
+
+    # Check for REAL conflicts - same port used for DIFFERENT services
     conflicts = []
-    for port, test_ids in port_usage.items():
-        if len(test_ids) > 1:
-            conflicts.append((port, test_ids))
+    for port, services in port_service_usage.items():
+        if len(services) > 1:
+            # Multiple different services want the same port - this is a conflict
+            conflict_details = []
+            for service_key, test_ids in services.items():
+                conflict_details.append(f"{service_key} (tests: {', '.join(test_ids)})")
+            conflicts.append((port, conflict_details))
 
     if conflicts:
-        error_msg = "\n🚨 Port conflicts detected! Multiple tests are trying to use the same local port:\n"
-        for port, test_ids in conflicts:
-            error_msg += f"\n  Port {port} is used by tests: {', '.join(test_ids)}"
+        error_msg = "\n🚨 Port conflicts detected! Multiple different services are trying to use the same local port:\n"
+        for port, details in conflicts:
+            error_msg += f"\n  Port {port} is used by:\n"
+            for detail in details:
+                error_msg += f"    - {detail}\n"
 
-        error_msg += "\n\nTo fix this:"
-        error_msg += (
-            "\n  1. Update the test_case.yaml files to use different local_port values"
-        )
-        error_msg += "\n  2. Ensure each test uses a unique local port"
+        error_msg += "\nTo fix this:"
+        error_msg += "\n  1. Update the test_case.yaml files to use different local_port values for different services"
+        error_msg += "\n  2. Tests can share the same port if they're forwarding to the same service"
         error_msg += "\n  3. Consider using the test number as part of the port (e.g., test 148 → port 3148)"
         error_msg += "\n\nAlternatively, you can skip all tests requiring port forwards by running:"
         error_msg += "\n  pytest -m 'not port-forward'"
@@ -224,14 +238,18 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
 
     # Check if ports are already in use on the system
     ports_in_use = []
-    for port in port_usage.keys():
+    for port in port_service_usage.keys():
         if _is_port_in_use(port):
             ports_in_use.append(port)
 
     if ports_in_use:
         error_msg = "\n🚨 Ports already in use on the system:\n"
         for port in ports_in_use:
-            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(port_usage[port])})"
+            # Collect all test IDs that need this port
+            test_ids = []
+            for service_tests in port_service_usage[port].values():
+                test_ids.extend(service_tests)
+            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(set(test_ids))})"
 
         error_msg += "\n\nTo see what's using these ports:"
         error_msg += f"\n  lsof -i :{','.join(str(p) for p in ports_in_use)}"
@@ -240,7 +258,9 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> None:
         error_msg += "\n  2. Or skip port-forward tests: pytest -m 'not port-forward'"
 
         log(error_msg)
-        raise RuntimeError("Required ports are already in use.")
+        raise RuntimeError(
+            f"Required ports are already in use. Run 'lsof -i :{','.join(str(p) for p in ports_in_use)}' to see what's using them."
+        )
 
 
 def _is_port_in_use(port: int) -> bool:

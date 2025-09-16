@@ -156,7 +156,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_traces",
-            description="Fetch a list of traces from Datadog with optional filters",
+            description="[datadog/traces toolset] Fetch a list of traces from Datadog with optional filters",
             parameters={
                 "service": ToolParameter(
                     description="Filter by service name",
@@ -360,7 +360,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_trace_by_id",
-            description="Fetch detailed information about a specific trace by its ID",
+            description="[datadog/traces toolset] Fetch detailed information about a specific trace by its ID",
             parameters={
                 "trace_id": ToolParameter(
                     description="The trace ID to fetch details for",
@@ -499,7 +499,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_spans",
-            description="Search for spans in Datadog with detailed filters",
+            description="[datadog/traces toolset] Search for spans in Datadog with detailed filters",
             parameters={
                 "query": ToolParameter(
                     description="Datadog search query (e.g., 'service:web-app @http.status_code:500')",

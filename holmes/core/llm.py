@@ -3,7 +3,7 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import ModelResponse, TextCompletionResponse
 import sentry_sdk
 
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -90,8 +90,12 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
         self.name = name
-
+        self.update_custom_args()
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
+
+    def update_custom_args(self):
+        self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
+        self.args.pop("custom_args", None)
 
     def check_llm(
         self,
@@ -178,6 +182,9 @@ class DefaultLLM(LLM):
         return list(dict.fromkeys(names_to_try))
 
     def get_context_window_size(self) -> int:
+        if self.max_context_size:
+            return self.max_context_size
+
         if OVERRIDE_MAX_CONTENT_SIZE:
             logging.debug(
                 f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}"
@@ -424,7 +431,8 @@ class LLMModelRegistry:
 
             for model in robusta_models.models:
                 logging.info(f"Loading Robusta AI model: {model}")
-                self._llms[model] = self._create_robusta_model_entry(model)
+                args = robusta_models.models_args.get(model)
+                self._llms[model] = self._create_robusta_model_entry(model, args)
 
             if robusta_models.default_model:
                 logging.info(
@@ -492,7 +500,7 @@ class LLMModelRegistry:
             )
 
         model_key, first_model_params = next(iter(self._llms.items()))
-        logging.info(f"Using first available model: {model_key}")
+        logging.debug(f"Using first available model: {model_key}")
         return first_model_params.copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
@@ -509,12 +517,15 @@ class LLMModelRegistry:
 
         return models
 
-    def _create_robusta_model_entry(self, model_name: str) -> dict[str, Any]:
+    def _create_robusta_model_entry(
+        self, model_name: str, args: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         return self._create_model_entry(
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
+            args=args or {},
         )
 
     def _create_model_entry(
@@ -523,10 +534,37 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
+        args: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        return {
+        entry = {
             "name": model_name,
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
         }
+        if args:
+            entry["custom_args"] = args  # type: ignore[assignment]
+
+        return entry
+
+
+def get_llm_usage(
+    llm_response: Union[ModelResponse, CustomStreamWrapper, TextCompletionResponse],
+) -> dict:
+    usage: dict = {}
+    if (
+        (
+            isinstance(llm_response, ModelResponse)
+            or isinstance(llm_response, TextCompletionResponse)
+        )
+        and hasattr(llm_response, "usage")
+        and llm_response.usage
+    ):  # type: ignore
+        usage["prompt_tokens"] = llm_response.usage.prompt_tokens  # type: ignore
+        usage["completion_tokens"] = llm_response.usage.completion_tokens  # type: ignore
+        usage["total_tokens"] = llm_response.usage.total_tokens  # type: ignore
+    elif isinstance(llm_response, CustomStreamWrapper):
+        complete_response = litellm.stream_chunk_builder(chunks=llm_response)  # type: ignore
+        if complete_response:
+            return get_llm_usage(complete_response)
+    return usage

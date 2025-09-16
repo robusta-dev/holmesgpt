@@ -3,8 +3,16 @@ toolsets:
     enabled: false
   prometheus/metrics:
     enabled: true
+    config:
+      prometheus_url: http://localhost:9090
+  kubernetes/core:
+    enabled: false
+  kubernetes/logs:
+    enabled: false
+  kubernetes/kube-lineage-extras:
+    enabled: false
   bash:
-    enabled: True
+    enabled: true
   kubernetes/kube-lineage-extras:
     enabled: false
   helm/core:
@@ -30,6 +38,6 @@ toolsets:
   docker/core:
     enabled: false
   confluence:
-    enabled: False
+    enabled: false
   slab:
-    enabled: False
+    enabled: false
