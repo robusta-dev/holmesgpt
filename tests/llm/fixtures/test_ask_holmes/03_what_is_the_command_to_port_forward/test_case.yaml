@@ -7,7 +7,8 @@ expected_output:
 tags:
   - kubernetes
   - medium
-  - qa
+  - question-answer
+setup_timeout: 360
 before_test: |
   kubectl create namespace app-03
   cat <<EOF | kubectl apply -f -
@@ -39,7 +40,7 @@ before_test: |
         initialDelaySeconds: 2
         periodSeconds: 5
   EOF
-  kubectl wait --for=condition=Ready pod/grafana-7f8b9c6d5-x2m4n -n app-03 --timeout=60s
+  kubectl wait --for=condition=Ready pod/grafana-7f8b9c6d5-x2m4n -n app-03 --timeout=300s
 
 after_test: |
   kubectl delete namespace app-03

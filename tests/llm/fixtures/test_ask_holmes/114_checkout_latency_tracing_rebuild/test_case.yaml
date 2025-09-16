@@ -11,6 +11,8 @@ tags:
   - chain-of-causation
   - traces
 
+setup_timeout: 420
+
 port_forwards:
   - namespace: app-114
     service: tempo
@@ -26,23 +28,23 @@ before_test: |
   kubectl apply -f ../../shared/tempo.yaml -n app-114
 
   echo "⏳ Waiting for Tempo pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=300s
 
-  echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 60s)"
+  echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 300s)"
   TEMPO_READY=false
-  for i in {1..12}; do
+  for i in {1..60}; do
     if kubectl exec -n app-114 deployment/tempo -- wget -q -O - http://localhost:3200/ready 2>/dev/null; then
       echo "✅ Tempo is ready!"
       TEMPO_READY=true
       break
     else
-      echo "⏳ Attempt $i/12: Tempo not ready yet, waiting 5s..."
+      echo "⏳ Attempt $i/60: Tempo not ready yet, waiting 5s..."
       sleep 5
     fi
   done
 
   if [ "$TEMPO_READY" = false ]; then
-    echo "❌ Tempo failed to become ready after 60 seconds"
+    echo "❌ Tempo failed to become ready after 300 seconds"
     exit 1
   fi
 
@@ -52,7 +54,7 @@ before_test: |
   kubectl apply -f checkout-service.yaml -n app-114
 
   echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=300s
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-114 -l app=checkout
@@ -61,13 +63,13 @@ before_test: |
   kubectl apply -f traffic-generator.yaml -n app-114
 
   echo "⏳ Waiting for traffic generator pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=300s
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-114
 
-  echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
-  sleep 20
+  echo "⏰ Letting traffic generator run for 45 seconds to generate requests"
+  sleep 45
 
   echo "🔍 Verifying traffic generator log entries"
   if kubectl logs -n app-114 -l app=traffic-generator --tail=100 | grep -q "WITH promo_code"; then

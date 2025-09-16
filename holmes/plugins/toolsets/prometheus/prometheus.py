@@ -11,7 +11,6 @@ from pydantic import BaseModel, field_validator, Field, model_validator
 from requests import RequestException
 from prometrix.connect.aws_connect import AWSPrometheusConnect
 from prometrix.models.prometheus_config import PrometheusConfig as BasePrometheusConfig
-from holmes.common.env_vars import MAX_GRAPH_POINTS
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
@@ -31,10 +30,10 @@ from holmes.plugins.toolsets.utils import (
     toolset_name_for_one_liner,
 )
 from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT
+from holmes.common.env_vars import IS_OPENSHIFT, MAX_GRAPH_POINTS
 from holmes.common.openshift import load_openshift_token
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
 )
 from holmes.utils.keygen_utils import generate_random_key
 
@@ -144,11 +143,11 @@ class PrometheusConfig(BaseModel):
 
 
 class AMPConfig(PrometheusConfig):
-    aws_access_key: str
-    aws_secret_access_key: str
+    aws_access_key: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
     aws_region: str
     aws_service_name: str = "aps"
-    healthcheck: str = "api/v1/query?query=up"  # Override for AMP
+    healthcheck: str = "api/v1/query?query=up"
     prometheus_ssl_enabled: bool = False
     assume_role_arn: Optional[str] = None
 
@@ -414,7 +413,9 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -532,7 +533,9 @@ class GetMetricNames(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1069,7 +1072,9 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1232,7 +1237,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 ),
                 "start": ToolParameter(
                     description=standard_start_datetime_tool_param_description(
-                        DEFAULT_TIME_SPAN_SECONDS
+                        DEFAULT_GRAPH_TIME_SPAN_SECONDS
                     ),
                     type="string",
                     required=False,
@@ -1275,7 +1280,9 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1290,7 +1297,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             (start, end) = process_timestamps_to_rfc3339(
                 start_timestamp=params.get("start"),
                 end_timestamp=params.get("end"),
-                default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
+                default_time_span_seconds=DEFAULT_GRAPH_TIME_SPAN_SECONDS,
             )
             step = parse_duration_to_seconds(params.get("step"))
             max_points = params.get(
@@ -1446,7 +1453,7 @@ class PrometheusToolset(Toolset):
         super().__init__(
             name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/prometheus.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -1474,10 +1481,8 @@ class PrometheusToolset(Toolset):
     def determine_prometheus_class(
         self, config: dict[str, Any]
     ) -> Type[Union[PrometheusConfig, AMPConfig]]:
-        has_aws_credentials = (
-            "aws_access_key" in config or "aws_secret_access_key" in config
-        )
-        return AMPConfig if has_aws_credentials else PrometheusConfig
+        has_aws_fields = "aws_region" in config
+        return AMPConfig if has_aws_fields else PrometheusConfig
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:

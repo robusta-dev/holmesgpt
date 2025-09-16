@@ -186,7 +186,9 @@ class FetchWebpage(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(self, params: Any, user_approved: bool = False) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         url: str = params["url"]
 
         additional_headers = (
@@ -268,7 +270,7 @@ class InternetToolset(InternetBaseToolset):
             tools=[
                 FetchWebpage(self),
             ],
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/internet.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/internet/",
             tags=[
                 ToolsetTag.CORE,
             ],
