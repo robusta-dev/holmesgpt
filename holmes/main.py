@@ -987,6 +987,12 @@ def check(
         "--slack-webhook",
         help="Slack webhook URL for inline check alerts. Standalone option that doesn't require a bot token. Cannot be used with --slack-channel.",
     ),
+    slack_token: Optional[str] = typer.Option(
+        None,
+        "--slack-token",
+        help="Slack bot token for sending alerts. Can also be set via SLACK_TOKEN environment variable.",
+        envvar="SLACK_TOKEN",
+    ),
     mode: Optional[str] = typer.Option(
         "alert",
         "--mode",
@@ -1097,6 +1103,8 @@ def check(
         config_file,
         api_key=api_key,
         model=model,
+        slack_token=slack_token,
+        slack_channel=slack_channel,
     )
 
     # Parse mode
