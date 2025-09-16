@@ -9,6 +9,7 @@ from holmes.core.models import (
     ToolCallResult,
     TruncationResult,
     TruncationMetadata,
+    PendingToolApproval,
 )
 
 import sentry_sdk
@@ -1043,8 +1044,6 @@ class ToolCallingLLM:
                         == StructuredToolResultStatus.APPROVAL_REQUIRED
                     ):
                         if enable_tool_approval:
-                            # Collect approval required tools
-                            from holmes.core.models import PendingToolApproval
 
                             pending_approvals.append(
                                 PendingToolApproval(
