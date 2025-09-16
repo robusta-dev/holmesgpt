@@ -13,7 +13,7 @@ You can investigate Prometheus/AlertManager alerts using HolmesGPT by connecting
 ## Investigating a Prometheus Alert Using HolmesGPT
 
 
-### Step 1: Forward AlertManager
+**Step 1: Forward AlertManager**
 
 First, you need to forward the AlertManager service to your local machine so HolmesGPT can connect to it. Run the following command in your terminal:
 
@@ -21,7 +21,7 @@ First, you need to forward the AlertManager service to your local machine so Hol
 kubectl port-forward svc/<Your-Alertmanager-Service> 9093:9093
 ```
 
-### Step 2: Create a Test Alert
+**Step 2: Create a Test Alert**
 
 Now we'll deploy a crashing workload and simulate an alert from AlertManager.
 
@@ -54,7 +54,7 @@ curl -X POST http://localhost:9093/api/v1/alerts \
 ```
 You should now see the `KubePodCrashLooping` alert in your AlertManager UI at `http://localhost:9093`.
 
-### Step 3: Investigate Alerts
+**Step 3: Investigate Alerts**
 
 Finally let's use the HolmesGPT `investigate` subcommand to investigate the alerts. Run the following command:
 

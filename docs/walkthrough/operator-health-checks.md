@@ -7,7 +7,7 @@ The Holmes Operator provides Kubernetes-native health check management using Cus
 
 ## Quick Start
 
-### 1. Enable the Operator
+**1. Enable the Operator**
 
 Update your Helm values to enable the operator:
 
@@ -26,7 +26,7 @@ helm upgrade --install holmes robusta/holmes \
   -f values.yaml
 ```
 
-### 2. Create a One-Time Health Check
+**2. Create a One-Time Health Check**
 
 One-time checks execute immediately when created:
 
@@ -49,7 +49,7 @@ kubectl apply -f healthcheck.yaml
 kubectl get healthcheck quick-diagnostic -w
 ```
 
-### 3. Create a Scheduled Health Check
+**3. Create a Scheduled Health Check**
 
 Scheduled checks run on cron schedules:
 
@@ -78,7 +78,7 @@ Apply the schedule:
 kubectl apply -f scheduled-healthcheck.yaml
 ```
 
-### 4. Monitor Results
+**4. Monitor Results**
 
 ```bash
 # View one-time checks
@@ -94,9 +94,9 @@ kubectl get healthcheck -l holmes.robusta.dev/scheduled-by=frontend-monitoring
 kubectl describe healthcheck quick-diagnostic
 ```
 
-## Understanding the Two CRD Types
+## CRD Types
 
-### HealthCheck (One-Time Execution)
+**HealthCheck (One-Time Execution)**
 
 **Use Cases:**
 - Quick diagnostics and troubleshooting
@@ -122,7 +122,7 @@ spec:
   mode: monitor
 ```
 
-### ScheduledHealthCheck (Recurring)
+**ScheduledHealthCheck (Recurring)**
 
 **Use Cases:**
 - Continuous monitoring
@@ -156,7 +156,7 @@ spec:
 
 ## Features
 
-### Scheduling Patterns
+**Scheduling Patterns**
 
 Common cron patterns for ScheduledHealthCheck:
 
@@ -168,7 +168,7 @@ schedule: "0 9 * * 1-5"   # Weekdays at 9 AM
 schedule: "0 0 * * 0"     # Sunday at midnight
 ```
 
-### Alert Modes
+**Alert Modes**
 
 Both check types support two modes:
 
@@ -184,7 +184,7 @@ spec:
         channel: "#critical-alerts"
 ```
 
-### Destinations
+**Destinations**
 
 Configure where alerts are sent:
 
@@ -204,7 +204,7 @@ spec:
           key: integration-key
 ```
 
-### Managing Scheduled Checks
+**Managing Scheduled Checks**
 
 Enable/disable schedules without deletion:
 
@@ -218,7 +218,7 @@ kubectl patch scheduledhealthcheck hourly-check \
   --type='merge' -p '{"spec":{"enabled":true}}'
 ```
 
-### Immediate Execution
+**Immediate Execution**
 
 Force immediate execution of either check type:
 
@@ -234,7 +234,7 @@ kubectl annotate scheduledhealthcheck hourly-check \
 
 ## Examples
 
-### Quick Cluster Health Check
+**Quick Cluster Health Check**
 
 One-time check for immediate feedback:
 
@@ -249,7 +249,7 @@ spec:
   mode: monitor
 ```
 
-### Continuous Pod Monitoring
+**Continuous Pod Monitoring**
 
 Scheduled check every 5 minutes:
 
@@ -267,7 +267,7 @@ spec:
   enabled: true
 ```
 
-### Memory Usage Monitoring
+**Memory Usage Monitoring**
 
 Regular memory checks with alerting:
 
@@ -289,7 +289,7 @@ spec:
   enabled: true
 ```
 
-### Certificate Expiry Check
+**Certificate Expiry Check**
 
 Daily certificate validation:
 
@@ -316,7 +316,7 @@ spec:
   enabled: true
 ```
 
-### Database Health Check
+**Database Health Check**
 
 Quick diagnostic for database issues:
 
@@ -333,7 +333,7 @@ spec:
 
 ## Configuration
 
-### Operator Settings
+**Operator Settings**
 
 Configure the operator in your Helm values:
 
@@ -362,7 +362,7 @@ operator:
   tolerations: []
 ```
 
-### Secrets for Destinations
+**Secrets for Destinations**
 
 Store sensitive credentials in Kubernetes secrets:
 
@@ -393,9 +393,9 @@ spec:
             key: pagerduty-key
 ```
 
-## Status and History
+## Status and Monitoring
 
-### HealthCheck Status
+**HealthCheck Status**
 
 One-time checks show execution results:
 
@@ -410,7 +410,7 @@ status:
   duration: 2.0
 ```
 
-### ScheduledHealthCheck Status
+**ScheduledHealthCheck Status**
 
 Scheduled checks maintain execution history:
 
@@ -447,7 +447,7 @@ kubectl get healthcheck -l holmes.robusta.dev/scheduled-by=hourly-check
 
 ## Troubleshooting
 
-### Check Not Executing
+**Check Not Executing**
 
 For one-time checks:
 ```bash
@@ -467,7 +467,7 @@ kubectl get scheduledhealthcheck <name> -o jsonpath='{.spec.enabled}'
 kubectl get healthcheck -l holmes.robusta.dev/scheduled-by=<schedule-name>
 ```
 
-### Authentication Errors
+**Authentication Errors**
 
 ```bash
 # Verify API keys are set
@@ -477,7 +477,7 @@ kubectl get deployment holmes-api -n holmes-system -o yaml | grep -A2 "env:"
 kubectl logs -l app=holmes-operator -n holmes-system | grep "API URL"
 ```
 
-### Alerts Not Sending
+**Alerts Not Sending**
 
 1. Check destination configuration in spec
 2. Verify secrets are correctly referenced

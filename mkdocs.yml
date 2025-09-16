@@ -137,9 +137,9 @@ nav:
       - walkthrough/index.md
       - Interactive Mode: walkthrough/interactive-mode.md
       - Health Checks: walkthrough/health-checks.md
-      - Kubernetes Operator for Health Checks: walkthrough/operator-health-checks.md
-      - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
-      - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
+      - Kubernetes Operator: walkthrough/operator-health-checks.md
+      - CI/CD Pipelines: walkthrough/cicd-troubleshooting.md
+      - Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
 
   - AI Providers:
       - ai-providers/index.md
@@ -191,14 +191,17 @@ nav:
 
   - Development:
       - development/index.md
+      - Holmes Operator: development/operator-testing.md
       - Evaluations:
           - development/evals/index.md
           - Adding a New Eval: development/evals/adding-new-eval.md
+          - Using Mock Data: development/evals/using-mock-data.md
           - Reporting with Braintrust: development/evals/reporting.md
 
   - Reference:
       - CLI Commands: reference/cli-commands.md
       - reference/helm-configuration.md
       - HTTP API: reference/http-api.md
+      - Operator Architecture: reference/operator-architecture.md
       - Slash Commands: reference/slash-commands.md
       - Troubleshooting: reference/troubleshooting.md

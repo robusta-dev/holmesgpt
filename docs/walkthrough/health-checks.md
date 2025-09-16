@@ -12,7 +12,7 @@ The `holmes check` command allows you to:
 - Filter checks by tags for targeted monitoring
 - Use structured output with clear pass/fail results and explanations
 
-### Writing Good Check Queries
+**Writing Good Check Queries**
 
 **Important**: Phrase your checks so that PASS means healthy and FAIL means there's a problem.
 
@@ -70,8 +70,6 @@ holmes check --name "Pod Health Check"
 
 ## Configuration Format
 
-### Structure
-
 The checks configuration file uses YAML format with the following structure:
 
 ```yaml
@@ -100,7 +98,7 @@ checks:
     timeout: 60
 ```
 
-### Check Fields
+**Check Fields**
 
 | Field | Required | Description | Default |
 |-------|----------|-------------|---------|
@@ -112,16 +110,14 @@ checks:
 | `mode` | No | "alert" or "monitor" | From defaults |
 | `timeout` | No | Max seconds for check | From defaults |
 
-### Semantics
-
-#### Modes
+**Modes**
 
 - **`alert` mode**: Sends notifications to configured destinations when checks fail
 - **`monitor` mode**: Only logs results, no alerts sent
 
 ## CLI Usage
 
-### Basic Commands
+**Basic Commands**
 
 ```bash
 # Run with default config (~/.holmes/checks.yaml)
@@ -135,7 +131,7 @@ holmes check --mode monitor  # No alerts
 holmes check --mode alert    # Send alerts (default)
 ```
 
-### Filtering
+**Filtering**
 
 ```bash
 # Run checks with specific tags
@@ -146,7 +142,7 @@ holmes check --tags kubernetes,database
 holmes check --name "Database Connection"
 ```
 
-### Output Formats
+**Output Formats**
 
 ```bash
 # Table format (default)
@@ -156,14 +152,14 @@ holmes check --output table
 holmes check --output json
 ```
 
-### Continuous Monitoring
+**Continuous Monitoring**
 
 ```bash
 # Watch mode - run checks continuously
 holmes check --watch --interval 60  # Run every 60 seconds
 ```
 
-### Override Settings
+**Override Settings**
 
 ```bash
 # Verbose output (shows rationales)
@@ -175,7 +171,7 @@ holmes check --mode monitor
 
 ## Examples
 
-### Basic Health Checks
+**Basic Health Checks**
 
 ```yaml
 version: 1
@@ -189,7 +185,7 @@ checks:
     tags: ["performance"]
 ```
 
-### Database Monitoring
+**Database Monitoring**
 
 ```yaml
 version: 1
@@ -209,7 +205,7 @@ checks:
     mode: "monitor"
 ```
 
-### Kubernetes Cluster Health
+**Kubernetes Cluster Health**
 
 ```yaml
 version: 1
@@ -237,7 +233,7 @@ checks:
     tags: ["kubernetes", "stability"]
 ```
 
-### Security Checks
+**Security Checks**
 
 ```yaml
 version: 1
@@ -270,7 +266,7 @@ This eliminates ambiguity and provides clear explanations for each result.
 
 ## Alert Integration
 
-### Slack
+**Slack**
 
 Configure Slack alerts in your checks file:
 
@@ -293,7 +289,7 @@ export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 holmes check
 ```
 
-### PagerDuty
+**PagerDuty**
 
 Configure PagerDuty alerts using the Events API v2:
 
@@ -321,7 +317,7 @@ PagerDuty incidents will be created with:
 - Severity determined by tags (critical → critical, etc.)
 - Full check details in custom fields
 
-### Future Integrations
+**Future Integrations**
 
 Support for additional destinations is planned:
 - Email
@@ -330,7 +326,7 @@ Support for additional destinations is planned:
 
 ## Best Practices
 
-### Writing Good Check Queries
+**Writing Good Check Queries**
 
 ✅ **Good queries are specific and measurable:**
 - "Are all pods in the production namespace running?"
@@ -342,14 +338,14 @@ Support for additional destinations is planned:
 - "Are things working well?"
 - "Check the infrastructure"
 
-### Check Reliability
+**Check Reliability**
 
 For checks that might be flaky, consider:
 - Setting appropriate timeouts
 - Using more specific queries
 - Running in monitor mode first to test
 
-### Organizing with Tags
+**Organizing with Tags**
 
 Use consistent tagging for easier management:
 
@@ -359,7 +355,7 @@ tags: ["monitoring", "prometheus"]     # Purpose + tool
 tags: ["production", "frontend"]       # Environment + service
 ```
 
-### Performance Considerations
+**Performance Considerations**
 
 - Set appropriate timeouts for long-running checks
 - Consider using `--watch` mode instead of cron for continuous monitoring
@@ -367,7 +363,7 @@ tags: ["production", "frontend"]       # Environment + service
 
 ## Troubleshooting
 
-### Checks Always Fail
+**Checks Always Fail**
 
 1. Run with verbose mode to see rationales:
    ```bash
@@ -381,7 +377,7 @@ tags: ["production", "frontend"]       # Environment + service
 
 3. Check that queries are properly phrased as yes/no questions
 
-### No Alerts Sent
+**No Alerts Sent**
 
 1. Verify mode is set to "alert":
    ```bash
@@ -395,7 +391,7 @@ tags: ["production", "frontend"]       # Environment + service
 
 3. Ensure checks have `destinations` configured
 
-### Performance Issues
+**Performance Issues**
 
 1. Increase timeout for slow checks:
    ```yaml
