@@ -31,19 +31,17 @@ class SetupFailureError(Exception):
         self.output = output
 
 
-def get_models():
+def get_models() -> List[str]:
     """Get list of models to test from MODEL env var (supports comma-separated list)."""
-    models_str = os.environ.get("MODEL", "gpt-4o")
-    models = models_str.split(",")
+    models_str: str = os.environ.get("MODEL", "gpt-4o")
+    # Strip whitespace from each model and filter out empty strings
+    models = [m.strip() for m in models_str.split(",") if m.strip()]
 
-    # If multiple models are specified, require explicit CLASSIFIER_MODEL
-    if len(models) > 1 and not os.environ.get("CLASSIFIER_MODEL"):
-        raise ValueError(
-            f"Multiple models specified ({models_str}) but CLASSIFIER_MODEL not set. "
-            "When testing multiple models, you must explicitly set CLASSIFIER_MODEL "
-            "to ensure consistent scoring. Example:\n"
-            "  MODEL=gpt-4o,claude-3-5-sonnet CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/"
-        )
+    # If multiple models are specified, require explicit non-empty CLASSIFIER_MODEL
+    if len(models) > 1:
+        classifier_model = os.environ.get("CLASSIFIER_MODEL", "").strip()
+        if not classifier_model:
+            raise ValueError("Multiple models require CLASSIFIER_MODEL to be set")
 
     return models
 

@@ -139,7 +139,7 @@ def test_investigate(
                     ) as holmes_span:
                         start_time = time.time()
                         retry_enabled = request.config.getoption(
-                            "retry_on_throttle", True
+                            "retry-on-throttle", default=True
                         )
                         result = retry_on_throttle(
                             investigate_issues,

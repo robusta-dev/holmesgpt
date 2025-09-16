@@ -124,7 +124,6 @@ jobs:
         with:
           name: eval-results-${{ github.run_id }}
           path: |
-            evals_report.md
             docs/development/evaluations/latest-results.md
 
       # TODO: Enable after testing

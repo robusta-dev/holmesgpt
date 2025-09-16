@@ -29,11 +29,11 @@ class PortForward:
             # Check if port is already in use
             self._check_port_availability()
 
-            # Start the process
+            # Start the process - use DEVNULL to avoid pipe buffer issues
             self.process = subprocess.Popen(
                 self.command.split(),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
                 universal_newlines=True,
                 preexec_fn=os.setsid if os.name != "nt" else None,
             )
@@ -43,14 +43,18 @@ class PortForward:
 
             # Check if process is still running
             if self.process.poll() is not None:
-                stdout, stderr = self.process.communicate()
-                error_msg = stderr if stderr else stdout
-
-                # Check if it's a port conflict error
-                if "address already in use" in error_msg.lower():
+                # Process exited - likely due to port conflict or other error
+                # Since we're using DEVNULL, we can't get the exact error message
+                # Check if port is in use to provide better error message
+                if _is_port_in_use(self.local_port):
                     self._report_port_conflict()
-
-                raise RuntimeError(f"Port forward failed to start: {error_msg}")
+                    raise RuntimeError(
+                        f"Port forward failed: Port {self.local_port} is already in use"
+                    )
+                else:
+                    raise RuntimeError(
+                        f"Port forward failed to start for {self.service}"
+                    )
 
             log(
                 f"✅ Port forward established: {self.service}:{self.remote_port} -> localhost:{self.local_port}"
@@ -86,8 +90,9 @@ class PortForward:
                     )
                     log("2. Use a different port in your test configuration")
                     log("3. Wait for the process to finish and release the port\n")
-        except Exception:
-            pass
+        except (subprocess.CalledProcessError, OSError) as e:
+            # Log specific error but don't fail - this is just informational
+            log(f"⚠️ Could not get port info: {e}")
 
     def stop(self) -> None:
         """Stop the port forward process."""
@@ -314,9 +319,9 @@ def setup_all_port_forwards(test_cases: List[HolmesTestCase]) -> PortForwardMana
         # Start all port forwards
         try:
             manager.start_all()
-        except Exception as e:
+        except RuntimeError as e:
             log(f"🔍 DEBUG: Port forward setup failed but continuing: {e}")
-            # Continue anyway to test if this is the root cause
+            # Continue anyway - tests will still run but may fail if they need the port forward
 
     return manager
 

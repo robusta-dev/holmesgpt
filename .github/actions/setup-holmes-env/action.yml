@@ -36,7 +36,7 @@ runs:
     - name: Install project dependencies
       shell: bash
       run: |
-        poetry install --no-root
+        poetry install --no-root --with dev
 
     - name: Install kubectl
       if: inputs.install-kubectl == 'true'

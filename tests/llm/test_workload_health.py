@@ -117,7 +117,8 @@ def test_health_check(
                     retry_enabled = request.config.getoption("retry_on_throttle", True)
                     result = retry_on_throttle(
                         workload_health_check,
-                        request=input,
+                        input,  # Pass as positional arg
+                        request=request,  # Pass pytest request fixture for user_properties
                         retry_enabled=retry_enabled,
                         test_id=test_case.id,
                         model=model,

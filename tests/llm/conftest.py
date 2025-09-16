@@ -124,13 +124,18 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
             for test_id, reason in tests_to_skip_port_conflicts.items():
                 log(f"     • {test_id}: {reason}")
 
+        # Filter out tests with port conflicts
+        tests_to_run = [
+            tc for tc in test_cases if tc.id not in tests_to_skip_port_conflicts
+        ]
+
         # Check skip-setup option and only-cleanup option
         skip_setup = request.config.getoption("--skip-setup")
         only_cleanup = request.config.getoption("--only-cleanup", False)
 
         # Skip setup if --skip-setup or --only-cleanup is set
-        if test_cases and not skip_setup and not only_cleanup:
-            setup_failures = run_all_test_setup(test_cases)
+        if tests_to_run and not skip_setup and not only_cleanup:
+            setup_failures = run_all_test_setup(tests_to_run)
         elif skip_setup:
             log("⚙️ Skipping test setup due to --skip-setup flag")
             setup_failures = {}
@@ -142,14 +147,14 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
 
         # Set up port forwards AFTER namespace/resources are created (unless only-cleanup)
         if not only_cleanup:
-            setup_all_port_forwards(test_cases)
+            setup_all_port_forwards(tests_to_run)
         else:
             log("⚙️ Skipping port forward setup due to --only-cleanup flag")
 
-        port_configs = extract_port_forwards_from_test_cases(test_cases)
+        port_configs = extract_port_forwards_from_test_cases(tests_to_run)
 
         data = {
-            "test_cases_for_cleanup": [tc.id for tc in test_cases],
+            "test_cases_for_cleanup": [tc.id for tc in tests_to_run],
             "cleared_mock_directories": cleared_directories,
             "setup_failures": setup_failures,
             # Store port forward configs for cleanup (not the manager object)
@@ -254,9 +259,14 @@ def check_llm_api_with_test_call():
     # Also check the classifier model
     # TODO: Get default model from global config instead of hardcoding "gpt-4o"
     # Should use something like: Config().model or get_default_model()
-    classifier_model = os.environ.get(
-        "CLASSIFIER_MODEL", os.environ.get("MODEL", "gpt-4o")
-    )
+    # For API key checking, we need to handle comma-separated MODEL values
+    classifier_model = os.environ.get("CLASSIFIER_MODEL")
+    if not classifier_model:
+        # Parse MODEL to get first model for API key checking
+        # Note: get_models() will enforce CLASSIFIER_MODEL requirement for multi-model tests
+        model_str = os.environ.get("MODEL", "gpt-4o")
+        models = [m.strip() for m in model_str.split(",") if m.strip()]
+        classifier_model = models[0] if models else "gpt-4o"
 
     failed_models = []
     error_messages = []

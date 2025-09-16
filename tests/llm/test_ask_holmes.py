@@ -77,49 +77,43 @@ def test_ask_holmes(
             set_trace_properties(request, eval_span)
             check_and_skip_test(test_case, request, shared_test_infrastructure)
 
-            # Mock datetime if mocked_date is provided
-            if test_case.mocked_date:
-                mocked_datetime = datetime.fromisoformat(
-                    test_case.mocked_date.replace("Z", "+00:00")
-                )
-                with patch("holmes.plugins.prompts.datetime") as mock_datetime:
-                    mock_datetime.now.return_value = mocked_datetime
+            # Use contextlib.ExitStack to handle conditional context managers
+            from contextlib import ExitStack
 
+            with ExitStack() as stack:
+                # Mock datetime if mocked_date is provided
+                if test_case.mocked_date:
+                    mocked_datetime = datetime.fromisoformat(
+                        test_case.mocked_date.replace("Z", "+00:00")
+                    )
+                    mock_datetime = stack.enter_context(
+                        patch("holmes.plugins.prompts.datetime")
+                    )
+                    mock_datetime.now.return_value = mocked_datetime
                     mock_datetime.side_effect = None
                     mock_datetime.configure_mock(
                         **{"now.return_value": mocked_datetime, "side_effect": None}
                     )
-                    with set_test_env_vars(test_case):
-                        retry_enabled = request.config.getoption(
-                            "retry_on_throttle", True
-                        )
-                        result = retry_on_throttle(
-                            ask_holmes,
-                            test_case,  # positional arg
-                            model,  # positional arg
-                            tracer,  # positional arg
-                            eval_span,  # positional arg
-                            mock_generation_config,  # positional arg
-                            request=request,
-                            retry_enabled=retry_enabled,
-                            test_id=test_case.id,
-                            model=model,  # Also pass for logging in retry_handler
-                        )
-            else:
-                with set_test_env_vars(test_case):
-                    retry_enabled = request.config.getoption("retry_on_throttle", True)
-                    result = retry_on_throttle(
-                        ask_holmes,
-                        test_case,  # positional arg
-                        model,  # positional arg
-                        tracer,  # positional arg
-                        eval_span,  # positional arg
-                        mock_generation_config,  # positional arg
-                        request=request,
-                        retry_enabled=retry_enabled,
-                        test_id=test_case.id,
-                        model=model,  # Also pass for logging in retry_handler
-                    )
+
+                # Always apply test env vars
+                stack.enter_context(set_test_env_vars(test_case))
+
+                # Run the test with retry logic
+                retry_enabled = request.config.getoption(
+                    "retry-on-throttle", default=True
+                )
+                result = retry_on_throttle(
+                    ask_holmes,
+                    test_case,  # positional arg
+                    model,  # positional arg
+                    tracer,  # positional arg
+                    eval_span,  # positional arg
+                    mock_generation_config,  # positional arg
+                    request=request,
+                    retry_enabled=retry_enabled,
+                    test_id=test_case.id,
+                    model=model,  # Also pass for logging in retry_handler
+                )
 
     except Exception as e:
         handle_test_error(
