@@ -19,6 +19,7 @@ import requests  # type: ignore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from kubernetes import client, config as k8s_config
+from prometheus_client import Counter, Histogram, Gauge, start_http_server
 
 # Configure logging
 logging.basicConfig(
@@ -26,6 +27,31 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Prometheus metrics
+checks_scheduled_total = Counter(
+    "holmes_checks_scheduled_total",
+    "Total number of scheduled checks",
+    ["namespace", "name"],
+)
+checks_executed_total = Counter(
+    "holmes_checks_executed_total",
+    "Total number of executed checks",
+    ["namespace", "name", "type"],
+)
+checks_failed_total = Counter(
+    "holmes_checks_failed_total",
+    "Total number of failed checks",
+    ["namespace", "name", "type"],
+)
+check_duration_seconds = Histogram(
+    "holmes_check_duration_seconds",
+    "Check execution duration in seconds",
+    ["namespace", "name", "type"],
+)
+scheduled_checks_active = Gauge(
+    "holmes_scheduled_checks_active", "Number of active scheduled checks"
+)
 
 
 class HolmesCheckOperator:
@@ -39,6 +65,11 @@ class HolmesCheckOperator:
 
         # Track active scheduled jobs
         self.active_jobs: Dict[str, str] = {}  # job_id -> check_name
+
+        # Start Prometheus metrics server
+        metrics_port = int(os.getenv("METRICS_PORT", "8080"))
+        start_http_server(metrics_port)
+        logger.info(f"Started Prometheus metrics server on port {metrics_port}")
 
         logger.info(f"Holmes operator initialized with API URL: {self.holmes_api_url}")
 
@@ -84,10 +115,28 @@ class HolmesCheckOperator:
                 f"Check {check_identifier} completed: {result.get('status', 'unknown')}"
             )
 
+            # Update metrics
+            check_type = "scheduled" if not is_one_time else "one_time"
+            checks_executed_total.labels(
+                namespace=namespace, name=name, type=check_type
+            ).inc()
+            if result.get("status") == "fail":
+                checks_failed_total.labels(
+                    namespace=namespace, name=name, type=check_type
+                ).inc()
+            if result.get("duration"):
+                check_duration_seconds.labels(
+                    namespace=namespace, name=name, type=check_type
+                ).observe(result["duration"])
+
             return result
 
         except requests.Timeout:
             logger.error(f"Check {check_identifier} timed out")
+            check_type = "scheduled" if not is_one_time else "one_time"
+            checks_failed_total.labels(
+                namespace=namespace, name=name, type=check_type
+            ).inc()
             return {
                 "status": "error",
                 "message": "Check execution timed out",
@@ -95,6 +144,10 @@ class HolmesCheckOperator:
             }
         except Exception as e:
             logger.error(f"Error executing check {check_identifier}: {e}")
+            check_type = "scheduled" if not is_one_time else "one_time"
+            checks_failed_total.labels(
+                namespace=namespace, name=name, type=check_type
+            ).inc()
             return {
                 "status": "error",
                 "message": f"Check execution failed: {str(e)}",
@@ -361,8 +414,10 @@ class HolmesCheckOperator:
                 name, namespace, spec["checkSpec"]
             )
 
+            # Update status to track active check
+            self.add_active_check(name, namespace, check_name)
+
             # The HealthCheck will be handled by its own operator handlers
-            # We just need to track that we created it
             logger.info(
                 f"Scheduled check {namespace}/{name} created HealthCheck {check_name}"
             )
@@ -432,6 +487,8 @@ class HolmesCheckOperator:
             )
 
             self.active_jobs[job_id] = f"{namespace}/{name}"
+            scheduled_checks_active.set(len(self.active_jobs))
+            checks_scheduled_total.labels(namespace=namespace, name=name).inc()
             logger.info(f"Scheduled check {namespace}/{name} with schedule: {schedule}")
 
         except Exception as e:
@@ -457,9 +514,135 @@ class HolmesCheckOperator:
             try:
                 self.scheduler.remove_job(job_id)
                 del self.active_jobs[job_id]
+                scheduled_checks_active.set(len(self.active_jobs))
                 logger.info(f"Unscheduled check: {namespace}/{name} (job: {job_id})")
             except Exception as e:
                 logger.error(f"Failed to unschedule job {job_id}: {e}")
+
+    def add_active_check(
+        self, scheduled_name: str, namespace: str, check_name: str
+    ) -> None:
+        """
+        Add a HealthCheck to the active list in ScheduledHealthCheck status.
+
+        Args:
+            scheduled_name: Name of the ScheduledHealthCheck
+            namespace: Namespace of the resources
+            check_name: Name of the created HealthCheck
+        """
+        try:
+            # Load k8s config
+            try:
+                k8s_config.load_incluster_config()
+            except Exception:
+                k8s_config.load_kube_config()
+
+            api = client.CustomObjectsApi()
+
+            # Get current status
+            try:
+                current = api.get_namespaced_custom_object(
+                    group="holmes.robusta.dev",
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="scheduledhealthchecks",
+                    name=scheduled_name,
+                )
+                current_status = current.get("status", {})
+                active_checks = current_status.get("active", [])
+            except Exception:
+                active_checks = []
+
+            # Get HealthCheck UID for tracking
+            try:
+                healthcheck = api.get_namespaced_custom_object(
+                    group="holmes.robusta.dev",
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="healthchecks",
+                    name=check_name,
+                )
+                check_uid = healthcheck["metadata"]["uid"]
+            except Exception:
+                check_uid = ""
+
+            # Add to active list
+            active_checks.append(
+                {
+                    "name": check_name,
+                    "namespace": namespace,
+                    "uid": check_uid,
+                }
+            )
+
+            # Update status
+            api.patch_namespaced_custom_object_status(
+                group="holmes.robusta.dev",
+                version="v1alpha1",
+                namespace=namespace,
+                plural="scheduledhealthchecks",
+                name=scheduled_name,
+                body={"status": {"active": active_checks}},
+            )
+
+            logger.debug(f"Added {check_name} to active checks for {scheduled_name}")
+
+        except Exception as e:
+            logger.error(f"Failed to update active checks for {scheduled_name}: {e}")
+
+    def remove_active_check(
+        self, scheduled_name: str, namespace: str, check_name: str
+    ) -> None:
+        """
+        Remove a completed HealthCheck from the active list.
+
+        Args:
+            scheduled_name: Name of the ScheduledHealthCheck
+            namespace: Namespace of the resources
+            check_name: Name of the completed HealthCheck
+        """
+        try:
+            # Load k8s config
+            try:
+                k8s_config.load_incluster_config()
+            except Exception:
+                k8s_config.load_kube_config()
+
+            api = client.CustomObjectsApi()
+
+            # Get current status
+            try:
+                current = api.get_namespaced_custom_object(
+                    group="holmes.robusta.dev",
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="scheduledhealthchecks",
+                    name=scheduled_name,
+                )
+                current_status = current.get("status", {})
+                active_checks = current_status.get("active", [])
+            except Exception:
+                return  # Nothing to remove
+
+            # Remove from active list
+            active_checks = [c for c in active_checks if c.get("name") != check_name]
+
+            # Update status
+            api.patch_namespaced_custom_object_status(
+                group="holmes.robusta.dev",
+                version="v1alpha1",
+                namespace=namespace,
+                plural="scheduledhealthchecks",
+                name=scheduled_name,
+                body={"status": {"active": active_checks}},
+            )
+
+            logger.debug(
+                f"Removed {check_name} from active checks for {scheduled_name}"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to remove active check for {scheduled_name}: {e}")
 
     def cleanup(self):
         """Clean up resources."""
@@ -498,7 +681,9 @@ def cleanup_handler(**kwargs):
 
 @kopf.on.create("holmes.robusta.dev", "v1alpha1", "healthchecks")
 @kopf.on.resume("holmes.robusta.dev", "v1alpha1", "healthchecks")
-def handle_healthcheck_create(spec: Dict, name: str, namespace: str, **kwargs):
+def handle_healthcheck_create(
+    spec: Dict, name: str, namespace: str, labels: Dict, **kwargs
+):
     """
     Handle HealthCheck creation - execute immediately.
 
@@ -515,6 +700,14 @@ def handle_healthcheck_create(spec: Dict, name: str, namespace: str, **kwargs):
     # Update status to Completed with results
     operator.update_healthcheck_status(name, namespace, "Completed", result)
 
+    # If this was created by a ScheduledHealthCheck, update its status
+    scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
+    if scheduled_by:
+        # Update the scheduled check's status with result
+        operator.update_scheduled_status(scheduled_by, namespace, result, name)
+        # Remove from active list
+        operator.remove_active_check(scheduled_by, namespace, name)
+
     return {"executed": True, "result": result.get("status", "unknown")}
 
 
@@ -524,7 +717,7 @@ def handle_healthcheck_create(spec: Dict, name: str, namespace: str, **kwargs):
     "healthchecks",
     annotations={"holmes.robusta.dev/run-now": kopf.PRESENT},
 )
-def rerun_healthcheck(name: str, namespace: str, spec: Dict, **kwargs):
+def rerun_healthcheck(name: str, namespace: str, spec: Dict, labels: Dict, **kwargs):
     """
     Re-run a HealthCheck when the run-now annotation is added.
 
@@ -540,6 +733,12 @@ def rerun_healthcheck(name: str, namespace: str, spec: Dict, **kwargs):
 
     # Update status to Completed with results
     operator.update_healthcheck_status(name, namespace, "Completed", result)
+
+    # If this was created by a ScheduledHealthCheck, update its status
+    scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
+    if scheduled_by:
+        # Note: Don't update scheduled status on re-runs to avoid duplicate history
+        pass
 
     # Remove the annotation after execution
     api = client.CustomObjectsApi()

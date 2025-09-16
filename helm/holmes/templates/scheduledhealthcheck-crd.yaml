@@ -63,26 +63,8 @@ spec:
                 type: boolean
                 description: "Enable or disable scheduled execution"
                 default: true
-              concurrencyPolicy:
-                type: string
-                description: "How to handle concurrent executions"
-                enum:
-                - Allow
-                - Forbid
-                - Replace
-                default: Forbid
-              successfulJobsHistoryLimit:
-                type: integer
-                description: "Number of successful executions to keep in history"
-                default: 3
-                minimum: 0
-                maximum: 100
-              failedJobsHistoryLimit:
-                type: integer
-                description: "Number of failed executions to keep in history"
-                default: 3
-                minimum: 0
-                maximum: 100
+              # Note: concurrencyPolicy and history limits removed as they are not implemented
+              # The operator currently prevents concurrent executions and keeps last 10 history items
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true

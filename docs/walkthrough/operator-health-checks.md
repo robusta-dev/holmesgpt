@@ -149,7 +149,7 @@ spec:
     timeout: 60
     mode: alert
   enabled: true
-  concurrencyPolicy: Forbid  # Prevent overlapping runs
+  # Note: The operator prevents concurrent runs automatically
 ```
 
 ## Features
@@ -284,8 +284,7 @@ spec:
       - type: slack
         config:
           channel: "#infrastructure"
-  successfulJobsHistoryLimit: 5
-  failedJobsHistoryLimit: 10
+  # History automatically maintains last 10 executions
 ```
 
 ### Certificate Expiry Check

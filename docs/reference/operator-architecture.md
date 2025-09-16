@@ -141,11 +141,7 @@ spec:
 
   # Schedule control
   enabled: true  # Enable or disable the schedule
-  concurrencyPolicy: Forbid  # Allow/Forbid/Replace concurrent runs
-
-  # History limits
-  successfulJobsHistoryLimit: 3
-  failedJobsHistoryLimit: 3
+  # Note: The operator prevents concurrent runs and maintains last 10 history items
 
 status:
   # Last execution
@@ -313,11 +309,12 @@ subjects:
 ## Monitoring and Observability
 
 ### Metrics
-The operator exposes Prometheus metrics:
-- `holmes_checks_scheduled_total` - Total number of scheduled checks
-- `holmes_checks_executed_total` - Total number of executed checks
-- `holmes_checks_failed_total` - Total number of failed checks
-- `holmes_check_duration_seconds` - Check execution duration histogram
+The operator exposes Prometheus metrics on port 8080 at `/metrics`:
+- `holmes_checks_scheduled_total` - Total number of scheduled checks (labels: namespace, name)
+- `holmes_checks_executed_total` - Total number of executed checks (labels: namespace, name, type)
+- `holmes_checks_failed_total` - Total number of failed checks (labels: namespace, name, type)
+- `holmes_check_duration_seconds` - Check execution duration histogram (labels: namespace, name, type)
+- `holmes_scheduled_checks_active` - Number of currently active scheduled checks (gauge)
 
 ### Logging
 - Operator logs: Scheduling, CRD events, API calls
@@ -368,11 +365,13 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 - [x] Status updates
 - [x] Cron scheduling
 
-### Phase 2
+### Phase 2 (Future Enhancements)
 - [ ] High availability with leader election
 - [ ] Check dependencies
 - [ ] Webhook validation
 - [ ] Result persistence to external storage
+- [ ] Configurable concurrency policies
+- [ ] Configurable history retention limits
 
 ### Phase 3
 - [ ] Multi-tenancy support

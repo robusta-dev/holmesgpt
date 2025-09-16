@@ -3,3 +3,4 @@ kopf==1.37.2
 kubernetes==32.0.1
 apscheduler==3.10.4
 requests==2.32.3
+prometheus-client==0.21.0
