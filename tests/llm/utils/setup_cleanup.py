@@ -116,6 +116,10 @@ def run_all_test_commands(
                         f"⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
                     )
 
+                    # Display truncated error details including pod diagnostics
+                    truncated_error = format_error_output(result.error_details)
+                    log(f"\n{truncated_error}")
+
                     # Show the exact command that timed out
                     # truncated_error = format_error_output(result.error_details)
                     # log(textwrap.indent(truncated_error, "   "))

@@ -48,8 +48,11 @@ before_test: |
   # Deploy payment-api
   kubectl apply -f payment-api.yaml
 
-  # Wait for payment-api pod to be ready
-  kubectl wait --for=condition=ready pod -l app=payment-api -n app-100 --timeout=60s
+  # Wait for payment-api deployment to be progressing
+  kubectl wait --for=condition=progressing deployment/payment-api -n app-100 --timeout=120s
+
+  # Wait for payment-api pod to be ready (increased timeout for ContainerCreating)
+  kubectl wait --for=condition=ready pod -l app=payment-api -n app-100 --timeout=300s
 
   # Wait for logs to appear in Loki
   sleep 5  # Let Promtail initialize

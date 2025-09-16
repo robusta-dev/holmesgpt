@@ -147,7 +147,7 @@ spec:
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install --no-cache-dir flask opentelemetry-api opentelemetry-sdk \
+          pip install flask opentelemetry-api opentelemetry-sdk \
             opentelemetry-instrumentation-flask \
             opentelemetry-exporter-otlp-proto-grpc && \
           python /app/app.py
@@ -175,11 +175,11 @@ spec:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 10
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 36
+          failureThreshold: 24
         resources:
           requests:
             memory: "32Mi"

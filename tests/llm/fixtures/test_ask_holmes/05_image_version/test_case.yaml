@@ -34,10 +34,12 @@ before_test: |
         httpGet:
           path: /
           port: 80
-        initialDelaySeconds: 5
-        periodSeconds: 5
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 12
   EOF
-  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=120s
+  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=180s
 
 after_test: |
   kubectl delete namespace app-05

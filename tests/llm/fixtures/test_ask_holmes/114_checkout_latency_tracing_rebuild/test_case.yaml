@@ -16,7 +16,7 @@ setup_timeout: 420
 port_forwards:
   - namespace: app-114
     service: tempo
-    local_port: 3200
+    local_port: 3114
     remote_port: 3200
 
 before_test: |
@@ -53,8 +53,11 @@ before_test: |
   echo "🛒 Deploying checkout service"
   kubectl apply -f checkout-service.yaml -n app-114
 
-  echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=300s
+  echo "⏳ Waiting for checkout deployment to be progressing"
+  kubectl wait --for=condition=progressing deployment/checkout -n app-114
+
+  echo "⏳ Waiting for checkout pod to be scheduled and ready"
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-114
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-114 -l app=checkout
@@ -62,8 +65,11 @@ before_test: |
   echo "🚦 Deploying traffic generator"
   kubectl apply -f traffic-generator.yaml -n app-114
 
-  echo "⏳ Waiting for traffic generator pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=300s
+  echo "⏳ Waiting for traffic generator deployment to be progressing"
+  kubectl wait --for=condition=progressing deployment/traffic-generator -n app-114
+
+  echo "⏳ Waiting for traffic generator pod to be scheduled and ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-114
@@ -93,22 +99,9 @@ before_test: |
     exit 1
   fi
 
-  # Commented out traffic generator trace checks as it no longer sends traces
-  # echo "🔍 Querying Tempo for traces from traffic generator"
-  # TRAFFIC_GEN_TRACES=$(curl -s "http://localhost:3200/api/search?tags=service.name%3Dtraffic-generator&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
-  # echo "Found $TRAFFIC_GEN_TRACES traces from traffic-generator"
-
   echo "🔍 Querying Tempo for traces from checkout service"
   CHECKOUT_TRACES=$(kubectl run -n app-114 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
   echo "Found $CHECKOUT_TRACES traces from checkout-service"
-
-  # Commented out traffic generator trace check
-  # if [ "$TRAFFIC_GEN_TRACES" -gt "0" ]; then
-  #   echo "✅ Found traces from traffic-generator"
-  # else
-  #   echo "❌ No traces found from traffic-generator"
-  #   exit 1
-  # fi
 
   if [ "$CHECKOUT_TRACES" -gt "0" ]; then
     echo "✅ Found traces from checkout-service"

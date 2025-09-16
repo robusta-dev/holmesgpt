@@ -2,10 +2,32 @@ user_prompt: "What is the issue with payment-processing-worker?"
 expected_output:
   - The `DEPLOY_ENV` environment variable is undefined or missing
 before_test: |
-  kubectl apply -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
-  kubectl wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=CrashLoopBackOff pod -l app=payment-processing-worker --timeout=120s
+  kubectl create namespace app-09 || true
+  cat <<'EOF' | kubectl apply -f -
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: payment-processing-worker
+    namespace: app-09
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: payment-processing-worker
+    template:
+      metadata:
+        labels:
+          app: payment-processing-worker
+      spec:
+        containers:
+        - name: payment-processing-container
+          image: bash
+          command: ["/bin/sh"]
+          args: ["-c", "if [[ -z \"${DEPLOY_ENV}\" ]]; then echo 'Environment variable DEPLOY_ENV is undefined'; exit 1; else while true; do echo hello; sleep 10;done; fi"]
+  EOF
+  kubectl wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=CrashLoopBackOff pod -l app=payment-processing-worker -n app-09 --timeout=180s
 after_test: |
-  kubectl delete -f https://raw.githubusercontent.com/robusta-dev/kubernetes-demos/main/crashpod/broken.yaml
+  kubectl delete namespace app-09
 tags:
   - easy
   - kubernetes

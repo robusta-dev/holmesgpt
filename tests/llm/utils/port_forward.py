@@ -236,22 +236,22 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> Dict[str,
                 )
 
     if conflicts:
-        error_msg = "\n🚨 Port conflicts detected! Multiple different services are trying to use the same local port:\n"
+        error_msg = "\n🚨 Port conflicts detected between tests! Multiple DIFFERENT services want the same local port:\n"
         for port, details in conflicts:
-            error_msg += f"\n  Port {port} is used by:\n"
+            error_msg += f"\n  ❌ Port {port} CONFLICT - different services need the same port:\n"
             for detail in details:
-                error_msg += f"    - {detail}\n"
+                error_msg += f"      {detail}\n"
 
-        error_msg += "\nTo fix this:"
+        error_msg += "\n📝 To fix this conflict between tests:"
         error_msg += "\n  1. Update the test_case.yaml files to use different local_port values for different services"
-        error_msg += "\n  2. Tests can share the same port if they're forwarding to the same service"
-        error_msg += "\n  3. Consider using the test number as part of the port (e.g., test 148 → port 3148)"
+        error_msg += "\n  2. Tests CAN share the same port if they're forwarding to the SAME service"
+        error_msg += "\n  3. Suggested fix: Use unique ports based on test number (e.g., test 114 → port 3114, test 115 → port 3115)"
         error_msg += "\n\nAlternatively, you can skip all tests requiring port forwards by running:"
         error_msg += "\n  pytest -m 'not port-forward'"
 
         log(error_msg)
         log(
-            f"⚠️  Will skip {len(tests_to_skip)} tests due to port conflicts: {', '.join(sorted(tests_to_skip.keys()))}"
+            f"⚠️  Will skip {len(tests_to_skip)} tests due to conflicts between tests: {', '.join(sorted(tests_to_skip.keys()))}"
         )
         # Don't raise - we'll skip these tests instead
 
@@ -262,27 +262,37 @@ def check_port_availability_early(test_cases: List[HolmesTestCase]) -> Dict[str,
             ports_in_use.append(port)
 
     if ports_in_use:
-        error_msg = "\n🚨 Ports already in use on the system:\n"
+        error_msg = "\n🚨 Ports already in use by external processes on the system:\n"
         for port in ports_in_use:
             # Collect all test IDs that need this port
             test_ids = []
-            for service_tests in port_service_usage[port].values():
+            service_details = []
+            for service_key, service_tests in port_service_usage[port].items():
                 test_ids.extend(service_tests)
+                service_details.append(f"{service_key}")
             unique_test_ids = list(set(test_ids))
-            error_msg += f"\n  Port {port} is already in use (required by tests: {', '.join(unique_test_ids)})"
+
+            # Show which tests are affected
+            error_msg += f"\n  Port {port} is ALREADY IN USE ON SYSTEM"
+            error_msg += f"\n    → Service(s): {', '.join(service_details)}"
+            error_msg += f"\n    → Tests that need this port: {', '.join(sorted(unique_test_ids))}"
+            error_msg += "\n    → These tests will be SKIPPED"
+
             # Add these tests to skip list with detailed reason
             for test_id in unique_test_ids:
-                tests_to_skip[test_id] = f"Port {port} already in use on system"
+                tests_to_skip[test_id] = (
+                    f"Port {port} already in use on system (not by tests)"
+                )
 
-        error_msg += "\n\nTo see what's using these ports:"
+        error_msg += "\n\nTo see what external process is using these ports:"
         error_msg += f"\n  lsof -i :{','.join(str(p) for p in ports_in_use)}"
         error_msg += "\n\nTo fix this:"
-        error_msg += "\n  1. Kill the processes using these ports"
+        error_msg += "\n  1. Kill the external processes using these ports (likely leftover kubectl port-forward)"
         error_msg += "\n  2. Or skip port-forward tests: pytest -m 'not port-forward'"
 
         log(error_msg)
         log(
-            f"⚠️  Will skip {len(tests_to_skip)} tests due to ports already in use: {', '.join(sorted(tests_to_skip.keys()))}"
+            f"⚠️  Will skip {len(tests_to_skip)} tests due to ports already in use by external processes: {', '.join(sorted(tests_to_skip.keys()))}"
         )
         # Don't raise - we'll skip these tests instead
 
