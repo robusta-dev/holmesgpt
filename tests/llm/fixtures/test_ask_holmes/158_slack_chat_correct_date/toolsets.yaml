@@ -3,13 +3,9 @@ toolsets:
     enabled: false
   prometheus/metrics:
     enabled: true
-  kubernetes/core:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
-  kubernetes/kube-lineage-extras:
-    enabled: false
   bash:
+    enabled: True
+  kubernetes/kube-lineage-extras:
     enabled: false
   helm/core:
     enabled: false
