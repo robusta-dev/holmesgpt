@@ -202,7 +202,7 @@ Log analysis (2024-01-15 10:30-10:35):
 ### Configuration
 
 1. **Set appropriate thresholds** - avoid summarizing small outputs
-2. **Use fast models** - gpt-4o-mini, claude-3-haiku for cost/speed
+2. **Use fast models** - gpt-4o-mini, claude-haiku for cost/speed
 3. **Customize prompts** - tailor to specific tool output types
 4. **Test thoroughly** - ensure key information isn't lost
 

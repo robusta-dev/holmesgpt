@@ -5,6 +5,7 @@ from holmes.core.tracing import readable_timestamp, get_active_branch_name
 from tests.llm.utils.braintrust import get_braintrust_url
 from unittest.mock import MagicMock, patch
 import pytest
+import responses as responses_
 
 
 def pytest_addoption(parser):
@@ -157,3 +158,23 @@ def storage_dal_mock():
             "mock_session_token",
         )
         yield mock_supabase_dal_instance
+
+
+@pytest.fixture(autouse=True)
+def responses():
+    with responses_.RequestsMock() as rsps:
+        rsps.add_passthru("https://www.braintrust.dev")
+        rsps.add_passthru("https://api.braintrust.dev")  # Allow Braintrust API calls
+        rsps.add_passthru("http://localhost")
+
+        # Allow all Datadog API calls to pass through (all regions and endpoints)
+        rsps.add_passthru("https://api.datadoghq.com")
+        rsps.add_passthru("https://api.datadoghq.eu")
+        rsps.add_passthru("https://api.ddog-gov.com")
+        rsps.add_passthru("https://api.us3.datadoghq.com")
+        rsps.add_passthru("https://api.us5.datadoghq.com")
+        rsps.add_passthru("https://api.ap1.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.eu")
+
+        yield rsps

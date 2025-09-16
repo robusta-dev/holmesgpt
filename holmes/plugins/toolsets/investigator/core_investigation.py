@@ -10,7 +10,7 @@ from holmes.core.tools import (
     ToolParameter,
     Tool,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
@@ -103,7 +103,7 @@ class TodoWriteTool(Tool):
                 response_data += "No tasks currently in the investigation plan."
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_data,
                 params=params,
             )
@@ -111,7 +111,7 @@ class TodoWriteTool(Tool):
         except Exception as e:
             logging.exception("error using todowrite tool")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to process tasks: {str(e)}",
                 params=params,
             )

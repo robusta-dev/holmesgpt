@@ -75,6 +75,7 @@ class InvestigationResult(BaseModel):
     sections: Optional[Dict[str, Union[str, None]]] = None
     tool_calls: List[ToolCallResult] = []
     instructions: List[str] = []
+    metadata: Optional[Dict[Any, Any]] = None
 
 
 class InvestigateRequest(BaseModel):
@@ -231,6 +232,7 @@ class ChatResponse(BaseModel):
     tool_calls: Optional[List[ToolCallResult]] = []
     follow_up_actions: Optional[List[FollowUpAction]] = []
     pending_approvals: Optional[List[PendingToolApproval]] = None
+    metadata: Optional[Dict[Any, Any]] = None
 
 
 class WorkloadHealthInvestigationResult(BaseModel):

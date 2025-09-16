@@ -464,12 +464,12 @@ class ToolsetManager:
 
         logger = logging.getLogger(__name__)
 
-        logger.info(
+        logger.debug(
             f"Starting fast_model injection. global_fast_model={self.global_fast_model}"
         )
 
         if not self.global_fast_model:
-            logger.info("No global_fast_model configured, skipping injection")
+            logger.debug("No global_fast_model configured, skipping injection")
             return
 
         injected_count = 0

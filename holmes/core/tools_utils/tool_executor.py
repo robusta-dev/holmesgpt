@@ -6,7 +6,7 @@ import sentry_sdk
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
 )
@@ -52,7 +52,7 @@ class ToolExecutor:
             tool.invoke(params)
             if tool
             else StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Could not find tool named {tool_name}",
             )
         )

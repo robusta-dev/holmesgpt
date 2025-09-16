@@ -28,25 +28,37 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, get_llm_usage
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools_utils.tool_context_window_limiter import (
+    prevent_overly_big_tool_response,
+)
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
+from holmes.core.tools_utils.data_types import (
+    TruncationResult,
+    ToolCallResult,
+    TruncationMetadata,
+)
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
+
+
+TRUNCATION_NOTICE = "\n\n[TRUNCATED]"
 
 
 class LLMCosts(BaseModel):
@@ -127,7 +139,7 @@ def _process_cost_info(
 # token truncation and not character truncation
 def truncate_messages_to_fit_context(
     messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
-) -> list:
+) -> TruncationResult:
     """
     Helper function to truncate tool messages to fit within context limits.
 
@@ -160,13 +172,17 @@ def truncate_messages_to_fit_context(
         )
 
     if len(tool_call_messages) == 0:
-        return messages
+        return TruncationResult(truncated_messages=messages, truncations=[])
 
     available_space = (
-        max_context_size - message_size_without_tools - maximum_output_token
+        max_context_size - message_size_without_tools - reserved_for_output_tokens
     )
     remaining_space = available_space
-    tool_call_messages.sort(key=lambda x: len(x["content"]))
+    tool_call_messages.sort(
+        key=lambda x: count_tokens_fn([{"role": "tool", "content": x["content"]}])
+    )
+
+    truncations = []
 
     # Allocate space starting with small tools and going to larger tools, while maintaining fairness
     # Small tools can often get exactly what they need, while larger tools may need to be truncated
@@ -174,29 +190,49 @@ def truncate_messages_to_fit_context(
     for i, msg in enumerate(tool_call_messages):
         remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
-        needed_space = len(msg["content"])
+        needed_space = count_tokens_fn([{"role": "tool", "content": msg["content"]}])
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            truncation_notice = "\n\n[TRUNCATED]"
-            # Ensure the indicator fits in the allocated space
-            if allocated_space > len(truncation_notice):
-                msg["content"] = (
-                    msg["content"][: allocated_space - len(truncation_notice)]
-                    + truncation_notice
-                )
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
-                )
-            else:
-                msg["content"] = truncation_notice[:allocated_space]
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-                )
-            msg.pop("token_count", None)  # Remove token_count if present
+            truncation_metadata = _truncate_tool_message(
+                msg, allocated_space, needed_space
+            )
+            truncations.append(truncation_metadata)
 
         remaining_space -= allocated_space
-    return messages
+    return TruncationResult(truncated_messages=messages, truncations=truncations)
+
+
+def _truncate_tool_message(
+    msg: dict, allocated_space: int, needed_space: int
+) -> TruncationMetadata:
+    msg_content = msg["content"]
+    tool_call_id = msg["tool_call_id"]
+    tool_name = msg["name"]
+
+    # Ensure the indicator fits in the allocated space
+    if allocated_space > len(TRUNCATION_NOTICE):
+        original = msg_content if isinstance(msg_content, str) else str(msg_content)
+        msg["content"] = (
+            original[: allocated_space - len(TRUNCATION_NOTICE)] + TRUNCATION_NOTICE
+        )
+        end_index = allocated_space - len(TRUNCATION_NOTICE)
+    else:
+        msg["content"] = TRUNCATION_NOTICE[:allocated_space]
+        end_index = allocated_space
+
+    msg.pop("token_count", None)  # Remove token_count if present
+    logging.info(
+        f"Truncating tool message '{tool_name}' from {needed_space} to {allocated_space} tokens"
+    )
+    truncation_metadata = TruncationMetadata(
+        tool_call_id=tool_call_id,
+        start_index=0,
+        end_index=end_index,
+        tool_name=tool_name,
+        original_token_count=needed_space,
+    )
+    return truncation_metadata
 
 
 class LLMResult(LLMCosts):
@@ -207,6 +243,7 @@ class LLMResult(LLMCosts):
     # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
+    metadata: Optional[Dict[Any, Any]] = None
 
     def get_tool_usage_summary(self):
         return "AI used info from issue and " + ",".join(
@@ -401,7 +438,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-
+        metadata: Dict[Any, Any] = {}
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -417,9 +454,13 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
@@ -465,6 +506,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -500,7 +542,11 @@ class ToolCallingLLM:
                     )
                     costs.total_cost += post_processing_cost
 
+                    self.llm.count_tokens_for_message(messages)
                     perf_timing.end(f"- completed in {i} iterations -")
+                    metadata["usage"] = get_llm_usage(full_response)
+                    metadata["max_tokens"] = max_context_size
+                    metadata["max_output_tokens"] = maximum_output_token
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -508,6 +554,7 @@ class ToolCallingLLM:
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                         **costs.model_dump(),  # Include all cost fields
+                        metadata=metadata,
                     )
 
                 perf_timing.end(f"- completed in {i} iterations -")
@@ -517,6 +564,7 @@ class ToolCallingLLM:
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                     **costs.model_dump(),  # Include all cost fields
+                    metadata=metadata,
                 )
 
             if text_response and text_response.strip():
@@ -555,7 +603,7 @@ class ToolCallingLLM:
 
                     if (
                         tool_call_result.result.status
-                        == ToolResultStatus.APPROVAL_REQUIRED
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
                     ):
                         with trace_span.start_span(type="tool") as tool_span:
                             tool_call_result = self._handle_tool_call_approval(
@@ -593,7 +641,7 @@ class ToolCallingLLM:
                 f"Skipping tool execution for {tool_name}: args: {tool_params}"
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to find tool {tool_name}",
                 params=tool_params,
             )
@@ -607,7 +655,7 @@ class ToolCallingLLM:
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
@@ -649,7 +697,7 @@ class ToolCallingLLM:
                 f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=tool_response,
                 params=tool_params,
             )
@@ -701,7 +749,7 @@ class ToolCallingLLM:
                     tool_name=tool_name,
                     description="NA",
                     result=StructuredToolResult(
-                        status=ToolResultStatus.ERROR,
+                        status=StructuredToolResultStatus.ERROR,
                         error="Custom tool calls are not supported",
                         params=None,
                     ),
@@ -717,6 +765,11 @@ class ToolCallingLLM:
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
                 )
+
+            prevent_overly_big_tool_response(
+                tool_call_result=tool_call_result, llm=self.llm
+            )
+
             ToolCallingLLM._log_tool_call_result(tool_span, tool_call_result)
             return tool_call_result
 
@@ -738,7 +791,7 @@ class ToolCallingLLM:
 
         # If no approval callback, convert to ERROR because it is assumed the client may not be able to handle approvals
         if not self.approval_callback:
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             return tool_call_result
 
         # Get approval from user
@@ -758,7 +811,7 @@ class ToolCallingLLM:
         else:
             # User denied - update to error
             feedback_text = f" User feedback: {feedback}" if feedback else ""
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.error = (
                 f"User denied command execution.{feedback_text}"
             )
@@ -816,13 +869,16 @@ class ToolCallingLLM:
     @sentry_sdk.trace
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
-    ) -> list:
-        return truncate_messages_to_fit_context(
+    ) -> TruncationResult:
+        truncated_res = truncate_messages_to_fit_context(
             messages,
             max_context_size,
             maximum_output_token,
             self.llm.count_tokens_for_message,
         )
+        if truncated_res.truncations:
+            sentry_helper.capture_tool_truncations(truncated_res.truncations)
+        return truncated_res
 
     def call_stream(
         self,
@@ -851,6 +907,7 @@ class ToolCallingLLM:
         )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
+        metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
 
@@ -869,10 +926,16 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
+            else:
+                metadata["truncations"] = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -914,6 +977,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -926,9 +990,17 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                self.llm.count_tokens_for_message(messages)
+                metadata["usage"] = get_llm_usage(full_response)
+                metadata["max_tokens"] = max_context_size
+                metadata["max_output_tokens"] = maximum_output_token
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
-                    data={"content": response_message.content, "messages": messages},
+                    data={
+                        "content": response_message.content,
+                        "messages": messages,
+                        "metadata": metadata,
+                    },
                 )
                 return
 

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
@@ -42,7 +42,7 @@ def test_fetch_traces_simple_comparison_validation():
 
     # Test with no parameters - should fail validation
     result = tool.invoke(params={})
-    assert result.status == ToolResultStatus.ERROR
+    assert result.status == StructuredToolResultStatus.ERROR
     assert "At least one of the following argument is expected" in result.error
 
 
@@ -142,7 +142,7 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
             }
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data is not None
 
         # Parse the YAML response
@@ -205,7 +205,7 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
             }
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data == "No traces found matching the query"
 
         # Verify all filters were included in the query
@@ -251,7 +251,7 @@ def test_fetch_traces_simple_comparison_with_base_query():
         custom_query = "span.http.status_code >= 400"
         result = tool.invoke(params={"base_query": custom_query})
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Verify the custom query was used
         call_args = mock_api.search_traces_by_query.call_args[1]
@@ -278,7 +278,7 @@ def test_fetch_traces_simple_comparison_error_handling():
 
         result = tool.invoke(params={"service_name": "test-service"})
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "Error fetching traces: API Error" in result.error
 
 
@@ -310,7 +310,7 @@ def test_fetch_traces_simple_comparison_percentile_calculations():
         mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
         result = tool.invoke(params={"service_name": "test"})
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data is not None
 
         data = yaml.safe_load(result.data)
@@ -402,7 +402,7 @@ def test_fetch_traces_simple_comparison_with_negative_start_time():
             }
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Verify the search was called with positive timestamps
         call_args = mock_api.search_traces_by_query.call_args[1]
