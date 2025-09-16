@@ -19,6 +19,7 @@ from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 # runbooks from external sources as well.
 class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
+    available_runbooks: List[str] = []
 
     def __init__(self, toolset: "RunbookToolset"):
         # Load available runbooks from catalog
@@ -48,6 +49,7 @@ class RunbookFetcher(Tool):
                 ),
             },
             toolset=toolset,  # type: ignore
+            available_runbooks=available_runbooks,  # Pass to parent init
         )
 
     def _invoke(
@@ -60,6 +62,16 @@ class RunbookFetcher(Tool):
             err_msg = (
                 "Runbook link cannot be empty. Please provide a valid runbook path."
             )
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
+
+        # Validate link is in the available runbooks list
+        if self.available_runbooks and link not in self.available_runbooks:
+            err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks)}"
             logging.error(err_msg)
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
