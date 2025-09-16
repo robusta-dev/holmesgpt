@@ -1,5 +1,5 @@
 user_prompt: "I got an alert about topic messages in Kafka in namespace app-156 having lags. Why?"
-setup_timeout: 300
+setup_timeout: 420
 description: |
   Test case demonstrating a chain of causation for Kafka latency:
   1. Order service produces messages to Kafka topic

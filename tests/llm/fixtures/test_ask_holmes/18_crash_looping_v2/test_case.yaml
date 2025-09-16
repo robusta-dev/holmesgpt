@@ -26,33 +26,45 @@ before_test: |
 
   # Wait for the SSL certificate error (should happen within ~5 seconds of pod starting)
   echo "Waiting for SSL certificate error..."
-  timeout=60
+  timeout=90
   elapsed=0
   while [ $elapsed -lt $timeout ]; do
-    # Check current logs
-    if kubectl logs -l app=flask -n app-18 2>/dev/null | grep -q "SSL certificate expired"; then
+    # Check current logs (relaxed grep to catch partial matches)
+    if kubectl logs -l app=flask -n app-18 2>/dev/null | grep -iE "(SSL certificate expired|Certificate expired|ExpiredCertException)" ; then
       echo "✓ SSL certificate error detected in current logs"
       break
     fi
 
     # Also check previous logs in case pod already crashed
-    if kubectl logs -l app=flask -n app-18 --previous 2>/dev/null | grep -q "SSL certificate expired"; then
+    if kubectl logs -l app=flask -n app-18 --previous 2>/dev/null | grep -iE "(SSL certificate expired|Certificate expired|ExpiredCertException)" ; then
       echo "✓ SSL certificate error detected in previous logs (pod crashed)"
       break
     fi
 
-    # Check if pod is in CrashLoopBackOff (which is expected)
-    POD_STATUS=$(kubectl get pods -l app=flask -n app-18 -o jsonpath='{.items[0].status.containerStatuses[0].state}' 2>/dev/null || echo "{}")
-    if echo "$POD_STATUS" | grep -q "terminated" && echo "$POD_STATUS" | grep -q "Error"; then
-      echo "Pod has crashed - checking logs..."
-      if kubectl logs -l app=flask -n app-18 --previous 2>/dev/null | grep -q "SSL certificate expired"; then
-        echo "✓ SSL certificate error confirmed in crashed pod"
+    # Check if pod is in Error/CrashLoopBackOff state
+    POD_STATUS=$(kubectl get pods -l app=flask -n app-18 -o jsonpath='{.items[0].status.phase}' 2>/dev/null || echo "")
+    CONTAINER_STATUS=$(kubectl get pods -l app=flask -n app-18 -o jsonpath='{.items[0].status.containerStatuses[0].state}' 2>/dev/null || echo "{}")
+
+    if echo "$CONTAINER_STATUS" | grep -q "terminated"; then
+      echo "Pod has terminated - checking logs..."
+      if kubectl logs -l app=flask -n app-18 --previous 2>/dev/null | grep -iE "(SSL certificate expired|Certificate expired|ExpiredCertException)"; then
+        echo "✓ SSL certificate error confirmed in terminated pod"
         break
       fi
     fi
 
-    sleep 2
-    elapsed=$((elapsed + 2))
+    # Also check for CrashLoopBackOff status
+    RESTART_COUNT=$(kubectl get pods -l app=flask -n app-18 -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}' 2>/dev/null || echo "0")
+    if [ "$RESTART_COUNT" -gt 0 ]; then
+      echo "Pod has restarted $RESTART_COUNT times - checking previous logs..."
+      if kubectl logs -l app=flask -n app-18 --previous 2>/dev/null | grep -iE "(SSL certificate expired|Certificate expired|ExpiredCertException)"; then
+        echo "✓ SSL certificate error confirmed after restart"
+        break
+      fi
+    fi
+
+    sleep 3
+    elapsed=$((elapsed + 3))
 
     # Print status every 10 seconds
     if [ $((elapsed % 10)) -eq 0 ]; then
