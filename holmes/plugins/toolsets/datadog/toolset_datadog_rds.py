@@ -69,7 +69,7 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
     def __init__(self, toolset: "DatadogRDSToolset"):
         super().__init__(
             name="datadog_rds_performance_report",
-            description="Generate a comprehensive performance report for a specific RDS instance including latency, resource utilization, and storage metrics with analysis",
+            description="[datadog/rds toolset] Generate a comprehensive performance report for a specific RDS instance including latency, resource utilization, and storage metrics with analysis",
             parameters={
                 "db_instance_identifier": ToolParameter(
                     description="The RDS database instance identifier",
@@ -364,7 +364,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
     def __init__(self, toolset: "DatadogRDSToolset"):
         super().__init__(
             name="datadog_rds_top_worst_performing",
-            description="Get a summarized report of the top worst performing RDS instances based on latency, CPU utilization, and error rates",
+            description="[datadog/rds toolset] Get a summarized report of the top worst performing RDS instances based on latency, CPU utilization, and error rates",
             parameters={
                 "top_n": ToolParameter(
                     description=f"Number of worst performing instances to return (default: {DEFAULT_TOP_INSTANCES})",

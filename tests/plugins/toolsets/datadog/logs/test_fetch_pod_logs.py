@@ -79,12 +79,19 @@ class TestDatadogToolsetFetchPodLogs:
         assert result.error is None
 
         # Check that all 300 logs are present in reverse order (oldest first)
+        # Note: The output includes a Datadog link at the end
         logs_lines = result.data.strip().split("\n")
-        assert len(logs_lines) == 300
+        # Filter out the Datadog link lines (empty line and "View in Datadog:" line)
+        actual_logs = [
+            line
+            for line in logs_lines
+            if line and not line.startswith("View in Datadog:")
+        ]
+        assert len(actual_logs) == 300
 
         # Verify logs are in correct order (reversed from API response)
         for i in range(300):
-            assert f"Log message {299-i}" in logs_lines[i]
+            assert f"Log message {299-i}" in actual_logs[i]
 
         # Verify API calls
         assert mock_post.call_count == 3
@@ -131,11 +138,17 @@ class TestDatadogToolsetFetchPodLogs:
 
         # Check that only 80 logs are returned
         logs_lines = result.data.strip().split("\n")
-        assert len(logs_lines) == 80
+        # Filter out the Datadog link lines
+        actual_logs = [
+            line
+            for line in logs_lines
+            if line and not line.startswith("View in Datadog:")
+        ]
+        assert len(actual_logs) == 80
 
         # Verify logs are in correct order (reversed)
         for i in range(80):
-            assert f"Log message {79-i}" in logs_lines[i]
+            assert f"Log message {79-i}" in actual_logs[i]
 
         # Verify only one API call was made
         assert mock_post.call_count == 1
@@ -182,11 +195,17 @@ class TestDatadogToolsetFetchPodLogs:
 
         # Check that logs from online archives are returned
         logs_lines = result.data.strip().split("\n")
-        assert len(logs_lines) == 50
+        # Filter out the Datadog link lines
+        actual_logs = [
+            line
+            for line in logs_lines
+            if line and not line.startswith("View in Datadog:")
+        ]
+        assert len(actual_logs) == 50
 
         # Verify logs content
         for i in range(50):
-            assert f"Archived log {49-i}" in logs_lines[i]
+            assert f"Archived log {49-i}" in actual_logs[i]
 
         # Verify two API calls were made
         assert mock_post.call_count == 2
@@ -235,7 +254,13 @@ class TestDatadogToolsetFetchPodLogs:
 
         # Check that logs are returned
         logs_lines = result.data.strip().split("\n")
-        assert len(logs_lines) == 20
+        # Filter out the Datadog link lines
+        actual_logs = [
+            line
+            for line in logs_lines
+            if line and not line.startswith("View in Datadog:")
+        ]
+        assert len(actual_logs) == 20
 
         # Verify two API calls were made (one failed with 429, one succeeded)
         assert mock_post.call_count == 2

@@ -164,5 +164,17 @@ def storage_dal_mock():
 def responses():
     with responses_.RequestsMock() as rsps:
         rsps.add_passthru("https://www.braintrust.dev")
+        rsps.add_passthru("https://api.braintrust.dev")  # Allow Braintrust API calls
         rsps.add_passthru("http://localhost")
+
+        # Allow all Datadog API calls to pass through (all regions and endpoints)
+        rsps.add_passthru("https://api.datadoghq.com")
+        rsps.add_passthru("https://api.datadoghq.eu")
+        rsps.add_passthru("https://api.ddog-gov.com")
+        rsps.add_passthru("https://api.us3.datadoghq.com")
+        rsps.add_passthru("https://api.us5.datadoghq.com")
+        rsps.add_passthru("https://api.ap1.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.eu")
+
         yield rsps
