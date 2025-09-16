@@ -1,5 +1,5 @@
 import sentry_sdk
-from holmes.core.tools_utils.data_types import ToolCallResult, TruncationMetadata
+from holmes.core.models import ToolCallResult, TruncationMetadata
 
 
 def capture_tool_truncations(truncations: list[TruncationMetadata]):

@@ -4,7 +4,12 @@ import logging
 import textwrap
 from typing import Dict, List, Optional, Type, Union, Callable, Any
 
-from holmes.core.models import ToolApprovalDecision, ToolCallResult
+from holmes.core.models import (
+    ToolApprovalDecision,
+    ToolCallResult,
+    TruncationResult,
+    TruncationMetadata,
+)
 
 import sentry_sdk
 from openai import BadRequestError
@@ -45,11 +50,6 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tools_utils.data_types import (
-    TruncationResult,
-    ToolCallResult,
-    TruncationMetadata,
-)
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -1040,7 +1040,7 @@ class ToolCallingLLM:
 
                     if (
                         tool_call_result.result.status
-                        == ToolResultStatus.APPROVAL_REQUIRED
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
                     ):
                         if enable_tool_approval:
                             # Collect approval required tools
@@ -1061,7 +1061,9 @@ class ToolCallingLLM:
                                 data=tool_call_result.as_streaming_tool_result_response(),
                             )
                         else:
-                            tool_call_result.result.status = ToolResultStatus.ERROR
+                            tool_call_result.result.status = (
+                                StructuredToolResultStatus.ERROR
+                            )
                             tool_call_result.result.error = f"Tool call rejected for security reasons: {tool_call_result.result.error}"
 
                             tool_calls.append(

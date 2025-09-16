@@ -4,7 +4,20 @@ from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, model_validator, Field
 from enum import Enum
 
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+
+
+class TruncationMetadata(BaseModel):
+    tool_call_id: str
+    start_index: int
+    end_index: int
+    tool_name: str
+    original_token_count: int
+
+
+class TruncationResult(BaseModel):
+    truncated_messages: list[dict]
+    truncations: list[TruncationMetadata]
 
 
 class ToolCallResult(BaseModel):
@@ -65,7 +78,7 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
                 tool_response = json.dumps(tool_result.data, indent=2)
         except Exception:
             tool_response = str(tool_result.data)
-    if tool_result.status == ToolResultStatus.ERROR:
+    if tool_result.status == StructuredToolResultStatus.ERROR:
         tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
     return tool_response
 
