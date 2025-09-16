@@ -137,9 +137,9 @@ echo "Generating benchmark report..."
 if [ -f "scripts/generate_eval_report.py" ]; then
     poetry run python scripts/generate_eval_report.py \
         --json-file eval_results.json \
-        --output-file docs/benchmarks/latest-results.md \
+        --output-file docs/development/evaluations/latest-results.md \
         --models "$MODELS"
-    echo "✅ Report generated: docs/benchmarks/latest-results.md"
+    echo "✅ Report generated: docs/development/evaluations/latest-results.md"
 else
     echo "⚠️  Report generation script not found: scripts/generate_eval_report.py"
 fi
@@ -149,14 +149,14 @@ echo ""
 echo "Generated files:"
 [ -f "eval_results.json" ] && echo "  ✓ eval_results.json ($(wc -l < eval_results.json) lines)"
 [ -f "evals_report.md" ] && echo "  ✓ evals_report.md ($(wc -l < evals_report.md) lines)"
-[ -f "docs/benchmarks/latest-results.md" ] && echo "  ✓ docs/benchmarks/latest-results.md ($(wc -l < docs/benchmarks/latest-results.md) lines)"
+[ -f "docs/development/evaluations/latest-results.md" ] && echo "  ✓ docs/development/evaluations/latest-results.md ($(wc -l < docs/development/evaluations/latest-results.md) lines)"
 
 # Save historical copy
-if [ -f "docs/benchmarks/latest-results.md" ]; then
-    mkdir -p docs/benchmarks/history
+if [ -f "docs/development/evaluations/latest-results.md" ]; then
+    mkdir -p docs/development/evaluations/history
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    HISTORY_FILE="docs/benchmarks/history/results_${TIMESTAMP}.md"
-    cp docs/benchmarks/latest-results.md "$HISTORY_FILE"
+    HISTORY_FILE="docs/development/evaluations/history/results_${TIMESTAMP}.md"
+    cp docs/development/evaluations/latest-results.md "$HISTORY_FILE"
     echo ""
     echo "📁 Saved historical copy: $HISTORY_FILE"
 fi
@@ -166,6 +166,6 @@ echo "=============================================="
 echo "✅ Benchmark run complete!"
 echo ""
 echo "To commit results (like workflow would on main):"
-echo "  git add docs/benchmarks/latest-results.md"
+echo "  git add docs/development/evaluations/latest-results.md"
 echo "  git commit -m 'Update benchmark results [skip ci]'"
 echo "=============================================="

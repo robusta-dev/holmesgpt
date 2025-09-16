@@ -114,6 +114,9 @@ class AskHolmesTestCase(HolmesTestCase, BaseModel):
     cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
+    allow_toolset_failures: Optional[bool] = (
+        False  # Allow toolsets to fail prerequisite checks (default False)
+    )
 
     # Internal fields for variant handling
     variant_index: Optional[int] = None  # Which variant this instance represents

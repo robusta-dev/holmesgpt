@@ -4,7 +4,7 @@ import sys
 import time
 import logging
 import warnings
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Optional, Any
 
 T = TypeVar("T")
 
@@ -63,7 +63,7 @@ def retry_on_throttle(
     retry_enabled: bool = True,
     test_id: str = "",
     model: str = "",
-    request=None,  # pytest request object for setting properties
+    request: Optional[Any] = None,  # pytest request object for setting properties
     **kwargs,
 ) -> T:
     """
@@ -104,7 +104,7 @@ def retry_on_throttle(
                     f"Test {test_id} with model {model} succeeded after {attempt} retry attempt(s) "
                     f"(total retry wait time: {total_retry_time}s)"
                 )
-                warnings.warn(retry_msg, UserWarning)
+                warnings.warn(retry_msg, UserWarning, stacklevel=2)
                 request.node.user_properties.append(("had_retries", True))
                 request.node.user_properties.append(("retry_count", attempt))
                 request.node.user_properties.append(
@@ -159,8 +159,9 @@ def retry_on_throttle(
 
             # Issue pytest warning
             warnings.warn(
-                f"API throttling detected for {test_id} ({model}): retrying in {delay}s",
+                f"API throttling detected for {test_id!s} ({model!s}): retrying in {delay!s}s",
                 UserWarning,
+                stacklevel=2,
             )
 
             # Wait before retrying

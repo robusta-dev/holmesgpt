@@ -19,6 +19,7 @@ from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_toolset import (
     MockToolsetManager,
     MockGenerationConfig,
+    check_for_mock_errors,
 )
 from tests.llm.utils.test_case_utils import (
     AskHolmesTestCase,
@@ -186,6 +187,7 @@ def ask_holmes(
             request=request,
             mock_policy=test_case.mock_policy,
             mock_overrides=test_case.mock_overrides,
+            allow_toolset_failures=getattr(test_case, "allow_toolset_failures", False),
         )
 
     tool_executor = ToolExecutor(toolset_manager.toolsets)
@@ -248,8 +250,6 @@ def ask_holmes(
     # Check for any mock errors that occurred during tool execution
     # This will raise an exception if any mock data errors happened
     if request:
-        from tests.llm.utils.mock_toolset import check_for_mock_errors
-
         check_for_mock_errors(request)
 
     return result

@@ -199,16 +199,15 @@ nav:
       - Remote MCP Servers: data-sources/remote-mcp-servers.md
       - Adding Permissions for Additional Resources: data-sources/permissions.md
 
-  - Benchmarks:
-      - benchmarks/index.md
-      - Latest Results: benchmarks/latest-results.md
-
   - Development:
       - development/index.md
       - Evaluations:
-          - development/evals/index.md
-          - Adding a New Eval: development/evals/adding-new-eval.md
-          - Reporting with Braintrust: development/evals/reporting.md
+          - development/evaluations/index.md
+          - Latest Results: development/evaluations/latest-results.md
+          - Running Evaluations: development/evaluations/running-evals.md
+          - Adding New Evaluations: development/evaluations/adding-evals.md
+          - Reporting with Braintrust: development/evaluations/reporting.md
+          - Historical Results: development/evaluations/history/index.md
 
   - Reference:
       - Environment Variables: reference/environment-variables.md

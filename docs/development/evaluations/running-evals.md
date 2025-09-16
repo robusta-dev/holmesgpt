@@ -50,7 +50,7 @@ The script automatically:
 - Sets up all required environment variables
 - Runs tests with JSON report generation
 - Generates a markdown benchmark report with dashboard, costs, and timings
-- Saves a historical copy in `docs/benchmarks/history/`
+- Saves a historical copy in `docs/development/evaluations/history/`
 - Shows how to commit results
 
 ### Manual Commands
@@ -285,8 +285,8 @@ HolmesGPT includes a [GitHub Actions workflow](https://github.com/robusta-dev/ho
 - `iterations`: Number of test iterations
 
 Benchmark results are automatically:
-- Published to `docs/benchmarks/latest-results.md`
-- Archived with timestamps in `docs/benchmarks/history/`
+- Published to `docs/development/evaluations/latest-results.md`
+- Archived with timestamps in `docs/development/evaluations/history/`
 - Posted as PR comments when tests run on pull requests
 
 ## Test Markers

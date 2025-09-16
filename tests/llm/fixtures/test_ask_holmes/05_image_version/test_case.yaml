@@ -25,11 +25,11 @@ before_test: |
       - containerPort: 80
       resources:
         requests:
-          memory: "32Mi"
-          cpu: "5m"
-        limits:
           memory: "64Mi"
           cpu: "50m"
+        limits:
+          memory: "128Mi"
+          cpu: "100m"
       readinessProbe:
         httpGet:
           path: /
@@ -37,7 +37,7 @@ before_test: |
         initialDelaySeconds: 5
         periodSeconds: 5
   EOF
-  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=60s
+  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=120s
 
 after_test: |
   kubectl delete namespace app-05

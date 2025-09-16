@@ -19,7 +19,7 @@ from tests.llm.utils.classifiers import (
 )
 from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.mock_toolset import MockToolsetManager, check_for_mock_errors
 from tests.llm.utils.test_case_utils import (
     InvestigateTestCase,
     check_and_skip_test,
@@ -157,8 +157,6 @@ def test_investigate(
 
                 # Check for any mock errors that occurred during tool execution
                 # This will raise an exception if any mock data errors happened
-                from tests.llm.utils.mock_toolset import check_for_mock_errors
-
                 check_for_mock_errors(request)
 
                 # Evaluate and log results inside the span context

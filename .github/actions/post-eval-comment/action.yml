@@ -45,15 +45,19 @@ runs:
 
             const reportContent = fs.readFileSync(reportPath, 'utf8');
 
-            // Find existing bot comments
-            const comments = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
+            // Find existing bot comments (paginate to get all comments)
+            const allComments = await github.paginate(
+              github.rest.issues.listComments,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                per_page: 100
+              }
+            );
 
             const commentIdentifier = '${{ inputs.comment-identifier }}';
-            const botComments = comments.data.filter(comment =>
+            const botComments = allComments.filter(comment =>
               comment.user.type === 'Bot' &&
               comment.body.includes(commentIdentifier)
             );
@@ -63,7 +67,7 @@ runs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: reportContent
+              body: `<!-- ${commentIdentifier} -->\n${reportContent}`
             });
 
             // Delete old comments if requested

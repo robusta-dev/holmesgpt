@@ -549,24 +549,39 @@ class MockToolsetManager:
         self,
         test_case_folder: str,
         mock_generation_config: MockGenerationConfig,
-        request: pytest.FixtureRequest = None,
+        request: Optional[pytest.FixtureRequest] = None,
         mock_policy: str = "inherit",
         mock_overrides: Optional[Dict[str, str]] = None,
+        allow_toolset_failures: bool = False,
     ):
         self.test_case_folder = test_case_folder
         self.request = request
         self.mock_overrides = mock_overrides or {}
         self.mock_generation_config = mock_generation_config
+        self.allow_toolset_failures = allow_toolset_failures
+
+        # Coerce mock_policy string to MockPolicy enum, falling back to INHERIT for unknown values
+        if isinstance(mock_policy, str):
+            try:
+                mock_policy_enum = MockPolicy(mock_policy)
+            except (ValueError, KeyError):
+                # Fall back to INHERIT for unknown/legacy values
+                mock_policy_enum = MockPolicy.INHERIT
+        elif isinstance(mock_policy, MockPolicy):
+            mock_policy_enum = mock_policy
+        else:
+            # Default to INHERIT for any other type
+            mock_policy_enum = MockPolicy.INHERIT
 
         # Determine the default mode based on mock_policy
-        if mock_policy == MockPolicy.ALWAYS_MOCK.value:
+        if mock_policy_enum == MockPolicy.ALWAYS_MOCK:
             if mock_generation_config.mode == MockMode.GENERATE:
                 pytest.skip(
                     "Test has fixed mocks (mock_policy='always_mock') so this test will be skipped. If you want to override mocks for this test and generate from scratch, change the mock_policy for this test temporarily."
                 )
             else:
                 self.default_mode = MockMode.MOCK
-        elif mock_policy == MockPolicy.NEVER_MOCK.value:
+        elif mock_policy_enum == MockPolicy.NEVER_MOCK:
             if mock_generation_config.mode != MockMode.LIVE:
                 pytest.skip(
                     "Test requires live execution (mock_policy=NEVER_MOCK) but RUN_LIVE is not enabled"
@@ -704,11 +719,12 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                         toolset.check_prerequisites()
 
                         # If this toolset was explicitly enabled in the test config but failed prerequisites,
-                        # the test should fail
+                        # the test should fail (unless allow_toolset_failures is True)
                         if (
                             definition
                             and definition.enabled
                             and toolset.status != ToolsetStatusEnum.ENABLED
+                            and not self.allow_toolset_failures
                         ):
                             raise RuntimeError(
                                 f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "

@@ -506,7 +506,7 @@ def parse_pytest_json(data: Dict) -> Dict[str, Any]:
     return results
 
 
-def generate_summary_table(results: Dict[str, Any], models: List[str]) -> str:
+def generate_summary_table(results: Dict[str, Any]) -> str:
     """Generate summary table by model."""
     model_stats: DefaultDict[str, Dict[str, int]] = defaultdict(
         lambda: {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
@@ -669,18 +669,17 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
     # Build the dashboard heatmap
     lines = []
-    lines.append("## 📊 Detailed Results")
+    lines.append("## Raw Results")
     lines.append("")
     lines.append("Status of all evaluations across models. Color coding:")
-    lines.append("- 🟢 **Green**: Passing 100% (stable)")
-    lines.append("- 🟡 **Yellow**: Passing 1-99%")
-    lines.append("- 🔴 **Red**: Passing 0% (failing)")
-    lines.append("- 🔧 **Wrench**: Mock data failure (missing or invalid test data)")
-    lines.append("- ⚠️ **Warning**: Setup failure (environment/infrastructure issue)")
-    lines.append("- ⏱️ **Timer**: Timeout or rate limit error")
-    lines.append(
-        "- ⏭️ **Skip**: Test skipped (e.g., known issue or precondition not met)"
-    )
+    lines.append("")
+    lines.append("- 🟢 Passing 100% (stable)")
+    lines.append("- 🟡 Passing 1-99%")
+    lines.append("- 🔴 Passing 0% (failing)")
+    lines.append("- 🔧 Mock data failure (missing or invalid test data)")
+    lines.append("- ⚠️ Setup failure (environment/infrastructure issue)")
+    lines.append("- ⏱️ Timeout or rate limit error")
+    lines.append("- ⏭️ Test skipped (e.g., known issue or precondition not met)")
     lines.append("")
 
     # Custom sort function to prioritize by status
@@ -881,10 +880,7 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
     # Add detailed breakdown for reference
     lines.append("")
-    lines.append("<details>")
-    lines.append(
-        "<summary>📈 Click for detailed pass rates, timings, and costs</summary>"
-    )
+    lines.append("## Detailed Raw Results")
     lines.append("")
     # Create display model names for the detailed table
     display_models_detail = []
@@ -964,16 +960,13 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 if avg_cost > 0:
                     cell_parts.append(f"💰 ${avg_cost:.2f}")
 
-                cell = "<br>".join(cell_parts)
+                cell = " / ".join(cell_parts)
             else:
                 cell = "-"
 
             row.append(cell)
 
         lines.append("| " + " | ".join(row) + " |")
-
-    lines.append("")
-    lines.append("</details>")
 
     return "\n".join(lines)
 
@@ -1401,9 +1394,9 @@ def main():
     classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
 
     report_lines.append(
-        f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}"
+        f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}  "
     )
-    report_lines.append(f"**Total Duration**: {pretty_duration}")
+    report_lines.append(f"**Total Duration**: {pretty_duration}  ")
     report_lines.append(f"**Judge (classifier) model**: {classifier_model}")
     report_lines.append("")
 
@@ -1411,7 +1404,7 @@ def main():
     report_lines.append("## About this Benchmark")
     report_lines.append("")
     report_lines.append(
-        "HolmesGPT is continuously evaluated against 100+ real-world "
+        "HolmesGPT is continuously evaluated against real-world "
         "Kubernetes and cloud troubleshooting scenarios."
     )
     report_lines.append("")
@@ -1424,7 +1417,7 @@ def main():
     # Model accuracy comparison table - show first for quick overview
     report_lines.append("## Model Accuracy Comparison")
     report_lines.append("")
-    report_lines.append(generate_summary_table(results, models))
+    report_lines.append(generate_summary_table(results))
     report_lines.append("")
 
     # Model cost comparison table

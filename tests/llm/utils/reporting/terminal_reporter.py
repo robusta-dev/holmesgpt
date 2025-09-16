@@ -1052,8 +1052,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
             f"\n[bold yellow]⚠️  API THROTTLING DETECTED[/bold yellow]\n"
             f"[yellow]{tests_with_retries} test(s) required retries due to API rate limiting/overload[/yellow]\n"
             f"[yellow]Total time spent waiting for retries: {total_retry_time}s ({total_retry_time // 60}m {total_retry_time % 60}s)[/yellow]\n"
-            f"[dim]Use --no-retry-on-throttle to disable automatic retries[/dim]\n",
-            style="warning",
+            f"[dim]Use --no-retry-on-throttle to disable automatic retries[/dim]\n"
         )
 
     # Group results by test name (without iteration number)

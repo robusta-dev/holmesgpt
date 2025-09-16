@@ -68,13 +68,16 @@ jobs:
             ITERATIONS="10"
           fi
 
-          # Build test command with markers
-          TEST_CMD="tests/llm/ -m '${TEST_MARKERS}'"
+          # Set test path and markers separately
+          TEST_PATH="tests/llm/"
 
-          echo "models=$MODEL" >> $GITHUB_OUTPUT
-          echo "test_cmd=$TEST_CMD" >> $GITHUB_OUTPUT
-          echo "iterations=$ITERATIONS" >> $GITHUB_OUTPUT
-          echo "test_markers=$TEST_MARKERS" >> $GITHUB_OUTPUT
+          # Write all outputs atomically
+          {
+            echo "models=$MODEL"
+            echo "test_path=$TEST_PATH"
+            echo "test_markers=$TEST_MARKERS"
+            echo "iterations=$ITERATIONS"
+          } >> $GITHUB_OUTPUT
 
       - name: Run evaluation benchmarks
         env:
@@ -91,7 +94,8 @@ jobs:
           EXPERIMENT_ID: "ci-benchmark-${{ github.run_id }}"
           UPLOAD_DATASET: "true"
         run: |
-          poetry run pytest ${{ steps.test-command.outputs.test_cmd }} \
+          poetry run pytest "${{ steps.test-command.outputs.test_path }}" \
+            -m "${{ steps.test-command.outputs.test_markers }}" \
             --no-cov \
             --tb=short \
             -v \
@@ -111,7 +115,7 @@ jobs:
         run: |
           poetry run python scripts/generate_eval_report.py \
             --json-file eval_results.json \
-            --output-file docs/benchmarks/latest-results.md \
+            --output-file docs/development/evaluations/latest-results.md \
             --models "${{ steps.test-command.outputs.models }}"
 
       - name: Upload eval results
@@ -121,7 +125,7 @@ jobs:
           name: eval-results-${{ github.run_id }}
           path: |
             evals_report.md
-            docs/benchmarks/latest-results.md
+            docs/development/evaluations/latest-results.md
 
       # TODO: Enable after testing
       # - name: Commit benchmark results
@@ -132,9 +136,9 @@ jobs:
       #
       #     # Copy results to historical directory with timestamp
       #     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-      #     mkdir -p docs/benchmarks/history
-      #     cp docs/benchmarks/latest-results.md "docs/benchmarks/history/results_${TIMESTAMP}.md"
+      #     mkdir -p docs/development/evaluations/history
+      #     cp docs/development/evaluations/latest-results.md "docs/development/evaluations/history/results_${TIMESTAMP}.md"
       #
-      #     git add docs/benchmarks/
+      #     git add docs/development/evaluations/
       #     git diff --staged --quiet || git commit -m "Update benchmark results [skip ci]"
       #     git push
