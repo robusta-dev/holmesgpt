@@ -325,7 +325,6 @@ class ToolCallingLLM:
 
             if decision and decision.approved:
                 try:
-
                     tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
                     llm_tool_result = self._invoke_llm_tool_call(
                         tool_to_call=tool_call_obj,
@@ -1019,7 +1018,6 @@ class ToolCallingLLM:
                         == StructuredToolResultStatus.APPROVAL_REQUIRED
                     ):
                         if enable_tool_approval:
-
                             pending_approvals.append(
                                 PendingToolApproval(
                                     tool_call_id=tool_call_result.tool_call_id,
