@@ -371,6 +371,7 @@ class SupabaseDal:
             self.client.table(EVIDENCE_TABLE)
             .select("*")
             .filter("issue_id", "eq", issue_id)
+            .filter("enrichment_type", "neq", "text_file")
             .execute()
         )
         data = self.extract_relevant_issues(evidence)
