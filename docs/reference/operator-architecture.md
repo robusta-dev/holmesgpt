@@ -141,7 +141,10 @@ spec:
 
   # Schedule control
   enabled: true  # Enable or disable the schedule
-  # Note: The operator prevents concurrent runs and maintains last 10 history items
+  # Note: The operator automatically:
+  #   - Prevents concurrent runs (max_instances=1)
+  #   - Maintains last 10 history items (hardcoded limit)
+  #   - Coalesces missed jobs (if schedule was missed while disabled)
 
 status:
   # Last execution
@@ -354,8 +357,12 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 
 ### Resource Limits
 - Operator has strict resource limits
-- Rate limiting for API calls
-- Timeout enforcement for check execution
+- Timeout enforcement for check execution (configurable, max 300s)
+
+### Known Limitations
+- **No built-in rate limiting**: The operator does not limit the rate of check creation or execution. Consider using ResourceQuotas or ValidatingAdmissionWebhooks to prevent DoS
+- **No query validation**: Check queries are passed directly to the LLM without content validation. Ensure trusted users only
+- **Cluster-wide RBAC**: The operator has cluster-wide access to HealthCheck CRDs
 
 ## Future Enhancements
 

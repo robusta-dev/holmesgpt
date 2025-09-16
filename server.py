@@ -407,9 +407,11 @@ def execute_health_check(
         # Extract destination names from list of dicts if needed
         destination_names = []
         if request.destinations:
-            if isinstance(request.destinations[0], dict):
+            # Check if we have dictionaries or strings
+            if request.destinations and isinstance(request.destinations[0], dict):
+                # Extract 'type' field from destination dicts (matches CRD schema)
                 destination_names = [
-                    d.get("name", "") for d in request.destinations if d.get("name")
+                    d.get("type", "") for d in request.destinations if d.get("type")
                 ]
             else:
                 destination_names = request.destinations

@@ -474,10 +474,30 @@ class HolmesCheckOperator:
             return job_id
 
         try:
+            # Parse and validate the cron schedule
+            try:
+                cron_trigger = CronTrigger.from_crontab(schedule)
+            except (ValueError, TypeError) as e:
+                logger.error(
+                    f"Invalid cron schedule '{schedule}' for {namespace}/{name}: {e}"
+                )
+                # Update status with error
+                self.update_scheduled_status(
+                    name,
+                    namespace,
+                    {
+                        "status": "error",
+                        "message": f"Invalid cron schedule: {str(e)}",
+                        "error": str(e),
+                    },
+                    "unknown",
+                )
+                return job_id
+
             # Add the job to scheduler
             self.scheduler.add_job(
                 self.execute_scheduled_check,
-                CronTrigger.from_crontab(schedule),
+                cron_trigger,
                 args=[name, namespace, spec],
                 id=job_id,
                 name=f"ScheduledHealthCheck: {namespace}/{name}",
@@ -563,17 +583,19 @@ class HolmesCheckOperator:
                     name=check_name,
                 )
                 check_uid = healthcheck["metadata"]["uid"]
-            except Exception:
-                check_uid = ""
 
-            # Add to active list
-            active_checks.append(
-                {
-                    "name": check_name,
-                    "namespace": namespace,
-                    "uid": check_uid,
-                }
-            )
+                # Only add to active list if we successfully got the UID
+                active_checks.append(
+                    {
+                        "name": check_name,
+                        "namespace": namespace,
+                        "uid": check_uid,
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Could not get UID for HealthCheck {check_name}: {e}")
+                # Don't add to active list if we can't get the HealthCheck
+                return
 
             # Update status
             api.patch_namespaced_custom_object_status(
@@ -691,14 +713,25 @@ def handle_healthcheck_create(
     """
     logger.info(f"Handling HealthCheck creation: {namespace}/{name}")
 
-    # Update status to Running
-    operator.update_healthcheck_status(name, namespace, "Running")
+    # Execute the check with status updates
+    try:
+        # Update status to Running
+        operator.update_healthcheck_status(name, namespace, "Running")
 
-    # Execute the check
-    result = operator.execute_check(name, namespace, spec, is_one_time=True)
+        # Execute the check
+        result = operator.execute_check(name, namespace, spec, is_one_time=True)
 
-    # Update status to Completed with results
-    operator.update_healthcheck_status(name, namespace, "Completed", result)
+        # Update status to Completed with results
+        operator.update_healthcheck_status(name, namespace, "Completed", result)
+    except Exception as e:
+        # If anything fails, ensure we update status to reflect the error
+        logger.error(f"Error during HealthCheck execution for {namespace}/{name}: {e}")
+        error_result = {
+            "status": "error",
+            "message": f"Check execution failed: {str(e)}",
+            "error": str(e),
+        }
+        operator.update_healthcheck_status(name, namespace, "Completed", error_result)
 
     # If this was created by a ScheduledHealthCheck, update its status
     scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
@@ -725,31 +758,47 @@ def rerun_healthcheck(name: str, namespace: str, spec: Dict, labels: Dict, **kwa
     """
     logger.info(f"Re-running HealthCheck: {namespace}/{name}")
 
-    # Update status to Running
-    operator.update_healthcheck_status(name, namespace, "Running")
+    # Remove the annotation first to prevent re-runs if execution fails
+    try:
+        api = client.CustomObjectsApi()
+        api.patch_namespaced_custom_object(
+            group="holmes.robusta.dev",
+            version="v1alpha1",
+            namespace=namespace,
+            plural="healthchecks",
+            name=name,
+            body={"metadata": {"annotations": {"holmes.robusta.dev/run-now": None}}},
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to remove run-now annotation from {namespace}/{name}: {e}"
+        )
 
-    # Execute the check
-    result = operator.execute_check(name, namespace, spec, is_one_time=True)
+    # Execute the check with status updates
+    try:
+        # Update status to Running
+        operator.update_healthcheck_status(name, namespace, "Running")
 
-    # Update status to Completed with results
-    operator.update_healthcheck_status(name, namespace, "Completed", result)
+        # Execute the check
+        result = operator.execute_check(name, namespace, spec, is_one_time=True)
+
+        # Update status to Completed with results
+        operator.update_healthcheck_status(name, namespace, "Completed", result)
+    except Exception as e:
+        # If anything fails, ensure we update status to reflect the error
+        logger.error(f"Error during HealthCheck re-run for {namespace}/{name}: {e}")
+        error_result = {
+            "status": "error",
+            "message": f"Check execution failed: {str(e)}",
+            "error": str(e),
+        }
+        operator.update_healthcheck_status(name, namespace, "Completed", error_result)
 
     # If this was created by a ScheduledHealthCheck, update its status
     scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
     if scheduled_by:
         # Note: Don't update scheduled status on re-runs to avoid duplicate history
         pass
-
-    # Remove the annotation after execution
-    api = client.CustomObjectsApi()
-    api.patch_namespaced_custom_object(
-        group="holmes.robusta.dev",
-        version="v1alpha1",
-        namespace=namespace,
-        plural="healthchecks",
-        name=name,
-        body={"metadata": {"annotations": {"holmes.robusta.dev/run-now": None}}},
-    )
 
 
 # ============================================================================
@@ -785,6 +834,18 @@ def delete_scheduled_healthcheck(name: str, namespace: str, **kwargs):
     """
     logger.info(f"Deleting ScheduledHealthCheck: {namespace}/{name}")
     operator.unschedule_check(name, namespace)
+
+    # Clean up from active_jobs to prevent memory leak
+    check_identifier = f"{namespace}/{name}"
+    jobs_to_clean = [
+        job_id
+        for job_id, check_name in operator.active_jobs.items()
+        if check_name == check_identifier
+    ]
+    for job_id in jobs_to_clean:
+        if job_id in operator.active_jobs:
+            del operator.active_jobs[job_id]
+    scheduled_checks_active.set(len(operator.active_jobs))
 
 
 @kopf.on.field(
@@ -826,18 +887,25 @@ def run_scheduled_check_now(name: str, namespace: str, spec: Dict, **kwargs):
     This is useful for testing or forcing an immediate check execution.
     """
     logger.info(f"Running scheduled check immediately: {namespace}/{name}")
-    operator.execute_scheduled_check(name, namespace, spec)
 
-    # Remove the annotation after execution
-    api = client.CustomObjectsApi()
-    api.patch_namespaced_custom_object(
-        group="holmes.robusta.dev",
-        version="v1alpha1",
-        namespace=namespace,
-        plural="scheduledhealthchecks",
-        name=name,
-        body={"metadata": {"annotations": {"holmes.robusta.dev/run-now": None}}},
-    )
+    # Remove the annotation first to prevent re-runs if execution fails
+    try:
+        api = client.CustomObjectsApi()
+        api.patch_namespaced_custom_object(
+            group="holmes.robusta.dev",
+            version="v1alpha1",
+            namespace=namespace,
+            plural="scheduledhealthchecks",
+            name=name,
+            body={"metadata": {"annotations": {"holmes.robusta.dev/run-now": None}}},
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to remove run-now annotation from {namespace}/{name}: {e}"
+        )
+
+    # Now execute the check
+    operator.execute_scheduled_check(name, namespace, spec)
 
 
 if __name__ == "__main__":

@@ -149,7 +149,9 @@ spec:
     timeout: 60
     mode: alert
   enabled: true
-  # Note: The operator prevents concurrent runs automatically
+  # Note: The operator prevents concurrent runs automatically (max_instances=1)
+  # Note: History is automatically limited to last 10 executions
+  # Note: Missed jobs are automatically coalesced (if schedule was missed, only runs once)
 ```
 
 ## Features
@@ -284,7 +286,7 @@ spec:
       - type: slack
         config:
           channel: "#infrastructure"
-  # History automatically maintains last 10 executions
+  enabled: true
 ```
 
 ### Certificate Expiry Check

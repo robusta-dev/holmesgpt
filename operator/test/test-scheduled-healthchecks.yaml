@@ -105,6 +105,5 @@ spec:
             name: pagerduty-secret
             key: integration-key
   enabled: true
-  concurrencyPolicy: Forbid  # Don't allow overlapping runs
-  successfulJobsHistoryLimit: 5
-  failedJobsHistoryLimit: 10
+  # Note: concurrencyPolicy is not configurable - operator enforces max_instances=1
+  # Note: History limits are not configurable - operator keeps last 10 executions
