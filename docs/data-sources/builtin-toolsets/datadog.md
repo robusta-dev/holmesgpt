@@ -32,47 +32,60 @@ You'll need two keys from your Datadog account:
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com  # Change for EU/other regions
+          site_api_url: https://app.datadoghq.com  # Change for EU/other regions
 
       datadog/metrics:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/traces:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/rds:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/general:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
     ```
 
 === "Holmes Helm Chart"
 
-    Add to your Holmes Helm values:
+    First, create a Kubernetes secret with your API keys:
+    ```bash
+    kubectl create secret generic holmes-datadog-secrets \
+      --from-literal=dd-api-key=your-datadog-api-key \
+      --from-literal=dd-app-key=your-datadog-app-key
+    ```
+
+    Then add to your Holmes Helm values:
     ```yaml
-    # Pass API keys as environment variables
+    # Load API keys from secret
     additionalEnvVars:
       - name: DD_API_KEY
-        value: "your-datadog-api-key"  # See below for loading from secrets
+        valueFrom:
+          secretKeyRef:
+            name: holmes-datadog-secrets
+            key: dd-api-key
       - name: DD_APP_KEY
-        value: "your-datadog-app-key"  # See below for loading from secrets
+        valueFrom:
+          secretKeyRef:
+            name: holmes-datadog-secrets
+            key: dd-app-key
 
     toolsets:
       # Enable all Datadog toolsets
@@ -81,48 +94,61 @@ You'll need two keys from your Datadog account:
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com  # Change for EU/other regions
+          site_api_url: https://app.datadoghq.com  # Change for EU/other regions
 
       datadog/metrics:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/traces:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/rds:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
 
       datadog/general:
         enabled: true
         config:
           dd_api_key: "{{ env.DD_API_KEY }}"
           dd_app_key: "{{ env.DD_APP_KEY }}"
-          site_api_url: https://api.datadoghq.com
+          site_api_url: https://app.datadoghq.com
     ```
 
 === "Robusta Helm Chart"
 
-    Add to your Robusta Helm values:
+    First, create a Kubernetes secret with your API keys:
+    ```bash
+    kubectl create secret generic holmes-datadog-secrets \
+      --from-literal=dd-api-key=your-datadog-api-key \
+      --from-literal=dd-app-key=your-datadog-app-key
+    ```
+
+    Then add to your Robusta Helm values:
     ```yaml
     runner:
-      # Pass API keys as environment variables
+      # Load API keys from secret
       additionalEnvVars:
         - name: DD_API_KEY
-          value: "your-datadog-api-key"  # See below for loading from secrets
+          valueFrom:
+            secretKeyRef:
+              name: holmes-datadog-secrets
+              key: dd-api-key
         - name: DD_APP_KEY
-          value: "your-datadog-app-key"  # See below for loading from secrets
+          valueFrom:
+            secretKeyRef:
+              name: holmes-datadog-secrets
+              key: dd-app-key
 
       customToolsets:
         # Enable all Datadog toolsets
@@ -131,39 +157,36 @@ You'll need two keys from your Datadog account:
           config:
             dd_api_key: "{{ env.DD_API_KEY }}"
             dd_app_key: "{{ env.DD_APP_KEY }}"
-            site_api_url: https://api.datadoghq.com  # Change for EU/other regions
+            site_api_url: https://app.datadoghq.com  # Change for EU/other regions
 
         datadog/metrics:
           enabled: true
           config:
             dd_api_key: "{{ env.DD_API_KEY }}"
             dd_app_key: "{{ env.DD_APP_KEY }}"
-            site_api_url: https://api.datadoghq.com
+            site_api_url: https://app.datadoghq.com
 
         datadog/traces:
           enabled: true
           config:
             dd_api_key: "{{ env.DD_API_KEY }}"
             dd_app_key: "{{ env.DD_APP_KEY }}"
-            site_api_url: https://api.datadoghq.com
+            site_api_url: https://app.datadoghq.com
 
         datadog/rds:
           enabled: true
           config:
             dd_api_key: "{{ env.DD_API_KEY }}"
             dd_app_key: "{{ env.DD_APP_KEY }}"
-            site_api_url: https://api.datadoghq.com
+            site_api_url: https://app.datadoghq.com
 
         datadog/general:
           enabled: true
           config:
             dd_api_key: "{{ env.DD_API_KEY }}"
             dd_app_key: "{{ env.DD_APP_KEY }}"
-            site_api_url: https://api.datadoghq.com
+            site_api_url: https://app.datadoghq.com
     ```
-
-!!! warning "Security Note"
-    These examples show API keys in plain text for simplicity. For production, use Kubernetes secrets - see [Production: Using Kubernetes Secrets](#production-using-kubernetes-secrets) below.
 
 ### 3. Test It Works
 
@@ -186,11 +209,11 @@ HolmesGPT provides five specialized Datadog toolsets:
 
 | Toolset | Purpose | Common Use Cases |
 |---------|---------|------------------|
-| **datadog/logs** | Query application logs | Debugging errors, tracking deployments, historical analysis |
-| **datadog/metrics** | Access performance metrics | CPU/memory monitoring, custom metrics, SLI tracking |
-| **datadog/traces** | Analyze distributed traces | Latency issues, service dependencies, bottlenecks |
-| **datadog/rds** | Monitor RDS databases | Database performance, slow queries, connection issues |
-| **datadog/general** | Access other Datadog APIs | Monitors, dashboards, SLOs, incidents, synthetics |
+| **[datadog/logs](#datadog-logs)** | Query application logs | Debugging errors, tracking deployments, historical analysis |
+| **[datadog/metrics](#datadog-metrics)** | Access performance metrics | CPU/memory monitoring, custom metrics, SLI tracking |
+| **[datadog/traces](#datadog-traces)** | Analyze distributed traces | Latency issues, service dependencies, bottlenecks |
+| **[datadog/rds](#datadog-rds)** | Monitor RDS databases | Database performance, slow queries, connection issues |
+| **[datadog/general](#datadog-general)** | Access other Datadog APIs | Monitors, dashboards, SLOs, incidents, synthetics |
 
 ## Core Configuration
 
@@ -210,58 +233,16 @@ toolsets:
 
 Configure the correct API endpoint for your Datadog region:
 
-| Region | API URL |
-|--------|---------|
-| US1 (default) | `https://api.datadoghq.com` |
-| EU | `https://api.datadoghq.eu` |
-| US3 | `https://api.us3.datadoghq.com` |
-| US5 | `https://api.us5.datadoghq.com` |
-| AP1 | `https://api.ap1.datadoghq.com` |
+| Region | Site API URL |
+|--------|--------------|
+| US1 (default) | `https://app.datadoghq.com` |
+| US3 | `https://us3.datadoghq.com` |
+| US5 | `https://us5.datadoghq.com` |
+| EU1 | `https://app.datadoghq.eu` |
+| US1-FED (Government) | `https://app.ddog-gov.com` |
+| AP1 (Japan) | `https://ap1.datadoghq.com` |
+| AP2 (Australia) | `https://ap2.datadoghq.com` |
 
-### Production: Using Kubernetes Secrets
-
-For production deployments, store your API keys in a Kubernetes secret:
-
-```bash
-kubectl create secret generic holmes-datadog-secrets \
-  --from-literal=dd-api-key=your-api-key \
-  --from-literal=dd-app-key=your-app-key
-```
-
-Then reference them in your Helm values:
-
-=== "Holmes Helm Chart"
-
-    ```yaml
-    additionalEnvVars:
-      - name: DD_API_KEY
-        valueFrom:
-          secretKeyRef:
-            name: holmes-datadog-secrets
-            key: dd-api-key
-      - name: DD_APP_KEY
-        valueFrom:
-          secretKeyRef:
-            name: holmes-datadog-secrets
-            key: dd-app-key
-    ```
-
-=== "Robusta Helm Chart"
-
-    ```yaml
-    runner:
-      additionalEnvVars:
-        - name: DD_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: holmes-datadog-secrets
-              key: dd-api-key
-        - name: DD_APP_KEY
-          valueFrom:
-            secretKeyRef:
-              name: holmes-datadog-secrets
-              key: dd-app-key
-    ```
 
 ## Toolset Details
 
@@ -572,22 +553,3 @@ toolsets:
   kubernetes/logs:
     enabled: false
 ```
-
-## Troubleshooting
-
-### Common Issues
-
-**Authentication Errors**
-
-- Verify your API key has the necessary permissions:
-  - Go to **Organization Settings > API Keys** in Datadog
-  - Click on your API key to view its details
-  - Check that it has the required scopes (logs_read, metrics_read, etc.)
-  - If permissions are missing, create a new key with the appropriate scopes or contact your Datadog admin
-- Confirm the correct `site_api_url` for your Datadog region
-
-**Rate Limiting**
-
-- Datadog enforces rate limits on API requests
-- HolmesGPT automatically retries with exponential backoff
-- Consider reducing `page_size` or `default_limit` if issues persist
