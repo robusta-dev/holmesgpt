@@ -12,10 +12,12 @@ tags:
   - chain-of-causation
   - traces
 
+setup_timeout: 420
+
 port_forwards:
   - namespace: app-115
     service: tempo
-    local_port: 3201
+    local_port: 3115
     remote_port: 3200
 
 before_test: |
@@ -27,23 +29,23 @@ before_test: |
   kubectl apply -f ../../shared/tempo.yaml -n app-115
 
   echo "⏳ Waiting for Tempo pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=tempo -n app-115 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=tempo -n app-115 --timeout=300s || exit 1
 
-  echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 60s)"
+  echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 300s)"
   TEMPO_READY=false
-  for i in {1..12}; do
-    if kubectl exec -n app-115 deployment/tempo -- wget -q -O - http://localhost:3201/ready 2>/dev/null; then
+  for i in {1..60}; do
+    if kubectl exec -n app-115 deployment/tempo -- wget -q -O - http://localhost:3200/ready 2>/dev/null; then
       echo "✅ Tempo is ready!"
       TEMPO_READY=true
       break
     else
-      echo "⏳ Attempt $i/12: Tempo not ready yet, waiting 5s..."
+      echo "⏳ Attempt $i/60: Tempo not ready yet, waiting 5s..."
       sleep 5
     fi
   done
 
   if [ "$TEMPO_READY" = false ]; then
-    echo "❌ Tempo failed to become ready after 60 seconds"
+    echo "❌ Tempo failed to become ready after 300 seconds"
     exit 1
   fi
 
@@ -52,8 +54,11 @@ before_test: |
   echo "🛒 Deploying checkout service"
   kubectl apply -f checkout-service.yaml -n app-115
 
-  echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=60s
+  echo "⏳ Waiting for checkout deployment to create pods"
+  kubectl wait --for=condition=progressing deployment/checkout -n app-115 || exit 1
+
+  echo "⏳ Waiting for checkout pod to be ready (timeout 180s for pip install)"
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=180s || exit 1
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-115 -l app=checkout
@@ -61,14 +66,17 @@ before_test: |
   echo "🚦 Deploying traffic generator"
   kubectl apply -f traffic-generator.yaml -n app-115
 
-  echo "⏳ Waiting for traffic generator pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=60s
+  echo "⏳ Waiting for traffic generator deployment to create pods"
+  kubectl wait --for=condition=progressing deployment/traffic-generator -n app-115 || exit 1
+
+  echo "⏳ Waiting for traffic generator pod to be ready (timeout 180s)"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=180s || exit 1
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-115
 
-  echo "⏰ Letting traffic generator run for 45 seconds to generate requests"
-  sleep 20
+  echo "⏰ Letting traffic generator run for 90 seconds to generate requests"
+  sleep 90
 
   echo "🔍 Verifying traffic generator log entries"
   if kubectl logs -n app-115 -l app=traffic-generator --tail=-1 | grep -q "WITH promo_code"; then
@@ -85,29 +93,16 @@ before_test: |
     exit 1
   fi
 
-  if kubectl logs -n app-115 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
+  if kubectl logs -n app-115 -l app=checkout --tail=-1 | grep -q "Processing checkout request"; then
     echo "✅ Found checkout request log"
   else
     echo "❌ Missing checkout request log"
     exit 1
   fi
 
-  # Commented out traffic generator trace checks as it no longer sends traces
-  # echo "🔍 Querying Tempo for traces from traffic generator"
-  # TRAFFIC_GEN_TRACES=$(curl -s "http://localhost:3200/api/search?tags=service.name%3Dtraffic-generator&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
-  # echo "Found $TRAFFIC_GEN_TRACES traces from traffic-generator"
-
   echo "🔍 Querying Tempo for traces from checkout service"
   CHECKOUT_TRACES=$(kubectl run -n app-115 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
   echo "Found $CHECKOUT_TRACES traces from checkout-service"
-
-  # Commented out traffic generator trace check
-  # if [ "$TRAFFIC_GEN_TRACES" -gt "0" ]; then
-  #   echo "✅ Found traces from traffic-generator"
-  # else
-  #   echo "❌ No traces found from traffic-generator"
-  #   exit 1
-  # fi
 
   if [ "$CHECKOUT_TRACES" -gt "0" ]; then
     echo "✅ Found traces from checkout-service"

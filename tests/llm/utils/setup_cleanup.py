@@ -116,6 +116,10 @@ def run_all_test_commands(
                         f"⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
                     )
 
+                    # Display truncated error details including pod diagnostics
+                    truncated_error = format_error_output(result.error_details)
+                    log(f"\n{truncated_error}")
+
                     # Show the exact command that timed out
                     # truncated_error = format_error_output(result.error_details)
                     # log(textwrap.indent(truncated_error, "   "))
@@ -224,12 +228,14 @@ def extract_llm_test_cases(session) -> List[HolmesTestCase]:
             and "test_case" in item.callspec.params
         ):
             test_case = item.callspec.params["test_case"]
+            # Use base_id if present (for parameterized tests), otherwise use id
+            dedup_id = getattr(test_case, "base_id", None) or test_case.id
             if (
                 isinstance(test_case, HolmesTestCase)
-                and test_case.id not in seen_ids
+                and dedup_id not in seen_ids
                 and not test_case.skip  # Don't include skipped tests
             ):
                 test_cases.append(test_case)
-                seen_ids.add(test_case.id)
+                seen_ids.add(dedup_id)
 
     return test_cases
