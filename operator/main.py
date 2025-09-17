@@ -99,6 +99,10 @@ class HolmesCheckOperator:
             "destinations": spec.get("destinations", []),
         }
 
+        # Include model if specified
+        if spec.get("model"):
+            check_request["model"] = spec["model"]
+
         try:
             # Call Holmes API
             response = requests.post(
@@ -160,6 +164,7 @@ class HolmesCheckOperator:
         namespace: str,
         phase: str,
         result: Optional[Dict[str, Any]] = None,
+        spec: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Update the HealthCheck CRD status.
@@ -169,6 +174,7 @@ class HolmesCheckOperator:
             namespace: Namespace of the HealthCheck resource
             phase: Current phase (Pending, Running, Completed)
             result: Execution result from API (optional)
+            spec: Resource spec for extracting query (optional)
         """
         try:
             # Load k8s config
@@ -185,6 +191,14 @@ class HolmesCheckOperator:
                 "phase": phase,
             }
 
+            # Add shortQuery for display if we have the spec
+            if spec:
+                query = spec.get("query", "")
+                if len(query) > 30:
+                    status["shortQuery"] = query[:27] + "..."
+                else:
+                    status["shortQuery"] = query
+
             if phase == "Running":
                 status["startTime"] = now
             elif phase == "Completed" and result:
@@ -192,7 +206,16 @@ class HolmesCheckOperator:
                 status["result"] = result.get("status", "unknown")
                 status["message"] = result.get("message", "")
                 status["rationale"] = result.get("rationale", "")
-                status["duration"] = result.get("duration", 0)
+                # Round duration to 1 decimal place for cleaner display
+                duration = result.get("duration", 0)
+                status["duration"] = round(duration, 1) if duration else 0
+
+                # Create short summary for display (first 30 chars of message)
+                msg = result.get("message", "")
+                if len(msg) > 30:
+                    status["shortMessage"] = msg[:27] + "..."
+                else:
+                    status["shortMessage"] = msg
 
                 # Update conditions
                 status["conditions"] = [
@@ -258,12 +281,14 @@ class HolmesCheckOperator:
                 history = []
 
             # Add new result to history (keep last 10)
+            # Round duration to 1 decimal place for cleaner display
+            duration = result.get("duration", 0)
             history.insert(
                 0,
                 {
                     "executionTime": datetime.utcnow().isoformat() + "Z",
                     "result": result.get("status", "unknown"),
-                    "duration": result.get("duration", 0),
+                    "duration": round(duration, 1) if duration else 0,
                     "checkName": check_name,
                 },
             )
@@ -716,13 +741,13 @@ def handle_healthcheck_create(
     # Execute the check with status updates
     try:
         # Update status to Running
-        operator.update_healthcheck_status(name, namespace, "Running")
+        operator.update_healthcheck_status(name, namespace, "Running", spec=spec)
 
         # Execute the check
         result = operator.execute_check(name, namespace, spec, is_one_time=True)
 
         # Update status to Completed with results
-        operator.update_healthcheck_status(name, namespace, "Completed", result)
+        operator.update_healthcheck_status(name, namespace, "Completed", result, spec)
     except Exception as e:
         # If anything fails, ensure we update status to reflect the error
         logger.error(f"Error during HealthCheck execution for {namespace}/{name}: {e}")
@@ -731,7 +756,9 @@ def handle_healthcheck_create(
             "message": f"Check execution failed: {str(e)}",
             "error": str(e),
         }
-        operator.update_healthcheck_status(name, namespace, "Completed", error_result)
+        operator.update_healthcheck_status(
+            name, namespace, "Completed", error_result, spec
+        )
 
     # If this was created by a ScheduledHealthCheck, update its status
     scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
@@ -748,15 +775,18 @@ def handle_healthcheck_create(
     "holmes.robusta.dev",
     "v1alpha1",
     "healthchecks",
-    annotations={"holmes.robusta.dev/run-now": kopf.PRESENT},
+    annotations={"holmes.robusta.dev/rerun": kopf.PRESENT},
 )
-def rerun_healthcheck(name: str, namespace: str, spec: Dict, labels: Dict, **kwargs):
+def rerun_healthcheck_on_annotation(
+    name: str, namespace: str, spec: Dict, labels: Dict, **kwargs
+):
     """
-    Re-run a HealthCheck when the run-now annotation is added.
+    Re-run a HealthCheck when the rerun annotation is added.
 
-    This allows re-executing a completed HealthCheck for testing or troubleshooting.
+    This allows re-executing a check by running:
+    kubectl annotate healthcheck <name> holmes.robusta.dev/rerun=true --overwrite
     """
-    logger.info(f"Re-running HealthCheck: {namespace}/{name}")
+    logger.info(f"Re-running HealthCheck due to rerun annotation: {namespace}/{name}")
 
     # Remove the annotation first to prevent re-runs if execution fails
     try:
@@ -767,23 +797,21 @@ def rerun_healthcheck(name: str, namespace: str, spec: Dict, labels: Dict, **kwa
             namespace=namespace,
             plural="healthchecks",
             name=name,
-            body={"metadata": {"annotations": {"holmes.robusta.dev/run-now": None}}},
+            body={"metadata": {"annotations": {"holmes.robusta.dev/rerun": None}}},
         )
     except Exception as e:
-        logger.error(
-            f"Failed to remove run-now annotation from {namespace}/{name}: {e}"
-        )
+        logger.error(f"Failed to remove rerun annotation from {namespace}/{name}: {e}")
 
     # Execute the check with status updates
     try:
         # Update status to Running
-        operator.update_healthcheck_status(name, namespace, "Running")
+        operator.update_healthcheck_status(name, namespace, "Running", spec=spec)
 
         # Execute the check
         result = operator.execute_check(name, namespace, spec, is_one_time=True)
 
         # Update status to Completed with results
-        operator.update_healthcheck_status(name, namespace, "Completed", result)
+        operator.update_healthcheck_status(name, namespace, "Completed", result, spec)
     except Exception as e:
         # If anything fails, ensure we update status to reflect the error
         logger.error(f"Error during HealthCheck re-run for {namespace}/{name}: {e}")
@@ -792,13 +820,18 @@ def rerun_healthcheck(name: str, namespace: str, spec: Dict, labels: Dict, **kwa
             "message": f"Check execution failed: {str(e)}",
             "error": str(e),
         }
-        operator.update_healthcheck_status(name, namespace, "Completed", error_result)
+        operator.update_healthcheck_status(
+            name, namespace, "Completed", error_result, spec
+        )
+        result = error_result
 
     # If this was created by a ScheduledHealthCheck, update its status
     scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
     if scheduled_by:
-        # Note: Don't update scheduled status on re-runs to avoid duplicate history
-        pass
+        # Update the scheduled check's status with result
+        operator.update_scheduled_status(scheduled_by, namespace, result, name)
+        # Remove from active list
+        operator.remove_active_check(scheduled_by, namespace, name)
 
 
 # ============================================================================

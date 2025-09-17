@@ -59,6 +59,9 @@ spec:
                         config:
                           type: object
                           x-kubernetes-preserve-unknown-fields: true
+                  model:
+                    type: string
+                    description: "LLM model to use for this check (e.g., gpt-4.1, claude-sonnet-4-20250514)"
               enabled:
                 type: boolean
                 description: "Enable or disable scheduled execution"

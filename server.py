@@ -374,6 +374,7 @@ class CheckExecutionRequest(BaseModel):
     timeout: int = 30
     mode: str = "monitor"
     destinations: list[dict] = []
+    model: Optional[str] = None
 
 
 class CheckExecutionResponse(BaseModel):
@@ -400,8 +401,8 @@ def execute_health_check(
     try:
         from holmes.checks import Check, CheckMode, execute_check
 
-        # Create the AI instance
-        ai = config.create_toolcalling_llm(dal=dal, model=None)
+        # Create the AI instance with the requested model (if specified)
+        ai = config.create_toolcalling_llm(dal=dal, model=request.model)
 
         # Create Check object from request
         # Extract destination names from list of dicts if needed
@@ -431,6 +432,69 @@ def execute_health_check(
             verbose=False,
             console=None,
         )
+
+        # Send alerts if check failed and has destinations configured
+        if result.status.value == "fail" and request.destinations:
+            try:
+                # Import here to avoid circular dependencies
+                from holmes.core.issue import Issue, IssueStatus
+                from holmes.core.tool_calling_llm import LLMResult
+
+                # Create an Issue object for the failed check
+                issue = Issue(
+                    id=f"healthcheck-{x_check_name or 'api-check'}-{int(time.time())}",
+                    name=f"Health Check Failed: {x_check_name or 'api-check'}",
+                    source_instance_id=config.cluster_name or "unknown",
+                    source_type="HealthCheck",
+                    presentation_status=IssueStatus.OPEN,
+                    presentation_key_metadata=f"*Check:* `{x_check_name}`\n*Query:* {request.query}",
+                    show_status_in_title=False,  # Don't append " - open" to the title
+                )
+
+                # Create LLM result for the destination
+                llm_result = LLMResult(
+                    result=result.rationale or result.message,
+                    tool_calls=[],
+                    messages=[],
+                )
+
+                # Send to configured destinations
+                for dest in request.destinations:
+                    if isinstance(dest, dict):
+                        dest_type = dest.get("type", "").lower()
+                        dest_config = dest.get("config", {})
+                    else:
+                        dest_type = dest.lower()
+                        dest_config = {}
+
+                    if dest_type == "slack":
+                        # Check if SLACK_TOKEN is configured
+                        slack_token = os.environ.get("SLACK_TOKEN")
+                        if slack_token:
+                            from holmes.plugins.destinations.slack.plugin import (
+                                SlackDestination,
+                            )
+
+                            # Use channel from destination config or fallback to env var
+                            slack_channel = dest_config.get(
+                                "channel"
+                            ) or os.environ.get("SLACK_CHANNEL", "#alerts")
+                            slack_dest = SlackDestination(
+                                token=slack_token, channel=slack_channel
+                            )
+                            slack_dest.send_issue(issue, llm_result)
+                            logging.info(
+                                f"Sent Slack notification to {slack_channel} for check {x_check_name}"
+                            )
+                        else:
+                            logging.warning(
+                                "SLACK_TOKEN not configured, skipping Slack notification"
+                            )
+                    # Add other destination types here (pagerduty, etc.) as needed
+
+            except Exception as e:
+                logging.error(f"Failed to send alert notification: {e}", exc_info=True)
+                # Don't fail the whole request if notification fails
 
         # Return the result
         return CheckExecutionResponse(

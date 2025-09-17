@@ -57,12 +57,36 @@ toolsets:
   internet:
     enabled: true
 
+# Model configuration - specify available LLM models
+modelList:
+  openai-gpt4o:
+    model: gpt-4o
+    # API key will be taken from OPENAI_API_KEY env var
+  # You can add more models here:
+  # anthropic-claude:
+  #   model: anthropic/claude-3-5-sonnet-20241022
+  #   # API key will be taken from ANTHROPIC_API_KEY env var
+
 # Add environment variables for local development
 additionalEnvVars:
   - name: PYTHONDONTWRITEBYTECODE
     value: "1"
   - name: PYTHONUNBUFFERED
     value: "1"
+  # Cluster configuration
+  - name: CLUSTER_NAME
+    value: "local-dev-cluster"
+  # Disable ROBUSTA_AI to use OpenAI/Anthropic instead
+  - name: ROBUSTA_AI
+    value: "false"
+  # Model selection - use OpenAI by default, or set to anthropic/claude-3-5-sonnet-20241022
+  - name: MODEL
+    value: "gpt-4.1"
+  # Disable LiteLLM debug logging and proxy features
+  - name: LITELLM_LOG
+    value: "ERROR"
+  - name: LITELLM_TELEMETRY
+    value: "False"
   # Add your API keys here for local testing
   # - name: OPENAI_API_KEY
   #   value: "your-key-here"

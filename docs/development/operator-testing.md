@@ -2,6 +2,15 @@
 
 This guide covers building, testing, and developing the Holmes Operator for Kubernetes health checks.
 
+## Prerequisites
+
+1. **Kubernetes cluster** - minikube, kind, Docker Desktop, or any K8s cluster
+2. **Skaffold** - Install with `brew install skaffold` (macOS) or from [skaffold.dev](https://skaffold.dev)
+3. **API key** - OpenAI or Anthropic API key set as environment variable
+4. **Container registry** - Access to a registry like docker.io/yourusername or ghcr.io/yourusername
+
+Note: The skaffold.yaml is configured to build linux/amd64 images by default (required for most Kubernetes clusters) regardless of your host machine's architecture.
+
 ## Quick Start
 
 There are two ways to provide API keys for local development:
@@ -11,20 +20,28 @@ There are two ways to provide API keys for local development:
 # Export your API key locally
 export OPENAI_API_KEY="sk-..."  # or ANTHROPIC_API_KEY
 
-# Skaffold will inject it into containers using setValueTemplates
+# Run Skaffold - it will automatically inject your API key into containers
+# using setValueTemplates defined in the dev profile (see skaffold.yaml)
 skaffold dev --default-repo=<your-registry>
+
+# To reduce log verbosity (default can be too verbose), use INFO level
+skaffold dev --default-repo=<your-registry> --verbosity=info
 
 # To install in a different namespace (default is holmes-operator)
 skaffold dev --default-repo=<your-registry> --namespace=my-namespace
 
 # If you get CRD conflicts from previous installations:
 # CRDs are cluster-scoped and retain Helm ownership metadata
-kubectl delete crd healthchecks.holmes.robusta.dev
-kubectl delete crd scheduledhealthchecks.holmes.robusta.dev
+kubectl delete crd healthchecks.holmes.robusta.dev scheduledhealthchecks.holmes.robusta.dev
+
+# If deletion hangs due to finalizers (existing resources blocking deletion):
+kubectl patch crd healthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
+kubectl patch crd scheduledhealthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
 
 ```
 
 ### Method 2: Local Values File
+
 ```bash
 # Create a local values file (already gitignored)
 cp helm/holmes/values.local.yaml.example helm/holmes/values.local.yaml
@@ -37,35 +54,26 @@ skaffold dev --default-repo=<your-registry> \
   --helm-set-file helm.releases[0].valuesFiles[1]=helm/holmes/values.local.yaml
 ```
 
-Note: You'll likely need to override the default registry as you won't have access to it
-Examples: docker.io/yourusername or ghcr.io/yourusername
+**What Skaffold does:**
 
-# Skaffold will:
-# 1. Build and push Docker images to your registry
-# 2. Deploy to your Kubernetes cluster
-# 3. Automatically set up port-forwarding from cluster services to localhost
-# 4. Stream logs and watch for code changes (hot reload in dev mode)
+1. Build and push Docker images to your registry
+2. Deploy to your Kubernetes cluster
+3. Automatically set up port-forwarding from cluster services to localhost
+4. Stream logs and watch for code changes (hot reload in dev mode)
 
-# After deployment, you can access services locally via Skaffold's port-forwarding:
-# - API: http://localhost:9090 (forwards to holmes-holmes-api service port 8080 in cluster)
-# - Operator metrics: http://localhost:9091 (forwards to holmes-holmes-operator deployment port 8080)
-# - Test health checks are deployed automatically in holmes-system namespace
-```
+After deployment, you can access services locally via Skaffold's port-forwarding:
 
-## Prerequisites
-
-1. **Kubernetes cluster** - minikube, kind, Docker Desktop, or any K8s cluster
-2. **Skaffold** - Install with `brew install skaffold` (macOS) or from [skaffold.dev](https://skaffold.dev)
-3. **API key** - OpenAI or Anthropic API key set as environment variable
-
-Note: The skaffold.yaml is configured to build linux/amd64 images by default (required for most Kubernetes clusters) regardless of your host machine's architecture. This may be slower on ARM machines due to emulation.
+- API: http://localhost:9090
+- Operator metrics: http://localhost:9091
 
 ## Development Workflow
 
 ```bash
 # Start development mode with hot reload
-# Note: Override the default registry if you don't have access to it
 skaffold dev --default-repo=<your-registry>
+
+# With reduced log verbosity for cleaner output
+skaffold dev --default-repo=<your-registry> --verbosity=info
 ```
 
 **Running Operator Locally**
@@ -76,114 +84,182 @@ For debugging or development without containers:
 # Install dependencies
 pip install -r operator/requirements.txt
 
-# Deploy Holmes API only (skip operator)
+# Deploy only the Holmes API service without the operator deployment
+# This allows you to run the operator locally for debugging
 SKIP_OPERATOR=true skaffold run
 
-# Run operator locally
+# Run operator locally against the deployed API
 HOLMES_API_URL=http://localhost:9090 \
   poetry run kopf run -A --standalone operator/main.py
 ```
 
 ## Testing the Operator
 
-**Deploy Test Resources**
+This section walks through progressively more advanced operator functionality.
+
+### 1. Basic Health Check
+
+Start with a simple one-time health check that executes immediately when created:
 
 ```bash
-# Deploy test resources as needed for testing
+# Create a namespace for testing
+kubectl create namespace test-app
 
-# Option 1: Deploy everything at once
-kubectl apply -f operator/test/test-deployment.yaml     # Sample nginx app
-kubectl apply -f operator/test/test-healthchecks.yaml   # Sample health checks
-kubectl apply -f operator/test/test-scheduled-healthchecks.yaml
-
-# Option 2: Deploy only what you need
-# Just the test app:
-kubectl apply -f operator/test/test-deployment.yaml
-
-# Just a basic health check:
-kubectl apply -f operator/test/test-healthchecks.yaml
-
-# Clean up when done
-kubectl delete -f operator/test/test-healthchecks.yaml
-kubectl delete -f operator/test/test-scheduled-healthchecks.yaml
-kubectl delete -f operator/test/test-deployment.yaml
-```
-
-**Basic Testing**
-
-```bash
-# View deployed health checks
-kubectl get healthchecks -n holmes-system
-kubectl get scheduledhealthchecks -n holmes-system
-
-# Watch check execution
-kubectl get healthcheck -n holmes-system -w
-
-# View detailed status
-kubectl describe healthcheck quick-nginx-check -n holmes-system
-```
-
-**Testing Specific Scenarios**
-
-```bash
-# Test invalid cron schedule handling
-kubectl apply -f - <<EOF
-apiVersion: holmes.robusta.dev/v1alpha1
-kind: ScheduledHealthCheck
-metadata:
-  name: bad-schedule-test
-  namespace: holmes-system
-spec:
-  schedule: "INVALID_CRON"
-  checkSpec:
-    query: "Test query"
-    timeout: 30
-    mode: monitor
-  enabled: true
-EOF
-
-# Check error is handled gracefully
-kubectl get scheduledhealthcheck bad-schedule-test -n holmes-system -o yaml
-
-# Test immediate execution
-kubectl annotate healthcheck quick-nginx-check -n holmes-system \
-  holmes.robusta.dev/run-now="$(date +%s)" --overwrite
-
-# Test scheduled check immediate execution
-kubectl annotate scheduledhealthcheck frequent-test-schedule -n holmes-system \
-  holmes.robusta.dev/run-now="$(date +%s)" --overwrite
-```
-
-**Testing Alert Destinations**
-
-```bash
-# Note: Slack integration requires SLACK_TOKEN environment variable
-# For testing, add to helm/holmes/values.local.yaml:
-# additionalEnvVars:
-#   - name: SLACK_TOKEN
-#     value: "xoxb-your-slack-token"
-
-# Create check with Slack alerts
+# Apply a basic health check
 kubectl apply -f - <<EOF
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
-  name: alert-test
-  namespace: holmes-system
+  name: pod-health-check
+  namespace: test-app
 spec:
-  query: "Are there any pods in CrashLoopBackOff state?"
+  query: "Are all pods in namespace test-app healthy and running?"
   timeout: 30
-  mode: alert
+  mode: monitor
+  model: gpt-4.1  # Optional: specify the LLM model to use
+EOF
+
+# Watch the check execute (it runs immediately upon creation)
+kubectl get healthcheck pod-health-check -n test-app -w
+
+# View the results
+kubectl get healthcheck -n test-app
+# NAME               RESULT   DURATION   QUERY                           MESSAGE                        AGE
+# pod-health-check   pass     5.2        Are all pods in namespace te... Check passed. All pods are... 10s
+
+# View with wide output to see model
+kubectl get healthcheck -n test-app -o wide
+# NAME               RESULT   DURATION   QUERY                           MESSAGE                        MODEL     AGE
+# pod-health-check   pass     5.2        Are all pods in namespace te... Check passed. All pods are... gpt-4.1   10s
+
+# See detailed status
+kubectl describe healthcheck pod-health-check -n test-app
+```
+
+### 2. Re-running Checks
+
+You can re-run an existing check using an annotation:
+
+```bash
+# Re-run the check
+kubectl annotate healthcheck pod-health-check -n test-app \
+  holmes.robusta.dev/rerun=true --overwrite
+
+# Watch it execute again
+kubectl get healthcheck pod-health-check -n test-app -w
+
+# The annotation is automatically removed after execution
+kubectl get healthcheck pod-health-check -n test-app -o yaml | grep rerun
+# (should show nothing - annotation was cleaned up)
+```
+
+### 3. Slack Integration
+
+For checks that fail, you can send alerts to Slack:
+
+```bash
+# First, deploy a broken app that will trigger a failure
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-app
+  namespace: test-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: broken-app
+  template:
+    metadata:
+      labels:
+        app: broken-app
+    spec:
+      containers:
+      - name: app
+        image: busybox
+        command: ["sh", "-c", "exit 1"]  # Always fails
+EOF
+
+# Create a check with Slack alerting
+# Note: Requires SLACK_TOKEN configured in Holmes deployment
+kubectl apply -f - <<EOF
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: crashloop-alert
+  namespace: test-app
+spec:
+  query: "Check if there are any pods in CrashLoopBackOff state in namespace test-app. If any are found, this check should FAIL."
+  timeout: 30
+  mode: alert  # Alert mode sends notifications
   destinations:
     - type: slack
       config:
-        channel: "#alerts"
-        # Note: slack_token must be configured in Holmes deployment
-        # The token is not specified per-check for security reasons
+        channel: "#alerts"  # Override default channel if needed
 EOF
 
-# Watch execution and alert sending
-kubectl logs -l app=holmes-operator -n holmes-system -f
+# The check will execute, fail, and send a Slack notification
+kubectl get healthcheck crashloop-alert -n test-app
+# NAME              RESULT   DURATION(S)   QUERY                           MESSAGE
+# crashloop-alert   fail     3.8           Check if there are any pods... Check failed. There are 1...
+
+# View operator logs to confirm Slack notification was sent
+kubectl logs -l app=holmes-operator -n holmes-operator | grep -i slack
+# Should show: "Sent Slack notification to #alerts for check test-app/crashloop-alert"
+```
+
+### 4. Scheduled Health Checks
+
+For recurring checks on a schedule:
+
+```bash
+# Create a scheduled check that runs every 5 minutes
+kubectl apply -f - <<EOF
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: ScheduledHealthCheck
+metadata:
+  name: periodic-health-check
+  namespace: test-app
+spec:
+  schedule: "*/5 * * * *"  # Cron format: every 5 minutes
+  enabled: true
+  checkSpec:
+    query: "Check the overall health of namespace test-app. Report any issues with pods, services, or deployments."
+    timeout: 60
+    mode: monitor
+EOF
+
+# View the scheduled check
+kubectl get scheduledhealthcheck -n test-app
+# NAME                    SCHEDULE       ENABLED   LAST RUN   LAST RESULT
+# periodic-health-check   */5 * * * *    true      <none>     <none>
+
+# Force an immediate run (for testing)
+kubectl annotate scheduledhealthcheck periodic-health-check -n test-app \
+  holmes.robusta.dev/run-now="$(date +%s)" --overwrite
+
+# This creates a new HealthCheck resource
+kubectl get healthcheck -n test-app
+# You'll see a new check with a generated name like:
+# periodic-health-check-20250117-181500-abc123
+
+# View execution history
+kubectl describe scheduledhealthcheck periodic-health-check -n test-app
+# Shows last 10 executions with results and duration
+
+# Disable the scheduled check
+kubectl patch scheduledhealthcheck periodic-health-check -n test-app \
+  --type=merge -p '{"spec":{"enabled":false}}'
+```
+
+### 5. Cleanup
+
+```bash
+# Delete test resources
+kubectl delete namespace test-app
+
+# This automatically deletes all health checks and scheduled checks in that namespace
 ```
 
 ## Building and Deployment
@@ -222,17 +298,29 @@ Running `skaffold dev` deploys:
 
 ## Configuration
 
-**Environment Variables**
+### Environment Variables
+
+The operator and API require the following environment variables:
 
 ```bash
-# Operator configuration (set in container)
-HOLMES_API_URL=http://holmes-api:8080  # API endpoint
-LOG_LEVEL=INFO                         # Logging level
+# Required: API keys (choose one)
+export OPENAI_API_KEY="sk-..."     # For OpenAI models
+export ANTHROPIC_API_KEY="sk-..."  # For Anthropic models
 
-# API keys are passed to containers via one of these methods:
-# Method 1: Export locally, Skaffold injects via setValueTemplates (see skaffold.yaml dev profile)
-# Method 2: Create helm/holmes/values.local.yaml with your keys (gitignored)
+# Optional: Operator configuration
+HOLMES_API_URL=http://holmes-api:8080  # API endpoint (auto-configured in cluster)
+LOG_LEVEL=INFO                         # Logging level
 ```
+
+### How API Keys are Injected
+
+When using `skaffold dev`, your local environment variables are automatically injected into containers using Skaffold's `setValueTemplates` feature. This is configured in the `dev` profile of `skaffold.yaml`:
+
+- Skaffold reads your local `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
+- It passes these as Helm values during deployment
+- The Helm chart creates Kubernetes secrets and mounts them in pods
+
+Alternatively, you can use a local values file (see Method 2 in Quick Start) for more complex configurations.
 
 
 ## Monitoring and Debugging
@@ -247,7 +335,7 @@ skaffold logs -f
 skaffold logs -f -d holmes-holmes-operator
 
 # Direct kubectl logs
-kubectl logs -l app=holmes-operator -n holmes-system -f
+kubectl logs -l app=holmes-operator -n test-app -f
 ```
 
 **Check Metrics**
@@ -262,21 +350,6 @@ curl http://localhost:9091/metrics
 # - holmes_checks_failed_total
 # - holmes_check_duration_seconds
 ```
-
-**Common Issues**
-
-**Pods not starting:**
-```bash
-kubectl get pods -n holmes-system
-kubectl get events -n holmes-system --sort-by='.lastTimestamp'
-```
-
-**CRD not found:**
-```bash
-kubectl get crd healthchecks.holmes.robusta.dev
-kubectl get crd scheduledhealthchecks.holmes.robusta.dev
-```
-
 
 ## Advanced Usage
 
@@ -294,42 +367,8 @@ curl -X POST http://localhost:9090/api/check/execute \
   }'
 ```
 
-**Manual CRD Operations**
-
-```bash
-# Enable/disable scheduled check
-kubectl patch scheduledhealthcheck frequent-test-schedule -n holmes-system \
-  --type='merge' -p '{"spec":{"enabled":false}}'
-
-# Delete all health checks
-kubectl delete healthchecks --all -n holmes-system
-kubectl delete scheduledhealthchecks --all -n holmes-system
-```
-
 ## Next Steps
 
 - [Operator Architecture](../reference/operator-architecture.md) - Technical deep dive
 - [Health Checks Guide](../walkthrough/operator-health-checks.md) - Using health checks
 - [API Reference](../reference/http-api.md) - Check execution endpoint details
-
-## Helm Deployment (Production)
-
-For production deployments using pre-built images:
-
-```bash
-# Install with Helm
-helm install holmes robusta/holmes \
-  --namespace holmes-system \
-  --create-namespace \
-  --set operator.enabled=true \
-  --set additionalEnvVars[0].name=OPENAI_API_KEY \
-  --set additionalEnvVars[0].value="sk-your-key-here"
-
-# Deploy test resources
-kubectl apply -f operator/test/test-healthchecks.yaml
-kubectl apply -f operator/test/test-scheduled-healthchecks.yaml
-
-# Verify installation
-kubectl get pods -n holmes-system
-kubectl get healthcheck -n holmes-system -w
-```

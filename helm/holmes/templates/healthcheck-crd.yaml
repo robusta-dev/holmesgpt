@@ -48,6 +48,9 @@ spec:
                     config:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+              model:
+                type: string
+                description: "LLM model to use for this check (e.g., gpt-4.1, claude-sonnet-4-20250514)"
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true
@@ -103,23 +106,27 @@ spec:
     subresources:
       status: {}
     additionalPrinterColumns:
-    - name: Query
-      type: string
-      description: "Health check query"
-      jsonPath: .spec.query
-      priority: 1
-    - name: Phase
-      type: string
-      description: "Current phase"
-      jsonPath: .status.phase
     - name: Result
       type: string
       description: "Execution result"
       jsonPath: .status.result
     - name: Duration
       type: number
-      description: "Execution duration"
+      description: "Execution duration in seconds"
       jsonPath: .status.duration
+    - name: Query
+      type: string
+      description: "Health check query (short)"
+      jsonPath: .status.shortQuery
+    - name: Message
+      type: string
+      description: "Result message (short)"
+      jsonPath: .status.shortMessage
+    - name: Model
+      type: string
+      description: "LLM model used"
+      jsonPath: .spec.model
+      priority: 0
     - name: Age
       type: date
       jsonPath: .metadata.creationTimestamp
