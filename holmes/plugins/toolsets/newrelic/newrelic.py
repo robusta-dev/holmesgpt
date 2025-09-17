@@ -192,8 +192,8 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         ends = [
             r.get(end_key) for r in records if isinstance(r.get(end_key), (int, float))
         ]
-        start_ts = min(begins) if begins else (min(ends) if ends else None)
-        end_ts = max(ends) if ends else (max(begins) if begins else None)
+        start_ts = min(begins) if begins else (min(ends) if ends else None)  # type: ignore
+        end_ts = max(ends) if ends else (max(begins) if begins else None)  # type: ignore
 
         # Step: use the most common (end - begin) delta if available; else infer from consecutive buckets; else 60
         deltas = [
@@ -207,7 +207,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             step = max(set(deltas), key=deltas.count)
         else:
             # Try to infer from sorted end timestamps
-            sorted_ends = sorted([int(e) for e in ends]) if ends else []
+            sorted_ends = sorted([int(e) for e in ends]) if ends else []  # type: ignore
             consec = [b - a for a, b in zip(sorted_ends, sorted_ends[1:])]
             step = max(set(consec), key=consec.count) if consec else 60
 
@@ -386,7 +386,7 @@ class NewRelicToolset(Toolset):
             description="Toolset for interacting with New Relic to fetch logs, traces, and execute freeform NRQL queries",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/newrelic/",
             icon_url="https://companieslogo.com/img/orig/NEWR-de5fcb2e.png?t=1720244493",
-            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],  # type: ignore
             tools=[
                 ExecuteNRQLQuery(self),
             ],
