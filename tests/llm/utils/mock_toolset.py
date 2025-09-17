@@ -412,6 +412,7 @@ class MockableToolWrapper(Tool):
 
     def _call_mock_invoke(self, params: Dict):
         # Mock mode: read from mock file
+        print("_call_mock_invoke")
         mock = self._file_manager.read_mock(self.name, params)
         if not mock:
             # Check if there are any mock files for this tool that might be in old format
