@@ -57,22 +57,20 @@ class TodoWriteTool(Tool):
         content_width = max(max_content_width, len("Content"))
         status_width = max(max_status_display_width, len("Status"))
 
-        # Build table
         separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"
         header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} |"
-
-        # Log the table
-        logging.info("Updated Investigation Tasks:")
-        logging.info(separator)
-        logging.info(header)
-        logging.info(separator)
+        tasks_to_display = []
 
         for task in tasks:
             status_display = f"{status_icons[task.status.value]} {task.status.value}"
             row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} |"
-            logging.info(row)
+            tasks_to_display.append(row)
 
-        logging.info(separator)
+        logging.info(
+            f"Task List:\n{separator}\n{header}\n{separator}\n"
+            + "\n".join(tasks_to_display)
+            + f"\n{separator}"
+        )
 
     def _invoke(
         self, params: dict, user_approved: bool = False
@@ -91,7 +89,7 @@ class TodoWriteTool(Tool):
                     )
                     tasks.append(task)
 
-            logging.info(f"Tasks: {len(tasks)}")
+            logging.debug(f"Tasks: {len(tasks)}")
 
             self.print_tasks_table(tasks)
             formatted_tasks = format_tasks(tasks)
@@ -117,8 +115,7 @@ class TodoWriteTool(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        todos = params.get("todos", [])
-        return f"Write {todos} investigation tasks"
+        return "Update investigation tasks"
 
 
 class CoreInvestigationToolset(Toolset):
