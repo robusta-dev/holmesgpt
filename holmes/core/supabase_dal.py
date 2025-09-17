@@ -30,7 +30,9 @@ from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
 )
-from holmes.core.truncation.dal_truncation_utils import truncate_evidences_entities_if_necessary, truncate_string
+from holmes.core.truncation.dal_truncation_utils import (
+    truncate_evidences_entities_if_necessary,
+)
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
@@ -48,6 +50,7 @@ SCANS_META_TABLE = "ScansMeta"
 SCANS_RESULTS_TABLE = "ScansResults"
 
 ENRICHMENT_BLACKLIST = {"text_file", "graph", "ai_analysis", "holmes"}
+
 
 class RobustaToken(BaseModel):
     store_url: str
@@ -269,7 +272,7 @@ class SupabaseDal:
             )
             if not len(change_data_response.data):
                 return None
-            
+
             truncate_evidences_entities_if_necessary(change_data_response.data)
 
         except Exception:
@@ -366,7 +369,7 @@ class SupabaseDal:
                 # This issue will have the complete alert duration information
                 issue_data = self.get_issue_from_db(issue_id, GROUPED_ISSUES_TABLE)
 
-        except Exception as e:  # e.g. invalid id format
+        except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
             return None
         if not issue_data:
