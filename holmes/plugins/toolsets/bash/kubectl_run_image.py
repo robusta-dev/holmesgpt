@@ -188,7 +188,7 @@ class KubectlRunImageToolset(BaseKubectlRunImageToolset):
                 "WARNING: This toolset can create pods in your cluster and should be "
                 "configured with appropriate image and command restrictions."
             ),
-            docs_url="",  # TODO: Add relevant documentation URL
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kubectl-run-image/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Kubernetes_logo_without_workmark.svg/120px-Kubernetes_logo_without_workmark.svg.png",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[KubectlRunImageCommand(self)],

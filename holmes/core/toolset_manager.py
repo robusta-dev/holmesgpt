@@ -107,18 +107,10 @@ class ToolsetManager:
                     toolsets_from_config,
                     toolsets_by_name,
                 )
-        print("****************** toolset_manager._list_all_toolsets 1.2")
-        for _, toolset in toolsets_by_name.items():
-            print(f"toolset={toolset.name} enabled={toolset.enabled}")
 
         # custom toolset should not override built-in toolsets
         # to test the new change of built-in toolset, we should make code change and re-compile the program
         custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
-        print(
-            "****************** toolset_manager._list_all_toolsets              custom_toolsets"
-        )
-        for toolset in custom_toolsets:
-            print(f"toolset={toolset.name} enabled={toolset.enabled}")
         self.add_or_merge_onto_toolsets(
             custom_toolsets,
             toolsets_by_name,
@@ -363,10 +355,6 @@ class ToolsetManager:
             logging.debug("No toolsets configured, skipping loading toolsets")
             return []
 
-        print(
-            f"** ** _load_toolsets_from_paths \n\ttoolset_paths={toolset_paths}\n\t{builtin_toolsets_names}"
-        )
-
         loaded_custom_toolsets: List[Toolset] = []
         for toolset_path in toolset_paths:
             if not os.path.isfile(toolset_path):
@@ -381,7 +369,6 @@ class ToolsetManager:
             toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
             mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
 
-            print(f"** ** toolsets_config={toolsets_config}")
             for server_config in mcp_config.values():
                 server_config["type"] = ToolsetType.MCP.value
 

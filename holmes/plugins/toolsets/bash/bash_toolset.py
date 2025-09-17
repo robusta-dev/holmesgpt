@@ -123,7 +123,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
                 "enabled and used with extreme caution due to significant security risks. "
                 "Ensure that only trusted users have access to this tool."
             ),
-            docs_url="",  # TODO: Add relevant documentation URL
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/bash/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[],
             tools=[RunBashCommand(self)],
