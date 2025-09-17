@@ -333,6 +333,13 @@ def chat(chat_request: ChatRequest):
             config=config,
             global_instructions=global_instructions,
         )
+
+        # Process tool decisions if provided
+        if chat_request.tool_decisions:
+            logging.info(
+                f"Processing {len(chat_request.tool_decisions)} tool decisions"
+            )
+            messages = ai.process_tool_decisions(messages, chat_request.tool_decisions)
         follow_up_actions = []
         if not already_answered(chat_request.conversation_history):
             follow_up_actions = [
@@ -359,13 +366,20 @@ def chat(chat_request: ChatRequest):
         if chat_request.stream:
             return StreamingResponse(
                 stream_chat_formatter(
-                    ai.call_stream(msgs=messages),
+                    ai.call_stream(
+                        msgs=messages,
+                        enable_tool_approval=chat_request.enable_tool_approval or False,
+                    ),
                     [f.model_dump() for f in follow_up_actions],
                 ),
                 media_type="text/event-stream",
             )
         else:
             llm_call = ai.messages_call(messages=messages)
+
+            # For non-streaming, we need to handle approvals differently
+            # This is a simplified version - in practice, non-streaming with approvals
+            # would require a different approach or conversion to streaming
             return ChatResponse(
                 analysis=llm_call.result,
                 tool_calls=llm_call.tool_calls,

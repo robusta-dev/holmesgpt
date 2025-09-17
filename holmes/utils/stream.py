@@ -14,6 +14,7 @@ class StreamEvents(str, Enum):
     TOOL_RESULT = "tool_calling_result"
     ERROR = "error"
     AI_MESSAGE = "ai_message"
+    APPROVAL_REQUIRED = "approval_required"
 
 
 class StreamMessage(BaseModel):
@@ -78,14 +79,28 @@ def stream_chat_formatter(
     try:
         for message in call_stream:
             if message.event == StreamEvents.ANSWER_END:
+                response_data = {
+                    "analysis": message.data.get("content"),
+                    "conversation_history": message.data.get("messages"),
+                    "follow_up_actions": followups,
+                    "metadata": message.data.get("metadata") or {},
+                }
+
+                yield create_sse_message(StreamEvents.ANSWER_END.value, response_data)
+            elif message.event == StreamEvents.APPROVAL_REQUIRED:
+                response_data = {
+                    "analysis": message.data.get("content"),
+                    "conversation_history": message.data.get("messages"),
+                    "follow_up_actions": followups,
+                }
+
+                response_data["requires_approval"] = True
+                response_data["pending_approvals"] = message.data.get(
+                    "pending_approvals", []
+                )
+
                 yield create_sse_message(
-                    StreamEvents.ANSWER_END.value,
-                    {
-                        "analysis": message.data.get("content"),
-                        "conversation_history": message.data.get("messages"),
-                        "follow_up_actions": followups,
-                        "metadata": message.data.get("metadata") or {},
-                    },
+                    StreamEvents.APPROVAL_REQUIRED.value, response_data
                 )
             else:
                 yield create_sse_message(message.event.value, message.data)
