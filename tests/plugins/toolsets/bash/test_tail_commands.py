@@ -54,5 +54,5 @@ class TestTailCliSafeCommands:
     )
     def test_safe_tail_commands(self, input_command, expected_output):
         """Test that safe tail commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output

@@ -1,5 +1,5 @@
 import argparse
-from typing import Any, Optional
+from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
@@ -36,9 +36,7 @@ class HelmCommand(BashCommand):
         )
         return helm_parser
 
-    def validate_command(
-        self, command: Any, original_command: str
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         if hasattr(command, "options"):
             validate_command_and_operations(
                 command=command.command,
@@ -47,9 +45,7 @@ class HelmCommand(BashCommand):
                 denied_commands=DENIED_HELM_COMMANDS,
             )
 
-    def stringify_command(
-        self, command: Any, original_command: str
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         """Convert parsed Helm command back to safe command string."""
         # Build command parts
         parts = ["helm", command.command]

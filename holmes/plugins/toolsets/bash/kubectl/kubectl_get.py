@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import argparse
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
@@ -32,14 +32,10 @@ class KubectlGetCommand(BashCommand):
             default=[],  # Default to an empty list
         )
 
-    def validate_command(
-        self, command: Any, original_command: str
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         pass
 
-    def stringify_command(
-        self, command: Any, original_command: str
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         parts = ["kubectl", "get", command.resource_type]
 
         parts += command.options

@@ -1,7 +1,7 @@
 import argparse
 import logging
 import shlex
-from typing import Any, Optional
+from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.kubectl import KubectlCommand
@@ -143,7 +143,7 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
     return commands_list
 
 
-def make_command_safe(command_str: str, config: Optional[Any] = None) -> str:
+def make_command_safe(command_str: str) -> str:
     commands = split_into_separate_commands(command_str)
 
     parsed_commands = []

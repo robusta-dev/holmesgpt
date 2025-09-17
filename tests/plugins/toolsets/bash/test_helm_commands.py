@@ -245,8 +245,7 @@ class TestHelmCliSafeCommands:
     )
     def test_helm_safe_commands(self, input_command: str, expected_output: str):
         """Test that safe Helm commands are parsed and stringified correctly."""
-        config = BashExecutorConfig()
-        output_command = make_command_safe(input_command, config=config)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
 
@@ -380,9 +379,8 @@ class TestHelmCliUnsafeCommands:
         self, command: str, expected_exception: type, partial_error_message_content: str
     ):
         """Test that unsafe Helm commands are properly rejected."""
-        config = BashExecutorConfig()
         with pytest.raises(expected_exception) as exc_info:
-            make_command_safe(command, config=config)
+            make_command_safe(command)
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)

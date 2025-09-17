@@ -111,9 +111,7 @@ class TestIncorrectKubectlCommands:
         """Test that mixing safe and unsafe kubectl commands still raises ArgumentError."""
         # Even if one part is safe (kubectl get), the unsafe kubectl part should cause failure
         with pytest.raises(argparse.ArgumentError):
-            make_command_safe(
-                "kubectl get pods | kubectl apply -f evil.yaml", config=TEST_CONFIG
-            )
+            make_command_safe("kubectl get pods | kubectl apply -f evil.yaml")
 
     def test_empty_command_returns_empty_string(self):
         """Test that empty commands return empty string."""

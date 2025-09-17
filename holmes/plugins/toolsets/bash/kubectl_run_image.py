@@ -9,9 +9,9 @@ import sentry_sdk
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolParameter,
-    ToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -71,7 +71,7 @@ def validate_image_and_commands(
     # Validate commands against allowed patterns
     command_allowed = False
     for allowed_pattern in image_config.allowed_commands:
-        if re.match(allowed_pattern, container_command):
+        if re.fullmatch(allowed_pattern, container_command):
             command_allowed = True
             break
 
@@ -135,7 +135,7 @@ class KubectlRunImageCommand(BaseTool):
 
         if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
                 params=params,
             )
@@ -159,7 +159,7 @@ class KubectlRunImageCommand(BaseTool):
                 }
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )

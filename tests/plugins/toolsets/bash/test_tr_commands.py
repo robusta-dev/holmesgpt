@@ -41,7 +41,7 @@ class TestTrCliSafeCommands:
     )
     def test_safe_tr_commands(self, input_command, expected_output):
         """Test that safe tr commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -50,16 +50,16 @@ class TestTrCliEdgeCases:
 
     def test_tr_with_escape_sequences(self):
         """Test tr with common escape sequences."""
-        result = make_command_safe("tr '\\n' ' '", None)
+        result = make_command_safe("tr '\\n' ' '")
         assert result == "tr '\\n' ' '"
 
-        result = make_command_safe("tr '\\t' ','", None)
+        result = make_command_safe("tr '\\t' ','")
         assert result == "tr '\\t' ,"
 
     def test_tr_with_character_classes(self):
         """Test tr with POSIX character classes."""
-        result = make_command_safe("tr '[:digit:]' '*'", None)
+        result = make_command_safe("tr '[:digit:]' '*'")
         assert result == "tr '[:digit:]' '*'"
 
-        result = make_command_safe("tr '[:space:]' '_'", None)
+        result = make_command_safe("tr '[:space:]' '_'")
         assert result == "tr '[:space:]' _"

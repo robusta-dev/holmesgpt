@@ -314,8 +314,7 @@ class TestAzureCliSafeCommands:
     )
     def test_azure_safe_commands(self, input_command: str, expected_output: str):
         """Test that safe Azure commands are parsed and stringified correctly."""
-        config = BashExecutorConfig()
-        output_command = make_command_safe(input_command, config=config)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
 
@@ -566,9 +565,8 @@ class TestAzureCliUnsafeCommands:
         self, command: str, expected_exception: type, partial_error_message_content: str
     ):
         """Test that unsafe Azure commands are properly rejected."""
-        config = BashExecutorConfig()
         with pytest.raises(expected_exception) as exc_info:
-            make_command_safe(command, config=config)
+            make_command_safe(command)
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)
@@ -579,46 +577,37 @@ class TestAzureCliEdgeCases:
 
     def test_azure_with_grep_combination(self):
         """Test Azure commands combined with grep."""
-        config = BashExecutorConfig()
-
         # Valid combination
-        result = make_command_safe("az vm list | grep running", config=config)
+        result = make_command_safe("az vm list | grep running")
         assert result == "az vm list | grep running"
 
         # Invalid - unsafe Azure command with grep
         with pytest.raises(ValueError):
             make_command_safe(
-                "az vm create --name test --resource-group mygroup | grep success",
-                config=config,
+                "az vm create --name test --resource-group mygroup | grep success"
             )
 
     def test_azure_empty_service_or_operation(self):
         """Test Azure commands with missing service or operation."""
-        config = BashExecutorConfig()
-
         # Missing service should fail at argument parsing level
         with pytest.raises((argparse.ArgumentError, ValueError)):
-            make_command_safe("az", config=config)
+            make_command_safe("az")
 
     def test_azure_help_commands(self):
         """Test Azure help commands are allowed."""
-        config = BashExecutorConfig()
-
         # General help command
-        result = make_command_safe("az help", config=config)
+        result = make_command_safe("az help")
         assert result == "az help"
 
         # Service with help flag
-        result = make_command_safe("az vm list --help", config=config)
+        result = make_command_safe("az vm list --help")
         assert result == "az vm list --help"
 
     def test_azure_complex_valid_parameters(self):
         """Test Azure commands with complex but valid parameters."""
-        config = BashExecutorConfig()
-
         # Complex VM command with multiple filters
         complex_cmd = "az vm list --resource-group mygroup --query '[?powerState==`VM running`].{Name:name, Status:powerState}' --output table"
-        result = make_command_safe(complex_cmd, config=config)
+        result = make_command_safe(complex_cmd)
         assert "az vm list" in result
         assert "--resource-group mygroup" in result
         assert "--query" in result
@@ -626,12 +615,9 @@ class TestAzureCliEdgeCases:
 
     def test_azure_nested_subcommands(self):
         """Test Azure commands with nested subcommands."""
-        config = BashExecutorConfig()
-
         # Valid nested command
         result = make_command_safe(
-            "az network vnet subnet list --vnet-name myvnet --resource-group mygroup",
-            config=config,
+            "az network vnet subnet list --vnet-name myvnet --resource-group mygroup"
         )
         assert (
             result
@@ -641,18 +627,15 @@ class TestAzureCliEdgeCases:
         # Invalid nested subcommand
         with pytest.raises(ValueError):
             make_command_safe(
-                "az network vnet subnet create --name mysubnet --vnet-name myvnet --resource-group mygroup",
-                config=config,
+                "az network vnet subnet create --name mysubnet --vnet-name myvnet --resource-group mygroup"
             )
 
     def test_azure_case_sensitivity(self):
         """Test that Azure commands handle case appropriately."""
-        config = BashExecutorConfig()
-
         # Service names should be lowercase
         with pytest.raises(ValueError):
-            make_command_safe("az VM list", config=config)
+            make_command_safe("az VM list")
 
         # Subcommands should match exactly
         with pytest.raises(ValueError):
-            make_command_safe("az vm LIST", config=config)
+            make_command_safe("az vm LIST")

@@ -16,7 +16,7 @@ This toolset uses `kubectl run` to create temporary containers that:
 ## Use Cases
 
 - **Network Debugging**: Test connectivity between services using network utilities
-- **DNS Resolution**: Verify DNS configuration and resolution from within the cluster  
+- **DNS Resolution**: Verify DNS configuration and resolution from within the cluster
 - **Environment Inspection**: Check environment variables, file systems, and configuration
 - **Service Testing**: Test HTTP endpoints, database connections, or API calls
 - **Resource Analysis**: Examine cluster resources from a pod's perspective
@@ -69,7 +69,7 @@ The toolset requires explicit configuration of allowed images and command patter
                             ]
                         },
                         {
-                            "image": "curlimages/curl", 
+                            "image": "curlimages/curl",
                             "allowed_commands": [
                                 "curl -s http://.*",
                                 "curl -I .*"
@@ -101,7 +101,7 @@ Each image entry supports:
 Commands are validated against regex patterns:
 
 - `"echo .*"` - Allows any echo command
-- `"curl -s http://.*"` - Allows curl with -s flag to HTTP URLs  
+- `"curl -s http://.*"` - Allows curl with -s flag to HTTP URLs
 - `"nslookup [a-zA-Z0-9.-]+"` - Allows nslookup with domain names
 - `"cat /etc/resolv.conf"` - Allows reading the DNS resolver configuration
 
@@ -114,7 +114,7 @@ Creates and runs a temporary pod with the specified image and command.
 **Parameters:**
 
 - **`image`** (string, required): Container image to run (must be in allowed list)
-- **`command`** (string, required): Command to execute (must match allowed patterns)  
+- **`command`** (string, required): Command to execute (must match allowed patterns)
 - **`namespace`** (string, optional): Kubernetes namespace (defaults to "default")
 - **`timeout`** (integer, optional): Command timeout in seconds (defaults to 60)
 
@@ -136,7 +136,7 @@ kubectl_run_image(
 ```bash
 # Check DNS resolution
 kubectl_run_image(
-    image="busybox", 
+    image="busybox",
     command="nslookup my-service.production.svc.cluster.local",
     namespace="production"
 )
@@ -161,7 +161,7 @@ kubectl_run_image(
 - Images should be from trusted registries
 - Consider using specific image tags rather than `latest`
 
-### Command Validation  
+### Command Validation
 
 - All commands are validated against regex patterns
 - Dangerous commands (file writes, network changes) should not be allowed
@@ -183,7 +183,7 @@ kubectl_run_image(
 
 ### Network Debugging
 - `busybox` - Basic utilities including nslookup, ping, telnet
-- `curlimages/curl` - HTTP testing and API calls  
+- `curlimages/curl` - HTTP testing and API calls
 - `registry.k8s.io/e2e-test-images/jessie-dnsutils:1.3` - DNS utilities
 
 ### Database Testing

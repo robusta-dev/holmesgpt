@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.kubectl.constants import (
     SAFE_NAME_PATTERN,
@@ -11,7 +11,9 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_events import KubectlEventsCom
 from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import KubectlLogsCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_top import KubectlTopCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_get import KubectlGetCommand
-from holmes.plugins.toolsets.bash.kubectl.kubectl_cluster_info import KubectlClusterInfoCommand
+from holmes.plugins.toolsets.bash.kubectl.kubectl_cluster_info import (
+    KubectlClusterInfoCommand,
+)
 
 
 class KubectlCommand(BashCommand):

@@ -584,7 +584,6 @@ class MockToolsetManager:
                     )
                 yaml_toolset: YAMLToolset = toolset
 
-
                 for tool in yaml_toolset.tools:
                     if not isinstance(tool, YAMLTool):
                         raise ValueError(

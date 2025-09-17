@@ -22,13 +22,13 @@ from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
 class BaseBashExecutorToolset(Toolset):
-
     def get_example_config(self):
         return {}
 
 
 class BaseBashTool(Tool):
     toolset: BaseBashExecutorToolset
+
 
 class RunBashCommand(BaseBashTool):
     def __init__(self, toolset: BaseBashExecutorToolset):
@@ -83,7 +83,7 @@ class RunBashCommand(BaseBashTool):
         # Only run the safety check if user has NOT approved the command
         if not user_approved:
             try:
-                command_to_execute = make_command_safe(command_str, self.toolset.config)
+                command_to_execute = make_command_safe(command_str)
 
             except (argparse.ArgumentError, ValueError) as e:
                 with sentry_sdk.configure_scope() as scope:
@@ -123,7 +123,7 @@ class BashExecutorToolset(BaseBashExecutorToolset):
                 "enabled and used with extreme caution due to significant security risks. "
                 "Ensure that only trusted users have access to this tool."
             ),
-            docs_url="", # TODO: Add relevant documentation URL
+            docs_url="",  # TODO: Add relevant documentation URL
             icon_url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Bash_Logo_Colored.svg/120px-Bash_Logo_Colored.svg.png",  # Example Bash icon
             prerequisites=[],
             tools=[RunBashCommand(self)],

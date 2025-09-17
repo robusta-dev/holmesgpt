@@ -65,7 +65,7 @@ class TestJqCliSafeCommands:
     )
     def test_safe_jq_commands(self, input_command, expected_output):
         """Test that safe jq commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -89,4 +89,4 @@ class TestJqCliUnsafeCommands:
     def test_unsafe_jq_commands(self, input_command, expected_error_message):
         """Test that unsafe jq commands are blocked with appropriate error messages."""
         with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)
+            make_command_safe(input_command)

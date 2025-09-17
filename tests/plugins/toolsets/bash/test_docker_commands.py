@@ -297,8 +297,7 @@ class TestDockerCliSafeCommands:
     )
     def test_docker_safe_commands(self, input_command: str, expected_output: str):
         """Test that safe Docker commands are parsed and stringified correctly."""
-        config = BashExecutorConfig()
-        output_command = make_command_safe(input_command, config=config)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
 
@@ -624,9 +623,8 @@ class TestDockerCliUnsafeCommands:
         self, command: str, expected_exception: type, partial_error_message_content: str
     ):
         """Test that unsafe Docker commands are properly rejected."""
-        config = BashExecutorConfig()
         with pytest.raises(expected_exception) as exc_info:
-            make_command_safe(command, config=config)
+            make_command_safe(command)
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)
@@ -637,39 +635,31 @@ class TestDockerCliEdgeCases:
 
     def test_docker_with_grep_combination(self):
         """Test Docker commands combined with grep."""
-        config = BashExecutorConfig()
-
         # Valid combination
-        result = make_command_safe("docker ps | grep nginx", config=config)
+        result = make_command_safe("docker ps | grep nginx")
         assert result == "docker ps | grep nginx"
 
         # Invalid - unsafe Docker command with grep
         with pytest.raises(ValueError):
-            make_command_safe("docker run nginx | grep success", config=config)
+            make_command_safe("docker run nginx | grep success")
 
     def test_docker_empty_command(self):
         """Test Docker commands with missing command."""
-        config = BashExecutorConfig()
-
         # Missing command should fail at argument parsing level
         with pytest.raises((argparse.ArgumentError, ValueError)):
-            make_command_safe("docker", config=config)
+            make_command_safe("docker")
 
     def test_docker_help_commands(self):
         """Test Docker help commands are allowed."""
-        config = BashExecutorConfig()
-
         # Individual command help works with specific commands
-        result = make_command_safe("docker ps", config=config)
+        result = make_command_safe("docker ps")
         assert result == "docker ps"
 
     def test_docker_complex_valid_parameters(self):
         """Test Docker commands with complex but valid parameters."""
-        config = BashExecutorConfig()
-
         # Complex container listing with multiple filters
         complex_cmd = "docker ps --all --filter status=running --filter name=web --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' --no-trunc"
-        result = make_command_safe(complex_cmd, config=config)
+        result = make_command_safe(complex_cmd)
         assert "docker ps" in result
         assert "--all" in result
         assert "--filter status=running" in result
@@ -679,8 +669,6 @@ class TestDockerCliEdgeCases:
 
     def test_docker_image_name_validation(self):
         """Test Docker image name validation."""
-        config = BashExecutorConfig()
-
         # Valid image names
         valid_images = [
             "nginx",
@@ -690,13 +678,11 @@ class TestDockerCliEdgeCases:
         ]
 
         for image in valid_images:
-            result = make_command_safe(f"docker image inspect {image}", config=config)
+            result = make_command_safe(f"docker image inspect {image}")
             assert f"docker image inspect {image}" == result
 
     def test_docker_container_name_validation(self):
         """Test Docker container name validation."""
-        config = BashExecutorConfig()
-
         # Valid container names
         valid_names = [
             "mycontainer",
@@ -707,21 +693,15 @@ class TestDockerCliEdgeCases:
         ]
 
         for name in valid_names:
-            result = make_command_safe(
-                f"docker container inspect {name}", config=config
-            )
+            result = make_command_safe(f"docker container inspect {name}")
             assert f"docker container inspect {name}" == result
 
     def test_docker_case_sensitivity(self):
         """Test that Docker commands are case-sensitive where appropriate."""
-        config = BashExecutorConfig()
-
         # Commands should be lowercase
         with pytest.raises(ValueError):
-            make_command_safe("docker PS", config=config)
+            make_command_safe("docker PS")
 
         # Container names are case-sensitive (should be allowed)
-        result = make_command_safe(
-            "docker container inspect MyContainer", config=config
-        )
+        result = make_command_safe("docker container inspect MyContainer")
         assert result == "docker container inspect MyContainer"

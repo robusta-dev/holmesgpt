@@ -8,7 +8,7 @@ images and commands according to the configured whitelist.
 import pytest
 from unittest.mock import patch, MagicMock
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.bash.kubectl_run_image import (
     KubectlRunImageToolset,
     KubectlRunImageCommand,
@@ -120,7 +120,7 @@ class TestKubectlRunImageCommand:
         }
 
         result = self.tool._invoke(params)
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "namespace is invalid" in result.error
 
     def test_valid_namespace_pattern(self):
@@ -143,7 +143,7 @@ class TestKubectlRunImageCommand:
         params = {"image": "malicious-image", "command": "echo test"}
 
         result = self.tool._invoke(params)
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "not allowed" in result.error
 
     def test_command_validation_error(self):
@@ -151,7 +151,7 @@ class TestKubectlRunImageCommand:
         params = {"image": "busybox", "command": "rm -rf /"}
 
         result = self.tool._invoke(params)
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "not allowed" in result.error
 
     @patch("holmes.plugins.toolsets.bash.kubectl_run_image.execute_bash_command")
