@@ -62,6 +62,31 @@ def get_model_display_name(model_name: str) -> str:
     return model_name
 
 
+def calculate_success_rate(
+    passed: int,
+    total: int,
+    skipped: int = 0,
+    setup_failures: int = 0,
+    mock_failures: int = 0,
+) -> float:
+    """Calculate success rate using consistent formula across all metrics.
+
+    Args:
+        passed: Number of tests passed
+        total: Total number of tests
+        skipped: Number of skipped tests
+        setup_failures: Number of setup failures
+        mock_failures: Number of mock failures
+
+    Returns:
+        Success rate percentage (0-100), or 0 if no valid tests
+    """
+    valid_tests = total - skipped - setup_failures - mock_failures
+    if valid_tests > 0:
+        return (passed / valid_tests) * 100
+    return 0
+
+
 def get_rate_emoji(rate: float) -> str:
     """Get emoji indicator based on success rate.
 
@@ -101,12 +126,11 @@ def format_test_cell(
     if total == 0:
         return "N/A"
 
-    # Calculate total non-run tests (skipped, setup failures, mock failures)
-    total_skipped = skipped + setup_failures + mock_failures
-    valid_tests = total - total_skipped
+    # Use the DRY function for consistent calculation
+    rate = calculate_success_rate(passed, total, skipped, setup_failures, mock_failures)
+    valid_tests = total - skipped - setup_failures - mock_failures
 
     if valid_tests > 0:
-        rate = passed / valid_tests * 100
         # Add emoji based on rate
         emoji = get_rate_emoji(rate)
 
@@ -133,7 +157,7 @@ def get_test_status_emoji(
         passed: Number of passed tests
         skipped: Number of skipped tests
         setup_failures: Number of setup failures
-        valid_tests: Number of valid (non-skipped, non-setup-failed) tests
+        valid_tests: Number of valid (non-skipped, non-setup-failed, non-mock-failed) tests
 
     Returns:
         Emoji string representing the test status
@@ -166,8 +190,10 @@ def get_test_status_emoji(
     elif (is_throttled or is_timeout) and passed == 0 and total > 0:
         return "⏱️"  # Timeout/throttled error (exceeded time or rate limit)
     else:
-        # Calculate success rate for valid tests
-        rate = (passed / valid_tests * 100) if valid_tests > 0 else 0
+        # Calculate success rate using the consistent formula
+        rate = calculate_success_rate(
+            passed, total, skipped, setup_failures, mock_failures
+        )
         return get_rate_emoji(rate)
 
 
@@ -551,9 +577,9 @@ def generate_summary_table(results: Dict[str, Any]) -> str:
         failed = stats["failed"]
         skipped = stats["skipped"]
 
-        # Calculate success rate (excluding skipped)
-        valid_tests = total - skipped
-        success_rate = (passed / valid_tests * 100) if valid_tests > 0 else 0
+        # Calculate success rate using consistent formula
+        # Note: generate_summary_table doesn't track mock/setup failures separately
+        success_rate = calculate_success_rate(passed, total, skipped)
 
         # Get clean display name
         display_model = get_model_display_name(model)
@@ -815,13 +841,12 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 skipped = stats["skipped"]
                 setup_failures = stats["setup_failures"]
 
-                # Calculate rate based on non-skipped, non-setup-failed, non-mock-failed tests
+                # Calculate rate using consistent formula
                 mock_failures = stats.get("mock_failures", 0)
+                rate = calculate_success_rate(
+                    passed, total, skipped, setup_failures, mock_failures
+                )
                 valid_tests = total - skipped - setup_failures - mock_failures
-                if valid_tests > 0:
-                    rate = passed / valid_tests * 100
-                else:
-                    rate = 0
 
                 # Get Braintrust filter URL for this eval/model combination
                 braintrust_url = get_braintrust_filter_url(
@@ -861,12 +886,20 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
             total_setup_failures += stats.get("setup_failures", 0)
 
         if total_tests > 0:
-            # Calculate rate based on valid runs (exclude skipped and setup failures)
-            valid_tests = total_tests - total_skipped - total_setup_failures
-            if valid_tests > 0:
-                overall_rate = total_passed / valid_tests * 100
-            else:
-                overall_rate = 0
+            # Calculate rate using consistent formula (include mock failures)
+            total_mock_failures = 0
+            for eval_case in sorted_evals:
+                total_mock_failures += eval_model_stats[eval_case][model].get(
+                    "mock_failures", 0
+                )
+
+            overall_rate = calculate_success_rate(
+                total_passed,
+                total_tests,
+                total_skipped,
+                total_setup_failures,
+                total_mock_failures,
+            )
 
             # Create summary text with emoji
             emoji = get_rate_emoji(overall_rate)
@@ -912,13 +945,12 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 skipped = stats.get("skipped", 0)
                 setup_failures = stats.get("setup_failures", 0)
 
-                # Calculate rate based on non-skipped, non-setup-failed, non-mock-failed tests
+                # Calculate rate using consistent formula
                 mock_failures = stats.get("mock_failures", 0)
+                rate = calculate_success_rate(
+                    passed, total, skipped, setup_failures, mock_failures
+                )
                 valid_tests = total - skipped - setup_failures - mock_failures
-                if valid_tests > 0:
-                    rate = passed / valid_tests * 100
-                else:
-                    rate = 0
 
                 # Calculate average duration and cost if available
                 avg_duration = (
