@@ -4,7 +4,7 @@ import pytest
 
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
-from holmes.core.tools_utils.data_types import ToolCallResult
+from holmes.core.models import ToolCallResult
 from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
