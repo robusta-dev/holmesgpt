@@ -3,7 +3,7 @@ import pytest
 from pydantic import BaseModel
 
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
-from holmes.core.tools_utils.data_types import ToolCallResult, format_tool_result_data
+from holmes.core.models import ToolCallResult, format_tool_result_data
 
 
 class DummyResult(BaseModel):
