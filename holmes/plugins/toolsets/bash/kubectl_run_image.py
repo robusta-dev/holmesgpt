@@ -34,7 +34,7 @@ class KubectlRunImageConfig(BaseModel):
 class BaseKubectlRunImageToolset(Toolset):
     config: Optional[KubectlRunImageConfig] = None
 
-    def get_example_config(self):
+    def get_example_config(self) -> dict[str, Any]:
         example_config = KubectlRunImageConfig()
         return example_config.model_dump()
 
@@ -131,9 +131,8 @@ class KubectlRunImageCommand(BaseTool):
         image = get_param_or_raise(params, "image")
         command_str = get_param_or_raise(params, "command")
 
-        namespace = params.get("namespace")
-
-        if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
+        namespace = params.get("namespace", "default")
+        if not re.fullmatch(SAFE_NAMESPACE_PATTERN, namespace):
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
