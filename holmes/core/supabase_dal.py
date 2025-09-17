@@ -49,7 +49,8 @@ HOLMES_TOOLSET = "HolmesToolsStatus"
 SCANS_META_TABLE = "ScansMeta"
 SCANS_RESULTS_TABLE = "ScansResults"
 
-ENRICHMENT_BLACKLIST = {"text_file", "graph", "ai_analysis", "holmes"}
+ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
+ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
 
 
 class RobustaToken(BaseModel):
@@ -334,7 +335,7 @@ class SupabaseDal:
         data = [
             enrich
             for enrich in evidence.data
-            if enrich.get("enrichment_type") not in ENRICHMENT_BLACKLIST
+            if enrich.get("enrichment_type") not in ENRICHMENT_BLACKLIST_SET
         ]
 
         unzipped_files = [
