@@ -1,5 +1,5 @@
 from holmes.core.investigation_structured_output import InputSectionsDataType
-from holmes.core.tool_calling_llm import ToolCallResult
+from holmes.core.tools_utils.data_types import ToolCallResult
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, model_validator, Field
 from enum import Enum

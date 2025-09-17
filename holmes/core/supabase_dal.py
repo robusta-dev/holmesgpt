@@ -30,6 +30,7 @@ from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
 )
+from holmes.core.truncation.dal_truncation_utils import truncate_evidences_entities_if_necessary, truncate_string
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
@@ -46,6 +47,7 @@ HOLMES_TOOLSET = "HolmesToolsStatus"
 SCANS_META_TABLE = "ScansMeta"
 SCANS_RESULTS_TABLE = "ScansResults"
 
+ENRICHMENT_BLACKLIST = {"text_file", "graph", "ai_analysis", "holmes"}
 
 class RobustaToken(BaseModel):
     store_url: str
@@ -262,11 +264,13 @@ class SupabaseDal:
                 .select("*")
                 .eq("account_id", self.account_id)
                 .in_("issue_id", changes_ids)
-                .neq("enrichment_type", "text_file")
+                .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
                 .execute()
             )
             if not len(change_data_response.data):
                 return None
+            
+            truncate_evidences_entities_if_necessary(change_data_response.data)
 
         except Exception:
             logging.exception("Supabase error while retrieving change content")
@@ -324,11 +328,10 @@ class SupabaseDal:
             return data
 
     def extract_relevant_issues(self, evidence):
-        enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
         data = [
             enrich
             for enrich in evidence.data
-            if enrich.get("enrichment_type") not in enrichment_blacklist
+            if enrich.get("enrichment_type") not in ENRICHMENT_BLACKLIST
         ]
 
         unzipped_files = [
@@ -363,7 +366,7 @@ class SupabaseDal:
                 # This issue will have the complete alert duration information
                 issue_data = self.get_issue_from_db(issue_id, GROUPED_ISSUES_TABLE)
 
-        except Exception:  # e.g. invalid id format
+        except Exception as e:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
             return None
         if not issue_data:
@@ -372,12 +375,13 @@ class SupabaseDal:
             self.client.table(EVIDENCE_TABLE)
             .select("*")
             .eq("issue_id", issue_id)
-            .neq("enrichment_type", "text_file")
+            .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
             .execute()
         )
-        data = self.extract_relevant_issues(evidence)
+        relevant_evidence = self.extract_relevant_issues(evidence)
+        truncate_evidences_entities_if_necessary(relevant_evidence)
 
-        issue_data["evidence"] = data
+        issue_data["evidence"] = relevant_evidence
 
         # build issue investigation dates
         started_at = issue_data.get("starts_at")
@@ -520,11 +524,13 @@ class SupabaseDal:
                 self.client.table(EVIDENCE_TABLE)
                 .select("data, enrichment_type")
                 .in_("issue_id", unique_issues)
-                .neq("enrichment_type", "text_file")
+                .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
                 .execute()
             )
 
-            return self.extract_relevant_issues(res)
+            relevant_issues = self.extract_relevant_issues(res)
+            truncate_evidences_entities_if_necessary(relevant_issues)
+            return relevant_issues
 
         except Exception:
             logging.exception("failed to fetch workload issues data", exc_info=True)
