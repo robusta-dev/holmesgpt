@@ -11,6 +11,7 @@
 * IMPORTANT: ALWAYS inform the user about what logs you fetched. For example: "Here are pod logs for ..."
 * IMPORTANT: If logs commands have limits mention them. For example: "Showing last 100 lines of logs:"
 * IMPORTANT: If a filter was used, mention the filter. For example: "Logs filtered for 'error':"
+* IMPORTANT: If a date range was used (even if just the default one and you didn't specify the parameter, mention the date range. For example: "Logs from last 1 hour..."
 
 {% if loki_ts and loki_ts.status == "enabled" -%}
 * For any logs, including for investigating kubernetes problems, use Loki
@@ -34,7 +35,15 @@ Tools to search and fetch logs from Coralogix.
 ### datadog/logs
 #### Datadog Logs Toolset
 Tools to search and fetch logs from Datadog.
-{% include '_default_log_prompt.jinja2' %}
+* Use the tool `fetch_pod_logs` to access an application's logs.
+* Do fetch application logs yourself and DO not ask users to do so
+* If you have an alert/monitor try to figure out the time it fired
+** Then, use `start_time=-300` (5 minutes before `end_time`) and `end_time=<time monitor started firing>`  when calling `fetch_pod_logs`.
+** If there are too many logs, or not enough, narrow or widen the timestamps
+* If the user did not explicitly ask about a given timeframe, ignore the `start_time` and `end_time` so it will use the default.
+* IMPORTANT: ALWAYS inform the user about the actual time period fetched (e.g., "Looking at logs from the last <X> days")
+* IMPORTANT: If a limit was applied, ALWAYS tell the user how many logs were shown vs total (e.g., "Showing latest <Y> of <Z> logs")
+* IMPORTANT: If any filters were applied, ALWAYS mention them explicitly
 {%- elif k8s_yaml_ts and k8s_yaml_ts.status == "enabled" -%}
 ### kubernetes/logs
 #### Kubernetes Logs Toolset

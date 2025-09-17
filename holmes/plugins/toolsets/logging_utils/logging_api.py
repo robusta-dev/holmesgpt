@@ -18,7 +18,7 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 DEFAULT_LOG_LIMIT = 100
 SECONDS_PER_DAY = 24 * 60 * 60
 DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
-DEFAULT_GRAPH_TIME_SPAN_SECONDS = 1 * SECONDS_PER_DAY  # 1 day in seconds
+DEFAULT_GRAPH_TIME_SPAN_SECONDS = 1 * 60 * 60  # 1 hour in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 

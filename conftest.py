@@ -172,4 +172,15 @@ def responses():
             "https://api.eu.newrelic.com/graphql"
         )  # Allow New Relic API calls
         rsps.add_passthru("http://localhost")
+
+        # Allow all Datadog API calls to pass through (all regions and endpoints)
+        rsps.add_passthru("https://api.datadoghq.com")
+        rsps.add_passthru("https://api.datadoghq.eu")
+        rsps.add_passthru("https://api.ddog-gov.com")
+        rsps.add_passthru("https://api.us3.datadoghq.com")
+        rsps.add_passthru("https://api.us5.datadoghq.com")
+        rsps.add_passthru("https://api.ap1.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.com")
+        rsps.add_passthru("https://app.datadoghq.eu")
+
         yield rsps
