@@ -1,11 +1,5 @@
 toolsets:
   prometheus/metrics:
     enabled: False
-  kubernetes/core:
-    enabled: true
-  kubernetes/kube-lineage-extras:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
-  aws/rds:
-    enabled: true
+  bash:
+    enabled: True

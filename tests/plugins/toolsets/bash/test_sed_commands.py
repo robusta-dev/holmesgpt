@@ -63,7 +63,7 @@ class TestSedCliSafeCommands:
     )
     def test_safe_sed_commands(self, input_command, expected_output):
         """Test that safe sed commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -87,4 +87,4 @@ class TestSedCliUnsafeCommands:
     def test_unsafe_sed_commands(self, input_command):
         """Test that unsafe sed commands are blocked with appropriate error messages."""
         with pytest.raises(ValueError):
-            make_command_safe(input_command, None)
+            make_command_safe(input_command)

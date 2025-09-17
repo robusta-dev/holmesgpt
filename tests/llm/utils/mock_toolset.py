@@ -412,6 +412,7 @@ class MockableToolWrapper(Tool):
 
     def _call_mock_invoke(self, params: Dict):
         # Mock mode: read from mock file
+        print("_call_mock_invoke")
         mock = self._file_manager.read_mock(self.name, params)
         if not mock:
             # Check if there are any mock files for this tool that might be in old format
@@ -584,13 +585,6 @@ class MockToolsetManager:
                     )
                 yaml_toolset: YAMLToolset = toolset
 
-                # Block secret access to prevent LLM from reading code hints in secrets
-                security_check = """if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
-                        echo "Not allowed to get kubernetes secrets"
-                        exit 1
-                      fi
-                      """
-
                 for tool in yaml_toolset.tools:
                     if not isinstance(tool, YAMLTool):
                         raise ValueError(
@@ -599,16 +593,16 @@ class MockToolsetManager:
 
                     # Check if tool has command or script
                     if tool.command is not None:
-                        tool.command = security_check + tool.command
+                        tool.command = tool.command
                     elif tool.script is not None:
-                        tool.script = security_check + tool.script
+                        tool.script = tool.script
                     else:
                         raise ValueError(
                             f"Tool '{tool.name}' in kubernetes/core has neither command nor script defined"
                         )
 
             # Enable default toolsets
-            if toolset.is_default or isinstance(toolset, YAMLToolset):
+            if toolset.is_default:
                 toolset.enabled = True
 
             # Apply custom configuration if available

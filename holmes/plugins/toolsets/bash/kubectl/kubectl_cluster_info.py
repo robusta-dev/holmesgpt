@@ -3,40 +3,30 @@ from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
-from holmes.plugins.toolsets.bash.common.validators import (
-    whitelist_validator,
-)
-from holmes.plugins.toolsets.bash.kubectl.constants import (
-    VALID_RESOURCE_TYPES,
-)
 
 
-class KubectlDescribeCommand(BashCommand):
+class KubectlClusterInfoCommand(BashCommand):
     def __init__(self):
-        super().__init__("describe")
+        super().__init__("cluster-info")
 
     def add_parser(self, parent_parser: Any):
         parser = parent_parser.add_parser(
-            "describe",
-            help="Show details of a specific resource or group of resources",
-            exit_on_error=False,  # Important for library use
-        )
-        parser.add_argument(
-            "resource_type",
-            type=whitelist_validator("resource type", VALID_RESOURCE_TYPES),
+            "cluster-info",
+            help="Display cluster info",
+            exit_on_error=False,
+            prefix_chars="\x00",  # Use null character as prefix to disable option parsing
         )
         parser.add_argument(
             "options",
             nargs=argparse.REMAINDER,  # Captures all remaining arguments
             default=[],  # Default to an empty list
         )
-        return parser
 
     def validate_command(self, command: Any, original_command: str) -> None:
         pass
 
     def stringify_command(self, command: Any, original_command: str) -> str:
-        parts = ["kubectl", "describe", command.resource_type]
+        parts = ["kubectl", "cluster-info"]
 
         parts += command.options
 

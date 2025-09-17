@@ -1,8 +1,6 @@
 toolsets:
-  kubernetes/logs:
-    enabled: false  # Disable to force use of Loki
-  kubernetes/core:
-    enabled: true
+  bash:
+    enabled: True
   grafana/loki:
     enabled: true
     config:

@@ -1,6 +1,6 @@
 toolsets:
-  kubernetes/core:
-    enabled: true
+  bash:
+    enabled: True
   grafana/tempo:
     enabled: True
     config:
@@ -8,12 +8,6 @@ toolsets:
       url: "{{env.GRAFANA_URL}}"
       grafana_datasource_uid: "{{env.GRAFANA_TEMPO_DATASOURCE_UID}}"
   robusta:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
-  kubernetes/kube-lineage-extras:
-    enabled: true
-  kubernetes/live-metrics:
     enabled: true
   prometheus/metrics:
     enabled: False

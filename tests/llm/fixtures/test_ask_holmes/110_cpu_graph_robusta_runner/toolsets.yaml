@@ -1,6 +1,6 @@
 toolsets:
-  kubernetes/core:
-    enabled: true
+  bash:
+    enabled: True
   datadog/metrics:
     enabled: true
     config:

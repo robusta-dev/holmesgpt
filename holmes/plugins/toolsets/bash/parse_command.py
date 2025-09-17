@@ -1,10 +1,9 @@
 import argparse
 import logging
 import shlex
-from typing import Any, Optional
+from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.kubectl import KubectlCommand
 from holmes.plugins.toolsets.bash.aws import AWSCommand
 from holmes.plugins.toolsets.bash.azure import AzureCommand
@@ -83,24 +82,18 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def validate_command(
-    command: Any, original_command: str, config: Optional[BashExecutorConfig]
-):
+def validate_command(command: Any, original_command: str):
     bash_command_instance = command_name_to_command_map.get(command.cmd)
 
     if bash_command_instance:
-        bash_command_instance.validate_command(command, original_command, config)
+        bash_command_instance.validate_command(command, original_command)
 
 
-def stringify_command(
-    command: Any, original_command: str, config: Optional[BashExecutorConfig]
-) -> str:
+def stringify_command(command: Any, original_command: str) -> str:
     bash_command_instance = command_name_to_command_map.get(command.cmd)
 
     if bash_command_instance:
-        return bash_command_instance.stringify_command(
-            command, original_command, config
-        )
+        return bash_command_instance.stringify_command(command, original_command)
     else:
         # This code path should not happen b/c the parsing of the command should catch an unsupported command
         supported_commands = [cmd.name for cmd in AVAILABLE_COMMANDS]
@@ -150,7 +143,7 @@ def split_into_separate_commands(command_str: str) -> list[list[str]]:
     return commands_list
 
 
-def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) -> str:
+def make_command_safe(command_str: str) -> str:
     commands = split_into_separate_commands(command_str)
 
     parsed_commands = []
@@ -167,10 +160,10 @@ def make_command_safe(command_str: str, config: Optional[BashExecutorConfig]) ->
                 f"The following command failed to be parsed for safety: {command_str}"
             ) from None
     for command in parsed_commands:
-        validate_command(command=command, original_command=command_str, config=config)
+        validate_command(command=command, original_command=command_str)
 
     safe_commands_str = [
-        stringify_command(command=command, original_command=command_str, config=config)
+        stringify_command(command=command, original_command=command_str)
         for command in parsed_commands
     ]
 

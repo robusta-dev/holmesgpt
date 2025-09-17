@@ -1,8 +1,6 @@
 toolsets:
-  kubernetes/core:
-    enabled: true
-  kubernetes/logs:
-    enabled: true
+  bash:
+    enabled: True
   grafana/tempo:
     enabled: true
     config:
