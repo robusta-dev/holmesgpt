@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, List, Tuple
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
@@ -13,6 +13,12 @@ from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
 import yaml
+import json
+import uuid
+import math
+from datetime import datetime, timezone
+
+from collections import defaultdict
 
 
 class ExecuteNRQLQuery(Tool):
@@ -59,10 +65,219 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
                     type="string",
                     required=True,
                 ),
+                "description": ToolParameter(
+                    description="A breif 6 word human understandable description of the query you are running.",
+                    type="string",
+                    required=True,
+                ),
+                "query_type": ToolParameter(
+                    description="Either 'Metrics', 'Logs', 'Traces', 'Discover Attributes' or 'Other'.",
+                    type="string",
+                    required=True,
+                ),
             },
         )
         self._toolset = toolset
 
+    def format_metrics(
+        self,
+        records: List[Dict[str, Any]],
+        params: Optional[Dict[str, Any]] = None,
+        begin_key: str = "beginTimeSeconds",
+        end_key: str = "endTimeSeconds",
+        facet_key: str = "facet",
+    ) -> Dict[str, Any]:
+        """
+        Transform New Relic NerdGraph `nrql.results` (flattened) into a Prometheus-like HTTP API response:
+        {
+            "status": "success",
+            "error_message": null,
+            "random_key": "<hex>",
+            "tool_name": <tool name>,
+            "description": <string>,
+            "query": <nrql>,
+            "start": "RFC3339",
+            "end": "RFC3339",
+            "step": <seconds>,
+            "output_type": <string>,
+            "data": {
+            "resultType": "matrix",
+            "result": [
+                {"metric": { "__name__": "<metric>", <labels...> }, "values": [[<ts>, "<val>"], ...]},
+                ...
+            ]
+            }
+        }
+
+        Notes:
+        - Uses endTimeSeconds as the sample timestamp (common convention for bucketed series).
+        - Maps None to "NaN" (Prometheus JSON uses strings for values; "NaN" is conventional).
+        - Supports multiple metrics in the same result set (e.g., average.duration, count).
+        """
+
+        params = params or {}
+
+        def rfc3339(ts: Optional[int]) -> str:
+            if ts is None:
+                return ""
+            return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            )
+
+        def to_prom_value(v: Any) -> str:
+            if v is None:
+                return "NaN"
+            if isinstance(v, bool):
+                return "1" if v else "0"
+            if isinstance(v, (int, float)):
+                if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                    return "NaN"
+                return str(v)
+            # try numeric-ish strings
+            try:
+                fv = float(v)
+                if math.isnan(fv) or math.isinf(fv):
+                    return "NaN"
+                return str(fv)
+            except Exception:
+                return "NaN"
+
+        if not records:
+            return {
+                "status": "success",
+                "error_message": None,
+                "random_key": uuid.uuid4().hex,
+                "tool_name": self.name,
+                "description": params.get("description", ""),
+                "query": params.get("query", ""),
+                "start": "",
+                "end": "",
+                "step": 60,
+                "output_type": params.get("output_type", "Plain"),
+                "data": {"resultType": "matrix", "result": []},
+            }
+
+        # All keys seen
+        all_keys = set().union(*(r.keys() for r in records))
+
+        # Reserved/time keys
+        reserved = {begin_key, end_key, facet_key, "timestamp"}
+
+        # Heuristic: metric keys are numeric/None and not time-like;
+        # prefer keys with an aggregator dot (e.g., "average.duration")
+        known_metric_singletons = {"count", "rate", "apdex"}
+        metric_keys = set()
+        for k in all_keys - reserved:
+            if "." in k or k in known_metric_singletons:
+                metric_keys.add(k)
+
+        # Fallback: anything numeric/None across the set
+        if not metric_keys:
+            for k in all_keys - reserved:
+                if any(
+                    isinstance(r.get(k), (int, float)) or r.get(k) is None
+                    for r in records
+                ):
+                    metric_keys.add(k)
+
+        # Label keys: what's left (including facet, podName, namespaceName, etc.)
+        label_keys = sorted((all_keys - metric_keys))
+
+        # Determine global start/end and bucket step
+        begins = [
+            r.get(begin_key)
+            for r in records
+            if isinstance(r.get(begin_key), (int, float))
+        ]
+        ends = [
+            r.get(end_key) for r in records if isinstance(r.get(end_key), (int, float))
+        ]
+        start_ts = min(begins) if begins else (min(ends) if ends else None)
+        end_ts = max(ends) if ends else (max(begins) if begins else None)
+
+        # Step: use the most common (end - begin) delta if available; else infer from consecutive buckets; else 60
+        deltas = [
+            int(r[end_key] - r[begin_key])
+            for r in records
+            if isinstance(r.get(end_key), (int, float))
+            and isinstance(r.get(begin_key), (int, float))
+        ]
+        if deltas:
+            # pick mode
+            step = max(set(deltas), key=deltas.count)
+        else:
+            # Try to infer from sorted end timestamps
+            sorted_ends = sorted([int(e) for e in ends]) if ends else []
+            consec = [b - a for a, b in zip(sorted_ends, sorted_ends[1:])]
+            step = max(set(consec), key=consec.count) if consec else 60
+
+        # Group records by labels (excluding metric keys)
+        def label_tuple(rec: Dict[str, Any]) -> Tuple[Tuple[str, Any], ...]:
+            # Only include known label keys present in this record
+            items = []
+            for k in label_keys:
+                if k in reserved:
+                    continue
+                if k in rec:
+                    items.append((k, rec.get(k)))
+            return tuple(sorted(items))
+
+        groups: Dict[Tuple[Tuple[str, Any], ...], List[Dict[str, Any]]] = {}
+        for rec in records:
+            lt = label_tuple(rec)
+            groups.setdefault(lt, []).append(rec)
+
+        # Build Prometheus-like series
+        prom_series: List[Dict[str, Any]] = []
+        for lt, recs in groups.items():
+            # Compute the label dict for this group
+            labels = {k: v for (k, v) in lt}
+
+            # Sort buckets by end time (fallback to begin time)
+            recs_sorted = sorted(
+                recs,
+                key=lambda r: (
+                    r.get(end_key) is None,
+                    r.get(end_key),
+                    r.get(begin_key),
+                ),
+            )
+
+            # For each metric key, produce a series
+            for mkey in sorted(metric_keys):
+                metric = {"__name__": mkey}
+                metric.update(labels)
+
+                values: List[List[Any]] = []
+                for r in recs_sorted:
+                    # Pick timestamp: prefer end, else begin, else skip
+                    ts = r.get(end_key) or r.get(begin_key)
+                    if not isinstance(ts, (int, float)):
+                        continue
+                    v = to_prom_value(r.get(mkey))
+                    values.append([int(ts), v])
+
+                # Only append if we have at least one point
+                if values:
+                    prom_series.append({"metric": metric, "values": values})
+
+        response_data = {
+            "status": "success",
+            "error_message": None,
+            "random_key": uuid.uuid4().hex,
+            "tool_name": self.name,
+            "description": params.get("description", ""),
+            "query": params.get("query", ""),
+            "start": rfc3339(int(start_ts)) if start_ts is not None else "",
+            "end": rfc3339(int(end_ts)) if end_ts is not None else "",
+            "step": int(step),
+            "output_type": params.get("output_type", "Plain"),
+            "data": {"resultType": "matrix", "result": prom_series},
+        }
+        return response_data
+
+    # 2) Update _invoke to use the Prometheus-style formatter for metrics / TIMESERIES
+    #    (keep your existing logs path as-is)
     def _invoke(
         self, params: dict, user_approved: bool = False
     ) -> StructuredToolResult:
@@ -75,18 +290,83 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             is_eu_datacenter=self._toolset.is_eu_datacenter,
         )
 
-        result = api.execute_nrql_query(params["query"])
+        query = params["query"]
+        result = api.execute_nrql_query(query)
+
+        qtype = params.get("query_type", "").lower()
+        if qtype == "logs":
+            formatted = self.format_logs(result)
+            # For logs we keep your existing YAML output (unchanged)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.SUCCESS,
+                data=yaml.dump(formatted, default_flow_style=False),
+                params=params,
+            )
+
+        # Treat explicit "Metrics" OR any query containing TIMESERIES as metrics
+        if qtype == "metrics" or "timeseries" in query.lower():
+            enriched_params = dict(params)
+            enriched_params["query"] = query
+            formatted = self.format_metrics(result, params=enriched_params)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.SUCCESS,
+                data=json.dumps(formatted, indent=2),
+                params=params,
+            )
+
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,
             data=yaml.dump(result, default_flow_style=False),
             params=params,
         )
 
+    def format_logs(
+        self,
+        records: List[Dict[str, Any]],
+        message_key: str = "message",
+        timestamp_key: str = "timestamp",
+        volatile_keys: Tuple[str, ...] = ("messageId", "newrelic.logs.batchIndex"),
+        sort_logs_ascending: bool = True,
+    ) -> List[Dict[str, Any]]:
+        if not records:
+            return []
+
+        # Determine the candidate label keys (everything except message/timestamp + volatile)
+        all_keys = set().union(*(r.keys() for r in records))
+        excluded = {message_key, timestamp_key, *volatile_keys}
+        label_keys = tuple(sorted(k for k in all_keys if k not in excluded))
+
+        def label_tuple(rec: Dict[str, Any]):
+            # Build a stable, hashable key from label fields only
+            return tuple(sorted((k, rec.get(k)) for k in label_keys))
+
+        # Group records by labels
+        grouped = defaultdict(list)
+        for rec in records:
+            grouped[label_tuple(rec)].append(rec)
+
+        result = []
+        for lbl_key, recs in grouped.items():
+            # Build labels dict from the first record (all in the group share the same label values)
+            labels = {k: recs[0].get(k) for k in label_keys if k in recs[0]}
+
+            # Sort records by timestamp
+            recs_sorted = (
+                sorted(recs, key=lambda r: r.get(timestamp_key))
+                if sort_logs_ascending
+                else sorted(recs, key=lambda r: r.get(timestamp_key), reverse=True)
+            )
+
+            # Collect logs as a simple list of messages
+            logs_list = [r.get(message_key) for r in recs_sorted]
+
+            result.append({"labels": labels, "logs": logs_list})
+
+        return result
+
     def get_parameterized_one_liner(self, params) -> str:
-        query = params.get("query", "")
-        return (
-            f"{toolset_name_for_one_liner(self._toolset.name)}: Execute NRQL ({query})"
-        )
+        description = params.get("description", "")
+        return f"{toolset_name_for_one_liner(self._toolset.name)}: Execute NRQL ({description})"
 
 
 class NewrelicConfig(BaseModel):
