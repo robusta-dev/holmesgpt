@@ -5,17 +5,18 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
   name: quick-nginx-check
-  namespace: holmes-system
+  namespace: test-app
 spec:
   query: "Are all pods in deployment 'nginx-test' in namespace 'test-app' healthy and running?"
   timeout: 30
   mode: monitor
+  model: gpt-4.1
 ---
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
   name: quick-broken-app-check
-  namespace: holmes-system
+  namespace: test-app
 spec:
   query: "Are all pods in deployment 'broken-app' in namespace 'test-app' running without crashes?"
   timeout: 30
@@ -25,7 +26,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
   name: quick-memory-check
-  namespace: holmes-system
+  namespace: test-app
 spec:
   query: "Are all pods in namespace 'test-app' using less than 80% of their memory limits?"
   timeout: 45
@@ -35,7 +36,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
   name: quick-node-check
-  namespace: holmes-system
+  namespace: test-app
 spec:
   query: "Are all nodes in the cluster in Ready state?"
   timeout: 20
@@ -46,7 +47,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: HealthCheck
 metadata:
   name: quick-critical-check
-  namespace: holmes-system
+  namespace: test-app
 spec:
   query: "Is the database connection pool healthy with less than 80% connections used?"
   timeout: 30

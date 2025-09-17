@@ -5,7 +5,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: nginx-health-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "0 * * * *"  # Every hour at :00
   checkSpec:
@@ -18,7 +18,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: broken-app-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "30 * * * *"  # Every hour at :30
   checkSpec:
@@ -31,7 +31,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: memory-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "0 */2 * * *"  # Every 2 hours
   checkSpec:
@@ -44,7 +44,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: node-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "0 */6 * * *"  # Every 6 hours
   checkSpec:
@@ -58,7 +58,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: disabled-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "0 */12 * * *"  # Would run every 12 hours if enabled
   checkSpec:
@@ -72,7 +72,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: frequent-test-schedule
-  namespace: holmes-system
+  namespace: test-app
   annotations:
     description: "Test scheduled check that runs frequently - good for testing"
 spec:
@@ -88,7 +88,7 @@ apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
 metadata:
   name: critical-service-schedule
-  namespace: holmes-system
+  namespace: test-app
 spec:
   schedule: "*/10 * * * *"  # Every 10 minutes
   checkSpec:
