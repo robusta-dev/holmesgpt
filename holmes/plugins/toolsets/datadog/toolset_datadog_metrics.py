@@ -680,7 +680,7 @@ class DatadogMetricsToolset(Toolset):
         if not config:
             return (
                 False,
-                "Datadog metrics toolset requires configuration. Please provide: dd_api_key, dd_app_key, and site_api_url in your Holmes config. For more details, see https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
+                "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             )
 
         try:
