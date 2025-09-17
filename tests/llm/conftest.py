@@ -145,11 +145,17 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         else:
             setup_failures = {}
 
-        # Set up port forwards AFTER namespace/resources are created (unless only-cleanup)
-        if not only_cleanup:
+        # Check if we're in --only-setup mode
+        only_setup = request.config.getoption("--only-setup", False)
+
+        # Set up port forwards AFTER namespace/resources are created
+        # Skip port forwards for both --only-cleanup and --only-setup modes
+        if not only_cleanup and not only_setup:
             setup_all_port_forwards(tests_to_run)
-        else:
+        elif only_cleanup:
             log("⚙️ Skipping port forward setup due to --only-cleanup flag")
+        elif only_setup:
+            log("⚙️ Skipping port forward setup due to --only-setup flag")
 
         port_configs = extract_port_forwards_from_test_cases(tests_to_run)
 
@@ -176,21 +182,24 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         if not isinstance(test_case_ids, list):
             test_case_ids = []
 
-        # Check skip-cleanup option and only-cleanup option
+        # Check skip-cleanup option and only-cleanup/only-setup options
         skip_cleanup = request.config.getoption("--skip-cleanup")
         only_cleanup = request.config.getoption("--only-cleanup", False)
+        only_setup = request.config.getoption("--only-setup", False)
 
-        # Always clean up port forwards regardless of skip_cleanup flag
-        port_forward_configs = data.get("port_forward_configs", [])
-        if port_forward_configs and isinstance(port_forward_configs, list):
-            try:
-                # Kill any kubectl port-forward processes that match our configs
-                cleanup_port_forwards_by_config(port_forward_configs)
-            except Exception as e:
-                log(f"⚠️ Error cleaning up port forwards: {e}")
+        # Clean up port forwards only if NOT in --only-setup or --only-cleanup mode
+        # (for --skip-cleanup and --skip-setup, we still clean up port forwards)
+        if not only_setup and not only_cleanup:
+            port_forward_configs = data.get("port_forward_configs", [])
+            if port_forward_configs and isinstance(port_forward_configs, list):
+                try:
+                    # Kill any kubectl port-forward processes that match our configs
+                    cleanup_port_forwards_by_config(port_forward_configs)
+                except Exception as e:
+                    log(f"⚠️ Error cleaning up port forwards: {e}")
 
-        # Run cleanup if --only-cleanup is set OR if not skipping cleanup
-        if test_case_ids and (only_cleanup or not skip_cleanup):
+        # Run cleanup if --only-cleanup is set OR if (not skipping cleanup AND not --only-setup)
+        if test_case_ids and (only_cleanup or (not skip_cleanup and not only_setup)):
             # Reconstruct test cases from IDs
             from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]  # type: ignore[attr-defined]
 

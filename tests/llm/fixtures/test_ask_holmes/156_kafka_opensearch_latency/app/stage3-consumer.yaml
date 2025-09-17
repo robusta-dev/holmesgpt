@@ -125,10 +125,10 @@ spec:
           mountPath: /app
         resources:
           requests:
-            memory: "32Mi"
+            memory: "128Mi"
             cpu: "5m"
           limits:
-            memory: "64Mi"
+            memory: "256Mi"
             cpu: "50m"
       volumes:
       - name: analytics-service-script

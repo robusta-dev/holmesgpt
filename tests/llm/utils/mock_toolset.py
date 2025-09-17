@@ -438,6 +438,34 @@ class MockableToolWrapper(Tool):
         # Mock mode: read from mock file
         mock = self._file_manager.read_mock(self.name, params)
         if not mock:
+            # Debug logging before raising error
+            import json
+
+            logging.info(
+                f"\n=== DEBUG: No matching mock found for tool '{self.name}' ==="
+            )
+            logging.info(
+                f"Requested params: {json.dumps(params, indent=2, default=str)}"
+            )
+
+            # Check what mock files exist
+            all_mocks = self._file_manager._load_all_mocks()
+            tool_mocks = all_mocks.get(self.name, [])
+            if tool_mocks:
+                logging.info(f"Found {len(tool_mocks)} mock file(s) for this tool:")
+                for i, mock_obj in enumerate(tool_mocks, 1):
+                    logging.info(f"\n  Mock {i}:")
+                    logging.info(f"    File: {mock_obj.source_file}")
+                    if mock_obj.match_params:
+                        logging.info(
+                            f"    Match params: {json.dumps(mock_obj.match_params, indent=6, default=str)}"
+                        )
+                    else:
+                        logging.info("    No match params (will match any params)")
+            else:
+                logging.info(f"No mock files found for tool '{self.name}'")
+            logging.info("=== END DEBUG ===\n")
+
             # Check if there are any mock files for this tool that might be in old format
             pattern = os.path.join(
                 self._file_manager.test_case_folder, f"{self.name}*.txt"

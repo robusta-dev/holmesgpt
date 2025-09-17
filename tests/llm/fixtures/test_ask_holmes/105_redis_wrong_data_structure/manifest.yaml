@@ -156,6 +156,18 @@ stringData:
       sleep 0.5
     done
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: session-service
+  namespace: namespace-105
+spec:
+  selector:
+    app: session-service
+  ports:
+  - port: 8080
+    targetPort: 8080
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

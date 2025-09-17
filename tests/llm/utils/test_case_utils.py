@@ -77,6 +77,7 @@ class HolmesTestCase(BaseModel):
 
     id: str
     folder: str
+    base_id: Optional[str] = None  # Base test case ID for parameterized tests
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
     skip: Optional[bool] = None
@@ -261,6 +262,9 @@ class MockHelper:
                                 original_user_prompt
                             )
                             variant_config["id"] = f"{test_case_id}[{i}]"
+                            variant_config["base_id"] = (
+                                test_case_id  # Store base ID for deduplication
+                            )
                             test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                                 variant_config
                             )
