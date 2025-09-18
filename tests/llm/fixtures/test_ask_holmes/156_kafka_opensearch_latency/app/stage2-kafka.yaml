@@ -56,8 +56,10 @@ spec:
             port: 9092
           initialDelaySeconds: 30
           periodSeconds: 10
+          failureThreshold: 10
         livenessProbe:
           tcpSocket:
             port: 9092
-          initialDelaySeconds: 30
-          periodSeconds: 10
+          initialDelaySeconds: 45
+          periodSeconds: 20
+          failureThreshold: 10

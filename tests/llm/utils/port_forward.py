@@ -86,10 +86,11 @@ class PortForward:
                     log(result.stdout)
                     log("\nTo fix this, either:")
                     log(
-                        f"1. Kill the process using the port: kill $(lsof -ti :{self.local_port})"
+                        f"1. Kill the specific process using the port: kill $(lsof -ti :{self.local_port})"
                     )
-                    log("2. Use a different port in your test configuration")
-                    log("3. Wait for the process to finish and release the port\n")
+                    log(
+                        '2. Kill all kubectl port-forward processes: pkill -f "kubectl.*port-forward"'
+                    )
         except (subprocess.CalledProcessError, OSError) as e:
             # Log specific error but don't fail - this is just informational
             log(f"⚠️ Could not get port info: {e}")

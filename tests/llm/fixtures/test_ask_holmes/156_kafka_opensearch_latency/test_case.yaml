@@ -14,6 +14,9 @@ tags:
   - hard
   - logs
 
+skip: true
+skip_reason: problems with test setup - needs fixing
+
 expected_output:
 - The Kafka high latency is caused by lag in the analytics-service consumer group.
 - The analytics service is slow because it's writing messages to OpenSearch

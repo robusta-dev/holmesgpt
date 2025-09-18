@@ -176,10 +176,8 @@ def run_commands(
         # Always add pod diagnostics for any failure during setup
         extra_diagnostics = _get_pod_diagnostics(test_case, operation)
 
-        # Log the error with diagnostics included
-        truncated_command = _truncate_script(script)
-        log_message = f"Command `{truncated_command}` failed with return code {e.returncode}\nstdout:\n{e.stdout}\nstderr:\n{e.stderr}{extra_diagnostics}"
-        logging.error(log_message)
+        # Don't log here - setup_cleanup.py will handle all logging consistently
+        # to avoid duplicate diagnostic output
 
         error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}{extra_diagnostics}\n\nScript that failed:\n$ {_truncate_script(script)}"
 

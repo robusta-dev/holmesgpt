@@ -251,6 +251,32 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - **ALWAYS use `RUN_LIVE=true`** when testing evals to ensure tests match real-world behavior
 - Use `--skip-cleanup` when troubleshooting setup issues (resources remain after test)
 - Use `--skip-setup` if you are debugging the eval itself
+- **kubectl wait race condition warning**: Never use bare `kubectl wait --for=condition=ready pod -l app=foo` immediately after creating resources. This will fail with "no matching resources found" if the pod hasn't been scheduled yet. Instead, use a retry loop:
+  ```bash
+  # WRONG - fails if pod not scheduled yet
+  kubectl apply -f deployment.yaml
+  kubectl wait --for=condition=ready pod -l app=myapp --timeout=300s  # May fail immediately!
+
+  # CORRECT - retry loop handles race condition
+  kubectl apply -f deployment.yaml
+  POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=myapp --timeout=5s 2>/dev/null; then
+      echo "✅ Pod is ready!"
+      POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$POD_READY" = false ]; then
+    echo "❌ Pod failed to become ready after 300 seconds"
+    kubectl get pods -l app=myapp  # Show pod status for debugging
+    exit 1
+  fi
+  ```
 - Test cases can specify custom runbooks by adding a `runbooks` field in test_case.yaml:
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory

@@ -13,36 +13,31 @@ from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
 
 # Configuration
-MAX_ERROR_LINES = 10
 MAX_WORKERS = 30
 
 
-def log(msg):
-    """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)"""
+def log(msg, error=False):
+    """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)
+
+    Args:
+        msg: The message to log
+        error: If True, log as error (red color) instead of info
+    """
     if os.environ.get("PYTEST_XDIST_WORKER"):
         # If running under xdist, we log to stderr so it appears in the pytest output
         # This is necessary because xdist captures stdout and doesn't show it in the output
-        sys.stderr.write(msg)
+        if error and sys.stderr.isatty():
+            # Add ANSI red color codes for error messages when stderr is a terminal
+            sys.stderr.write(f"\033[91m{msg}\033[0m")
+        else:
+            sys.stderr.write(msg)
         sys.stderr.write("\n")
     else:
-        # If not running under xdist, we log to stdout
-        logging.info(msg)
-
-
-def _truncate_output(data: str, max_lines: int = 10, label: str = "lines") -> str:
-    """Truncate output to max_lines for readability."""
-    lines = data.split("\n")
-    if len(lines) > max_lines:
-        preview_lines = lines[:max_lines]
-        remaining = len(lines) - max_lines
-        preview_lines.append(f"... [TRUNCATED: {remaining} more {label} not shown]")
-        return "\n".join(preview_lines)
-    return data
-
-
-def format_error_output(error_details: str) -> str:
-    """Format error details with truncation if needed."""
-    return _truncate_output(error_details, max_lines=MAX_ERROR_LINES)
+        # If not running under xdist, use appropriate log level
+        if error:
+            logging.error(msg)
+        else:
+            logging.info(msg)
 
 
 class Operation(StrEnum):
@@ -59,8 +54,7 @@ def run_all_test_commands(
 
     Args:
         test_cases: List of test cases to process
-        command_func: Function to call for each test case (before_test or after_test)
-        operation_name: Name of operation for logging ("Setup" or "Cleanup")
+        operation: Operation enum indicating SETUP or CLEANUP
 
     Returns:
         Dict[str, str]: Mapping of test_case.id to error message for failed setups
@@ -113,19 +107,11 @@ def run_all_test_commands(
                 elif result.error_type == "timeout":
                     timed_out_test_cases += 1
                     log(
-                        f"⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
+                        f"\n⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
                     )
 
-                    # Display truncated error details including pod diagnostics
-                    truncated_error = format_error_output(result.error_details)
-                    log(f"\n{truncated_error}")
-
-                    # Show the exact command that timed out
-                    # truncated_error = format_error_output(result.error_details)
-                    # log(textwrap.indent(truncated_error, "   "))
-                    # log(
-                    #    f"[{test_case.id}] {operation.value} timeout: {result.error_details}"
-                    # )
+                    # Display error details including pod diagnostics
+                    log(f"\n{result.error_details}\n", error=True)
 
                     # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
@@ -141,20 +127,15 @@ def run_all_test_commands(
                 else:
                     failed_test_cases += 1
                     log(
-                        f"\n❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
+                        f"❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
                     )
 
-                    # Limit error details to 10 lines and add proper formatting
-                    # truncated_error = format_error_output(result.error_details)
-                    # log(textwrap.indent(truncated_error, "   "))
-                    # log(
-                    #    f"[{test_case.id}] {operation.value} failed: {result.error_details}"
-                    # )
+                    # Display error details including pod diagnostics
+                    log(f"\n{result.error_details}\n", error=True)
 
                     # Store failure info for setup with detailed information
                     if operation == Operation.SETUP:
                         # Store the full error details without truncation for Braintrust
-                        # This includes the script, exit code, stdout, and stderr
                         failed_setup_info[test_case.id] = result.error_details
 
                     # Emit warning to make it visible in pytest output
@@ -166,7 +147,16 @@ def run_all_test_commands(
 
             except Exception as e:
                 failed_test_cases += 1
-                log(f"❌ {operation.value} {test_case.id}: EXCEPTION - {e}")
+                remaining_cases = (
+                    len(test_cases)
+                    - successful_test_cases
+                    - failed_test_cases
+                    - timed_out_test_cases
+                )  # Note: failed_test_cases already incremented
+                log(
+                    f"❌ {operation.value} {test_case.id}: EXCEPTION; {operation_plural} remaining: {remaining_cases}"
+                )
+                log(f"\n{str(e)}", error=True)
 
                 # Store failure info for setup
                 if operation == Operation.SETUP:

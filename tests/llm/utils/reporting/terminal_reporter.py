@@ -653,6 +653,7 @@ class TestStatistics:
                 "passed": 0,
                 "skipped": 0,
                 "setup_failures": 0,
+                "valid_runs": 0,
                 "pass_rate": 0,
                 "avg_time": None,
                 "p90_time": None,
@@ -676,6 +677,7 @@ class TestStatistics:
             "passed": total_passed,
             "skipped": total_skipped,
             "setup_failures": total_setup_fail,
+            "valid_runs": valid_runs,
             "pass_rate": (total_passed / valid_runs * 100) if valid_runs > 0 else 0,
             "avg_time": sum(all_times) / len(all_times) if all_times else None,
             "p90_time": _calculate_p90(all_times) if all_times else None,
@@ -1000,24 +1002,26 @@ def _print_tag_performance_table(sorted_results: List[dict], console: Console) -
     separator_row = _create_separator_row([18] + [16] * len(stats.models))
     tag_table.add_row(*separator_row, style="dim")
 
-    # Add overall row
-    overall_row = ["[bold]Overall[/bold]"]
+    # Add unique tests row (counting each test only once, regardless of tags)
+    unique_row = ["[bold]Unique Tests[/bold]"]
     for model in stats.models:
-        if overall_by_model[model]["total"] > 0:
-            overall_passed = overall_by_model[model]["passed"]
-            overall_total = overall_by_model[model]["total"]
-            overall_pct = overall_passed / overall_total * 100
+        # Get unique test counts from model summary
+        model_summary = stats.get_model_summary(model)
+        if model_summary["runs"] > 0:
+            unique_passed = model_summary["passed"]
+            unique_total = model_summary["valid_runs"]
+            unique_pct = model_summary["pass_rate"]
 
             # Choose color based on percentage
-            color = _get_pass_color(overall_pct, bold=True)
+            color = _get_pass_color(unique_pct, bold=True)
 
-            overall_row.append(
-                f"[{color}]{overall_pct:.0f}%[/{color}] ({overall_passed}/{overall_total})"
+            unique_row.append(
+                f"[{color}]{unique_pct:.0f}%[/{color}] ({unique_passed}/{unique_total})"
             )
         else:
-            overall_row.append("—")
+            unique_row.append("—")
 
-    tag_table.add_row(*overall_row)
+    tag_table.add_row(*unique_row)
 
     console.print(tag_table)
 
@@ -1177,9 +1181,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     # Use bold color for total row
     total_color = _get_pass_color(total_pass_pct, bold=True)
 
-    total_pass_pct_str = (
-        f"[{total_color}]{total_pass_pct:.1f}%[/{total_color}]{total_indicators}"
-    )
+    total_pass_pct_str = f"[{total_color}]{total_pass_pct:.1f}% ({total_pass}/{total_valid_runs})[/{total_color}]{total_indicators}"
 
     summary_table.add_row(
         "TOTAL",

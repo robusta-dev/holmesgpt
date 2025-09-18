@@ -12,6 +12,8 @@ tags:
   - kubernetes
   - medium
 
+setup_timeout: 420
+
 port_forwards:
   - namespace: app-100
     service: loki
@@ -57,7 +59,7 @@ before_test: |
   # Wait for logs to appear in Loki
   sleep 5  # Let Promtail initialize
   START_TIME=$(date +%s)
-  while [ $(($(date +%s) - START_TIME)) -lt 120 ]; do
+  while [ $(($(date +%s) - START_TIME)) -lt 240 ]; do
     LOG_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
     HISTORICAL_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
     ERROR_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
@@ -69,7 +71,7 @@ before_test: |
     sleep 2
   done
 
-  echo "ERROR: Logs not found in Loki after 120s"
+  echo "ERROR: Logs not found in Loki after 240s"
   exit 1
 
 after_test: |

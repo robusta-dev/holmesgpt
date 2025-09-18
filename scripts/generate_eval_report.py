@@ -535,7 +535,14 @@ def parse_pytest_json(data: Dict) -> Dict[str, Any]:
 def generate_summary_table(results: Dict[str, Any]) -> str:
     """Generate summary table by model."""
     model_stats: DefaultDict[str, Dict[str, int]] = defaultdict(
-        lambda: {"total": 0, "passed": 0, "failed": 0, "skipped": 0}
+        lambda: {
+            "total": 0,
+            "passed": 0,
+            "failed": 0,
+            "skipped": 0,
+            "setup_failures": 0,
+            "mock_failures": 0,
+        }
     )
 
     for test in results.get("tests", []):
@@ -543,13 +550,20 @@ def generate_summary_table(results: Dict[str, Any]) -> str:
         if test.get("outcome") == "deselected":
             continue
 
-        # Extract model from user_properties
+        # Extract model and failure types from user_properties
         model = None
+        is_setup_failure = False
+        is_mock_failure = False
+
         user_props = test.get("user_properties", [])
         for prop in user_props:
-            if isinstance(prop, dict) and "model" in prop:
-                model = prop["model"]
-                break
+            if isinstance(prop, dict):
+                if "model" in prop:
+                    model = prop["model"]
+                if prop.get("is_setup_failure"):
+                    is_setup_failure = True
+                if prop.get("mock_data_failure"):
+                    is_mock_failure = True
 
         # Fallback to test dict if not in user_properties
         if not model:
@@ -565,10 +579,16 @@ def generate_summary_table(results: Dict[str, Any]) -> str:
         elif outcome == "skipped":
             model_stats[model]["skipped"] += 1
 
+        # Track setup and mock failures
+        if is_setup_failure:
+            model_stats[model]["setup_failures"] += 1
+        if is_mock_failure:
+            model_stats[model]["mock_failures"] += 1
+
     # Build markdown table
     lines = []
-    lines.append("| Model | Pass | Fail | Skip | Total | Success Rate |")
-    lines.append("|-------|------|------|------|-------|--------------|")
+    lines.append("| Model | Pass | Fail | Skip/Error | Total | Success Rate |")
+    lines.append("|-------|------|------|------------|-------|--------------|")
 
     for model in sorted(model_stats.keys(), key=get_model_sort_key):
         stats = model_stats[model]
@@ -576,10 +596,20 @@ def generate_summary_table(results: Dict[str, Any]) -> str:
         passed = stats["passed"]
         failed = stats["failed"]
         skipped = stats["skipped"]
+        setup_failures = stats.get("setup_failures", 0)
+        mock_failures = stats.get("mock_failures", 0)
+
+        # Calculate real failures (failures that are not setup or mock failures)
+        real_failures = failed - setup_failures - mock_failures
+
+        # Calculate total skip/error (skipped + setup failures + mock failures)
+        skip_error_total = skipped + setup_failures + mock_failures
 
         # Calculate success rate using consistent formula
-        # Note: generate_summary_table doesn't track mock/setup failures separately
-        success_rate = calculate_success_rate(passed, total, skipped)
+        # Valid tests = total - skipped - setup_failures - mock_failures
+        success_rate = calculate_success_rate(
+            passed, total, skipped, setup_failures, mock_failures
+        )
 
         # Get clean display name
         display_model = get_model_display_name(model)
@@ -587,9 +617,12 @@ def generate_summary_table(results: Dict[str, Any]) -> str:
         # Add emoji indicator based on success rate
         indicator = get_rate_emoji(success_rate)
 
+        # Calculate valid tests for display
+        valid_tests = total - skip_error_total
+
         lines.append(
-            f"| {display_model} | {passed} | {failed} | {skipped} | {total} | "
-            f"{indicator} {success_rate:.1f}% |"
+            f"| {display_model} | {passed} | {real_failures} | {skip_error_total} | {total} | "
+            f"{indicator} {success_rate:.0f}% ({passed}/{valid_tests}) |"
         )
 
     return "\n".join(lines)
@@ -901,9 +934,14 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
                 total_mock_failures,
             )
 
-            # Create summary text with emoji
+            # Calculate valid tests for the count
+            valid_tests = (
+                total_tests - total_skipped - total_setup_failures - total_mock_failures
+            )
+
+            # Create summary text with emoji and count
             emoji = get_rate_emoji(overall_rate)
-            cell = f"{emoji} {overall_rate:.0f}%"
+            cell = f"{emoji} {overall_rate:.0f}% ({total_passed}/{valid_tests})"
         else:
             cell = "N/A"
 
@@ -1018,6 +1056,9 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
         )
     )
 
+    # Track unique tests per model for deduplication in Overall row
+    model_unique_tests: DefaultDict[str, Dict[str, Dict[str, Any]]] = defaultdict(dict)
+
     all_tags: Set[str] = set()
     all_models: Set[str] = set()
 
@@ -1054,6 +1095,17 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
         if model and tags:
             all_models.add(model)
             outcome = test.get("outcome", "unknown")
+
+            # Generate a unique test identifier (using nodeid as unique key)
+            test_id = test.get("nodeid", "")
+
+            # Store test info for deduplication
+            if test_id not in model_unique_tests[model]:
+                model_unique_tests[model][test_id] = {
+                    "outcome": outcome,
+                    "is_setup_failure": is_setup_failure,
+                    "is_mock_failure": is_mock_failure,
+                }
 
             for tag in tags:
                 all_tags.add(tag)
@@ -1135,24 +1187,30 @@ def generate_model_by_tag_table(results: Dict[str, Any]) -> str:
 
         lines.append("| " + " | ".join(row) + " |")
 
-    # Add Overall row
+    # Add Overall row - use deduplicated counts from unique tests
     overall_row = ["**Overall**"]
     grand_total_skipped_all = 0
 
     for model in sorted_models:
+        # Calculate from unique tests to avoid double-counting
         total_passed = 0
         total_tests = 0
         total_skipped = 0
         total_setup_failures = 0
         total_mock_failures = 0
 
-        for tag in sorted_tags:
-            stats = model_tag_stats[model][tag]
-            total_passed += stats["passed"]
-            total_tests += stats["total"]
-            total_skipped += stats.get("skipped", 0)
-            total_setup_failures += stats.get("setup_failures", 0)
-            total_mock_failures += stats.get("mock_failures", 0)
+        # Count unique tests per model
+        for test_id, test_info in model_unique_tests[model].items():
+            total_tests += 1
+            if test_info["outcome"] == "passed":
+                total_passed += 1
+            elif test_info["outcome"] == "skipped":
+                total_skipped += 1
+
+            if test_info["is_setup_failure"]:
+                total_setup_failures += 1
+            if test_info["is_mock_failure"]:
+                total_mock_failures += 1
 
         cell = format_test_cell(
             passed=total_passed,

@@ -28,7 +28,23 @@ before_test: |
   kubectl apply -f ../../shared/tempo.yaml -n app-114
 
   echo "⏳ Waiting for Tempo pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=300s
+  TEMPO_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=tempo -n app-114 --timeout=5s 2>/dev/null; then
+      echo "✅ Tempo pod is ready!"
+      TEMPO_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Tempo pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$TEMPO_POD_READY" = false ]; then
+    echo "❌ Tempo pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-114 -l app=tempo
+    exit 1
+  fi
 
   echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 300s)"
   TEMPO_READY=false
@@ -53,11 +69,35 @@ before_test: |
   echo "🛒 Deploying checkout service"
   kubectl apply -f checkout-service.yaml -n app-114
 
-  echo "⏳ Waiting for checkout deployment to be progressing"
-  kubectl wait --for=condition=progressing deployment/checkout -n app-114
+  echo "⏳ Waiting for checkout pod to exist"
+  for i in {1..60}; do
+    if kubectl get pod -l app=checkout -n app-114 2>/dev/null | grep -q checkout; then
+      echo "✅ Checkout pod exists"
+      break
+    fi
+    echo "Waiting for checkout pod to be created... ($i/60)"
+    sleep 2
+  done
 
-  echo "⏳ Waiting for checkout pod to be scheduled and ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=180s || exit 1
+  echo "⏳ Waiting for checkout pod to be ready"
+  CHECKOUT_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=5s 2>/dev/null; then
+      echo "✅ Checkout pod is ready!"
+      CHECKOUT_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Checkout pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$CHECKOUT_POD_READY" = false ]; then
+    echo "❌ Checkout pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-114 -l app=checkout
+    kubectl describe pod -l app=checkout -n app-114 | tail -20
+    exit 1
+  fi
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-114 -l app=checkout
@@ -65,11 +105,34 @@ before_test: |
   echo "🚦 Deploying traffic generator"
   kubectl apply -f traffic-generator.yaml -n app-114
 
-  echo "⏳ Waiting for traffic generator deployment to be progressing"
-  kubectl wait --for=condition=progressing deployment/traffic-generator -n app-114
+  echo "⏳ Waiting for traffic generator pod to exist"
+  for i in {1..60}; do
+    if kubectl get pod -l app=traffic-generator -n app-114 2>/dev/null | grep -q traffic-generator; then
+      echo "✅ Traffic generator pod exists"
+      break
+    fi
+    echo "Waiting for traffic generator pod to be created... ($i/60)"
+    sleep 2
+  done
 
-  echo "⏳ Waiting for traffic generator pod to be scheduled and ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=180s || exit 1
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  TRAFFIC_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=5s 2>/dev/null; then
+      echo "✅ Traffic generator pod is ready!"
+      TRAFFIC_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Traffic generator pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$TRAFFIC_POD_READY" = false ]; then
+    echo "❌ Traffic generator pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-114 -l app=traffic-generator
+    exit 1
+  fi
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-114

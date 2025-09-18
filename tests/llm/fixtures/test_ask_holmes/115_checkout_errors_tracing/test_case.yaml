@@ -29,7 +29,23 @@ before_test: |
   kubectl apply -f ../../shared/tempo.yaml -n app-115
 
   echo "⏳ Waiting for Tempo pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=tempo -n app-115 --timeout=300s || exit 1
+  TEMPO_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=tempo -n app-115 --timeout=5s 2>/dev/null; then
+      echo "✅ Tempo pod is ready!"
+      TEMPO_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Tempo pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$TEMPO_POD_READY" = false ]; then
+    echo "❌ Tempo pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-115 -l app=tempo
+    exit 1
+  fi
 
   echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 300s)"
   TEMPO_READY=false
@@ -54,12 +70,35 @@ before_test: |
   echo "🛒 Deploying checkout service"
   kubectl apply -f checkout-service.yaml -n app-115
 
-  echo "⏳ Waiting for checkout deployment to create pods"
-  kubectl wait --for=condition=progressing deployment/checkout -n app-115 || exit 1
+  echo "⏳ Waiting for checkout pod to exist"
+  for i in {1..60}; do
+    if kubectl get pod -l app=checkout -n app-115 2>/dev/null | grep -q checkout; then
+      echo "✅ Checkout pod exists"
+      break
+    fi
+    echo "Waiting for checkout pod to be created... ($i/60)"
+    sleep 2
+  done
 
   echo "⏳ Waiting for checkout pod to be ready (timeout 300s for scheduling and pip install)"
-  kubectl get pods -n app-115 -l app=checkout
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=300s || exit 1
+  CHECKOUT_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=5s 2>/dev/null; then
+      echo "✅ Checkout pod is ready!"
+      CHECKOUT_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Checkout pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$CHECKOUT_POD_READY" = false ]; then
+    echo "❌ Checkout pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-115 -l app=checkout
+    kubectl describe pod -l app=checkout -n app-115 | tail -20
+    exit 1
+  fi
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-115 -l app=checkout
@@ -67,11 +106,34 @@ before_test: |
   echo "🚦 Deploying traffic generator"
   kubectl apply -f traffic-generator.yaml -n app-115
 
-  echo "⏳ Waiting for traffic generator deployment to create pods"
-  kubectl wait --for=condition=progressing deployment/traffic-generator -n app-115 --timeout=180s || exit 1
+  echo "⏳ Waiting for traffic generator pod to exist"
+  for i in {1..60}; do
+    if kubectl get pod -l app=traffic-generator -n app-115 2>/dev/null | grep -q traffic-generator; then
+      echo "✅ Traffic generator pod exists"
+      break
+    fi
+    echo "Waiting for traffic generator pod to be created... ($i/60)"
+    sleep 2
+  done
 
-  echo "⏳ Waiting for traffic generator pod to be ready (timeout 180s)"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=180s || exit 1
+  echo "⏳ Waiting for traffic generator pod to be ready (timeout 300s)"
+  TRAFFIC_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=5s 2>/dev/null; then
+      echo "✅ Traffic generator pod is ready!"
+      TRAFFIC_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Traffic generator pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$TRAFFIC_POD_READY" = false ]; then
+    echo "❌ Traffic generator pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-115 -l app=traffic-generator
+    exit 1
+  fi
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-115
@@ -100,6 +162,9 @@ before_test: |
     echo "❌ Missing checkout request log"
     exit 1
   fi
+
+  echo "⏰ Waiting 15 seconds for traces to be ingested and indexed in Tempo..."
+  sleep 15
 
   echo "🔍 Querying Tempo for traces from checkout service"
   CHECKOUT_TRACES=$(kubectl run -n app-115 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
