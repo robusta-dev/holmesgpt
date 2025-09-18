@@ -59,12 +59,12 @@ toolsets:
 
 # Model configuration - specify available LLM models
 modelList:
-  openai-gpt4o:
-    model: gpt-4o
+  openai-gpt41:
+    model: gpt-4.1
     # API key will be taken from OPENAI_API_KEY env var
   # You can add more models here:
   # anthropic-claude:
-  #   model: anthropic/claude-3-5-sonnet-20241022
+  #   model: claude-sonnet-4-20250514
   #   # API key will be taken from ANTHROPIC_API_KEY env var
 
 # Add environment variables for local development
