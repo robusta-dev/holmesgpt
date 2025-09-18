@@ -116,7 +116,8 @@ markers = [
     "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
     "datadog: DataDog toolset",
     "storage: Disk related, like I/O or disk space",
-    "prometheus: Tests involving Prometheus metrics"
+    "prometheus: Tests involving Prometheus metrics",
+    "newrelic: New Relic toolset",
 ]
 
 addopts = [
