@@ -1,0 +1,23 @@
+expected_output:
+  - Frontend pod getting connection timeouts to backend-service
+  - NetworkPolicy on backend blocking traffic from frontend
+  - NetworkPolicy only allows ingress from pods with tier=backend label
+  - Frontend pod has tier=frontend label which doesn't match the NetworkPolicy selector
+before_test: |
+  kubectl create namespace app-17
+  kubectl apply -f ../shared/network_policy_blocking/manifest.yaml -n app-17
+  sleep 30
+after_test: |
+  kubectl delete -f ../shared/network_policy_blocking/manifest.yaml -n app-17
+  kubectl delete namespace app-17
+expected_sections:
+  Key Findings: False
+  Next Steps: False
+  App or Infra?: False
+  External links: False
+evaluation:
+  correctness: 1
+tags:
+  - kubernetes
+  - network
+  - hard

@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-initialization-alert-11
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: pod-lifecycle
+    interval: 30s
+    rules:
+    - alert: PodInitializationDelay
+      expr: |
+        kube_pod_init_container_status_running{namespace="app-11"} > 0
+      for: 5m
+      labels:
+        severity: warning
+        namespace: app-11
+        team: platform
+      annotations:
+        summary: "Pod initialization taking longer than expected"
+        description: "Pods in namespace app-11 are experiencing initialization delays. Service startup may be impacted."
+        impact: "Service startup delayed, potential availability issues"
+        dashboard: "https://grafana.example.com/d/pod-lifecycle/initialization-status"

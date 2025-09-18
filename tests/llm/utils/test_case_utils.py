@@ -77,6 +77,7 @@ class HolmesTestCase(BaseModel):
     include_tool_calls: Optional[bool] = False  # Include tool calls in LLM evaluation
     before_test: Optional[str] = None
     after_test: Optional[str] = None
+    prometheus_alert: Optional[str] = None  # Path to prometheus alert YAML file
     setup_timeout: Optional[int] = None  # Override default setup timeout in seconds
     conversation_history: Optional[list[dict]] = None
     test_env_vars: Optional[Dict[str, str]] = (
