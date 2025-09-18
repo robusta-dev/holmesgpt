@@ -1,0 +1,17 @@
+description: "Test if holmes pulls logs reliably, requires NEW_RELIC_LICENSE_KEY for writing logs"
+
+
+user_prompt:
+- fetch error or warning logs for pod payment-gateway-s1fdsa-231ds in newrelic
+
+expected_output:
+  -  mentiones one of the following from log 'data refused due to high memory usage', 'Cache miss for customer', 'Slow response from gateway', 'Retrying settlement for order'
+
+before_test: |
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}"
+  kubectl apply -f ./nrlogger.yaml
+  sleep 120
+
+after_test: |
+  kubectl delete secret newrelickey
+  kubectl delete -f ./nrlogger.yaml

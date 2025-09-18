@@ -18,8 +18,6 @@ import uuid
 import math
 from datetime import datetime, timezone
 
-from collections import defaultdict
-
 
 class ExecuteNRQLQuery(Tool):
     def __init__(self, toolset: "NewRelicToolset"):
@@ -291,7 +289,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
 
         query = params["query"]
-        result = api.execute_nrql_query(query)
+        result: List[Dict[str, Any]] = api.execute_nrql_query(query)
 
         qtype = params.get("query_type", "").lower()
         if qtype == "logs":
@@ -320,49 +318,56 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             params=params,
         )
 
-    def format_logs(
-        self,
-        records: List[Dict[str, Any]],
-        message_key: str = "message",
-        timestamp_key: str = "timestamp",
-        volatile_keys: Tuple[str, ...] = ("messageId", "newrelic.logs.batchIndex"),
-        sort_logs_ascending: bool = True,
-    ) -> List[Dict[str, Any]]:
+    def format_logs(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         if not records:
             return []
 
-        # Determine the candidate label keys (everything except message/timestamp + volatile)
-        all_keys = set().union(*(r.keys() for r in records))
-        excluded = {message_key, timestamp_key, *volatile_keys}
-        label_keys = tuple(sorted(k for k in all_keys if k not in excluded))
+        def to_hashable(v: Any):
+            if isinstance(v, (str, int, float, bool)) or v is None:
+                return v
+            # Fallback for unhashable types (lists/dicts/etc.)
+            return repr(v)
 
-        def label_tuple(rec: Dict[str, Any]):
-            # Build a stable, hashable key from label fields only
-            return tuple(sorted((k, rec.get(k)) for k in label_keys))
-
-        # Group records by labels
-        grouped = defaultdict(list)
+        # Preserve key discovery order across all records
+        all_keys_order: List[str] = []
+        seen = set()
         for rec in records:
-            grouped[label_tuple(rec)].append(rec)
+            for k in rec.keys():
+                if k not in seen:
+                    seen.add(k)
+                    all_keys_order.append(k)
 
-        result = []
-        for lbl_key, recs in grouped.items():
-            # Build labels dict from the first record (all in the group share the same label values)
-            labels = {k: recs[0].get(k) for k in label_keys if k in recs[0]}
+        # Common (duplicate) fields = keys present in every record with identical value
+        common_fields: Dict[str, Any] = {}
+        for k in all_keys_order:
+            if k not in records[0]:
+                continue
+            ref = to_hashable(records[0][k])
+            same = True
+            for r in records[1:]:
+                if k not in r or to_hashable(r[k]) != ref:
+                    same = False
+                    break
+            if same:
+                common_fields[k] = records[0][k]
 
-            # Sort records by timestamp
-            recs_sorted = (
-                sorted(recs, key=lambda r: r.get(timestamp_key))
-                if sort_logs_ascending
-                else sorted(recs, key=lambda r: r.get(timestamp_key), reverse=True)
-            )
+        # Per-record unique fields: everything not lifted to common_fields
+        data_entries: List[Dict[str, Any]] = []
+        for r in records:
+            entry: Dict[str, Any] = {}
+            for k, v in r.items():
+                if k not in common_fields:
+                    entry[k] = v
+            data_entries.append(entry)
 
-            # Collect logs as a simple list of messages
-            logs_list = [r.get(message_key) for r in recs_sorted]
+        # Assemble final single group
+        group_obj = dict(common_fields)
+        # avoid clobbering if an input field is literally named "data"
+        if "data" in group_obj:
+            group_obj["_common.data"] = group_obj.pop("data")
+        group_obj["data"] = data_entries
 
-            result.append({"labels": labels, "logs": logs_list})
-
-        return result
+        return [group_obj]
 
     def get_parameterized_one_liner(self, params) -> str:
         description = params.get("description", "")
