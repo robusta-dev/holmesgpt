@@ -13,7 +13,7 @@ before_test: |
 
   kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}"
   kubectl apply -f ./nrlogger.yaml
-  sleep 120
+  sleep 180
 
 after_test: |
   kubectl delete secret newrelickey
