@@ -57,7 +57,7 @@ before_test: |
   kubectl wait --for=condition=progressing deployment/checkout -n app-114
 
   echo "⏳ Waiting for checkout pod to be scheduled and ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n app-114
+  kubectl wait --for=condition=ready pod -l app=checkout -n app-114 --timeout=180s || exit 1
 
   echo "🔍 Checking checkout deployment status"
   kubectl get pods -n app-114 -l app=checkout
@@ -69,7 +69,7 @@ before_test: |
   kubectl wait --for=condition=progressing deployment/traffic-generator -n app-114
 
   echo "⏳ Waiting for traffic generator pod to be scheduled and ready"
-  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-114 --timeout=180s || exit 1
 
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-114

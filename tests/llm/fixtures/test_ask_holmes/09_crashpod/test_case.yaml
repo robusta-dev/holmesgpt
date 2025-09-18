@@ -25,6 +25,9 @@ before_test: |
           command: ["/bin/sh"]
           args: ["-c", "if [[ -z \"${DEPLOY_ENV}\" ]]; then echo 'Environment variable DEPLOY_ENV is undefined'; exit 1; else while true; do echo hello; sleep 10;done; fi"]
   EOF
+  # Wait for pod to exist first
+  kubectl wait --for=condition=Ready=false pod -l app=payment-processing-worker -n app-09 --timeout=180s
+  # Then wait for CrashLoopBackOff
   kubectl wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=CrashLoopBackOff pod -l app=payment-processing-worker -n app-09 --timeout=180s
 after_test: |
   kubectl delete namespace app-09

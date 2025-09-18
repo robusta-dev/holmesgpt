@@ -39,7 +39,7 @@ before_test: |
         timeoutSeconds: 5
         failureThreshold: 12
   EOF
-  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=180s
+  kubectl wait --for=condition=Ready pod/sea-turtle -n app-05 --timeout=300s
 
 after_test: |
   kubectl delete namespace app-05
