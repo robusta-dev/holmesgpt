@@ -9,7 +9,7 @@ Use `nrql_query` to run a NRQL query.
 - **Transaction**: High-level APM data (requests, API calls)
 - **Span**: Distributed tracing data (individual operations)
 - **Log**: Centralized log data
-- **Metric**: Time-series metrics data. for displaying a metric graph Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "newrelic_execute_nrql_query", "random_key": "92jf2hf"} >>
+- **Metric**: Time-series metrics data.
 
 ### Usage Workflow
 
@@ -24,3 +24,10 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 
 - If you already have an application name, you can query its traces directly
 - **Time range is recommended**: While not strictly required, most queries should include SINCE for performance
+
+#### 3. Querying Traces
+- Always validate first: run the base query without FACET (or a quick LIMIT) to confirm data exists; if results are empty, adjust filters or time range before proceeding.
+- Only attempt a FACET after confirming the field has values; if not, either try known alternatives or skip faceting entirely.
+
+### 3. Metrics/graphs
+- You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
