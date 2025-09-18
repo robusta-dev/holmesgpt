@@ -87,6 +87,8 @@ data:
           while True:
               emit_random_log()
               time.sleep(random.uniform(1.0, 3.0))
+              logger.error(f"Payment declined by gateway for order {random.randint(1000, 9999)}")
+
 
   requirements.txt: |
       requests>=2.24,<3.0
