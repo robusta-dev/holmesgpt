@@ -302,7 +302,7 @@ class TestDatadogMetricsToolset:
         assert success is False
         assert (
             error_msg
-            == "Datadog metrics toolset requires configuration. Please provide: dd_api_key, dd_app_key, and site_api_url in your Holmes config. For more details, see https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/"
+            == "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/"
         )
 
     def test_prerequisites_callable_invalid_config(self):

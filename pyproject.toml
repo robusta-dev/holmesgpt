@@ -83,6 +83,7 @@ ignore_missing_imports = true
 scripts_are_modules = true
 exclude = [
     "tests/llm/fixtures/.*",
+    "dist/.*",
 ]
 
 [tool.pytest.ini_options]

@@ -1,7 +1,7 @@
 from holmes.common.env_vars import TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
-from holmes.core.tools_utils.data_types import ToolCallResult
+from holmes.core.models import ToolCallResult
 from holmes.utils import sentry_helper
 
 
