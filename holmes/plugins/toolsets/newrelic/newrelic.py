@@ -124,7 +124,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             enriched_params["query"] = query
             return_result = self.format_metrics(result, params=enriched_params)
             if len(return_result.get("data", {}).get("results", [])):
-                return_result = result
+                return_result = result  # type: ignore[assignment]
             return StructuredToolResult(
                 status=StructuredToolResultStatus.SUCCESS,
                 data=json.dumps(return_result, indent=2),
@@ -143,13 +143,15 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         """
         if not records:
             return []
-        
+
         try:
             # Defensive, shallow copy of each record and type validation
             copied: List[Dict[str, Any]] = []
             for i, rec in enumerate(records):
                 if not isinstance(rec, dict):
-                    raise TypeError(f"`records[{i}]` must be a dict, got {type(rec).__name__}")
+                    raise TypeError(
+                        f"`records[{i}]` must be a dict, got {type(rec).__name__}"
+                    )
                 copied.append(dict(rec))
 
             # Determine common fields by walking keys

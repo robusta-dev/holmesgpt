@@ -8,6 +8,7 @@ import math
 
 # ----------------------- Pydantic Models -----------------------
 
+
 class PromSeries(BaseModel):
     metric: Dict[str, Any]
     values: List[List[Union[int, str]]]
@@ -38,7 +39,9 @@ class PromResponse(BaseModel):
     def _rfc3339(ts: Optional[int]) -> str:
         if ts is None:
             return ""
-        return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
 
     @staticmethod
     def _to_prom_value(v: Any) -> str:
@@ -147,28 +150,40 @@ class PromResponse(BaseModel):
             # Fallback: any key that has numeric/None values in at least one record
             if not metric_keys:
                 for k in all_keys - reserved:
-                    if any(isinstance(r.get(k), (int, float)) or r.get(k) is None for r in records):
+                    if any(
+                        isinstance(r.get(k), (int, float)) or r.get(k) is None
+                        for r in records
+                    ):
                         metric_keys.add(k)
 
             # Label keys are the rest (we'll filter reserved when grouping)
             label_keys = sorted(all_keys - metric_keys)
 
             # Determine global start/end
-            begins = [r.get(begin_key) for r in records if isinstance(r.get(begin_key), (int, float))]
-            ends = [r.get(end_key) for r in records if isinstance(r.get(end_key), (int, float))]
-            start_ts = min(begins) if begins else (min(ends) if ends else None)
-            end_ts = max(ends) if ends else (max(begins) if begins else None)
+            begins = [
+                r.get(begin_key)
+                for r in records
+                if isinstance(r.get(begin_key), (int, float))
+            ]
+            ends = [
+                r.get(end_key)
+                for r in records
+                if isinstance(r.get(end_key), (int, float))
+            ]
+            start_ts = min(begins) if begins else (min(ends) if ends else None)  # type: ignore[type-var]
+            end_ts = max(ends) if ends else (max(begins) if begins else None)  # type: ignore[type-var]
 
             # Step: prefer most common (end - begin) delta; else infer from end timestamps; else 60
             deltas = [
                 int(r[end_key] - r[begin_key])
                 for r in records
-                if isinstance(r.get(end_key), (int, float)) and isinstance(r.get(begin_key), (int, float))
+                if isinstance(r.get(end_key), (int, float))
+                and isinstance(r.get(begin_key), (int, float))
             ]
             if deltas:
                 step = max(set(deltas), key=deltas.count)
             else:
-                sorted_ends = sorted([int(e) for e in ends]) if ends else []
+                sorted_ends = sorted([int(e) for e in ends]) if ends else []  # type: ignore[arg-type]
                 consec = [b - a for a, b in zip(sorted_ends, sorted_ends[1:])]
                 step = max(set(consec), key=consec.count) if consec else 60
 
@@ -182,7 +197,9 @@ class PromResponse(BaseModel):
                         items.append((k, rec.get(k)))
                 return tuple(sorted(items))
 
-            groups: Dict[Tuple[Tuple[str, Any], ...], List[Dict[str, Any]]] = defaultdict(list)
+            groups: Dict[Tuple[Tuple[str, Any], ...], List[Dict[str, Any]]] = (
+                defaultdict(list)
+            )
             for rec in records:
                 groups[label_tuple(rec)].append(rec)
 
