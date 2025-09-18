@@ -138,55 +138,46 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
 
     def format_logs(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Build a single grouped object from a list of log records.
+        """
         if not records:
             return []
+        
+        try:
+            # Defensive, shallow copy of each record and type validation
+            copied: List[Dict[str, Any]] = []
+            for i, rec in enumerate(records):
+                if not isinstance(rec, dict):
+                    raise TypeError(f"`records[{i}]` must be a dict, got {type(rec).__name__}")
+                copied.append(dict(rec))
 
-        def to_hashable(v: Any):
-            if isinstance(v, (str, int, float, bool)) or v is None:
-                return v
-            # Fallback for unhashable types (lists/dicts/etc.)
-            return repr(v)
+            # Determine common fields by walking keys
+            common_fields: Dict[str, Any] = {}
+            first = copied[0]
+            for key in first.keys():
+                value = first.get(key)
+                # The key + value must be the same in every record
+                if all(key in r and r.get(key) == value for r in copied[1:]):
+                    common_fields[key] = value
 
-        # Preserve key discovery order across all records
-        all_keys_order: List[str] = []
-        seen = set()
-        for rec in records:
-            for k in rec.keys():
-                if k not in seen:
-                    seen.add(k)
-                    all_keys_order.append(k)
+            # Build per-record entries excluding any common fields
+            data_entries: List[Dict[str, Any]] = []
+            for rec in copied:
+                # Keep only fields that aren’t common (don’t mutate the original record)
+                entry = {k: v for k, v in rec.items() if k not in common_fields}
+                data_entries.append(entry)
 
-        # Common (duplicate) fields = keys present in every record with identical value
-        common_fields: Dict[str, Any] = {}
-        for k in all_keys_order:
-            if k not in records[0]:
-                continue
-            ref = to_hashable(records[0][k])
-            same = True
-            for r in records[1:]:
-                if k not in r or to_hashable(r[k]) != ref:
-                    same = False
-                    break
-            if same:
-                common_fields[k] = records[0][k]
+            group: Dict[str, Any] = dict(common_fields)
+            if "data" in group:
+                group["_common.data"] = group.pop("data")
 
-        # Per-record unique fields: everything not lifted to common_fields
-        data_entries: List[Dict[str, Any]] = []
-        for r in records:
-            entry: Dict[str, Any] = {}
-            for k, v in r.items():
-                if k not in common_fields:
-                    entry[k] = v
-            data_entries.append(entry)
+            group["data"] = data_entries
 
-        # Assemble final single group
-        group_obj = dict(common_fields)
-        # avoid clobbering if an input field is literally named "data"
-        if "data" in group_obj:
-            group_obj["_common.data"] = group_obj.pop("data")
-        group_obj["data"] = data_entries
-
-        return [group_obj]
+            return [group]
+        except Exception:
+            logging.exception(f"Failed to reformat newrelic logs {records}")
+            return records
 
     def get_parameterized_one_liner(self, params) -> str:
         description = params.get("description", "")
