@@ -377,6 +377,15 @@ class CheckExecutionRequest(BaseModel):
     model: Optional[str] = None
 
 
+class NotificationStatus(BaseModel):
+    """Status of a notification attempt."""
+
+    type: str  # "slack", "pagerduty", etc.
+    channel: Optional[str] = None  # Channel/destination details
+    status: str  # "sent", "failed", "skipped"
+    error: Optional[str] = None  # Error message if failed
+
+
 class CheckExecutionResponse(BaseModel):
     """Response model for check execution."""
 
@@ -385,6 +394,10 @@ class CheckExecutionResponse(BaseModel):
     duration: float
     rationale: Optional[str] = None
     error: Optional[str] = None
+    model_used: Optional[str] = None  # The actual model that was used
+    notifications: Optional[list[NotificationStatus]] = (
+        None  # Notification delivery status
+    )
 
 
 @app.post("/api/check/execute")
@@ -433,6 +446,9 @@ def execute_health_check(
             console=None,
         )
 
+        # Track notification statuses
+        notifications = []
+
         # Send alerts if check failed and has destinations configured
         if result.status.value == "fail" and request.destinations:
             try:
@@ -468,41 +484,67 @@ def execute_health_check(
                         dest_config = {}
 
                     if dest_type == "slack":
-                        # Check if SLACK_TOKEN is configured
-                        slack_token = os.environ.get("SLACK_TOKEN")
-                        if slack_token:
-                            from holmes.plugins.destinations.slack.plugin import (
-                                SlackDestination,
+                        slack_channel = None
+                        notification = NotificationStatus(
+                            type="slack", status="pending"
+                        )
+
+                        try:
+                            # Check if SLACK_TOKEN is configured
+                            slack_token = os.environ.get("SLACK_TOKEN")
+                            if slack_token:
+                                from holmes.plugins.destinations.slack.plugin import (
+                                    SlackDestination,
+                                )
+
+                                # Use channel from destination config or fallback to env var
+                                slack_channel = dest_config.get(
+                                    "channel"
+                                ) or os.environ.get("SLACK_CHANNEL", "#alerts")
+                                notification.channel = slack_channel
+
+                                slack_dest = SlackDestination(
+                                    token=slack_token, channel=slack_channel
+                                )
+                                slack_dest.send_issue(issue, llm_result)
+
+                                notification.status = "sent"
+                                logging.info(
+                                    f"Sent Slack notification to {slack_channel} for check {x_check_name}"
+                                )
+                            else:
+                                notification.status = "skipped"
+                                notification.error = "SLACK_TOKEN not configured"
+                                logging.warning(
+                                    "SLACK_TOKEN not configured, skipping Slack notification"
+                                )
+                        except Exception as e:
+                            notification.status = "failed"
+                            notification.error = str(e)
+                            logging.error(
+                                f"Failed to send Slack notification: {e}", exc_info=True
                             )
 
-                            # Use channel from destination config or fallback to env var
-                            slack_channel = dest_config.get(
-                                "channel"
-                            ) or os.environ.get("SLACK_CHANNEL", "#alerts")
-                            slack_dest = SlackDestination(
-                                token=slack_token, channel=slack_channel
-                            )
-                            slack_dest.send_issue(issue, llm_result)
-                            logging.info(
-                                f"Sent Slack notification to {slack_channel} for check {x_check_name}"
-                            )
-                        else:
-                            logging.warning(
-                                "SLACK_TOKEN not configured, skipping Slack notification"
-                            )
+                        notifications.append(notification)
                     # Add other destination types here (pagerduty, etc.) as needed
 
             except Exception as e:
-                logging.error(f"Failed to send alert notification: {e}", exc_info=True)
+                logging.error(
+                    f"Failed to process alert destinations: {e}", exc_info=True
+                )
                 # Don't fail the whole request if notification fails
 
-        # Return the result
+        # Return the result with the actual model used
         return CheckExecutionResponse(
             status=result.status.value,
             message=result.message,
             duration=result.duration,
             rationale=result.rationale,
             error=result.error,
+            model_used=ai.llm.model,  # Include the actual model that was used
+            notifications=notifications
+            if notifications
+            else None,  # Include notification statuses
         )
 
     except AuthenticationError as e:

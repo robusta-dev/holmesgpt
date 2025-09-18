@@ -9,14 +9,14 @@ spec:
   # The health check query - phrase it so PASS means healthy
   query: "Does the deployment 'frontend' in namespace 'default' have at least 2 ready replicas?"
 
-  # Cron schedule (every 5 minutes)
-  schedule: "*/5 * * * *"
-
   # Timeout for check execution
   timeout: 30
 
   # Mode: alert (send notifications) or monitor (log only)
   mode: alert
+
+  # Optional: specify the LLM model to use
+  model: gpt-4.1
 
   # Alert destinations
   destinations:

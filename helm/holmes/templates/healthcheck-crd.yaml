@@ -24,9 +24,8 @@ spec:
               timeout:
                 type: integer
                 description: "Timeout in seconds for check execution"
-                default: 30
+                default: 300
                 minimum: 1
-                maximum: 300
               mode:
                 type: string
                 description: "Execution mode: alert or monitor"
@@ -58,11 +57,13 @@ spec:
             properties:
               phase:
                 type: string
-                description: "Current phase: Pending, Running, Completed"
+                description: "Current execution status"
                 enum:
                 - Pending
                 - Running
-                - Completed
+                - Passed
+                - Failed
+                - Error
               startTime:
                 type: string
                 format: date-time
@@ -71,13 +72,6 @@ spec:
                 type: string
                 format: date-time
                 description: "Time when execution completed"
-              result:
-                type: string
-                description: "Result of execution: pass, fail, or error"
-                enum:
-                - pass
-                - fail
-                - error
               message:
                 type: string
                 description: "Message from execution"
@@ -87,6 +81,31 @@ spec:
               duration:
                 type: number
                 description: "Execution duration in seconds"
+              modelUsed:
+                type: string
+                description: "The actual LLM model that was used for this execution"
+              notificationStatus:
+                type: array
+                description: "Status of notification delivery attempts"
+                items:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      description: "Type of notification (slack, pagerduty, etc)"
+                    channel:
+                      type: string
+                      description: "Channel or destination where notification was sent"
+                    status:
+                      type: string
+                      description: "Delivery status: sent, failed, or skipped"
+                      enum:
+                      - sent
+                      - failed
+                      - skipped
+                    error:
+                      type: string
+                      description: "Error message if delivery failed"
               conditions:
                 type: array
                 items:
@@ -106,10 +125,10 @@ spec:
     subresources:
       status: {}
     additionalPrinterColumns:
-    - name: Result
+    - name: Status
       type: string
-      description: "Execution result"
-      jsonPath: .status.result
+      description: "Current status"
+      jsonPath: .status.phase
     - name: Duration
       type: number
       description: "Execution duration in seconds"
@@ -122,10 +141,15 @@ spec:
       type: string
       description: "Result message (short)"
       jsonPath: .status.shortMessage
+    - name: Notifications
+      type: string
+      description: "Notification status"
+      jsonPath: .status.notificationSummary
+      priority: 0
     - name: Model
       type: string
       description: "LLM model used"
-      jsonPath: .spec.model
+      jsonPath: .status.modelUsed
       priority: 0
     - name: Age
       type: date

@@ -57,7 +57,7 @@ scheduled_checks_active = Gauge(
 class HolmesCheckOperator:
     """Main operator class for managing health checks."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the operator with scheduler and configuration."""
         self.scheduler = BackgroundScheduler()
         self.scheduler.start()
@@ -94,7 +94,7 @@ class HolmesCheckOperator:
         # Prepare the request
         check_request = {
             "query": spec["query"],
-            "timeout": spec.get("timeout", 30),
+            "timeout": spec.get("timeout", 300),
             "mode": spec.get("mode", "monitor"),
             "destinations": spec.get("destinations", []),
         }
@@ -109,7 +109,7 @@ class HolmesCheckOperator:
                 f"{self.holmes_api_url}/api/check/execute",
                 json=check_request,
                 headers={"X-Check-Name": check_identifier},
-                timeout=spec.get("timeout", 30) + 10,
+                timeout=spec.get("timeout", 300) + 10,
             )
             response.raise_for_status()
             result = response.json()
@@ -201,14 +201,42 @@ class HolmesCheckOperator:
 
             if phase == "Running":
                 status["startTime"] = now
-            elif phase == "Completed" and result:
+            elif phase in ["Passed", "Failed", "Error"] and result:
                 status["completionTime"] = now
-                status["result"] = result.get("status", "unknown")
                 status["message"] = result.get("message", "")
                 status["rationale"] = result.get("rationale", "")
                 # Round duration to 1 decimal place for cleaner display
                 duration = result.get("duration", 0)
                 status["duration"] = round(duration, 1) if duration else 0
+
+                # Store the actual model used
+                if result.get("model_used"):
+                    status["modelUsed"] = result.get("model_used")
+
+                # Store notification status if present
+                if result.get("notifications"):
+                    status["notificationStatus"] = result.get("notifications")
+
+                    # Create short notification summary for kubectl display
+                    notifications = result.get("notifications")
+                    notif_summary = []
+                    if notifications:
+                        for notif in notifications:
+                            if notif.get("status") == "sent":
+                                notif_summary.append(
+                                    f"✓ {notif.get('type', 'unknown')}"
+                                )
+                            elif notif.get("status") == "failed":
+                                notif_summary.append(
+                                    f"✗ {notif.get('type', 'unknown')}"
+                                )
+                            elif notif.get("status") == "skipped":
+                                notif_summary.append(
+                                    f"- {notif.get('type', 'unknown')}"
+                                )
+                        status["notificationSummary"] = (
+                            ", ".join(notif_summary) if notif_summary else ""
+                        )
 
                 # Create short summary for display (first 30 chars of message)
                 msg = result.get("message", "")
@@ -223,7 +251,7 @@ class HolmesCheckOperator:
                         "type": "Complete",
                         "status": "True",
                         "lastTransitionTime": now,
-                        "reason": result.get("status", "unknown").title(),
+                        "reason": result.get("status", "unknown"),
                         "message": result.get("rationale", result.get("message", "")),
                     }
                 ]
@@ -306,7 +334,7 @@ class HolmesCheckOperator:
                         "type": "Ready",
                         "status": "True" if result.get("status") == "pass" else "False",
                         "lastTransitionTime": now,
-                        "reason": result.get("status", "unknown").title(),
+                        "reason": result.get("status", "unknown"),
                         "message": result.get("rationale", result.get("message", "")),
                     }
                 ],
@@ -746,8 +774,16 @@ def handle_healthcheck_create(
         # Execute the check
         result = operator.execute_check(name, namespace, spec, is_one_time=True)
 
-        # Update status to Completed with results
-        operator.update_healthcheck_status(name, namespace, "Completed", result, spec)
+        # Update status based on result
+        result_status = result.get("status", "error")
+        final_phase = (
+            "Passed"
+            if result_status == "pass"
+            else "Failed"
+            if result_status == "fail"
+            else "Error"
+        )
+        operator.update_healthcheck_status(name, namespace, final_phase, result, spec)
     except Exception as e:
         # If anything fails, ensure we update status to reflect the error
         logger.error(f"Error during HealthCheck execution for {namespace}/{name}: {e}")
@@ -756,9 +792,8 @@ def handle_healthcheck_create(
             "message": f"Check execution failed: {str(e)}",
             "error": str(e),
         }
-        operator.update_healthcheck_status(
-            name, namespace, "Completed", error_result, spec
-        )
+        operator.update_healthcheck_status(name, namespace, "Error", error_result, spec)
+        result = error_result  # Set result for use below
 
     # If this was created by a ScheduledHealthCheck, update its status
     scheduled_by = labels.get("holmes.robusta.dev/scheduled-by") if labels else None
@@ -810,8 +845,16 @@ def rerun_healthcheck_on_annotation(
         # Execute the check
         result = operator.execute_check(name, namespace, spec, is_one_time=True)
 
-        # Update status to Completed with results
-        operator.update_healthcheck_status(name, namespace, "Completed", result, spec)
+        # Update status based on result
+        result_status = result.get("status", "error")
+        final_phase = (
+            "Passed"
+            if result_status == "pass"
+            else "Failed"
+            if result_status == "fail"
+            else "Error"
+        )
+        operator.update_healthcheck_status(name, namespace, final_phase, result, spec)
     except Exception as e:
         # If anything fails, ensure we update status to reflect the error
         logger.error(f"Error during HealthCheck re-run for {namespace}/{name}: {e}")
@@ -820,9 +863,7 @@ def rerun_healthcheck_on_annotation(
             "message": f"Check execution failed: {str(e)}",
             "error": str(e),
         }
-        operator.update_healthcheck_status(
-            name, namespace, "Completed", error_result, spec
-        )
+        operator.update_healthcheck_status(name, namespace, "Error", error_result, spec)
         result = error_result
 
     # If this was created by a ScheduledHealthCheck, update its status

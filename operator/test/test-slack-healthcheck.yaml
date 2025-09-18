@@ -1,0 +1,16 @@
+# Test HealthCheck with Slack notification
+apiVersion: holmes.robusta.dev/v1alpha1
+kind: HealthCheck
+metadata:
+  name: slack-alert-test
+  namespace: test-app
+spec:
+  query: "Check if there are any pods in CrashLoopBackOff state in namespace test-app. If any are found, this check should FAIL."
+  timeout: 30
+  mode: alert  # Alert mode sends to destinations
+  destinations:
+    - type: slack
+      config:
+        channel: "#natan-test"  # Override default channel if needed
+        # Note: The slack token must be configured in Holmes deployment
+        # via SLACK_TOKEN environment variable, not in the check spec

@@ -114,7 +114,6 @@ metadata:
   namespace: test-app
 spec:
   query: "Are all pods in namespace test-app healthy and running?"
-  timeout: 30
   mode: monitor
   model: gpt-4.1  # Optional: specify the LLM model to use
 EOF
@@ -124,13 +123,13 @@ kubectl get healthcheck pod-health-check -n test-app -w
 
 # View the results
 kubectl get healthcheck -n test-app
-# NAME               RESULT   DURATION   QUERY                           MESSAGE                        AGE
-# pod-health-check   pass     5.2        Are all pods in namespace te... Check passed. All pods are... 10s
+# NAME               STATUS      DURATION   QUERY                           MESSAGE                        AGE
+# pod-health-check   Completed   5.2        Are all pods in namespace te... Check passed. All pods are... 10s
 
-# View with wide output to see model
+# View with wide output to see result and model
 kubectl get healthcheck -n test-app -o wide
-# NAME               RESULT   DURATION   QUERY                           MESSAGE                        MODEL     AGE
-# pod-health-check   pass     5.2        Are all pods in namespace te... Check passed. All pods are... gpt-4.1   10s
+# NAME               STATUS      RESULT   DURATION   QUERY                           MESSAGE                        MODEL     AGE
+# pod-health-check   Completed   pass     5.2        Are all pods in namespace te... Check passed. All pods are... gpt-4.1   10s
 
 # See detailed status
 kubectl describe healthcheck pod-health-check -n test-app
@@ -191,7 +190,6 @@ metadata:
   namespace: test-app
 spec:
   query: "Check if there are any pods in CrashLoopBackOff state in namespace test-app. If any are found, this check should FAIL."
-  timeout: 30
   mode: alert  # Alert mode sends notifications
   destinations:
     - type: slack
@@ -201,8 +199,8 @@ EOF
 
 # The check will execute, fail, and send a Slack notification
 kubectl get healthcheck crashloop-alert -n test-app
-# NAME              RESULT   DURATION(S)   QUERY                           MESSAGE
-# crashloop-alert   fail     3.8           Check if there are any pods... Check failed. There are 1...
+# NAME              STATUS      DURATION   QUERY                           MESSAGE
+# crashloop-alert   Completed   3.8        Check if there are any pods... Check failed. There are 1...
 
 # View operator logs to confirm Slack notification was sent
 kubectl logs -l app=holmes-operator -n holmes-operator | grep -i slack
@@ -226,7 +224,6 @@ spec:
   enabled: true
   checkSpec:
     query: "Check the overall health of namespace test-app. Report any issues with pods, services, or deployments."
-    timeout: 60
     mode: monitor
 EOF
 
