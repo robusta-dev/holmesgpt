@@ -6,9 +6,6 @@ import uuid
 import math
 
 
-# ----------------------- Pydantic Models -----------------------
-
-
 class PromSeries(BaseModel):
     metric: Dict[str, Any]
     values: List[List[Union[int, str]]]
