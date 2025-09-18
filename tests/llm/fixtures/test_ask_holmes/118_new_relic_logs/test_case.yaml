@@ -2,10 +2,10 @@ description: "Test if holmes pulls logs reliably, expects env var NEW_RELIC_LICE
 
 
 user_prompt:
-- fetch error logs for pod payment-gateway-s1fdsa-231ds from newrelic
+- fetch error logs for app payment-gateway-s1fdsa-231ds from newrelic
 
 expected_output:
-  -  mentiones "Payment declined by gateway for order" or "data refused due to high memory usage"
+  -  mentiones "payment declined" error
 
 
 before_test: |
