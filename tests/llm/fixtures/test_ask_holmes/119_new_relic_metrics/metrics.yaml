@@ -1,0 +1,152 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-code-config
+data:
+  metric_emitter.py: |
+    import os, time, random, requests
+
+    NR_METRIC_ENDPOINT = os.getenv("NR_METRIC_ENDPOINT", "https://metric-api.newrelic.com/metric/v1")
+    NEW_RELIC_LICENSE_KEY = os.getenv("NEW_RELIC_LICENSE_KEY", "undefined")
+
+    # identity / attrs
+    CLUSTER_NAME = os.getenv("CLUSTER_NAME", "do-fra1-tomer")
+    POD_NAME = os.getenv("POD_NAME", "unknown-pod")
+    NAMESPACE = os.getenv("KUBERNETES_NAMESPACE", "default")
+    CONTAINER_NAME = os.getenv("CONTAINER_NAME", "metric-emitter")
+    SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "billing-gateway-atc")
+    APP_NAME = os.getenv("APP_NAME", "billing-gateway-metrics")
+
+    # metric values (tweak with envs)
+    BASE_MEMORY_GB = float(os.getenv("MEMORY_GB", "8.6"))  # keep > 8 GB
+    CPU_CORES = float(os.getenv("CPU_CORES", "5"))         # 5 CPUs
+    JITTER_PCT = float(os.getenv("JITTER_PCT", "3"))       # +/- percent jitter
+    INTERVAL_SEC = float(os.getenv("SEND_INTERVAL_SEC", "15"))
+
+    def _headers():
+      # Metric API accepts Api-Key; keep X-License-Key too just in case
+      return {
+        "Content-Type": "application/json",
+        "Api-Key": NEW_RELIC_LICENSE_KEY,
+        "X-License-Key": NEW_RELIC_LICENSE_KEY,
+      }
+
+    def _now_ms():
+      return int(time.time() * 1000)
+
+    def _payload(mem_bytes: int, cpu_cores: float, ts_ms: int):
+      return [{
+        "common": {
+          "attributes": {
+            "service.name": SERVICE_NAME,
+            "app": APP_NAME,
+            "cluster.name": CLUSTER_NAME,
+            "cluster_name": CLUSTER_NAME,
+            "k8s.namespace.name": NAMESPACE,
+            "k8s.cluster.name": CLUSTER_NAME,
+            "k8s.pod.name": POD_NAME,
+            "k8s.container.name": CONTAINER_NAME,
+          }
+        },
+        "metrics": [
+          {
+            "name": "pod.memory.usageBytes",
+            "type": "gauge",
+            "value": mem_bytes,
+            "timestamp": ts_ms,
+            "attributes": {"unit": "bytes"}
+          },
+          {
+            "name": "pod.cpu.usageCores",
+            "type": "gauge",
+            "value": cpu_cores,
+            "timestamp": ts_ms,
+            "attributes": {"unit": "cores"}
+          }
+        ]
+      }]
+
+    def _mem_bytes_with_jitter():
+      # keep it over 8GB even with jitter
+      jitter = 1.0 + random.uniform(-JITTER_PCT, JITTER_PCT) / 100.0
+      gb = max(8.1, BASE_MEMORY_GB * jitter)
+      return int(gb * (1024 ** 3))
+
+    def emit_forever():
+      print(f"Starting New Relic metric emitter for pod={POD_NAME} cluster={CLUSTER_NAME}")
+      while True:
+        ts = _now_ms()
+        mem_bytes = _mem_bytes_with_jitter()
+        cpu_cores = CPU_CORES  # constant 5 cores; change via env if desired
+        body = _payload(mem_bytes, cpu_cores, ts)
+        try:
+          resp = requests.post(NR_METRIC_ENDPOINT, json=body, headers=_headers(), timeout=5)
+          resp.raise_for_status()
+        except Exception as e:
+          # keep going even if NR ingest is temporarily unavailable
+          print(f"[WARN] failed to send metrics: {e}")
+        time.sleep(INTERVAL_SEC)
+
+    if __name__ == "__main__":
+      emit_forever()
+
+  requirements.txt: |
+    requests>=2.24,<3.0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: billing-gateway-metrics-x9ab42
+  labels:
+    app: billing-gateway
+spec:
+  containers:
+    - name: metric-emitter
+      image: python:3.10
+      command: ["/bin/bash", "-c", "pip install --no-cache-dir -r /app/requirements.txt && python /app/metric_emitter.py"]
+      env:
+        - name: NEW_RELIC_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelickey
+              key: key
+
+        # cluster param (default can be overridden)
+        - name: CLUSTER_NAME
+          value: "do-fra1-tomer"
+
+        # optional tuning (can omit)
+        - name: MEMORY_GB
+          value: "8.6"
+        - name: CPU_CORES
+          value: "5"
+        - name: SEND_INTERVAL_SEC
+          value: "15"
+        - name: JITTER_PCT
+          value: "3"
+
+        # identity (downward API)
+        - name: POD_NAME
+          valueFrom: { fieldRef: { fieldPath: metadata.name } }
+        - name: KUBERNETES_NAMESPACE
+          valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+
+        # nice-to-have labels
+        - name: OTEL_SERVICE_NAME
+          value: "billing-gateway-atc"
+        - name: APP_NAME
+          value: "billing-gateway-metrics"
+        - name: CONTAINER_NAME
+          value: "metric-emitter"
+
+        # set EU endpoint if your NR account is in EU
+        # - name: NR_METRIC_ENDPOINT
+        #   value: "https://metric-api.eu.newrelic.com/metric/v1"
+
+      volumeMounts:
+        - name: service-code
+          mountPath: /app
+  volumes:
+    - name: service-code
+      configMap:
+        name: service-code-config
