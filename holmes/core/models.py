@@ -68,7 +68,9 @@ class ToolCallResult(BaseModel):
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
-    if isinstance(tool_result.data, str):
+    if tool_result.llm_data:
+        tool_response = tool_result.llm_data
+    elif isinstance(tool_result.data, str):
         tool_response = tool_result.data
     else:
         try:
