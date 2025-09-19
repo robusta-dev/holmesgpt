@@ -8,7 +8,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult
 from mcp.types import Tool as MCP_Tool
-from pydantic import AnyUrl, Field, field_validator
+from pydantic import Field, field_validator
 
 from holmes.core.tools import (
     CallablePrerequisite,
