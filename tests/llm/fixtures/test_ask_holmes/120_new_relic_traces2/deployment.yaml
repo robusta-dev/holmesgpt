@@ -1,9 +1,9 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: service-code-config
+  name: service-code-secret
   namespace: nr
-data:
+stringData:
   telemetry.py: |
     import os, time, socket, logging, requests
     from opentelemetry import trace
@@ -273,8 +273,8 @@ spec:
               value: "1.0"
       volumes:
         - name: service-code
-          configMap:
-            name: service-code-config
+          secret:
+            secretName: service-code-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -319,8 +319,8 @@ spec:
               mountPath: /app
       volumes:
         - name: service-code
-          configMap:
-            name: service-code-config
+          secret:
+            secretName: service-code-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -366,8 +366,8 @@ spec:
               mountPath: /app
       volumes:
         - name: service-code
-          configMap:
-            name: service-code-config
+          secret:
+            secretName: service-code-secret
 ---
 apiVersion: v1
 kind: Service

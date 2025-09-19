@@ -1,8 +1,8 @@
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
-  name: service-code-config
-data:
+  name: service-code-secret
+stringData:
   payment_processor.py: |
       import os
       import time
@@ -116,5 +116,5 @@ spec:
           mountPath: /app
   volumes:
     - name: service-code
-      configMap:
-        name: service-code-config
+      secret:
+        secretName: service-code-secret
