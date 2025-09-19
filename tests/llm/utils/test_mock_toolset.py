@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from holmes.core.tools import (
     Tool,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     ToolsetStatusEnum,
 )
 from tests.llm.utils.mock_toolset import (
@@ -157,7 +157,7 @@ class TestMockFileManager:
 
             # Create test result
             result = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data="Test output data",
                 metadata={"key": "value"},
             )
@@ -178,7 +178,7 @@ class TestMockFileManager:
             assert mock.tool_name == "test_tool"
             assert mock.toolset_name == "test_toolset"
             assert mock.return_value.data == "Test output data"
-            assert mock.return_value.status == ToolResultStatus.SUCCESS
+            assert mock.return_value.status == StructuredToolResultStatus.SUCCESS
 
     def test_read_nonexistent_mock(self):
         """Test reading a mock that doesn't exist."""
@@ -224,7 +224,7 @@ class TestMockableToolWrapper:
         tool.user_description = None
         tool.invoke = Mock(
             return_value=StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data="Real tool output"
+                status=StructuredToolResultStatus.SUCCESS, data="Real tool output"
             )
         )
         tool.get_parameterized_one_liner = Mock(return_value="test_tool()")
@@ -260,7 +260,7 @@ class TestMockableToolWrapper:
 
             # First, write a mock file
             mock_result = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS, data="Mocked output"
+                status=StructuredToolResultStatus.SUCCESS, data="Mocked output"
             )
             file_manager.write_mock(
                 tool_name="test_tool",
@@ -436,7 +436,7 @@ class TestMockToolsMatching:
                 file_manager = MockFileManager(tmpdir, add_params_to_filename=True)
                 params = {"field1": "1", "field2": "2"}
                 mock_result = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="this tool is mocked",
                     params=params,
                 )
@@ -492,7 +492,7 @@ class TestMockToolsMatching:
                 # Set up file-based mock WITHOUT params in filename
                 file_manager = MockFileManager(tmpdir, add_params_to_filename=False)
                 mock_result = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="this tool is mocked",
                     params={},  # Will be ignored when matching
                 )
@@ -551,7 +551,7 @@ class TestMockToolsMatching:
                 # Set up file-based mock with specific params
                 file_manager = MockFileManager(tmpdir, add_params_to_filename=True)
                 mock_result = StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data="this tool is mocked",
                     params={"field1": "1", "field2": "2"},
                 )
@@ -623,7 +623,7 @@ class TestMockToolsMatching:
                     original_invoke = kubectl_tool._tool._invoke
                     kubectl_tool._tool._invoke = Mock(
                         return_value=StructuredToolResult(
-                            status=ToolResultStatus.SUCCESS,
+                            status=StructuredToolResultStatus.SUCCESS,
                             data="Generated output from mock",
                         )
                     )
@@ -635,7 +635,7 @@ class TestMockToolsMatching:
                         )
 
                         # Should have called the mocked tool and saved the result
-                        assert result.status == ToolResultStatus.SUCCESS
+                        assert result.status == StructuredToolResultStatus.SUCCESS
                         assert "Generated output" in result.data
 
                         # Verify mock was generated

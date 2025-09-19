@@ -18,6 +18,7 @@ from holmes.plugins.toolsets.utils import get_param_or_raise
 DEFAULT_LOG_LIMIT = 100
 SECONDS_PER_DAY = 24 * 60 * 60
 DEFAULT_TIME_SPAN_SECONDS = 7 * SECONDS_PER_DAY  # 1 week in seconds
+DEFAULT_GRAPH_TIME_SPAN_SECONDS = 1 * 60 * 60  # 1 hour in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
@@ -27,6 +28,9 @@ class LoggingCapability(str, Enum):
 
     REGEX_FILTER = "regex_filter"  # If not supported, falls back to substring matching
     EXCLUDE_FILTER = "exclude_filter"  # If not supported, parameter is not shown at all
+    HISTORICAL_DATA = (
+        "historical_data"  # Can fetch logs for pods no longer in the cluster
+    )
 
 
 class LoggingConfig(BaseModel):
@@ -78,8 +82,15 @@ class PodLoggingTool(Tool):
         parameters = self._get_tool_parameters(toolset)
 
         # Build description based on capabilities
-        description = "Fetch logs for a Kubernetes pod"
+        # Include the toolset name in the description
+        toolset_name = toolset.name if toolset.name else "logging backend"
+        description = f"Fetch logs for a Kubernetes pod from {toolset_name}"
         capabilities = toolset.supported_capabilities
+
+        if LoggingCapability.HISTORICAL_DATA in capabilities:
+            description += (
+                " (including historical data for pods no longer in the cluster)"
+            )
 
         if (
             LoggingCapability.REGEX_FILTER in capabilities
@@ -164,7 +175,9 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         return params
 
-    def _invoke(self, params: dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),

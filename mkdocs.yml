@@ -148,6 +148,7 @@ nav:
       - Interactive Mode: walkthrough/interactive-mode.md
       - CI/CD Troubleshooting: walkthrough/cicd-troubleshooting.md
       - Investigating Prometheus Alerts: walkthrough/investigating-prometheus-alerts.md
+      - Investigating using AKS MCP Server: walkthrough/investigating-using-aks-mcp-server.md
 
   - AI Providers:
       - ai-providers/index.md
@@ -159,6 +160,7 @@ nav:
       - Ollama: ai-providers/ollama.md
       - OpenAI: ai-providers/openai.md
       - OpenAI-Compatible: ai-providers/openai-compatible.md
+      - Robusta AI: ai-providers/robusta-ai.md
       - Using Multiple Providers: ai-providers/using-multiple-providers.md
 
   - Data Sources:

@@ -14,6 +14,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
+    DEFAULT_LOG_LIMIT,
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
@@ -22,7 +23,7 @@ from holmes.plugins.toolsets.utils import (
 from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 
 class GrafanaLokiLabelsConfig(BaseModel):
@@ -45,12 +46,12 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             name="grafana/loki",
             description="Fetches kubernetes pods logs from Loki",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/grafanaloki.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanaloki/",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            tools=[
-                PodLoggingTool(self),
-            ],
+            tools=[],  # Initialize with empty tools first
         )
+        # Now that parent is initialized and self.name exists, create the tool
+        self.tools = [PodLoggingTool(self)]
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
         if not config:
@@ -94,17 +95,17 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             label_value=params.pod_name,
             start=start,
             end=end,
-            limit=params.limit or 2000,
+            limit=params.limit or DEFAULT_LOG_LIMIT,
         )
         if logs:
             logs.sort(key=lambda x: x["timestamp"])
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data="\n".join([format_log(log) for log in logs]),
                 params=params.model_dump(),
             )
         else:
             return StructuredToolResult(
-                status=ToolResultStatus.NO_DATA,
+                status=StructuredToolResultStatus.NO_DATA,
                 params=params.model_dump(),
             )

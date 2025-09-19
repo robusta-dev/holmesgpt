@@ -34,6 +34,7 @@ LOG_PERFORMANCE = os.environ.get("LOG_PERFORMANCE", None)
 
 
 ENABLE_TELEMETRY = load_bool("ENABLE_TELEMETRY", False)
+DEVELOPMENT_MODE = load_bool("DEVELOPMENT_MODE", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
@@ -63,3 +64,24 @@ TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS = load_bool(
 MAX_OUTPUT_TOKEN_RESERVATION = int(
     os.environ.get("MAX_OUTPUT_TOKEN_RESERVATION", 16384)
 )  ## 16k
+
+# When using the bash tool, setting BASH_TOOL_UNSAFE_ALLOW_ALL will skip any command validation and run any command requested by the LLM
+BASH_TOOL_UNSAFE_ALLOW_ALL = load_bool("BASH_TOOL_UNSAFE_ALLOW_ALL", False)
+
+LOG_LLM_USAGE_RESPONSE = load_bool("LOG_LLM_USAGE_RESPONSE", False)
+
+# For CLI only, enable user approval for potentially sensitive commands that would otherwise be rejected
+ENABLE_CLI_TOOL_APPROVAL = load_bool("ENABLE_CLI_TOOL_APPROVAL", True)
+
+MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 100))
+
+# Limit each tool response to N% of the total context window.
+# Number between 0 and 100
+# Setting to either 0 or any number above 100 disables the logic that limits tool response size
+TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT = float(
+    os.environ.get("TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT", 15)
+)
+
+MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION = int(
+    os.environ.get("MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION", 3000)
+)

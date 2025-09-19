@@ -1,0 +1,10 @@
+description: "Test if holmes pulls logs reliably"
+
+
+user_prompt:
+- fetch logs for pod order-management-service-5f4cf5f969-thcg4 in newrelic
+
+expected_output:
+  -  mentiones 'POST /orders HTTP/1.1'
+
+skip: True

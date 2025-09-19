@@ -50,6 +50,21 @@ def set_initial_properties(request, test_case: HolmesTestCase, model: str) -> No
     request.node.user_properties.append(("tags", test_case.tags or []))
 
 
+def set_trace_properties(request, eval_span) -> None:
+    """Set Braintrust trace properties for test reporting.
+
+    Args:
+        request: The pytest request object
+        eval_span: The Braintrust evaluation span
+    """
+    if hasattr(eval_span, "id"):
+        request.node.user_properties.append(("braintrust_span_id", str(eval_span.id)))
+    if hasattr(eval_span, "root_span_id"):
+        request.node.user_properties.append(
+            ("braintrust_root_span_id", str(eval_span.root_span_id))
+        )
+
+
 def update_property(request, key: str, value: Any) -> None:
     """Update an existing property value instead of appending a duplicate."""
     for i, (prop_key, prop_value) in enumerate(request.node.user_properties):
@@ -104,9 +119,32 @@ def update_test_results(
             if isinstance(test_case.evaluation.correctness, Evaluation):
                 evaluation_type = test_case.evaluation.correctness.type
 
+        # Prepare output for evaluation - include tool calls if requested
+        evaluation_output = output
+        if (
+            test_case.include_tool_calls
+            and result
+            and hasattr(result, "tool_calls")
+            and result.tool_calls
+        ):
+            # Format tool calls as a string to include in evaluation
+            tool_calls_text = "\n\n# Tool Calls\n\n"
+            for i, tc in enumerate(result.tool_calls, 1):
+                tool_calls_text += f"* Tool #{i}: {tc.description}\n"
+                if hasattr(tc, "result") and tc.result:
+                    # Don't truncate - LLM judge needs complete output for accurate evaluation
+                    output_text = str(tc.result)
+                    # Indent the output for readability
+                    indented_output = "\n".join(
+                        f"  {line}" for line in output_text.split("\n")
+                    )
+                    tool_calls_text += f"Output:\n{indented_output}\n"
+                tool_calls_text += "---\n"
+            evaluation_output = output + tool_calls_text
+
         # Evaluate correctness
         correctness_eval = evaluate_correctness(
-            output=output,
+            output=evaluation_output,
             expected_elements=expected,
             parent_span=eval_span,
             evaluation_type=evaluation_type,

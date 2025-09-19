@@ -11,7 +11,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 PARAM_FINDING_ID = "id"
 START_TIME = "start_datetime"
@@ -45,19 +45,21 @@ class FetchRobustaFinding(Tool):
             logging.error(error)
             return {"error": error}
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         finding_id = params[PARAM_FINDING_ID]
         try:
             finding = self._fetch_finding(finding_id)
             if finding:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=finding,
                     params=params,
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     data=f"Could not find a finding with finding_id={finding_id}",
                     params=params,
                 )
@@ -68,7 +70,7 @@ class FetchRobustaFinding(Tool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"There was an internal error while fetching finding {finding_id}",
                 params=params,
             )
@@ -113,18 +115,20 @@ class FetchResourceRecommendation(Tool):
             )
         return None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             recommendations = self._resource_recommendation(params)
             if recommendations:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=recommendations,
                     params=params,
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     data=f"Could not find recommendations for {params}",
                     params=params,
                 )
@@ -132,7 +136,7 @@ class FetchResourceRecommendation(Tool):
             msg = f"There was an internal error while fetching recommendations for {params}. {str(e)}"
             logging.exception(msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )
@@ -171,18 +175,20 @@ class FetchConfigurationChanges(Tool):
             )
         return None
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             changes = self._fetch_change_history(params)
             if changes:
                 return StructuredToolResult(
-                    status=ToolResultStatus.SUCCESS,
+                    status=StructuredToolResultStatus.SUCCESS,
                     data=changes,
                     params=params,
                 )
             else:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     data=f"Could not find changes for {params}",
                     params=params,
                 )
@@ -190,7 +196,7 @@ class FetchConfigurationChanges(Tool):
             msg = f"There was an internal error while fetching changes for {params}. {str(e)}"
             logging.exception(msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=msg,
                 params=params,
             )
@@ -213,7 +219,7 @@ class RobustaToolset(Toolset):
         super().__init__(
             icon_url="https://cdn.prod.website-files.com/633e9bac8f71dfb7a8e4c9a6/646be7710db810b14133bdb5_logo.svg",
             description="Fetches alerts metadata and change history",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/robusta.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/robusta/",
             name="robusta",
             prerequisites=[dal_prereq],
             tools=[

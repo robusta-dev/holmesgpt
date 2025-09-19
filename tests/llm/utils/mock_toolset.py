@@ -16,6 +16,7 @@ from holmes.core.tools import (
     Tool,
     Toolset,
     ToolsetStatusEnum,
+    YAMLTool,
     YAMLToolset,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
@@ -435,7 +436,9 @@ class MockableToolWrapper(Tool):
             raise MockDataNotFoundError(error_msg, tool_name=self.name)
         return mock.return_value
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         """Execute the tool based on the current mode."""
         if self._mode == MockMode.GENERATE:
             try:
@@ -548,6 +551,15 @@ class MockToolsetManager:
         """Configure builtin toolsets with custom definitions."""
         configured = []
 
+        # First, validate that all custom definitions reference existing toolsets
+        builtin_names = {ts.name for ts in builtin_toolsets}
+        for definition in custom_definitions:
+            if definition.name not in builtin_names:
+                raise RuntimeError(
+                    f"Toolset '{definition.name}' referenced in toolsets.yaml does not exist. "
+                    f"Available toolsets: {', '.join(sorted(builtin_names))}"
+                )
+
         for toolset in builtin_toolsets:
             # Replace RunbookToolset with one that has test folder search path
             if toolset.name == "runbook":
@@ -565,6 +577,35 @@ class MockToolsetManager:
                 if toolset.config:
                     new_runbook_toolset.config.update(toolset.config)
                 toolset = new_runbook_toolset
+            elif toolset.name == "kubernetes/core":
+                if not isinstance(toolset, YAMLToolset):
+                    raise ValueError(
+                        f"Expected kubernetes/core to be YAMLToolset, got {type(toolset)}"
+                    )
+                yaml_toolset: YAMLToolset = toolset
+
+                # Block secret access to prevent LLM from reading code hints in secrets
+                security_check = """if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then
+                        echo "Not allowed to get kubernetes secrets"
+                        exit 1
+                      fi
+                      """
+
+                for tool in yaml_toolset.tools:
+                    if not isinstance(tool, YAMLTool):
+                        raise ValueError(
+                            f"Expected all tools in kubernetes/core to be YAMLTool, got {type(tool)}"
+                        )
+
+                    # Check if tool has command or script
+                    if tool.command is not None:
+                        tool.command = security_check + tool.command
+                    elif tool.script is not None:
+                        tool.script = security_check + tool.script
+                    else:
+                        raise ValueError(
+                            f"Tool '{tool.name}' in kubernetes/core has neither command nor script defined"
+                        )
 
             # Enable default toolsets
             if toolset.is_default or isinstance(toolset, YAMLToolset):
@@ -588,11 +629,31 @@ class MockToolsetManager:
                     try:
                         # TODO: add timeout
                         toolset.check_prerequisites()
-                    except Exception:
-                        logging.error(
-                            f"check_prerequisites failed for toolset {toolset.name}.",
-                            exc_info=True,
-                        )
+
+                        # If this toolset was explicitly enabled in the test config but failed prerequisites,
+                        # the test should fail
+                        if (
+                            definition
+                            and definition.enabled
+                            and toolset.status != ToolsetStatusEnum.ENABLED
+                        ):
+                            raise RuntimeError(
+                                f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
+                                f"but failed prerequisites check: {toolset.error or 'Unknown error'}"
+                            )
+                    except Exception as e:
+                        # If this toolset was explicitly enabled in the test config, re-raise the error
+                        if definition and definition.enabled:
+                            raise RuntimeError(
+                                f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
+                                f"but failed prerequisites check: {str(e)}"
+                            ) from e
+                        else:
+                            # Otherwise just log it - it was enabled by default, not explicitly
+                            logging.error(
+                                f"check_prerequisites failed for toolset {toolset.name}.",
+                                exc_info=True,
+                            )
                 else:
                     # In MOCK/GENERATE modes, just set status to ENABLED for enabled toolsets
                     toolset.status = ToolsetStatusEnum.ENABLED
