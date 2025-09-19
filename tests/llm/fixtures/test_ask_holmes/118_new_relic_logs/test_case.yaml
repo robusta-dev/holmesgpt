@@ -7,6 +7,12 @@ user_prompt:
 expected_output:
   -  mentiones "payment declined" error
 
+tags:
+  - newrelic
+  - logs
+
+# Custom timeout for setup (needs 5 min sleep + setup time)
+setup_timeout: 360  # 6 minutes total
 
 before_test: |
   [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
