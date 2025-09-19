@@ -1483,10 +1483,64 @@ def main():
     # Get classifier model from environment or default
     classifier_model = os.environ.get("CLASSIFIER_MODEL", "gpt-4o")
 
+    # Calculate number of iterations
+    test_case_iterations = defaultdict(set)
+    for test in results.get("tests", []):
+        # Skip deselected tests
+        if test.get("outcome") == "deselected":
+            continue
+
+        # Extract test case name and iteration from nodeid
+        nodeid = test.get("nodeid", "")
+        if "[" in nodeid and "]" in nodeid:
+            # Extract the parametrized part between brackets
+            param_part = nodeid.split("[")[1].split("]")[0]
+
+            # Parse test case and iteration number
+            # Format is: test_case_nameN-model_name
+            # where N is the iteration number appended directly to the test case name
+            # Example: 01_how_many_pods0-gpt-4.1 or 01_how_many_pods1-anthropic/claude-sonnet-4-20250514
+
+            # Find the first dash followed by a known model prefix
+            parts = param_part.split("-")
+            test_and_iter = None
+            for i, part in enumerate(parts):
+                if i > 0 and (
+                    part.startswith("gpt")
+                    or part.startswith("anthropic")
+                    or part.startswith("claude")
+                    or part.startswith("azure")
+                    or part in ["o1", "o3"]
+                ):
+                    # Found the model start, everything before is test_and_iter
+                    test_and_iter = "-".join(parts[:i])
+                    break
+
+            if test_and_iter:
+                # Extract iteration number from end of test case name
+                iteration = 0
+                if test_and_iter and test_and_iter[-1].isdigit():
+                    # Find where the iteration number starts
+                    i = len(test_and_iter) - 1
+                    while i >= 0 and test_and_iter[i].isdigit():
+                        i -= 1
+                    test_case = test_and_iter[: i + 1]
+                    iteration = int(test_and_iter[i + 1 :])
+                else:
+                    test_case = test_and_iter
+
+                test_case_iterations[test_case].add(iteration)
+
+    # Calculate maximum iterations across all test cases
+    num_iterations = max(
+        (max(iterations) + 1 for iterations in test_case_iterations.values()), default=1
+    )
+
     report_lines.append(
         f"**Generated**: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}  "
     )
     report_lines.append(f"**Total Duration**: {pretty_duration}  ")
+    report_lines.append(f"**Iterations**: {num_iterations}  ")
     report_lines.append(f"**Judge (classifier) model**: {classifier_model}")
     report_lines.append("")
 
