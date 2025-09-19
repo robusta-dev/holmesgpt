@@ -1,4 +1,5 @@
 import pytest
+import re
 from holmes.core.tools import (
     ToolParameter,
 )
@@ -134,7 +135,7 @@ def test_get_mcp_toolset_from_config_sse_type():
 
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_sse"
-    assert str(toolset.config.get("url")) == "http://example.com/sse"
+    assert toolset.url == "http://example.com/sse"
 
 
 def test_get_mcp_toolset_from_config_stdio_type():
@@ -158,7 +159,7 @@ def test_get_mcp_toolset_from_config_backward_compatibility_with_url():
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_backward"
     # /sse gets appended by the validator
-    assert str(toolset.url) == "http://example.com/api/sse"
+    assert toolset.url == "http://example.com/api/sse"
 
 
 def test_get_mcp_toolset_from_config_backward_compatibility_url_already_has_sse():
@@ -168,8 +169,7 @@ def test_get_mcp_toolset_from_config_backward_compatibility_url_already_has_sse(
 
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_backward_sse"
-    # /sse not duplicated
-    assert str(toolset.url) == "http://example.com/api/sse"
+    assert toolset.url == "http://example.com/api/sse"
 
 
 def test_get_mcp_toolset_from_config_no_url_no_type():
@@ -177,7 +177,9 @@ def test_get_mcp_toolset_from_config_no_url_no_type():
     config = {"config": {}, "some_other_key": "value"}
     with pytest.raises(
         ValueError,
-        match="MCP Server config must include 'config.type' to specify the transport type.",
+        match=re.escape(
+            "MCP Server config must include a transport type ('sse' or 'stdio') either in 'config.type' or by providing transport-specific keys."
+        ),
     ):
         get_mcp_toolset_from_config(config, "test_no_url")
 
@@ -197,7 +199,7 @@ def test_get_mcp_toolset_from_config_with_additional_params():
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_extra_params"
     assert toolset.description == "Test toolset"
-    assert toolset.config["headers"]["Authorization"] == "Bearer token"
+    assert toolset.config["headers"]["Authorization"] == "***"
 
 
 def test_get_mcp_toolset_from_config_stdio_with_empty_args():

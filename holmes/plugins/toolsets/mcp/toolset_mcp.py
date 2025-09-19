@@ -269,17 +269,22 @@ def get_mcp_toolset_from_config(config: dict[str, Any], name: str) -> BaseMCPToo
     mcp_config = config.get("config", {})
     mcp_type = mcp_config.get("type")
 
-    if mcp_type == "sse":
-        return RemoteMCPToolset(**config, name=name)
     if mcp_type == "stdio":
         return StdioMCPToolset(**config, name=name)
 
     # Backwards compatibility: still support using url or command top-level keys.
-    url = config.get("url")
-    if not url:
-        raise ValueError(
-            "MCP Server config must include 'config.type' to specify the transport type."
-        )
-    # fill the mcp server config with URL in case it's not set.
-    mcp_config["url"] = url
-    return RemoteMCPToolset(**config, name=name)
+    url = config.pop("url", None)
+    if mcp_type == "sse":
+        return RemoteMCPToolset(**config, name=name)
+    if url is not None:
+        # fill the mcp server config with URL in case the mcp config is not set
+        if mcp_config == {}:
+            config["config"] = {"url": url}
+        else:
+            mcp_config["url"] = url
+        return RemoteMCPToolset(**config, name=name)
+
+    raise ValueError(
+        "MCP Server config must include a transport type ('sse' or 'stdio') "
+        "either in 'config.type' or by providing transport-specific keys."
+    )
