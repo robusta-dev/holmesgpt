@@ -81,10 +81,12 @@ class StructuredToolResult(BaseModel):
     error: Optional[str] = None
     return_code: Optional[int] = None
     data: Optional[Any] = None
+    llm_data: Optional[str] = None
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None
     icon_url: Optional[str] = None
+
 
     def get_stringified_data(self) -> str:
         if self.data is None:

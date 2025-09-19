@@ -1,0 +1,757 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-160
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: http-traffic-generator
+  namespace: app-160
+type: Opaque
+stringData:
+  http_traffic_generator.py: |
+    import os
+    import time
+    import random
+    import json
+    from datetime import datetime
+    import threading
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from urllib.parse import urlparse
+    import prometheus_client
+    from prometheus_client import Counter, Histogram, Gauge
+    import logging
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    logger = logging.getLogger(__name__)
+
+    # Massive amount of Prometheus metrics with high cardinality
+    # HTTP request metrics with many dimensions
+    http_requests_total = Counter('http_requests_total', 'Total HTTP requests',
+                                 ['method', 'status_code', 'endpoint', 'user_agent', 'source_ip', 'region', 'service_version'])
+    http_request_duration = Histogram('http_request_duration_seconds', 'HTTP request duration',
+                                    ['method', 'endpoint', 'status_code', 'region', 'user_type'])
+    http_request_size_bytes = Histogram('http_request_size_bytes', 'HTTP request size in bytes',
+                                       ['method', 'endpoint', 'content_type'])
+    http_response_size_bytes = Histogram('http_response_size_bytes', 'HTTP response size in bytes',
+                                        ['method', 'endpoint', 'status_code'])
+
+    # Connection metrics
+    current_connections = Gauge('http_current_connections', 'Current HTTP connections', ['endpoint', 'region'])
+    connection_duration = Histogram('http_connection_duration_seconds', 'Connection duration', ['region'])
+
+    # Application metrics
+    app_requests_per_second = Gauge('app_requests_per_second', 'Requests per second', ['endpoint', 'method'])
+    app_error_rate = Gauge('app_error_rate', 'Error rate percentage', ['endpoint', 'error_type'])
+    app_latency_p95 = Gauge('app_latency_p95_seconds', 'P95 latency', ['endpoint'])
+    app_latency_p99 = Gauge('app_latency_p99_seconds', 'P99 latency', ['endpoint'])
+
+    # Business metrics
+    business_revenue_per_request = Gauge('business_revenue_per_request_usd', 'Revenue per request', ['product_category'])
+    business_conversion_rate = Gauge('business_conversion_rate', 'Conversion rate', ['traffic_source', 'user_segment'])
+    business_cart_abandonment = Gauge('business_cart_abandonment_rate', 'Cart abandonment rate', ['user_type'])
+
+    # Infrastructure metrics
+    infra_cpu_usage = Gauge('infra_cpu_usage_percent', 'CPU usage', ['instance', 'region', 'availability_zone'])
+    infra_memory_usage = Gauge('infra_memory_usage_percent', 'Memory usage', ['instance', 'region'])
+    infra_disk_io = Gauge('infra_disk_io_ops_per_sec', 'Disk I/O operations', ['instance', 'disk_type'])
+    infra_network_bytes = Counter('infra_network_bytes_total', 'Network bytes', ['instance', 'direction', 'interface'])
+
+    # Database metrics
+    db_query_duration = Histogram('db_query_duration_seconds', 'Database query duration',
+                                 ['database', 'table', 'operation', 'index_used'])
+    db_connections_active = Gauge('db_connections_active', 'Active database connections', ['database', 'user', 'host'])
+    db_slow_queries = Counter('db_slow_queries_total', 'Slow database queries', ['database', 'table'])
+
+    # Cache metrics
+    cache_hits = Counter('cache_hits_total', 'Cache hits', ['cache_type', 'key_pattern', 'region'])
+    cache_misses = Counter('cache_misses_total', 'Cache misses', ['cache_type', 'key_pattern', 'region'])
+    cache_evictions = Counter('cache_evictions_total', 'Cache evictions', ['cache_type', 'reason'])
+
+    # Security metrics
+    security_failed_logins = Counter('security_failed_logins_total', 'Failed login attempts', ['source_ip', 'username'])
+    security_blocked_requests = Counter('security_blocked_requests_total', 'Blocked requests', ['rule_id', 'source_ip', 'endpoint'])
+    security_suspicious_activity = Counter('security_suspicious_activity_total', 'Suspicious activity', ['activity_type', 'severity'])
+
+    class HTTPMetricsHandler(BaseHTTPRequestHandler):
+        """HTTP request handler that generates realistic traffic patterns"""
+
+        def do_GET(self):
+            self.handle_request('GET')
+
+        def do_POST(self):
+            self.handle_request('POST')
+
+        def do_PUT(self):
+            self.handle_request('PUT')
+
+        def do_DELETE(self):
+            self.handle_request('DELETE')
+
+        def handle_request(self, method):
+            start_time = time.time()
+
+            try:
+                path = self.path
+                # Check for X-Forwarded-For header first, fall back to client address
+                forwarded_for = self.headers.get('X-Forwarded-For')
+                client_ip = forwarded_for if forwarded_for else self.client_address[0]
+
+                # Generate rich context for metrics
+                region = self.get_region_from_ip(client_ip)
+                user_agent = self.get_user_agent()
+                service_version = random.choice(['v2.1.0', 'v2.1.1', 'v2.0.9', 'v2.2.0-beta'])
+                user_type = self.get_user_type(client_ip)
+
+                current_connections.labels(endpoint=self.get_endpoint_category(path), region=region).inc()
+
+                # Determine response based on path and client
+                status_code, response_data = self.determine_response(path, client_ip, method)
+
+                # Add realistic response time variation
+                response_time = self.calculate_response_time(path, status_code)
+                time.sleep(response_time)
+
+                # Calculate request/response sizes
+                request_size = random.randint(200, 2000)
+                response_size = len(json.dumps(response_data).encode()) if response_data else random.randint(100, 500)
+
+                # Send response
+                self.send_response(status_code)
+                self.send_header('Content-Type', 'application/json' if status_code == 200 else 'text/plain')
+                self.send_header('Server', f'ProductionAPI/{service_version}')
+                self.end_headers()
+
+                if status_code == 200:
+                    self.wfile.write(json.dumps(response_data).encode())
+                else:
+                    self.wfile.write(b'Not Found' if status_code == 404 else b'Error')
+
+                # Record extensive metrics with high cardinality
+                endpoint = self.get_endpoint_category(path)
+                content_type = 'application/json' if status_code == 200 else 'text/plain'
+
+                # HTTP metrics
+                http_requests_total.labels(
+                    method=method, status_code=str(status_code), endpoint=endpoint,
+                    user_agent=user_agent, source_ip=client_ip, region=region, service_version=service_version
+                ).inc()
+
+                http_request_duration.labels(
+                    method=method, endpoint=endpoint, status_code=str(status_code), region=region, user_type=user_type
+                ).observe(time.time() - start_time)
+
+                http_request_size_bytes.labels(method=method, endpoint=endpoint, content_type=content_type).observe(request_size)
+                http_response_size_bytes.labels(method=method, endpoint=endpoint, status_code=str(status_code)).observe(response_size)
+
+                # Application metrics
+                self.record_application_metrics(endpoint, method, status_code, response_time)
+
+                # Business metrics
+                self.record_business_metrics(path, status_code, user_type)
+
+                # Infrastructure metrics
+                self.record_infrastructure_metrics(region)
+
+                # Database metrics
+                self.record_database_metrics(endpoint)
+
+                # Cache metrics
+                self.record_cache_metrics(endpoint, region)
+
+                # Security metrics
+                self.record_security_metrics(client_ip, path, status_code, user_agent)
+
+                # Connection metrics
+                connection_duration.labels(region=region).observe(random.uniform(0.1, 5.0))
+
+                # Log the request (reduced logging to avoid spam)
+                if random.random() < 0.01:  # Log only 1% of requests
+                    logger.info(f"{client_ip} - {method} {path} - {status_code} - {response_time:.3f}s")
+
+            except Exception as e:
+                logger.error(f"Error handling request: {e}")
+            finally:
+                current_connections.labels(endpoint=self.get_endpoint_category(path), region=self.get_region_from_ip(client_ip)).dec()
+
+        def get_region_from_ip(self, ip):
+            """Map IP ranges to regions"""
+            if ip.startswith('192.168.1.'):
+                return 'us-east-1'
+            elif ip.startswith('192.168.2.'):
+                return 'us-west-2'
+            elif ip.startswith('10.0.'):
+                return 'eu-central-1'
+            elif ip.startswith('172.16.'):
+                return 'ap-southeast-1'
+            else:
+                return 'us-east-1'
+
+        def get_user_agent(self):
+            """Generate realistic user agents"""
+            agents = [
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+                'PostmanRuntime/7.29.0',
+                'curl/7.68.0',
+                'Go-http-client/1.1',
+                'Python/3.9 requests/2.25.1'
+            ]
+            return random.choice(agents)
+
+        def get_user_type(self, ip):
+            """Determine user type based on IP"""
+            if ip == '192.168.50.100':
+                return 'scanner'
+            elif ip.startswith('192.168.1.'):
+                return 'premium'
+            elif ip.startswith('10.0.'):
+                return 'enterprise'
+            else:
+                return 'regular'
+
+        def record_application_metrics(self, endpoint, method, status_code, response_time):
+            """Record application-level metrics"""
+            app_requests_per_second.labels(endpoint=endpoint, method=method).set(random.uniform(50, 500))
+
+            if status_code >= 400:
+                error_type = 'client_error' if status_code < 500 else 'server_error'
+                app_error_rate.labels(endpoint=endpoint, error_type=error_type).set(random.uniform(0.5, 5.0))
+
+            app_latency_p95.labels(endpoint=endpoint).set(response_time * 1.5)
+            app_latency_p99.labels(endpoint=endpoint).set(response_time * 2.0)
+
+        def record_business_metrics(self, path, status_code, user_type):
+            """Record business-level metrics"""
+            if '/api/v1/products' in path:
+                category = random.choice(['electronics', 'clothing', 'books', 'home'])
+                business_revenue_per_request.labels(product_category=category).set(random.uniform(10, 200))
+
+            if status_code == 200 and user_type != 'scanner':
+                traffic_source = random.choice(['organic', 'paid', 'social', 'direct'])
+                user_segment = random.choice(['new', 'returning', 'vip'])
+                business_conversion_rate.labels(traffic_source=traffic_source, user_segment=user_segment).set(random.uniform(0.02, 0.15))
+
+                business_cart_abandonment.labels(user_type=user_type).set(random.uniform(0.3, 0.7))
+
+        def record_infrastructure_metrics(self, region):
+            """Record infrastructure metrics for multiple instances"""
+            for i in range(random.randint(3, 8)):  # 3-8 instances per region
+                instance = f'i-{random.randint(100000, 999999):06d}'
+                az = f'{region}{random.choice(["a", "b", "c"])}'
+
+                infra_cpu_usage.labels(instance=instance, region=region, availability_zone=az).set(random.uniform(20, 90))
+                infra_memory_usage.labels(instance=instance, region=region).set(random.uniform(40, 85))
+
+                disk_type = random.choice(['gp2', 'gp3', 'io1', 'nvme'])
+                infra_disk_io.labels(instance=instance, disk_type=disk_type).set(random.uniform(100, 2000))
+
+                for direction in ['in', 'out']:
+                    for interface in ['eth0', 'eth1']:
+                        infra_network_bytes.labels(instance=instance, direction=direction, interface=interface).inc(
+                            random.randint(1000, 50000)
+                        )
+
+        def record_database_metrics(self, endpoint):
+            """Record database metrics"""
+            databases = ['users_db', 'products_db', 'orders_db', 'analytics_db']
+            tables = ['users', 'products', 'orders', 'sessions', 'events', 'inventory']
+            operations = ['SELECT', 'INSERT', 'UPDATE', 'DELETE']
+
+            for _ in range(random.randint(1, 3)):  # 1-3 queries per request
+                db = random.choice(databases)
+                table = random.choice(tables)
+                operation = random.choice(operations)
+                index_used = random.choice(['primary', 'idx_timestamp', 'idx_user_id', 'none'])
+
+                db_query_duration.labels(database=db, table=table, operation=operation, index_used=index_used).observe(
+                    random.uniform(0.001, 0.1)
+                )
+
+                if random.random() < 0.05:  # 5% slow queries
+                    db_slow_queries.labels(database=db, table=table).inc()
+
+            # Connection pools
+            for db in databases:
+                for user in ['app_user', 'readonly_user', 'admin_user']:
+                    for host in ['db-primary', 'db-replica-1', 'db-replica-2']:
+                        db_connections_active.labels(database=db, user=user, host=host).set(random.randint(5, 50))
+
+        def record_cache_metrics(self, endpoint, region):
+            """Record cache metrics"""
+            cache_types = ['redis', 'memcached', 'local']
+            key_patterns = ['user:*', 'product:*', 'session:*', 'config:*', 'temp:*']
+
+            for cache_type in cache_types:
+                for key_pattern in key_patterns:
+                    if random.random() < 0.8:  # 80% cache hit rate
+                        cache_hits.labels(cache_type=cache_type, key_pattern=key_pattern, region=region).inc()
+                    else:
+                        cache_misses.labels(cache_type=cache_type, key_pattern=key_pattern, region=region).inc()
+
+                    if random.random() < 0.02:  # 2% eviction rate
+                        reason = random.choice(['memory_pressure', 'ttl_expired', 'manual'])
+                        cache_evictions.labels(cache_type=cache_type, reason=reason).inc()
+
+        def record_security_metrics(self, client_ip, path, status_code, user_agent):
+            """Record security-related metrics"""
+            # Failed login attempts
+            if '/api/auth/login' in path and status_code == 401:
+                username = f'user_{random.randint(1000, 9999)}'
+                security_failed_logins.labels(source_ip=client_ip, username=username).inc()
+
+            # Blocked requests (for scanning IPs)
+            if client_ip == '192.168.50.100' and status_code == 404:
+                rule_id = random.choice(['WAF_001', 'WAF_002', 'RATE_LIMIT', 'BLACKLIST'])
+                security_blocked_requests.labels(rule_id=rule_id, source_ip=client_ip, endpoint=path).inc()
+
+                activity_type = random.choice(['path_traversal', 'sql_injection', 'xss_attempt', 'scanner'])
+                severity = 'high' if activity_type in ['sql_injection', 'path_traversal'] else 'medium'
+                security_suspicious_activity.labels(activity_type=activity_type, severity=severity).inc()
+
+        def determine_response(self, path, client_ip, method):
+            """Determine response based on path and client IP"""
+
+            # Special handling for the problematic IP (192.168.50.100)
+            if client_ip == '192.168.50.100':
+                # Always return 404 for this IP to simulate scanning/probing
+                return 404, None
+
+            # Valid endpoints that should return 200
+            valid_endpoints = [
+                '/api/v1/users', '/api/v1/products', '/api/v1/orders', '/api/v1/inventory',
+                '/api/v1/analytics', '/api/v1/health', '/api/v2/users', '/api/v2/products',
+                '/health', '/metrics', '/status', '/api/auth/login', '/api/auth/logout',
+                '/api/dashboard', '/api/reports'
+            ]
+
+            # Check if it's a valid endpoint
+            if any(path.startswith(endpoint) for endpoint in valid_endpoints):
+                # Background error rate (< 3%)
+                if random.random() < 0.97:  # 97% success rate
+                    return 200, {
+                        "status": "success",
+                        "timestamp": datetime.now().isoformat(),
+                        "data": {"id": random.randint(1, 10000), "value": random.randint(1, 100)}
+                    }
+                else:
+                    # Background errors - mix of 500 and 404
+                    return random.choice([500, 404]), None
+            else:
+                # Unknown endpoint - return 404
+                return 404, None
+
+        def calculate_response_time(self, path, status_code):
+            """Calculate realistic response times"""
+            base_time = 0.01  # 10ms base
+
+            if status_code == 404:
+                return base_time + random.uniform(0.001, 0.005)  # Fast 404s
+
+            # Different endpoints have different response time patterns
+            if '/api/v1/analytics' in path or '/api/reports' in path:
+                return base_time + random.uniform(0.1, 0.5)  # Slower analytics
+            elif '/api/v1/products' in path or '/api/v1/inventory' in path:
+                return base_time + random.uniform(0.02, 0.1)  # Medium database queries
+            else:
+                return base_time + random.uniform(0.005, 0.03)  # Fast API calls
+
+        def get_endpoint_category(self, path):
+            """Categorize endpoint for metrics"""
+            if path.startswith('/api/v1/'):
+                return 'api_v1'
+            elif path.startswith('/api/v2/'):
+                return 'api_v2'
+            elif path.startswith('/api/'):
+                return 'api_other'
+            elif path in ['/health', '/status', '/metrics']:
+                return 'system'
+            else:
+                return 'unknown'
+
+        def log_message(self, format, *args):
+            """Suppress default HTTP server logging"""
+            pass
+
+    class TrafficGenerator:
+        """Generates massive volumes of realistic HTTP traffic patterns"""
+
+        def __init__(self):
+            self.running = True
+            # Massive number of background IPs to create high cardinality
+            self.background_ips = []
+
+            # Generate 200+ unique IPs across different subnets
+            for subnet in ['192.168.1', '192.168.2', '10.0.1', '10.0.2', '10.0.3', '172.16.0', '172.16.1', '172.17.0']:
+                for i in range(25):
+                    self.background_ips.append(f'{subnet}.{i + 10}')
+
+            # Add enterprise ranges
+            for i in range(50):
+                self.background_ips.append(f'10.100.{random.randint(1,10)}.{i + 100}')
+
+            # Add cloud provider ranges
+            for i in range(30):
+                self.background_ips.append(f'172.31.{random.randint(1,15)}.{i + 50}')
+
+            self.problematic_ip = '192.168.50.100'
+
+            # Massive number of endpoints to create high cardinality
+            self.endpoints = []
+
+            # Core API endpoints
+            base_endpoints = ['/api/v1/users', '/api/v1/products', '/api/v1/orders', '/api/v1/inventory',
+                             '/api/v1/analytics', '/api/v1/health', '/api/v2/users', '/api/v2/products',
+                             '/health', '/metrics', '/api/auth/login', '/api/auth/logout', '/api/dashboard',
+                             '/api/reports', '/status']
+
+            # Add parameterized versions to create high cardinality
+            for base in base_endpoints:
+                self.endpoints.append(base)
+                # Add ID-based endpoints
+                for i in range(10):
+                    if 'users' in base or 'products' in base or 'orders' in base:
+                        self.endpoints.append(f'{base}/{random.randint(1000, 9999)}')
+
+            # Add microservice endpoints
+            services = ['user-service', 'product-service', 'order-service', 'payment-service',
+                       'inventory-service', 'notification-service', 'analytics-service', 'auth-service']
+
+            for service in services:
+                for endpoint in ['health', 'metrics', 'status', 'config', 'info']:
+                    self.endpoints.append(f'/api/{service}/{endpoint}')
+                    # Add versioned endpoints
+                    for version in ['v1', 'v2']:
+                        self.endpoints.append(f'/api/{version}/{service}/{endpoint}')
+
+            # Add resource-specific endpoints with IDs
+            resources = ['customers', 'invoices', 'transactions', 'subscriptions', 'campaigns', 'segments']
+            for resource in resources:
+                self.endpoints.append(f'/api/v1/{resource}')
+                for i in range(20):  # Add individual resource endpoints
+                    self.endpoints.append(f'/api/v1/{resource}/{random.randint(10000, 99999)}')
+
+            # Scanning endpoints used by the problematic IP (expanded)
+            self.scan_endpoints = [
+                '/admin', '/admin.php', '/wp-admin', '/phpmyadmin', '/config', '/backup', '/test',
+                '/api/v3/admin', '/debug', '/console', '/manager', '/status/internal', '/api/internal',
+                '/system', '/root', '/.env', '/phpinfo.php', '/wp-config.php', '/database.sql',
+                '/backup.sql', '/admin/login', '/administrator', '/cpanel', '/webmail', '/ftp',
+                '/ssh', '/telnet', '/mysql', '/postgres', '/redis', '/mongodb', '/elasticsearch',
+                '/.git/config', '/.svn', '/cgi-bin', '/scripts', '/includes', '/uploads',
+                '/tmp', '/temp', '/cache', '/logs', '/private', '/secrets', '/keys',
+                '/api/admin', '/api/debug', '/api/test', '/api/internal/health', '/admin/dashboard',
+                '/management', '/monitoring', '/grafana', '/prometheus', '/kibana', '/jenkins'
+            ]
+
+        def start_background_traffic(self):
+            """Generate massive continuous background HTTP traffic with multiple threads"""
+            def generate_requests(thread_id):
+                while self.running:
+                    try:
+                        # Generate 10,000-50,000 requests per batch per thread (100x volume)
+                        requests_per_batch = random.randint(10000, 50000)
+
+                        for _ in range(requests_per_batch):
+                            if not self.running:
+                                break
+
+                            # Select random source IP (background traffic)
+                            source_ip = random.choice(self.background_ips)
+                            endpoint = random.choice(self.endpoints)
+                            method = random.choice(['GET', 'GET', 'GET', 'GET', 'POST', 'PUT', 'DELETE'])  # GET is most common
+
+                            # Simulate the request (we'll let the server handle actual response)
+                            self.log_simulated_request(source_ip, method, endpoint)
+
+                            # Minimal delay between requests to maintain extremely high volume
+                            time.sleep(random.uniform(0.0001, 0.001))
+
+                        # Very short pause between batches
+                        time.sleep(random.uniform(0.01, 0.05))
+
+                    except Exception as e:
+                        logger.error(f"Error in background traffic generation thread {thread_id}: {e}")
+                        time.sleep(1)
+
+            # Start multiple threads to generate massive traffic
+            threads = []
+            for i in range(8):  # Increased to 8 threads for 100x traffic
+                thread = threading.Thread(target=generate_requests, args=(i,), daemon=True)
+                thread.start()
+                threads.append(thread)
+
+            logger.info(f"Started {len(threads)} background traffic generator threads")
+            return threads
+
+        def start_periodic_404_traffic(self):
+            """Generate massive periodic 404 traffic from problematic IP every 3 minutes"""
+            def generate_404_requests():
+                while self.running:
+                    try:
+                        # Wait for 3 minutes
+                        time.sleep(180)
+
+                        if not self.running:
+                            break
+
+                        logger.info(f"Starting massive 404 burst from {self.problematic_ip}")
+
+                        # Generate massive burst of 404 requests (100x more - 10% of total massive traffic rate)
+                        burst_requests = random.randint(20000, 60000)  # 100x larger burst to test context limits
+
+                        for i in range(burst_requests):
+                            if not self.running:
+                                break
+
+                            endpoint = random.choice(self.scan_endpoints)
+                            method = 'GET'  # Scanners typically use GET
+
+                            self.log_simulated_request(self.problematic_ip, method, endpoint)
+
+                            # Extremely fast succession of requests to create ultra-high volume
+                            time.sleep(random.uniform(0.001, 0.005))
+
+                        logger.info(f"Completed massive 404 burst: {burst_requests} requests from {self.problematic_ip}")
+
+                    except Exception as e:
+                        logger.error(f"Error in 404 traffic generation: {e}")
+                        time.sleep(60)
+
+            thread = threading.Thread(target=generate_404_requests, daemon=True)
+            thread.start()
+            return thread
+
+        def log_simulated_request(self, ip, method, endpoint):
+            """Log simulated request for debugging"""
+            pass  # We'll let the actual HTTP handler do the logging
+
+        def stop(self):
+            """Stop traffic generation"""
+            self.running = False
+
+    def start_prometheus_server(port=8000):
+        """Start Prometheus metrics server"""
+        try:
+            prometheus_client.start_http_server(port)
+            logger.info(f"Prometheus metrics server started on port {port}")
+        except Exception as e:
+            logger.error(f"Failed to start Prometheus server: {e}")
+
+    def main():
+        logger.info("Starting HTTP Traffic Generator and Server")
+
+        # Start Prometheus metrics server
+        start_prometheus_server(8000)
+
+        # Initialize traffic generator
+        traffic_gen = TrafficGenerator()
+
+        # Start background traffic generation
+        bg_threads = traffic_gen.start_background_traffic()
+
+        # Start periodic 404 traffic
+        scan_thread = traffic_gen.start_periodic_404_traffic()
+
+        # Start HTTP server
+        server_address = ('0.0.0.0', 8080)
+        httpd = HTTPServer(server_address, HTTPMetricsHandler)
+
+        logger.info("HTTP server listening on port 8080")
+        logger.info("Prometheus metrics available on port 8000")
+        logger.info("Starting massive traffic generation to stress-test LLM context...")
+
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+            traffic_gen.stop()
+            httpd.shutdown()
+            httpd.server_close()
+
+    if __name__ == "__main__":
+        main()
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-service
+  namespace: app-160
+  labels:
+    app: http-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: http-service
+  template:
+    metadata:
+      labels:
+        app: http-service
+    spec:
+      containers:
+      - name: http-service
+        image: python:3.9-slim
+        command: ["sh", "-c"]
+        args:
+          - |
+            pip install prometheus-client requests
+            cd /app
+            python http_traffic_generator.py
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8000
+          name: metrics
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: app-code
+        secret:
+          secretName: http-traffic-generator
+          defaultMode: 0755
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-service
+  namespace: app-160
+  labels:
+    app: http-service
+spec:
+  selector:
+    app: http-service
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  - name: metrics
+    port: 8000
+    targetPort: 8000
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: http-service-monitor
+  namespace: app-160
+  labels:
+    app: http-service
+    release: robusta
+spec:
+  selector:
+    matchLabels:
+      app: http-service
+  endpoints:
+  - port: metrics
+    interval: 2s
+    path: /metrics
+
+
+---
+# Traffic simulation pods to create the requests
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-simulator
+  namespace: app-160
+  labels:
+    app: traffic-simulator
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: traffic-simulator
+  template:
+    metadata:
+      labels:
+        app: traffic-simulator
+    spec:
+      containers:
+      - name: traffic-simulator
+        image: curlimages/curl:latest
+        command: ["sh", "-c"]
+        args:
+          - |
+            while true; do
+              # Background traffic simulation - 100x more requests from various IPs
+              for i in $(seq 1 5000); do
+                # Simulate different source IPs by varying user agent and other headers
+                case $((RANDOM % 6)) in
+                  0) endpoint="/api/v1/users" ;;
+                  1) endpoint="/api/v1/products" ;;
+                  2) endpoint="/api/v1/orders" ;;
+                  3) endpoint="/health" ;;
+                  4) endpoint="/metrics" ;;
+                  5) endpoint="/api/v2/users" ;;
+                esac
+
+                curl -s -H "X-Forwarded-For: 192.168.1.$((RANDOM % 50 + 10))" \
+                     -H "User-Agent: Mozilla/5.0 (simulation)" \
+                     http://http-service:8080$endpoint > /dev/null
+
+                sleep 0.0$((RANDOM % 5 + 1))
+              done
+
+              # Every 3 minutes, simulate the problematic IP scanning
+              if [ $(($(date +%s) % 180)) -lt 5 ]; then
+                echo "Simulating 404 burst from problematic IP"
+                for j in $(seq 1 2000); do
+                  case $((RANDOM % 8)) in
+                    0) scan_path="/admin" ;;
+                    1) scan_path="/wp-admin" ;;
+                    2) scan_path="/phpmyadmin" ;;
+                    3) scan_path="/config" ;;
+                    4) scan_path="/backup" ;;
+                    5) scan_path="/.env" ;;
+                    6) scan_path="/debug" ;;
+                    7) scan_path="/console" ;;
+                  esac
+                  curl -s -H "X-Forwarded-For: 192.168.50.100" \
+                       -H "User-Agent: Scanner/1.0" \
+                       http://http-service:8080$scan_path > /dev/null
+                  sleep 0.01
+                done
+              fi
+
+              sleep 0.1
+            done
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"

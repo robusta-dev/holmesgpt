@@ -21,6 +21,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
+from holmes.plugins.toolsets.prometheus.data_compression import RawMetric, raw_metric_to_compressed_metric, summarize_metrics
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
@@ -315,7 +316,6 @@ def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]
     if prometheus_auth_header:
         results["Authorization"] = prometheus_auth_header
     return results
-
 
 def create_data_summary_for_large_result(
     result_data: Dict, query: str, data_size_chars: int, is_range_query: bool = False
@@ -1365,25 +1365,64 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     "output_type": output_type,
                 }
 
+                llm_data:Optional[str] = None
+
                 # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
                     result_data = data.get("data", {})
+                    response_data["data"] = result_data
 
-                    # Estimate the size of the data
+
+                    try:
+                        metrics_list_dict = result_data.get("result")
+                        raw_metrics = [RawMetric(**metric) for metric in metrics_list_dict]
+                        metrics = [raw_metric_to_compressed_metric(metric, remove_labels=set()) for metric in raw_metrics]
+
+                        compressed_data = summarize_metrics(metrics)
+                        response_data["raw_data"] = result_data
+                        original_size = len(json.dumps(result_data))
+                        compressed_size = len(json.dumps(compressed_data))
+                        compression_ratio = (1 - compressed_size / original_size) * 100 if original_size > 0 else 0
+
+                        if compression_ratio > 20:
+                            # below this amount it's likely not worth mutating the response
+                            llm_data = compressed_data
+                            logging.info(
+                                f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
+                                f"({compression_ratio:.1f}% reduction)"
+                            )
+                        else:
+                            logging.info(
+                                f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
+                                f"({compression_ratio:.1f}% reduction). Original data will be used instead."
+                            )
+
+                        
+
+                        response_data["compression_info"] = {
+                            "original_size_chars": original_size,
+                            "compressed_size_chars": compressed_size,
+                            "compression_ratio_percent": round(compression_ratio, 1)
+                        }
+                    except Exception as e:
+                        logging.warning(f"Failed to compress data: {e}, the original data will be used")
+
+
                     data_str_preview = json.dumps(result_data)
+                    if llm_data:
+                        data_str_preview = llm_data
                     data_size_chars = len(data_str_preview)
 
-                    # Provide summary if data is too large
+                    # Provide summary if data is still too large after compression
+                    # In this case the summary is based on the original data and not the compressed data
                     if (
                         self.toolset.config.query_response_size_limit
-                        and data_size_chars
-                        > self.toolset.config.query_response_size_limit
+                        and data_size_chars > self.toolset.config.query_response_size_limit
                     ):
-                        response_data["data_summary"] = (
-                            create_data_summary_for_large_result(
-                                result_data, query, data_size_chars, is_range_query=True
-                            )
+                        response_data["data_summary"] = create_data_summary_for_large_result(
+                            response_data["data"], query, data_size_chars, is_range_query=True
                         )
+                        # Remove the large data and keep only summary
                         logging.info(
                             f"Prometheus range query returned large dataset: "
                             f"{response_data['data_summary'].get('series_count', 0)} series, "
@@ -1394,14 +1433,14 @@ class ExecuteRangeQuery(BasePrometheusTool):
                         response_data["data_summary"]["_debug_info"] = (
                             f"Data size: {data_size_chars:,} chars exceeded limit of {self.toolset.config.query_response_size_limit:,} chars"
                         )
-                    else:
-                        response_data["data"] = result_data
+
 
                 data_str = json.dumps(response_data, indent=2)
 
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
                     data=data_str,
+                    llm_data=llm_data,
                     params=params,
                 )
 
