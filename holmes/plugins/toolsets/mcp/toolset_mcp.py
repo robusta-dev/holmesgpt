@@ -199,7 +199,11 @@ class RemoteMCPToolset(BaseMCPToolset):
 
     @property
     def url(self) -> Optional[str]:
-        return self.config and self.config.get("url")
+        raw = self.config and self.config.get("url")
+        if isinstance(raw, str):
+            u = raw.rstrip("/")
+            return u if u.endswith("/sse") else f"{u}/sse"
+        return raw
 
     def _get_server_type(self) -> str:
         return "remote"

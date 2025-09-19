@@ -54,7 +54,7 @@ def test_mcpserver_unreachable():
     )
 
     result = mcp_toolset.init_server_tools(config=None)
-    assert result[0] == False
+    assert result[0] is False
     assert "Failed to load remote mcp server test_mcp" in result[1]
 
 
