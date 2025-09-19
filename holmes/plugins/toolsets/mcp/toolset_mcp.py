@@ -8,14 +8,14 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult
 from mcp.types import Tool as MCP_Tool
-from pydantic import AnyUrl, BaseModel, Field, field_validator
+from pydantic import AnyUrl, Field, field_validator
 
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
 )
 
@@ -23,14 +23,14 @@ from holmes.core.tools import (
 class BaseMCPTool(Tool):
     """Base class for MCP tools with shared functionality"""
 
-    headers: Optional[Dict[str, str]] = None
-
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: Dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             return asyncio.run(self._invoke_async(params))
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e.args),
                 params=params,
                 invocation=f"{self.__class__.__name__} {self.name} with params {params}",
@@ -58,6 +58,7 @@ class BaseMCPTool(Tool):
 
 class RemoteMCPTool(BaseMCPTool):
     url: str
+    headers: Optional[Dict[str, str]] = None
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
         async with sse_client(self.url, self.headers) as (read_stream, write_stream):
@@ -70,9 +71,9 @@ class RemoteMCPTool(BaseMCPTool):
                 )
                 return StructuredToolResult(
                     status=(
-                        ToolResultStatus.ERROR
+                        StructuredToolResultStatus.ERROR
                         if tool_result.isError
-                        else ToolResultStatus.SUCCESS
+                        else StructuredToolResultStatus.SUCCESS
                     ),
                     data=merged_text,
                     params=params,
@@ -108,9 +109,9 @@ class StdioMCPTool(BaseMCPTool):
                 )
                 return StructuredToolResult(
                     status=(
-                        ToolResultStatus.ERROR
+                        StructuredToolResultStatus.ERROR
                         if tool_result.isError
-                        else ToolResultStatus.SUCCESS
+                        else StructuredToolResultStatus.SUCCESS
                     ),
                     data=merged_text,
                     params=params,
@@ -122,7 +123,6 @@ class StdioMCPTool(BaseMCPTool):
         cls,
         server_params: StdioServerParameters,
         tool: MCP_Tool,
-        headers: Optional[Dict[str, str]] = None,
     ):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
@@ -130,7 +130,6 @@ class StdioMCPTool(BaseMCPTool):
             name=tool.name,
             description=tool.description or "",
             parameters=parameters,
-            headers=headers,
         )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -142,16 +141,11 @@ class BaseMCPToolset(Toolset):
 
     name: str
     description: str = "MCP toolset for managing and invoking tools from an MCP server."
-    icon_url: str = (
-        "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
-    )
+    icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     def model_post_init(self, __context: Any) -> None:
         self.prerequisites = [CallablePrerequisite(
             callable=self.init_server_tools)]
-
-    def get_headers(self) -> Optional[Dict[str, str]]:
-        return self.config and self.config.get("headers")
 
     def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:
@@ -198,9 +192,17 @@ class RemoteMCPToolset(BaseMCPToolset):
 
     def _create_tools(self, tools: List[MCP_Tool]) -> List[Tool]:
         return [
-            RemoteMCPTool.create(str(self.url), tool, self.get_headers())
+            RemoteMCPTool.create(str(self.url), tool, self.headers)
             for tool in tools
         ]
+
+    @property
+    def headers(self) -> Optional[Dict[str, str]]:
+        return self.config and self.config.get("headers")
+
+    @property
+    def url(self) -> Optional[str]:
+        return self.config and self.config.get("url")
 
     def _get_server_type(self) -> str:
         return "remote"
@@ -222,21 +224,28 @@ class RemoteMCPToolset(BaseMCPToolset):
 
 
 class StdioMCPToolset(BaseMCPToolset):
-    command: str
-    args: List[str] = Field(default_factory=list)
     tools: List[StdioMCPTool] = Field(default_factory=list)  # type: ignore
 
     def _create_tools(self, tools: List[MCP_Tool]) -> List[Tool]:
-        server_params = StdioServerParameters(
-            command=self.command, args=self.args)
+        return [StdioMCPTool.create(self.stdio_server_params, tool) for tool in tools]
 
-        return [
-            StdioMCPTool.create(server_params, tool, self.get_headers())
-            for tool in tools
-        ]
+    @property
+    def stdio_server_params(self) -> StdioServerParameters:
+        params = dict(self.config)
+        # pop out type which is not a parameter of StdioServerParameters
+        params.pop("type", None)
+        return StdioServerParameters(**params)
 
     def _get_server_type(self) -> str:
         return "stdio"
+
+    @property
+    def command(self) -> str:
+        return self.stdio_server_params.command
+
+    @property
+    def args(self) -> list[str]:
+        return self.stdio_server_params.args
 
     def _get_connection_info(self) -> str:
         return f"{self.command} {' '.join(self.args)}"
@@ -275,5 +284,6 @@ def get_mcp_toolset_from_config(config: dict[str, Any], name: str) -> BaseMCPToo
         raise ValueError(
             "MCP Server config must include 'config.type' to specify the transport type."
         )
+    # fill the mcp server config with URL in case it's not set.
     mcp_config["url"] = url
     return RemoteMCPToolset(**config, name=name)

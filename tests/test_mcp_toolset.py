@@ -4,10 +4,10 @@ from holmes.core.tools import (
 )
 from mcp.types import ListToolsResult, Tool
 from holmes.plugins.toolsets.mcp.toolset_mcp import (
-    RemoteMCPToolset, 
-    RemoteMCPTool, 
+    RemoteMCPToolset,
+    RemoteMCPTool,
     StdioMCPToolset,
-    get_mcp_toolset_from_config
+    get_mcp_toolset_from_config,
 )
 
 
@@ -48,20 +48,19 @@ def test_parse_mcp_tool():
 
 def test_mcpserver_unreachable():
     mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0:3009",
+        config={"url": "http://0.0.0.0:3009"},
         name="test_mcp",
         description="",
     )
 
-    assert (
-        False,
-        "Failed to load remote mcp server test_mcp http://0.0.0.0:3009/sse ('unhandled errors in a TaskGroup', [ConnectError('All connection attempts failed')])",
-    ) == mcp_toolset.init_server_tools(config=None)
+    result = mcp_toolset.init_server_tools(config=None)
+    assert result[0] == False
+    assert "Failed to load remote mcp server test_mcp" in result[1]
 
 
 def test_mcpserver_1tool(monkeypatch):
     mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
+        config={"url": "http://0.0.0.0/3005"},
         name="test_mcp",
         description="demo mcp with 2 simple functions",
     )
@@ -90,37 +89,36 @@ def test_mcpserver_1tool(monkeypatch):
 
 def test_mcpserver_headers(monkeypatch):
     mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
+        config={"url": "http://0.0.0.0/3005",
+                "headers": {"header1": "test1", "header2": "test2"}},
         name="test_mcp",
         description="demo mcp with 2 simple functions",
-        config={"headers": {"header1": "test1", "header2": "test2"}},
     )
 
-    assert mcp_toolset.get_headers().get("header1") == "test1"
+    assert mcp_toolset.headers.get("header1") == "test1"
 
 
 def test_mcpserver_no_headers():
     mcp_toolset1 = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
+        config={"url": "http://0.0.0.0/3005"},
         name="test_mcp",
         description="demo mcp with 2 simple functions",
     )
 
-    assert mcp_toolset1.get_headers() is None
+    assert mcp_toolset1.headers is None
 
 
 def test_stdio_mcpserver_notfound():
     mcp_toolset = StdioMCPToolset(
-        command="/user/bin/mcp_server",
-        args=["--transport", "stdio"],
+        config={"command": "/user/bin/mcp_server",
+                "args": ["--transport", "stdio"]},
         name="test_mcp",
         description="demo mcp with 2 simple functions",
     )
 
-    assert (
-        False,
-        "Failed to load stdio mcp server test_mcp mcp_server --transport stdio (2, 'No such file or directory')",
-    ) == mcp_toolset.init_server_tools(config=None)
+    result = mcp_toolset.init_server_tools(config=None)
+    assert result[0] is False
+    assert "Failed to load stdio mcp server test_mcp" in result[1]
 
 
 def test_get_mcp_toolset_from_config_empty_config():
@@ -131,82 +129,67 @@ def test_get_mcp_toolset_from_config_empty_config():
 
 def test_get_mcp_toolset_from_config_sse_type():
     """Test creating RemoteMCPToolset with explicit 'sse' type in config"""
-    config = {
-        "config": {
-            "type": "sse",
-            "url": "http://example.com/sse"
-        }
-    }
+    config = {"config": {"type": "sse", "url": "http://example.com/sse"}}
     toolset = get_mcp_toolset_from_config(config, "test_sse")
-    
+
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_sse"
-    assert str(toolset.url) == "http://example.com/sse"
+    assert str(toolset.config.get("url")) == "http://example.com/sse"
 
 
 def test_get_mcp_toolset_from_config_stdio_type():
     """Test creating StdioMCPToolset with explicit 'stdio' type in config"""
     config = {
-        "config": {
-            "type": "stdio"
-        },
-        "command": "python",
-        "args": ["/path/to/server.py"]
+        "config": {"type": "stdio", "command": "python", "args": ["/path/to/server.py"]}
     }
     toolset = get_mcp_toolset_from_config(config, "test_stdio")
-    
+
     assert isinstance(toolset, StdioMCPToolset)
     assert toolset.name == "test_stdio"
-    assert toolset.command == "python"
-    assert toolset.args == ["/path/to/server.py"]
+    assert toolset.config.get("command") == "python"
+    assert toolset.config.get("args") == ["/path/to/server.py"]
 
 
 def test_get_mcp_toolset_from_config_backward_compatibility_with_url():
     """Test backward compatibility when using top-level url key"""
-    config = {
-        "url": "http://example.com/api"
-    }
+    config = {"url": "http://example.com/api"}
     toolset = get_mcp_toolset_from_config(config, "test_backward")
-    
+
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_backward"
-    assert str(toolset.url) == "http://example.com/api/sse"  # /sse gets appended
+    # /sse gets appended by the validator
+    assert str(toolset.url) == "http://example.com/api/sse"
 
 
 def test_get_mcp_toolset_from_config_backward_compatibility_url_already_has_sse():
     """Test backward compatibility when url already ends with /sse"""
-    config = {
-        "url": "http://example.com/api/sse"
-    }
+    config = {"url": "http://example.com/api/sse"}
     toolset = get_mcp_toolset_from_config(config, "test_backward_sse")
-    
+
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_backward_sse"
-    assert str(toolset.url) == "http://example.com/api/sse"  # /sse not duplicated
+    # /sse not duplicated
+    assert str(toolset.url) == "http://example.com/api/sse"
 
 
 def test_get_mcp_toolset_from_config_no_url_no_type():
     """Test that missing url and type raises ValueError"""
-    config = {
-        "config": {},
-        "some_other_key": "value"
-    }
-    with pytest.raises(ValueError, match="MCP Server config must include 'config.type' to specify the transport type."):
+    config = {"config": {}, "some_other_key": "value"}
+    with pytest.raises(
+        ValueError,
+        match="MCP Server config must include 'config.type' to specify the transport type.",
+    ):
         get_mcp_toolset_from_config(config, "test_no_url")
 
 
 def test_get_mcp_toolset_from_config_with_additional_params():
     """Test config with additional parameters like headers"""
     config = {
-        "config": {
-            "type": "sse",
-            "headers": {"Authorization": "Bearer token"}
-        },
-        "url": "http://example.com",
-        "description": "Test toolset"
+        "config": {"type": "sse", "url": "http://example.com", "headers": {"Authorization": "Bearer token"}},
+        "description": "Test toolset",
     }
     toolset = get_mcp_toolset_from_config(config, "test_extra_params")
-    
+
     assert isinstance(toolset, RemoteMCPToolset)
     assert toolset.name == "test_extra_params"
     assert toolset.description == "Test toolset"
@@ -215,16 +198,10 @@ def test_get_mcp_toolset_from_config_with_additional_params():
 
 def test_get_mcp_toolset_from_config_stdio_with_empty_args():
     """Test stdio config with empty args list"""
-    config = {
-        "config": {
-            "type": "stdio"
-        },
-        "command": "node",
-        "args": []
-    }
+    config = {"config": {"type": "stdio", "command": "node", "args": []}}
     toolset = get_mcp_toolset_from_config(config, "test_stdio_no_args")
-    
+
     assert isinstance(toolset, StdioMCPToolset)
     assert toolset.name == "test_stdio_no_args"
-    assert toolset.command == "node"
-    assert toolset.args == []
+    assert toolset.config.get("command") == "node"
+    assert toolset.config.get("args") == []

@@ -178,8 +178,7 @@ def load_toolsets_from_config(
             if toolset_type == ToolsetType.MCP.value:
                 validated_toolset = get_mcp_toolset_from_config(config, name)
             elif strict_check:
-                validated_toolset = YAMLToolset(
-                    **config, name=name)  # type: ignore
+                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
             else:
                 validated_toolset = ToolsetYamlFromConfig(  # type: ignore
                     **config, name=name

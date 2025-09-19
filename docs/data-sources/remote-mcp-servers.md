@@ -3,9 +3,11 @@
 !!! warning
     Remote MCP servers are in **Tech Preview** stage.
 
-HolmesGPT can integrate with remote MCP servers using SSE mode.
-This capability enables HolmesGPT to access external data sources and tools in real time.
-This guide provides step-by-step instructions for configuring HolmesGPT to connect with remote MCP servers over SSE.
+HolmesGPT can integrate with remote MCP servers using either SSE or stdio transports.
+This capability enables HolmesGPT to access external data sources and tools in real time
+and also to run local/stdio-backed MCP servers directly when desired.
+This guide provides step-by-step instructions for configuring HolmesGPT to
+connect with remote MCP servers over both SSE and stdio transports.
 
 ## Example: MCP server configuration
 
@@ -31,10 +33,12 @@ mcp_servers:
 
 ## Example: Working with Stdio MCP servers
 
-MCP currently supports three transport mechanisms: stdio, Server-Sent Events (SSE), and Streamable HTTP.
-At this time, HolmesGPT is compatible only with MCP servers that use SSE.
-However, many existing MCP servers—such as Dynatrace MCP—rely exclusively on the stdio transport.
-To overcome this incompatibility, tools like Supergateway can act as a bridge by converting stdio-based MCPs into SSE-compatible endpoints.
+MCP itself supports multiple transport mechanisms: stdio, Server-Sent Events (SSE), and
+Streamable HTTP. HolmesGPT is compatible with both SSE and stdio transports.
+If you already have a stdio-based MCP implementation, HolmesGPT can run it directly
+by launching the stdio process (via a configured command/args), or you can wrap it
+with a bridge such as Supergateway to expose an SSE endpoint. Both workflows are
+documented below.
 
 For this demo we will use:
 - [Dynatrace MCP](https://github.com/dynatrace-oss/dynatrace-mcp)
@@ -179,3 +183,21 @@ mcp_servers:
 ```
 
 After the deployment is complete, you can use HolmesGPT and ask questions like *Using dynatrace what issues do I have in my cluster?*.
+
+Alternatively, if you want Holmes to launch a stdio-backed MCP process directly
+(no Supergateway needed), configure the toolset like this:
+
+```yaml
+mcp_servers:
+  my_stdio_mcp:
+    type: "stdio"
+    description: "Run a local stdio-based MCP server command"
+    command: "/usr/local/bin/my-mcp-server"
+    args:
+      - "--serve"
+      - "--port"
+      - "0"
+    env:
+      EXAMPLE_VAR: "value"
+    llm_instructions: "This MCP provides local tools and data via stdio transport."
+```
