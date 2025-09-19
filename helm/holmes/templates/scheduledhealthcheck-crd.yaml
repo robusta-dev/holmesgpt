@@ -134,7 +134,7 @@ spec:
                     result:
                       type: string
                     duration:
-                      type: number
+                      type: string
                     checkName:
                       type: string
                       description: "Name of the HealthCheck resource created"

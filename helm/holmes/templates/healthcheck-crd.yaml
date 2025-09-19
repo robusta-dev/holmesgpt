@@ -79,8 +79,8 @@ spec:
                 type: string
                 description: "Detailed explanation of the result"
               duration:
-                type: number
-                description: "Execution duration in seconds"
+                type: string
+                description: "Formatted execution duration"
               modelUsed:
                 type: string
                 description: "The actual LLM model that was used for this execution"
@@ -130,8 +130,8 @@ spec:
       description: "Current status"
       jsonPath: .status.phase
     - name: Duration
-      type: number
-      description: "Execution duration in seconds"
+      type: string
+      description: "Execution duration"
       jsonPath: .status.duration
     - name: Query
       type: string

@@ -23,21 +23,6 @@ export OPENAI_API_KEY="sk-..."  # or ANTHROPIC_API_KEY
 # Run Skaffold - it will automatically inject your API key into containers
 # using setValueTemplates defined in the dev profile (see skaffold.yaml)
 skaffold dev --default-repo=<your-registry>
-
-# To reduce log verbosity (default can be too verbose), use INFO level
-skaffold dev --default-repo=<your-registry> --verbosity=info
-
-# To install in a different namespace (default is holmes-operator)
-skaffold dev --default-repo=<your-registry> --namespace=my-namespace
-
-# If you get CRD conflicts from previous installations:
-# CRDs are cluster-scoped and retain Helm ownership metadata
-kubectl delete crd healthchecks.holmes.robusta.dev scheduledhealthchecks.holmes.robusta.dev
-
-# If deletion hangs due to finalizers (existing resources blocking deletion):
-kubectl patch crd healthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
-kubectl patch crd scheduledhealthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
-
 ```
 
 ### Method 2: Local Values File
@@ -54,43 +39,29 @@ skaffold dev --default-repo=<your-registry> \
   --helm-set-file helm.releases[0].valuesFiles[1]=helm/holmes/values.local.yaml
 ```
 
-**What Skaffold does:**
+## Troubleshooting
 
-1. Build and push Docker images to your registry
-2. Deploy to your Kubernetes cluster
-3. Automatically set up port-forwarding from cluster services to localhost
-4. Stream logs and watch for code changes (hot reload in dev mode)
-
-After deployment, you can access services locally via Skaffold's port-forwarding:
-
-- API: http://localhost:9090
-- Operator metrics: http://localhost:9091
-
-## Development Workflow
+### General Options
 
 ```bash
-# Start development mode with hot reload
-skaffold dev --default-repo=<your-registry>
-
-# With reduced log verbosity for cleaner output
+# To reduce log verbosity (default can be too verbose), use INFO level
 skaffold dev --default-repo=<your-registry> --verbosity=info
+
+# To install in a different namespace (default is holmes-operator)
+skaffold dev --default-repo=<your-registry> --namespace=my-namespace
 ```
 
-**Running Operator Locally**
+### CRD Conflicts from Previous Installations
 
-For debugging or development without containers:
+If you encounter CRD conflicts (common when switching between installations):
 
 ```bash
-# Install dependencies
-pip install -r operator/requirements.txt
+# CRDs are cluster-scoped and retain Helm ownership metadata
+kubectl delete crd healthchecks.holmes.robusta.dev scheduledhealthchecks.holmes.robusta.dev
 
-# Deploy only the Holmes API service without the operator deployment
-# This allows you to run the operator locally for debugging
-SKIP_OPERATOR=true skaffold run
-
-# Run operator locally against the deployed API
-HOLMES_API_URL=http://localhost:9090 \
-  poetry run kopf run -A --standalone operator/main.py
+# If deletion hangs due to finalizers (existing resources blocking deletion):
+kubectl patch crd healthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
+kubectl patch crd scheduledhealthchecks.holmes.robusta.dev -p '{"metadata":{"finalizers":[]}}' --type=merge
 ```
 
 ## Testing the Operator
@@ -115,7 +86,11 @@ metadata:
 spec:
   query: "Are all pods in namespace test-app healthy and running?"
   mode: monitor
-  model: gpt-4.1  # Optional: specify the LLM model to use
+  # model: gpt-4.1  # Optional: specify model (defaults to gpt-4.1 if omitted)
+                    # Requires corresponding API key configured in the operator deployment:
+                    # - Via environment variable (OPENAI_API_KEY or ANTHROPIC_API_KEY)
+                    # - Or in helm/holmes/values.yaml under modelList configuration
+                    # If using modelList, must match a configured model name there
 EOF
 
 # Watch the check execute (it runs immediately upon creation)
@@ -125,11 +100,6 @@ kubectl get healthcheck pod-health-check -n test-app -w
 kubectl get healthcheck -n test-app
 # NAME               STATUS      DURATION   QUERY                           MESSAGE                        AGE
 # pod-health-check   Completed   5.2        Are all pods in namespace te... Check passed. All pods are... 10s
-
-# View with wide output to see result and model
-kubectl get healthcheck -n test-app -o wide
-# NAME               STATUS      RESULT   DURATION   QUERY                           MESSAGE                        MODEL     AGE
-# pod-health-check   Completed   pass     5.2        Are all pods in namespace te... Check passed. All pods are... gpt-4.1   10s
 
 # See detailed status
 kubectl describe healthcheck pod-health-check -n test-app
@@ -154,7 +124,15 @@ kubectl get healthcheck pod-health-check -n test-app -o yaml | grep rerun
 
 ### 3. Slack Integration
 
-For checks that fail, you can send alerts to Slack:
+For checks that fail, you can send alerts to Slack. Here's what a failed health check looks like in Slack:
+
+![Slack notification showing a failed health check with CrashLoopBackOff pods](../assets/operator-slack-notification.png)
+
+The notification includes:
+- Check name and namespace
+- Detailed failure reason with pod names
+- Query that was executed
+- Direct link to the check in Kubernetes
 
 ```bash
 # First, deploy a broken app that will trigger a failure
@@ -211,8 +189,14 @@ kubectl logs -l app=holmes-operator -n holmes-operator | grep -i slack
 
 For recurring checks on a schedule:
 
+⚠️ **Warning**: Scheduled health checks consume LLM API credits with each execution. Example costs:
+
+- Hourly checks: ~$216/month (24 checks/day × 30 days × $0.30/check)
+- Daily checks: ~$9/month (1 check/day × 30 days × $0.30/check)
+- Weekly checks: ~$1.20/month (4 checks/month × $0.30/check)
+
 ```bash
-# Create a scheduled check that runs every 5 minutes
+# Create a scheduled check that runs once per hour
 kubectl apply -f - <<EOF
 apiVersion: holmes.robusta.dev/v1alpha1
 kind: ScheduledHealthCheck
@@ -220,7 +204,7 @@ metadata:
   name: periodic-health-check
   namespace: test-app
 spec:
-  schedule: "*/5 * * * *"  # Cron format: every 5 minutes
+  schedule: "0 * * * *"  # Cron format: every hour on the hour
   enabled: true
   checkSpec:
     query: "Check the overall health of namespace test-app. Report any issues with pods, services, or deployments."
@@ -229,25 +213,29 @@ EOF
 
 # View the scheduled check
 kubectl get scheduledhealthcheck -n test-app
-# NAME                    SCHEDULE       ENABLED   LAST RUN   LAST RESULT
-# periodic-health-check   */5 * * * *    true      <none>     <none>
+# NAME                    SCHEDULE    ENABLED   LAST RESULT   LAST RUN   AGE
+# periodic-health-check   0 * * * *   true                                28s
+# Note: LAST RUN and LAST RESULT are empty until the check runs (at the top of the hour)
 
-# Force an immediate run (for testing)
+# Force an immediate run (for testing, since waiting for the hour is impractical)
 kubectl annotate scheduledhealthcheck periodic-health-check -n test-app \
   holmes.robusta.dev/run-now="$(date +%s)" --overwrite
 
-# This creates a new HealthCheck resource
-kubectl get healthcheck -n test-app
-# You'll see a new check with a generated name like:
-# periodic-health-check-20250117-181500-abc123
+# This creates a new HealthCheck resource with a timestamped name
+kubectl get healthcheck -n test-app | grep periodic
+# periodic-health-check-20250919-065444-3e9c5b   Failed   9.3   ...
+
+# Now the scheduled check shows the execution results
+kubectl get scheduledhealthcheck -n test-app
+# NAME                    SCHEDULE    ENABLED   LAST RESULT   LAST RUN   AGE
+# periodic-health-check   0 * * * *   true      fail          9s         2m
 
 # View execution history
 kubectl describe scheduledhealthcheck periodic-health-check -n test-app
 # Shows last 10 executions with results and duration
 
-# Disable the scheduled check
-kubectl patch scheduledhealthcheck periodic-health-check -n test-app \
-  --type=merge -p '{"spec":{"enabled":false}}'
+# Delete the scheduled check when done testing
+kubectl delete scheduledhealthcheck periodic-health-check -n test-app
 ```
 
 ### 5. Cleanup
@@ -292,6 +280,18 @@ Running `skaffold dev` deploys:
 - Holmes API Server with `/api/check/execute` endpoint
 - Holmes Operator to manage HealthCheck CRDs
 - Test applications and sample health checks
+
+**What Skaffold does:**
+
+1. Build and push Docker images to your registry
+2. Deploy to your Kubernetes cluster
+3. Automatically set up port-forwarding from cluster services to localhost
+4. Stream logs and watch for code changes (hot reload in dev mode)
+
+After deployment, you can access services locally via Skaffold's port-forwarding:
+
+- API: http://localhost:9090
+- Operator metrics: http://localhost:9091
 
 ## Configuration
 
@@ -362,6 +362,23 @@ curl -X POST http://localhost:9090/api/check/execute \
     "timeout": 30,
     "mode": "monitor"
   }'
+```
+
+## Running Operator Locally
+
+For debugging or development without containers:
+
+```bash
+# Install dependencies
+pip install -r operator/requirements.txt
+
+# Deploy only the Holmes API service without the operator deployment
+# This allows you to run the operator locally for debugging
+SKIP_OPERATOR=true skaffold run
+
+# Run operator locally against the deployed API
+HOLMES_API_URL=http://localhost:9090 \
+  poetry run kopf run -A --standalone operator/main.py
 ```
 
 ## Next Steps

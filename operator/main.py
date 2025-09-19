@@ -28,6 +28,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+def format_duration(seconds: float) -> str:
+    """Format duration in seconds to human-readable format like 2s, 1.5m, 2h"""
+    if seconds < 60:
+        return f"{seconds:.1f}s" if seconds % 1 else f"{int(seconds)}s"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.1f}m" if minutes % 1 else f"{int(minutes)}m"
+    else:
+        hours = seconds / 3600
+        return f"{hours:.1f}h" if hours % 1 else f"{int(hours)}h"
+
+
 # Prometheus metrics
 checks_scheduled_total = Counter(
     "holmes_checks_scheduled_total",
@@ -205,9 +218,9 @@ class HolmesCheckOperator:
                 status["completionTime"] = now
                 status["message"] = result.get("message", "")
                 status["rationale"] = result.get("rationale", "")
-                # Round duration to 1 decimal place for cleaner display
+                # Format duration as human-readable string (2s, 1.5m, etc)
                 duration = result.get("duration", 0)
-                status["duration"] = round(duration, 1) if duration else 0
+                status["duration"] = format_duration(duration) if duration else "0s"
 
                 # Store the actual model used
                 if result.get("model_used"):
@@ -309,14 +322,14 @@ class HolmesCheckOperator:
                 history = []
 
             # Add new result to history (keep last 10)
-            # Round duration to 1 decimal place for cleaner display
+            # Format duration as human-readable string
             duration = result.get("duration", 0)
             history.insert(
                 0,
                 {
                     "executionTime": datetime.utcnow().isoformat() + "Z",
                     "result": result.get("status", "unknown"),
-                    "duration": round(duration, 1) if duration else 0,
+                    "duration": format_duration(duration) if duration else "0s",
                     "checkName": check_name,
                 },
             )
