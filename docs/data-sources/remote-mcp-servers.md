@@ -3,9 +3,60 @@
 !!! warning
     Remote MCP servers are in **Tech Preview** stage.
 
-HolmesGPT can integrate with remote MCP servers using SSE mode.
-This capability enables HolmesGPT to access external data sources and tools in real time.
-This guide provides step-by-step instructions for configuring HolmesGPT to connect with remote MCP servers over SSE.
+HolmesGPT can integrate with remote MCP servers using either SSE or stdio transports.
+This capability enables HolmesGPT to access external data sources and tools in real time
+and also to run local/stdio-backed MCP servers directly when desired.
+This guide provides step-by-step instructions for configuring HolmesGPT to
+connect with remote MCP servers over both SSE and stdio transports.
+
+## Configuration Format
+
+Holmes expects an `mcp_servers` mapping where each key is a logical name for
+the MCP server and the value contains metadata plus a transport-specific
+`config` block. Minimal top-level fields:
+
+- `description` (string): human-friendly text shown in the UI/configs.
+- `llm_instructions` (string, optional): instructions for the LLM about how
+  to use the toolset exposed by this MCP server.
+
+Transport selection and supported fields
+--------------------------------------
+Each MCP entry must indicate the transport type. The recommended pattern is to
+set `type` inside a nested `config` mapping, but Holmes also supports a few
+backwards-compatible top-level keys (see examples below).
+
+The following two tables describe the supported configuration fields for
+each transport. Place fields inside the nested `config` block when possible;
+top-level `url`/`command` are accepted for backward compatibility.
+
+### SSE transport configuration
+
+| Field | Location | Description | Required |
+|---|---|---|:---:|
+| type | `config.type` | Transport indicator; set to `sse` | Recommended |
+| url | `config.url` or top-level `url` | Full SSE endpoint (commonly ends with `/sse`) | yes |
+| headers | `config.headers` | Optional HTTP headers (e.g. Authorization) | no |
+| llm_instructions | top-level | LLM guidance for this toolset | no |
+| description | top-level | Human-friendly description | no |
+
+### stdio transport configuration
+
+| Field | Location | Description | Required |
+|---|---|---|:---:|
+| type | `config.type` | Transport indicator; set to `stdio` | Recommended |
+| command | `config.command` or top-level `command` | Executable to run the stdio MCP process | yes |
+| args | `config.args` or top-level `args` | Command-line arguments for the process | no |
+| env | `config.env` | Environment variables for the launched process | no |
+| cwd | `config.cwd` | Working directory for the process | no |
+| llm_instructions | top-level | LLM guidance for this toolset | no |
+| description | top-level | Human-friendly description | no |
+
+Security notes
+--------------
+- Avoid placing secrets directly in versioned config files. Prefer environment
+  variables or Holmes' secret interpolation for API keys and tokens.
+- Holmes strips transport-only and common sensitive fields (for example
+  `type` and `key`) from subprocess parameters when constructing `StdioServerParameters`.
 
 ## Example: MCP server configuration
 
@@ -14,24 +65,29 @@ mcp_servers:
   mcp_server_1:
     # human-readable description of the mcp server (this is not seen by the AI model - its just for users)
     description: "Remote mcp server"
-    url: "http://example.com:8000/sse"
     llm_instructions: "This server provides general data access capabilities. Use it when you need to retrieve external information or perform remote operations that aren't covered by other toolsets."
+    config:
+      url: "http://example.com:8000/sse"
+      type: sse
 
   mcp_server_2:
     description: "MCP server that runs in my cluster"
-    url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>"
     llm_instructions: "This is a cluster-local MCP server that provides internal cluster data and operations. Use it for accessing cluster-specific information, internal services, or custom tooling deployed within the Kubernetes environment."
     config:
+      type: sse
+      url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>"
       headers:
         key: "{{ env.my_mcp_server_key }}" # You can use holmes environment variables as headers for the MCP server requests.
 ```
 
 ## Example: Working with Stdio MCP servers
 
-MCP currently supports three transport mechanisms: stdio, Server-Sent Events (SSE), and Streamable HTTP.
-At this time, HolmesGPT is compatible only with MCP servers that use SSE.
-However, many existing MCP servers—such as Dynatrace MCP—rely exclusively on the stdio transport.
-To overcome this incompatibility, tools like Supergateway can act as a bridge by converting stdio-based MCPs into SSE-compatible endpoints.
+MCP itself supports multiple transport mechanisms: stdio, Server-Sent Events (SSE), and
+Streamable HTTP. HolmesGPT is compatible with both SSE and stdio transports.
+If you already have a stdio-based MCP implementation, HolmesGPT can run it directly
+by launching the stdio process (via a configured command/args), or you can wrap it
+with a bridge such as Supergateway to expose an SSE endpoint. Both workflows are
+documented below.
 
 For this demo we will use:
 - [Dynatrace MCP](https://github.com/dynatrace-oss/dynatrace-mcp)
@@ -143,34 +199,57 @@ Use this config according to your use case.
 
     Use a config file, and pass it when running cli commands.
 
-    **custom_toolset.yaml:**
+    **~/.holmes/config.yaml:**
 
     ```yaml
     mcp_servers:
       mcp_server_1:
         description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
-        url: "http://localhost:8003/sse"
         llm_instructions: "Use Dynatrace to analyze application performance, infrastructure monitoring, and real-time observability data. Query metrics, traces, and logs to identify performance bottlenecks, errors, and system health issues in your applications and infrastructure."
+        config:
+          type: "sse"
+          url: "http://localhost:8003/sse"
+
     ```
 
     You can now use Holmes via the CLI with your configured MCP server. For example:
 
     ```bash
-    holmes ask -t custom_toolset.yaml  "Using dynatrace what issues do I have in my cluster?"
+    holmes ask "Using dynatrace what issues do I have in my cluster?"
     ```
 
-    Alternatively, you can add the `mcp_servers` configurations to ** ~/.holmes/config.yaml**, and run:
+    Alternatively, you can add the `mcp_servers` configurations to **custom_toolset.yaml:***, and run:
 
     ```bash
-    holmes ask "Using dynatrace what issues do I have in my cluster?"
+    holmes ask -t custom_toolset.yaml "Using dynatrace what issues do I have in my cluster?"
     ```
 
 ```yaml-helm-values
 mcp_servers:
   mcp_server_1:
+    type: "sse"
     description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
     url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
     llm_instructions: "Use Dynatrace to analyze application performance, infrastructure monitoring, and real-time observability data. Query metrics, traces, and logs to identify performance bottlenecks, errors, and system health issues in your applications and infrastructure."
 ```
 
 After the deployment is complete, you can use HolmesGPT and ask questions like *Using dynatrace what issues do I have in my cluster?*.
+
+Alternatively, if you want Holmes to launch a stdio-backed MCP process directly
+(no Supergateway needed), configure the toolset like this:
+
+```yaml
+mcp_servers:
+  my_stdio_mcp:
+    description: "Run a local stdio-based MCP server command"
+    command: "/usr/local/bin/my-mcp-server"
+    llm_instructions: "This MCP provides local tools and data via stdio transport."
+    config:
+      type: "stdio"
+      args:
+        - "--serve"
+        - "--port"
+        - "0"
+      env:
+        EXAMPLE_VAR: "value"
+```
