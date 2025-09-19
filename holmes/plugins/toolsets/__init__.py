@@ -37,7 +37,7 @@ from holmes.plugins.toolsets.internet.internet import InternetToolset
 from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
+from holmes.plugins.toolsets.mcp.toolset_mcp import get_mcp_toolset_from_config
 from holmes.plugins.toolsets.newrelic.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
@@ -176,9 +176,10 @@ def load_toolsets_from_config(
             validated_toolset: Optional[Toolset] = None
             # MCP server is not a built-in toolset, so we need to set the type explicitly
             if toolset_type == ToolsetType.MCP.value:
-                validated_toolset = RemoteMCPToolset(**config, name=name)
+                validated_toolset = get_mcp_toolset_from_config(config, name)
             elif strict_check:
-                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
+                validated_toolset = YAMLToolset(
+                    **config, name=name)  # type: ignore
             else:
                 validated_toolset = ToolsetYamlFromConfig(  # type: ignore
                     **config, name=name

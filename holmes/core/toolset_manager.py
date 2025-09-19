@@ -16,7 +16,8 @@ from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 if TYPE_CHECKING:
     pass
 
-DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(config_path_dir, "toolsets_status.json")
+DEFAULT_TOOLSET_STATUS_LOCATION = os.path.join(
+    config_path_dir, "toolsets_status.json")
 
 
 class ToolsetManager:
@@ -218,13 +219,15 @@ class ToolsetManager:
             toolset_status = [
                 json.loads(
                     toolset.model_dump_json(
-                        include={"name", "status", "enabled", "type", "path", "error"}
+                        include={"name", "status", "enabled",
+                                 "type", "path", "error"}
                     )
                 )
                 for toolset in all_toolsets
             ]
             json.dump(toolset_status, f, indent=2)
-        logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
+        logging.info(
+            f"Toolset statuses are cached to {self.toolset_status_location}")
 
     def load_toolset_with_status(
         self,
@@ -358,7 +361,8 @@ class ToolsetManager:
         loaded_custom_toolsets: List[Toolset] = []
         for toolset_path in toolset_paths:
             if not os.path.isfile(toolset_path):
-                raise FileNotFoundError(f"toolset file {toolset_path} does not exist")
+                raise FileNotFoundError(
+                    f"toolset file {toolset_path} does not exist")
 
             try:
                 parsed_yaml = benedict(toolset_path)
@@ -366,8 +370,10 @@ class ToolsetManager:
                 raise ValueError(
                     f"Failed to load toolsets from {toolset_path}, error: {e}"
                 ) from e
-            toolsets_config: dict[str, dict[str, Any]] = parsed_yaml.get("toolsets", {})
-            mcp_config: dict[str, dict[str, Any]] = parsed_yaml.get("mcp_servers", {})
+            toolsets_config: dict[str, dict[str, Any]
+                                  ] = parsed_yaml.get("toolsets", {})
+            mcp_config: dict[str, dict[str, Any]
+                             ] = parsed_yaml.get("mcp_servers", {})
 
             for server_config in mcp_config.values():
                 server_config["type"] = ToolsetType.MCP.value
@@ -447,7 +453,8 @@ class ToolsetManager:
 
         for new_toolset in new_toolsets:
             if new_toolset.name in existing_toolsets_by_name.keys():
-                existing_toolsets_by_name[new_toolset.name].override_with(new_toolset)
+                existing_toolsets_by_name[new_toolset.name].override_with(
+                    new_toolset)
             else:
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
                 existing_toolsets_by_name[new_toolset.name] = new_toolset
@@ -512,7 +519,8 @@ class ToolsetManager:
 
             # Inject into tool-level transformers
             if hasattr(toolset, "tools") and toolset.tools:
-                logger.debug(f"Toolset '{toolset.name}' has {len(toolset.tools)} tools")
+                logger.debug(
+                    f"Toolset '{toolset.name}' has {len(toolset.tools)} tools")
                 for tool in toolset.tools:
                     logger.debug(
                         f"  Processing tool '{tool.name}', has transformers: {tool.transformers is not None}"
@@ -573,7 +581,8 @@ class ToolsetManager:
                                         )
                                         continue
                     else:
-                        logger.debug(f"    Tool '{tool.name}' has no transformers")
+                        logger.debug(
+                            f"    Tool '{tool.name}' has no transformers")
             else:
                 logger.debug(f"Toolset '{toolset.name}' has no tools")
 
