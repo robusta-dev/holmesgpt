@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
-import yaml
+import json
+from holmes.utils.keygen_utils import generate_random_key
 
 
 class ExecuteNRQLQuery(Tool):
@@ -75,10 +76,20 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             is_eu_datacenter=self._toolset.is_eu_datacenter,
         )
 
-        result = api.execute_nrql_query(params["query"])
+        query = params["query"]
+        result = api.execute_nrql_query(query)
+
+        response_data = {
+            "random_key": generate_random_key(),
+            "tool_name": self.name,
+            "query": query,
+            "data": result,
+            "is_eu": self._toolset.is_eu_datacenter
+        }
+
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,
-            data=yaml.dump(result, default_flow_style=False),
+            data=json.dumps(response_data),
             params=params,
         )
 
