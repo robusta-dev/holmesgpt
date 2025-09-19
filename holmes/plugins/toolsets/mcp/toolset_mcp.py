@@ -180,7 +180,6 @@ class BaseMCPToolset(Toolset):
 
 
 class RemoteMCPToolset(BaseMCPToolset):
-    url: AnyUrl
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
 
     @field_validator("url", mode="before")
@@ -229,6 +228,8 @@ class StdioMCPToolset(BaseMCPToolset):
 
     @property
     def stdio_server_params(self) -> StdioServerParameters:
+        if not self.config:
+            raise ValueError("Config is required for stdio MCP server")
         params = dict(self.config)
         # pop out type which is not a parameter of StdioServerParameters
         params.pop("type", None)
