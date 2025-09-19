@@ -7,7 +7,7 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 
@@ -165,7 +165,7 @@ Events:
             )
 
             # Should have applied transformation
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert result.data is not None
             assert "SUMMARIZED:" in result.data
             assert f"Original length: {len(large_output)}" in result.data
@@ -202,7 +202,7 @@ Events:
             )
 
             # Should NOT have applied transformation
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert result.data == small_output
             assert "SUMMARIZED:" not in result.data
 
@@ -259,7 +259,7 @@ Events:
             )
 
             # Should have applied transformation
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert result.data is not None
             assert "SUMMARIZED:" in result.data
             assert f"Original length: {len(large_log_output)}" in result.data
@@ -309,7 +309,7 @@ monitoring    prometheus-server-xyz                  1/1     Running   0        
             result = kubectl_get_cluster.invoke({"kind": "pods"})
 
             # Should have applied transformation
-            assert result.status == ToolResultStatus.SUCCESS
+            assert result.status == StructuredToolResultStatus.SUCCESS
             assert result.data is not None
             assert "SUMMARIZED:" in result.data
             assert len(result.data) < len(large_get_output)
@@ -372,7 +372,7 @@ toolsets:
                         result = tool.invoke({})
 
                         # Should return original output when transformer fails
-                        assert result.status == ToolResultStatus.SUCCESS
+                        assert result.status == StructuredToolResultStatus.SUCCESS
                         assert result.data == test_output
 
                         # Should log error about transformer failure (generic Exception -> error log)
@@ -416,7 +416,7 @@ toolsets:
             )
 
             # Should NOT have applied transformation due to error status
-            assert result.status == ToolResultStatus.ERROR
+            assert result.status == StructuredToolResultStatus.ERROR
             assert result.data == error_output
             assert "SUMMARIZED:" not in result.data
 
@@ -485,7 +485,7 @@ toolsets:
                     result = tool.invoke({})
 
                     # Should have applied both transformers in sequence
-                    assert result.status == ToolResultStatus.SUCCESS
+                    assert result.status == StructuredToolResultStatus.SUCCESS
                     assert result.data is not None
                     assert "SECOND_TRANSFORM:" in result.data
                     assert "SUMMARIZED:" in result.data

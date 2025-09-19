@@ -1,6 +1,6 @@
 import os
 from typing import Any
-from holmes.core.tools import ToolResultStatus, ToolsetStatusEnum
+from holmes.core.tools import StructuredToolResultStatus, ToolsetStatusEnum
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 import pytest
 
@@ -72,7 +72,7 @@ def test_basic_query(loki_toolset):
         FetchPodLogsParams(namespace=TEST_NAMESPACE, pod_name=TEST_POD_NAME)
     )
     print(result.data)
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     assert TEST_SEARCH_TERM in result.data
 
@@ -85,7 +85,7 @@ def test_search_term(loki_toolset):
     )
 
     print(result.data)
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     lines = result.data.split("\n")[2:]  # skips headers lines for "link" and "query"
     # print(lines)
@@ -104,7 +104,7 @@ def test_search_term_with_dates(loki_toolset):
         )
     )
 
-    assert result.status == ToolResultStatus.SUCCESS, result.error
+    assert result.status == StructuredToolResultStatus.SUCCESS, result.error
     assert not result.error
     print(result.data)
     assert TEST_SEARCH_TERM in result.data

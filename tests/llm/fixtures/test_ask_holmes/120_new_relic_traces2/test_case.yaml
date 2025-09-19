@@ -1,0 +1,9 @@
+description: "Test if holmes pulls traces reliably"
+
+
+user_prompt:
+- query and summarize traces for app inventory
+expected_output:
+  - mentions /healthz and (WebTransaction or /inventory/check)
+
+skip: True

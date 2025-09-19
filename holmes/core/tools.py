@@ -48,28 +48,28 @@ from rich.table import Table
 logger = logging.getLogger(__name__)
 
 
-class ToolResultStatus(str, Enum):
+class StructuredToolResultStatus(str, Enum):
     SUCCESS = "success"
     ERROR = "error"
     NO_DATA = "no_data"
     APPROVAL_REQUIRED = "approval_required"
 
     def to_color(self) -> str:
-        if self == ToolResultStatus.SUCCESS:
+        if self == StructuredToolResultStatus.SUCCESS:
             return "green"
-        elif self == ToolResultStatus.ERROR:
+        elif self == StructuredToolResultStatus.ERROR:
             return "red"
-        elif self == ToolResultStatus.APPROVAL_REQUIRED:
+        elif self == StructuredToolResultStatus.APPROVAL_REQUIRED:
             return "yellow"
         else:
             return "white"
 
     def to_emoji(self) -> str:
-        if self == ToolResultStatus.SUCCESS:
+        if self == StructuredToolResultStatus.SUCCESS:
             return "✔"
-        elif self == ToolResultStatus.ERROR:
+        elif self == StructuredToolResultStatus.ERROR:
             return "❌"
-        elif self == ToolResultStatus.APPROVAL_REQUIRED:
+        elif self == StructuredToolResultStatus.APPROVAL_REQUIRED:
             return "⚠️"
         else:
             return "⚪️"
@@ -77,7 +77,7 @@ class ToolResultStatus(str, Enum):
 
 class StructuredToolResult(BaseModel):
     schema_version: str = "robusta:v1.0.0"
-    status: ToolResultStatus
+    status: StructuredToolResultStatus
     error: Optional[str] = None
     return_code: Optional[int] = None
     data: Optional[Any] = None
@@ -261,7 +261,10 @@ class Tool(ABC, BaseModel):
         Returns:
             The tool result with transformed data, or original result if transformation fails
         """
-        if not self._transformer_instances or result.status != ToolResultStatus.SUCCESS:
+        if (
+            not self._transformer_instances
+            or result.status != StructuredToolResultStatus.SUCCESS
+        ):
             return result
 
         # Get the output string to transform
@@ -387,12 +390,14 @@ class YAMLTool(Tool, BaseModel):
         context = {**params}
         return context
 
-    def _get_status(self, return_code: int, raw_output: str) -> ToolResultStatus:
+    def _get_status(
+        self, return_code: int, raw_output: str
+    ) -> StructuredToolResultStatus:
         if return_code != 0:
-            return ToolResultStatus.ERROR
+            return StructuredToolResultStatus.ERROR
         if raw_output == "":
-            return ToolResultStatus.NO_DATA
-        return ToolResultStatus.SUCCESS
+            return StructuredToolResultStatus.NO_DATA
+        return StructuredToolResultStatus.SUCCESS
 
     def _invoke(
         self, params: dict, user_approved: bool = False

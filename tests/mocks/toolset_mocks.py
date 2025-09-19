@@ -1,6 +1,11 @@
 from typing import Any, Dict, List
 
-from holmes.core.tools import Tool, Toolset, StructuredToolResult, ToolResultStatus
+from holmes.core.tools import (
+    Tool,
+    Toolset,
+    StructuredToolResult,
+    StructuredToolResultStatus,
+)
 
 
 class DummyTool(Tool):
@@ -10,7 +15,7 @@ class DummyTool(Tool):
     def _invoke(
         self, params: dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        return StructuredToolResult(status=ToolResultStatus.SUCCESS)
+        return StructuredToolResult(status=StructuredToolResultStatus.SUCCESS)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return ""
