@@ -8,7 +8,7 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import CallToolResult
 from mcp.types import Tool as MCP_Tool
-from pydantic import Field, field_validator
+from pydantic import Field
 
 from holmes.core.tools import (
     CallablePrerequisite,
@@ -181,12 +181,6 @@ class BaseMCPToolset(Toolset):
 
 class RemoteMCPToolset(BaseMCPToolset):
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
-
-    @field_validator("url", mode="before")
-    def append_sse_if_missing(cls, v):
-        if isinstance(v, str) and not v.rstrip("/").endswith("/sse"):
-            v = v.rstrip("/") + "/sse"
-        return v
 
     def _create_tools(self, tools: List[MCP_Tool]) -> List[Tool]:
         return [
