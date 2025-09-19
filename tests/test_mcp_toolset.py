@@ -81,16 +81,17 @@ def test_mcpserver_1tool(monkeypatch):
             ]
         )
 
-    monkeypatch.setattr(mcp_toolset, "_get_server_tools",
-                        mock_get_server_tools)
+    monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
     mcp_toolset.init_server_tools(config=None)
     assert len(list(mcp_toolset.tools)) == 1
 
 
 def test_mcpserver_headers(monkeypatch):
     mcp_toolset = RemoteMCPToolset(
-        config={"url": "http://0.0.0.0/3005",
-                "headers": {"header1": "test1", "header2": "test2"}},
+        config={
+            "url": "http://0.0.0.0/3005",
+            "headers": {"header1": "test1", "header2": "test2"},
+        },
         name="test_mcp",
         description="demo mcp with 2 simple functions",
     )
@@ -110,8 +111,7 @@ def test_mcpserver_no_headers():
 
 def test_stdio_mcpserver_notfound():
     mcp_toolset = StdioMCPToolset(
-        config={"command": "/user/bin/mcp_server",
-                "args": ["--transport", "stdio"]},
+        config={"command": "/user/bin/mcp_server", "args": ["--transport", "stdio"]},
         name="test_mcp",
         description="demo mcp with 2 simple functions",
     )
@@ -185,7 +185,11 @@ def test_get_mcp_toolset_from_config_no_url_no_type():
 def test_get_mcp_toolset_from_config_with_additional_params():
     """Test config with additional parameters like headers"""
     config = {
-        "config": {"type": "sse", "url": "http://example.com", "headers": {"Authorization": "Bearer token"}},
+        "config": {
+            "type": "sse",
+            "url": "http://example.com",
+            "headers": {"Authorization": "***"},
+        },
         "description": "Test toolset",
     }
     toolset = get_mcp_toolset_from_config(config, "test_extra_params")

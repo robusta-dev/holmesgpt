@@ -144,8 +144,7 @@ class BaseMCPToolset(Toolset):
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
     def model_post_init(self, __context: Any) -> None:
-        self.prerequisites = [CallablePrerequisite(
-            callable=self.init_server_tools)]
+        self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
 
     def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:
@@ -192,8 +191,7 @@ class RemoteMCPToolset(BaseMCPToolset):
 
     def _create_tools(self, tools: List[MCP_Tool]) -> List[Tool]:
         return [
-            RemoteMCPTool.create(str(self.url), tool, self.headers)
-            for tool in tools
+            RemoteMCPTool.create(str(self.url), tool, self.headers) for tool in tools
         ]
 
     @property
@@ -251,8 +249,7 @@ class StdioMCPToolset(BaseMCPToolset):
         return f"{self.command} {' '.join(self.args)}"
 
     async def _get_server_tools(self):
-        server_params = StdioServerParameters(
-            command=self.command, args=self.args)
+        server_params = StdioServerParameters(command=self.command, args=self.args)
         async with stdio_client(server_params) as (
             read_stream,
             write_stream,
