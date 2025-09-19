@@ -87,7 +87,6 @@ class StructuredToolResult(BaseModel):
     params: Optional[Dict] = None
     icon_url: Optional[str] = None
 
-
     def get_stringified_data(self) -> str:
         if self.data is None:
             return ""

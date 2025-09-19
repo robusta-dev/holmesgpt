@@ -704,7 +704,7 @@ class ToolCallingLLM:
             metadata={
                 "status": tool_call_result.result.status,
                 "description": tool_call_result.description,
-                "token_count": tool_call_result.size
+                "token_count": tool_call_result.size,
             },
         )
 

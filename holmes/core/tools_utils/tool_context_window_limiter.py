@@ -11,7 +11,6 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
         and 0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
         and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
     ):
-        
         if not tool_call_result.size:
             message = tool_call_result.as_tool_call_message()
             messages_token = llm.count_tokens_for_message(messages=[message])
