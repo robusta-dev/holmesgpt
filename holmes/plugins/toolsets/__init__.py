@@ -38,7 +38,7 @@ from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
-from holmes.plugins.toolsets.newrelic import NewRelicToolset
+from holmes.plugins.toolsets.newrelic.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset

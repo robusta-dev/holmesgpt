@@ -1,0 +1,33 @@
+New Relic provides distributed tracing data along with logs and metrics.
+
+Assume every application has New Relic tracing data.
+
+Use `nrql_query` to run a NRQL query.
+
+**NRQL (New Relic Query Language)** is used to query all telemetry data in New Relic. The main event types are:
+
+- **Transaction**: High-level APM data (requests, API calls)
+- **Span**: Distributed tracing data (individual operations)
+- **Log**: Centralized log data
+- **Metric**: Time-series metrics data.
+
+### Usage Workflow
+
+#### 1. Discovering Available Data
+
+Start by understanding what's available. Here are some examples:
+- **ALWAYS** Start by getting all the available attributes names for what you are looking for. For example, to get it for any for Transaction in the last 24 hours, use: SELECT keyset() FROM Transaction SINCE 24 hours ago
+- After you find the keyset `appName`, you can use it to get the available applications: `SELECT uniques(appName) FROM Transaction SINCE 1 hour ago`
+Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition to Transaction, Span, Log, or Metric.
+
+#### 2. Querying Telemetry Data
+
+- If you already have an application name, you can query its traces directly
+- **Time range is recommended**: While not strictly required, most queries should include SINCE for performance
+
+#### 3. Querying Traces
+- Always validate first: run the base query without FACET (or a quick LIMIT) to confirm data exists; if results are empty, adjust filters or time range before proceeding.
+- Only attempt a FACET after confirming the field has values; if not, either try known alternatives or skip faceting entirely.
+
+### 3. Metrics/graphs
+- You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
