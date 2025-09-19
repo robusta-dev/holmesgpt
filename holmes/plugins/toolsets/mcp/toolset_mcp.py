@@ -211,7 +211,7 @@ class RemoteMCPToolset(BaseMCPToolset):
         return str(self.url)
 
     async def _get_server_tools(self):
-        async with sse_client(str(self.url), headers=self.get_headers()) as (
+        async with sse_client(str(self.url), headers=self.headers) as (
             read_stream,
             write_stream,
         ):
