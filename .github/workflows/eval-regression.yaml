@@ -33,7 +33,7 @@ jobs:
         id: check-tests
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ -n "${{ secrets.OPENAI_API_KEY }}" && -n "${{ secrets.AZURE_API_KEY }}" && -n "${{ secrets.BRAINTRUST_API_KEY }}" ]]; then
+          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ -n "${{ secrets.AZURE_API_KEY }}" && -n "${{ secrets.BRAINTRUST_API_KEY }}" ]]; then
             echo "should-run=true" >> $GITHUB_OUTPUT
             echo "✅ Running tests - either not a PR or all required secrets are available"
           else
