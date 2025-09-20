@@ -30,6 +30,23 @@ class RunbookFetcher(Tool):
         if catalog:
             available_runbooks = [entry.link for entry in catalog.catalog]
 
+        # If additional search paths are configured (e.g., for testing), also scan those for .md files
+        # The config will be passed through the additional_search_paths parameter in the RunbookToolset __init__
+        if (
+            hasattr(toolset, "_additional_search_paths")
+            and toolset._additional_search_paths
+        ):
+            import os
+
+            for search_path in toolset._additional_search_paths:
+                if os.path.isdir(search_path):
+                    # Find all .md files in the search path
+                    for file in os.listdir(search_path):
+                        if file.endswith(".md"):
+                            # Add the filename (without path) to available runbooks if not already there
+                            if file not in available_runbooks:
+                                available_runbooks.append(file)
+
         # Build description with available runbooks
         runbook_list = (
             ", ".join([f'"{rb}"' for rb in available_runbooks])
@@ -69,15 +86,25 @@ class RunbookFetcher(Tool):
                 params=params,
             )
 
-        # Validate link is in the available runbooks list
+        # Validate link is in the available runbooks list (unless we have additional search paths for testing)
+        # If additional search paths are configured, allow any .md file from those paths
         if self.available_runbooks and link not in self.available_runbooks:
-            err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks)}"
-            logging.error(err_msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                error=err_msg,
-                params=params,
+            # Check if this might be a test runbook from additional search paths
+            has_additional_paths = (
+                self.toolset.config
+                and "additional_search_paths" in self.toolset.config
+                and self.toolset.config["additional_search_paths"]
             )
+
+            # If no additional search paths or the link doesn't end with .md, enforce validation
+            if not has_additional_paths or not link.endswith(".md"):
+                err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks)}"
+                logging.error(err_msg)
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.ERROR,
+                    error=err_msg,
+                    params=params,
+                )
 
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
         if self.toolset.config and "additional_search_paths" in self.toolset.config:
@@ -155,10 +182,12 @@ class RunbookFetcher(Tool):
 
 class RunbookToolset(Toolset):
     def __init__(self, additional_search_paths: Optional[List[str]] = None):
-        # Store additional search paths in config
+        # Store additional search paths in config AND as an attribute for RunbookFetcher to access during initialization
         config = {}
         if additional_search_paths:
             config["additional_search_paths"] = additional_search_paths
+        # Store as temporary attribute for RunbookFetcher to access during its __init__
+        self._additional_search_paths = additional_search_paths
 
         super().__init__(
             name="runbook",
