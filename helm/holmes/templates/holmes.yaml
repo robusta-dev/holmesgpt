@@ -77,6 +77,22 @@ spec:
           {{- if .Values.additional_env_vars -}}
           {{ toYaml .Values.additional_env_vars | nindent 10 }}
           {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /api/model
+            port: {{ .Values.service.targetPort }}
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/model
+            port: {{ .Values.service.targetPort }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
         lifecycle:
           preStop:
             exec:

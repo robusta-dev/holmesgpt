@@ -3,6 +3,7 @@
 ## Overview
 
 The Holmes Operator extends Holmes with Kubernetes-native health check capabilities using Custom Resource Definitions (CRDs). Following the Kubernetes Job/CronJob pattern, it provides two CRD types:
+
 - **HealthCheck**: One-time execution checks that run immediately when created
 - **ScheduledHealthCheck**: Recurring checks that create HealthCheck resources on a cron schedule
 
@@ -11,7 +12,9 @@ The architecture maintains separation of concerns with a lightweight operator ha
 ## Architecture Components
 
 ### 1. Holmes Operator
+
 A lightweight Kubernetes controller built with [kopf](https://kopf.readthedocs.io/) that:
+
 - Watches HealthCheck CRDs
 - Manages check scheduling using APScheduler
 - Makes HTTP calls to Holmes API servers for check execution
@@ -19,21 +22,27 @@ A lightweight Kubernetes controller built with [kopf](https://kopf.readthedocs.i
 - Handles retry logic and error recovery
 
 ### 2. Holmes API Servers
+
 Stateless FastAPI servers that:
+
 - Execute health checks via `/api/check/execute` endpoint
 - Reuse existing CheckRunner implementation
 - Scale horizontally based on load
 - Share LLM rate limits and resource pools
 
 ### 3. HealthCheck CRD
+
 One-time execution resource that:
+
 - Runs immediately upon creation
 - Stores execution results in status
 - Can be re-run via annotation
 - Maintains audit trail of checks
 
 ### 4. ScheduledHealthCheck CRD
+
 Recurring check resource that:
+
 - Defines cron schedule for checks
 - Creates HealthCheck resources at scheduled times
 - Tracks execution history
@@ -52,11 +61,25 @@ Recurring check resource that:
 │  │  - Scheduling (APScheduler) │                             │
 │  │  - Status Management        │                             │
 │  │  - Retry Logic              │                             │
-│  └──────────┬─────────────────┘                             │
-│             │                                                │
-│             │ HTTP API Calls                                 │
-│             │                                                │
-│             ▼                                                │
+│  └──────┬───────────┬──────────┘                            │
+│         │           │                                        │
+│         │           │ Watches/Updates                        │
+│         │           │                                        │
+│         │           ▼                                        │
+│         │  ┌────────────────────────────┐                   │
+│         │  │    HealthCheck CRDs        │                   │
+│         │  │    (One-time execution)    │                   │
+│         │  └────────────────────────────┘                   │
+│         │           │                                        │
+│         │           ▼                                        │
+│         │  ┌────────────────────────────┐                   │
+│         │  │  ScheduledHealthCheck CRDs │                   │
+│         │  │     (Recurring checks)     │                   │
+│         │  └────────────────────────────┘                   │
+│         │                                                    │
+│         │ HTTP API Calls                                     │
+│         │                                                    │
+│         ▼                                                    │
 │  ┌─────────────────────────────────────────┐                │
 │  │        Service: holmes-api              │                │
 │  ├─────────────────────────────────────────┤                │
@@ -65,11 +88,6 @@ Recurring check resource that:
 │  │   │ Pod 1    │  │ Pod 2    │  │ Pod 3    │              │
 │  │   └──────────┘  └──────────┘  └──────────┘             │
 │  └─────────────────────────────────────────┘                │
-│                                                              │
-│  ┌────────────────────────────┐  ┌──────────────────────┐  │
-│  │    HealthCheck CRDs        │  │ ScheduledHealthCheck │  │
-│  │    (One-time execution)    │  │     CRDs (Recurring) │  │
-│  └────────────────────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -285,26 +303,31 @@ subjects:
 ## Key Design Decisions
 
 ### 1. Job/CronJob Pattern
+
 - **Decision**: Separate HealthCheck and ScheduledHealthCheck CRDs
 - **Rationale**: Clear semantics, immediate feedback for one-time checks, follows K8s patterns
 - **Trade-off**: Two CRDs instead of one, but clearer user experience
 
 ### 2. Distributed Architecture
+
 - **Decision**: Separate operator from API servers
 - **Rationale**: Better scalability, fault isolation, and resource efficiency
 - **Trade-off**: Slightly more complex deployment
 
 ### 3. HTTP Communication
+
 - **Decision**: Operator calls API via HTTP instead of direct execution
 - **Rationale**: Reuses existing API infrastructure, enables horizontal scaling
 - **Trade-off**: Network latency, requires service discovery
 
 ### 4. APScheduler for Scheduling
+
 - **Decision**: Use APScheduler library instead of Kubernetes CronJobs
 - **Rationale**: More efficient for frequent checks, better resource pooling
 - **Trade-off**: Scheduling logic in operator instead of native K8s
 
 ### 5. HealthCheck Resources as History
+
 - **Decision**: ScheduledHealthCheck creates HealthCheck resources
 - **Rationale**: Natural audit trail, reusable checks, clear execution records
 - **Trade-off**: More resources created, requires cleanup strategy
@@ -312,7 +335,9 @@ subjects:
 ## Monitoring and Observability
 
 ### Metrics
+
 The operator exposes Prometheus metrics on port 8080 at `/metrics`:
+
 - `holmes_checks_scheduled_total` - Total number of scheduled checks (labels: namespace, name)
 - `holmes_checks_executed_total` - Total number of executed checks (labels: namespace, name, type)
 - `holmes_checks_failed_total` - Total number of failed checks (labels: namespace, name, type)
@@ -320,6 +345,7 @@ The operator exposes Prometheus metrics on port 8080 at `/metrics`:
 - `holmes_scheduled_checks_active` - Number of currently active scheduled checks (gauge)
 
 ### Logging
+
 - Operator logs: Scheduling, CRD events, API calls
 - API server logs: Check execution, tool calls, errors
 
@@ -347,19 +373,23 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 ## Security Considerations
 
 ### Authentication
+
 - Operator uses Kubernetes service account for API authentication
 - API servers validate requests from operator
 - Secrets for destinations stored in Kubernetes secrets
 
 ### Network Policies
+
 - Restrict operator to API server communication
 - Limit API server egress for tool execution
 
 ### Resource Limits
+
 - Operator has strict resource limits
 - Timeout enforcement for check execution (configurable, max 300s)
 
 ### Known Limitations
+
 - **No built-in rate limiting**: The operator does not limit the rate of check creation or execution. Consider using ResourceQuotas or ValidatingAdmissionWebhooks to prevent DoS
 - **No query validation**: Check queries are passed directly to the LLM without content validation. Ensure trusted users only
 - **Cluster-wide RBAC**: The operator has cluster-wide access to HealthCheck CRDs
@@ -367,12 +397,14 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 ## Future Enhancements
 
 ### Phase 1 (MVP)
+
 - [x] Basic CRD and operator
 - [x] Check execution via API
 - [x] Status updates
 - [x] Cron scheduling
 
 ### Phase 2 (Future Enhancements)
+
 - [ ] High availability with leader election
 - [ ] Check dependencies
 - [ ] Webhook validation
@@ -381,6 +413,7 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 - [ ] Configurable history retention limits
 
 ### Phase 3
+
 - [ ] Multi-tenancy support
 - [ ] Check templates
 - [ ] Grafana dashboard integration
@@ -392,6 +425,7 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
 ### Common Issues
 
 1. **Check not executing**
+
    - Verify operator is running: `kubectl logs -l app=holmes-operator`
    - Check CRD status: `kubectl get healthcheck <name> -o yaml`
    - Ensure API service is accessible
@@ -401,7 +435,8 @@ kubectl patch scheduledhealthcheck frontend-schedule --type='merge' -p '{"spec":
    - Check RBAC configuration
    - Validate API server logs
 
-3. **Scheduling issues**
+4. **Scheduling issues**
+
    - Check operator logs for scheduler errors
    - Verify cron expression syntax
    - Check for suspended status

@@ -76,6 +76,23 @@ spec:
       {{- if .Values.operator.tolerations }}
       tolerations: {{ toYaml .Values.operator.tolerations | nindent 8 }}
       {{- end }}
+      initContainers:
+      - name: wait-for-api
+        image: busybox:1.36
+        command: ['sh', '-c']
+        args:
+        - |
+          echo "Waiting for Holmes API to be ready..."
+          until nc -z {{ .Release.Name }}-holmes-api {{ .Values.service.port }}; do
+            echo "Holmes API not ready yet, waiting..."
+            sleep 5
+          done
+          echo "Holmes API is ready, checking health endpoint..."
+          until wget -q -O- http://{{ .Release.Name }}-holmes-api:{{ .Values.service.port }}/api/model; do
+            echo "Holmes API health check failed, waiting..."
+            sleep 5
+          done
+          echo "Holmes API is healthy!"
       containers:
       - name: operator
         {{- if .Values.operator.image }}

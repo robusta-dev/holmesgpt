@@ -10,6 +10,7 @@ This operator manages HealthCheck and ScheduledHealthCheck CRDs.
 import hashlib
 import logging
 import os
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -116,16 +117,40 @@ class HolmesCheckOperator:
         if spec.get("model"):
             check_request["model"] = spec["model"]
 
+        # Retry logic with exponential backoff
+        max_retries = 3
+        base_delay = 2  # seconds
+
         try:
-            # Call Holmes API
-            response = requests.post(
-                f"{self.holmes_api_url}/api/check/execute",
-                json=check_request,
-                headers={"X-Check-Name": check_identifier},
-                timeout=spec.get("timeout", 300) + 10,
-            )
-            response.raise_for_status()
-            result = response.json()
+            for attempt in range(max_retries):
+                try:
+                    # Call Holmes API
+                    response = requests.post(
+                        f"{self.holmes_api_url}/api/check/execute",
+                        json=check_request,
+                        headers={"X-Check-Name": check_identifier},
+                        timeout=spec.get("timeout", 300) + 10,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    break  # Success, exit retry loop
+                except (requests.ConnectionError, requests.HTTPError) as e:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (
+                            2**attempt
+                        )  # Exponential backoff: 2, 4, 8 seconds
+                        logger.warning(
+                            f"Check {check_identifier} failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                            f"Retrying in {delay} seconds..."
+                        )
+                        time.sleep(delay)
+                        continue
+                    else:
+                        # Final attempt failed
+                        raise
+            else:
+                # This should never happen as we raise on final failure, but makes mypy happy
+                raise Exception("All retry attempts failed")
 
             # Log the result
             logger.info(
