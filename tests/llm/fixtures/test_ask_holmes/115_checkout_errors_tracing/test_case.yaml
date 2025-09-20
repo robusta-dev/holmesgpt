@@ -12,7 +12,7 @@ tags:
   - chain-of-causation
   - traces
 
-setup_timeout: 420
+setup_timeout: 900  # 15 minutes to handle pod scheduling delays in resource-constrained clusters
 
 port_forwards:
   - namespace: app-115
@@ -80,21 +80,21 @@ before_test: |
     sleep 2
   done
 
-  echo "⏳ Waiting for checkout pod to be ready (timeout 300s for scheduling and pip install)"
+  echo "⏳ Waiting for checkout pod to be ready (timeout 780s to handle scheduling delays)"
   CHECKOUT_POD_READY=false
-  for i in {1..60}; do
+  for i in {1..156}; do  # 156 * 5s = 780s (13 minutes)
     if kubectl wait --for=condition=ready pod -l app=checkout -n app-115 --timeout=5s 2>/dev/null; then
       echo "✅ Checkout pod is ready!"
       CHECKOUT_POD_READY=true
       break
     else
-      echo "⏳ Attempt $i/60: Checkout pod not ready yet, waiting 5s..."
+      echo "⏳ Attempt $i/156: Checkout pod not ready yet, waiting 5s..."
       sleep 5
     fi
   done
 
   if [ "$CHECKOUT_POD_READY" = false ]; then
-    echo "❌ Checkout pod failed to become ready after 300 seconds"
+    echo "❌ Checkout pod failed to become ready after 780 seconds"
     kubectl get pods -n app-115 -l app=checkout
     kubectl describe pod -l app=checkout -n app-115 | tail -20
     exit 1
@@ -116,21 +116,21 @@ before_test: |
     sleep 2
   done
 
-  echo "⏳ Waiting for traffic generator pod to be ready (timeout 300s)"
+  echo "⏳ Waiting for traffic generator pod to be ready (timeout 780s to handle scheduling delays)"
   TRAFFIC_POD_READY=false
-  for i in {1..60}; do
+  for i in {1..156}; do  # 156 * 5s = 780s (13 minutes)
     if kubectl wait --for=condition=ready pod -l app=traffic-generator -n app-115 --timeout=5s 2>/dev/null; then
       echo "✅ Traffic generator pod is ready!"
       TRAFFIC_POD_READY=true
       break
     else
-      echo "⏳ Attempt $i/60: Traffic generator pod not ready yet, waiting 5s..."
+      echo "⏳ Attempt $i/156: Traffic generator pod not ready yet, waiting 5s..."
       sleep 5
     fi
   done
 
   if [ "$TRAFFIC_POD_READY" = false ]; then
-    echo "❌ Traffic generator pod failed to become ready after 300 seconds"
+    echo "❌ Traffic generator pod failed to become ready after 780 seconds"
     kubectl get pods -n app-115 -l app=traffic-generator
     exit 1
   fi

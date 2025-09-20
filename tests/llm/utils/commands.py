@@ -9,11 +9,13 @@ from typing import Dict, Optional
 from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
-EVAL_SETUP_TIMEOUT = int(os.environ.get("EVAL_SETUP_TIMEOUT", "210"))
+EVAL_SETUP_TIMEOUT = int(
+    os.environ.get("EVAL_SETUP_TIMEOUT", "273")
+)  # Increased by 30% from 210
 
 
 def _get_pod_diagnostics(test_case: Optional[HolmesTestCase], operation: str) -> str:
-    """Get pod diagnostics for debugging failures.
+    """Get pod and event diagnostics for debugging failures.
 
     Args:
         test_case: The test case object containing test metadata
@@ -25,9 +27,13 @@ def _get_pod_diagnostics(test_case: Optional[HolmesTestCase], operation: str) ->
     if not test_case or not test_case.id or operation != "setup":
         return ""
 
+    diagnostics = []
+
     try:
         # Extract just the numeric ID from the test case (e.g., "999" from "999_test_pod_diagnostics")
         test_id = test_case.id.split("_")[0] if "_" in test_case.id else test_case.id
+
+        # Get pod status
         # grep -E uses extended regex to match either:
         # - ^NAMESPACE: lines starting with "NAMESPACE" (the header line)
         # - {test_id}: any line containing the test ID (e.g., "999" for app-999 namespace)
@@ -41,12 +47,41 @@ def _get_pod_diagnostics(test_case: Optional[HolmesTestCase], operation: str) ->
             cwd=test_case.folder,
         )
         if pod_status_result.stdout:
-            return f"\n\nPod status for debugging (command: {diagnostic_cmd}):\n{pod_status_result.stdout}"
+            diagnostics.append(
+                f"\nPod status for debugging (command: {diagnostic_cmd}):\n{pod_status_result.stdout}"
+            )
         else:
-            # If no pods found, still show the command that was run
-            return f"\n\nPod status for debugging (command: {diagnostic_cmd}):\nNo matching pods found"
+            diagnostics.append(
+                f"\nPod status for debugging (command: {diagnostic_cmd}):\nNo matching pods found"
+            )
+
+        # Get namespace events to show scheduling issues, failures, etc.
+        # This is particularly helpful for diagnosing resource constraints and scheduling problems
+        namespace = f"app-{test_id}" if test_id.isdigit() else f"test-{test_id}"
+        events_cmd = (
+            f"kubectl get events -n {namespace} --sort-by='.lastTimestamp' | tail -20"
+        )
+        events_result = subprocess.run(
+            events_cmd,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=test_case.folder,
+        )
+        if events_result.stdout:
+            diagnostics.append(
+                f"\nRecent events in namespace {namespace} (command: {events_cmd}):\n{events_result.stdout}"
+            )
+        elif events_result.stderr and "NotFound" not in events_result.stderr:
+            diagnostics.append(
+                f"\nFailed to get events for namespace {namespace}: {events_result.stderr}"
+            )
+
+        return "\n".join(diagnostics)
+
     except Exception as e:
-        return f"\n\nFailed to get pod diagnostics: {str(e)}"
+        return f"\n\nFailed to get diagnostics: {str(e)}"
 
 
 def _truncate_script(script: str, max_lines: int = 10) -> str:
@@ -179,7 +214,7 @@ def run_commands(
         # Don't log here - setup_cleanup.py will handle all logging consistently
         # to avoid duplicate diagnostic output
 
-        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}{extra_diagnostics}\n\nScript that failed:\n$ {_truncate_script(script)}"
+        error_details = f"Exit code: {e.returncode}\n\nstderr:\n{e.stderr}\n\nstdout:\n{e.stdout}{extra_diagnostics}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed at: {e.cmd}",
@@ -196,7 +231,7 @@ def run_commands(
         # Add pod diagnostics for timeout errors too
         extra_diagnostics = _get_pod_diagnostics(test_case, operation)
 
-        error_details = f"TIMEOUT after {e.timeout}s\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds> or by setting 'setup_timeout' in test_case.yaml{extra_diagnostics}\n\nScript that timed out:\n$ {_truncate_script(script)}"
+        error_details = f"TIMEOUT after {e.timeout}s (default: {EVAL_SETUP_TIMEOUT}s)\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds> or by setting 'setup_timeout' in test_case.yaml{extra_diagnostics}"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",
@@ -208,7 +243,7 @@ def run_commands(
         )
     except Exception as e:
         elapsed_time = time.time() - start_time
-        error_details = f"$ {_truncate_script(script)}\nUnexpected error: {str(e)}"
+        error_details = f"Unexpected error: {str(e)}"
 
         return CommandResult(
             command=f"{operation.capitalize()} failed",

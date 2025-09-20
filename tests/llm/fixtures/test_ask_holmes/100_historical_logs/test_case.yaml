@@ -12,7 +12,7 @@ tags:
   - kubernetes
   - medium
 
-setup_timeout: 420
+setup_timeout: 450  # Increased from 420 to handle variable Loki startup times
 
 port_forwards:
   - namespace: app-100

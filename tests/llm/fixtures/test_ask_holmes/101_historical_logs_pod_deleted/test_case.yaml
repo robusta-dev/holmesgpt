@@ -16,7 +16,7 @@ tags:
   - kubernetes
   - hard
 
-setup_timeout: 300  # Give more time for Loki setup and log ingestion
+setup_timeout: 360  # Increased from 300 to handle pod deletion and Loki ingestion variability
 
 port_forwards:
   - namespace: app-101
