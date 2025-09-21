@@ -163,17 +163,23 @@ before_test: |
     exit 1
   fi
 
-  echo "⏰ Waiting 15 seconds for traces to be ingested and indexed in Tempo..."
-  sleep 15
+  echo "⏰ Polling for traces to be ingested and indexed in Tempo (up to 90 seconds)..."
+  TRACES_FOUND=false
+  for i in {1..18}; do  # 18 * 5s = 90s
+    CHECKOUT_TRACES=$(kubectl run -n app-115 tempo-query-$RANDOM --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
 
-  echo "🔍 Querying Tempo for traces from checkout service"
-  CHECKOUT_TRACES=$(kubectl run -n app-115 tempo-query --rm -i --restart=Never --image=curlimages/curl -- -s "http://tempo:3200/api/search?tags=service.name%3Dcheckout-service&limit=10" 2>/dev/null | grep -o '"traceID"' | wc -l || echo "0")
-  echo "Found $CHECKOUT_TRACES traces from checkout-service"
+    if [ "$CHECKOUT_TRACES" -gt "0" ]; then
+      echo "✅ Found $CHECKOUT_TRACES traces from checkout-service after $((i * 5))s"
+      TRACES_FOUND=true
+      break
+    else
+      echo "⏳ Attempt $i/18: No traces yet, waiting 5s..."
+      sleep 5
+    fi
+  done
 
-  if [ "$CHECKOUT_TRACES" -gt "0" ]; then
-    echo "✅ Found traces from checkout-service"
-  else
-    echo "❌ No traces found from checkout-service"
+  if [ "$TRACES_FOUND" = false ]; then
+    echo "❌ No traces found from checkout-service after 90 seconds"
     exit 1
   fi
 

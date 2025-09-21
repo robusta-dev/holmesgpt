@@ -12,7 +12,7 @@ tags:
   - kubernetes
   - medium
 
-setup_timeout: 450  # Increased from 420 to handle variable Loki startup times
+setup_timeout: 600  # Increased to handle Datadog init containers
 
 port_forwards:
   - namespace: app-100
@@ -21,8 +21,9 @@ port_forwards:
     remote_port: 3100
 
 before_test: |
-  # Create namespace
+  # Create namespace with label to exclude from Datadog admission controller
   kubectl create namespace app-100 || true
+  kubectl label namespace app-100 admission.datadoghq.com/enabled=false --overwrite
 
   # Deploy Loki infrastructure from shared config
   kubectl apply -f ../../shared/loki.yaml -n app-100
@@ -35,15 +36,34 @@ before_test: |
     --from-file=app.py=./app.py \
     -n app-100 --dry-run=client -o yaml | kubectl apply -f -
 
-  # Wait for Loki to be ready
-  kubectl wait --for=condition=ready pod -l app=loki -n app-100 --timeout=60s
+  # Wait for Loki to be ready (increased timeout for Datadog init containers)
+  echo "⏳ Waiting for Loki pod to be ready (timeout 300s)"
+  LOKI_POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=loki -n app-100 --timeout=5s 2>/dev/null; then
+      echo "✅ Loki pod is ready!"
+      LOKI_POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Loki pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$LOKI_POD_READY" = false ]; then
+    echo "❌ Loki pod failed to become ready after 300 seconds"
+    kubectl get pods -n app-100 -l app=loki
+    exit 1
+  fi
 
   # Wait for Loki ingester to be ready
+  echo "⏳ Waiting for Loki ingester to be ready"
   for i in {1..60}; do
     if kubectl exec -n app-100 deployment/loki -- wget -q -O- http://localhost:3100/ready 2>/dev/null | grep -q "ready"; then
+      echo "✅ Loki ingester is ready!"
       break
     fi
-    [ $i -eq 60 ] && echo "ERROR: Loki not ready" && exit 1
+    [ $i -eq 60 ] && echo "ERROR: Loki ingester not ready" && exit 1
     sleep 1
   done
 
@@ -65,13 +85,17 @@ before_test: |
     ERROR_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
 
     if [ "$LOG_COUNT" -gt "0" ] && [ "$HISTORICAL_COUNT" -gt "0" ] && [ "$ERROR_COUNT" -gt "0" ]; then
-      echo "Logs ready in Loki"
+      echo "Logs ready in Loki (including ERROR logs)"
       exit 0
     fi
+
+    # Provide progress feedback
+    echo "Waiting for logs: LOG_COUNT=$LOG_COUNT, HISTORICAL_COUNT=$HISTORICAL_COUNT, ERROR_COUNT=$ERROR_COUNT"
     sleep 2
   done
 
   echo "ERROR: Logs not found in Loki after 240s"
+  echo "Final counts: LOG_COUNT=$LOG_COUNT, HISTORICAL_COUNT=$HISTORICAL_COUNT, ERROR_COUNT=$ERROR_COUNT"
   exit 1
 
 after_test: |
