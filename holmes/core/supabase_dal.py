@@ -30,6 +30,9 @@ from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
 )
+from holmes.core.truncation.dal_truncation_utils import (
+    truncate_evidences_entities_if_necessary,
+)
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
@@ -37,6 +40,7 @@ from holmes.utils.global_instructions import Instructions
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
 ISSUES_TABLE = "Issues"
+GROUPED_ISSUES_TABLE = "GroupedIssues"
 EVIDENCE_TABLE = "Evidence"
 RUNBOOKS_TABLE = "HolmesRunbooks"
 SESSION_TOKENS_TABLE = "AuthTokens"
@@ -44,6 +48,9 @@ HOLMES_STATUS_TABLE = "HolmesStatus"
 HOLMES_TOOLSET = "HolmesToolsStatus"
 SCANS_META_TABLE = "ScansMeta"
 SCANS_RESULTS_TABLE = "ScansResults"
+
+ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
+ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
 
 
 class RobustaToken(BaseModel):
@@ -261,10 +268,13 @@ class SupabaseDal:
                 .select("*")
                 .eq("account_id", self.account_id)
                 .in_("issue_id", changes_ids)
+                .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
                 .execute()
             )
             if not len(change_data_response.data):
                 return None
+
+            truncate_evidences_entities_if_necessary(change_data_response.data)
 
         except Exception:
             logging.exception("Supabase error while retrieving change content")
@@ -322,11 +332,10 @@ class SupabaseDal:
             return data
 
     def extract_relevant_issues(self, evidence):
-        enrichment_blacklist = {"text_file", "graph", "ai_analysis", "holmes"}
         data = [
             enrich
             for enrich in evidence.data
-            if enrich.get("enrichment_type") not in enrichment_blacklist
+            if enrich.get("enrichment_type") not in ENRICHMENT_BLACKLIST_SET
         ]
 
         unzipped_files = [
@@ -338,6 +347,14 @@ class SupabaseDal:
         data.extend(unzipped_files)
         return data
 
+    def get_issue_from_db(self, issue_id: str, table: str) -> Optional[Dict]:
+        issue_response = (
+            self.client.table(table).select("*").filter("id", "eq", issue_id).execute()
+        )
+        if len(issue_response.data):
+            return issue_response.data[0]
+        return None
+
     def get_issue_data(self, issue_id: Optional[str]) -> Optional[Dict]:
         # TODO this could be done in a single atomic SELECT, but there is no
         # foreign key relation between Issues and Evidence.
@@ -347,14 +364,11 @@ class SupabaseDal:
             return None
         issue_data = None
         try:
-            issue_response = (
-                self.client.table(ISSUES_TABLE)
-                .select("*")
-                .filter("id", "eq", issue_id)
-                .execute()
-            )
-            if len(issue_response.data):
-                issue_data = issue_response.data[0]
+            issue_data = self.get_issue_from_db(issue_id, ISSUES_TABLE)
+            if issue_data and issue_data["source"] == "prometheus":
+                logging.debug("Getting alert %s from GroupedIssuesTable", issue_id)
+                # This issue will have the complete alert duration information
+                issue_data = self.get_issue_from_db(issue_id, GROUPED_ISSUES_TABLE)
 
         except Exception:  # e.g. invalid id format
             logging.exception("Supabase error while retrieving issue data")
@@ -364,12 +378,14 @@ class SupabaseDal:
         evidence = (
             self.client.table(EVIDENCE_TABLE)
             .select("*")
-            .filter("issue_id", "eq", issue_id)
+            .eq("issue_id", issue_id)
+            .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
             .execute()
         )
-        data = self.extract_relevant_issues(evidence)
+        relevant_evidence = self.extract_relevant_issues(evidence)
+        truncate_evidences_entities_if_necessary(relevant_evidence)
 
-        issue_data["evidence"] = data
+        issue_data["evidence"] = relevant_evidence
 
         # build issue investigation dates
         started_at = issue_data.get("starts_at")
@@ -512,10 +528,13 @@ class SupabaseDal:
                 self.client.table(EVIDENCE_TABLE)
                 .select("data, enrichment_type")
                 .in_("issue_id", unique_issues)
+                .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
                 .execute()
             )
 
-            return self.extract_relevant_issues(res)
+            relevant_issues = self.extract_relevant_issues(res)
+            truncate_evidences_entities_if_necessary(relevant_issues)
+            return relevant_issues
 
         except Exception:
             logging.exception("failed to fetch workload issues data", exc_info=True)

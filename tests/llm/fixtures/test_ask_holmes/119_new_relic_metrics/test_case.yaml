@@ -1,0 +1,10 @@
+description: "Test if holmes pulls logs reliably"
+
+
+user_prompt:
+- show me graph of CPU utilization from newrelic
+
+expected_output:
+  - |
+   output contains something like << {"type": "newrelicql", "tool_name": "newrelic_execute_nrql_query", "random_key": "..."} >>
+skip: True

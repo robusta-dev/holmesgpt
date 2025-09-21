@@ -12,7 +12,7 @@ from holmes.core.tools import (
     ToolParameter,
     Toolset,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.datadog.datadog_api import (
@@ -49,7 +49,7 @@ class DatadogTracesToolset(Toolset):
         super().__init__(
             name="datadog/traces",
             description="Toolset for interacting with Datadog APM to fetch and analyze traces",
-            docs_url="https://docs.datadoghq.com/api/latest/spans/",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -57,7 +57,6 @@ class DatadogTracesToolset(Toolset):
                 FetchDatadogTraceById(toolset=self),
                 FetchDatadogSpansByFilter(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         self._reload_instructions()
@@ -157,7 +156,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_traces",
-            description="Fetch a list of traces from Datadog with optional filters",
+            description="[datadog/traces toolset] Fetch a list of traces from Datadog with optional filters",
             parameters={
                 "service": ToolParameter(
                     description="Filter by service name",
@@ -217,7 +216,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
         """Execute the tool to fetch traces."""
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Datadog configuration not initialized",
                 params=params,
             )
@@ -306,13 +305,13 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
             formatted_output = format_traces_list(spans, limit=params.get("limit", 50))
             if not formatted_output:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     params=params,
                     data="No matching traces found.",
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=formatted_output,
                 params=params,
             )
@@ -331,7 +330,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=(
@@ -344,7 +343,7 @@ class FetchDatadogTracesList(BaseDatadogTracesTool):
         except Exception as e:
             logging.exception(e, exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
                 invocation=(
@@ -361,7 +360,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_trace_by_id",
-            description="Fetch detailed information about a specific trace by its ID",
+            description="[datadog/traces toolset] Fetch detailed information about a specific trace by its ID",
             parameters={
                 "trace_id": ToolParameter(
                     description="The trace ID to fetch details for",
@@ -383,7 +382,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
         """Execute the tool to fetch trace details."""
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Datadog configuration not initialized",
                 params=params,
             )
@@ -391,7 +390,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
         trace_id = params.get("trace_id")
         if not trace_id:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="trace_id parameter is required",
                 params=params,
             )
@@ -445,13 +444,13 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
             formatted_output = format_trace_hierarchy(trace_id, spans)
             if not formatted_output:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     params=params,
                     data=f"No trace found for trace_id: {trace_id}",
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=formatted_output,
                 params=params,
             )
@@ -470,7 +469,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=(
@@ -483,7 +482,7 @@ class FetchDatadogTraceById(BaseDatadogTracesTool):
         except Exception as e:
             logging.exception(e, exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
                 invocation=(
@@ -500,7 +499,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
     def __init__(self, toolset: "DatadogTracesToolset"):
         super().__init__(
             name="fetch_datadog_spans",
-            description="Search for spans in Datadog with detailed filters",
+            description="[datadog/traces toolset] Search for spans in Datadog with detailed filters",
             parameters={
                 "query": ToolParameter(
                     description="Datadog search query (e.g., 'service:web-app @http.status_code:500')",
@@ -566,7 +565,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
         """Execute the tool to search spans."""
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="Datadog configuration not initialized",
                 params=params,
             )
@@ -654,13 +653,13 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
             formatted_output = format_spans_search(spans)
             if not formatted_output:
                 return StructuredToolResult(
-                    status=ToolResultStatus.NO_DATA,
+                    status=StructuredToolResultStatus.NO_DATA,
                     params=params,
                     data="No matching spans found.",
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=formatted_output,
                 params=params,
             )
@@ -678,7 +677,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
                 error_msg = f"Exception while querying Datadog: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=(
@@ -691,7 +690,7 @@ class FetchDatadogSpansByFilter(BaseDatadogTracesTool):
         except Exception as e:
             logging.exception(e, exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
                 invocation=(

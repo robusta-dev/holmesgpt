@@ -2,8 +2,15 @@ import concurrent.futures
 import json
 import logging
 import textwrap
-from typing import Dict, List, Optional, Type, Union, Callable
+from typing import Dict, List, Optional, Type, Union, Callable, Any
 
+from holmes.core.models import (
+    ToolApprovalDecision,
+    ToolCallResult,
+    TruncationResult,
+    TruncationMetadata,
+    PendingToolApproval,
+)
 
 import sentry_sdk
 from openai import BadRequestError
@@ -27,13 +34,17 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, get_llm_usage
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools_utils.tool_context_window_limiter import (
+    prevent_overly_big_tool_response,
+)
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
     Instructions,
     add_global_instructions_to_user_prompt,
@@ -46,6 +57,9 @@ from holmes.utils.stream import StreamEvents, StreamMessage
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
+
+
+TRUNCATION_NOTICE = "\n\n[TRUNCATED]"
 
 
 class LLMCosts(BaseModel):
@@ -119,23 +133,6 @@ def _process_cost_info(
         logging.debug(f"Could not extract cost information: {e}")
 
 
-def format_tool_result_data(tool_result: StructuredToolResult) -> str:
-    tool_response = tool_result.data
-    if isinstance(tool_result.data, str):
-        tool_response = tool_result.data
-    else:
-        try:
-            if isinstance(tool_result.data, BaseModel):
-                tool_response = tool_result.data.model_dump_json(indent=2)
-            else:
-                tool_response = json.dumps(tool_result.data, indent=2)
-        except Exception:
-            tool_response = str(tool_result.data)
-    if tool_result.status == ToolResultStatus.ERROR:
-        tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
-    return tool_response
-
-
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
 # However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
 # We should fix this in the future
@@ -143,7 +140,7 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
 # token truncation and not character truncation
 def truncate_messages_to_fit_context(
     messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
-) -> list:
+) -> TruncationResult:
     """
     Helper function to truncate tool messages to fit within context limits.
 
@@ -176,13 +173,17 @@ def truncate_messages_to_fit_context(
         )
 
     if len(tool_call_messages) == 0:
-        return messages
+        return TruncationResult(truncated_messages=messages, truncations=[])
 
     available_space = (
-        max_context_size - message_size_without_tools - maximum_output_token
+        max_context_size - message_size_without_tools - reserved_for_output_tokens
     )
     remaining_space = available_space
-    tool_call_messages.sort(key=lambda x: len(x["content"]))
+    tool_call_messages.sort(
+        key=lambda x: count_tokens_fn([{"role": "tool", "content": x["content"]}])
+    )
+
+    truncations = []
 
     # Allocate space starting with small tools and going to larger tools, while maintaining fairness
     # Small tools can often get exactly what they need, while larger tools may need to be truncated
@@ -190,75 +191,49 @@ def truncate_messages_to_fit_context(
     for i, msg in enumerate(tool_call_messages):
         remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
-        needed_space = len(msg["content"])
+        needed_space = count_tokens_fn([{"role": "tool", "content": msg["content"]}])
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
-            truncation_notice = "\n\n[TRUNCATED]"
-            # Ensure the indicator fits in the allocated space
-            if allocated_space > len(truncation_notice):
-                msg["content"] = (
-                    msg["content"][: allocated_space - len(truncation_notice)]
-                    + truncation_notice
-                )
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space-len(truncation_notice)} tokens"
-                )
-            else:
-                msg["content"] = truncation_notice[:allocated_space]
-                logging.info(
-                    f"Truncating tool message '{msg['name']}' from {needed_space} to {allocated_space} tokens"
-                )
-            msg.pop("token_count", None)  # Remove token_count if present
+            truncation_metadata = _truncate_tool_message(
+                msg, allocated_space, needed_space
+            )
+            truncations.append(truncation_metadata)
 
         remaining_space -= allocated_space
-    return messages
+    return TruncationResult(truncated_messages=messages, truncations=truncations)
 
 
-class ToolCallResult(BaseModel):
-    tool_call_id: str
-    tool_name: str
-    description: str
-    result: StructuredToolResult
-    size: Optional[int] = None
+def _truncate_tool_message(
+    msg: dict, allocated_space: int, needed_space: int
+) -> TruncationMetadata:
+    msg_content = msg["content"]
+    tool_call_id = msg["tool_call_id"]
+    tool_name = msg["name"]
 
-    def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        if self.result.params:
-            content = (
-                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
-                + content
-            )
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "name": self.tool_name,
-            "content": content,
-        }
+    # Ensure the indicator fits in the allocated space
+    if allocated_space > len(TRUNCATION_NOTICE):
+        original = msg_content if isinstance(msg_content, str) else str(msg_content)
+        msg["content"] = (
+            original[: allocated_space - len(TRUNCATION_NOTICE)] + TRUNCATION_NOTICE
+        )
+        end_index = allocated_space - len(TRUNCATION_NOTICE)
+    else:
+        msg["content"] = TRUNCATION_NOTICE[:allocated_space]
+        end_index = allocated_space
 
-    def as_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "tool_name": self.tool_name,
-            "description": self.description,
-            "role": "tool",
-            "result": result_dump,
-        }
-
-    def as_streaming_tool_result_response(self):
-        result_dump = self.result.model_dump()
-        result_dump["data"] = self.result.get_stringified_data()
-
-        return {
-            "tool_call_id": self.tool_call_id,
-            "role": "tool",
-            "description": self.description,
-            "name": self.tool_name,
-            "result": result_dump,
-        }
+    msg.pop("token_count", None)  # Remove token_count if present
+    logging.info(
+        f"Truncating tool message '{tool_name}' from {needed_space} to {allocated_space} tokens"
+    )
+    truncation_metadata = TruncationMetadata(
+        tool_call_id=tool_call_id,
+        start_index=0,
+        end_index=end_index,
+        tool_name=tool_name,
+        original_token_count=needed_space,
+    )
+    return truncation_metadata
 
 
 class LLMResult(LLMCosts):
@@ -269,6 +244,7 @@ class LLMResult(LLMCosts):
     # TODO: clean up these two
     prompt: Optional[str] = None
     messages: Optional[List[dict]] = None
+    metadata: Optional[Dict[Any, Any]] = None
 
     def get_tool_usage_summary(self):
         return "AI used info from issue and " + ",".join(
@@ -289,6 +265,99 @@ class ToolCallingLLM:
         self.approval_callback: Optional[
             Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
         ] = None
+
+    def process_tool_decisions(
+        self, messages: List[Dict[str, Any]], tool_decisions: List[ToolApprovalDecision]
+    ) -> List[Dict[str, Any]]:
+        """
+        Process tool approval decisions and execute approved tools.
+
+        Args:
+            messages: Current conversation messages
+            tool_decisions: List of ToolApprovalDecision objects
+
+        Returns:
+            Updated messages list with tool execution results
+        """
+        # Import here to avoid circular imports
+
+        # Find the last message with pending approvals
+        pending_message_idx = None
+        pending_tool_calls = None
+
+        for i in reversed(range(len(messages))):
+            msg = messages[i]
+            if msg.get("role") == "assistant" and msg.get("pending_approval"):
+                pending_message_idx = i
+                pending_tool_calls = msg.get("tool_calls", [])
+                break
+
+        if pending_message_idx is None or not pending_tool_calls:
+            # No pending approvals found
+            if tool_decisions:
+                logging.warning(
+                    f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
+                )
+            return messages
+
+        # Create decision lookup
+        decisions_by_id = {
+            decision.tool_call_id: decision for decision in tool_decisions
+        }
+
+        # Validate that all decisions have corresponding pending tool calls
+        pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
+        invalid_decisions = [
+            decision.tool_call_id
+            for decision in tool_decisions
+            if decision.tool_call_id not in pending_tool_ids
+        ]
+
+        if invalid_decisions:
+            logging.warning(
+                f"Received decisions for non-pending tool calls: {invalid_decisions}"
+            )
+
+        # Process each tool call
+        for tool_call in pending_tool_calls:
+            tool_call_id = tool_call["id"]
+            decision = decisions_by_id.get(tool_call_id)
+
+            if decision and decision.approved:
+                try:
+                    tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
+                    llm_tool_result = self._invoke_llm_tool_call(
+                        tool_to_call=tool_call_obj,
+                        previous_tool_calls=[],
+                        trace_span=DummySpan(),
+                        tool_number=None,
+                    )
+                    messages.append(llm_tool_result.as_tool_call_message())
+
+                except Exception as e:
+                    logging.error(
+                        f"Failed to execute approved tool {tool_call_id}: {e}"
+                    )
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_id,
+                            "role": "tool",
+                            "name": tool_call["function"]["name"],
+                            "content": f"Tool execution failed: {str(e)}",
+                        }
+                    )
+            else:
+                # Tool was rejected or no decision found, add rejection message
+                messages.append(
+                    {
+                        "tool_call_id": tool_call_id,
+                        "role": "tool",
+                        "name": tool_call["function"]["name"],
+                        "content": "Tool execution was denied by the user.",
+                    }
+                )
+
+        return messages
 
     def prompt_call(
         self,
@@ -344,7 +413,7 @@ class ToolCallingLLM:
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
-
+        metadata: Dict[Any, Any] = {}
         while i < max_steps:
             i += 1
             perf_timing.measure(f"start iteration {i}")
@@ -360,9 +429,13 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
@@ -408,6 +481,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -443,7 +517,11 @@ class ToolCallingLLM:
                     )
                     costs.total_cost += post_processing_cost
 
+                    self.llm.count_tokens_for_message(messages)
                     perf_timing.end(f"- completed in {i} iterations -")
+                    metadata["usage"] = get_llm_usage(full_response)
+                    metadata["max_tokens"] = max_context_size
+                    metadata["max_output_tokens"] = maximum_output_token
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -451,6 +529,7 @@ class ToolCallingLLM:
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                         **costs.model_dump(),  # Include all cost fields
+                        metadata=metadata,
                     )
 
                 perf_timing.end(f"- completed in {i} iterations -")
@@ -460,6 +539,7 @@ class ToolCallingLLM:
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                     **costs.model_dump(),  # Include all cost fields
+                    metadata=metadata,
                 )
 
             if text_response and text_response.strip():
@@ -495,9 +575,19 @@ class ToolCallingLLM:
                         if future in futures_tool_numbers
                         else None
                     )
-                    tool_call_result = self.handle_tool_call_approval(
-                        tool_call_result=tool_call_result, tool_number=tool_number
-                    )
+
+                    if (
+                        tool_call_result.result.status
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
+                    ):
+                        with trace_span.start_span(type="tool") as tool_span:
+                            tool_call_result = self._handle_tool_call_approval(
+                                tool_call_result=tool_call_result,
+                                tool_number=tool_number,
+                            )
+                            ToolCallingLLM._log_tool_call_result(
+                                tool_span, tool_call_result
+                            )
 
                     tool_calls.append(tool_call_result.as_tool_result_response())
                     messages.append(tool_call_result.as_tool_call_message())
@@ -513,91 +603,47 @@ class ToolCallingLLM:
 
         raise Exception(f"Too many LLM calls - exceeded max_steps: {i}/{max_steps}")
 
-    def _directly_invoke_tool(
+    def _directly_invoke_tool_call(
         self,
         tool_name: str,
         tool_params: dict,
         user_approved: bool,
-        trace_span=DummySpan(),
         tool_number: Optional[int] = None,
     ) -> StructuredToolResult:
-        tool_span = trace_span.start_span(name=tool_name, type="tool")
         tool = self.tool_executor.get_tool_by_name(tool_name)
-        tool_response = None
+        if not tool:
+            logging.warning(
+                f"Skipping tool execution for {tool_name}: args: {tool_params}"
+            )
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=f"Failed to find tool {tool_name}",
+                params=tool_params,
+            )
+
         try:
-            if (not tool) or (tool_params is None):
-                logging.warning(
-                    f"Skipping tool execution for {tool_name}: args: {tool_params}"
-                )
-                tool_response = StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Failed to find tool {tool_name}",
-                    params=tool_params,
-                )
-            else:
-                tool_response = tool.invoke(
-                    tool_params, tool_number=tool_number, user_approved=user_approved
-                )
+            tool_response = tool.invoke(
+                tool_params, tool_number=tool_number, user_approved=user_approved
+            )
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Tool call failed: {e}",
                 params=tool_params,
             )
-
-            # Log error to trace span
-            tool_span.log(
-                input=tool_params, output=str(e), metadata={"status": "ERROR"}
-            )
-
-        tool_span.log(
-            input=tool_params,
-            output=tool_response.data,
-            metadata={
-                "status": tool_response.status.value,
-                "error": tool_response.error,
-                "description": tool.get_parameterized_one_liner(tool_params)
-                if tool
-                else "",
-                "structured_tool_result": tool_response,
-            },
-        )
-        tool_span.end()
-
         return tool_response
 
-    def _invoke_llm_tool_call(
+    def _get_tool_call_result(
         self,
-        tool_to_call: ChatCompletionMessageToolCall,
+        tool_call_id: str,
+        tool_name: str,
+        tool_arguments: str,
         previous_tool_calls: list[dict],
-        trace_span=DummySpan(),
-        tool_number=None,
+        tool_number: Optional[int] = None,
     ) -> ToolCallResult:
-        # Handle the union type - ChatCompletionMessageToolCall can be either
-        # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
-        # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
-        # We use hasattr to check for the 'function' attribute as it's more flexible
-        # and doesn't require importing the specific type.
-        if hasattr(tool_to_call, "function"):
-            tool_name = tool_to_call.function.name
-            tool_arguments = tool_to_call.function.arguments
-        else:
-            # This is a custom tool call - we don't support these currently
-            logging.error(f"Unsupported custom tool call: {tool_to_call}")
-            return ToolCallResult(
-                tool_call_id=tool_to_call.id,
-                tool_name="unknown",
-                description="NA",
-                result=StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error="Custom tool calls are not supported",
-                    params=None,
-                ),
-            )
-
         tool_params = {}
         try:
             tool_params = json.loads(tool_arguments)
@@ -606,8 +652,6 @@ class ToolCallingLLM:
                 f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
 
-        tool_call_id = tool_to_call.id
-
         tool_response = prevent_overly_repeated_tool_call(
             tool_name=tool_name,
             tool_params=tool_params,
@@ -615,11 +659,10 @@ class ToolCallingLLM:
         )
 
         if not tool_response:
-            tool_response = self._directly_invoke_tool(
+            tool_response = self._directly_invoke_tool_call(
                 tool_name=tool_name,
                 tool_params=tool_params,
                 user_approved=False,
-                trace_span=trace_span,
                 tool_number=tool_number,
             )
 
@@ -629,38 +672,101 @@ class ToolCallingLLM:
                 f"Tool {tool_name} return type is not StructuredToolResult. Nesting the tool result into StructuredToolResult..."
             )
             tool_response = StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=tool_response,
                 params=tool_params,
             )
 
         tool = self.tool_executor.get_tool_by_name(tool_name)
+
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
-            description=tool.get_parameterized_one_liner(tool_params) if tool else "",
+            description=str(tool.get_parameterized_one_liner(tool_params))
+            if tool
+            else "",
             result=tool_response,
         )
 
-    def handle_tool_call_approval(
-        self, tool_call_result: ToolCallResult, tool_number: Optional[int]
+    @staticmethod
+    def _log_tool_call_result(tool_span, tool_call_result: ToolCallResult):
+        tool_span.set_attributes(name=tool_call_result.tool_name)
+        tool_span.log(
+            input=tool_call_result.result.params,
+            output=tool_call_result.result.data,
+            error=tool_call_result.result.error,
+            metadata={
+                "status": tool_call_result.result.status,
+                "description": tool_call_result.description,
+            },
+        )
+
+    def _invoke_llm_tool_call(
+        self,
+        tool_to_call: ChatCompletionMessageToolCall,
+        previous_tool_calls: list[dict],
+        trace_span=None,
+        tool_number=None,
+    ) -> ToolCallResult:
+        if trace_span is None:
+            trace_span = DummySpan()
+        with trace_span.start_span(type="tool") as tool_span:
+            if not hasattr(tool_to_call, "function"):
+                # Handle the union type - ChatCompletionMessageToolCall can be either
+                # ChatCompletionMessageFunctionToolCall (with 'function' field and type='function')
+                # or ChatCompletionMessageCustomToolCall (with 'custom' field and type='custom').
+                # We use hasattr to check for the 'function' attribute as it's more flexible
+                # and doesn't require importing the specific type.
+                tool_name = "Unknown_Custom_Tool"
+                logging.error(f"Unsupported custom tool call: {tool_to_call}")
+                tool_call_result = ToolCallResult(
+                    tool_call_id=tool_to_call.id,
+                    tool_name=tool_name,
+                    description="NA",
+                    result=StructuredToolResult(
+                        status=StructuredToolResultStatus.ERROR,
+                        error="Custom tool calls are not supported",
+                        params=None,
+                    ),
+                )
+            else:
+                tool_name = tool_to_call.function.name
+                tool_arguments = tool_to_call.function.arguments
+                tool_id = tool_to_call.id
+                tool_call_result = self._get_tool_call_result(
+                    tool_id,
+                    tool_name,
+                    tool_arguments,
+                    previous_tool_calls=previous_tool_calls,
+                    tool_number=tool_number,
+                )
+
+            prevent_overly_big_tool_response(
+                tool_call_result=tool_call_result, llm=self.llm
+            )
+
+            ToolCallingLLM._log_tool_call_result(tool_span, tool_call_result)
+            return tool_call_result
+
+    def _handle_tool_call_approval(
+        self,
+        tool_call_result: ToolCallResult,
+        tool_number: Optional[int],
     ) -> ToolCallResult:
         """
         Handle approval for a single tool call if required.
 
         Args:
             tool_call_result: A single tool call result that may require approval
+            tool_number: The tool call number
 
         Returns:
             Updated tool call result with approved/denied status
         """
 
-        if tool_call_result.result.status != ToolResultStatus.APPROVAL_REQUIRED:
-            return tool_call_result
-
         # If no approval callback, convert to ERROR because it is assumed the client may not be able to handle approvals
         if not self.approval_callback:
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             return tool_call_result
 
         # Get approval from user
@@ -670,19 +776,17 @@ class ToolCallingLLM:
             logging.debug(
                 f"User approved command: {tool_call_result.result.invocation}"
             )
-
-            new_response = self._directly_invoke_tool(
+            new_response = self._directly_invoke_tool_call(
                 tool_name=tool_call_result.tool_name,
                 tool_params=tool_call_result.result.params or {},
                 user_approved=True,
-                trace_span=DummySpan(),
                 tool_number=tool_number,
             )
             tool_call_result.result = new_response
         else:
             # User denied - update to error
             feedback_text = f" User feedback: {feedback}" if feedback else ""
-            tool_call_result.result.status = ToolResultStatus.ERROR
+            tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.error = (
                 f"User denied command execution.{feedback_text}"
             )
@@ -740,13 +844,16 @@ class ToolCallingLLM:
     @sentry_sdk.trace
     def truncate_messages_to_fit_context(
         self, messages: list, max_context_size: int, maximum_output_token: int
-    ) -> list:
-        return truncate_messages_to_fit_context(
+    ) -> TruncationResult:
+        truncated_res = truncate_messages_to_fit_context(
             messages,
             max_context_size,
             maximum_output_token,
             self.llm.count_tokens_for_message,
         )
+        if truncated_res.truncations:
+            sentry_helper.capture_tool_truncations(truncated_res.truncations)
+        return truncated_res
 
     def call_stream(
         self,
@@ -755,12 +862,13 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
         msgs: Optional[list[dict]] = None,
+        enable_tool_approval: bool = False,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
         This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
         """
-        messages = []
+        messages: list[dict] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         if user_prompt:
@@ -774,6 +882,7 @@ class ToolCallingLLM:
         )
         perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
+        metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
 
@@ -792,10 +901,16 @@ class ToolCallingLLM:
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
-                messages = self.truncate_messages_to_fit_context(
+                truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
                 perf_timing.measure("truncate_messages_to_fit_context")
+            else:
+                metadata["truncations"] = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -837,6 +952,7 @@ class ToolCallingLLM:
                         "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
+                    sentry_helper.capture_structured_output_incorrect_tool_call()
                     response_format = None
                     max_steps = max_steps + 1
                     continue
@@ -849,9 +965,17 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
+                self.llm.count_tokens_for_message(messages)
+                metadata["usage"] = get_llm_usage(full_response)
+                metadata["max_tokens"] = max_context_size
+                metadata["max_output_tokens"] = maximum_output_token
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
-                    data={"content": response_message.content, "messages": messages},
+                    data={
+                        "content": response_message.content,
+                        "messages": messages,
+                        "metadata": metadata,
+                    },
                 )
                 return
 
@@ -864,6 +988,11 @@ class ToolCallingLLM:
                 )
 
             perf_timing.measure("pre-tool-calls")
+
+            # Check if any tools require approval first
+            pending_approvals = []
+            approval_required_tools = []
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
@@ -884,15 +1013,84 @@ class ToolCallingLLM:
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
-                    messages.append(tool_call_result.as_tool_call_message())
+                    if (
+                        tool_call_result.result.status
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
+                    ):
+                        if enable_tool_approval:
+                            pending_approvals.append(
+                                PendingToolApproval(
+                                    tool_call_id=tool_call_result.tool_call_id,
+                                    tool_name=tool_call_result.tool_name,
+                                    description=tool_call_result.description,
+                                    params=tool_call_result.result.params or {},
+                                )
+                            )
+                            approval_required_tools.append(tool_call_result)
 
-                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                            yield StreamMessage(
+                                event=StreamEvents.TOOL_RESULT,
+                                data=tool_call_result.as_streaming_tool_result_response(),
+                            )
+                        else:
+                            tool_call_result.result.status = (
+                                StructuredToolResultStatus.ERROR
+                            )
+                            tool_call_result.result.error = f"Tool call rejected for security reasons: {tool_call_result.result.error}"
 
+                            tool_calls.append(
+                                tool_call_result.as_tool_result_response()
+                            )
+                            messages.append(tool_call_result.as_tool_call_message())
+
+                            yield StreamMessage(
+                                event=StreamEvents.TOOL_RESULT,
+                                data=tool_call_result.as_streaming_tool_result_response(),
+                            )
+
+                    else:
+                        tool_calls.append(tool_call_result.as_tool_result_response())
+                        messages.append(tool_call_result.as_tool_call_message())
+
+                        yield StreamMessage(
+                            event=StreamEvents.TOOL_RESULT,
+                            data=tool_call_result.as_streaming_tool_result_response(),
+                        )
+
+                # If we have approval required tools, end the stream with pending approvals
+                if pending_approvals:
+                    # Add assistant message with pending tool calls
+                    assistant_msg = {
+                        "role": "assistant",
+                        "content": response_message.content,
+                        "tool_calls": [
+                            {
+                                "id": result.tool_call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": result.tool_name,
+                                    "arguments": json.dumps(result.result.params or {}),
+                                },
+                            }
+                            for result in approval_required_tools
+                        ],
+                        "pending_approval": True,
+                    }
+                    messages.append(assistant_msg)
+
+                    # End stream with approvals required
                     yield StreamMessage(
-                        event=StreamEvents.TOOL_RESULT,
-                        data=tool_call_result.as_streaming_tool_result_response(),
+                        event=StreamEvents.APPROVAL_REQUIRED,
+                        data={
+                            "content": None,
+                            "messages": messages,
+                            "pending_approvals": [
+                                approval.model_dump() for approval in pending_approvals
+                            ],
+                            "requires_approval": True,
+                        },
                     )
+                    return
 
                 # Update the tool number offset for the next iteration
                 tool_number_offset += len(tools_to_call)

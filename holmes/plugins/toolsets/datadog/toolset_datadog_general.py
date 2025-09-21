@@ -13,7 +13,7 @@ from holmes.core.tools import (
     ToolParameter,
     Toolset,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
@@ -23,85 +23,120 @@ from holmes.plugins.toolsets.datadog.datadog_api import (
     execute_datadog_http_request,
     get_headers,
     MAX_RETRY_COUNT_ON_RATE_LIMIT,
+    preprocess_time_fields,
+    enhance_error_message,
+    fetch_openapi_spec,
 )
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 # Maximum response size in bytes (10MB)
 MAX_RESPONSE_SIZE = 10 * 1024 * 1024
 
-# Whitelisted API endpoint patterns - READ ONLY operations
+# Whitelisted API endpoint patterns with optional hints
+# Format: (pattern, hint) - hint is empty string if no special instructions
 WHITELISTED_ENDPOINTS = [
     # Monitors
-    r"^/api/v\d+/monitor(/search)?$",
-    r"^/api/v\d+/monitor/\d+(/downtimes)?$",
-    r"^/api/v\d+/monitor/groups/search$",
+    (r"^/api/v\d+/monitor(/search)?$", ""),
+    (r"^/api/v\d+/monitor/\d+(/downtimes)?$", ""),
+    (r"^/api/v\d+/monitor/groups/search$", ""),
     # Dashboards
-    r"^/api/v\d+/dashboard(/lists)?$",
-    r"^/api/v\d+/dashboard/[^/]+$",
-    r"^/api/v\d+/dashboard/public/[^/]+$",
-    # SLOs (Service Level Objectives)
-    r"^/api/v\d+/slo(/search)?$",
-    r"^/api/v\d+/slo/[^/]+(/history)?$",
-    r"^/api/v\d+/slo/[^/]+/corrections$",
+    (r"^/api/v\d+/dashboard(/lists)?$", ""),
+    (r"^/api/v\d+/dashboard/[^/]+$", ""),
+    (r"^/api/v\d+/dashboard/public/[^/]+$", ""),
+    # SLOs
+    (r"^/api/v\d+/slo(/search)?$", ""),
+    (r"^/api/v\d+/slo/[^/]+(/history)?$", ""),
+    (r"^/api/v\d+/slo/[^/]+/corrections$", ""),
     # Events
-    r"^/api/v\d+/events$",
-    r"^/api/v\d+/events/\d+$",
+    (
+        r"^/api/v\d+/events$",
+        "Use time range parameters 'start' and 'end' as Unix timestamps",
+    ),
+    (r"^/api/v\d+/events/\d+$", ""),
     # Incidents
-    r"^/api/v\d+/incidents(/search)?$",
-    r"^/api/v\d+/incidents/[^/]+$",
-    r"^/api/v\d+/incidents/[^/]+/attachments$",
-    r"^/api/v\d+/incidents/[^/]+/connected_integrations$",
-    r"^/api/v\d+/incidents/[^/]+/relationships$",
-    r"^/api/v\d+/incidents/[^/]+/timeline$",
+    (r"^/api/v\d+/incidents(/search)?$", ""),
+    (r"^/api/v\d+/incidents/[^/]+$", ""),
+    (r"^/api/v\d+/incidents/[^/]+/attachments$", ""),
+    (r"^/api/v\d+/incidents/[^/]+/connected_integrations$", ""),
+    (r"^/api/v\d+/incidents/[^/]+/relationships$", ""),
+    (r"^/api/v\d+/incidents/[^/]+/timeline$", ""),
     # Synthetics
-    r"^/api/v\d+/synthetics/tests(/search)?$",
-    r"^/api/v\d+/synthetics/tests/[^/]+$",
-    r"^/api/v\d+/synthetics/tests/[^/]+/results$",
-    r"^/api/v\d+/synthetics/tests/browser/[^/]+/results$",
-    r"^/api/v\d+/synthetics/tests/api/[^/]+/results$",
-    r"^/api/v\d+/synthetics/locations$",
-    # Security Monitoring
-    r"^/api/v\d+/security_monitoring/rules(/search)?$",
-    r"^/api/v\d+/security_monitoring/rules/[^/]+$",
-    r"^/api/v\d+/security_monitoring/signals(/search)?$",
-    r"^/api/v\d+/security_monitoring/signals/[^/]+$",
-    # Service Map / APM Services
-    r"^/api/v\d+/services$",
-    r"^/api/v\d+/services/[^/]+$",
-    r"^/api/v\d+/services/[^/]+/dependencies$",
+    (r"^/api/v\d+/synthetics/tests(/search)?$", ""),
+    (r"^/api/v\d+/synthetics/tests/[^/]+$", ""),
+    (r"^/api/v\d+/synthetics/tests/[^/]+/results$", ""),
+    (r"^/api/v\d+/synthetics/tests/browser/[^/]+/results$", ""),
+    (r"^/api/v\d+/synthetics/tests/api/[^/]+/results$", ""),
+    (r"^/api/v\d+/synthetics/locations$", ""),
+    # Security
+    (r"^/api/v\d+/security_monitoring/rules(/search)?$", ""),
+    (r"^/api/v\d+/security_monitoring/rules/[^/]+$", ""),
+    (r"^/api/v\d+/security_monitoring/signals(/search)?$", ""),
+    (r"^/api/v\d+/security_monitoring/signals/[^/]+$", ""),
+    # Services
+    (r"^/api/v\d+/services$", ""),
+    (r"^/api/v\d+/services/[^/]+$", ""),
+    (r"^/api/v\d+/services/[^/]+/dependencies$", ""),
+    (r"^/api/v\d+/service_dependencies$", ""),
     # Hosts
-    r"^/api/v\d+/hosts$",
-    r"^/api/v\d+/hosts/totals$",
-    r"^/api/v\d+/hosts/[^/]+$",
-    # Usage & Cost
-    r"^/api/v\d+/usage/[^/]+$",
-    r"^/api/v\d+/usage/summary$",
-    r"^/api/v\d+/usage/billable-summary$",
-    r"^/api/v\d+/usage/cost_by_org$",
-    r"^/api/v\d+/usage/estimated_cost$",
+    (r"^/api/v\d+/hosts$", ""),
+    (r"^/api/v\d+/hosts/totals$", ""),
+    (r"^/api/v\d+/hosts/[^/]+$", ""),
+    # Usage
+    (r"^/api/v\d+/usage/[^/]+$", ""),
+    (r"^/api/v\d+/usage/summary$", ""),
+    (r"^/api/v\d+/usage/billable-summary$", ""),
+    (r"^/api/v\d+/usage/cost_by_org$", ""),
+    (r"^/api/v\d+/usage/estimated_cost$", ""),
     # Processes
-    r"^/api/v\d+/processes$",
+    (r"^/api/v\d+/processes$", ""),
     # Tags
-    r"^/api/v\d+/tags/hosts(/[^/]+)?$",
+    (r"^/api/v\d+/tags/hosts(/[^/]+)?$", ""),
     # Notebooks
-    r"^/api/v\d+/notebooks$",
-    r"^/api/v\d+/notebooks/\d+$",
-    # Service Dependencies
-    r"^/api/v\d+/service_dependencies$",
+    (r"^/api/v\d+/notebooks$", ""),
+    (r"^/api/v\d+/notebooks/\d+$", ""),
     # Organization
-    r"^/api/v\d+/org$",
-    r"^/api/v\d+/org/[^/]+$",
-    # Users (read only)
-    r"^/api/v\d+/users$",
-    r"^/api/v\d+/users/[^/]+$",
-    # Teams (read only)
-    r"^/api/v\d+/teams$",
-    r"^/api/v\d+/teams/[^/]+$",
-    # Audit logs
-    r"^/api/v\d+/audit/events$",
-    # Service Accounts (read only)
-    r"^/api/v\d+/service_accounts$",
-    r"^/api/v\d+/service_accounts/[^/]+$",
+    (r"^/api/v\d+/org$", ""),
+    (r"^/api/v\d+/org/[^/]+$", ""),
+    # Users
+    (r"^/api/v\d+/users$", ""),
+    (r"^/api/v\d+/users/[^/]+$", ""),
+    # Teams
+    (r"^/api/v\d+/teams$", ""),
+    (r"^/api/v\d+/teams/[^/]+$", ""),
+    # Logs
+    (
+        r"^/api/v1/logs/config/indexes$",
+        "When available, prefer using fetch_pod_logs tool from datadog/logs toolset instead of calling this API directly with the datadog/general toolset",
+    ),
+    (
+        r"^/api/v2/logs/events$",
+        "When available, prefer using fetch_pod_logs tool from datadog/logs toolset instead of calling this API directly with the datadog/general toolset. Use RFC3339 timestamps (e.g., '2024-01-01T00:00:00Z')",
+    ),
+    (
+        r"^/api/v2/logs/events/search$",
+        'When available, prefer using fetch_pod_logs tool from datadog/logs toolset instead of calling this API directly with the datadog/general toolset. RFC3339 time format. Example: {"filter": {"from": "2024-01-01T00:00:00Z", "to": "2024-01-02T00:00:00Z", "query": "*"}}',
+    ),
+    (
+        r"^/api/v2/logs/analytics/aggregate$",
+        "When available, prefer using fetch_pod_logs tool from datadog/logs toolset instead of calling this API directly with the datadog/general toolset. Do not include 'sort' parameter",
+    ),
+    # Metrics
+    (
+        r"^/api/v\d+/metrics$",
+        "When available, prefer using query_datadog_metrics tool from datadog/metrics toolset instead of calling this API directly with the datadog/general toolset",
+    ),
+    (
+        r"^/api/v\d+/metrics/[^/]+$",
+        "When available, prefer using get_datadog_metric_metadata tool from datadog/metrics toolset instead of calling this API directly with the datadog/general toolset",
+    ),
+    (
+        r"^/api/v\d+/query$",
+        "When available, prefer using query_datadog_metrics tool from datadog/metrics toolset instead of calling this API directly with the datadog/general toolset. Use 'from' and 'to' as Unix timestamps",
+    ),
+    (
+        r"^/api/v\d+/search/query$",
+        "When available, prefer using query_datadog_metrics tool from datadog/metrics toolset instead of calling this API directly with the datadog/general toolset",
+    ),
 ]
 
 # Blacklisted path segments that indicate write operations
@@ -146,9 +181,13 @@ WHITELISTED_POST_ENDPOINTS = [
     r"^/api/v\d+/security_monitoring/rules/search$",
     r"^/api/v\d+/security_monitoring/signals/search$",
     r"^/api/v\d+/logs/events/search$",
+    r"^/api/v2/logs/events/search$",
+    r"^/api/v2/logs/analytics/aggregate$",
     r"^/api/v\d+/spans/events/search$",
     r"^/api/v\d+/rum/events/search$",
     r"^/api/v\d+/audit/events/search$",
+    r"^/api/v\d+/query$",
+    r"^/api/v\d+/search/query$",
 ]
 
 
@@ -165,12 +204,13 @@ class DatadogGeneralToolset(Toolset):
     """General-purpose Datadog API toolset for read-only operations not covered by specialized toolsets."""
 
     dd_config: Optional[DatadogGeneralConfig] = None
+    openapi_spec: Optional[Dict[str, Any]] = None
 
     def __init__(self):
         super().__init__(
             name="datadog/general",
-            description="General-purpose Datadog API access for read-only operations including monitors, dashboards, SLOs, incidents, synthetics, and more",
-            docs_url="https://docs.datadoghq.com/api/latest/",
+            description="General-purpose Datadog API access for read-only operations including monitors, dashboards, SLOs, incidents, synthetics, logs, metrics, and more. Note: For logs and metrics, prefer using the specialized datadog/logs and datadog/metrics toolsets when available as they provide optimized functionality",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
@@ -178,7 +218,6 @@ class DatadogGeneralToolset(Toolset):
                 DatadogAPIPostSearch(toolset=self),
                 ListDatadogAPIResources(toolset=self),
             ],
-            experimental=True,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(
@@ -191,11 +230,27 @@ class DatadogGeneralToolset(Toolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         """Check prerequisites with configuration."""
         if not config:
-            return False, TOOLSET_CONFIG_MISSING_ERROR
+            return (
+                False,
+                "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
+            )
 
         try:
             dd_config = DatadogGeneralConfig(**config)
             self.dd_config = dd_config
+
+            # Fetch OpenAPI spec on startup for better error messages and documentation
+            logging.debug("Fetching Datadog OpenAPI specification...")
+            self.openapi_spec = fetch_openapi_spec(version="both")
+            if self.openapi_spec:
+                logging.info(
+                    f"Successfully loaded OpenAPI spec with {len(self.openapi_spec.get('paths', {}))} endpoints"
+                )
+            else:
+                logging.warning(
+                    "Could not fetch OpenAPI spec; enhanced error messages will be limited"
+                )
+
             success, error_msg = self._perform_healthcheck(dd_config)
             return success, error_msg
         except Exception as e:
@@ -206,7 +261,8 @@ class DatadogGeneralToolset(Toolset):
         """Perform health check on Datadog API."""
         try:
             logging.info("Performing Datadog general API configuration healthcheck...")
-            url = f"{dd_config.site_api_url}/api/v1/validate"
+            base_url = str(dd_config.site_api_url).rstrip("/")
+            url = f"{base_url}/api/v1/validate"
             headers = get_headers(dd_config)
 
             data = execute_datadog_http_request(
@@ -218,7 +274,7 @@ class DatadogGeneralToolset(Toolset):
             )
 
             if data.get("valid", False):
-                logging.info("Datadog general API healthcheck completed successfully")
+                logging.debug("Datadog general API healthcheck completed successfully")
                 return True, ""
             else:
                 error_msg = "Datadog API key validation failed"
@@ -267,7 +323,7 @@ def is_endpoint_allowed(
         return False, f"POST method not allowed for endpoint: {path}"
 
     elif method == "GET":
-        for pattern in WHITELISTED_ENDPOINTS:
+        for pattern, _ in WHITELISTED_ENDPOINTS:
             if re.match(pattern, path):
                 return True, ""
 
@@ -279,6 +335,23 @@ def is_endpoint_allowed(
 
     else:
         return False, f"HTTP method {method} not allowed for {path}"
+
+
+def get_endpoint_hint(endpoint: str) -> str:
+    """
+    Get hint for an endpoint if available.
+
+    Returns:
+        Hint string or empty string if no hint
+    """
+    parsed = urlparse(endpoint)
+    path = parsed.path
+
+    for pattern, hint in WHITELISTED_ENDPOINTS:
+        if re.match(pattern, path):
+            return hint
+
+    return ""
 
 
 class BaseDatadogGeneralTool(Tool):
@@ -293,7 +366,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
     def __init__(self, toolset: "DatadogGeneralToolset"):
         super().__init__(
             name="datadog_api_get",
-            description="Make a GET request to a Datadog API endpoint for read-only operations",
+            description="[datadog/general toolset] Make a GET request to a Datadog API endpoint for read-only operations",
             parameters={
                 "endpoint": ToolParameter(
                     description="The API endpoint path (e.g., '/api/v1/monitors', '/api/v2/events')",
@@ -301,7 +374,14 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
                     required=True,
                 ),
                 "query_params": ToolParameter(
-                    description="Query parameters as a dictionary (e.g., {'from': '2024-01-01', 'to': '2024-01-02'})",
+                    description="""Query parameters as a dictionary.
+                    Time format requirements:
+                    - v1 API: Unix timestamps in seconds (e.g., {'start': 1704067200, 'end': 1704153600})
+                    - v2 API: RFC3339 format (e.g., {'from': '2024-01-01T00:00:00Z', 'to': '2024-01-02T00:00:00Z'})
+                    - Relative times like '-24h', 'now', '-7d' will be auto-converted to proper format
+
+                    Example for events: {'start': 1704067200, 'end': 1704153600}
+                    Example for monitors: {'name': 'my-monitor', 'tags': 'env:prod'}""",
                     type="object",
                     required=False,
                 ),
@@ -334,7 +414,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
 
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -351,7 +431,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         if not is_allowed:
             logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
                 params=params,
             )
@@ -366,11 +446,14 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
 
             logging.info(f"Full API URL: {url}")
 
+            # Preprocess time fields if any
+            processed_params = preprocess_time_fields(query_params, endpoint)
+
             # Execute request
             response = execute_datadog_http_request(
                 url=url,
                 headers=headers,
-                payload_or_params=query_params,
+                payload_or_params=processed_params,
                 timeout=self.toolset.dd_config.request_timeout,
                 method="GET",
             )
@@ -382,13 +465,13 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
                 > self.toolset.dd_config.max_response_size
             ):
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Response too large (>{self.toolset.dd_config.max_response_size} bytes)",
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_str,
                 params=params,
             )
@@ -404,11 +487,16 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
                 )
             elif e.status_code == 404:
                 error_msg = f"Endpoint not found: {endpoint}"
+            elif e.status_code == 400:
+                # Use enhanced error message for 400 errors
+                error_msg = enhance_error_message(
+                    e, endpoint, "GET", str(self.toolset.dd_config.site_api_url)
+                )
             else:
                 error_msg = f"API error {e.status_code}: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "params": query_params})
@@ -419,7 +507,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         except Exception as e:
             logging.exception(f"Failed to query Datadog API: {params}", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -431,7 +519,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
     def __init__(self, toolset: "DatadogGeneralToolset"):
         super().__init__(
             name="datadog_api_post_search",
-            description="Make a POST request to Datadog search/query endpoints for complex filtering",
+            description="[datadog/general toolset] Make a POST request to Datadog search/query endpoints for complex filtering",
             parameters={
                 "endpoint": ToolParameter(
                     description="The search API endpoint (e.g., '/api/v2/monitor/search', '/api/v2/events/search')",
@@ -439,7 +527,29 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
                     required=True,
                 ),
                 "body": ToolParameter(
-                    description="Request body for the search/filter operation",
+                    description="""Request body for the search/filter operation.
+                    Time format requirements:
+                    - v1 API: Unix timestamps (e.g., 1704067200)
+                    - v2 API: RFC3339 format (e.g., '2024-01-01T00:00:00Z')
+                    - Relative times like '-24h', 'now', '-7d' will be auto-converted
+
+                    Example for logs search:
+                    {
+                      "filter": {
+                        "from": "2024-01-01T00:00:00Z",
+                        "to": "2024-01-02T00:00:00Z",
+                        "query": "*"
+                      },
+                      "sort": "-timestamp",
+                      "page": {"limit": 50}
+                    }
+
+                    Example for monitor search:
+                    {
+                      "query": "env:production",
+                      "page": 0,
+                      "per_page": 20
+                    }""",
                     type="object",
                     required=True,
                 ),
@@ -470,7 +580,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
 
         if not self.toolset.dd_config:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=TOOLSET_CONFIG_MISSING_ERROR,
                 params=params,
             )
@@ -487,7 +597,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         if not is_allowed:
             logging.error(f"Endpoint validation failed: {error_msg}")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Endpoint validation failed: {error_msg}",
                 params=params,
             )
@@ -502,11 +612,14 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
 
             logging.info(f"Full API URL: {url}")
 
+            # Preprocess time fields if any
+            processed_body = preprocess_time_fields(body, endpoint)
+
             # Execute request
             response = execute_datadog_http_request(
                 url=url,
                 headers=headers,
-                payload_or_params=body,
+                payload_or_params=processed_body,
                 timeout=self.toolset.dd_config.request_timeout,
                 method="POST",
             )
@@ -518,13 +631,13 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
                 > self.toolset.dd_config.max_response_size
             ):
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
+                    status=StructuredToolResultStatus.ERROR,
                     error=f"Response too large (>{self.toolset.dd_config.max_response_size} bytes)",
                     params=params,
                 )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_str,
                 params=params,
             )
@@ -540,11 +653,16 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
                 )
             elif e.status_code == 404:
                 error_msg = f"Endpoint not found: {endpoint}"
+            elif e.status_code == 400:
+                # Use enhanced error message for 400 errors
+                error_msg = enhance_error_message(
+                    e, endpoint, "POST", str(self.toolset.dd_config.site_api_url)
+                )
             else:
                 error_msg = f"API error {e.status_code}: {str(e)}"
 
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
                 invocation=json.dumps({"url": url, "body": body}) if url else None,
@@ -553,7 +671,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         except Exception as e:
             logging.exception(f"Failed to query Datadog API: {params}", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error: {str(e)}",
                 params=params,
             )
@@ -565,10 +683,10 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
     def __init__(self, toolset: "DatadogGeneralToolset"):
         super().__init__(
             name="list_datadog_api_resources",
-            description="List available Datadog API resources and endpoints that can be accessed",
+            description="[datadog/general toolset] List available Datadog API resources and endpoints that can be accessed",
             parameters={
-                "category": ToolParameter(
-                    description="Filter by category (e.g., 'monitors', 'dashboards', 'slos', 'incidents', 'synthetics', 'security', 'hosts', 'all')",
+                "search_regex": ToolParameter(
+                    description="Optional regex pattern to filter endpoints (e.g., 'monitor', 'logs|metrics', 'security.*signals', 'v2/.*search$'). If not provided, shows all endpoints.",
                     type="string",
                     required=False,
                 ),
@@ -578,145 +696,165 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
 
     def get_parameterized_one_liner(self, params: dict) -> str:
         """Get a one-liner description of the tool invocation."""
-        category = params.get("category", "all")
-        return f"{toolset_name_for_one_liner(self.toolset.name)}: List API Resources ({category})"
+        search = params.get("search_regex", "all")
+        return f"{toolset_name_for_one_liner(self.toolset.name)}: List API Resources (search: {search})"
 
     def _invoke(
         self, params: dict, user_approved: bool = False
     ) -> StructuredToolResult:
         """List available API resources."""
-        category = params.get("category", "all").lower()
+        search_regex = params.get("search_regex", "")
 
         logging.info("=" * 60)
         logging.info("ListDatadogAPIResources Tool Invocation:")
-        logging.info(f"  Category: {category}")
+        logging.info(f"  Search regex: {search_regex or 'None (showing all)'}")
+        logging.info(f"  OpenAPI Spec Loaded: {self.toolset.openapi_spec is not None}")
         logging.info("=" * 60)
 
-        # Define categories and their endpoints
-        resources = {
-            "monitors": {
-                "description": "Monitor management and alerting",
-                "endpoints": [
-                    "GET /api/v1/monitor - List all monitors",
-                    "GET /api/v1/monitor/{id} - Get a monitor by ID",
-                    "POST /api/v1/monitor/search - Search monitors",
-                    "GET /api/v1/monitor/groups/search - Search monitor groups",
-                ],
-            },
-            "dashboards": {
-                "description": "Dashboard and visualization management",
-                "endpoints": [
-                    "GET /api/v1/dashboard - List all dashboards",
-                    "GET /api/v1/dashboard/{id} - Get a dashboard by ID",
-                    "POST /api/v1/dashboard/lists - List dashboard lists",
-                    "GET /api/v1/dashboard/public/{token} - Get public dashboard",
-                ],
-            },
-            "slos": {
-                "description": "Service Level Objectives",
-                "endpoints": [
-                    "GET /api/v1/slo - List all SLOs",
-                    "GET /api/v1/slo/{id} - Get an SLO by ID",
-                    "GET /api/v1/slo/{id}/history - Get SLO history",
-                    "POST /api/v1/slo/search - Search SLOs",
-                    "GET /api/v1/slo/{id}/corrections - Get SLO corrections",
-                ],
-            },
-            "incidents": {
-                "description": "Incident management",
-                "endpoints": [
-                    "GET /api/v2/incidents - List incidents",
-                    "GET /api/v2/incidents/{id} - Get incident details",
-                    "POST /api/v2/incidents/search - Search incidents",
-                    "GET /api/v2/incidents/{id}/timeline - Get incident timeline",
-                    "GET /api/v2/incidents/{id}/attachments - Get incident attachments",
-                ],
-            },
-            "synthetics": {
-                "description": "Synthetic monitoring and testing",
-                "endpoints": [
-                    "GET /api/v1/synthetics/tests - List synthetic tests",
-                    "GET /api/v1/synthetics/tests/{id} - Get test details",
-                    "POST /api/v1/synthetics/tests/search - Search tests",
-                    "GET /api/v1/synthetics/tests/{id}/results - Get test results",
-                    "GET /api/v1/synthetics/locations - List test locations",
-                ],
-            },
-            "security": {
-                "description": "Security monitoring and detection",
-                "endpoints": [
-                    "GET /api/v2/security_monitoring/rules - List security rules",
-                    "GET /api/v2/security_monitoring/rules/{id} - Get rule details",
-                    "POST /api/v2/security_monitoring/rules/search - Search rules",
-                    "POST /api/v2/security_monitoring/signals/search - Search security signals",
-                ],
-            },
-            "hosts": {
-                "description": "Host and infrastructure monitoring",
-                "endpoints": [
-                    "GET /api/v1/hosts - List all hosts",
-                    "GET /api/v1/hosts/{name} - Get host details",
-                    "GET /api/v1/hosts/totals - Get host totals",
-                    "GET /api/v1/tags/hosts - Get host tags",
-                ],
-            },
-            "events": {
-                "description": "Event stream and management",
-                "endpoints": [
-                    "GET /api/v1/events - Query event stream",
-                    "GET /api/v1/events/{id} - Get event details",
-                    "POST /api/v2/events/search - Search events",
-                ],
-            },
-            "usage": {
-                "description": "Usage and billing information",
-                "endpoints": [
-                    "GET /api/v1/usage/summary - Get usage summary",
-                    "GET /api/v1/usage/billable-summary - Get billable summary",
-                    "GET /api/v1/usage/estimated_cost - Get estimated costs",
-                    "GET /api/v2/usage/cost_by_org - Get costs by organization",
-                ],
-            },
-            "services": {
-                "description": "APM service information",
-                "endpoints": [
-                    "GET /api/v2/services - List services",
-                    "GET /api/v2/services/{service} - Get service details",
-                    "GET /api/v2/services/{service}/dependencies - Get service dependencies",
-                ],
-            },
-        }
+        # Filter endpoints based on regex search
+        matching_endpoints = []
 
-        # Filter by category if specified
-        if category != "all":
-            matching_categories = {k: v for k, v in resources.items() if category in k}
-            if not matching_categories:
+        if search_regex:
+            try:
+                search_pattern = re.compile(search_regex, re.IGNORECASE)
+            except re.error as e:
                 return StructuredToolResult(
-                    status=ToolResultStatus.ERROR,
-                    error=f"Unknown category: {category}. Available: {', '.join(resources.keys())}",
+                    status=StructuredToolResultStatus.ERROR,
+                    error=f"Invalid regex pattern: {e}",
                     params=params,
                 )
-            resources = matching_categories
+        else:
+            search_pattern = None
+
+        # Build list of matching endpoints
+        for pattern, hint in WHITELISTED_ENDPOINTS:
+            # Create a readable endpoint example from the pattern
+            example_endpoint = pattern.replace(r"^/api/v\d+", "/api/v1")
+            example_endpoint = example_endpoint.replace(r"(/search)?$", "")
+            example_endpoint = example_endpoint.replace(r"(/[^/]+)?$", "/{id}")
+            example_endpoint = example_endpoint.replace(r"/[^/]+$", "/{id}")
+            example_endpoint = example_endpoint.replace(r"/\d+$", "/{id}")
+            example_endpoint = example_endpoint.replace("$", "")
+            example_endpoint = example_endpoint.replace("^", "")
+
+            # Apply search filter if provided
+            if search_pattern and not search_pattern.search(example_endpoint):
+                continue
+
+            # Determine HTTP methods
+            if "search" in pattern or "query" in pattern or "aggregate" in pattern:
+                methods = "POST"
+            elif "/search)?$" in pattern:
+                methods = "GET/POST"
+            else:
+                methods = "GET"
+
+            endpoint_info = {
+                "endpoint": example_endpoint,
+                "methods": methods,
+                "hint": hint,
+                "pattern": pattern,
+            }
+            matching_endpoints.append(endpoint_info)
+
+        if not matching_endpoints:
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.SUCCESS,
+                data=f"No endpoints found matching regex: {search_regex}",
+                params=params,
+            )
 
         # Format output
-        output = ["Available Datadog API Resources", "=" * 40, ""]
+        output = ["Available Datadog API Endpoints", "=" * 40]
 
-        for cat_name, cat_info in resources.items():
-            output.append(f"## {cat_name.upper()}")
-            output.append(f"Description: {cat_info['description']}")
-            output.append("")
-            output.append("Endpoints:")
-            for endpoint in cat_info["endpoints"]:
-                output.append(f"  • {endpoint}")
-            output.append("")
+        if search_regex:
+            output.append(f"Filter: {search_regex}")
+        output.append(f"Found: {len(matching_endpoints)} endpoints")
+        output.append("")
 
+        # List endpoints with spec info if available
+        for info in matching_endpoints:
+            line = f"{info['methods']:8} {info['endpoint']}"
+            if info["hint"]:
+                line += f"\n         {info['hint']}"
+
+            # Add OpenAPI spec info for this specific endpoint if available
+            if self.toolset.openapi_spec and "paths" in self.toolset.openapi_spec:
+                # Try to find matching path in OpenAPI spec
+                spec_path = None
+                for path in self.toolset.openapi_spec["paths"].keys():
+                    if re.match(info["pattern"], path):
+                        spec_path = path
+                        break
+
+                if spec_path and spec_path in self.toolset.openapi_spec["paths"]:
+                    path_spec = self.toolset.openapi_spec["paths"][spec_path]
+                    # Add actual OpenAPI schema for the endpoint
+                    for method in ["get", "post", "put", "delete"]:
+                        if method in path_spec:
+                            method_spec = path_spec[method]
+                            line += f"\n\n         OpenAPI Schema ({method.upper()}):"
+
+                            # Add summary if available
+                            if "summary" in method_spec:
+                                line += f"\n         Summary: {method_spec['summary']}"
+
+                            # Add parameters if available
+                            if "parameters" in method_spec:
+                                line += "\n         Parameters:"
+                                for param in method_spec["parameters"]:
+                                    param_info = f"\n           - {param.get('name', 'unknown')} ({param.get('in', 'unknown')})"
+                                    if param.get("required", False):
+                                        param_info += " [required]"
+                                    if "description" in param:
+                                        param_info += f": {param['description'][:100]}"
+                                    line += param_info
+
+                            # Add request body schema if available
+                            if "requestBody" in method_spec:
+                                line += "\n         Request Body:"
+                                if "content" in method_spec["requestBody"]:
+                                    for content_type, content_spec in method_spec[
+                                        "requestBody"
+                                    ]["content"].items():
+                                        if "schema" in content_spec:
+                                            # Show a compact version of the schema
+                                            schema_str = json.dumps(
+                                                content_spec["schema"], indent=10
+                                            )[:500]
+                                            if (
+                                                len(json.dumps(content_spec["schema"]))
+                                                > 500
+                                            ):
+                                                schema_str += "..."
+                                            line += f"\n           Content-Type: {content_type}"
+                                            line += f"\n           Schema: {schema_str}"
+
+                            # Add response schema sample if available
+                            if "responses" in method_spec:
+                                if "200" in method_spec["responses"]:
+                                    line += "\n         Response (200):"
+                                    resp = method_spec["responses"]["200"]
+                                    if "description" in resp:
+                                        line += f"\n           {resp['description']}"
+                            break
+
+            output.append(line)
+
+        output.append("")
         output.append(
             "Note: All endpoints are read-only. Use the appropriate tool with the endpoint path."
         )
         output.append("Example: datadog_api_get with endpoint='/api/v1/monitors'")
+        output.append("")
+        output.append("Search examples:")
+        output.append("  • 'monitor' - find all monitor endpoints")
+        output.append("  • 'logs|metrics' - find logs OR metrics endpoints")
+        output.append("  • 'v2.*search$' - find all v2 search endpoints")
+        output.append("  • 'security.*signals' - find security signals endpoints")
 
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data="\n".join(output),
             params=params,
         )

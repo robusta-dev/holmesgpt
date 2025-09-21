@@ -15,7 +15,7 @@ tags:
 port_forwards:
   - namespace: app-115
     service: tempo
-    local_port: 3200
+    local_port: 3201
     remote_port: 3200
 
 before_test: |
@@ -32,7 +32,7 @@ before_test: |
   echo "⏰ Waiting for Tempo to be fully ready (checking every 5s, timeout 60s)"
   TEMPO_READY=false
   for i in {1..12}; do
-    if kubectl exec -n app-115 deployment/tempo -- wget -q -O - http://localhost:3200/ready 2>/dev/null; then
+    if kubectl exec -n app-115 deployment/tempo -- wget -q -O - http://localhost:3201/ready 2>/dev/null; then
       echo "✅ Tempo is ready!"
       TEMPO_READY=true
       break

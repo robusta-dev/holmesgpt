@@ -255,9 +255,9 @@ additionalEnvVars:
         key: aws-secret-access-key
 
 modelList:
-  gpt-4o:
+  gpt-4:
     api_key: "{{ env.OPENAI_API_KEY }}"
-    model: openai/gpt-4o
+    model: openai/gpt-4.1
     temperature: 0
   anthropic-sonnet-4:
     api_key: "{{ env.ANTHROPIC_API_KEY }}"
