@@ -1,0 +1,423 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-code-config
+  namespace: nr
+data:
+  payment_processor.py: |
+      import os
+      import time
+      import requests
+      from opentelemetry import trace
+      from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+      from opentelemetry.sdk.trace import TracerProvider
+      from opentelemetry.sdk.resources import Resource
+      from opentelemetry.sdk.trace.export import BatchSpanProcessor
+      from opentelemetry.propagate import inject
+      import logging
+
+      # Configure logging to New Relic
+      class NewRelicLogHandler(logging.Handler):
+          def __init__(self, license_key):
+              super().__init__()
+              self.license_key = license_key
+              self.log_endpoint = "https://log-api.newrelic.com/log/v1"
+
+          def emit(self, record):
+              log_entry = self.format(record)
+              try:
+                  payload = [
+                      {
+                          "common": {
+                              "attributes": {
+                                  "service.name": "payment-processor-atc",
+                                  "app": "payment-processor-service"
+                              }
+                          },
+                          "logs": [
+                              {
+                                  "timestamp": int(time.time() * 1000),
+                                  "message": log_entry,
+                                  "level": record.levelname
+                              }
+                          ]
+                      }
+                  ]
+                  headers = {
+                      "Content-Type": "application/json",
+                      "X-License-Key": self.license_key
+                  }
+                  response = requests.post(self.log_endpoint, json=payload, headers=headers)
+                  response.raise_for_status()
+              except Exception as e:
+                  print(f"Failed to send log to New Relic: {e}")
+
+      # Get environment variables
+      NEW_RELIC_LICENSE_KEY = os.getenv("NEW_RELIC_LICENSE_KEY", "undefined")
+
+      resource = Resource.create(attributes={"service.name": "payment-processor-atc","app": "payment-processor-service"})
+      provider = TracerProvider(resource=resource)
+      exporter = OTLPSpanExporter(
+          endpoint="https://otlp.nr-data.net:4317",
+          headers={"api-key": NEW_RELIC_LICENSE_KEY}
+      )
+      provider.add_span_processor(BatchSpanProcessor(exporter))
+      trace.set_tracer_provider(provider)
+      tracer = trace.get_tracer(__name__)
+
+      # Configure logging
+      logger = logging.getLogger(__name__)
+      new_relic_handler = NewRelicLogHandler(NEW_RELIC_LICENSE_KEY)
+      new_relic_handler.setLevel(logging.INFO)
+      logger.addHandler(new_relic_handler)
+      logger.setLevel(logging.INFO)
+
+      # Payment Processor Service Logic
+      def handle_transaction():
+          with tracer.start_as_current_span("Payment-Processor"):
+              logger.info("Processing payment...")
+              time.sleep(1)  # Simulate processing
+              try:
+                  headers = {}
+                  inject(headers)  # Inject trace context into headers
+                  response = requests.post(
+                      "http://order-management-service.nr.svc.cluster.local:5000/orders",
+                      json={"order_id": 123}, headers=headers
+                  )
+                  logger.info(f"Received response from Order Management: {response.text}")
+              except Exception as e:
+                  logger.error(f"Error sending request to Order Management: {e}")
+
+      # Keep service running in a loop
+      if __name__ == "__main__":
+          while True:
+              handle_transaction()
+              time.sleep(10)
+
+  order_management.py: |
+      import os
+      import time
+      import requests
+      from flask import Flask, request, jsonify
+      from opentelemetry import trace
+      from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+      from opentelemetry.sdk.trace import TracerProvider
+      from opentelemetry.sdk.trace.export import BatchSpanProcessor
+      from opentelemetry.instrumentation.flask import FlaskInstrumentor
+      from opentelemetry.propagate import extract
+      from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+      from opentelemetry.sdk.resources import Resource
+
+      from opentelemetry.propagate import inject
+      import logging
+      import random
+
+      class NewRelicLogHandler(logging.Handler):
+          def __init__(self, license_key):
+              super().__init__()
+              self.license_key = license_key
+              self.log_endpoint = "https://log-api.newrelic.com/log/v1"
+
+          def emit(self, record):
+              log_entry = self.format(record)
+              try:
+                  payload = [
+                      {
+                          "common": {
+                              "attributes": {
+                                  "service.name": "order-management-atc",
+                                  "app": "order-management-service"
+                              }
+                          },
+                          "logs": [
+                              {
+                                  "timestamp": int(time.time() * 1000),
+                                  "message": log_entry,
+                                  "level": record.levelname
+                              }
+                          ]
+                      }
+                  ]
+                  headers = {
+                      "Content-Type": "application/json",
+                      "X-License-Key": self.license_key
+                  }
+                  response = requests.post(self.log_endpoint, json=payload, headers=headers)
+                  response.raise_for_status()
+              except Exception as e:
+                  print(f"Failed to send log to New Relic: {e}")
+
+      NEW_RELIC_LICENSE_KEY = os.getenv("NEW_RELIC_LICENSE_KEY", "undefined")
+
+      resource = Resource.create(attributes={"service.name": "order-management-atc", "app": "order-management-service"})
+      provider = TracerProvider(resource=resource)
+
+      # Configure logging
+      logger = logging.getLogger(__name__)
+      new_relic_handler = NewRelicLogHandler(NEW_RELIC_LICENSE_KEY)
+      new_relic_handler.setLevel(logging.INFO)
+      logger.addHandler(new_relic_handler)
+      logger.setLevel(logging.INFO)
+
+      # Configure tracing
+      exporter = OTLPSpanExporter(
+          endpoint="https://otlp.nr-data.net:4317",
+          headers={"api-key": NEW_RELIC_LICENSE_KEY}
+      )
+      provider.add_span_processor(BatchSpanProcessor(exporter))
+      trace.set_tracer_provider(provider)
+      tracer = trace.get_tracer(__name__)
+
+      # Flask application
+      app = Flask(__name__)
+      FlaskInstrumentor().instrument_app(app)
+
+      # Order Management Service Logic
+      @app.route('/orders', methods=['POST'])
+      def manage_order():
+          context = extract(request.headers)  # Extract trace context from headers
+          with tracer.start_as_current_span("Order-Management", context=context):
+              logger.info("Managing order...")
+              try:
+                  # Simulate rate-limiting
+                  wait_time = random.uniform(1, 5)  # Random sleep between 1 and 5 seconds
+                  logger.warning(f"API rate limit reached for MailChimp integration. Waiting {wait_time:.2f} seconds before retrying to sync campaign data.")
+                  time.sleep(wait_time)
+
+                  data = request.get_json()
+                  order_id = data.get("order_id", "unknown")
+                  logger.info(f"Processing order with ID: {order_id}")
+                  headers = {}
+                  inject(headers)  # Inject trace context into headers
+
+                  # Forward the request to the Transaction Monitoring Service
+                  response = requests.post(
+                      "http://transaction-monitoring-service.nr.svc.cluster.local:5000/monitor",
+                      json={"transaction_id": order_id},
+                      headers=headers
+                  )
+                  logger.info(f"Received response from Transaction Monitoring: {response.text}")
+                  return jsonify({"status": "success", "message": "Order processed"}), 200
+              except Exception as e:
+                  logger.error(f"Error processing order: {e}")
+                  return jsonify({"status": "error", "message": str(e)}), 500
+
+      # Run the Flask app
+      if __name__ == "__main__":
+          app.run(host="0.0.0.0", port=5000)
+
+  transaction_monitoring.py: |
+      import os
+      import time
+      import requests
+      from flask import Flask, request, jsonify
+      from opentelemetry import trace
+      from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+      from opentelemetry.sdk.trace import TracerProvider
+      from opentelemetry.sdk.resources import Resource
+      from opentelemetry.sdk.trace.export import BatchSpanProcessor
+      from opentelemetry.instrumentation.flask import FlaskInstrumentor
+      from opentelemetry.propagate import extract
+      import logging
+
+      class NewRelicLogHandler(logging.Handler):
+          def __init__(self, license_key):
+              super().__init__()
+              self.license_key = license_key
+              self.log_endpoint = "https://log-api.newrelic.com/log/v1"
+
+          def emit(self, record):
+              log_entry = self.format(record)
+              try:
+                  payload = [
+                      {
+                          "common": {
+                              "attributes": {
+                                  "service.name": "transaction-monitoring-atc",
+                                  "app": "transaction-monitoring-service"
+                              }
+                          },
+                          "logs": [
+                              {
+                                  "timestamp": int(time.time() * 1000),
+                                  "message": log_entry,
+                                  "level": record.levelname
+                              }
+                          ]
+                      }
+                  ]
+                  headers = {
+                      "Content-Type": "application/json",
+                      "X-License-Key": self.license_key
+                  }
+                  response = requests.post(self.log_endpoint, json=payload, headers=headers)
+                  response.raise_for_status()
+              except Exception as e:
+                  print(f"Failed to send log to New Relic: {e}")
+
+      NEW_RELIC_LICENSE_KEY = os.getenv("NEW_RELIC_LICENSE_KEY", "undefined")
+
+      # Configure logging
+      logger = logging.getLogger(__name__)
+      new_relic_handler = NewRelicLogHandler(NEW_RELIC_LICENSE_KEY)
+      new_relic_handler.setLevel(logging.INFO)
+      logger.addHandler(new_relic_handler)
+      logger.setLevel(logging.INFO)
+
+      resource = Resource.create(attributes={"service.name": "transaction-monitoring-atc", "app": "transaction-monitoring-service"})
+      provider = TracerProvider(resource=resource)
+      exporter = OTLPSpanExporter(
+          endpoint="https://otlp.nr-data.net:4317",
+          headers={"api-key": NEW_RELIC_LICENSE_KEY}
+      )
+      provider.add_span_processor(BatchSpanProcessor(exporter))
+      trace.set_tracer_provider(provider)
+      tracer = trace.get_tracer(__name__)
+
+      # Create Flask app
+      app = Flask(__name__)
+      FlaskInstrumentor().instrument_app(app)
+
+      @app.route('/monitor', methods=['POST'])
+      def monitor_transaction():
+          context = extract(request.headers)  # Extract trace context from headers
+          with tracer.start_as_current_span("Transaction-Monitoring", context=context):
+              transaction_data = request.get_json()
+              logger.info(f"Monitoring transaction: {transaction_data}")
+              # Simulate processing delay
+              return jsonify({"status": "success", "message": "Transaction monitored"}), 200
+
+      # Run Flask app
+      if __name__ == "__main__":
+          app.run(host="0.0.0.0", port=5000)
+
+  requirements.txt: |
+      opentelemetry-sdk>=1.16,<2.0          # Compatible with instrumentation libraries
+      opentelemetry-exporter-otlp>=1.16,<2.0  # Works with the OpenTelemetry SDK
+      opentelemetry-instrumentation-flask>=0.36b0,<0.42  # Stable for Flask tracing
+      opentelemetry-semantic-conventions>=0.36b0,<0.42  # Matches other OpenTelemetry libraries
+      requests>=2.24,<3.0                   # Flexible within the 2.x range
+      Flask>=2.2,<3.0                       # Modern Flask versions
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-processor-service
+  namespace: nr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-processor-service
+  template:
+    metadata:
+      labels:
+        app: payment-processor-service
+    spec:
+      containers:
+        - name: payment-processor
+          image: python:3.10
+          command: ["/bin/bash", "-c", "pip install -r /app/requirements.txt && python /app/payment_processor.py"]
+          volumeMounts:
+            - name: service-code
+              mountPath: /app
+      volumes:
+        - name: service-code
+          configMap:
+            name: service-code-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-management-service
+  namespace: nr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-management-service
+  template:
+    metadata:
+      labels:
+        app: order-management-service
+    spec:
+      containers:
+        - name: order-management
+          image: python:3.10
+          command: ["/bin/bash", "-c", "pip install -r /app/requirements.txt && python /app/order_management.py"]
+          volumeMounts:
+            - name: service-code
+              mountPath: /app
+      volumes:
+        - name: service-code
+          configMap:
+            name: service-code-config
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-monitoring-service
+  namespace: nr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: transaction-monitoring-service
+  template:
+    metadata:
+      labels:
+        app: transaction-monitoring-service
+    spec:
+      containers:
+        - name: transaction-monitoring
+          image: python:3.10
+          command: ["/bin/bash", "-c", "pip install -r /app/requirements.txt && python /app/transaction_monitoring.py"]
+          volumeMounts:
+            - name: service-code
+              mountPath: /app
+      volumes:
+        - name: service-code
+          configMap:
+            name: service-code-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-processor-service
+  namespace: nr
+spec:
+  selector:
+    app: payment-processor-service
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-management-service
+  namespace: nr
+spec:
+  selector:
+    app: order-management-service
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-monitoring-service
+  namespace: nr
+spec:
+  selector:
+    app: transaction-monitoring-service
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000

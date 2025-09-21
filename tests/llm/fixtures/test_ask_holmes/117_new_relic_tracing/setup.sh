@@ -1,6 +1,6 @@
-kubectl apply -f instrumentation.yaml -n newrelic
-
 kubectl create namespace app-117
+
+kubectl apply -f instrumentation.yaml
 
 kubectl -n app-117 create secret generic checkout-src \
   --from-file=server.js=checkout/server.js \

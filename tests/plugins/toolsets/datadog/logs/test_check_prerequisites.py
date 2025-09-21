@@ -17,7 +17,10 @@ class TestDatadogToolsetCheckPrerequisites:
         toolset.check_prerequisites()
 
         assert toolset.status == ToolsetStatusEnum.FAILED
-        assert toolset.error == "The toolset is missing its configuration"
+        assert (
+            toolset.error
+            == "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/"
+        )
 
     def test_check_prerequisites_empty_config(self):
         """Test check_prerequisites with empty config"""
@@ -26,7 +29,10 @@ class TestDatadogToolsetCheckPrerequisites:
         toolset.check_prerequisites()
 
         assert toolset.status == ToolsetStatusEnum.FAILED
-        assert toolset.error == "The toolset is missing its configuration"
+        assert (
+            toolset.error
+            == "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/"
+        )
 
     def test_check_prerequisites_missing_required_fields(self):
         """Test check_prerequisites with missing required fields"""

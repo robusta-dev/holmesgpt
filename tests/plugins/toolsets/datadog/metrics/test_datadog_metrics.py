@@ -300,7 +300,10 @@ class TestDatadogMetricsToolset:
         success, error_msg = self.toolset.prerequisites_callable(None)
 
         assert success is False
-        assert error_msg == "The toolset is missing its configuration"
+        assert (
+            error_msg
+            == "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/"
+        )
 
     def test_prerequisites_callable_invalid_config(self):
         config = {

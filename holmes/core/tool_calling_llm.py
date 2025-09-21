@@ -4,6 +4,13 @@ import logging
 import textwrap
 from typing import Dict, List, Optional, Type, Union, Callable, Any
 
+from holmes.core.models import (
+    ToolApprovalDecision,
+    ToolCallResult,
+    TruncationResult,
+    TruncationMetadata,
+    PendingToolApproval,
+)
 
 import sentry_sdk
 from openai import BadRequestError
@@ -44,11 +51,6 @@ from holmes.utils.global_instructions import (
 )
 from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.tools_utils.data_types import (
-    TruncationResult,
-    ToolCallResult,
-    TruncationMetadata,
-)
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -263,6 +265,99 @@ class ToolCallingLLM:
         self.approval_callback: Optional[
             Callable[[StructuredToolResult], tuple[bool, Optional[str]]]
         ] = None
+
+    def process_tool_decisions(
+        self, messages: List[Dict[str, Any]], tool_decisions: List[ToolApprovalDecision]
+    ) -> List[Dict[str, Any]]:
+        """
+        Process tool approval decisions and execute approved tools.
+
+        Args:
+            messages: Current conversation messages
+            tool_decisions: List of ToolApprovalDecision objects
+
+        Returns:
+            Updated messages list with tool execution results
+        """
+        # Import here to avoid circular imports
+
+        # Find the last message with pending approvals
+        pending_message_idx = None
+        pending_tool_calls = None
+
+        for i in reversed(range(len(messages))):
+            msg = messages[i]
+            if msg.get("role") == "assistant" and msg.get("pending_approval"):
+                pending_message_idx = i
+                pending_tool_calls = msg.get("tool_calls", [])
+                break
+
+        if pending_message_idx is None or not pending_tool_calls:
+            # No pending approvals found
+            if tool_decisions:
+                logging.warning(
+                    f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
+                )
+            return messages
+
+        # Create decision lookup
+        decisions_by_id = {
+            decision.tool_call_id: decision for decision in tool_decisions
+        }
+
+        # Validate that all decisions have corresponding pending tool calls
+        pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
+        invalid_decisions = [
+            decision.tool_call_id
+            for decision in tool_decisions
+            if decision.tool_call_id not in pending_tool_ids
+        ]
+
+        if invalid_decisions:
+            logging.warning(
+                f"Received decisions for non-pending tool calls: {invalid_decisions}"
+            )
+
+        # Process each tool call
+        for tool_call in pending_tool_calls:
+            tool_call_id = tool_call["id"]
+            decision = decisions_by_id.get(tool_call_id)
+
+            if decision and decision.approved:
+                try:
+                    tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
+                    llm_tool_result = self._invoke_llm_tool_call(
+                        tool_to_call=tool_call_obj,
+                        previous_tool_calls=[],
+                        trace_span=DummySpan(),
+                        tool_number=None,
+                    )
+                    messages.append(llm_tool_result.as_tool_call_message())
+
+                except Exception as e:
+                    logging.error(
+                        f"Failed to execute approved tool {tool_call_id}: {e}"
+                    )
+                    messages.append(
+                        {
+                            "tool_call_id": tool_call_id,
+                            "role": "tool",
+                            "name": tool_call["function"]["name"],
+                            "content": f"Tool execution failed: {str(e)}",
+                        }
+                    )
+            else:
+                # Tool was rejected or no decision found, add rejection message
+                messages.append(
+                    {
+                        "tool_call_id": tool_call_id,
+                        "role": "tool",
+                        "name": tool_call["function"]["name"],
+                        "content": "Tool execution was denied by the user.",
+                    }
+                )
+
+        return messages
 
     def prompt_call(
         self,
@@ -587,7 +682,9 @@ class ToolCallingLLM:
         return ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
-            description=tool.get_parameterized_one_liner(tool_params) if tool else "",
+            description=str(tool.get_parameterized_one_liner(tool_params))
+            if tool
+            else "",
             result=tool_response,
         )
 
@@ -765,12 +862,13 @@ class ToolCallingLLM:
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
         sections: Optional[InputSectionsDataType] = None,
         msgs: Optional[list[dict]] = None,
+        enable_tool_approval: bool = False,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
         This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
         """
-        messages = []
+        messages: list[dict] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
         if user_prompt:
@@ -890,6 +988,11 @@ class ToolCallingLLM:
                 )
 
             perf_timing.measure("pre-tool-calls")
+
+            # Check if any tools require approval first
+            pending_approvals = []
+            approval_required_tools = []
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
@@ -909,15 +1012,85 @@ class ToolCallingLLM:
 
                 for future in concurrent.futures.as_completed(futures):
                     tool_call_result: ToolCallResult = future.result()
-                    tool_calls.append(tool_call_result.as_tool_result_response())
-                    messages.append(tool_call_result.as_tool_call_message())
 
-                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                    if (
+                        tool_call_result.result.status
+                        == StructuredToolResultStatus.APPROVAL_REQUIRED
+                    ):
+                        if enable_tool_approval:
+                            pending_approvals.append(
+                                PendingToolApproval(
+                                    tool_call_id=tool_call_result.tool_call_id,
+                                    tool_name=tool_call_result.tool_name,
+                                    description=tool_call_result.description,
+                                    params=tool_call_result.result.params or {},
+                                )
+                            )
+                            approval_required_tools.append(tool_call_result)
 
+                            yield StreamMessage(
+                                event=StreamEvents.TOOL_RESULT,
+                                data=tool_call_result.as_streaming_tool_result_response(),
+                            )
+                        else:
+                            tool_call_result.result.status = (
+                                StructuredToolResultStatus.ERROR
+                            )
+                            tool_call_result.result.error = f"Tool call rejected for security reasons: {tool_call_result.result.error}"
+
+                            tool_calls.append(
+                                tool_call_result.as_tool_result_response()
+                            )
+                            messages.append(tool_call_result.as_tool_call_message())
+
+                            yield StreamMessage(
+                                event=StreamEvents.TOOL_RESULT,
+                                data=tool_call_result.as_streaming_tool_result_response(),
+                            )
+
+                    else:
+                        tool_calls.append(tool_call_result.as_tool_result_response())
+                        messages.append(tool_call_result.as_tool_call_message())
+
+                        yield StreamMessage(
+                            event=StreamEvents.TOOL_RESULT,
+                            data=tool_call_result.as_streaming_tool_result_response(),
+                        )
+
+                # If we have approval required tools, end the stream with pending approvals
+                if pending_approvals:
+                    # Add assistant message with pending tool calls
+                    assistant_msg = {
+                        "role": "assistant",
+                        "content": response_message.content,
+                        "tool_calls": [
+                            {
+                                "id": result.tool_call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": result.tool_name,
+                                    "arguments": json.dumps(result.result.params or {}),
+                                },
+                            }
+                            for result in approval_required_tools
+                        ],
+                        "pending_approval": True,
+                    }
+                    messages.append(assistant_msg)
+
+                    # End stream with approvals required
                     yield StreamMessage(
-                        event=StreamEvents.TOOL_RESULT,
-                        data=tool_call_result.as_streaming_tool_result_response(),
+                        event=StreamEvents.APPROVAL_REQUIRED,
+                        data={
+                            "content": None,
+                            "messages": messages,
+                            "pending_approvals": [
+                                approval.model_dump() for approval in pending_approvals
+                            ],
+                            "requires_approval": True,
+                        },
                     )
+                    return
 
                 # Update the tool number offset for the next iteration
                 tool_number_offset += len(tools_to_call)

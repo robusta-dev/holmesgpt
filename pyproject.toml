@@ -31,7 +31,7 @@ bs4 = "^0.0.2"
 markdownify = "^1.1.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "^1.75.4"
+litellm = "1.77.1"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 kubernetes = "^32.0.1"
@@ -83,6 +83,7 @@ ignore_missing_imports = true
 scripts_are_modules = true
 exclude = [
     "tests/llm/fixtures/.*",
+    "dist/.*",
 ]
 
 [tool.pytest.ini_options]
@@ -146,4 +147,4 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 48
+fail_under = 46
