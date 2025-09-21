@@ -29,7 +29,10 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 - Always validate first: run the base query without FACET (or a quick LIMIT) to confirm data exists; if results are empty, adjust filters or time range before proceeding.
 - Only attempt a FACET after confirming the field has values; if not, either try known alternatives or skip faceting entirely.
 
-### Instructions for Handling Query Results
+### 3. Metrics/graphs
+- You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
+
+### Instructions for Handling Traces Results
 - If you query DistributedTraceSummary:
     - ALWAYS use the filter `WHERE root.span.eventType = 'Span'`
     - When querying without aggregations (e.g. without count(*), average(attribute), sum(attribute), min(attribute), etc.):
