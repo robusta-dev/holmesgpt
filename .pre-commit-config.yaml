@@ -26,8 +26,8 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: poetry run mypy
-        args: ["--scripts-are-modules", "--config-file=pyproject.toml"]
+        entry: poetry run mypy .
+        args: ["--config-file=pyproject.toml"]
         language: system
-        types: [python]
+        pass_filenames: false
         exclude: tests/llm/fixtures/.*
