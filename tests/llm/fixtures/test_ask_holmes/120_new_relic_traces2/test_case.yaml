@@ -2,7 +2,7 @@ description: "Test if holmes pulls traces reliably"
 
 
 user_prompt:
-- query and summarize traces for entity payments_cycle
+- query and summarize traces for entity payments_cycle and the issues and root cause
 expected_output:
   - mentions latency from order-management
 
