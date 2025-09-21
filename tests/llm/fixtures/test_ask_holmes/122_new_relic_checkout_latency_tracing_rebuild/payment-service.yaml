@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: checkout-app
+  name: payment-app
   namespace: nr-114
 type: Opaque
 stringData:
@@ -58,7 +58,7 @@ stringData:
           }
           ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE")
           pod = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME")
-          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "checkout"
+          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "payment"
           if ns: attrs["k8s.namespace.name"] = ns
           if pod: attrs["k8s.pod.name"] = pod
           if container: attrs["k8s.container.name"] = container
@@ -92,7 +92,7 @@ stringData:
 
       instance_id = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME") or socket.gethostname()
       ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-114"
-      container = os.getenv("CONTAINER_NAME") or "checkout"
+      container = os.getenv("CONTAINER_NAME") or "payment"
 
       resource = Resource.create({
         "service.name": service_name,
@@ -149,7 +149,7 @@ stringData:
     from opentelemetry.trace import Status, StatusCode
 
     # Configure New Relic telemetry
-    tracer, logger = setup_telemetry("checkout-atc", "checkout-service")
+    tracer, logger = setup_telemetry("payment-atc", "payment-service")
 
     app = Flask(__name__)
     FlaskInstrumentor().instrument_app(app)
@@ -159,9 +159,9 @@ stringData:
     def health():
       return 'OK'
 
-    @app.route('/checkout', methods=['POST'])
-    def checkout():
-      with tracer.start_as_current_span("process_checkout") as span:
+    @app.route('/payment', methods=['POST'])
+    def payment():
+      with tracer.start_as_current_span("process_payment") as span:
         data = request.get_json(silent=True) or {}
 
         user_id = data.get('user_id', 'guest')
@@ -176,7 +176,7 @@ stringData:
         if promo_code:
           span.set_attribute("promo.code", promo_code)
 
-        logger.info(f"[CHECKOUT] Processing checkout for user {user_id}")
+        logger.info(f"[PAYMENT] Processing payment for user {user_id}")
 
         # Simulate database query (slow when promo_code is present)
         with tracer.start_as_current_span("database_query") as db_span:
@@ -211,11 +211,11 @@ stringData:
           "total": round(total, 2)
         }
 
-        logger.info("[CHECKOUT] Completed checkout request")
+        logger.info("[PAYMENT] Completed payment request")
         return jsonify(response)
 
     if __name__ == '__main__':
-      logger.info("[CHECKOUT] Starting checkout service on port 8080")
+      logger.info("[PAYMENT] Starting payment service on port 8080")
       app.run(host='0.0.0.0', port=8080)
 
   requirements.txt: |
@@ -235,20 +235,20 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: checkout
+  name: payment
   namespace: nr-114
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: checkout
+      app: payment
   template:
     metadata:
       labels:
-        app: checkout
+        app: payment
     spec:
       containers:
-      - name: checkout
+      - name: payment
         image: python:3.11-slim
         command: ["/bin/bash", "-c"]
         args:
@@ -282,11 +282,11 @@ spec:
 
         # 🏷️ Telemetry resource attributes & sampling
         - name: OTEL_SERVICE_NAME
-          value: checkout-atc
+          value: payment-atc
         - name: APP_NAME
-          value: checkout-service
+          value: payment-service
         - name: CONTAINER_NAME
-          value: checkout
+          value: payment
         - name: SERVICE_VERSION
           value: "1.0.0"
         - name: DEPLOYMENT_ENV
@@ -319,17 +319,17 @@ spec:
       volumes:
       - name: app
         secret:
-          secretName: checkout-app
+          secretName: payment-app
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: checkout
+  name: payment
   namespace: nr-114
 spec:
   selector:
-    app: checkout
+    app: payment
   ports:
   - port: 8080
     targetPort: 8080

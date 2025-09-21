@@ -149,8 +149,8 @@ stringData:
     # Configure New Relic telemetry
     tracer, logger = setup_telemetry("traffic-generator-atc", "traffic-generator")
 
-    # 👇 point to checkout in nr-114
-    CHECKOUT_URL = "http://checkout.nr-114.svc.cluster.local:8080/checkout"
+    # 👇 point to payment in nr-114
+    payment_URL = "http://payment.nr-114.svc.cluster.local:8080/payment"
     ZONES = ['us-west-1', 'us-west-2', 'us-east-1', 'us-east-2']
     PROMO_CODES = ['SAVE10', 'WELCOME20', 'HOLIDAY15', 'SPECIAL25']
 
@@ -180,17 +180,17 @@ stringData:
         promo_status = "WITH" if include_promo else "WITHOUT"
         logger.info(f"[TRAFFIC-GEN] Req #{request_count}: sending {promo_status} promo_code")
 
-        with tracer.start_as_current_span("checkout_request") as span:
+        with tracer.start_as_current_span("promo_request") as span:
           span.set_attribute("request.number", request_count)
           span.set_attribute("has.promo_code", include_promo)
           if include_promo:
             span.set_attribute("promo.code", data.get("promo_code"))
           span.set_attribute("http.method", "POST")
-          span.set_attribute("http.url", CHECKOUT_URL)
+          span.set_attribute("http.url", payment_URL)
 
           try:
             start_time = time.time()
-            response = requests.post(CHECKOUT_URL, json=data, timeout=10)
+            response = requests.post(payment_URL, json=data, timeout=10)
             latency = time.time() - start_time
 
             span.set_attribute("http.status_code", response.status_code)

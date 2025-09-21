@@ -1,5 +1,5 @@
 user_prompt:
-- "The checkout service in namespace nr-114 is experiencing high latency. Investigate why."
+- "The payment service in namespace nr-114 is experiencing high latency. Investigate why."
 
 expected_output:
   - The answer must explicitly state that queries that include a promo code are slow or all slow requests include promo code.
@@ -18,14 +18,14 @@ before_test: |
   kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr-114
   echo "✅ Namespace nr-114 created successfully!"
 
-  echo "🛒 Deploying checkout service"
-  kubectl apply -f checkout-service.yaml -n nr-114
+  echo "🛒 Deploying payment service"
+  kubectl apply -f payment-service.yaml -n nr-114
 
-  echo "⏳ Waiting for checkout pod to be ready"
-  kubectl wait --for=condition=ready pod -l app=checkout -n nr-114 --timeout=60s
+  echo "⏳ Waiting for payment pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=payment -n nr-114 --timeout=60s
 
-  echo "🔍 Checking checkout deployment status"
-  kubectl get pods -n nr-114 -l app=checkout
+  echo "🔍 Checking payment deployment status"
+  kubectl get pods -n nr-114 -l app=payment
 
   echo "🚦 Deploying traffic generator"
   kubectl apply -f traffic-generator.yaml -n nr-114
@@ -54,10 +54,10 @@ before_test: |
     exit 1
   fi
 
-  if kubectl logs -n nr-114 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
-    echo "✅ Found checkout request log"
+  if kubectl logs -n nr-114 -l app=payment --tail=100 | grep -q "Processing payment request"; then
+    echo "✅ Found payment request log"
   else
-    echo "❌ Missing checkout request log"
+    echo "❌ Missing payment request log"
     exit 1
   fi
 
