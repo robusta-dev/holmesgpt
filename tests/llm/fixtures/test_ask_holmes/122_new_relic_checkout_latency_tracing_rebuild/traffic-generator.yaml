@@ -1,13 +1,8 @@
-# ✅ New Relic–only Traffic Generator
-# - Traces exported to New Relic OTLP endpoint
-# - Logs sent directly to New Relic Logs API with trace/span correlation
-# - Mirrors env style used in your other NR manifests
-
----
 apiVersion: v1
 kind: Secret
 metadata:
   name: traffic-generator-app
+  namespace: nr-114
 type: Opaque
 stringData:
   telemetry.py: |
@@ -63,7 +58,7 @@ stringData:
           }
           ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE")
           pod = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME")
-          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or ""
+          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "traffic-generator"
           if ns: attrs["k8s.namespace.name"] = ns
           if pod: attrs["k8s.pod.name"] = pod
           if container: attrs["k8s.container.name"] = container
@@ -96,7 +91,7 @@ stringData:
       deploy_env = os.getenv("DEPLOYMENT_ENV", "dev")
 
       instance_id = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME") or socket.gethostname()
-      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "default"
+      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-114"
       container = os.getenv("CONTAINER_NAME") or "traffic-generator"
 
       resource = Resource.create({
@@ -125,10 +120,10 @@ stringData:
       trace.set_tracer_provider(provider)
       tracer = trace.get_tracer(__name__)
 
-      # Auto-instrument outbound HTTP calls (requests)
+      # Auto-instrument outbound HTTP
       RequestsInstrumentor().instrument()
 
-      # Logger with NR handler for correlation
+      # Logger -> New Relic Logs with correlation
       logger = logging.getLogger(app_name)
       logger.setLevel(logging.INFO)
       nrh = NewRelicLogHandler(license_key, service_name, app_name, logs_endpoint)
@@ -146,8 +141,7 @@ stringData:
         pass
 
   app.py: |
-    import time, random
-    import requests
+    import time, random, requests
     from telemetry import setup_telemetry, record_exception_on_current_span
     from opentelemetry import trace
     from opentelemetry.trace import Status, StatusCode
@@ -155,24 +149,18 @@ stringData:
     # Configure New Relic telemetry
     tracer, logger = setup_telemetry("traffic-generator-atc", "traffic-generator")
 
-    CHECKOUT_URL = "http://checkout.nr-115.svc.cluster.local:8080/checkout"
+    # 👇 point to checkout in nr-114
+    CHECKOUT_URL = "http://checkout.nr-114.svc.cluster.local:8080/checkout"
     ZONES = ['us-west-1', 'us-west-2', 'us-east-1', 'us-east-2']
     PROMO_CODES = ['SAVE10', 'WELCOME20', 'HOLIDAY15', 'SPECIAL25']
 
     def generate_traffic():
       logger.info("[TRAFFIC-GEN] Starting traffic generator")
       request_count = 0
-      ever_had_promo = False
 
       while True:
         request_count += 1
-
-        if request_count > 100 and not ever_had_promo:
-          include_promo = True
-        else:
-          include_promo = random.random() < 0.01  # 1% chance
-        if include_promo:
-          ever_had_promo = True
+        include_promo = random.random() < 0.3  # 30%
 
         data = {
           "user_id": f"user-{random.randint(1000, 9999)}",
@@ -190,7 +178,7 @@ stringData:
           data["promo_code"] = random.choice(PROMO_CODES)
 
         promo_status = "WITH" if include_promo else "WITHOUT"
-        logger.info(f"[TRAFFIC-GEN] Request #{request_count}: sending {promo_status} promo_code")
+        logger.info(f"[TRAFFIC-GEN] Req #{request_count}: sending {promo_status} promo_code")
 
         with tracer.start_as_current_span("checkout_request") as span:
           span.set_attribute("request.number", request_count)
@@ -204,15 +192,16 @@ stringData:
             start_time = time.time()
             response = requests.post(CHECKOUT_URL, json=data, timeout=10)
             latency = time.time() - start_time
+
             span.set_attribute("http.status_code", response.status_code)
             span.set_attribute("response.latency", latency)
 
             status = "success" if response.status_code == 200 else f"error({response.status_code})"
-            logger.info(f"[TRAFFIC-GEN] Request #{request_count}: status={status}, latency={latency:.2f}s")
+            logger.info(f"[TRAFFIC-GEN] Req #{request_count}: {status}, latency={latency:.2f}s")
           except Exception as e:
             record_exception_on_current_span(e)
             span.set_status(Status(StatusCode.ERROR, str(e)))
-            logger.exception(f"[TRAFFIC-GEN] Request #{request_count}: Error", exc_info=e)
+            logger.exception(f"[TRAFFIC-GEN] Req #{request_count}: Error", exc_info=e)
 
         time.sleep(random.uniform(0.01, 0.05))  # 10–50ms
 
@@ -221,7 +210,7 @@ stringData:
       generate_traffic()
 
   requirements.txt: |
-    # Exact pins to avoid resolver backtracking & speed up installs
+    # Pinned to avoid resolver backtracking & speed up installs
     opentelemetry-api==1.20.0
     opentelemetry-sdk==1.20.0
     opentelemetry-exporter-otlp-proto-grpc==1.20.0
@@ -237,6 +226,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traffic-generator
+  namespace: nr-114
 spec:
   replicas: 1
   selector:
@@ -253,8 +243,9 @@ spec:
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install -r /app/requirements.txt && \
+          set -e
           touch /tmp/ready && \
+          python -m pip install --no-cache-dir --disable-pip-version-check -r /app/requirements.txt && \
           python /app/app.py
         volumeMounts:
         - name: app
@@ -270,13 +261,15 @@ spec:
               name: newrelickey
               key: key
 
-        # 🌍 Optional region/endpoints (defaults to US):
-        # - Set NEW_RELIC_REGION=EU for EU endpoints, or override directly:
-        # - NEW_RELIC_OTLP_ENDPOINT, NEW_RELIC_LOGS_ENDPOINT
+        # 🌍 Optional region/endpoints (defaults to US). For EU:
+        # - NEW_RELIC_REGION=EU
+        # Or override directly:
+        # - NEW_RELIC_OTLP_ENDPOINT
+        # - NEW_RELIC_LOGS_ENDPOINT
         #- name: NEW_RELIC_REGION
         #  value: "EU"
 
-        # 🏷️ Telemetry attributes & sampling
+        # 🏷️ Telemetry resource attributes & sampling
         - name: OTEL_SERVICE_NAME
           value: traffic-generator-atc
         - name: APP_NAME
@@ -295,14 +288,15 @@ spec:
           valueFrom: { fieldRef: { fieldPath: metadata.name } }
         - name: KUBERNETES_NAMESPACE
           valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+
         startupProbe:
           exec:
             command: ["cat", "/tmp/ready"]
-          initialDelaySeconds: 60      # give pip time to finish
+          initialDelaySeconds: 5
           periodSeconds: 5
-          timeoutSeconds: 2
+          timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 60         # ~5 minutes budget for slow networks
+          failureThreshold: 12
         resources:
           requests:
             memory: "64Mi"

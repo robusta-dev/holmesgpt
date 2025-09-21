@@ -1,0 +1,67 @@
+user_prompt:
+- "The checkout service in namespace nr-114 is experiencing high latency. Investigate why."
+
+expected_output:
+  - The answer must explicitly state that queries that include a promo code are slow or all slow requests include promo code.
+  - Including a query that mentions promo code is not sufficient.
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+
+
+before_test: |
+  echo "🚀 Setting up test 114 - Creating namespace nr-114"
+  kubectl create namespace nr-114 || true
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr-114
+  echo "✅ Namespace nr-114 created successfully!"
+
+  echo "🛒 Deploying checkout service"
+  kubectl apply -f checkout-service.yaml -n nr-114
+
+  echo "⏳ Waiting for checkout pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=checkout -n nr-114 --timeout=60s
+
+  echo "🔍 Checking checkout deployment status"
+  kubectl get pods -n nr-114 -l app=checkout
+
+  echo "🚦 Deploying traffic generator"
+  kubectl apply -f traffic-generator.yaml -n nr-114
+
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n nr-114 --timeout=60s
+
+  echo "🔍 Checking all pods status"
+  kubectl get pods -n nr-114
+
+  echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
+  sleep 20
+
+  echo "🔍 Verifying traffic generator log entries"
+  if kubectl logs -n nr-114 -l app=traffic-generator --tail=100 | grep -q "WITH promo_code"; then
+    echo "✅ Found traffic generator log WITH promo_code"
+  else
+    echo "❌ Missing traffic generator log WITH promo_code"
+    exit 1
+  fi
+
+  if kubectl logs -n nr-114 -l app=traffic-generator --tail=100 | grep -q "WITHOUT promo_code"; then
+    echo "✅ Found traffic generator log WITHOUT promo_code"
+  else
+    echo "❌ Missing traffic generator log WITHOUT promo_code"
+    exit 1
+  fi
+
+  if kubectl logs -n nr-114 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
+    echo "✅ Found checkout request log"
+  else
+    echo "❌ Missing checkout request log"
+    exit 1
+  fi
+
+  echo "✅ Test setup complete!"
+
+after_test: |
+  kubectl delete namespace nr-114 || true

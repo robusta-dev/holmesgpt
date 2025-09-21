@@ -236,12 +236,16 @@ stringData:
       app.run(host='0.0.0.0', port=8080)
 
   requirements.txt: |
-    opentelemetry-sdk>=1.16,<2.0
-    opentelemetry-exporter-otlp>=1.16,<2.0
-    opentelemetry-instrumentation-flask>=0.36b0,<0.42
-    opentelemetry-instrumentation-requests>=0.36b0,<0.42
-    requests>=2.24,<3.0
-    Flask>=2.2,<3.0
+    opentelemetry-api==1.20.0
+    opentelemetry-sdk==1.20.0
+    opentelemetry-exporter-otlp-proto-grpc==1.20.0
+    opentelemetry-proto==1.20.0
+    opentelemetry-semantic-conventions==0.41b0
+    opentelemetry-instrumentation-flask==0.41b0
+    opentelemetry-instrumentation-requests==0.41b0
+    requests==2.32.5
+    Flask==2.3.3
+
 
 ---
 apiVersion: apps/v1
