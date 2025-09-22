@@ -206,9 +206,10 @@ def pre_filter_metrics(metrics: list[CompressedMetric]) -> PreFilteredMetrics:
 
 def group_metrics(
     metrics_to_process: list[CompressedMetric],
-    globally_common_labels: set[tuple[str, Any]] = set(),
-    logging_prefix: str = "",
+    globally_common_labels: Optional[set[tuple[str, Any]]] = None,
 ) -> list[Union[Group, CompressedMetric]]:
+    if not globally_common_labels:
+        globally_common_labels = set()
     most_common_label, match_count = find_most_common_label(
         metrics=metrics_to_process, ignore_label_set=set()
     )
