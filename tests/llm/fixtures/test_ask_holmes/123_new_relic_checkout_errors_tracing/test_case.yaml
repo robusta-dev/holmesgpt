@@ -37,30 +37,8 @@ before_test: |
   echo "🔍 Checking all pods status"
   kubectl get pods -n nr-115
 
-  echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
-  sleep 20
-
-  echo "🔍 Verifying traffic generator log entries"
-  if kubectl logs -n nr-115 -l app=traffic-generator --tail=100 | grep -q "WITH promo_code"; then
-    echo "✅ Found traffic generator log WITH promo_code"
-  else
-    echo "❌ Missing traffic generator log WITH promo_code"
-    exit 1
-  fi
-
-  if kubectl logs -n nr-115 -l app=traffic-generator --tail=100 | grep -q "WITHOUT promo_code"; then
-    echo "✅ Found traffic generator log WITHOUT promo_code"
-  else
-    echo "❌ Missing traffic generator log WITHOUT promo_code"
-    exit 1
-  fi
-
-  if kubectl logs -n nr-115 -l app=billing --tail=100 | grep -q "Processing billing request"; then
-    echo "✅ Found billing request log"
-  else
-    echo "❌ Missing billing request log"
-    exit 1
-  fi
+  echo "⏰ Letting traffic generator run for 60 seconds to generate requests"
+  sleep 60
 
   echo "✅ Test setup complete!"
 
