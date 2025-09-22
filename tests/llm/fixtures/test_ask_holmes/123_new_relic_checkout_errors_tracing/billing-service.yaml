@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: payment-app
-  namespace: nr-114
+  name: billing-app
+  namespace: nr-115
 type: Opaque
 stringData:
   telemetry.py: |
@@ -58,7 +58,7 @@ stringData:
           }
           ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE")
           pod = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME")
-          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "payment"
+          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "billing"
           if ns: attrs["k8s.namespace.name"] = ns
           if pod: attrs["k8s.pod.name"] = pod
           if container: attrs["k8s.container.name"] = container
@@ -91,8 +91,8 @@ stringData:
       deploy_env = os.getenv("DEPLOYMENT_ENV", "dev")
 
       instance_id = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME") or socket.gethostname()
-      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-114"
-      container = os.getenv("CONTAINER_NAME") or "payment"
+      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-115"
+      container = os.getenv("CONTAINER_NAME") or "billing"
 
       resource = Resource.create({
         "service.name": service_name,
@@ -149,7 +149,7 @@ stringData:
     from opentelemetry.trace import Status, StatusCode
 
     # Configure New Relic telemetry
-    tracer, logger = setup_telemetry("payment-atc", "payment-service")
+    tracer, logger = setup_telemetry("billing-atc", "billing-service")
 
     app = Flask(__name__)
     FlaskInstrumentor().instrument_app(app)
@@ -159,9 +159,9 @@ stringData:
     def health():
       return 'OK'
 
-    @app.route('/payment', methods=['POST'])
-    def payment():
-      with tracer.start_as_current_span("process_payment") as span:
+    @app.route('/billing', methods=['POST'])
+    def billing():
+      with tracer.start_as_current_span("process_billing") as span:
         data = request.get_json(silent=True) or {}
 
         user_id = data.get('user_id', 'guest')
@@ -173,58 +173,73 @@ stringData:
         span.set_attribute("user.id", user_id)
         span.set_attribute("zone.id", zone_id)
         span.set_attribute("items.count", len(items))
-        span.set_attribute("ecommerce.promo.present", bool(promo_code))
         if promo_code:
-          span.set_attribute("ecommerce.promo.code", promo_code)
+          span.set_attribute("promo.code", promo_code)
 
-        logger.info(f"[PAYMENT] Processing payment for user {user_id}")
+        logger.info(f"[BILLING] Processing billing for user {user_id}")
 
-        if promo_code:
-          # process_payment -> promo_code -> database_query
-          with tracer.start_as_current_span("promo_code") as pspan:
-            pspan.set_attribute("ecommerce.promo.code", promo_code)
-            pspan.add_event("promo_code.applied", {"ecommerce.promo.code": promo_code})
+        # Simulate database query (error path when promo_code is present)
+        with tracer.start_as_current_span("database_query") as db_span:
+          db_span.set_attribute("db.system", "postgresql")
+          db_span.set_attribute("db.operation", "SELECT")
 
-            with tracer.start_as_current_span("database_query") as db_span:
-              db_span.set_attribute("db.system", "postgresql")
-              db_span.set_attribute("db.operation", "SELECT")
-              query = "SELECT rate_per_kg, discount_percent FROM shipping_rates WHERE zone_id = ? AND promo_code = ? AND active = true"
-              db_span.set_attribute("db.statement", query)
-              sleep_time = random.uniform(1.5, 3.5)  # slow path
-              time.sleep(sleep_time)
-              shipping_rate = 4.5
-              discount = 15.0
-        else:
-          # process_payment -> database_query
-          with tracer.start_as_current_span("database_query") as db_span:
-            db_span.set_attribute("db.system", "postgresql")
-            db_span.set_attribute("db.operation", "SELECT")
+          if promo_code:
+            # Error path similar to /checkout example
+            query = "SELECT rate_per_kg, discount_percent FROM shipping_rates WHERE zone_id = ? AND promo_code = ? AND active = true"
+            db_span.set_attribute("db.statement", query)
+
+            # small delay before failure
+            sleep_time = random.uniform(0.05, 0.1)
+            time.sleep(sleep_time)
+
+            error_msg = "ERROR: duplicate key value violates unique constraint 'promo_codes_pkey'"
+            exc = Exception(error_msg)
+
+            # Record on DB span
+            db_span.record_exception(exc)
+            db_span.set_status(Status(StatusCode.ERROR, error_msg))
+
+            # Also mark the parent request span as failed
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "Database error"))
+
+            logger.error(f"[BILLING] Request failed: {error_msg}")
+
+            return jsonify({
+              "error": "Internal server error",
+              "message": "Request failed"
+            }), 500
+
+          else:
+            # Successful path without promo_code
             query = "SELECT rate_per_kg, discount_percent FROM shipping_rates WHERE zone_id = ? AND active = true"
             db_span.set_attribute("db.statement", query)
-            sleep_time = random.uniform(0.1, 0.2)   # fast path
+            sleep_time = random.uniform(0.05, 0.1)
             time.sleep(sleep_time)
             shipping_rate = 5.0
             discount = 0.0
 
-        total_weight = sum(item.get('weight', 1.0) for item in items)
-        shipping_cost = total_weight * shipping_rate * (1 - discount/100)
+          # Calculate shipping cost (non-promo path only)
+          total_weight = sum(item.get('weight', 1.0) for item in items)
+          shipping_cost = total_weight * shipping_rate * (1 - discount/100)
 
-        subtotal = sum(item.get('price', 0) for item in items)
-        total = subtotal + shipping_cost
+      # Calculate total
+      subtotal = sum(item.get('price', 0) for item in items)
+      total = subtotal + shipping_cost
 
-        response = {
-          "order_id": f"ord-{random.randint(1000, 9999)}",
-          "subtotal": subtotal,
-          "shipping": round(shipping_cost, 2),
-          "total": round(total, 2)
-        }
+      response = {
+        "order_id": f"ord-{random.randint(1000, 9999)}",
+        "subtotal": subtotal,
+        "shipping": round(shipping_cost, 2),
+        "total": round(total, 2)
+      }
 
-        logger.info("[PAYMENT] Completed payment request")
-        return jsonify(response)
+      logger.info("[BILLING] Completed billing request")
+      return jsonify(response)
 
 
     if __name__ == '__main__':
-      logger.info("[PAYMENT] Starting payment service on port 8080")
+      logger.info("[BILLING] Starting billing service on port 8080")
       app.run(host='0.0.0.0', port=8080)
 
   requirements.txt: |
@@ -244,20 +259,20 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment
-  namespace: nr-114
+  name: billing
+  namespace: nr-115
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment
+      app: billing
   template:
     metadata:
       labels:
-        app: payment
+        app: billing
     spec:
       containers:
-      - name: payment
+      - name: billing
         image: python:3.11-slim
         command: ["/bin/bash", "-c"]
         args:
@@ -291,11 +306,11 @@ spec:
 
         # 🏷️ Telemetry resource attributes & sampling
         - name: OTEL_SERVICE_NAME
-          value: payment-atc
+          value: billing-atc
         - name: APP_NAME
-          value: payment-service
+          value: billing-service
         - name: CONTAINER_NAME
-          value: payment
+          value: billing
         - name: SERVICE_VERSION
           value: "1.0.0"
         - name: DEPLOYMENT_ENV
@@ -328,17 +343,17 @@ spec:
       volumes:
       - name: app
         secret:
-          secretName: payment-app
+          secretName: billing-app
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: payment
-  namespace: nr-114
+  name: billing
+  namespace: nr-115
 spec:
   selector:
-    app: payment
+    app: billing
   ports:
   - port: 8080
     targetPort: 8080
