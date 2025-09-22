@@ -176,9 +176,6 @@ def remove_labels(metric: CompressedMetric, remove_labels: set[tuple[str, Any]])
     metric.labels = labels
 
 
-idx = 0
-
-
 class PreFilteredMetrics(BaseModel):
     metrics_with_only_zero_values: list[CompressedMetric]
     other_metrics: list[CompressedMetric]
@@ -212,8 +209,6 @@ def group_metrics(
     globally_common_labels: set[tuple[str, Any]] = set(),
     logging_prefix: str = "",
 ) -> list[Union[Group, CompressedMetric]]:
-    global idx
-    idx = idx + 1
     most_common_label, match_count = find_most_common_label(
         metrics=metrics_to_process, ignore_label_set=set()
     )
