@@ -1,0 +1,46 @@
+user_prompt:
+- "The billing service in namespace nr-115 is experiencing experiencing errors. Investigate why."
+
+expected_output:
+  - The answer must explicitly state that requests with promo codes are failing or all errors/failures occur when promo code is included.
+  - Including a query that mentions promo code is not sufficient.
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+
+
+before_test: |
+  [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
+  echo "🚀 Setting up test 115 - Creating namespace nr-115"
+  kubectl create namespace nr-115 || true
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr-115
+  echo "✅ Namespace nr-115 created successfully!"
+
+  echo "🛒 Deploying billing service"
+  kubectl apply -f billing-service.yaml -n nr-115
+
+  echo "⏳ Waiting for billing pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=billing -n nr-115 --timeout=60s
+
+  echo "🔍 Checking billing deployment status"
+  kubectl get pods -n nr-115 -l app=billing
+
+  echo "🚦 Deploying traffic generator"
+  kubectl apply -f traffic-generator.yaml -n nr-115
+
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n nr-115 --timeout=60s
+
+  echo "🔍 Checking all pods status"
+  kubectl get pods -n nr-115
+
+  echo "⏰ Letting traffic generator run for 60 seconds to generate requests"
+  sleep 60
+
+  echo "✅ Test setup complete!"
+
+after_test: |
+  kubectl delete namespace nr-115 || true

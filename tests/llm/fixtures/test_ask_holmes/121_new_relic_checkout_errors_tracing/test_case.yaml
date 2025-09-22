@@ -1,0 +1,74 @@
+user_prompt:
+- "The checkout service in namespace nr-115 is experiencing errors. Investigate why."
+
+expected_output:
+  - The answer must explicitly state that requests with promo codes are failing or all errors/failures occur when promo code is included.
+  - Including a query that mentions promo code is not sufficient.
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+
+before_test: |
+  [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
+
+  echo "🚀 Setting up test 115 - Creating namespace nr-115"
+  kubectl create namespace nr-115 || true
+  echo "✅ Namespace nr-115 created successfully!"
+
+  echo "📦 Deploying Tempo from shared config"
+  kubectl apply -f ../../shared/tempo.yaml -n nr-115
+
+  kubectl create namespace nr-115
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr-115
+
+  kubectl apply -f checkout-service.yaml -n nr-115
+
+  echo "⏳ Waiting for checkout pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=checkout -n nr-115 --timeout=60s
+
+  echo "🔍 Checking checkout deployment status"
+  kubectl get pods -n nr-115 -l app=checkout
+
+  echo "🚦 Deploying traffic generator"
+  kubectl apply -f traffic-generator.yaml -n nr-115
+
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n nr-115 --timeout=60s
+
+  echo "🔍 Checking all pods status"
+  kubectl get pods -n nr-115
+
+  echo "⏰ Letting traffic generator run for 45 seconds to generate requests"
+  sleep 20
+
+  echo "🔍 Verifying traffic generator log entries"
+  if kubectl logs -n nr-115 -l app=traffic-generator --tail=-1 | grep -q "WITH promo_code"; then
+    echo "✅ Found traffic generator log WITH promo_code"
+  else
+    echo "❌ Missing traffic generator log WITH promo_code"
+    exit 1
+  fi
+
+  if kubectl logs -n nr-115 -l app=traffic-generator --tail=-1 | grep -q "WITHOUT promo_code"; then
+    echo "✅ Found traffic generator log WITHOUT promo_code"
+  else
+    echo "❌ Missing traffic generator log WITHOUT promo_code"
+    exit 1
+  fi
+
+  if kubectl logs -n nr-115 -l app=checkout --tail=100 | grep -q "Processing checkout request"; then
+    echo "✅ Found checkout request log"
+  else
+    echo "❌ Missing checkout request log"
+    exit 1
+  fi
+
+  kubectl delete -f traffic-generator.yaml -n nr-115
+
+  echo "✅ Test setup complete!"
+
+after_test: |
+  kubectl delete namespace nr-115 || true
