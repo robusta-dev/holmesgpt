@@ -39,7 +39,7 @@ before_test: |
 
   echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
   sleep 60
-  
+
   echo "✅ Test setup complete!"
 
 after_test: |
