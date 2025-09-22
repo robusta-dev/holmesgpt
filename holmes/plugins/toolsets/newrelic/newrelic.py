@@ -178,7 +178,6 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             prom_data = self.to_new_relic_records(result, params=enriched_params)
 
             return_result = prom_data.to_json()
-            print(json.dumps(return_result, indent=2))
             if len(return_result.get("data", {}).get("results", [])):
                 return_result = result  # type: ignore[assignment]
             return StructuredToolResult(
