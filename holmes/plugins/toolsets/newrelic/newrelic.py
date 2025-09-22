@@ -10,6 +10,10 @@ from holmes.core.tools import (
 )
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.plugins.toolsets.prometheus.data_compression import (
+    raw_metric_to_compressed_metric,
+    summarize_metrics,
+)
 from holmes.plugins.toolsets.prometheus.model import PromResponse
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
@@ -76,14 +80,49 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
         self._toolset = toolset
 
-    def format_metrics(
+    def compress_metrics_data(self, response: PromResponse) -> Optional[str]:
+        llm_data: Optional[str] = None
+        try:
+            if self._toolset.config and self._toolset.compress_metrics:
+                metrics = [
+                    raw_metric_to_compressed_metric(metric, remove_labels=set())
+                    for metric in response.data.result
+                ]
+
+                compressed_data = summarize_metrics(metrics)
+                original_size = len(json.dumps(response.to_json()))
+                compressed_size = len(json.dumps(compressed_data))
+                compression_ratio = (
+                    (1 - compressed_size / original_size) * 100
+                    if original_size > 0
+                    else 0
+                )
+
+                if compression_ratio > self._toolset.compress_metrics_minimum_ratio:
+                    # below this amount it's likely not worth mutating the response
+                    llm_data = compressed_data
+                    logging.info(
+                        f"Compressed Newrelic metrics: {original_size:,} → {compressed_size:,} chars "
+                        f"({compression_ratio:.1f}% reduction)"
+                    )
+                else:
+                    logging.info(
+                        f"Compressed Newrelic metrics: {original_size:,} → {compressed_size:,} chars "
+                        f"({compression_ratio:.1f}% reduction). Original data will be used instead."
+                    )
+        except Exception:
+            logging.warning("Failed to compress newrelic data", exc_info=True)
+
+        return llm_data
+
+    def to_new_relic_records(
         self,
         records: List[Dict[str, Any]],
         params: Optional[Dict[str, Any]] = None,
         begin_key: str = "beginTimeSeconds",
         end_key: str = "endTimeSeconds",
         facet_key: str = "facet",
-    ) -> Dict[str, Any]:
+    ) -> PromResponse:
         resp = PromResponse.from_newrelic_records(
             records=records,
             tool_name=self.name,
@@ -92,7 +131,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             end_key=end_key,
             facet_key=facet_key,
         )
-        return resp.to_json()
+        return resp
 
     def _invoke(
         self, params: dict, user_approved: bool = False
@@ -108,7 +147,6 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
 
         query = params["query"]
         result: List[Dict[str, Any]] = api.execute_nrql_query(query)
-
         qtype = params.get("query_type", "").lower()
 
         if qtype == "traces":
@@ -137,12 +175,16 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         if qtype == "metrics" or "timeseries" in query.lower():
             enriched_params = dict(params)
             enriched_params["query"] = query
-            return_result = self.format_metrics(result, params=enriched_params)
+            prom_data = self.to_new_relic_records(result, params=enriched_params)
+
+            return_result = prom_data.to_json()
+            print(json.dumps(return_result, indent=2))
             if len(return_result.get("data", {}).get("results", [])):
                 return_result = result  # type: ignore[assignment]
             return StructuredToolResult(
                 status=StructuredToolResultStatus.SUCCESS,
                 data=json.dumps(return_result, indent=2),
+                llm_data=self.compress_metrics_data(prom_data),
                 params=params,
             )
 
@@ -205,12 +247,16 @@ class NewrelicConfig(BaseModel):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
     is_eu_datacenter: Optional[bool] = False
+    compress_metrics: bool = True
+    compress_metrics_minimum_ratio: int = 30  # 20 means 20% size reduction
 
 
 class NewRelicToolset(Toolset):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
     is_eu_datacenter: bool = False
+    compress_metrics: bool = True
+    compress_metrics_minimum_ratio: int = 30
 
     def __init__(self):
         super().__init__(
@@ -241,6 +287,10 @@ class NewRelicToolset(Toolset):
             self.nr_account_id = nr_config.nr_account_id
             self.nr_api_key = nr_config.nr_api_key
             self.is_eu_datacenter = nr_config.is_eu_datacenter or False
+            self.compress_metrics = nr_config.compress_metrics or True
+            self.compress_metrics_minimum_ratio = (
+                nr_config.compress_metrics_minimum_ratio or 30
+            )
 
             if not self.nr_account_id or not self.nr_api_key:
                 return False, "New Relic account ID or API key is missing"

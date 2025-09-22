@@ -3,7 +3,6 @@ import os
 from holmes.plugins.toolsets.prometheus.data_compression import (
     CompressedMetric,
     Group,
-    RawMetric,
     find_most_common_label,
     format_compressed_metrics,
     format_data,
@@ -11,6 +10,7 @@ from holmes.plugins.toolsets.prometheus.data_compression import (
     raw_metric_to_compressed_metric,
     summarize_metrics,
 )
+from holmes.plugins.toolsets.prometheus.model import PromSeries
 
 
 class TestPrometheusDataCompression:
@@ -411,7 +411,7 @@ class TestPrometheusDataCompression:
             data = json.load(file)
             metrics_list_dict = data.get("result")
 
-            raw_metrics = [RawMetric(**metric) for metric in metrics_list_dict]
+            raw_metrics = [PromSeries(**metric) for metric in metrics_list_dict]
             metrics = [
                 raw_metric_to_compressed_metric(metric, remove_labels=set())
                 for metric in raw_metrics

@@ -69,6 +69,8 @@ class ToolCallResult(BaseModel):
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
     if tool_result.llm_data:
+        # Some tools can return data dedicated to the LLM. This can be reformatted or summarized data
+        # These will end up in the conversation history.
         tool_response = tool_result.llm_data
     elif isinstance(tool_result.data, str):
         tool_response = tool_result.data

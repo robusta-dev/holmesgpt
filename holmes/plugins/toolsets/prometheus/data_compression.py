@@ -3,12 +3,7 @@ from typing import Any, Optional, Set, Union, Sequence
 
 from pydantic import BaseModel
 
-
-class RawMetric(BaseModel):
-    metric: dict[str, Any]  # labels
-    values: list[
-        list[Any]
-    ]  # typically list of tuples with timestamp as the first value and whatever value as the second
+from holmes.plugins.toolsets.prometheus.model import PromSeries
 
 
 class CompressedMetric(BaseModel):
@@ -161,7 +156,7 @@ def format_compressed_metrics(metrics: list[Union[Group, CompressedMetric]]) -> 
 
 
 def raw_metric_to_compressed_metric(
-    raw_metric: RawMetric, remove_labels: set[tuple[str, Any]]
+    raw_metric: PromSeries, remove_labels: set[tuple[str, Any]]
 ) -> CompressedMetric:
     labels: set[tuple[str, Any]] = set()
     if remove_labels:

@@ -22,10 +22,10 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.prometheus.data_compression import (
-    RawMetric,
     raw_metric_to_compressed_metric,
     summarize_metrics,
 )
+from holmes.plugins.toolsets.prometheus.model import PromSeries
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
@@ -99,6 +99,9 @@ class PrometheusConfig(BaseModel):
     query_response_size_limit: Optional[int] = (
         DEFAULT_QUERY_RESPONSE_SIZE_LIMIT  # Limit the max number of characters in a query result to proactively prevent token limit issues (roughly 5-6k tokens)
     )
+
+    compress_range_metrics: bool = True
+    compress_range_metrics_minimum_ratio: int = 20  # e.g. 20 means 20% smaller
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
@@ -1372,49 +1375,56 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
                 llm_data: Optional[str] = None
 
-                # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
                     result_data = data.get("data", {})
                     response_data["data"] = result_data
 
                     try:
-                        metrics_list_dict = result_data.get("result")
-                        raw_metrics = [
-                            RawMetric(**metric) for metric in metrics_list_dict
-                        ]
-                        metrics = [
-                            raw_metric_to_compressed_metric(metric, remove_labels=set())
-                            for metric in raw_metrics
-                        ]
+                        if self.toolset.config.compress_range_metrics:
+                            metrics_list_dict = result_data.get("result")
+                            raw_metrics = [
+                                PromSeries(**metric) for metric in metrics_list_dict
+                            ]
+                            metrics = [
+                                raw_metric_to_compressed_metric(
+                                    metric, remove_labels=set()
+                                )
+                                for metric in raw_metrics
+                            ]
 
-                        compressed_data = summarize_metrics(metrics)
-                        response_data["raw_data"] = result_data
-                        original_size = len(json.dumps(result_data))
-                        compressed_size = len(json.dumps(compressed_data))
-                        compression_ratio = (
-                            (1 - compressed_size / original_size) * 100
-                            if original_size > 0
-                            else 0
-                        )
-
-                        if compression_ratio > 20:
-                            # below this amount it's likely not worth mutating the response
-                            llm_data = compressed_data
-                            logging.info(
-                                f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
-                                f"({compression_ratio:.1f}% reduction)"
-                            )
-                        else:
-                            logging.info(
-                                f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
-                                f"({compression_ratio:.1f}% reduction). Original data will be used instead."
+                            compressed_data = summarize_metrics(metrics)
+                            response_data["raw_data"] = result_data
+                            original_size = len(json.dumps(result_data))
+                            compressed_size = len(json.dumps(compressed_data))
+                            compression_ratio = (
+                                (1 - compressed_size / original_size) * 100
+                                if original_size > 0
+                                else 0
                             )
 
-                        response_data["compression_info"] = {
-                            "original_size_chars": original_size,
-                            "compressed_size_chars": compressed_size,
-                            "compression_ratio_percent": round(compression_ratio, 1),
-                        }
+                            if (
+                                compression_ratio
+                                > self.toolset.config.compress_range_metrics_minimum_ratio
+                            ):
+                                # below this amount it's likely not worth mutating the response
+                                llm_data = compressed_data
+                                logging.info(
+                                    f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
+                                    f"({compression_ratio:.1f}% reduction)"
+                                )
+                            else:
+                                logging.info(
+                                    f"Compressed Prometheus data: {original_size:,} → {compressed_size:,} chars "
+                                    f"({compression_ratio:.1f}% reduction). Original data will be used instead."
+                                )
+
+                            response_data["compression_info"] = {
+                                "original_size_chars": original_size,
+                                "compressed_size_chars": compressed_size,
+                                "compression_ratio_percent": round(
+                                    compression_ratio, 1
+                                ),
+                            }
                     except Exception as e:
                         logging.warning(
                             f"Failed to compress data: {e}, the original data will be used"
