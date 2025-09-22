@@ -18,9 +18,9 @@ operator:
   # Image will be set by Skaffold dynamically
   # When empty, defaults to: robustadev/holmes-operator:latest
   # Skaffold overrides this with locally built image
-  image: ""  # Set by Skaffold with setValueTemplates
+  image: "" # Set by Skaffold with setValueTemplates
   logLevel: DEBUG
-  imagePullPolicy: IfNotPresent  # Use local image
+  imagePullPolicy: IfNotPresent # Use local image
 
   # Minimal resources for local testing
   resources:
@@ -51,20 +51,21 @@ toolsets:
   kubernetes/logs:
     enabled: true
   prometheus/metrics:
-    enabled: false  # Disable unless you have Prometheus
+    enabled: false # Disable unless you have Prometheus
   robusta:
-    enabled: false  # Disable Robusta integration for local
+    enabled: false # Disable Robusta integration for local
   internet:
     enabled: true
 
 # Model configuration - specify available LLM models
+# Learn more about how to add your AI provider here: https://holmesgpt.dev/ai-providers/
 modelList:
   openai-gpt41:
     model: gpt-4.1
     # API key will be taken from OPENAI_API_KEY env var
   # You can add more models here:
   # anthropic-claude:
-  #   model: claude-sonnet-4-20250514
+  #   model: anthropic/claude-sonnet-4-20250514
   #   # API key will be taken from ANTHROPIC_API_KEY env var
 
 # Add environment variables for local development

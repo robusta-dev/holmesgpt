@@ -18,7 +18,6 @@ operator:
 ```
 
 Deploy or upgrade Holmes:
-
 ```bash
 helm upgrade --install holmes robusta/holmes \
   --namespace holmes-system \
@@ -96,15 +95,17 @@ kubectl describe healthcheck quick-diagnostic
 
 ## CRD Types
 
-**HealthCheck (One-Time Execution)**
+### HealthCheck (One-Time Execution)
 
 **Use Cases:**
+
 - Quick diagnostics and troubleshooting
 - CI/CD pipeline validations
 - Ad-hoc cluster verification
 - Post-deployment checks
 
 **Behavior:**
+
 - Executes immediately upon creation
 - Results stored in status field
 - Resource remains for audit trail
@@ -122,15 +123,17 @@ spec:
   mode: monitor
 ```
 
-**ScheduledHealthCheck (Recurring)**
+### ScheduledHealthCheck (Recurring)
 
 **Use Cases:**
+
 - Continuous monitoring
 - SLA compliance checks
 - Regular health assessments
 - Periodic resource validation
 
 **Behavior:**
+
 - Runs on cron schedule
 - Creates HealthCheck resources at scheduled times
 - Maintains execution history
@@ -156,7 +159,7 @@ spec:
 
 ## Features
 
-**Scheduling Patterns**
+### Scheduling Patterns
 
 Common cron patterns for ScheduledHealthCheck:
 
@@ -168,9 +171,7 @@ schedule: "0 9 * * 1-5"   # Weekdays at 9 AM
 schedule: "0 0 * * 0"     # Sunday at midnight
 ```
 
-**Alert Modes**
-
-Both check types support two modes:
+### Alert Modes
 
 - **`monitor`**: Log results only, no notifications
 - **`alert`**: Send notifications when checks fail
@@ -184,7 +185,7 @@ spec:
         channel: "#critical-alerts"
 ```
 
-**Destinations**
+### Destinations
 
 Configure where alerts are sent. Note that destination credentials must be configured at the Holmes deployment level:
 
@@ -219,7 +220,7 @@ spec:
           key: integration-key
 ```
 
-**Managing Scheduled Checks**
+### Managing Scheduled Checks
 
 Enable/disable schedules without deletion:
 
@@ -233,7 +234,7 @@ kubectl patch scheduledhealthcheck hourly-check \
   --type='merge' -p '{"spec":{"enabled":true}}'
 ```
 
-**Immediate Execution**
+### Immediate Execution
 
 Force immediate execution of either check type:
 
@@ -446,8 +447,7 @@ status:
       checkName: frontend-monitor-20240101-115500-def456
 ```
 
-View status and history:
-
+View status:
 ```bash
 # One-time check status
 kubectl get healthcheck db-diagnostic -o jsonpath='{.status}' | jq
@@ -504,6 +504,7 @@ kubectl logs -l app=holmes-operator -n holmes-system | grep "API URL"
 The operator follows the Kubernetes Job/CronJob pattern:
 
 **HealthCheck Flow:**
+
 1. User creates HealthCheck resource
 2. Operator detects creation via Kopf
 3. Immediately calls Holmes API to execute
@@ -511,6 +512,7 @@ The operator follows the Kubernetes Job/CronJob pattern:
 5. Resource remains for audit/history
 
 **ScheduledHealthCheck Flow:**
+
 1. User creates ScheduledHealthCheck resource
 2. Operator sets up cron schedule via APScheduler
 3. At scheduled time, creates new HealthCheck resource
@@ -518,6 +520,7 @@ The operator follows the Kubernetes Job/CronJob pattern:
 5. ScheduledHealthCheck tracks history
 
 This design provides:
+
 - Clear separation of one-time vs recurring checks
 - Natural audit trail via HealthCheck resources
 - Familiar Kubernetes patterns
