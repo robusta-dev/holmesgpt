@@ -1,0 +1,310 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: traffic-generator-app
+  namespace: nr-115
+type: Opaque
+stringData:
+  telemetry.py: |
+    import os, time, socket, logging, requests
+    from opentelemetry import trace
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.trace.sampling import ParentBased, TraceIdRatioBased
+    from opentelemetry.trace import get_current_span, Status, StatusCode
+    from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
+    def _current_ids_hex():
+      span = get_current_span()
+      ctx = getattr(span, "get_span_context", lambda: None)()
+      if ctx and getattr(ctx, "is_valid", False):
+        return f"{ctx.trace_id:032x}", f"{ctx.span_id:016x}"
+      return None, None
+
+    def _nr_endpoints():
+      explicit_otlp = os.getenv("NEW_RELIC_OTLP_ENDPOINT")
+      explicit_logs = os.getenv("NEW_RELIC_LOGS_ENDPOINT")
+      region = os.getenv("NEW_RELIC_REGION", "US").strip().lower()
+
+      if explicit_otlp:
+        otlp = explicit_otlp
+      else:
+        otlp = "https://otlp.eu01.nr-data.net:4317" if region == "eu" else "https://otlp.nr-data.net:4317"
+
+      if explicit_logs:
+        logs = explicit_logs
+      else:
+        logs = "https://log-api.eu.newrelic.com/log/v1" if region == "eu" else "https://log-api.newrelic.com/log/v1"
+
+      return otlp, logs
+
+    class NewRelicLogHandler(logging.Handler):
+      def __init__(self, license_key: str, service_name: str, app_name: str, logs_endpoint: str):
+        super().__init__()
+        self.license_key = license_key
+        self.service_name = service_name
+        self.app_name = app_name
+        self.log_endpoint = logs_endpoint
+
+      def emit(self, record):
+        log_entry = self.format(record)
+        try:
+          trace_id, span_id = _current_ids_hex()
+          attrs = {
+            "service.name": self.service_name,
+            "app": self.app_name,
+          }
+          ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE")
+          pod = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME")
+          container = os.getenv("CONTAINER_NAME") or os.getenv("K8S_CONTAINER_NAME") or "traffic-generator"
+          if ns: attrs["k8s.namespace.name"] = ns
+          if pod: attrs["k8s.pod.name"] = pod
+          if container: attrs["k8s.container.name"] = container
+          if trace_id and span_id:
+            attrs["trace.id"] = trace_id
+            attrs["span.id"] = span_id
+
+          payload = [{
+            "common": {"attributes": attrs},
+            "logs": [{
+              "timestamp": int(time.time() * 1000),
+              "message": log_entry,
+              "level": record.levelname
+            }]
+          }]
+          headers = {
+            "Content-Type": "application/json",
+            "X-License-Key": self.license_key
+          }
+          resp = requests.post(self.log_endpoint, json=payload, headers=headers, timeout=5)
+          resp.raise_for_status()
+        except Exception as e:
+          print(f"Failed to send log to New Relic: {e}")
+
+    def setup_telemetry(default_service_name: str, default_app_name: str):
+      license_key = os.getenv("NEW_RELIC_LICENSE_KEY", "undefined")
+      service_name = os.getenv("OTEL_SERVICE_NAME", default_service_name)
+      app_name = os.getenv("APP_NAME", default_app_name)
+      service_version = os.getenv("SERVICE_VERSION", "1.0.0")
+      deploy_env = os.getenv("DEPLOYMENT_ENV", "dev")
+
+      instance_id = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME") or socket.gethostname()
+      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-115"
+      container = os.getenv("CONTAINER_NAME") or "traffic-generator"
+
+      resource = Resource.create({
+        "service.name": service_name,
+        "service.version": service_version,
+        "deployment.environment": deploy_env,
+        "service.instance.id": instance_id,
+        "k8s.namespace.name": ns,
+        "k8s.pod.name": instance_id,
+        "k8s.container.name": container,
+        "app": app_name,
+      })
+
+      sample_ratio = float(os.getenv("TRACE_SAMPLE_RATIO", "1.0"))
+      provider = TracerProvider(
+        resource=resource,
+        sampler=ParentBased(TraceIdRatioBased(sample_ratio))
+      )
+
+      otlp_endpoint, logs_endpoint = _nr_endpoints()
+      exporter = OTLPSpanExporter(
+        endpoint=otlp_endpoint,
+        headers={"api-key": license_key}
+      )
+      provider.add_span_processor(BatchSpanProcessor(exporter))
+      trace.set_tracer_provider(provider)
+      tracer = trace.get_tracer(__name__)
+
+      # Auto-instrument outbound HTTP
+      RequestsInstrumentor().instrument()
+
+      # Logger -> New Relic Logs with correlation
+      logger = logging.getLogger(app_name)
+      logger.setLevel(logging.INFO)
+      nrh = NewRelicLogHandler(license_key, service_name, app_name, logs_endpoint)
+      nrh.setLevel(logging.INFO)
+      logger.addHandler(nrh)
+
+      return tracer, logger
+
+    def record_exception_on_current_span(exc: Exception):
+      span = get_current_span()
+      try:
+        span.record_exception(exc)
+        span.set_status(Status(StatusCode.ERROR, str(exc)))
+      except Exception:
+        pass
+
+  app.py: |
+    import time, random, requests
+    from telemetry import setup_telemetry, record_exception_on_current_span
+    from opentelemetry import trace
+    from opentelemetry.trace import Status, StatusCode
+
+    # Configure New Relic telemetry
+    tracer, logger = setup_telemetry("traffic-generator-atc", "traffic-generator")
+
+    # 👇 point to billing in nr-115
+    billing_URL = "http://billing.nr-115.svc.cluster.local:8080/billing"
+    ZONES = ['us-west-1', 'us-west-2', 'us-east-1', 'us-east-2']
+    PROMO_CODES = ['SAVE10', 'WELCOME20', 'HOLIDAY15', 'SPECIAL25']
+
+    def generate_traffic():
+      logger.info("[TRAFFIC-GEN] Starting traffic generator")
+      request_count = 0
+
+      while True:
+        request_count += 1
+        include_promo = random.random() < 0.3  # 30%
+
+        data = {
+          "user_id": f"user-{random.randint(1000, 9999)}",
+          "zone_id": random.choice(ZONES),
+          "items": [
+            {
+              "id": f"item-{i}",
+              "price": round(random.uniform(10, 200), 2),
+              "weight": round(random.uniform(0.5, 5.0), 2)
+            }
+            for i in range(random.randint(1, 3))
+          ]
+        }
+        if include_promo:
+          data["promo_code"] = random.choice(PROMO_CODES)
+
+        promo_status = "WITH" if include_promo else "WITHOUT"
+        logger.info(f"[TRAFFIC-GEN] Req #{request_count}: sending {promo_status} promo_code")
+
+        with tracer.start_as_current_span("promo_request") as span:
+          span.set_attribute("request.number", request_count)
+          span.set_attribute("has.promo_code", include_promo)
+          if include_promo:
+            span.set_attribute("promo.code", data.get("promo_code"))
+          span.set_attribute("http.method", "POST")
+          span.set_attribute("http.url", billing_URL)
+
+          try:
+            start_time = time.time()
+            response = requests.post(billing_URL, json=data, timeout=10)
+            latency = time.time() - start_time
+
+            span.set_attribute("http.status_code", response.status_code)
+            span.set_attribute("response.latency", latency)
+
+            status = "success" if response.status_code == 200 else f"error({response.status_code})"
+            logger.info(f"[TRAFFIC-GEN] Req #{request_count}: {status}, latency={latency:.2f}s")
+          except Exception as e:
+            record_exception_on_current_span(e)
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            logger.exception(f"[TRAFFIC-GEN] Req #{request_count}: Error", exc_info=e)
+
+        time.sleep(random.uniform(0.01, 0.05))  # 10–50ms
+
+    if __name__ == '__main__':
+      logger.info("[TRAFFIC-GEN] Starting...")
+      generate_traffic()
+
+  requirements.txt: |
+    # Pinned to avoid resolver backtracking & speed up installs
+    opentelemetry-api==1.20.0
+    opentelemetry-sdk==1.20.0
+    opentelemetry-exporter-otlp-proto-grpc==1.20.0
+    opentelemetry-proto==1.20.0
+    opentelemetry-semantic-conventions==0.41b0
+    opentelemetry-instrumentation-flask==0.41b0
+    opentelemetry-instrumentation-requests==0.41b0
+    requests==2.32.5
+    Flask==2.3.3
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-generator
+  namespace: nr-115
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-generator
+  template:
+    metadata:
+      labels:
+        app: traffic-generator
+    spec:
+      containers:
+      - name: traffic-generator
+        image: python:3.11-slim
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -e
+          touch /tmp/ready && \
+          python -m pip install --no-cache-dir --disable-pip-version-check -r /app/requirements.txt && \
+          python /app/app.py
+        volumeMounts:
+        - name: app
+          mountPath: /app
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+
+        # 🔑 New Relic credentials
+        - name: NEW_RELIC_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: newrelickey
+              key: key
+
+        # 🌍 Optional region/endpoints (defaults to US). For EU:
+        # - NEW_RELIC_REGION=EU
+        # Or override directly:
+        # - NEW_RELIC_OTLP_ENDPOINT
+        # - NEW_RELIC_LOGS_ENDPOINT
+        #- name: NEW_RELIC_REGION
+        #  value: "EU"
+
+        # 🏷️ Telemetry resource attributes & sampling
+        - name: OTEL_SERVICE_NAME
+          value: traffic-generator-atc
+        - name: APP_NAME
+          value: traffic-generator
+        - name: CONTAINER_NAME
+          value: traffic-generator
+        - name: SERVICE_VERSION
+          value: "1.0.0"
+        - name: DEPLOYMENT_ENV
+          value: "dev"
+        - name: TRACE_SAMPLE_RATIO
+          value: "1.0"
+
+        # 🧭 Kubernetes metadata for resource attrs
+        - name: POD_NAME
+          valueFrom: { fieldRef: { fieldPath: metadata.name } }
+        - name: KUBERNETES_NAMESPACE
+          valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
+
+        startupProbe:
+          exec:
+            command: ["cat", "/tmp/ready"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 1
+          successThreshold: 1
+          failureThreshold: 12
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "25m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: app
+        secret:
+          secretName: traffic-generator-app

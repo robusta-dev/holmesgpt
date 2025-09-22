@@ -2,8 +2,20 @@ description: "Test if holmes pulls traces reliably"
 
 
 user_prompt:
-- query and summarize traces for app inventory
+- query and summarize traces for entity payments_cycle and the issues and root cause
 expected_output:
-  - mentions /healthz and (WebTransaction or /inventory/check)
+  - mentions latency from order-management
 
-skip: True
+tags:
+  - newrelic
+  - traces
+
+before_test: |
+  [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
+  kubectl create namespace nr
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr
+  kubectl apply -f ./deployment.yaml
+
+after_test: |
+  kubectl delete secret newrelickey -n nr
+  kubectl delete -f ./deployment.yaml

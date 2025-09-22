@@ -222,7 +222,7 @@ class NewRelicToolset(Toolset):
             tools=[
                 ExecuteNRQLQuery(self),
             ],
-            experimental=True,
+            experimental=False,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(

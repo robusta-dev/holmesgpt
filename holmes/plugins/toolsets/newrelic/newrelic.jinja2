@@ -28,6 +28,8 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 #### 3. Querying Traces
 - Always validate first: run the base query without FACET (or a quick LIMIT) to confirm data exists; if results are empty, adjust filters or time range before proceeding.
 - Only attempt a FACET after confirming the field has values; if not, either try known alternatives or skip faceting entirely.
+- When investigating a trace also look at attributes
+- ***When investigating latency ALWAYS look to deliver the specific component or attribute in the span causing significant latnecy*** your investigation is not complete without this
 
 ### 3. Metrics/graphs
 - You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>

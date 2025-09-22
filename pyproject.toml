@@ -84,6 +84,7 @@ scripts_are_modules = true
 exclude = [
     "tests/llm/fixtures/.*",
     "dist/.*",
+    "site/.*",
 ]
 
 [tool.pytest.ini_options]
@@ -91,6 +92,7 @@ markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
     "datetime: Tests involving datetime functionality",
     "logs: Tests involving log processing",
+    "metrics: Tests involving metrics processing",
     "context_window: Tests involving context window handling",
     "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
