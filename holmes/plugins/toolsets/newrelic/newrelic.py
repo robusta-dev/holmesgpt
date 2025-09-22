@@ -287,7 +287,9 @@ class NewRelicToolset(Toolset):
             self.nr_api_key = nr_config.nr_api_key
             self.is_eu_datacenter = nr_config.is_eu_datacenter or False
             self.compress_metrics = nr_config.compress_metrics
-            self.compress_metrics_minimum_ratio = nr_config.compress_metrics_minimum_ratio
+            self.compress_metrics_minimum_ratio = (
+                nr_config.compress_metrics_minimum_ratio
+            )
 
             if not self.nr_account_id or not self.nr_api_key:
                 return False, "New Relic account ID or API key is missing"
