@@ -33,7 +33,27 @@ before_test: |
   kubectl apply -f ./manifest.yaml -n namespace-105
   kubectl wait --for=condition=ready pod -l app=redis -n namespace-105 --timeout=60s
   echo "Waiting for session-init job to complete..."
-  kubectl wait --for=condition=complete job/session-init -n namespace-105 --timeout=300s || exit 1
+  # Retry loop to handle longer initialization times
+  JOB_COMPLETE=false
+  for i in {1..12}; do
+    if kubectl wait --for=condition=complete job/session-init -n namespace-105 --timeout=30s 2>/dev/null; then
+      echo "✅ Session init job completed!"
+      JOB_COMPLETE=true
+      break
+    else
+      echo "⏳ Attempt $i/12: Job not complete yet, checking status..."
+      kubectl get job session-init -n namespace-105
+      sleep 5
+    fi
+  done
+
+  if [ "$JOB_COMPLETE" = false ]; then
+    echo "❌ Session init job failed to complete after 360 seconds"
+    kubectl describe job session-init -n namespace-105
+    kubectl logs -l job-name=session-init -n namespace-105
+    exit 1
+  fi
+
   kubectl wait --for=condition=ready pod -l app=session-service -n namespace-105 --timeout=60s
   sleep 20  # Let slow operations accumulate in slowlog
 after_test: |

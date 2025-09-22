@@ -145,6 +145,84 @@ def shared_test_infrastructure(request, mock_generation_config: MockGenerationCo
         else:
             setup_failures = {}
 
+        # Check strict setup mode
+        strict_setup_mode_str = request.config.getoption("--strict-setup-mode", "false")
+        strict_setup_mode = strict_setup_mode_str.lower() == "true"
+        strict_setup_exceptions = request.config.getoption(
+            "--strict-setup-exceptions", ""
+        )
+
+        if strict_setup_mode and setup_failures:
+            # Parse exceptions list
+            allowed_failures = set(
+                [x.strip() for x in strict_setup_exceptions.split(",") if x.strip()]
+            )
+
+            # Check if any failures are not in the allowed list
+            non_allowed_failures = {
+                test_id: error
+                for test_id, error in setup_failures.items()
+                if test_id not in allowed_failures
+            }
+
+            if non_allowed_failures:
+                log("\n" + "=" * 80, dark_red=True)
+                log("❌ STRICT SETUP MODE: Setup failures detected!", dark_red=True)
+                log("=" * 80, dark_red=True)
+                log(
+                    f"\nThe following {len(non_allowed_failures)} test(s) had setup failures:",
+                    dark_red=True,
+                )
+                for test_id, error_msg in non_allowed_failures.items():
+                    log(f"\n  • {test_id}", dark_red=True)
+                    # Show first 3 lines of error for context
+                    error_lines = error_msg.split("\n")[:3]
+                    for line in error_lines:
+                        if line.strip():
+                            log(f"    {line}", dark_red=True)
+
+                if allowed_failures:
+                    allowed_with_failures = allowed_failures.intersection(
+                        setup_failures.keys()
+                    )
+                    if allowed_with_failures:
+                        log(
+                            f"\n✓ The following test(s) were allowed to fail: {', '.join(allowed_with_failures)}",
+                            error=False,
+                        )
+
+                log("\n" + "=" * 80, dark_red=True)
+                log(
+                    "Exiting pytest due to setup failures in strict mode.",
+                    dark_red=True,
+                )
+                log("To proceed anyway, either:", dark_red=True)
+                log("  1. Fix the setup issues and run again", dark_red=True)
+                log("  2. Add test IDs to --strict-setup-exceptions", dark_red=True)
+                log(
+                    "  3. Use --strict-setup-mode=false (or remove the flag)",
+                    dark_red=True,
+                )
+                log(
+                    "  4. Run script with: ./run_benchmarks_local.sh <models> <markers> <iterations> <filter> <parallel> false",
+                    dark_red=True,
+                )
+                log("=" * 80 + "\n", dark_red=True)
+
+                # Skip port forwards and cleanup - just exit immediately
+                log(
+                    "\n⚙️ Skipping port forwards and cleanup due to strict setup failure",
+                    error=False,
+                )
+
+                # Properly stop pytest execution across all workers
+                # Use pytest.exit() which works correctly with xdist
+                import pytest
+
+                pytest.exit(
+                    "Exiting due to setup failures in strict mode", returncode=1
+                )
+
         # Check if we're in --only-setup mode
         only_setup = request.config.getoption("--only-setup", False)
 

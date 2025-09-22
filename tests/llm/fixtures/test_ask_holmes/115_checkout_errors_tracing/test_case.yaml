@@ -138,28 +138,34 @@ before_test: |
   echo "🔍 Checking all pods status"
   kubectl get pods -n app-115
 
-  echo "⏰ Letting traffic generator run for 90 seconds to generate requests"
-  sleep 90
+  echo "⏰ Waiting for traffic generator to produce both types of requests and errors..."
+  TRAFFIC_READY=false
+  for i in {1..90}; do
+    WITH_PROMO=$(kubectl logs -n app-115 -l app=traffic-generator --tail=1000 2>/dev/null | grep -c "WITH promo_code" | head -1 || echo "0")
+    WITHOUT_PROMO=$(kubectl logs -n app-115 -l app=traffic-generator --tail=1000 2>/dev/null | grep -c "WITHOUT promo_code" | head -1 || echo "0")
+    CHECKOUT_LOGS=$(kubectl logs -n app-115 -l app=checkout --tail=1000 2>/dev/null | grep -c "Processing checkout request" | head -1 || echo "0")
+    # Check for errors to ensure they're being generated
+    ERROR_LOGS=$(kubectl logs -n app-115 -l app=checkout --tail=1000 2>/dev/null | grep -c "Request failed" | head -1 || echo "0")
 
-  echo "🔍 Verifying traffic generator log entries"
-  if kubectl logs -n app-115 -l app=traffic-generator --tail=-1 | grep -q "WITH promo_code"; then
-    echo "✅ Found traffic generator log WITH promo_code"
-  else
-    echo "❌ Missing traffic generator log WITH promo_code"
-    exit 1
-  fi
+    # Need sufficient requests of both types and some errors
+    if [ "$WITH_PROMO" -gt "5" ] && [ "$WITHOUT_PROMO" -gt "5" ] && [ "$CHECKOUT_LOGS" -gt "10" ] && [ "$ERROR_LOGS" -gt "0" ]; then
+      echo "✅ Found all required logs after $i seconds:"
+      echo "   - Requests WITH promo_code: $WITH_PROMO"
+      echo "   - Requests WITHOUT promo_code: $WITHOUT_PROMO"
+      echo "   - Checkout processing logs: $CHECKOUT_LOGS"
+      echo "   - Error logs detected: $ERROR_LOGS"
+      TRAFFIC_READY=true
+      # Give a few more seconds for additional error patterns
+      sleep 10
+      break
+    fi
 
-  if kubectl logs -n app-115 -l app=traffic-generator --tail=-1 | grep -q "WITHOUT promo_code"; then
-    echo "✅ Found traffic generator log WITHOUT promo_code"
-  else
-    echo "❌ Missing traffic generator log WITHOUT promo_code"
-    exit 1
-  fi
+    echo "⏳ Attempt $i/90: WITH=$WITH_PROMO, WITHOUT=$WITHOUT_PROMO, CHECKOUT=$CHECKOUT_LOGS, ERRORS=$ERROR_LOGS"
+    sleep 1
+  done
 
-  if kubectl logs -n app-115 -l app=checkout --tail=-1 | grep -q "Processing checkout request"; then
-    echo "✅ Found checkout request log"
-  else
-    echo "❌ Missing checkout request log"
+  if [ "$TRAFFIC_READY" = false ]; then
+    echo "❌ Failed to generate all required traffic patterns"
     exit 1
   fi
 

@@ -57,25 +57,42 @@ def _get_pod_diagnostics(test_case: Optional[HolmesTestCase], operation: str) ->
 
         # Get namespace events to show scheduling issues, failures, etc.
         # This is particularly helpful for diagnosing resource constraints and scheduling problems
-        namespace = f"app-{test_id}" if test_id.isdigit() else f"test-{test_id}"
-        events_cmd = (
-            f"kubectl get events -n {namespace} --sort-by='.lastTimestamp' | tail -20"
-        )
-        events_result = subprocess.run(
-            events_cmd,
+        # First, find the actual namespace(s) being used by looking for namespaces matching the test_id
+        ns_cmd = f"kubectl get namespaces | grep -E '{test_id}' | awk '{{print $1}}'"
+        ns_result = subprocess.run(
+            ns_cmd,
             shell=True,
             capture_output=True,
             text=True,
             timeout=5,
             cwd=test_case.folder,
         )
-        if events_result.stdout:
+
+        namespaces_found = (
+            ns_result.stdout.strip().split("\n") if ns_result.stdout.strip() else []
+        )
+
+        if namespaces_found:
+            for namespace in namespaces_found:
+                if namespace:  # Skip empty strings
+                    events_cmd = f"kubectl get events -n {namespace} --sort-by='.lastTimestamp' | tail -20"
+                    events_result = subprocess.run(
+                        events_cmd,
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                        cwd=test_case.folder,
+                    )
+                    if events_result.stdout:
+                        diagnostics.append(
+                            f"\nRecent events in namespace {namespace} (command: {events_cmd}):\n{events_result.stdout}"
+                        )
+        else:
+            # Fall back to default namespace pattern if no matching namespaces found
+            namespace = f"app-{test_id}" if test_id.isdigit() else f"test-{test_id}"
             diagnostics.append(
-                f"\nRecent events in namespace {namespace} (command: {events_cmd}):\n{events_result.stdout}"
-            )
-        elif events_result.stderr and "NotFound" not in events_result.stderr:
-            diagnostics.append(
-                f"\nFailed to get events for namespace {namespace}: {events_result.stderr}"
+                f"\nNo namespaces found matching pattern '{test_id}' (tried default: {namespace})"
             )
 
         return "\n".join(diagnostics)

@@ -99,6 +99,8 @@ jobs:
             --no-cov \
             --tb=short \
             -v \
+            --strict-setup-mode \
+            --strict-setup-exceptions=22_high_latency_dbi_down \
             --json-report \
             --json-report-file=eval_results.json \
             || true  # Don't fail the workflow if tests fail

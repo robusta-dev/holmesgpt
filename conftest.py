@@ -70,6 +70,19 @@ def pytest_addoption(parser):
         dest="include_intermediate",
         help="Exclude intermediate LLM outputs from evaluation (only use final answer)",
     )
+    parser.addoption(
+        "--strict-setup-mode",
+        type=str,
+        default="false",
+        choices=["true", "false"],
+        help="Fail entire pytest run if any test setup fails (true/false, default: false) - useful for benchmarks to ensure all tests run properly",
+    )
+    parser.addoption(
+        "--strict-setup-exceptions",
+        type=str,
+        default="",
+        help="Comma-separated list of test IDs that are allowed to have setup failures even with --strict-setup-mode",
+    )
 
 
 def pytest_configure(config):

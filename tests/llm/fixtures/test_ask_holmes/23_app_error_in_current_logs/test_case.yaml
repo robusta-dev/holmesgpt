@@ -8,7 +8,17 @@ before_test: |
   kubectl apply -f ./manifests/
   kubectl wait --for=condition=available --timeout=180s deployment/curl-deployment -n app-23
   kubectl wait --for=condition=available --timeout=180s deployment/meme-deployment -n app-23
-  sleep 30
+
+  # Wait for curl pod to generate some error logs (replaces fixed 30s sleep)
+  echo "Waiting for curl pod to generate DNS error logs..."
+  for i in {1..30}; do
+    if kubectl logs -n app-23 -l app=curl-app --tail=5 2>/dev/null | grep -q "Failed to reach"; then
+      echo "✅ Error logs detected after $i seconds"
+      break
+    fi
+    echo "⏳ Attempt $i/30: Waiting for error logs..."
+    sleep 1
+  done
 after_test: |
   kubectl delete -f ./manifests/
 tags:

@@ -28,12 +28,9 @@ before_test: |
   # Deploy Loki infrastructure from shared config
   kubectl apply -f ../../shared/loki.yaml -n app-100
 
-  # Create promtail config for this test
-  kubectl apply -f promtail-config.yaml -n app-100
-
-  # Create secret for payment-api
+  # Create secret for payment-api with direct push script
   kubectl create secret generic payment-api-script \
-    --from-file=app.py=./app.py \
+    --from-file=app-direct-push.py=./app-direct-push.py \
     -n app-100 --dry-run=client -o yaml | kubectl apply -f -
 
   # Wait for Loki to be ready (increased timeout for Datadog init containers)
@@ -67,8 +64,8 @@ before_test: |
     sleep 1
   done
 
-  # Deploy payment-api
-  kubectl apply -f payment-api.yaml
+  # Deploy payment-api with direct Loki push
+  kubectl apply -f payment-api-direct.yaml
 
   # Wait for payment-api deployment to be progressing
   kubectl wait --for=condition=progressing deployment/payment-api -n app-100 --timeout=120s

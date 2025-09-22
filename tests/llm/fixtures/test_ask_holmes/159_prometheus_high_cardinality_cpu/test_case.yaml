@@ -15,8 +15,8 @@ tags:
   - medium
   - prometheus
 
-# Custom timeout for setup (needs 5 min for metrics + setup time)
-setup_timeout: 420  # 7 minutes total
+# Custom timeout for setup (needs time for metrics + setup)
+setup_timeout: 480  # 8 minutes total (120s setup + 300s metrics + buffer)
 
 # Port forward configuration for Prometheus
 port_forwards:
@@ -35,8 +35,14 @@ before_test: |
   # Wait for all pods to be running
   kubectl wait --for=condition=Ready pod -l test=high-cardinality -n app-159 --timeout=120s
 
-  # Let pods run for 5 minutes to generate CPU metrics
-  echo "Waiting 5 minutes for CPU metrics to accumulate..."
-  sleep 300
+  # Wait for CPU metrics to accumulate (reduced from 5 to 3 minutes)
+  # Prometheus scrapes every 30s, so 3 minutes gives us 6 data points
+  echo "Waiting 3 minutes for CPU metrics to accumulate..."
+  sleep 180
+
+  # Verify metrics are available before proceeding
+  echo "Verifying metrics are available in Prometheus..."
+  kubectl run -n app-159 metric-check-$RANDOM --rm -i --restart=Never --image=curlimages/curl -- \
+    -s "http://robusta-kube-prometheus-st-prometheus.default.svc.cluster.local:9090/api/v1/query?query=up{namespace='app-159'}" || true
 
 after_test: kubectl delete namespace app-159 --ignore-not-found=true

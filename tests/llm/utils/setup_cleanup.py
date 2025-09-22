@@ -16,25 +16,32 @@ from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-
 MAX_WORKERS = 30
 
 
-def log(msg, error=False):
+def log(msg, error=False, dark_red=False):
     """Force a log to be written even with xdist, which captures stdout. (must use -s to see this)
 
     Args:
         msg: The message to log
         error: If True, log as error (red color) instead of info
+        dark_red: If True, use dark red instead of bright red (overrides error)
     """
     if os.environ.get("PYTEST_XDIST_WORKER"):
         # If running under xdist, we log to stderr so it appears in the pytest output
         # This is necessary because xdist captures stdout and doesn't show it in the output
-        if error and sys.stderr.isatty():
-            # Add ANSI red color codes for error messages when stderr is a terminal
-            sys.stderr.write(f"\033[91m{msg}\033[0m")
+        if sys.stderr.isatty():
+            if dark_red:
+                # Use standard red (darker) for strict setup mode errors
+                sys.stderr.write(f"\033[31m{msg}\033[0m")
+            elif error:
+                # Use bright red for regular errors
+                sys.stderr.write(f"\033[91m{msg}\033[0m")
+            else:
+                sys.stderr.write(msg)
         else:
             sys.stderr.write(msg)
         sys.stderr.write("\n")
     else:
         # If not running under xdist, use appropriate log level
-        if error:
+        if error or dark_red:
             logging.error(msg)
         else:
             logging.info(msg)
@@ -72,6 +79,10 @@ def run_all_test_commands(
     timed_out_test_cases = 0
     failed_setup_info = {}  # Map test_case.id to error message
 
+    # Track which tests are still pending
+    pending_test_ids = {tc.id for tc in test_cases}
+    completed_test_ids = set()
+
     with ThreadPoolExecutor(max_workers=min(len(test_cases), MAX_WORKERS)) as executor:
         if operation == Operation.SETUP:
             future_to_test_case = {
@@ -93,21 +104,38 @@ def run_all_test_commands(
             test_case = future_to_test_case[future]
             try:
                 result = future.result()  # Single CommandResult for the test case
-                remaining_cases = (
-                    len(test_cases)
-                    - successful_test_cases
-                    - failed_test_cases
-                    - timed_out_test_cases
-                ) - 1  # Subtract 1 for the current test case
+
+                # Update pending/completed sets
+                completed_test_ids.add(test_case.id)
+                pending_test_ids.discard(test_case.id)
+
+                # Build remaining info string
+                remaining_count = len(pending_test_ids)
+                if remaining_count > 0:
+                    # Show up to 5 remaining test IDs (only first part before underscore)
+                    remaining_sample = list(sorted(pending_test_ids))[:5]
+                    # Extract only the first part (e.g., "01" from "01_how_many_pods")
+                    remaining_sample_short = [
+                        tid.split("_")[0] for tid in remaining_sample
+                    ]
+                    if remaining_count > 5:
+                        remaining_info = f"{remaining_count} ({', '.join(remaining_sample_short)}...)"
+                    else:
+                        remaining_info = (
+                            f"{remaining_count} ({', '.join(remaining_sample_short)})"
+                        )
+                else:
+                    remaining_info = "0"
+
                 if result.success:
                     successful_test_cases += 1
                     log(
-                        f"✅ {operation.value} {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
+                        f"✅ {operation.value} {test_case.id}: {result.command} ({result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_info}"
                     )
                 elif result.error_type == "timeout":
                     timed_out_test_cases += 1
                     log(
-                        f"\n⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_cases}"
+                        f"\n⏰ {operation.value} {test_case.id}: TIMEOUT after {result.elapsed_time:.2f}s; {operation_plural} remaining: {remaining_info}"
                     )
 
                     # Display error details including pod diagnostics
@@ -127,7 +155,7 @@ def run_all_test_commands(
                 else:
                     failed_test_cases += 1
                     log(
-                        f"❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_cases}"
+                        f"❌ {operation.value} {test_case.id}: FAILED ({result.exit_info}, {result.elapsed_time:.2f}s); {operation_plural} remaining: {remaining_info}"
                     )
 
                     # Display error details including pod diagnostics
@@ -147,14 +175,31 @@ def run_all_test_commands(
 
             except Exception as e:
                 failed_test_cases += 1
-                remaining_cases = (
-                    len(test_cases)
-                    - successful_test_cases
-                    - failed_test_cases
-                    - timed_out_test_cases
-                )  # Note: failed_test_cases already incremented
+
+                # Update pending/completed sets
+                completed_test_ids.add(test_case.id)
+                pending_test_ids.discard(test_case.id)
+
+                # Build remaining info string
+                remaining_count = len(pending_test_ids)
+                if remaining_count > 0:
+                    # Show up to 5 remaining test IDs (only first part before underscore)
+                    remaining_sample = list(sorted(pending_test_ids))[:5]
+                    # Extract only the first part (e.g., "01" from "01_how_many_pods")
+                    remaining_sample_short = [
+                        tid.split("_")[0] for tid in remaining_sample
+                    ]
+                    if remaining_count > 5:
+                        remaining_info = f"{remaining_count} ({', '.join(remaining_sample_short)}...)"
+                    else:
+                        remaining_info = (
+                            f"{remaining_count} ({', '.join(remaining_sample_short)})"
+                        )
+                else:
+                    remaining_info = "0"
+
                 log(
-                    f"❌ {operation.value} {test_case.id}: EXCEPTION; {operation_plural} remaining: {remaining_cases}"
+                    f"❌ {operation.value} {test_case.id}: EXCEPTION; {operation_plural} remaining: {remaining_info}"
                 )
                 log(f"\n{str(e)}", error=True)
 

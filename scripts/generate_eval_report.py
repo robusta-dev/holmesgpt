@@ -147,7 +147,6 @@ def get_test_status_emoji(
     passed: int,
     skipped: int,
     setup_failures: int,
-    valid_tests: int,
 ) -> str:
     """Determine the appropriate emoji for a test based on its status.
 
@@ -157,7 +156,6 @@ def get_test_status_emoji(
         passed: Number of passed tests
         skipped: Number of skipped tests
         setup_failures: Number of setup failures
-        valid_tests: Number of valid (non-skipped, non-setup-failed, non-mock-failed) tests
 
     Returns:
         Emoji string representing the test status
@@ -268,47 +266,6 @@ def _encode_braintrust_filter(filter_obj: dict) -> str:
     # Then encode the whole JSON
     filter_json = json.dumps(filter_obj)
     return quote(filter_json, safe="")
-
-
-def get_braintrust_url(test_data: Dict[str, Any]) -> Optional[str]:
-    """Generate Braintrust URL for a test if span IDs are available.
-
-    Args:
-        test_data: Test result dictionary that may contain user_properties
-
-    Returns:
-        Braintrust URL string, or None if span IDs not available
-    """
-    # Check if Braintrust is configured
-    if not os.environ.get("BRAINTRUST_API_KEY"):
-        return None
-
-    # Extract span IDs and experiment name from user_properties
-    user_props = test_data.get("user_properties", [])
-    span_id = None
-    root_span_id = None
-    experiment_name = None
-
-    for prop in user_props:
-        if isinstance(prop, dict):
-            if "braintrust_span_id" in prop:
-                span_id = prop["braintrust_span_id"]
-            if "braintrust_root_span_id" in prop:
-                root_span_id = prop["braintrust_root_span_id"]
-            if "braintrust_experiment" in prop:
-                experiment_name = prop["braintrust_experiment"]
-
-    if not span_id or not root_span_id:
-        return None
-
-    base_result = _get_braintrust_base_url(experiment_name)
-    if not base_result:
-        return None
-
-    base_url, _ = base_result
-
-    # Build URL with span IDs
-    return f"{base_url}?c=&r={span_id}&s={root_span_id}"
 
 
 def get_braintrust_filter_url(
@@ -888,7 +845,7 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
                 # Determine emoji based on status
                 emoji = get_test_status_emoji(
-                    stats, total, passed, skipped, setup_failures, valid_tests
+                    stats, total, passed, skipped, setup_failures
                 )
 
                 # Create cell with link if available
@@ -1009,7 +966,7 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
 
                 # Determine emoji based on status - should match the main table
                 emoji = get_test_status_emoji(
-                    stats, total, passed, skipped, setup_failures, valid_tests
+                    stats, total, passed, skipped, setup_failures
                 )
 
                 # Build the cell parts with simplified format

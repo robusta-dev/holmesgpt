@@ -15,10 +15,11 @@ TEST_MARKERS="${2:-$DEFAULT_MARKERS}"
 ITERATIONS="${3:-$DEFAULT_ITERATIONS}"
 K_FILTER="${4:-}"  # Optional -k filter
 PARALLEL="${5:-}"  # Optional -n parallelism
+STRICT_SETUP="${6:-true}"  # Optional strict setup mode (default: true for benchmarks)
 
 # Display help if requested
 if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
-    echo "Usage: $0 [models] [test_markers] [iterations] [k_filter] [parallel]"
+    echo "Usage: $0 [models] [test_markers] [iterations] [k_filter] [parallel] [strict_setup]"
     echo ""
     echo "Run LLM evaluation benchmarks locally (equivalent to GitHub Actions workflow)"
     echo ""
@@ -28,7 +29,8 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     echo "                (default: $DEFAULT_MARKERS)"
     echo "  iterations    Number of iterations per test, max 10 (default: $DEFAULT_ITERATIONS)"
     echo "  k_filter      Optional: Filter tests by name pattern (pytest -k equivalent, use '' to skip)"
-    echo "  parallel      Optional: Number of parallel workers (pytest -n equivalent)"
+    echo "  parallel      Optional: Number of parallel workers (pytest -n equivalent, use '' to skip)"
+    echo "  strict_setup  Optional: true/false - fail if any test setup fails (default: true)"
     echo ""
     echo "Examples:"
     echo "  $0                                           # Use all defaults"
@@ -39,6 +41,7 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
     echo "  $0 'gpt-4o' 'easy' 1 'not 02_what_is_wrong' # Exclude specific test"
     echo "  $0 'gpt-4o' 'easy' 1 '' 6                  # Run with 6 parallel workers"
     echo "  $0 'gpt-4o' 'easy' 1 '01_how_many_pods' 4  # Specific test with 4 workers"
+    echo "  $0 'gpt-4o' 'easy' 1 '' '' false           # Disable strict setup mode"
     echo ""
     echo "Environment variables used:"
     echo "  OPENAI_API_KEY, ANTHROPIC_API_KEY, AZURE_API_BASE, AZURE_API_KEY, AZURE_API_VERSION"
@@ -60,11 +63,12 @@ TEST_MARKERS="llm and ($TEST_MARKERS)"
 echo "=============================================="
 echo "🧪 Running Local Benchmarks (CI/CD equivalent)"
 echo "=============================================="
-echo "Models:     $MODELS"
-echo "Markers:    $TEST_MARKERS"
-echo "Iterations: $ITERATIONS"
-[ -n "$K_FILTER" ] && echo "K Filter:   $K_FILTER"
-[ -n "$PARALLEL" ] && echo "Parallel:   $PARALLEL workers"
+echo "Models:       $MODELS"
+echo "Markers:      $TEST_MARKERS"
+echo "Iterations:   $ITERATIONS"
+[ -n "$K_FILTER" ] && echo "K Filter:     $K_FILTER"
+[ -n "$PARALLEL" ] && echo "Parallel:     $PARALLEL workers"
+echo "Strict Setup: $STRICT_SETUP"
 echo "=============================================="
 echo ""
 
@@ -109,6 +113,13 @@ echo ""
 PYTEST_CMD="poetry run pytest tests/llm/ -m \"$TEST_MARKERS\""
 [ -n "$K_FILTER" ] && PYTEST_CMD="$PYTEST_CMD -k \"$K_FILTER\""
 [ -n "$PARALLEL" ] && PYTEST_CMD="$PYTEST_CMD -n $PARALLEL"
+# Add strict setup mode for benchmarks to ensure all tests run properly (if enabled)
+# Allow test 22_high_latency_dbi_down to fail setup (known flaky setup)
+if [[ "$STRICT_SETUP" == "true" ]]; then
+    PYTEST_CMD="$PYTEST_CMD --strict-setup-mode=true --strict-setup-exceptions=22_high_latency_dbi_down"
+else
+    PYTEST_CMD="$PYTEST_CMD --strict-setup-mode=false"
+fi
 PYTEST_CMD="$PYTEST_CMD --no-cov --tb=short -v -s --json-report --json-report-file=eval_results.json"
 
 # Run evaluation benchmarks (same command as workflow)

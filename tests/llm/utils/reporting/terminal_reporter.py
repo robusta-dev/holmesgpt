@@ -570,6 +570,7 @@ class TestStatistics:
         passed = count_results(results, ResultType.PASSED)
         skipped = count_results(results, ResultType.SKIPPED)
         setup_failures = count_results(results, ResultType.SETUP_FAILED)
+        throttled = count_results(results, ResultType.THROTTLED)
         valid_runs = count_results(results, ResultType.VALID_RUNS)
 
         times = [r.get("execution_time", 0) for r in results if r.get("execution_time")]
@@ -583,6 +584,7 @@ class TestStatistics:
             "passed": passed,
             "skipped": skipped,
             "setup_failures": setup_failures,
+            "throttled": throttled,
             "times": times,
             "avg_time": sum(times) / len(times) if times else None,
             "valid_runs": valid_runs,
@@ -653,6 +655,7 @@ class TestStatistics:
                 "passed": 0,
                 "skipped": 0,
                 "setup_failures": 0,
+                "throttled": 0,
                 "valid_runs": 0,
                 "pass_rate": 0,
                 "avg_time": None,
@@ -664,19 +667,21 @@ class TestStatistics:
         total_passed = sum(s["passed"] for s in valid_summaries)
         total_skipped = sum(s["skipped"] for s in valid_summaries)
         total_setup_fail = sum(s["setup_failures"] for s in valid_summaries)
+        total_throttled = sum(s.get("throttled", 0) for s in valid_summaries)
         total_cost = sum(s.get("total_cost", 0) for s in valid_summaries)
 
         all_times = []
         for s in valid_summaries:
             all_times.extend(s["times"])
 
-        valid_runs = total_runs - total_skipped - total_setup_fail
+        valid_runs = total_runs - total_skipped - total_setup_fail - total_throttled
 
         return {
             "runs": total_runs,
             "passed": total_passed,
             "skipped": total_skipped,
             "setup_failures": total_setup_fail,
+            "throttled": total_throttled,
             "valid_runs": valid_runs,
             "pass_rate": (total_passed / valid_runs * 100) if valid_runs > 0 else 0,
             "avg_time": sum(all_times) / len(all_times) if all_times else None,
@@ -1094,6 +1099,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     total_setup_fail = 0
     total_mock_fail = 0
     total_skip = 0
+    total_throttled = 0
 
     for test_name in sorted(test_groups.keys()):
         results = test_groups[test_name]
@@ -1133,6 +1139,7 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
         total_fail += other_failures
         total_setup_fail += setup_failures
         total_mock_fail += mock_failures
+        total_throttled += throttled
 
         # Format pass percentage with color (no emoji)
         if all_throttled:
@@ -1166,8 +1173,8 @@ def _print_summary_statistics(sorted_results: List[dict], console: Console) -> N
     summary_table.add_row(*separator_row, style="dim")
 
     # Add totals row
-    # Calculate valid runs (exclude skipped and setup-failed runs)
-    total_valid_runs = total_runs - total_skip - total_setup_fail
+    # Calculate valid runs (exclude skipped, setup-failed, and throttled runs)
+    total_valid_runs = total_runs - total_skip - total_setup_fail - total_throttled
     total_pass_pct = _calculate_pass_percentage(total_pass, total_valid_runs)
 
     # Format total pass percentage with color (no emoji)
