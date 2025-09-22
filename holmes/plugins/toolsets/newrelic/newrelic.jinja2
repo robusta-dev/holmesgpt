@@ -31,3 +31,12 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 
 ### 3. Metrics/graphs
 - You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
+
+### Instructions for Handling Query Results
+- If you query DistributedTraceSummary:
+    - ALWAYS use the filter `WHERE root.span.eventType = 'Span'`
+    - When querying without aggregations (e.g. without count(*), average(attribute), sum(attribute), min(attribute), etc.):
+        - ALWAYS include an embed, and don't include the raw results as plain text, for example << {"type": "traces-summary", "tool_name": "newrelic_execute_nrql_query", "random_key": "928js0l"} >>. "random_key" should always be replaced with the "random_key" from the tool's output.
+        - ALWAYS start by querying all fields using `SELECT * FROM DistributedTraceSummary`. We need as much fields as possible to visualize the traces to the user. However, the trade-off is that we might exceed the context size. In that case, if you need to narrow down your search, follow this strategy: First, select only the essential fields: trace.id, spanCount, root.entity.accountId, root.entity.guid, root.entity.name, root.span.name, timestamp, duration.ms. These are the absolute minimum fields required for the visualization. If that's still failing, add the `LIMIT` keyword to the query. `LIMIT` should always be the second option, we prefer to show the user as much traces as we can.
+    - When querying with aggregations, NEVER use embeds.
+- If you query any other even type (like Span or Transaction), don't use any embeds - return the results as is.
