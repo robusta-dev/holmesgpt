@@ -289,10 +289,7 @@ def set_default(obj):
 def compact_metrics(metrics_to_process: list[CompressedMetric]) -> str:
     summarized_text = ""
     filtered_metrics = pre_filter_metrics(metrics=metrics_to_process)
-    if (
-        len(filtered_metrics.metrics_with_only_zero_values)
-        >= len(filtered_metrics.other_metrics) * 0.1
-    ):
+    if len(filtered_metrics.metrics_with_only_zero_values):
         zero_metrics = group_metrics(filtered_metrics.metrics_with_only_zero_values)
         summarized_text += format_zero_values_metrics(zero_metrics)
 
@@ -310,14 +307,14 @@ def find_most_common_label(
     metrics: list[CompressedMetric], ignore_label_set: Set[tuple[str, Any]]
 ) -> tuple[Optional[tuple[str, Any]], int]:
     """
-    Find label keys and values that are most common across all label sets.
-    Returns labels that appear in ALL label sets with the same value.
+    Find the most common label key/value across all metrics.
 
     Args:
-        label_sets: List of label dictionaries
+        metrics: List of metrics
+        ignore_label_set: labels to ignore (e.g. they are already known to be common across all metrics)
 
     Returns:
-        Dictionary of common labels (key -> most common value)
+        The most common label and its occurence count across all metrics: ((key, value), count)
     """
     if len(metrics) <= 1:
         return None, 0
@@ -333,7 +330,7 @@ def find_most_common_label(
                 label_key = (key, value)
                 label_counts[label_key] = label_counts.get(label_key, 0) + 1
 
-    # Find labels that appear in ALL sets (100% frequency)
+    # Find the label that is the most frequent
     most_common_label: Optional[tuple[str, Any]] = None
     most_common_count_value = 0
     for (key, value), count in label_counts.items():
