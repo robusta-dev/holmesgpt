@@ -160,10 +160,70 @@ class ToolParameter(BaseModel):
     items: Optional["ToolParameter"] = None  # For array item schemas
 
 class ToolInvokeContext(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     tool_number: Optional[int] = None
     user_approved: bool = False
     llm: LLM
     max_token_count: Optional[int] = None
+
+
+class MockLLM(LLM):
+    """Mock LLM implementation for testing purposes."""
+
+    def __init__(self, model: str = "mock-model"):
+        self.model = model
+
+    def get_context_window_size(self) -> int:
+        return 8192
+
+    def get_maximum_output_token(self) -> int:
+        return 2048
+
+    def count_tokens_for_message(self, messages: list[dict]) -> int:
+        # Simple approximation: count characters and divide by 4
+        total_chars = sum(len(str(msg.get("content", ""))) for msg in messages)
+        return total_chars // 4
+
+    def completion(self, *args, **kwargs):
+        # Mock completion that returns a basic response
+        mock_response = type('MockResponse', (), {
+            'choices': [type('Choice', (), {
+                'message': type('Message', (), {
+                    'content': 'Mock response'
+                })()
+            })()]
+        })()
+        return mock_response
+
+
+def create_mock_tool_invoke_context(
+    tool_number: Optional[int] = None,
+    user_approved: bool = False,
+    max_token_count: Optional[int] = None,
+    llm: Optional[LLM] = None,
+) -> ToolInvokeContext:
+    """
+    Create a mock ToolInvokeContext for testing purposes.
+
+    Args:
+        tool_number: Optional tool number
+        user_approved: Whether the tool is user approved
+        max_token_count: Optional maximum token count
+        llm: Optional LLM instance. If None, uses MockLLM
+
+    Returns:
+        ToolInvokeContext instance suitable for testing
+    """
+    if llm is None:
+        llm = MockLLM()
+
+    return ToolInvokeContext(
+        tool_number=tool_number,
+        user_approved=user_approved,
+        llm=llm,
+        max_token_count=max_token_count,
+    )
 
 class Tool(ABC, BaseModel):
     name: str

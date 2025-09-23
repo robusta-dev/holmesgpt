@@ -18,6 +18,7 @@ from holmes.core.tools import (
     ToolsetStatusEnum,
     YAMLTool,
     YAMLToolset,
+    create_mock_tool_invoke_context,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 
@@ -408,7 +409,8 @@ class MockableToolWrapper(Tool):
     def _call_live_invoke(self, params: Dict) -> StructuredToolResult:
         """Call the tool in live mode."""
         logging.info(f"Calling live tool {self.name} with params: {params}")
-        return self._tool.invoke(params)
+        context = create_mock_tool_invoke_context()
+        return self._tool.invoke(params, context)
 
     def _call_mock_invoke(self, params: Dict):
         # Mock mode: read from mock file

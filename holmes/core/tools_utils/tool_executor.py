@@ -9,14 +9,18 @@ from holmes.core.tools import (
     StructuredToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
+    ToolInvokeContext,
+    create_mock_tool_invoke_context,
 )
+from holmes.core.llm import LLM
 from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_toolset
 
 
 class ToolExecutor:
-    def __init__(self, toolsets: List[Toolset]):
+    def __init__(self, toolsets: List[Toolset], llm: Optional[LLM] = None):
         # TODO: expose function for this instead of callers accessing directly
         self.toolsets = toolsets
+        self.llm = llm
 
         enabled_toolsets: list[Toolset] = list(
             filter(
@@ -46,16 +50,19 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: dict) -> StructuredToolResult:
+    def invoke(self, tool_name: str, params: dict, context: Optional[ToolInvokeContext] = None) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
-        return (
-            tool.invoke(params)
-            if tool
-            else StructuredToolResult(
+        if not tool:
+            return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=f"Could not find tool named {tool_name}",
             )
-        )
+
+        if context is None:
+            # Create a default context using the stored LLM or a mock
+            context = create_mock_tool_invoke_context(llm=self.llm)
+
+        return tool.invoke(params, context)
 
     def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:

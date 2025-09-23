@@ -10,6 +10,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolsetStatusEnum,
+    create_mock_tool_invoke_context,
 )
 from tests.llm.utils.mock_toolset import (
     MockToolsetManager,
@@ -245,7 +246,8 @@ class TestMockableToolWrapper:
                 request=mock_request,
             )
 
-            result = wrapper.invoke({})
+            context = create_mock_tool_invoke_context()
+            result = wrapper.invoke({}, context)
 
             # Should call real tool
             tool.invoke.assert_called_once_with({})
@@ -278,7 +280,8 @@ class TestMockableToolWrapper:
                 request=mock_request,
             )
 
-            result = wrapper.invoke({})
+            context = create_mock_tool_invoke_context()
+            result = wrapper.invoke({}, context)
 
             # Should NOT call real tool
             tool.invoke.assert_not_called()
@@ -321,7 +324,8 @@ class TestMockableToolWrapper:
                 request=mock_request,
             )
 
-            result = wrapper.invoke({})
+            context = create_mock_tool_invoke_context()
+            result = wrapper.invoke({}, context)
 
             # Should call real tool
             tool.invoke.assert_called_once_with({})

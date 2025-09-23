@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from holmes.core.transformers.llm_summarize import LLMSummarizeTransformer
 from holmes.core.transformers.base import TransformerError
+from holmes.core.tools import create_mock_tool_invoke_context
 
 
 class TestLLMSummarizeTransformer:
@@ -555,7 +556,8 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         )
 
         # Invoke the tool - this should trigger the non-expanding logic in tools.py
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         # The result should be the original data, not the expanded summary
         # because tools.py should revert when llm_summarize expands the content
@@ -609,7 +611,8 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         # Patch the logger to capture debug messages
         with patch("holmes.core.tools.logger.debug") as mock_debug_logger:
             # Invoke the tool - this should trigger the non-expanding logic
-            result = tool.invoke({})
+            context = create_mock_tool_invoke_context()
+            result = tool.invoke({}, context)
 
             # Verify that the result is the original data (not the expanded response)
             assert result.data == original_data
@@ -671,7 +674,8 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         )
 
         with patch("holmes.core.tools.logger.debug") as mock_debug1:
-            result1 = tool1.invoke({})
+            context = create_mock_tool_invoke_context()
+            result1 = tool1.invoke({}, context)
 
             # Should revert to original data
             assert result1.data == original_data
@@ -705,7 +709,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
         )
 
         with patch("holmes.core.tools.logger.info") as mock_info:
-            result2 = tool2.invoke({})
+            result2 = tool2.invoke({}, context)
 
             # Should use the summarized data
             assert result2.data == reducing_response

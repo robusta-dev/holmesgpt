@@ -5,7 +5,7 @@ import os
 
 import pytest
 
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools import ToolsetStatusEnum, create_mock_tool_invoke_context
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
@@ -31,7 +31,8 @@ def tool_executor():
 def test_list_available_metrics_exact_match(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("list_available_metrics")
     assert tool
-    actual_output = tool.invoke({"name_filter": "kubelet_running_pods"})
+    context = create_mock_tool_invoke_context()
+    actual_output = tool.invoke({"name_filter": "kubelet_running_pods"}, context)
     print(actual_output)
     assert "kubelet_running_pods" in actual_output
     assert (
@@ -45,7 +46,7 @@ def test_list_available_metrics_exact_match(tool_executor: ToolExecutor):
 def test_list_available_metrics_partial_match(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("list_available_metrics")
     assert tool
-    actual_output = tool.invoke({"name_filter": "http"})
+    actual_output = tool.invoke({"name_filter": "http"}, context)
     print(actual_output)
     assert (
         "http_requests_total | Total number of requests by method, status and handler. | counter"
@@ -69,7 +70,7 @@ def test_list_available_metrics_partial_match(tool_executor: ToolExecutor):
 def test_execute_prometheus_instant_query(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("execute_prometheus_instant_query")
     assert tool
-    actual_output = tool.invoke({"query": "up"})
+    actual_output = tool.invoke({"query": "up"}, context)
     print(actual_output)
     assert actual_output
     parsed_output = json.loads(actual_output)
@@ -79,7 +80,7 @@ def test_execute_prometheus_instant_query(tool_executor: ToolExecutor):
 def test_execute_prometheus_instant_query_no_result(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("execute_prometheus_instant_query")
     assert tool
-    actual_output = tool.invoke({"query": "this_metric_does_not_exist"})
+    actual_output = tool.invoke({"query": "this_metric_does_not_exist"}, context)
     print(actual_output)
     assert actual_output
     parsed_output = json.loads(actual_output)
@@ -101,7 +102,7 @@ def test_execute_prometheus_range_query_no_result(tool_executor: ToolExecutor):
             "start": now - twenty_minutes,
             "end": now,
             "step": 1,
-        }
+        }, context
     )
     print(actual_output)
     assert actual_output
@@ -119,7 +120,7 @@ def test_execute_prometheus_range_query(tool_executor: ToolExecutor):
     twenty_minutes = 20 * 60
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
     actual_output = tool.invoke(
-        {"query": "up", "start": now - twenty_minutes, "end": now, "step": 1}
+        {"query": "up", "start": now - twenty_minutes, "end": now, "step": 1}, context
     )
     print(actual_output)
     assert actual_output
