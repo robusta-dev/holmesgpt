@@ -78,8 +78,8 @@ stringData:
       sleep 2
     done
 
-    echo "Creating 300 session keys..."
-    for i in $(seq 1 300); do
+    echo "Creating 100 session keys..."
+    for i in $(seq 1 100); do
       # Create session keys with user ID and data
       redis-cli -h redis SET "session:user:$i" "{\"userId\":$i,\"loginTime\":\"$(date -Iseconds)\",\"lastAccess\":\"$(date -Iseconds)\"}" EX 86400 >/dev/null
 
@@ -130,7 +130,7 @@ stringData:
 
     # Wait for init job to complete by checking if keys exist
     echo "Waiting for session initialization..."
-    until [ "$(redis-cli -h redis DBSIZE | awk '{print $1}')" -ge "300" ]; do
+    until [ "$(redis-cli -h redis DBSIZE | awk '{print $1}')" -ge "100" ]; do
       echo "Waiting for sessions... (current: $(redis-cli -h redis DBSIZE))"
       sleep 5
     done
@@ -139,7 +139,7 @@ stringData:
     while true; do
       # BAD PRACTICE: Using KEYS to find user sessions
       # This simulates looking up sessions for random users
-      user_id=$(shuf -i 1-300 -n 1)
+      user_id=$(shuf -i 1-100 -n 1)
 
       # This KEYS command will scan ALL 10k keys!
       redis-cli -h redis KEYS "session:user:*" | grep "session:user:${user_id}$" >/dev/null

@@ -10,8 +10,8 @@ from tests.llm.utils.test_case_utils import HolmesTestCase
 
 
 EVAL_SETUP_TIMEOUT = int(
-    os.environ.get("EVAL_SETUP_TIMEOUT", "273")
-)  # Increased by 30% from 210
+    os.environ.get("EVAL_SETUP_TIMEOUT", "300")
+)  # Default timeout in seconds
 
 
 def _get_pod_diagnostics(test_case: Optional[HolmesTestCase], operation: str) -> str:

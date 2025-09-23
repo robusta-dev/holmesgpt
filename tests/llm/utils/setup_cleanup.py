@@ -13,7 +13,8 @@ from tests.llm.utils.commands import run_commands  # type: ignore[attr-defined]
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore[attr-defined]
 
 # Configuration
-MAX_WORKERS = 30
+# Use as many workers as there are setups to run them all concurrently
+MAX_WORKERS = 999
 
 
 def log(msg, error=False, dark_red=False):

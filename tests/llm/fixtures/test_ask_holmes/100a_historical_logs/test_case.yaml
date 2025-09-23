@@ -1,4 +1,4 @@
-user_prompt: "The payment-api pod in namespace app-100 had issues on August 2, 2025 around 13:45 UTC. What happened?"
+user_prompt: "The payment-api pod in namespace app-100a had issues on August 2, 2025 around 13:45 UTC. What happened?"
 
 expected_output:
   - The payment-api pod experienced failures caused by database connection pool exhaustion
@@ -15,29 +15,29 @@ tags:
 setup_timeout: 600  # Increased to handle Datadog init containers
 
 port_forwards:
-  - namespace: app-100
+  - namespace: app-100a
     service: loki
     local_port: 3110
     remote_port: 3100
 
 before_test: |
   # Create namespace with label to exclude from Datadog admission controller
-  kubectl create namespace app-100 || true
-  kubectl label namespace app-100 admission.datadoghq.com/enabled=false --overwrite
+  kubectl create namespace app-100a || true
+  kubectl label namespace app-100a admission.datadoghq.com/enabled=false --overwrite
 
   # Deploy Loki infrastructure from shared config
-  kubectl apply -f ../../shared/loki.yaml -n app-100
+  kubectl apply -f ../../shared/loki.yaml -n app-100a
 
   # Create secret for payment-api with direct push script
   kubectl create secret generic payment-api-script \
     --from-file=app-direct-push.py=./app-direct-push.py \
-    -n app-100 --dry-run=client -o yaml | kubectl apply -f -
+    -n app-100a --dry-run=client -o yaml | kubectl apply -f -
 
   # Wait for Loki to be ready (increased timeout for Datadog init containers)
   echo "⏳ Waiting for Loki pod to be ready (timeout 300s)"
   LOKI_POD_READY=false
   for i in {1..60}; do
-    if kubectl wait --for=condition=ready pod -l app=loki -n app-100 --timeout=5s 2>/dev/null; then
+    if kubectl wait --for=condition=ready pod -l app=loki -n app-100a --timeout=5s 2>/dev/null; then
       echo "✅ Loki pod is ready!"
       LOKI_POD_READY=true
       break
@@ -49,14 +49,14 @@ before_test: |
 
   if [ "$LOKI_POD_READY" = false ]; then
     echo "❌ Loki pod failed to become ready after 300 seconds"
-    kubectl get pods -n app-100 -l app=loki
+    kubectl get pods -n app-100a -l app=loki
     exit 1
   fi
 
   # Wait for Loki ingester to be ready
   echo "⏳ Waiting for Loki ingester to be ready"
   for i in {1..60}; do
-    if kubectl exec -n app-100 deployment/loki -- wget -q -O- http://localhost:3100/ready 2>/dev/null | grep -q "ready"; then
+    if kubectl exec -n app-100a deployment/loki -- wget -q -O- http://localhost:3100/ready 2>/dev/null | grep -q "ready"; then
       echo "✅ Loki ingester is ready!"
       break
     fi
@@ -68,18 +68,18 @@ before_test: |
   kubectl apply -f payment-api-direct.yaml
 
   # Wait for payment-api deployment to be progressing
-  kubectl wait --for=condition=progressing deployment/payment-api -n app-100 --timeout=120s
+  kubectl wait --for=condition=progressing deployment/payment-api -n app-100a --timeout=120s
 
   # Wait for payment-api pod to be ready (increased timeout for ContainerCreating)
-  kubectl wait --for=condition=ready pod -l app=payment-api -n app-100 --timeout=300s
+  kubectl wait --for=condition=ready pod -l app=payment-api -n app-100a --timeout=300s
 
   # Wait for logs to appear in Loki
   sleep 5  # Let Promtail initialize
   START_TIME=$(date +%s)
   while [ $(($(date +%s) - START_TIME)) -lt 240 ]; do
-    LOG_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
-    HISTORICAL_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
-    ERROR_COUNT=$(kubectl exec -n app-100 deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+    LOG_COUNT=$(kubectl exec -n app-100a deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100a"}&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+    HISTORICAL_COUNT=$(kubectl exec -n app-100a deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100a"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
+    ERROR_COUNT=$(kubectl exec -n app-100a deployment/loki -- wget -q -O- 'http://localhost:3100/loki/api/v1/query_range?query={namespace="app-100a",level="ERROR"}&start=2025-08-02T13:00:00Z&end=2025-08-02T15:00:00Z&limit=1' 2>/dev/null | grep -o '"values"' | wc -l)
 
     if [ "$LOG_COUNT" -gt "0" ] && [ "$HISTORICAL_COUNT" -gt "0" ] && [ "$ERROR_COUNT" -gt "0" ]; then
       echo "Logs ready in Loki (including ERROR logs)"
@@ -96,4 +96,4 @@ before_test: |
   exit 1
 
 after_test: |
-  kubectl delete namespace app-100 || true
+  kubectl delete namespace app-100a || true

@@ -71,13 +71,15 @@ class LogBatcher:
             streams_by_level[level].append([ts, log_line])
 
         # Prepare Loki push payload with separate streams per level
+        pod_name = os.environ.get("HOSTNAME", "payment-api-pod")
         streams = []
         for level, values in streams_by_level.items():
             streams.append(
                 {
                     "stream": {
                         "job": "payment-api",
-                        "namespace": "app-100",
+                        "namespace": "app-100b",
+                        "k8s_pod": pod_name,  # Non-standard label that Holmes won't recognize
                         "level": level,
                         "service": "payment-api",
                     },

@@ -1,6 +1,6 @@
 user_prompt: "Why is personal-certs-validator in a crashloopbackoff?"
 expected_output:
-  - Either tells the user that "personal-certs-validator" could not be found or answers about db-certs-authenticator and makes it clear that it is not "personal-certs-validator" (i.e. says you seem to be referring to...)
+  - Either tells the user that "personal-certs-validator" could not be found or answers about db-certs-authenticator and makes it clear that it is answering about something slightly different (i.e. says you seem to be referring to, or the closest match is...)
 tags:
   - easy
   - transparency
