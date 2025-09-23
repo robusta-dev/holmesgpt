@@ -447,7 +447,7 @@ class MockableToolWrapper(Tool):
             except MockDataNotFoundError as e:
                 logging.debug(str(e))
 
-            result = self._call_live_invoke(params)
+            result = self._call_live_invoke(params, context)
             # Write mock file
             mock_file_path = self._file_manager.write_mock(
                 tool_name=self.name,

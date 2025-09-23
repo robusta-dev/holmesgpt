@@ -250,7 +250,7 @@ class TestMockableToolWrapper:
             result = wrapper.invoke({}, context)
 
             # Should call real tool
-            tool.invoke.assert_called_once_with({})
+            tool.invoke.assert_called_once_with({}, context)
             assert result.data == "Real tool output"
 
     def test_mock_mode_with_existing_mock(self):
@@ -329,7 +329,7 @@ class TestMockableToolWrapper:
             result = wrapper.invoke({}, context)
 
             # Should call real tool
-            tool.invoke.assert_called_once_with({})
+            tool.invoke.assert_called_once_with({}, context)
             assert result.data == "Real tool output"
 
             # Should save mock file
