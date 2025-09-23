@@ -208,7 +208,8 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
                 "pod_name": "api-pod",
                 "node_name": "node-1",
                 "sample_count": 5,
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -408,7 +409,8 @@ def test_fetch_traces_simple_comparison_with_negative_start_time():
                 "service_name": "test",
                 "start": "-7200",  # 2 hours ago
                 "end": "0",  # Now
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
