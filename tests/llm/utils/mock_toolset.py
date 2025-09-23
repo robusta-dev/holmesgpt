@@ -443,7 +443,7 @@ class MockableToolWrapper(Tool):
         """Execute the tool based on the current mode."""
         if self._mode == MockMode.GENERATE:
             try:
-                return self._call_mock_invoke(params)
+                return self._call_mock_invoke(params, context)
             except MockDataNotFoundError as e:
                 logging.debug(str(e))
 
