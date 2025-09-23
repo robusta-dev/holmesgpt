@@ -11,11 +11,12 @@ import time
 
 from holmes.core.tools import (
     Tool,
+    ToolInvokeContext,
     YAMLTool,
     StructuredToolResult,
     StructuredToolResultStatus,
-    create_mock_tool_invoke_context,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.core.transformers import (
     registry,
     BaseTransformer,
@@ -107,7 +108,7 @@ class TestToolExecutionPipelineIntegration:
             """Simulates a tool that reads large log files."""
 
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 # Simulate reading a large log file
                 log_entries = [

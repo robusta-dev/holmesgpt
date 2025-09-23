@@ -4,6 +4,7 @@ from typing import Any, Optional, Dict, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -94,9 +95,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
         return resp.to_json()
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self._toolset.nr_api_key or not self._toolset.nr_account_id:
             raise ValueError("NewRelic API key or account ID is not configured")
 

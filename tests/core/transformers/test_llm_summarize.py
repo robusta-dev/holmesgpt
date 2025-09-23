@@ -6,9 +6,10 @@ import pytest
 from unittest.mock import Mock, patch
 from pydantic import ValidationError
 
+from holmes.core.tools import ToolInvokeContext
 from holmes.core.transformers.llm_summarize import LLMSummarizeTransformer
 from holmes.core.transformers.base import TransformerError
-from holmes.core.tools import create_mock_tool_invoke_context
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestLLMSummarizeTransformer:
@@ -534,7 +535,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params, user_approved: bool = False):
+            def _invoke(self, params, context: ToolInvokeContext):
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
                     data="Original short data",
@@ -583,7 +584,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params, user_approved: bool = False):
+            def _invoke(self, params, context: ToolInvokeContext):
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
                     data=original_data,  # This will be the input to the transformer
@@ -647,7 +648,7 @@ service/database-service            ClusterIP   10.0.1.101   <none>        5432/
 
         # Create a concrete tool class for testing
         class TestTool(Tool):
-            def _invoke(self, params, user_approved: bool = False):
+            def _invoke(self, params, context: ToolInvokeContext):
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS, data=original_data
                 )

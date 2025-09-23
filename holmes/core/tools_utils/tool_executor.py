@@ -10,7 +10,6 @@ from holmes.core.tools import (
     Toolset,
     ToolsetStatusEnum,
     ToolInvokeContext,
-    create_mock_tool_invoke_context,
 )
 from holmes.core.llm import LLM
 from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_toolset
@@ -51,7 +50,7 @@ class ToolExecutor:
                 self.tools_by_name[tool.name] = tool
 
     def invoke(
-        self, tool_name: str, params: dict, context: Optional[ToolInvokeContext] = None
+        self, tool_name: str, params: dict, context: ToolInvokeContext
     ) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
         if not tool:
@@ -59,10 +58,6 @@ class ToolExecutor:
                 status=StructuredToolResultStatus.ERROR,
                 error=f"Could not find tool named {tool_name}",
             )
-
-        if context is None:
-            # Create a default context using the stored LLM or a mock
-            context = create_mock_tool_invoke_context(llm=self.llm)
 
         return tool.invoke(params, context)
 

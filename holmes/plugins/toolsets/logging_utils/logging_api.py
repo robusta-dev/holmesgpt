@@ -9,6 +9,7 @@ from datetime import timezone
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
 )
@@ -175,9 +176,7 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         return params
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),

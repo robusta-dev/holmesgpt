@@ -6,7 +6,8 @@ from typing import List
 import pytest
 from pydantic import BaseModel
 
-from holmes.core.tools import ToolsetStatusEnum, create_mock_tool_invoke_context
+from holmes.core.tools import ToolsetStatusEnum
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 

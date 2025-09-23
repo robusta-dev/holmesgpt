@@ -10,8 +10,8 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolsetStatusEnum,
-    create_mock_tool_invoke_context,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from tests.llm.utils.mock_toolset import (
     MockToolsetManager,
     sanitize_filename,

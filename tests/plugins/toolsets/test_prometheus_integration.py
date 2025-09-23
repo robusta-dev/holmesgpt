@@ -5,7 +5,8 @@ import os
 
 import pytest
 
-from holmes.core.tools import ToolsetStatusEnum, create_mock_tool_invoke_context
+from holmes.core.tools import ToolsetStatusEnum
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 

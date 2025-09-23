@@ -9,6 +9,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
 )
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestPodLoggingTool:
@@ -33,7 +34,7 @@ class TestPodLoggingTool:
             "pod_name": "test-pod",
             "start_time": -300,  # Integer!
         }
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Verify the result
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -72,7 +73,7 @@ class TestPodLoggingTool:
             "pod_name": "api-server",
             "start_time": "-600",  # Already a string
         }
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Verify the result
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -104,7 +105,7 @@ class TestPodLoggingTool:
             "pod_name": "web-app",
             "start_time": "2023-03-01T10:30:00Z",  # RFC3339 format
         }
-        tool._invoke(params)
+        tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Get the actual params passed to fetch_pod_logs
         call_args = mock_toolset.fetch_pod_logs.call_args
@@ -129,7 +130,7 @@ class TestPodLoggingTool:
 
         # Call tool without start_time
         params = {"namespace": "kube-system", "pod_name": "coredns"}
-        tool._invoke(params)
+        tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Get the actual params passed to fetch_pod_logs
         call_args = mock_toolset.fetch_pod_logs.call_args
@@ -164,7 +165,7 @@ class TestPodLoggingTool:
             "exclude_filter": "health",
             "limit": 50,
         }
-        tool._invoke(params)
+        tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Get the actual params passed to fetch_pod_logs
         call_args = mock_toolset.fetch_pod_logs.call_args

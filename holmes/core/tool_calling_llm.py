@@ -45,7 +45,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
 )
 from holmes.core.tools_utils.tool_context_window_limiter import (
-    get_single_tool_max_token_count,
+    get_max_token_count_for_single_tool,
     prevent_overly_big_tool_response,
 )
 from holmes.plugins.prompts import load_and_render_prompt
@@ -631,7 +631,7 @@ class ToolCallingLLM:
                 tool_number=tool_number,
                 user_approved=user_approved,
                 llm=self.llm,
-                max_token_count=get_single_tool_max_token_count(self.llm),
+                max_token_count=get_max_token_count_for_single_tool(self.llm),
             )
             tool_response = tool.invoke(tool_params, context=invoke_context)
         except Exception as e:

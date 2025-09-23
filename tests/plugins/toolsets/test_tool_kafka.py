@@ -6,7 +6,8 @@ import subprocess
 import pytest
 from confluent_kafka.admin import NewTopic
 
-from holmes.core.tools import ToolsetStatusEnum, create_mock_tool_invoke_context
+from holmes.core.tools import ToolsetStatusEnum
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.kafka import (
     DescribeConsumerGroup,
     DescribeTopic,

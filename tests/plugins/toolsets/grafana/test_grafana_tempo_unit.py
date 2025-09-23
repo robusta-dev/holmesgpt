@@ -4,8 +4,8 @@ import yaml
 
 from holmes.core.tools import (
     StructuredToolResultStatus,
-    create_mock_tool_invoke_context,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,

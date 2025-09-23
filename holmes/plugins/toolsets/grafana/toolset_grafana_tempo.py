@@ -7,6 +7,7 @@ from holmes.common.env_vars import load_bool, MAX_GRAPH_POINTS
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
 )
@@ -195,9 +196,7 @@ Examples:
 
         return f"At least one of the following argument is expected but none were set: {expected_params}"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             # Build query
             if params.get("base_query"):
@@ -413,9 +412,7 @@ class SearchTracesByQuery(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -495,9 +492,7 @@ class SearchTracesByTags(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -559,9 +554,7 @@ class QueryTraceById(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -636,9 +629,7 @@ class SearchTagNames(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -714,9 +705,7 @@ class SearchTagValues(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -794,9 +783,7 @@ class QueryMetricsInstant(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
@@ -880,9 +867,7 @@ class QueryMetricsRange(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
         api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)

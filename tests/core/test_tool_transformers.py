@@ -7,13 +7,14 @@ from unittest.mock import Mock, patch
 
 from holmes.core.tools import (
     Tool,
+    ToolInvokeContext,
     YAMLTool,
     YAMLToolset,
     ToolsetYamlFromConfig,
     StructuredToolResult,
     StructuredToolResultStatus,
-    create_mock_tool_invoke_context,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.core.transformers import (
     registry,
     TransformerError,
@@ -47,7 +48,7 @@ class TestToolTransformField:
 
         # Create a concrete tool for testing
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
+            def _invoke(self, params: Dict, context: ToolInvokeContext) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -80,7 +81,7 @@ class TestToolTransformField:
         """Test that tools work without transformers field."""
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
+            def _invoke(self, params: Dict, context: ToolInvokeContext) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -183,7 +184,7 @@ class TestToolValidationIntegration:
         transforms = [Transformer(name="mock_transformer", config={})]
 
         class ConcreteTestTool(Tool):
-            def _invoke(self, params: Dict, user_approved: bool = False) -> Mock:
+            def _invoke(self, params: Dict, context: ToolInvokeContext) -> Mock:
                 return Mock()
 
             def get_parameterized_one_liner(self, params: Dict) -> str:
@@ -202,7 +203,7 @@ class TestToolValidationIntegration:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -322,7 +323,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -351,7 +352,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.ERROR,
@@ -380,7 +381,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.NO_DATA, data=""
@@ -422,7 +423,7 @@ class TestToolExecutionPipeline:
 
             class ConcreteTestTool(Tool):
                 def _invoke(
-                    self, params: Dict, user_approved: bool = False
+                    self, params: Dict, context: ToolInvokeContext
                 ) -> StructuredToolResult:
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.SUCCESS, data="Test output"
@@ -479,7 +480,7 @@ class TestToolExecutionPipeline:
 
             class ConcreteTestTool(Tool):
                 def _invoke(
-                    self, params: Dict, user_approved: bool = False
+                    self, params: Dict, context: ToolInvokeContext
                 ) -> StructuredToolResult:
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.SUCCESS,
@@ -530,7 +531,7 @@ class TestToolExecutionPipeline:
 
             class ConcreteTestTool(Tool):
                 def _invoke(
-                    self, params: Dict, user_approved: bool = False
+                    self, params: Dict, context: ToolInvokeContext
                 ) -> StructuredToolResult:
                     data = params.get("data", "short")
                     return StructuredToolResult(
@@ -573,7 +574,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -611,7 +612,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -646,7 +647,7 @@ class TestToolExecutionPipeline:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -691,7 +692,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -722,7 +723,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -760,7 +761,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -797,7 +798,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -839,7 +840,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -868,7 +869,7 @@ class TestTransformerCachingOptimization:
 
         class ConcreteTestTool(Tool):
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,

@@ -9,8 +9,8 @@ from unittest.mock import patch
 from holmes.plugins.toolsets import load_toolsets_from_file
 from holmes.core.tools import (
     StructuredToolResultStatus,
-    create_mock_tool_invoke_context,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 

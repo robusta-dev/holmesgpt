@@ -15,6 +15,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -413,9 +414,7 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -533,9 +532,7 @@ class GetMetricNames(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -654,9 +651,7 @@ class GetLabelValues(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -770,9 +765,7 @@ class GetAllLabels(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -877,9 +870,7 @@ class GetSeries(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -981,9 +972,7 @@ class GetMetricMetadata(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1072,9 +1061,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1280,9 +1267,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
