@@ -39,7 +39,11 @@ from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus, ToolInvokeContext
+from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    ToolInvokeContext,
+)
 from holmes.core.tools_utils.tool_context_window_limiter import (
     get_single_tool_max_token_count,
     prevent_overly_big_tool_response,
@@ -627,7 +631,7 @@ class ToolCallingLLM:
                 tool_number=tool_number,
                 user_approved=user_approved,
                 llm=self.llm,
-                max_token_count=get_single_tool_max_token_count(self.llm)
+                max_token_count=get_single_tool_max_token_count(self.llm),
             )
             tool_response = tool.invoke(tool_params, context=invoke_context)
         except Exception as e:

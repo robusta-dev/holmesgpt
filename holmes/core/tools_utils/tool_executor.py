@@ -50,7 +50,9 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: dict, context: Optional[ToolInvokeContext] = None) -> StructuredToolResult:
+    def invoke(
+        self, tool_name: str, params: dict, context: Optional[ToolInvokeContext] = None
+    ) -> StructuredToolResult:
         tool = self.get_tool_by_name(tool_name)
         if not tool:
             return StructuredToolResult(

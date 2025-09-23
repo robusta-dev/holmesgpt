@@ -7,7 +7,10 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
-from holmes.core.tools import StructuredToolResultStatus, create_mock_tool_invoke_context
+from holmes.core.tools import (
+    StructuredToolResultStatus,
+    create_mock_tool_invoke_context,
+)
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 
@@ -162,7 +165,8 @@ Events:
             # Execute the tool
             context = create_mock_tool_invoke_context()
             result = kubectl_describe.invoke(
-                {"kind": "pod", "name": "test-pod-12345", "namespace": "default"}, context
+                {"kind": "pod", "name": "test-pod-12345", "namespace": "default"},
+                context,
             )
 
             # Should have applied transformation

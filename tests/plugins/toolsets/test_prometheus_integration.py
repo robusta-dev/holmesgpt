@@ -46,6 +46,7 @@ def test_list_available_metrics_exact_match(tool_executor: ToolExecutor):
 def test_list_available_metrics_partial_match(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("list_available_metrics")
     assert tool
+    context = create_mock_tool_invoke_context()
     actual_output = tool.invoke({"name_filter": "http"}, context)
     print(actual_output)
     assert (
@@ -70,6 +71,7 @@ def test_list_available_metrics_partial_match(tool_executor: ToolExecutor):
 def test_execute_prometheus_instant_query(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("execute_prometheus_instant_query")
     assert tool
+    context = create_mock_tool_invoke_context()
     actual_output = tool.invoke({"query": "up"}, context)
     print(actual_output)
     assert actual_output
@@ -80,6 +82,7 @@ def test_execute_prometheus_instant_query(tool_executor: ToolExecutor):
 def test_execute_prometheus_instant_query_no_result(tool_executor: ToolExecutor):
     tool = tool_executor.get_tool_by_name("execute_prometheus_instant_query")
     assert tool
+    context = create_mock_tool_invoke_context()
     actual_output = tool.invoke({"query": "this_metric_does_not_exist"}, context)
     print(actual_output)
     assert actual_output
@@ -96,13 +99,15 @@ def test_execute_prometheus_range_query_no_result(tool_executor: ToolExecutor):
     assert tool
     twenty_minutes = 20 * 60
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    context = create_mock_tool_invoke_context()
     actual_output = tool.invoke(
         {
             "query": "this_metric_does_not_exist",
             "start": now - twenty_minutes,
             "end": now,
             "step": 1,
-        }, context
+        },
+        context,
     )
     print(actual_output)
     assert actual_output
@@ -119,6 +124,7 @@ def test_execute_prometheus_range_query(tool_executor: ToolExecutor):
     assert tool
     twenty_minutes = 20 * 60
     now = datetime.datetime.now(datetime.timezone.utc).timestamp()
+    context = create_mock_tool_invoke_context()
     actual_output = tool.invoke(
         {"query": "up", "start": now - twenty_minutes, "end": now, "step": 1}, context
     )

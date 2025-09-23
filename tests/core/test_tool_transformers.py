@@ -557,7 +557,8 @@ class TestToolExecutionPipeline:
 
             # Test with long input - should transform
             result = tool.invoke(
-                {"data": "this is a very long input that should be transformed"}, context
+                {"data": "this is a very long input that should be transformed"},
+                context,
             )
             assert result.data is not None
             assert "conditional_transformed:" in result.data

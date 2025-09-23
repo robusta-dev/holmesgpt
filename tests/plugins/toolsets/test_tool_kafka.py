@@ -103,6 +103,7 @@ def test_list_kafka_consumers(kafka_toolset):
 def test_describe_consumer_group(kafka_toolset):
     tool = DescribeConsumerGroup(kafka_toolset)
 
+    context = create_mock_tool_invoke_context()
     result = tool.invoke({"group_id": "test_group"}, context)
     assert "group_id: test_group" in result
     assert (
@@ -126,6 +127,7 @@ def test_list_topics(kafka_toolset, test_topic):
 
 def test_describe_topic(kafka_toolset, test_topic):
     tool = DescribeTopic(kafka_toolset)
+    context = create_mock_tool_invoke_context()
     result = tool.invoke({"topic_name": test_topic}, context)
 
     assert "configuration:" not in result
@@ -140,7 +142,10 @@ def test_describe_topic(kafka_toolset, test_topic):
 
 def test_describe_topic_with_configuration(kafka_toolset, test_topic):
     tool = DescribeTopic(kafka_toolset)
-    result = tool.invoke({"topic_name": test_topic, "fetch_configuration": True}, context)
+    context = create_mock_tool_invoke_context()
+    result = tool.invoke(
+        {"topic_name": test_topic, "fetch_configuration": True}, context
+    )
 
     assert "configuration:" in result
     assert "partitions:" in result
@@ -154,6 +159,7 @@ def test_describe_topic_with_configuration(kafka_toolset, test_topic):
 
 def test_find_consumer_groups_by_topic(kafka_toolset, test_topic):
     tool = FindConsumerGroupsByTopic(kafka_toolset)
+    context = create_mock_tool_invoke_context()
     result = tool.invoke({"topic_name": test_topic}, context)
 
     assert result == f"No consumer group were found for topic {test_topic}"
@@ -165,6 +171,7 @@ def test_find_consumer_groups_by_topic(kafka_toolset, test_topic):
 
 def test_tool_error_handling(kafka_toolset):
     tool = DescribeTopic(kafka_toolset)
+    context = create_mock_tool_invoke_context()
     result = tool.invoke({"topic_name": "non_existent_topic"}, context)
 
     assert isinstance(result, str)

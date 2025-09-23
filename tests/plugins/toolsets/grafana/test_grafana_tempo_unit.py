@@ -2,7 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from holmes.core.tools import StructuredToolResultStatus, create_mock_tool_invoke_context
+from holmes.core.tools import (
+    StructuredToolResultStatus,
+    create_mock_tool_invoke_context,
+)
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
@@ -134,13 +137,15 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
         mock_api.query_trace_by_id_v2.return_value = mock_full_trace
 
         # Test with service name filter
+        context = create_mock_tool_invoke_context()
         result = tool.invoke(
             params={
                 "service_name": "frontend",
                 "sample_count": 2,
                 "start": "-3600",
                 "end": "0",
-            }, context=context
+            },
+            context=context,
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -250,6 +255,7 @@ def test_fetch_traces_simple_comparison_with_base_query():
         mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
         custom_query = "span.http.status_code >= 400"
+        context = create_mock_tool_invoke_context()
         result = tool.invoke(params={"base_query": custom_query}, context=context)
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -277,6 +283,7 @@ def test_fetch_traces_simple_comparison_error_handling():
         mock_api_class.return_value = mock_api
         mock_api.search_traces_by_query.side_effect = Exception("API Error")
 
+        context = create_mock_tool_invoke_context()
         result = tool.invoke(params={"service_name": "test-service"}, context=context)
 
         assert result.status == StructuredToolResultStatus.ERROR
@@ -310,6 +317,7 @@ def test_fetch_traces_simple_comparison_percentile_calculations():
         mock_api.search_traces_by_query.return_value = mock_traces
         mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
+        context = create_mock_tool_invoke_context()
         result = tool.invoke(params={"service_name": "test"}, context=context)
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data is not None

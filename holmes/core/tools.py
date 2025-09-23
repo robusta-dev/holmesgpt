@@ -159,6 +159,7 @@ class ToolParameter(BaseModel):
     properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
     items: Optional["ToolParameter"] = None  # For array item schemas
 
+
 class ToolInvokeContext(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -187,13 +188,23 @@ class MockLLM(LLM):
 
     def completion(self, *args, **kwargs):
         # Mock completion that returns a basic response
-        mock_response = type('MockResponse', (), {
-            'choices': [type('Choice', (), {
-                'message': type('Message', (), {
-                    'content': 'Mock response'
-                })()
-            })()]
-        })()
+        mock_response = type(
+            "MockResponse",
+            (),
+            {
+                "choices": [
+                    type(
+                        "Choice",
+                        (),
+                        {
+                            "message": type(
+                                "Message", (), {"content": "Mock response"}
+                            )()
+                        },
+                    )()
+                ]
+            },
+        )()
         return mock_response
 
 
@@ -224,6 +235,7 @@ def create_mock_tool_invoke_context(
         llm=llm,
         max_token_count=max_token_count,
     )
+
 
 class Tool(ABC, BaseModel):
     name: str
