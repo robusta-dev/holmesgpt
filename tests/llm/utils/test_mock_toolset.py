@@ -594,8 +594,9 @@ class TestMockToolsMatching:
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
 
                 # In mock mode, calling with non-matching params should raise MockDataNotFoundError
+                context = create_mock_tool_invoke_context()
                 with pytest.raises(MockDataNotFoundError):
-                    tool_executor.invoke("kubectl_describe", params)
+                    tool_executor.invoke("kubectl_describe", params, context)
 
     def test_mock_tools_generate_mode_does_not_throw(self):
         """Test that generate mode creates mocks when they don't exist."""
