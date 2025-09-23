@@ -289,6 +289,7 @@ class TestMockableToolWrapper:
 
     def test_mock_mode_without_mock_raises_error(self):
         """Test that mock mode raises error when no mock exists."""
+        context = create_mock_tool_invoke_context()
         with tempfile.TemporaryDirectory() as tmpdir:
             tool = self.create_mock_tool()
             file_manager = MockFileManager(tmpdir)
@@ -303,7 +304,7 @@ class TestMockableToolWrapper:
             )
 
             with pytest.raises(MockDataNotFoundError) as exc_info:
-                wrapper.invoke({})
+                wrapper.invoke({}, context)
 
             assert "No mock data found" in str(exc_info.value)
             assert "RUN_LIVE=true" in str(exc_info.value)
@@ -473,7 +474,9 @@ class TestMockToolsMatching:
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
-                result = tool_executor.invoke("kubectl_describe", params)
+
+                context = create_mock_tool_invoke_context()
+                result = tool_executor.invoke("kubectl_describe", params, context)
 
                 # Should return mocked data for exact match
                 assert result.data == "this tool is mocked"
@@ -529,7 +532,8 @@ class TestMockToolsMatching:
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
-                result = tool_executor.invoke("kubectl_describe", params)
+                context = create_mock_tool_invoke_context()
+                result = tool_executor.invoke("kubectl_describe", params, context)
 
                 # Should return mocked data for ANY params when add_params_to_filename=False
                 assert result.data == "this tool is mocked"
@@ -634,8 +638,9 @@ class TestMockToolsMatching:
 
                     try:
                         # In generate mode, this should not throw even without existing mocks
+                        context = create_mock_tool_invoke_context()
                         result = tool_executor.invoke(
-                            "kubectl_describe", {"foo": "bar"}
+                            "kubectl_describe", {"foo": "bar"}, context
                         )
 
                         # Should have called the mocked tool and saved the result
