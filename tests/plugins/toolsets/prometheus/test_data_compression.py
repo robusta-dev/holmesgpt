@@ -7,8 +7,8 @@ from holmes.plugins.toolsets.prometheus.data_compression import (
     format_compressed_metrics,
     format_data,
     group_metrics,
-    raw_metric_to_compressed_metric,
-    summarize_metrics,
+    simplify_prometheus_metric_object,
+    compact_metrics,
 )
 from holmes.plugins.toolsets.prometheus.model import PromSeries
 
@@ -413,11 +413,11 @@ class TestPrometheusDataCompression:
 
             raw_metrics = [PromSeries(**metric) for metric in metrics_list_dict]
             metrics = [
-                raw_metric_to_compressed_metric(metric, remove_labels=set())
+                simplify_prometheus_metric_object(metric, remove_labels=set())
                 for metric in raw_metrics
             ]
 
-            formatted_data = summarize_metrics(metrics)
+            formatted_data = compact_metrics(metrics)
 
             ratio = len(formatted_data) / len(json.dumps(data, indent=2))
             # print(formatted_data)

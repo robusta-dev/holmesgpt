@@ -22,8 +22,8 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.prometheus.data_compression import (
-    raw_metric_to_compressed_metric,
-    summarize_metrics,
+    simplify_prometheus_metric_object,
+    compact_metrics,
 )
 from holmes.plugins.toolsets.prometheus.model import PromSeries
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
@@ -1386,13 +1386,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
                                 PromSeries(**metric) for metric in metrics_list_dict
                             ]
                             metrics = [
-                                raw_metric_to_compressed_metric(
+                                simplify_prometheus_metric_object(
                                     metric, remove_labels=set()
                                 )
                                 for metric in raw_metrics
                             ]
 
-                            compressed_data = summarize_metrics(metrics)
+                            compressed_data = compact_metrics(metrics)
                             response_data["raw_data"] = result_data
                             original_size = len(json.dumps(result_data))
                             compressed_size = len(json.dumps(compressed_data))

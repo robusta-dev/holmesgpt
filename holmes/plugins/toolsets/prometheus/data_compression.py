@@ -16,6 +16,9 @@ class Group(BaseModel):
     metrics: Sequence[Union["Group", CompressedMetric]]
 
 
+INDENT_SPACES = "  "
+
+
 def format_labels(
     labels: set[tuple[str, Any]], section_name: str, line_prefix: str = ""
 ) -> list[str]:
@@ -36,9 +39,6 @@ def format_labels(
     else:
         raise Exception("No label")
     return lines
-
-
-INDENT_SPACES = "  "
 
 
 def format_data(data: Union[Group, CompressedMetric], line_prefix: str = "") -> str:
@@ -84,7 +84,8 @@ def format_zero_values_data(
 ) -> str:
     lines = []
     if isinstance(data, CompressedMetric):
-        lines.extend(format_labels(labels=data.labels, section_name=""))
+        if data.labels:
+            lines.extend(format_labels(labels=data.labels, section_name=""))
         txt = "\n".join([line_prefix + line for line in lines])
         return txt
 
@@ -133,9 +134,7 @@ def format_zero_values_data(
 
 
 def format_zero_values_metrics(metrics: list[Union[Group, CompressedMetric]]) -> str:
-    formatted_string = (
-        "# Metrics with the following hierarchised labels have NO DATA:\n"
-    )
+    formatted_string = "# Metrics with the following hierarchised labels have all values set to ZERO:\n"
     for metric in metrics:
         formatted_string += (
             format_zero_values_data(metric, line_prefix=INDENT_SPACES) + "\n"
@@ -155,7 +154,7 @@ def format_compressed_metrics(metrics: list[Union[Group, CompressedMetric]]) -> 
     return formatted_string
 
 
-def raw_metric_to_compressed_metric(
+def simplify_prometheus_metric_object(
     raw_metric: PromSeries, remove_labels: set[tuple[str, Any]]
 ) -> CompressedMetric:
     labels: set[tuple[str, Any]] = set()
@@ -287,7 +286,7 @@ def set_default(obj):
     raise TypeError
 
 
-def summarize_metrics(metrics_to_process: list[CompressedMetric]) -> str:
+def compact_metrics(metrics_to_process: list[CompressedMetric]) -> str:
     summarized_text = ""
     filtered_metrics = pre_filter_metrics(metrics=metrics_to_process)
     if (
