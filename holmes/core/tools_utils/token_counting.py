@@ -7,7 +7,7 @@ def count_tool_response_tokens(
     llm: LLM, structured_tool_result: StructuredToolResult
 ) -> int:
     message = {
-        "role": "assistant",
+        "role": "tool",
         "content": format_tool_result_data(structured_tool_result),
     }
     return llm.count_tokens_for_message([message])
