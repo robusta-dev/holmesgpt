@@ -138,14 +138,16 @@ def feedback_callback_example(feedback: Feedback) -> None:
 
     # How to check user feedback using to_dict()
     print("\n1. Checking User Feedback:")
-    user_feedback_dict = feedback.user_feedback.to_dict()
+    user_feedback_dict = (
+        feedback.user_feedback.to_dict() if feedback.user_feedback else None
+    )
     if user_feedback_dict:
         print(f"   User feedback dict: {user_feedback_dict}")
         print(f"   Is positive: {user_feedback_dict['is_positive']}")
         print(f"   Comment: {user_feedback_dict['comment'] or 'None'}")
         # You can also access properties through the object:
-        print(f"   Rating emoji: {feedback.user_feedback.rating_emoji}")
-        print(f"   Rating text: {feedback.user_feedback.rating_text}")
+        print(f"   Rating emoji: {feedback.user_feedback.rating_emoji}")  # type: ignore
+        print(f"   Rating text: {feedback.user_feedback.rating_text}")  # type: ignore
     else:
         print("   No user feedback provided (user_feedback is None)")
 
