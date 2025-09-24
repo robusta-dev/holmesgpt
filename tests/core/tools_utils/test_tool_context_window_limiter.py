@@ -49,7 +49,6 @@ class TestPreventOverlyBigToolResponse:
             assert success_tool_call_result.result.status == original_status
             assert success_tool_call_result.result.data == original_data
             assert success_tool_call_result.result.error == original_error
-            mock_llm.count_tokens_for_message.assert_not_called()
 
     def test_negative_limit_configured(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is negative."""
@@ -67,7 +66,6 @@ class TestPreventOverlyBigToolResponse:
             assert success_tool_call_result.result.status == original_status
             assert success_tool_call_result.result.data == original_data
             assert success_tool_call_result.result.error == original_error
-            mock_llm.count_tokens_for_message.assert_not_called()
 
     def test_over_100_percent_limit(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is over 100."""
@@ -85,7 +83,6 @@ class TestPreventOverlyBigToolResponse:
             assert success_tool_call_result.result.status == original_status
             assert success_tool_call_result.result.data == original_data
             assert success_tool_call_result.result.error == original_error
-            mock_llm.count_tokens_for_message.assert_not_called()
 
     def test_within_token_limit(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when tool result is within token limit."""
@@ -107,7 +104,6 @@ class TestPreventOverlyBigToolResponse:
             assert success_tool_call_result.result.status == original_status
             assert success_tool_call_result.result.data == original_data
             assert success_tool_call_result.result.error == original_error
-            mock_llm.count_tokens_for_message.assert_called_once()
 
     def test_exceeds_token_limit(self, mock_llm, success_tool_call_result):
         """Test that function modifies result when tool result exceeds token limit."""
@@ -133,7 +129,6 @@ class TestPreventOverlyBigToolResponse:
             assert (
                 "31.7" in success_tool_call_result.result.error
             )  # (3000-2048)/3000 * 100
-            mock_llm.count_tokens_for_message.assert_called_once()
 
     def test_token_calculation_accuracy(self, mock_llm, success_tool_call_result):
         """Test that token calculations are accurate."""
@@ -166,7 +161,6 @@ class TestPreventOverlyBigToolResponse:
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
 
             # Verify that count_tokens_for_message was called with a list containing one message
-            mock_llm.count_tokens_for_message.assert_called_once()
             call_args = mock_llm.count_tokens_for_message.call_args
             assert (
                 len(call_args[1]["messages"]) == 1

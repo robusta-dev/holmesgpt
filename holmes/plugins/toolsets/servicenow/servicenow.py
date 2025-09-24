@@ -5,6 +5,7 @@ from typing import Any, Dict, Tuple, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -115,9 +116,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
         start = params.get("start", "last hour")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Requests ({start})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         parsed_params = {}
         try:
             (start, _) = process_timestamps_to_rfc3339(
@@ -160,9 +159,7 @@ class ReturnChange(ServiceNowBaseTool):
         sys_id = params.get("sys_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Details ({sys_id})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = "https://{instance}.service-now.com/api/now/v2/table/change_request/{sys_id}".format(
                 instance=self.toolset.config.get("instance"),
@@ -194,9 +191,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
         keyword = params.get("keyword", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Changes ({keyword})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         parsed_params = {}
         try:
             url = f"https://{self.toolset.config.get('instance')}.service-now.com/api/now/v2/table/change_request"

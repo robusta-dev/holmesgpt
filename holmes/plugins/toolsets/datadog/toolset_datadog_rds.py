@@ -9,6 +9,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -92,9 +93,7 @@ class GenerateRDSPerformanceReport(BaseDatadogRDSTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -392,9 +391,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,

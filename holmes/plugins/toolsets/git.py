@@ -4,7 +4,11 @@ import requests  # type: ignore
 import os
 from typing import Any, Optional, Dict, List, Tuple
 from pydantic import BaseModel
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    ToolInvokeContext,
+)
 
 from holmes.core.tools import (
     Toolset,
@@ -250,7 +254,9 @@ class GitReadFileWithLineNumbers(Tool):
         )
 
     def _invoke(
-        self, params: dict, user_approved: bool = False
+        self,
+        params: dict,
+        context: ToolInvokeContext,
     ) -> StructuredToolResult:
         filepath = params["filepath"]
         try:
@@ -296,7 +302,9 @@ class GitListFiles(Tool):
         )
 
     def _invoke(
-        self, params: dict, user_approved: bool = False
+        self,
+        params: dict,
+        context: ToolInvokeContext,
     ) -> StructuredToolResult:
         try:
             headers = {"Authorization": f"token {self.toolset.git_credentials}"}
@@ -338,9 +346,7 @@ class GitListOpenPRs(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             prs = self.toolset.list_open_prs()
             formatted = [
@@ -408,9 +414,7 @@ class GitExecuteChanges(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         def error(msg: str) -> StructuredToolResult:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -628,9 +632,7 @@ class GitUpdatePR(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             line = params["line"]
             filename = params["filename"]

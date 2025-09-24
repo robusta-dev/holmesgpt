@@ -7,6 +7,7 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
     DatadogGeneralToolset,
     is_endpoint_allowed,
 )
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestEndpointValidation:
@@ -127,7 +128,7 @@ class TestDatadogGeneralToolset:
         list_tool = toolset.tools[2]  # ListDatadogAPIResources
 
         # Test listing all resources
-        result = list_tool._invoke({})
+        result = list_tool._invoke({}, context=create_mock_tool_invoke_context())
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert "monitor" in result.data.lower()
         assert "dashboard" in result.data.lower()
@@ -157,7 +158,8 @@ class TestDatadogGeneralToolset:
                 "endpoint": "/api/v1/monitor",
                 "query_params": {"limit": 10},
                 "description": "List monitors",
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -165,7 +167,8 @@ class TestDatadogGeneralToolset:
 
         # Test blocked endpoint
         result = get_tool._invoke(
-            {"endpoint": "/api/v1/monitor/create", "description": "Create monitor"}
+            {"endpoint": "/api/v1/monitor/create", "description": "Create monitor"},
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.ERROR

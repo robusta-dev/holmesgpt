@@ -16,6 +16,7 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
 )
 from holmes.plugins.toolsets.datadog.datadog_api import DataDogRequestError
 from holmes.core.tools import StructuredToolResultStatus
+from tests.conftest import create_mock_tool_invoke_context
 
 
 @pytest.fixture
@@ -140,7 +141,7 @@ def test_generate_performance_report_success(mock_execute, datadog_rds_toolset):
         "start_time": "-3600",
     }
 
-    result = tool._invoke(params)
+    result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
     assert result.status == StructuredToolResultStatus.SUCCESS
     assert isinstance(result.data, str)
@@ -223,7 +224,8 @@ def test_generate_performance_report_with_issues(mock_execute, datadog_rds_tools
         if t.name == "datadog_rds_performance_report"
     )
     result = tool._invoke(
-        {"db_instance_identifier": "test-instance", "start_time": "-3600"}
+        {"db_instance_identifier": "test-instance", "start_time": "-3600"},
+        context=create_mock_tool_invoke_context(),
     )
 
     assert result.status == StructuredToolResultStatus.SUCCESS
@@ -316,7 +318,7 @@ def test_get_top_worst_performing_instances(mock_execute, datadog_rds_toolset):
         "sort_by": "latency",
     }
 
-    result = tool._invoke(params)
+    result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
     assert result.status == StructuredToolResultStatus.SUCCESS
     assert isinstance(result.data, str)
@@ -393,7 +395,10 @@ def test_top_worst_performing_sort_by_cpu(mock_execute, datadog_rds_toolset):
         for t in datadog_rds_toolset.tools
         if t.name == "datadog_rds_top_worst_performing"
     )
-    result = tool._invoke({"top_n": 10, "start_time": "-3600", "sort_by": "cpu"})
+    result = tool._invoke(
+        {"top_n": 10, "start_time": "-3600", "sort_by": "cpu"},
+        context=create_mock_tool_invoke_context(),
+    )
 
     assert result.status == StructuredToolResultStatus.SUCCESS
     report = result.data
@@ -428,7 +433,9 @@ def test_no_instances_found(mock_execute, datadog_rds_toolset):
         for t in datadog_rds_toolset.tools
         if t.name == "datadog_rds_top_worst_performing"
     )
-    result = tool._invoke({"top_n": 5, "start_time": "-3600"})
+    result = tool._invoke(
+        {"top_n": 5, "start_time": "-3600"}, context=create_mock_tool_invoke_context()
+    )
 
     assert result.status == StructuredToolResultStatus.NO_DATA
     assert "No RDS instances found" in result.data
@@ -453,7 +460,8 @@ def test_api_error_handling(mock_execute, datadog_rds_toolset):
         if t.name == "datadog_rds_performance_report"
     )
     result = tool._invoke(
-        {"db_instance_identifier": "test-instance", "start_time": "-3600"}
+        {"db_instance_identifier": "test-instance", "start_time": "-3600"},
+        context=create_mock_tool_invoke_context(),
     )
 
     # The tool should succeed but with no metrics collected due to API errors
@@ -479,7 +487,9 @@ def test_missing_required_parameter(datadog_rds_toolset):
     )
 
     # Missing db_instance_identifier
-    result = tool._invoke({"start_time": "-3600"})
+    result = tool._invoke(
+        {"start_time": "-3600"}, context=create_mock_tool_invoke_context()
+    )
 
     assert result.status == StructuredToolResultStatus.ERROR
     assert "db_instance_identifier" in result.error
@@ -572,7 +582,8 @@ def test_performance_report_formatting(datadog_rds_toolset):
             if t.name == "datadog_rds_performance_report"
         )
         result = tool._invoke(
-            {"db_instance_identifier": "test-db", "start_time": "-300"}
+            {"db_instance_identifier": "test-db", "start_time": "-300"},
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -619,7 +630,10 @@ def test_top_worst_performing_no_metrics(datadog_rds_toolset):
             for t in datadog_rds_toolset.tools
             if t.name == "datadog_rds_top_worst_performing"
         )
-        result = tool._invoke({"top_n": 5, "start_time": "-3600"})
+        result = tool._invoke(
+            {"top_n": 5, "start_time": "-3600"},
+            context=create_mock_tool_invoke_context(),
+        )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         report = result.data

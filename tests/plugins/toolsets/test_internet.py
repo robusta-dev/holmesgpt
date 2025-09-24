@@ -7,6 +7,7 @@ import pytest
 from pydantic import BaseModel
 
 from holmes.core.tools import ToolsetStatusEnum
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.internet.internet import InternetToolset, html_to_markdown
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
@@ -123,7 +124,8 @@ def test_fetch_webpage(responses):
     tool_executor = ToolExecutor(toolsets=[toolset])
     fetch_webpage_tool = tool_executor.get_tool_by_name("fetch_webpage")
     assert fetch_webpage_tool
-    actual_output = fetch_webpage_tool.invoke({"url": TEST_URL})
+    context = create_mock_tool_invoke_context()
+    actual_output = fetch_webpage_tool.invoke({"url": TEST_URL}, context)
     print(actual_output.data)
     assert actual_output.data
     assert actual_output.data.strip() == EXPECTED_TEST_RESULT

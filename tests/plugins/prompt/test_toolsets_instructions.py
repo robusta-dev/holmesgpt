@@ -5,6 +5,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     StructuredToolResultStatus,
+    ToolInvokeContext,
     Toolset,
 )
 
@@ -15,9 +16,7 @@ class DummyTool(Tool):
     def __init__(self):
         super().__init__(name="dummy_tool_name", description="tool description")
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         return StructuredToolResult(status=StructuredToolResultStatus.SUCCESS, data="")
 
     def get_parameterized_one_liner(self, params: Dict) -> str:

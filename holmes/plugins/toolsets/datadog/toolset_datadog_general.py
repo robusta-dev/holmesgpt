@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     StructuredToolResult,
@@ -399,9 +400,7 @@ class DatadogAPIGet(BaseDatadogGeneralTool):
         description = params.get("description", "API call")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         """Execute the GET request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIGet Tool Invocation:")
@@ -567,9 +566,7 @@ class DatadogAPIPostSearch(BaseDatadogGeneralTool):
         description = params.get("description", "Search")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: {description}"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         """Execute the POST search request."""
         logging.info("=" * 60)
         logging.info("DatadogAPIPostSearch Tool Invocation:")
@@ -699,9 +696,7 @@ class ListDatadogAPIResources(BaseDatadogGeneralTool):
         search = params.get("search_regex", "all")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: List API Resources (search: {search})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         """List available API resources."""
         search_regex = params.get("search_regex", "")
 

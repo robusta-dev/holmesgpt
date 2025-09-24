@@ -1,17 +1,21 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
+from math import ceil
 from typing import Optional, Set
 from enum import Enum
 
 from pydantic import BaseModel, field_validator
 from datetime import timezone
+from holmes.core.llm import LLM
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
 )
+from holmes.core.tools_utils.token_counting import count_tool_response_tokens
 from holmes.plugins.toolsets.utils import get_param_or_raise
 
 # Default values for log fetching
@@ -72,6 +76,57 @@ class BasePodLoggingToolset(Toolset, ABC):
 
     def logger_name(self) -> str:
         return ""
+
+
+# Approximate number of character per LLM token.
+# There is less chances the auto-truncation will remove too many characters if this number is optimistic (i.e. lower than actual) rather than pessimistic
+APPROXIMATE_CHAR_TO_TOKEN_RATIO = 4
+
+TRUNCATION_PROMPT_PREFIX = "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]\n"
+MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE: int = (
+    50 + len(TRUNCATION_PROMPT_PREFIX)
+)  # prevents the truncation algorithm from going too slow once the actual token count gets close to the expected limit
+
+
+def truncate_logs(
+    logging_structured_tool_result: StructuredToolResult, llm: LLM, token_limit: int
+):
+    token_count = count_tool_response_tokens(
+        llm=llm, structured_tool_result=logging_structured_tool_result
+    )
+    text = None
+    while token_count > token_limit:
+        # Loop because we are counting tokens but trimming characters. This means we try to trim a number of
+        # characters proportional to the number of tokens but we may still have too many tokens
+        if not text:
+            text = logging_structured_tool_result.get_stringified_data()
+        if not text:
+            # Weird scenario where the result exceeds the token allowance but there is not data.
+            # Exit and do nothing because I don't know how to handle such scenario.
+            logging.warning(
+                f"The calculated token count for logs is {token_count} but the limit is {token_limit}. However the data field is empty so there are no logs to truncate."
+            )
+            return
+        ratio = token_count / token_limit
+        character_count = len(text)
+        number_of_characters_to_truncate = character_count - ceil(
+            character_count / ratio
+        )
+        number_of_characters_to_truncate = max(
+            MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE, number_of_characters_to_truncate
+        )
+
+        if len(text) <= number_of_characters_to_truncate:
+            logging.warning(
+                f"The calculated token count for logs is {token_count} (max allowed tokens={token_limit}) but the logs are only {len(text)} characters which is below the intended truncation of {number_of_characters_to_truncate} characters. Logs will no longer be truncated"
+            )
+            return
+        else:
+            text = TRUNCATION_PROMPT_PREFIX + text[number_of_characters_to_truncate:]
+            logging_structured_tool_result.data = text
+            token_count = count_tool_response_tokens(
+                llm=llm, structured_tool_result=logging_structured_tool_result
+            )
 
 
 class PodLoggingTool(Tool):
@@ -175,9 +230,7 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         return params
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         structured_params = FetchPodLogsParams(
             namespace=get_param_or_raise(params, "namespace"),
             pod_name=get_param_or_raise(params, "pod_name"),
@@ -190,6 +243,12 @@ If you hit the log limit and see lots of repetitive INFO logs, use exclude_filte
 
         result = self._toolset.fetch_pod_logs(
             params=structured_params,
+        )
+
+        truncate_logs(
+            logging_structured_tool_result=result,
+            llm=context.llm,
+            token_limit=context.max_token_count,
         )
 
         return result

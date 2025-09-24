@@ -6,6 +6,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -75,9 +76,7 @@ class ListActiveMetrics(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -237,9 +236,7 @@ class QueryMetrics(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -433,9 +430,7 @@ class QueryMetricsMetadata(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -549,9 +544,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.dd_config:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,

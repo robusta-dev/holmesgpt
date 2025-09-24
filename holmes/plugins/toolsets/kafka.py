@@ -27,6 +27,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -153,9 +154,7 @@ class ListKafkaConsumers(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
@@ -228,9 +227,7 @@ class DescribeConsumerGroup(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         group_id = params["group_id"]
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
@@ -286,9 +283,7 @@ class ListTopics(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
             client = self.get_kafka_client(kafka_cluster_name)
@@ -344,9 +339,7 @@ class DescribeTopic(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         topic_name = params["topic_name"]
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
@@ -469,9 +462,7 @@ class FindConsumerGroupsByTopic(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         topic_name = params["topic_name"]
         try:
             kafka_cluster_name = get_param_or_raise(params, "kafka_cluster_name")
@@ -559,9 +550,7 @@ class ListKafkaClusters(BaseKafkaTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         cluster_names = list(self.toolset.clients.keys())
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,

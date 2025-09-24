@@ -8,6 +8,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -93,9 +94,7 @@ class ListShards(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         shards = client.client.cat.shards()
         return StructuredToolResult(
@@ -124,9 +123,7 @@ class GetClusterSettings(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host"))
         response = client.client.cluster.get_settings(
             include_defaults=True, flat_settings=True
@@ -157,9 +154,7 @@ class GetClusterHealth(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         health = client.client.cluster.health()
         return StructuredToolResult(
@@ -182,9 +177,7 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         hosts = [host for client in self.toolset.clients for host in client.hosts]
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,

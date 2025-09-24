@@ -5,6 +5,7 @@ from typing import Any, Dict
 from uuid import uuid4
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
+    ToolInvokeContext,
     Toolset,
     ToolsetTag,
     ToolParameter,
@@ -74,9 +75,7 @@ class TodoWriteTool(Tool):
 
         logging.info(separator)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 

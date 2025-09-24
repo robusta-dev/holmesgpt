@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from holmes.core.tools import (
     StructuredToolResult,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
 )
@@ -253,9 +254,7 @@ class AnalyzeDatabaseStorage(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             hours_back = params.get("hours_back", 24)
             top_tables = params.get("top_tables", 20)

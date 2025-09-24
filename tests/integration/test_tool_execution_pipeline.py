@@ -11,10 +11,12 @@ import time
 
 from holmes.core.tools import (
     Tool,
+    ToolInvokeContext,
     YAMLTool,
     StructuredToolResult,
     StructuredToolResultStatus,
 )
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.core.transformers import (
     registry,
     BaseTransformer,
@@ -85,7 +87,8 @@ class TestToolExecutionPipelineIntegration:
             ],
         )
 
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         # Should have executed successfully
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -105,7 +108,7 @@ class TestToolExecutionPipelineIntegration:
             """Simulates a tool that reads large log files."""
 
             def _invoke(
-                self, params: Dict, user_approved: bool = False
+                self, params: Dict, context: ToolInvokeContext
             ) -> StructuredToolResult:
                 # Simulate reading a large log file
                 log_entries = [
@@ -137,7 +140,8 @@ class TestToolExecutionPipelineIntegration:
             ],
         )
 
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         # Should have executed successfully
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -190,7 +194,8 @@ class TestToolExecutionPipelineIntegration:
             )
 
             with patch("holmes.core.tools.logger") as mock_logging:
-                result = tool.invoke({})
+                context = create_mock_tool_invoke_context()
+                result = tool.invoke({}, context)
 
                 # Tool execution should still succeed
                 assert result.status == StructuredToolResultStatus.SUCCESS
@@ -220,7 +225,8 @@ class TestToolExecutionPipelineIntegration:
             ],
         )
 
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         # Should execute successfully
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -255,7 +261,8 @@ class TestToolExecutionPipelineIntegration:
             )
 
             with patch("holmes.core.tools.logger") as mock_logging:
-                result = tool.invoke({})
+                context = create_mock_tool_invoke_context()
+                result = tool.invoke({}, context)
 
                 # Should execute successfully
                 assert result.status == StructuredToolResultStatus.SUCCESS
@@ -309,7 +316,8 @@ redis-cache-abc123                 1/1     Running   0          1d"""
             ],
         )
 
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         # Should execute successfully
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -332,7 +340,8 @@ redis-cache-abc123                 1/1     Running   0          1d"""
         )
 
         # Even if transformer modifies the output, the result structure should be preserved
-        result = tool.invoke({})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke({}, context)
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.invocation is not None  # Debug info preserved

@@ -5,19 +5,24 @@ from holmes.core.models import ToolCallResult
 from holmes.utils import sentry_helper
 
 
-def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM):
+def get_max_token_count_for_single_tool(llm: LLM) -> int:
+    context_window_size = llm.get_context_window_size()
+
     if (
-        tool_call_result.result.status == StructuredToolResultStatus.SUCCESS
-        and 0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+        0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
         and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
     ):
-        message = tool_call_result.as_tool_call_message()
+        return int(context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100)
+    else:
+        return context_window_size
 
+
+def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM):
+    if tool_call_result.result.status == StructuredToolResultStatus.SUCCESS:
+        max_tokens_allowed = get_max_token_count_for_single_tool(llm)
+
+        message = tool_call_result.as_tool_call_message()
         messages_token = llm.count_tokens_for_message(messages=[message])
-        context_window_size = llm.get_context_window_size()
-        max_tokens_allowed: int = int(
-            context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
-        )
 
         if messages_token > max_tokens_allowed:
             relative_pct = (

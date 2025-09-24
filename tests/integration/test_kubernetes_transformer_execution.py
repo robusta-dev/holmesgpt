@@ -7,7 +7,10 @@ import os
 from unittest.mock import patch
 
 from holmes.plugins.toolsets import load_toolsets_from_file
-from holmes.core.tools import StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResultStatus,
+)
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.core.transformers import registry
 from holmes.core.transformers.base import BaseTransformer
 
@@ -160,8 +163,10 @@ Events:
             mock_subprocess.return_value = (large_output, 0)
 
             # Execute the tool
+            context = create_mock_tool_invoke_context()
             result = kubectl_describe.invoke(
-                {"kind": "pod", "name": "test-pod-12345", "namespace": "default"}
+                {"kind": "pod", "name": "test-pod-12345", "namespace": "default"},
+                context,
             )
 
             # Should have applied transformation
@@ -197,8 +202,9 @@ Events:
             mock_subprocess.return_value = (small_output, 0)
 
             # Execute the tool
+            context = create_mock_tool_invoke_context()
             result = kubectl_describe.invoke(
-                {"kind": "pod", "name": "test-pod", "namespace": "default"}
+                {"kind": "pod", "name": "test-pod", "namespace": "default"}, context
             )
 
             # Should NOT have applied transformation
@@ -254,8 +260,9 @@ Events:
             mock_subprocess.return_value = (large_log_output, 0)
 
             # Execute the tool
+            context = create_mock_tool_invoke_context()
             result = kubectl_logs.invoke(
-                {"pod_name": "test-app-12345", "namespace": "default"}
+                {"pod_name": "test-app-12345", "namespace": "default"}, context
             )
 
             # Should have applied transformation
@@ -306,7 +313,8 @@ monitoring    prometheus-server-xyz                  1/1     Running   0        
             mock_subprocess.return_value = (large_get_output, 0)
 
             # Execute the tool
-            result = kubectl_get_cluster.invoke({"kind": "pods"})
+            context = create_mock_tool_invoke_context()
+            result = kubectl_get_cluster.invoke({"kind": "pods"}, context)
 
             # Should have applied transformation
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -369,7 +377,8 @@ toolsets:
 
                     # Execute with logging to catch transformer failure
                     with patch("holmes.core.tools.logger") as mock_logging:
-                        result = tool.invoke({})
+                        context = create_mock_tool_invoke_context()
+                        result = tool.invoke({}, context)
 
                         # Should return original output when transformer fails
                         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -411,8 +420,9 @@ toolsets:
             mock_subprocess.return_value = (error_output, 1)
 
             # Execute the tool
+            context = create_mock_tool_invoke_context()
             result = kubectl_describe.invoke(
-                {"kind": "pod", "name": "nonexistent", "namespace": "default"}
+                {"kind": "pod", "name": "nonexistent", "namespace": "default"}, context
             )
 
             # Should NOT have applied transformation due to error status
@@ -482,7 +492,8 @@ toolsets:
                     mock_subprocess.return_value = (test_output, 0)
 
                     # Execute the tool
-                    result = tool.invoke({})
+                    context = create_mock_tool_invoke_context()
+                    result = tool.invoke({}, context)
 
                     # Should have applied both transformers in sequence
                     assert result.status == StructuredToolResultStatus.SUCCESS
@@ -568,7 +579,8 @@ toolsets:
 
                 # Execute with logging to capture performance metrics
                 with patch("holmes.core.tools.logger") as mock_logging:
-                    tool.invoke({})
+                    context = create_mock_tool_invoke_context()
+                    tool.invoke({}, context)
 
                     # Should have logged transformer application with metrics
                     info_calls = [

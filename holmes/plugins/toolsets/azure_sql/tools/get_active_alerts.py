@@ -2,7 +2,11 @@ import logging
 from typing import Dict
 from datetime import datetime, timezone
 
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    ToolInvokeContext,
+)
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLTool,
     BaseAzureSQLToolset,
@@ -147,9 +151,7 @@ class GetActiveAlerts(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             db_config = self.toolset.database_config()
             api_client = self.toolset.api_client()

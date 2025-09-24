@@ -3,6 +3,7 @@ from typing import Dict, List, Tuple
 
 from holmes.core.tools import (
     StructuredToolResult,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
 )
@@ -119,9 +120,7 @@ class GetTopDataIOQueries(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             top_count = params.get("top_count", 15)
             hours_back = params.get("hours_back", 2)
