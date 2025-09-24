@@ -107,7 +107,7 @@ class MockLLM(LLM):
 def create_mock_tool_invoke_context(
     tool_number: Optional[int] = None,
     user_approved: bool = False,
-    max_token_count: Optional[int] = None,
+    max_token_count: int = 128000,
     llm: Optional[LLM] = None,
 ) -> ToolInvokeContext:
     """
