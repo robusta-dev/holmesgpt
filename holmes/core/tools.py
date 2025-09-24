@@ -166,7 +166,7 @@ class ToolInvokeContext(BaseModel):
     tool_number: Optional[int] = None
     user_approved: bool = False
     llm: LLM
-    max_token_count: Optional[int] = None
+    max_token_count: int
 
 
 class Tool(ABC, BaseModel):

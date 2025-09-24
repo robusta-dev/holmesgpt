@@ -28,17 +28,11 @@ class ToolCallResult(BaseModel):
     size: Optional[int] = None
 
     def as_tool_call_message(self):
-        content = format_tool_result_data(self.result)
-        if self.result.params:
-            content = (
-                f"Params used for the tool call: {json.dumps(self.result.params)}. The tool call output follows on the next line.\n"
-                + content
-            )
         return {
             "tool_call_id": self.tool_call_id,
             "role": "tool",
             "name": self.tool_name,
-            "content": content,
+            "content": format_tool_result_data(self.result),
         }
 
     def as_tool_result_response(self):
@@ -65,7 +59,6 @@ class ToolCallResult(BaseModel):
             "result": result_dump,
         }
 
-
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
     if isinstance(tool_result.data, str):
@@ -80,6 +73,12 @@ def format_tool_result_data(tool_result: StructuredToolResult) -> str:
             tool_response = str(tool_result.data)
     if tool_result.status == StructuredToolResultStatus.ERROR:
         tool_response = f"{tool_result.error or 'Tool execution failed'}:\n\n{tool_result.data or ''}".strip()
+    
+    if tool_result.params:
+        tool_response = (
+            f"Params used for the tool call: {json.dumps(tool_result.params)}. The tool call output follows on the next line.\n"
+            + tool_response
+        )
     return tool_response
 
 
