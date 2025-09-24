@@ -1,20 +1,21 @@
 import os
+import shutil
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
 from rich.console import Console
 
-from holmes.interactive import (
-    run_interactive_loop,
-    SlashCommandCompleter,
-    SlashCommands,
-    handle_feedback_command,
-    Feedback,
-    UserFeedback,
-)
 from holmes.core.feedback import FeedbackMetadata
 from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.interactive import (
+    Feedback,
+    SlashCommandCompleter,
+    SlashCommands,
+    UserFeedback,
+    handle_feedback_command,
+    run_interactive_loop,
+)
 from tests.mocks.toolset_mocks import SampleToolset
 
 
@@ -72,14 +73,15 @@ class TestHandleFeedbackCommand(unittest.TestCase):
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_positive(self, mock_prompt_session_class):
         """Test feedback command with positive rating."""
-        mock_session = Mock()
-        mock_prompt_session_class.return_value = mock_session
-        mock_session.prompt.side_effect = ["y", "Great response!"]
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "y",
+            "Great response!",
+        ]
 
         console = Mock()
         style = Mock()
 
-        result = handle_feedback_command(mock_session, style, console)
+        result = handle_feedback_command(style, console)
 
         self.assertIsInstance(result, UserFeedback)
         self.assertTrue(result.is_positive)
@@ -88,14 +90,15 @@ class TestHandleFeedbackCommand(unittest.TestCase):
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_negative(self, mock_prompt_session_class):
         """Test feedback command with negative rating."""
-        mock_session = Mock()
-        mock_prompt_session_class.return_value = mock_session
-        mock_session.prompt.side_effect = ["n", "Could be better"]
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "n",
+            "Could be better",
+        ]
 
         console = Mock()
         style = Mock()
 
-        result = handle_feedback_command(mock_session, style, console)
+        result = handle_feedback_command(style, console)
 
         self.assertIsInstance(result, UserFeedback)
         self.assertFalse(result.is_positive)
@@ -104,18 +107,37 @@ class TestHandleFeedbackCommand(unittest.TestCase):
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_no_comment(self, mock_prompt_session_class):
         """Test feedback command without comment."""
-        mock_session = Mock()
-        mock_prompt_session_class.return_value = mock_session
-        mock_session.prompt.side_effect = ["y", ""]
+        mock_prompt_session_class.return_value.prompt.side_effect = ["y", ""]
 
         console = Mock()
         style = Mock()
 
-        result = handle_feedback_command(mock_session, style, console)
+        result = handle_feedback_command(style, console)
 
         self.assertIsInstance(result, UserFeedback)
         self.assertTrue(result.is_positive)
         self.assertIsNone(result.comment)
+
+    @patch("holmes.interactive.PromptSession")
+    def test_handle_feedback_command_invalid_then_valid_rating(
+        self, mock_prompt_session_class
+    ):
+        """Test feedback command with invalid rating first, then valid."""
+        mock_prompt_session_class.return_value.prompt.side_effect = ["x", "y", ""]
+
+        console = Mock()
+        style = Mock()
+
+        result = handle_feedback_command(style, console)
+
+        self.assertIsInstance(result, UserFeedback)
+        self.assertTrue(result.is_positive)
+        self.assertIsNone(result.comment)
+
+        # Verify error message was printed
+        console.print.assert_called_with(
+            "[bold green]✓ Feedback recorded (rating=👍, no comment)[/bold green]"
+        )
 
 
 class TestRunInteractiveLoop(unittest.TestCase):
@@ -143,7 +165,6 @@ class TestRunInteractiveLoop(unittest.TestCase):
 
     def tearDown(self):
         """Clean up test fixtures."""
-        import shutil
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
@@ -617,9 +638,7 @@ class TestRunInteractiveLoop(unittest.TestCase):
             "holmes.interactive.PromptSession"
         ) as mock_prompt_session_class, patch(
             "holmes.interactive.build_initial_ask_messages"
-        ), patch(
-            "holmes.interactive.config_path_dir", return_value=tempfile.gettempdir()
-        ):
+        ), patch("holmes.interactive.config_path_dir", new=tempfile.gettempdir()):
             mock_session = Mock()
             mock_prompt_session_class.return_value = mock_session
             mock_session.prompt.side_effect = ["/help", "/exit"]

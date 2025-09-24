@@ -29,8 +29,8 @@ from rich.markdown import Markdown, Panel
 
 from holmes.common.env_vars import ENABLE_CLI_TOOL_APPROVAL
 from holmes.core.config import config_path_dir
+from holmes.core.feedback import Feedback, FeedbackCallback, UserFeedback
 from holmes.core.prompt import build_initial_ask_messages
-from holmes.core.feedback import UserFeedback, Feedback, FeedbackCallback
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
@@ -819,7 +819,6 @@ def handle_last_command(
 
 
 def handle_feedback_command(
-    session: PromptSession,
     style: Style,
     console: Console,
 ) -> UserFeedback:
@@ -1141,7 +1140,7 @@ def run_interactive_loop(
                     command == SlashCommands.FEEDBACK.command
                     and feedback_callback is not None
                 ):
-                    user_feedback = handle_feedback_command(session, style, console)
+                    user_feedback = handle_feedback_command(style, console)
                     feedback.user_feedback = user_feedback
                     feedback_callback(feedback)
                     return
