@@ -1,14 +1,19 @@
 """Tests for the logging API, specifically the PodLoggingTool behavior."""
 
+import os
 from unittest.mock import MagicMock
+
+import pytest
 
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
     BasePodLoggingToolset,
     FetchPodLogsParams,
     LoggingCapability,
+    truncate_logs,
 )
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.llm import DefaultLLM
 from tests.conftest import create_mock_tool_invoke_context
 
 
@@ -180,3 +185,39 @@ class TestPodLoggingTool:
         assert actual_params.filter == "error|warning"
         assert actual_params.exclude_filter == "health"
         assert actual_params.limit == 50
+
+
+class TestTruncateLogs:
+    """Test truncate_logs function behavior."""
+
+    def test_truncate_logs_nominal_scenario(self):
+        """Test that truncate_logs correctly truncates logs when they exceed the token limit."""
+        # Create a mock LLM that simulates token counting
+
+        model = os.environ.get("MODEL")
+        if not model:
+            pytest.skip("Missing MODEL env var.")
+        llm = DefaultLLM(model=model)
+
+        log_data = "ERROR: Database connection failed\n" * 2000  # Long log data
+
+        structured_result = StructuredToolResult(
+            data=log_data, status=StructuredToolResultStatus.SUCCESS
+        )
+
+        token_limit = 1000
+
+        truncate_logs(
+            logging_structured_tool_result=structured_result,
+            llm=llm,
+            token_limit=token_limit,
+        )
+
+        truncated_log_data = str(structured_result.data)
+
+        assert truncated_log_data.startswith(
+            "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]\n"
+        )
+
+        assert len(truncated_log_data) < len(log_data)
+        assert "ERROR: Database connection failed" in truncated_log_data
