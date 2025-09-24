@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from holmes.core.tools_utils.token_counting import count_tool_response_tokens
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
     BasePodLoggingToolset,
@@ -220,4 +221,14 @@ class TestTruncateLogs:
         )
 
         assert len(truncated_log_data) < len(log_data)
+
         assert "ERROR: Database connection failed" in truncated_log_data
+
+        truncated_token_count = count_tool_response_tokens(
+            structured_tool_result=structured_result, llm=llm
+        )
+        assert truncated_token_count < token_limit
+
+        # Expect the final token count to be within N% of the limit
+        expected_token_count_lower_limit = token_limit * 0.95
+        assert expected_token_count_lower_limit < truncated_token_count

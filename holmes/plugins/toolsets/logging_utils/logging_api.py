@@ -83,7 +83,9 @@ class BasePodLoggingToolset(Toolset, ABC):
 APPROXIMATE_CHAR_TO_TOKEN_RATIO = 4
 
 TRUNCATION_PROMPT_PREFIX = "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]\n"
-MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE: int = 100  # prevents the truncation algorithm from going too slow once the actual token count gets close to the expected limit
+MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE: int = (
+    50 + len(TRUNCATION_PROMPT_PREFIX)
+)  # prevents the truncation algorithm from going too slow once the actual token count gets close to the expected limit
 
 
 def truncate_logs(
@@ -105,14 +107,10 @@ def truncate_logs(
                 f"The calculated token count for logs is {token_count} but the limit is {token_limit}. However the data field is empty so there are no logs to truncate."
             )
             return
-        overflow = token_count - token_limit
-        percent_tokens_to_trim = token_limit / overflow
-
+        ratio = token_count / token_limit
         character_count = len(text)
-        number_of_characters_to_truncate = ceil(
-            character_count
-            * APPROXIMATE_CHAR_TO_TOKEN_RATIO
-            * (percent_tokens_to_trim / 100)
+        number_of_characters_to_truncate = character_count - ceil(
+            character_count / ratio
         )
         number_of_characters_to_truncate = max(
             MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE, number_of_characters_to_truncate
@@ -124,8 +122,8 @@ def truncate_logs(
             )
             return
         else:
-            text = text[:number_of_characters_to_truncate]
-            logging_structured_tool_result.data = TRUNCATION_PROMPT_PREFIX + text
+            text = TRUNCATION_PROMPT_PREFIX + text[number_of_characters_to_truncate:]
+            logging_structured_tool_result.data = text
             token_count = count_tool_response_tokens(
                 llm=llm, structured_tool_result=logging_structured_tool_result
             )
