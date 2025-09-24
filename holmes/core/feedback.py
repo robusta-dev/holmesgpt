@@ -15,10 +15,7 @@ class FeedbackLLM:
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
-        return {
-            'model': self.model,
-            'max_context_size': self.max_context_size
-        }
+        return {"model": self.model, "max_context_size": self.max_context_size}
 
 
 # TODO: extend the FeedbackLLMResponse to include each tool call results details used for evaluate the overall response.
@@ -35,10 +32,7 @@ class FeedbackLLMResponse:
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
-        return {
-            'user_ask': self.user_ask,
-            'response': self.response
-        }
+        return {"user_ask": self.user_ask, "response": self.response}
 
 
 class FeedbackMetadata:
@@ -61,8 +55,8 @@ class FeedbackMetadata:
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return {
-            'llm_responses': [resp.to_dict() for resp in self.llm_responses],
-            'llm': self.llm.to_dict()
+            "llm_responses": [resp.to_dict() for resp in self.llm_responses],
+            "llm": self.llm.to_dict(),
         }
 
 
@@ -93,8 +87,8 @@ class UserFeedback:
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return {
-            'is_positive': self.is_positive,
-            'comment': self.comment,
+            "is_positive": self.is_positive,
+            "comment": self.comment,
         }
 
 
@@ -112,8 +106,10 @@ class Feedback:
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
         return {
-            'metadata': self.metadata.to_dict(),
-            'user_feedback': self.user_feedback.to_dict() if self.user_feedback else None
+            "metadata": self.metadata.to_dict(),
+            "user_feedback": self.user_feedback.to_dict()
+            if self.user_feedback
+            else None,
         }
 
 
@@ -156,20 +152,20 @@ def feedback_callback_example(feedback: Feedback) -> None:
     # How to check LLM information using to_dict()
     print("\n2. Checking LLM Information:")
     metadata_dict = feedback.metadata.to_dict()
-    llm_dict = metadata_dict['llm']
+    llm_dict = metadata_dict["llm"]
     print(f"   LLM dict: {llm_dict}")
     print(f"   Model: {llm_dict['model']}")
     print(f"   Max context size: {llm_dict['max_context_size']}")
 
     # How to check ask and response pairs using to_dict()
     print("\n3. Checking Ask and Response History:")
-    llm_responses_dict = metadata_dict['llm_responses']
+    llm_responses_dict = metadata_dict["llm_responses"]
     print(f"   Number of exchanges: {len(llm_responses_dict)}")
 
     for i, response_dict in enumerate(llm_responses_dict, 1):
         print(f"   Exchange {i} dict: {list(response_dict.keys())}")
-        user_ask = response_dict['user_ask']
-        ai_response = response_dict['response']
+        user_ask = response_dict["user_ask"]
+        ai_response = response_dict["response"]
         print(f"     User ask: {user_ask}")
         print(f"     AI response: {ai_response}")
 

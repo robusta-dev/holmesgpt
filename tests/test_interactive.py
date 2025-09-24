@@ -4,15 +4,11 @@ import unittest
 from unittest.mock import Mock, patch
 
 from rich.console import Console
-from prompt_toolkit.completion import Completion
 
 from holmes.interactive import (
     run_interactive_loop,
     SlashCommandCompleter,
     SlashCommands,
-    SmartPathCompleter,
-    ConditionalExecutableCompleter,
-    ShowCommandCompleter,
     handle_feedback_command,
     Feedback,
     UserFeedback,
@@ -73,7 +69,7 @@ class TestSlashCommandCompleter(unittest.TestCase):
 
 
 class TestHandleFeedbackCommand(unittest.TestCase):
-    @patch('holmes.interactive.PromptSession')
+    @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_positive(self, mock_prompt_session_class):
         """Test feedback command with positive rating."""
         mock_session = Mock()
@@ -89,7 +85,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         self.assertTrue(result.is_positive)
         self.assertEqual(result.comment, "Great response!")
 
-    @patch('holmes.interactive.PromptSession')
+    @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_negative(self, mock_prompt_session_class):
         """Test feedback command with negative rating."""
         mock_session = Mock()
@@ -105,7 +101,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         self.assertFalse(result.is_positive)
         self.assertEqual(result.comment, "Could be better")
 
-    @patch('holmes.interactive.PromptSession')
+    @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_no_comment(self, mock_prompt_session_class):
         """Test feedback command without comment."""
         mock_session = Mock()
@@ -148,18 +144,24 @@ class TestRunInteractiveLoop(unittest.TestCase):
     def tearDown(self):
         """Clean up test fixtures."""
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    @patch('holmes.interactive.handle_feedback_command')
-    def test_run_interactive_loop_feedback_command_positive_with_callback(self, mock_handle_feedback,
-                                                                          mock_config_dir,
-                                                                          mock_build_messages,
-                                                                          mock_prompt_session_class,
-                                                                          mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    @patch("holmes.interactive.handle_feedback_command")
+    def test_run_interactive_loop_feedback_command_positive_with_callback(
+        self,
+        mock_handle_feedback,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test interactive loop with /feedback command - positive feedback."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -190,47 +192,52 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Verify callback was called with complete Feedback object
         mock_callback.assert_called_once()
         call_args = mock_callback.call_args[0][0]
-        
+
         # Test complete Feedback structure
         self.assertIsInstance(call_args, Feedback)
-        
+
         # Test UserFeedback component
         self.assertIsNotNone(call_args.user_feedback)
         self.assertIsInstance(call_args.user_feedback, UserFeedback)
         self.assertEqual(call_args.user_feedback.is_positive, True)
         self.assertEqual(call_args.user_feedback.comment, "Great response!")
-        
+
         # Test FeedbackMetadata component
         self.assertIsNotNone(call_args.metadata)
         self.assertIsInstance(call_args.metadata, FeedbackMetadata)
-        
+
         # Test LLM information in metadata
         self.assertIsNotNone(call_args.metadata.llm)
         self.assertEqual(call_args.metadata.llm.model, "test-model")
         self.assertEqual(call_args.metadata.llm.max_context_size, 4096)
-        
+
         # Test LLM responses list (should be empty initially but list should exist)
         self.assertIsInstance(call_args.metadata.llm_responses, list)
-        
+
         # Test to_dict() functionality
         feedback_dict = call_args.to_dict()
-        self.assertIn('user_feedback', feedback_dict)
-        self.assertIn('metadata', feedback_dict)
-        self.assertEqual(feedback_dict['user_feedback']['is_positive'], True)
-        self.assertEqual(feedback_dict['user_feedback']['comment'], "Great response!")
-        self.assertEqual(feedback_dict['metadata']['llm']['model'], "test-model")
-        self.assertEqual(feedback_dict['metadata']['llm']['max_context_size'], 4096)
+        self.assertIn("user_feedback", feedback_dict)
+        self.assertIn("metadata", feedback_dict)
+        self.assertEqual(feedback_dict["user_feedback"]["is_positive"], True)
+        self.assertEqual(feedback_dict["user_feedback"]["comment"], "Great response!")
+        self.assertEqual(feedback_dict["metadata"]["llm"]["model"], "test-model")
+        self.assertEqual(feedback_dict["metadata"]["llm"]["max_context_size"], 4096)
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    @patch('holmes.interactive.handle_feedback_command')
-    def test_run_interactive_loop_feedback_command_negative_with_callback(self, mock_handle_feedback,
-                                                                          mock_config_dir,
-                                                                          mock_build_messages,
-                                                                          mock_prompt_session_class,
-                                                                          mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    @patch("holmes.interactive.handle_feedback_command")
+    def test_run_interactive_loop_feedback_command_negative_with_callback(
+        self,
+        mock_handle_feedback,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test interactive loop with /feedback command - negative feedback."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -258,54 +265,61 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Verify callback was called with complete Feedback object containing negative feedback
         mock_callback.assert_called_once()
         call_args = mock_callback.call_args[0][0]
-        
+
         # Test complete Feedback structure
         self.assertIsInstance(call_args, Feedback)
-        
+
         # Test UserFeedback component
         self.assertIsNotNone(call_args.user_feedback)
         self.assertIsInstance(call_args.user_feedback, UserFeedback)
         self.assertEqual(call_args.user_feedback.is_positive, False)
         self.assertEqual(call_args.user_feedback.comment, "Could be better")
-        
+
         # Test FeedbackMetadata component
         self.assertIsNotNone(call_args.metadata)
         self.assertIsInstance(call_args.metadata, FeedbackMetadata)
-        
+
         # Test LLM information in metadata
         self.assertIsNotNone(call_args.metadata.llm)
         self.assertEqual(call_args.metadata.llm.model, "test-model")
         self.assertEqual(call_args.metadata.llm.max_context_size, 4096)
-        
+
         # Test LLM responses list
         self.assertIsInstance(call_args.metadata.llm_responses, list)
-        
+
         # Test to_dict() functionality for negative feedback
         feedback_dict = call_args.to_dict()
-        self.assertIn('user_feedback', feedback_dict)
-        self.assertIn('metadata', feedback_dict)
-        self.assertEqual(feedback_dict['user_feedback']['is_positive'], False)
-        self.assertEqual(feedback_dict['user_feedback']['comment'], "Could be better")
-        self.assertEqual(feedback_dict['metadata']['llm']['model'], "test-model")
-        self.assertEqual(feedback_dict['metadata']['llm']['max_context_size'], 4096)
-        self.assertIsInstance(feedback_dict['metadata']['llm_responses'], list)
+        self.assertIn("user_feedback", feedback_dict)
+        self.assertIn("metadata", feedback_dict)
+        self.assertEqual(feedback_dict["user_feedback"]["is_positive"], False)
+        self.assertEqual(feedback_dict["user_feedback"]["comment"], "Could be better")
+        self.assertEqual(feedback_dict["metadata"]["llm"]["model"], "test-model")
+        self.assertEqual(feedback_dict["metadata"]["llm"]["max_context_size"], 4096)
+        self.assertIsInstance(feedback_dict["metadata"]["llm_responses"], list)
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    @patch('holmes.interactive.handle_feedback_command')
-    def test_run_interactive_loop_feedback_with_conversation_history(self, mock_handle_feedback,
-                                                                     mock_config_dir,
-                                                                     mock_build_messages,
-                                                                     mock_prompt_session_class,
-                                                                     mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    @patch("holmes.interactive.handle_feedback_command")
+    def test_run_interactive_loop_feedback_with_conversation_history(
+        self,
+        mock_handle_feedback,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test feedback system with conversation history (LLM responses)."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
         mock_session.prompt.side_effect = ["What is Kubernetes?", "/feedback", "/exit"]
 
-        mock_build_messages.return_value = [{"role": "user", "content": "What is Kubernetes?"}]
+        mock_build_messages.return_value = [
+            {"role": "user", "content": "What is Kubernetes?"}
+        ]
         mock_callback = Mock()
 
         # Mock the feedback handler to return feedback
@@ -315,7 +329,9 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Mock tracer for the normal query
         mock_tracer = Mock()
         mock_trace_span = Mock()
-        mock_tracer.start_trace.return_value.__enter__ = Mock(return_value=mock_trace_span)
+        mock_tracer.start_trace.return_value.__enter__ = Mock(
+            return_value=mock_trace_span
+        )
         mock_tracer.start_trace.return_value.__exit__ = Mock(return_value=None)
         mock_tracer.get_trace_url.return_value = None
 
@@ -335,49 +351,56 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Verify callback was called with Feedback containing conversation history
         mock_callback.assert_called_once()
         call_args = mock_callback.call_args[0][0]
-        
+
         # Test complete Feedback structure with conversation history
         self.assertIsInstance(call_args, Feedback)
-        
+
         # Test UserFeedback component
         self.assertIsNotNone(call_args.user_feedback)
         self.assertEqual(call_args.user_feedback.is_positive, True)
         self.assertEqual(call_args.user_feedback.comment, "Very helpful!")
-        
+
         # Test FeedbackMetadata with LLM responses
         self.assertIsNotNone(call_args.metadata)
         self.assertIsInstance(call_args.metadata, FeedbackMetadata)
-        
+
         # Test LLM information
         self.assertEqual(call_args.metadata.llm.model, "test-model")
         self.assertEqual(call_args.metadata.llm.max_context_size, 4096)
-        
+
         # Test LLM responses list contains the conversation
         self.assertIsInstance(call_args.metadata.llm_responses, list)
-        self.assertGreaterEqual(len(call_args.metadata.llm_responses), 1)  # Should have at least one exchange
-        
+        self.assertGreaterEqual(
+            len(call_args.metadata.llm_responses), 1
+        )  # Should have at least one exchange
+
         # Test to_dict() functionality with conversation history
         feedback_dict = call_args.to_dict()
-        self.assertIn('metadata', feedback_dict)
-        self.assertIn('llm_responses', feedback_dict['metadata'])
-        self.assertIsInstance(feedback_dict['metadata']['llm_responses'], list)
-        
-        # If there are responses, verify their structure
-        if feedback_dict['metadata']['llm_responses']:
-            first_response = feedback_dict['metadata']['llm_responses'][0]
-            self.assertIn('user_ask', first_response)
-            self.assertIn('response', first_response)
-            self.assertIsInstance(first_response['user_ask'], str)
-            self.assertIsInstance(first_response['response'], str)
+        self.assertIn("metadata", feedback_dict)
+        self.assertIn("llm_responses", feedback_dict["metadata"])
+        self.assertIsInstance(feedback_dict["metadata"]["llm_responses"], list)
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    def test_run_interactive_loop_feedback_command_without_callback(self, mock_config_dir,
-                                                                    mock_build_messages,
-                                                                    mock_prompt_session_class,
-                                                                    mock_check_version):
+        # If there are responses, verify their structure
+        if feedback_dict["metadata"]["llm_responses"]:
+            first_response = feedback_dict["metadata"]["llm_responses"][0]
+            self.assertIn("user_ask", first_response)
+            self.assertIn("response", first_response)
+            self.assertIsInstance(first_response["user_ask"], str)
+            self.assertIsInstance(first_response["response"], str)
+
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    def test_run_interactive_loop_feedback_command_without_callback(
+        self,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test interactive loop with /feedback command when no callback is provided."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -398,18 +421,26 @@ class TestRunInteractiveLoop(unittest.TestCase):
         )
 
         # Verify "Unknown command" message was displayed
-        unknown_calls = [call_args for call_args in self.mock_console.print.call_args_list
-                         if "Unknown command" in str(call_args)]
+        unknown_calls = [
+            call_args
+            for call_args in self.mock_console.print.call_args_list
+            if "Unknown command" in str(call_args)
+        ]
         self.assertTrue(len(unknown_calls) > 0)
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    def test_run_interactive_loop_feedback_help_filtering(self, mock_config_dir,
-                                                          mock_build_messages,
-                                                          mock_prompt_session_class,
-                                                          mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    def test_run_interactive_loop_feedback_help_filtering(
+        self,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test that help command filters out feedback when callback is None."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -430,7 +461,9 @@ class TestRunInteractiveLoop(unittest.TestCase):
         )
 
         # Check all printed messages
-        all_prints = [str(call_args) for call_args in self.mock_console.print.call_args_list]
+        all_prints = [
+            str(call_args) for call_args in self.mock_console.print.call_args_list
+        ]
 
         # Should contain help for other commands but not feedback
         has_help_command = any("/help" in print_msg for print_msg in all_prints)
@@ -441,14 +474,19 @@ class TestRunInteractiveLoop(unittest.TestCase):
         self.assertTrue(has_exit_command)
         self.assertFalse(has_feedback_command)  # Should be filtered out
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    def test_run_interactive_loop_feedback_help_not_filtering_with_callback(self, mock_config_dir,
-                                                                            mock_build_messages,
-                                                                            mock_prompt_session_class,
-                                                                            mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    def test_run_interactive_loop_feedback_help_not_filtering_with_callback(
+        self,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test that help command shows feedback when callback is provided."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -470,22 +508,33 @@ class TestRunInteractiveLoop(unittest.TestCase):
         )
 
         # Check all printed messages
-        all_prints = [str(call_args) for call_args in self.mock_console.print.call_args_list]
+        all_prints = [
+            str(call_args) for call_args in self.mock_console.print.call_args_list
+        ]
 
         # Should contain help for feedback command
         has_feedback_command = any("/feedback" in print_msg for print_msg in all_prints)
         self.assertTrue(has_feedback_command)  # Should be shown
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    def test_run_interactive_loop_with_initial_input(self, mock_config_dir, mock_build_messages,
-                                                     mock_prompt_session_class, mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    def test_run_interactive_loop_with_initial_input(
+        self,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test interactive loop with initial user input."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
-        mock_session.prompt.side_effect = ["/exit"]  # Only need exit after initial input
+        mock_session.prompt.side_effect = [
+            "/exit"
+        ]  # Only need exit after initial input
 
         initial_input = "What is kubernetes?"
         mock_build_messages.return_value = [{"role": "user", "content": initial_input}]
@@ -493,7 +542,9 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Mock tracer
         mock_tracer = Mock()
         mock_trace_span = Mock()
-        mock_tracer.start_trace.return_value.__enter__ = Mock(return_value=mock_trace_span)
+        mock_tracer.start_trace.return_value.__enter__ = Mock(
+            return_value=mock_trace_span
+        )
         mock_tracer.start_trace.return_value.__exit__ = Mock(return_value=None)
         mock_tracer.get_trace_url.return_value = None
 
@@ -510,19 +561,29 @@ class TestRunInteractiveLoop(unittest.TestCase):
         )
 
         # Verify initial input was displayed
-        initial_calls = [call_args for call_args in self.mock_console.print.call_args_list
-                         if initial_input in str(call_args)]
+        initial_calls = [
+            call_args
+            for call_args in self.mock_console.print.call_args_list
+            if initial_input in str(call_args)
+        ]
         self.assertTrue(len(initial_calls) > 0)
 
         # Verify AI was called with initial input
         self.mock_ai.call.assert_called_once()
 
-    @patch('holmes.interactive.check_version_async')
-    @patch('holmes.interactive.PromptSession')
-    @patch('holmes.interactive.build_initial_ask_messages')
-    @patch('holmes.interactive.config_path_dir', new_callable=lambda: tempfile.gettempdir())
-    def test_run_interactive_loop_exception_handling(self, mock_config_dir, mock_build_messages,
-                                                     mock_prompt_session_class, mock_check_version):
+    @patch("holmes.interactive.check_version_async")
+    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch(
+        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+    )
+    def test_run_interactive_loop_exception_handling(
+        self,
+        mock_config_dir,
+        mock_build_messages,
+        mock_prompt_session_class,
+        mock_check_version,
+    ):
         """Test interactive loop exception handling."""
         mock_session = Mock()
         mock_prompt_session_class.return_value = mock_session
@@ -543,17 +604,22 @@ class TestRunInteractiveLoop(unittest.TestCase):
         )
 
         # Verify error was displayed
-        error_calls = [call_args for call_args in self.mock_console.print.call_args_list
-                       if "Error:" in str(call_args)]
+        error_calls = [
+            call_args
+            for call_args in self.mock_console.print.call_args_list
+            if "Error:" in str(call_args)
+        ]
         self.assertTrue(len(error_calls) > 0)
 
     def test_run_interactive_loop_unsupported_commands_without_callback(self):
         """Test that feedback command is not available when callback is None."""
-        with patch('holmes.interactive.check_version_async'), \
-                patch('holmes.interactive.PromptSession') as mock_prompt_session_class, \
-                patch('holmes.interactive.build_initial_ask_messages'), \
-                patch('holmes.interactive.config_path_dir', return_value=tempfile.gettempdir()):
-
+        with patch("holmes.interactive.check_version_async"), patch(
+            "holmes.interactive.PromptSession"
+        ) as mock_prompt_session_class, patch(
+            "holmes.interactive.build_initial_ask_messages"
+        ), patch(
+            "holmes.interactive.config_path_dir", return_value=tempfile.gettempdir()
+        ):
             mock_session = Mock()
             mock_prompt_session_class.return_value = mock_session
             mock_session.prompt.side_effect = ["/help", "/exit"]
@@ -571,8 +637,12 @@ class TestRunInteractiveLoop(unittest.TestCase):
             )
 
             # Verify feedback command is not shown in help
-            help_calls = [str(call_args) for call_args in self.mock_console.print.call_args_list]
+            help_calls = [
+                str(call_args) for call_args in self.mock_console.print.call_args_list
+            ]
 
             # The feedback command should not be shown since callback is None
-            has_feedback_in_help = any("/feedback" in call_str for call_str in help_calls)
+            has_feedback_in_help = any(
+                "/feedback" in call_str for call_str in help_calls
+            )
             self.assertFalse(has_feedback_in_help)

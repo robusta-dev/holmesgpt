@@ -76,7 +76,8 @@ class SlashCommandCompleter(Completer):
         all_commands = {cmd.command: cmd.description for cmd in SlashCommands}
         if unsupported_commands:
             self.commands = {
-                cmd: desc for cmd, desc in all_commands.items()
+                cmd: desc
+                for cmd, desc in all_commands.items()
                 if cmd not in unsupported_commands
             }
         else:
@@ -1059,7 +1060,11 @@ def run_interactive_loop(
                 original_input = user_input.strip()
                 command = original_input.lower()
                 # Handle prefix matching for slash commands
-                matches = [cmd for cmd in slash_completer.commands.keys() if cmd.startswith(command)]
+                matches = [
+                    cmd
+                    for cmd in slash_completer.commands.keys()
+                    if cmd.startswith(command)
+                ]
                 if len(matches) == 1:
                     command = matches[0]
                 elif len(matches) > 1:
@@ -1114,12 +1119,12 @@ def run_interactive_loop(
                     continue
                 elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.command):].strip()
+                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
                     handle_show_command(show_arg, all_tool_calls_history, console)
                     continue
                 elif command.startswith(SlashCommands.RUN.command):
                     bash_command = original_input[
-                        len(SlashCommands.RUN.command):
+                        len(SlashCommands.RUN.command) :
                     ].strip()
                     shared_input = handle_run_command(
                         bash_command, session, style, console

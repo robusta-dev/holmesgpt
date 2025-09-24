@@ -6,7 +6,7 @@ from holmes.core.feedback import (
     FeedbackMetadata,
     UserFeedback,
     Feedback,
-    FeedbackCallback
+    FeedbackCallback,
 )
 from holmes.core.llm import LLM
 
@@ -56,10 +56,7 @@ class TestFeedbackLLM:
         feedback_llm = FeedbackLLM("gpt-4", 8192)
         result = feedback_llm.to_dict()
 
-        expected = {
-            'model': 'gpt-4',
-            'max_context_size': 8192
-        }
+        expected = {"model": "gpt-4", "max_context_size": 8192}
         assert result == expected
 
 
@@ -78,10 +75,7 @@ class TestFeedbackLLMResponse:
         response = FeedbackLLMResponse("Hello", "Hi there!")
         result = response.to_dict()
 
-        expected = {
-            'user_ask': 'Hello',
-            'response': 'Hi there!'
-        }
+        expected = {"user_ask": "Hello", "response": "Hi there!"}
         assert result == expected
 
     def test_empty_strings(self):
@@ -90,7 +84,7 @@ class TestFeedbackLLMResponse:
 
         assert response.user_ask == ""
         assert response.response == ""
-        assert response.to_dict() == {'user_ask': '', 'response': ''}
+        assert response.to_dict() == {"user_ask": "", "response": ""}
 
 
 class TestFeedbackMetadata:
@@ -109,7 +103,7 @@ class TestFeedbackMetadata:
         """Test FeedbackMetadata initialization with responses."""
         responses = [
             FeedbackLLMResponse("question1", "answer1"),
-            FeedbackLLMResponse("question2", "answer2")
+            FeedbackLLMResponse("question2", "answer2"),
         ]
         metadata = FeedbackMetadata(llm_responses=responses)
 
@@ -153,10 +147,7 @@ class TestFeedbackMetadata:
         metadata = FeedbackMetadata()
         result = metadata.to_dict()
 
-        expected = {
-            'llm_responses': [],
-            'llm': {'model': '', 'max_context_size': 0}
-        }
+        expected = {"llm_responses": [], "llm": {"model": "", "max_context_size": 0}}
         assert result == expected
 
     def test_to_dict_with_data(self):
@@ -169,10 +160,8 @@ class TestFeedbackMetadata:
         result = metadata.to_dict()
 
         expected = {
-            'llm_responses': [
-                {'user_ask': 'Question', 'response': 'Answer'}
-            ],
-            'llm': {'model': 'gpt-4', 'max_context_size': 8192}
+            "llm_responses": [{"user_ask": "Question", "response": "Answer"}],
+            "llm": {"model": "gpt-4", "max_context_size": 8192},
         }
         assert result == expected
 
@@ -239,8 +228,8 @@ class TestUserFeedback:
         result = feedback.to_dict()
 
         expected = {
-            'is_positive': True,
-            'comment': 'Excellent work!',
+            "is_positive": True,
+            "comment": "Excellent work!",
         }
         assert result == expected
 
@@ -250,8 +239,8 @@ class TestUserFeedback:
         result = feedback.to_dict()
 
         expected = {
-            'is_positive': False,
-            'comment': None,
+            "is_positive": False,
+            "comment": None,
         }
         assert result == expected
 
@@ -283,11 +272,11 @@ class TestFeedback:
         result = feedback.to_dict()
 
         expected = {
-            'metadata': {
-                'llm_responses': [],
-                'llm': {'model': '', 'max_context_size': 0}
+            "metadata": {
+                "llm_responses": [],
+                "llm": {"model": "", "max_context_size": 0},
             },
-            'user_feedback': None
+            "user_feedback": None,
         }
         assert result == expected
 
@@ -305,16 +294,14 @@ class TestFeedback:
         result = feedback.to_dict()
 
         expected = {
-            'metadata': {
-                'llm_responses': [
-                    {'user_ask': 'Question', 'response': 'Answer'}
-                ],
-                'llm': {'model': 'gpt-3.5-turbo', 'max_context_size': 4096}
+            "metadata": {
+                "llm_responses": [{"user_ask": "Question", "response": "Answer"}],
+                "llm": {"model": "gpt-3.5-turbo", "max_context_size": 4096},
             },
-            'user_feedback': {
-                'is_positive': True,
-                'comment': 'Helpful response',
-            }
+            "user_feedback": {
+                "is_positive": True,
+                "comment": "Helpful response",
+            },
         }
         assert result == expected
 
@@ -327,8 +314,12 @@ class TestFeedback:
         feedback.metadata.update_llm(mock_llm)
 
         # Add conversation history
-        feedback.metadata.add_llm_response("What is Python?", "Python is a programming language.")
-        feedback.metadata.add_llm_response("How do I install it?", "You can install Python from python.org")
+        feedback.metadata.add_llm_response(
+            "What is Python?", "Python is a programming language."
+        )
+        feedback.metadata.add_llm_response(
+            "How do I install it?", "You can install Python from python.org"
+        )
 
         # Set user feedback
         user_feedback = UserFeedback(True, "Very informative answers!")
@@ -336,10 +327,10 @@ class TestFeedback:
 
         # Verify complete structure
         result = feedback.to_dict()
-        assert len(result['metadata']['llm_responses']) == 2
-        assert result['metadata']['llm']['model'] == "claude-3.5-sonnet"
-        assert result['user_feedback']['is_positive'] is True
-        assert result['user_feedback']['comment'] == "Very informative answers!"
+        assert len(result["metadata"]["llm_responses"]) == 2
+        assert result["metadata"]["llm"]["model"] == "claude-3.5-sonnet"
+        assert result["user_feedback"]["is_positive"] is True
+        assert result["user_feedback"]["comment"] == "Very informative answers!"
 
 
 class TestFeedbackCallback:
@@ -347,6 +338,7 @@ class TestFeedbackCallback:
 
     def test_callback_signature(self):
         """Test that FeedbackCallback can be used as a type hint."""
+
         def sample_callback(feedback: Feedback) -> None:
             """Sample callback function."""
             pass
