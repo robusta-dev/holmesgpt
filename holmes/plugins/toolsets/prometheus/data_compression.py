@@ -89,7 +89,7 @@ def format_zero_values_data(
         txt = "\n".join([line_prefix + line for line in lines])
         return txt
 
-    elif data.metrics:
+    elif isinstance(data, Group):
         lines.extend(
             format_labels(
                 labels=data.common_labels, section_name="", line_prefix=line_prefix
@@ -129,8 +129,6 @@ def format_zero_values_data(
                     lines.append(metric_lines)
         txt = "\n".join([line for line in lines])
         return txt
-    else:
-        raise Exception("Data has no metrics and is not a CompressedMetric")
 
 
 def format_zero_values_metrics(metrics: list[Union[Group, CompressedMetric]]) -> str:
@@ -155,22 +153,24 @@ def format_compressed_metrics(metrics: list[Union[Group, CompressedMetric]]) -> 
 
 
 def simplify_prometheus_metric_object(
-    raw_metric: PromSeries, remove_labels: set[tuple[str, Any]]
+    raw_metric: PromSeries, labels_to_remove: set[tuple[str, Any]]
 ) -> CompressedMetric:
     labels: set[tuple[str, Any]] = set()
-    if remove_labels:
+    if labels_to_remove:
         for label in raw_metric.metric.items():
-            if label not in remove_labels:
+            if label not in labels_to_remove:
                 labels.add(label)
     else:
         labels = set(raw_metric.metric.items())
     return CompressedMetric(labels=labels, values=raw_metric.values)
 
 
-def remove_labels(metric: CompressedMetric, remove_labels: set[tuple[str, Any]]):
+def remove_labels(
+    metric: CompressedMetric, labels_to_remove: set[tuple[str, Any]]
+) -> None:
     labels: set[tuple[str, Any]] = set()
     for label in metric.labels:
-        if label not in remove_labels:
+        if label not in labels_to_remove:
             labels.add(label)
     metric.labels = labels
 
@@ -256,7 +256,7 @@ def group_metrics(
             # 2. Recurse to further group metrics within this group
             for metric_in_group in current_group:
                 all_group_labels = current_group_labels.union(globally_common_labels)
-                remove_labels(metric=metric_in_group, remove_labels=all_group_labels)
+                remove_labels(metric=metric_in_group, labels_to_remove=all_group_labels)
 
             groups.append(
                 Group(common_labels=current_group_labels, metrics=current_group)
@@ -268,7 +268,7 @@ def group_metrics(
             metrics_to_process = unmatched_metrics
 
     for metric in unmatched_metrics:
-        remove_labels(metric=metric, remove_labels=globally_common_labels)
+        remove_labels(metric=metric, labels_to_remove=globally_common_labels)
         # prepend instead of append so that unique metrics are closer to common labels than grouped metrics
         # I 'guess' it may help the LLM in making sense of the hierarchy
         groups.insert(0, metric)
@@ -278,12 +278,6 @@ def group_metrics(
         return [parent_group]
     else:
         return groups
-
-
-def set_default(obj):
-    if isinstance(obj, set):
-        return list(obj)
-    raise TypeError
 
 
 def compact_metrics(metrics_to_process: list[CompressedMetric]) -> str:

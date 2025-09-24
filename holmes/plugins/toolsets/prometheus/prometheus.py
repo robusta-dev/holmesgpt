@@ -1387,7 +1387,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
                             ]
                             metrics = [
                                 simplify_prometheus_metric_object(
-                                    metric, remove_labels=set()
+                                    metric, labels_to_remove=set()
                                 )
                                 for metric in raw_metrics
                             ]

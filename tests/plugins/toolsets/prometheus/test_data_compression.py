@@ -413,7 +413,7 @@ class TestPrometheusDataCompression:
 
             raw_metrics = [PromSeries(**metric) for metric in metrics_list_dict]
             metrics = [
-                simplify_prometheus_metric_object(metric, remove_labels=set())
+                simplify_prometheus_metric_object(metric, labels_to_remove=set())
                 for metric in raw_metrics
             ]
 

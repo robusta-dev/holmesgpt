@@ -84,7 +84,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         llm_data: Optional[str] = None
         try:
             metrics = [
-                simplify_prometheus_metric_object(metric, remove_labels=set())
+                simplify_prometheus_metric_object(metric, labels_to_remove=set())
                 for metric in response.data.result
             ]
 
