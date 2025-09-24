@@ -26,6 +26,7 @@ from prompt_toolkit.widgets import TextArea
 from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
+from rich.markup import escape
 
 from holmes.common.env_vars import ENABLE_CLI_TOOL_APPROVAL
 from holmes.core.config import config_path_dir
@@ -863,7 +864,7 @@ def handle_feedback_command(
     # Display confirmation
     if comment:
         console.print(
-            f'[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, "{comment}")[/bold green]'
+            f'[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, "{escape(comment)}")[/bold green]'
         )
     else:
         console.print(
