@@ -99,7 +99,7 @@ def truncate_logs(
         # Loop because we are counting tokens but trimming characters. This means we try to trim a number of
         # characters proportional to the number of tokens but we may still have too many tokens
         if not text:
-            text = str(logging_structured_tool_result.data)
+            text = logging_structured_tool_result.get_stringified_data()
         if not text:
             # Weird scenario where the result exceeds the token allowance but there is not data.
             # Exit and do nothing because I don't know how to handle such scenario.
