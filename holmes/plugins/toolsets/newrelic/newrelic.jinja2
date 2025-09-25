@@ -43,4 +43,4 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
             - Transaction: traceId, tags.accountId, entityGuid, appName, name, timestamp, duration, guid, transactionType
     - When querying with aggregations, NEVER use embeds.
 - When querying DistributedTraceSummary without aggregations, ALWAYS use the filter `WHERE root.span.eventType = 'Span'`
-- If you query any other even type (like Span), don't use any embeds - return the results as is.
+- If you query any other event type (like Span), don't use any embeds - return the results as is.
