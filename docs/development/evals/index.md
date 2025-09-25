@@ -122,6 +122,37 @@ Essential variables for controlling test behavior:
 | `CLASSIFIER_MODEL` | LLM for scoring (needed for Anthropic) | `CLASSIFIER_MODEL=gpt-4o` |
 | `ASK_HOLMES_TEST_TYPE` | Message building flow (`cli` or `server`) | `ASK_HOLMES_TEST_TYPE=server` |
 
+### Prometheus Alert Configuration
+
+Prometheus alert deployment for evals is controlled via pytest command-line flags:
+
+#### --create-alerts
+Deploys realistic Prometheus alerts alongside eval resources for testing alert-based investigation (this is currently manual tests not automated).
+
+```bash
+# Run eval with Prometheus alert deployment
+RUN_LIVE=true poetry run pytest -k "84_network_policy" --create-alerts --skip-cleanup
+>>>>>>> Stashed changes
+
+# The alert will fire in Prometheus and can be used for demos
+```
+
+#### --prometheus-label
+Overrides the Prometheus label selector in alert rules. Different Prometheus deployments use different labels to select which rules to load:
+- Default: `release: robusta` (for Robusta's kube-prometheus-stack)
+- Can be overridden to match your Prometheus deployment
+
+```bash
+# Default: Robusta's embedded Prometheus (no override needed, uses release: robusta)
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts
+
+# Custom Prometheus with different label selector
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts --prometheus-label prometheus-operator
+
+# For vanilla kube-prometheus-stack
+RUN_LIVE=true poetry run pytest -k "test_name" --create-alerts --prometheus-label kube-prometheus
+```
+
 ### ASK_HOLMES_TEST_TYPE Details
 
 The `ASK_HOLMES_TEST_TYPE` environment variable controls how messages are built in ask_holmes tests:
