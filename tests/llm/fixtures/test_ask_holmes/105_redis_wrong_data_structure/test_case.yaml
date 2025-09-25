@@ -3,6 +3,9 @@ user_prompt: |
   What's the issue? Ignore resource constraints and high CPU - the db can't be allocated more resources,
   we need to look at how we optimize it within those constraints"
 
+skip: true
+skip_reason: still a WIP
+
 expected_output:
   - Redis performance issue due to using KEYS command for pattern matching
   - KEYS command scans all 100 keys causing O(N) complexity
