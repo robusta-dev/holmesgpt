@@ -93,7 +93,9 @@ def sync_before_server_start():
         except Exception:
             logging.error("Failed to synchronise holmes toolsets", exc_info=True)
     else:
-        logging.debug("Skipping Robusta platform sync - no token or cluster name configured")
+        logging.debug(
+            "Skipping Robusta platform sync - no token or cluster name configured"
+        )
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
