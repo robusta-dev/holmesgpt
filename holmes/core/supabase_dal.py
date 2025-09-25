@@ -342,6 +342,7 @@ class SupabaseDal:
             self.unzip_evidence_file(enrich)
             for enrich in evidence.data
             if enrich.get("enrichment_type") == "text_file"
+            or enrich.get("enrichment_type") == "alert_raw_data"
         ]
 
         data.extend(unzipped_files)
