@@ -112,7 +112,12 @@ def test_html_to_markdown(fixture: Fixture):
     assert match, f"Values mismatch. Run the following command to compare expected with actual: `diff {fixture.expected_output_file_path} {actual_file_path_for_debugging}`"
 
 
-def test_fetch_webpage():
+def test_fetch_webpage(responses):
+    responses.get(
+        TEST_URL,
+        status=200,
+        body=EXPECTED_TEST_RESULT,
+    )
     toolset = InternetToolset()
     toolset.status = ToolsetStatusEnum.ENABLED
     tool_executor = ToolExecutor(toolsets=[toolset])

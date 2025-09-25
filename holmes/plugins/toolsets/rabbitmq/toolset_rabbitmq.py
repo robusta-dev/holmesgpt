@@ -8,7 +8,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     Tool,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -63,7 +63,9 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         if not self.toolset.config:
             raise ValueError("RabbitMQ is not configured.")
 
@@ -77,7 +79,7 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             if c.connection_status == ClusterConnectionStatus.SUCCESS
         ]
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS, data=available_clusters
+            status=StructuredToolResultStatus.SUCCESS, data=available_clusters
         )
 
     def get_parameterized_one_liner(self, params) -> str:
@@ -101,19 +103,23 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             # Fetch node details which include partition info
             cluster_config = self._get_cluster_config(
                 cluster_id=params.get("cluster_id")
             )
             result = get_cluster_status(cluster_config)
-            return StructuredToolResult(status=ToolResultStatus.SUCCESS, data=result)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.SUCCESS, data=result
+            )
 
         except Exception as e:
             logging.info("Failed to process RabbitMQ cluster status", exc_info=True)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Unexpected error fetching RabbitMQ cluster status: {str(e)}",
                 data=None,
             )
@@ -130,7 +136,7 @@ class RabbitMQToolset(Toolset):
         super().__init__(
             name="rabbitmq/core",
             description="Provides tools to interact with RabbitMQ to diagnose cluster health, node status, and specifically network partitions (split-brain).",
-            docs_url="https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/rabbitmq.html",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/rabbitmq/",
             icon_url="https://cdn.worldvectorlogo.com/logos/rabbitmq.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[

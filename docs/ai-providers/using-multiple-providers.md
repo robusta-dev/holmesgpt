@@ -1,9 +1,9 @@
 # Using Multiple Providers
 
-Configure multiple AI providers to give users flexibility in choosing models through the Robusta UI.
+Configure multiple AI providers to give users flexibility in choosing models for investigations.
 
-!!! note "UI Feature Only"
-    Multiple provider configuration currently only impacts investigations run from the **Robusta UI**. When multiple providers are defined, users can select which model to use from a dropdown in the UI. This feature does not affect CLI usage or investigations triggered from other sources.
+!!! note "Robusta UI and HTTP API Feature"
+    Multiple provider configuration impacts investigations run from the **Robusta UI** and other HTTP API clients. When multiple providers are defined, users can select which model to use from a dropdown in the UI, or specify a `model` parameter when using the HTTP API directly. This feature does not affect CLI usage.
 
 ## Configuration
 
@@ -71,16 +71,16 @@ modelList:
     temperature: 0
 
   # Azure OpenAI Models
-  azure-4o:
+  azure-41:
     api_key: "{{ env.AZURE_API_KEY }}"
-    model: azure/gpt-4o
+    model: azure/gpt-4.1
     api_base: https://your-resource.openai.azure.com/
     api_version: "2025-01-01-preview"
     temperature: 0
 
   azure-gpt-5:
     api_key: "{{ env.AZURE_API_KEY }}"
-    model: azure/gpt-5-chat
+    model: azure/gpt-5
     api_base: https://your-resource.openai.azure.com/
     api_version: "2025-01-01-preview"
     temperature: 1 # only 1 is supported for gpt-5 models
@@ -133,9 +133,22 @@ Refer to [LiteLLM documentation](https://docs.litellm.ai/docs/providers) for the
 
 When multiple models are configured:
 
+### Robusta UI
 1. Users see a **model selector dropdown** in the Robusta UI
 2. Each model appears with its configured name (e.g., "azure-4o", "claude-sonnet-4")
 3. Users can switch between models for different investigations
+
+### HTTP API
+Clients can specify the model in their API requests:
+```json
+{
+  "ask": "What pods are failing?",
+  "model": "claude-sonnet-4"
+}
+```
+
+### Robusta AI Integration
+If you're a Robusta SaaS customer, you can also use [Robusta AI](robusta-ai.md) which provides access to multiple models without managing individual API keys.
 
 ## Best Practices
 
@@ -144,8 +157,7 @@ When multiple models are configured:
 
 ## Limitations
 
-- **UI Only**: Model selection currently only works in the Robusta UI
-- **No automatic failover**: If a selected model fails, users must manually switch
+- **No automatic failover**: If a selected model fails, clients must manually switch to another model
 
 ## See Also
 

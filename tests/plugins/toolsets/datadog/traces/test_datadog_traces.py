@@ -6,7 +6,7 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
     FetchDatadogSpansByFilter,
 )
 from holmes.plugins.toolsets.datadog.datadog_api import DataDogRequestError
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 
 
 class TestDatadogTracesToolset:
@@ -154,7 +154,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "Found 1 traces" in result.data
         assert "traceID=abc123" in result.data
         assert "durationMs=50.00" in result.data  # 50ms total duration
@@ -176,7 +176,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.NO_DATA
+        assert result.status == StructuredToolResultStatus.NO_DATA
         assert "No matching traces found" in result.data
 
     def test_invoke_no_config(self):
@@ -185,7 +185,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke({})
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "Datadog configuration not initialized" in result.error
 
     @patch(
@@ -231,7 +231,7 @@ class TestFetchDatadogTracesList:
 
         result = self.tool._invoke({})
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "rate limit exceeded" in result.error
 
 
@@ -256,7 +256,7 @@ class TestFetchDatadogTraceById:
         """Test invocation without trace_id parameter."""
         result = self.tool._invoke({})
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "trace_id parameter is required" in result.error
 
     @patch(
@@ -301,7 +301,7 @@ class TestFetchDatadogTraceById:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "Trace ID: abc123" in result.data
         assert "GET /users (web-api)" in result.data
         assert "SELECT (database)" in result.data
@@ -319,7 +319,7 @@ class TestFetchDatadogTraceById:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.NO_DATA
+        assert result.status == StructuredToolResultStatus.NO_DATA
         assert "No trace found for trace_id: nonexistent" in result.data
 
 
@@ -373,7 +373,7 @@ class TestFetchDatadogSpansByFilter:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "Found 1 matching spans" in result.data
         assert "Trace ID: trace1" in result.data
         assert "GET /users (web-api)" in result.data
@@ -411,5 +411,5 @@ class TestFetchDatadogSpansByFilter:
 
         result = self.tool._invoke(params)
 
-        assert result.status == ToolResultStatus.NO_DATA
+        assert result.status == StructuredToolResultStatus.NO_DATA
         assert "No matching spans found" in result.data

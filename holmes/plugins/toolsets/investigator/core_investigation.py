@@ -1,16 +1,16 @@
 import logging
 import os
 from typing import Any, Dict
-
 from uuid import uuid4
+
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    Tool,
+    ToolParameter,
     Toolset,
     ToolsetTag,
-    ToolParameter,
-    Tool,
-    StructuredToolResult,
-    ToolResultStatus,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
@@ -74,7 +74,9 @@ class TodoWriteTool(Tool):
 
         logging.info(separator)
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(
+        self, params: dict, user_approved: bool = False
+    ) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 
@@ -101,7 +103,7 @@ class TodoWriteTool(Tool):
                 response_data += "No tasks currently in the investigation plan."
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_data,
                 params=params,
             )
@@ -109,7 +111,7 @@ class TodoWriteTool(Tool):
         except Exception as e:
             logging.exception("error using todowrite tool")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to process tasks: {str(e)}",
                 params=params,
             )
@@ -131,7 +133,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

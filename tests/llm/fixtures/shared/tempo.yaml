@@ -2,7 +2,19 @@
 # Apply with: kubectl apply -f tempo.yaml -n <namespace>
 # Note: Namespace must be created separately
 ---
-# Tempo deployment - lightweight, in-memory storage
+# PersistentVolumeClaim for Tempo storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tempo-storage
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+# Tempo deployment - with persistent storage and increased memory
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,11 +29,16 @@ spec:
       labels:
         app: tempo
     spec:
+      securityContext:
+        fsGroup: 10001
+        runAsUser: 10001
+        runAsNonRoot: true
       containers:
       - name: tempo
-        image: grafana/tempo:2.3.0
+        image: grafana/tempo:2.8.2
         args:
         - -config.file=/etc/tempo/tempo-config.yaml
+        - -target=all
         ports:
         - containerPort: 3200
           name: http
@@ -32,16 +49,21 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /etc/tempo
+        - name: storage
+          mountPath: /var/tempo
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "10m"
-          limits:
             memory: "256Mi"
+            cpu: "50m"
+          limits:
+            memory: "1Gi"
       volumes:
       - name: config
         configMap:
           name: tempo-config
+      - name: storage
+        persistentVolumeClaim:
+          claimName: tempo-storage
 ---
 apiVersion: v1
 kind: Service
@@ -79,11 +101,6 @@ data:
             http:
               endpoint: 0.0.0.0:4318
 
-    ingester:
-      max_block_duration: 5m
-      trace_idle_period: 30s
-      max_block_bytes: 10_000_000
-
     compactor:
       compaction:
         block_retention: 17520h  # 2 years (730 days * 24 hours)
@@ -92,9 +109,9 @@ data:
       trace:
         backend: local
         local:
-          path: /tmp/tempo/traces
+          path: /var/tempo/traces
         wal:
-          path: /tmp/tempo/wal
+          path: /var/tempo/wal
         pool:
           max_workers: 10
           queue_depth: 100
@@ -107,8 +124,25 @@ data:
     query_frontend:
       max_batch_size: 5
 
+    metrics_generator:
+      ring:
+        kvstore:
+          store: inmemory
+      processor:
+        local_blocks:
+          filter_server_spans: false
+          flush_to_storage: true
+      storage:
+        path: /var/tempo/metrics
+      traces_storage:
+        path: /var/tempo/generator-wal
+
     overrides:
       max_traces_per_user: 10000
       ingestion_rate_limit_bytes: 15000000
       ingestion_burst_size_bytes: 20000000
       max_bytes_per_trace: 5000000
+      max_search_duration: 168h  # 1 week - maximum time range for searches
+      max_metrics_duration: 168h  # 1 week - maximum time range for metrics queries
+      metrics_generator_processors:
+        - local-blocks

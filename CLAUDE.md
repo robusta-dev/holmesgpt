@@ -18,6 +18,12 @@ poetry run pre-commit install
 ```
 
 ### Testing
+
+```bash
+# Install test dependencies with Poetry
+poetry install --with dev
+```
+
 ```bash
 # Run all non-LLM tests (unit and integration tests)
 make test-without-llm
@@ -80,6 +86,11 @@ poetry run mypy
 - Each toolset is a YAML file defining available tools and their parameters
 - Tools can be Python functions or bash commands with safety validation
 - Toolsets are loaded dynamically and can be customized via config files
+- **Important**: All toolsets MUST return detailed error messages from underlying APIs to enable LLM self-correction
+  - Include the exact query/command that was executed
+  - Include time ranges, parameters, and filters used
+  - Include the full API error response (status code and message)
+  - For "no data" responses, specify what was searched and where
 
 **LLM Integration**:
 - Uses LiteLLM for multi-provider support (OpenAI, Anthropic, Azure, etc.)

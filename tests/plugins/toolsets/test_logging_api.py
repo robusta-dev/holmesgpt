@@ -8,7 +8,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     FetchPodLogsParams,
     LoggingCapability,
 )
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 
 class TestPodLoggingTool:
@@ -18,9 +18,10 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles integer start_time values."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
-            data="Sample logs", status=ToolResultStatus.SUCCESS
+            data="Sample logs", status=StructuredToolResultStatus.SUCCESS
         )
 
         # Create the tool
@@ -35,7 +36,7 @@ class TestPodLoggingTool:
         result = tool._invoke(params)
 
         # Verify the result
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data == "Sample logs"
 
         # Verify toolset.fetch_pod_logs was called once
@@ -56,9 +57,10 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles string start_time values."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
-            data="Sample logs", status=ToolResultStatus.SUCCESS
+            data="Sample logs", status=StructuredToolResultStatus.SUCCESS
         )
 
         # Create the tool
@@ -73,7 +75,7 @@ class TestPodLoggingTool:
         result = tool._invoke(params)
 
         # Verify the result
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
 
         # Get the actual params passed to fetch_pod_logs
         call_args = mock_toolset.fetch_pod_logs.call_args
@@ -87,9 +89,10 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles RFC3339 formatted start_time."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
-            data="Sample logs", status=ToolResultStatus.SUCCESS
+            data="Sample logs", status=StructuredToolResultStatus.SUCCESS
         )
 
         # Create the tool
@@ -115,9 +118,10 @@ class TestPodLoggingTool:
         """Test that PodLoggingTool correctly handles missing start_time."""
         # Create mock toolset
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = set()
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
-            data="Sample logs", status=ToolResultStatus.SUCCESS
+            data="Sample logs", status=StructuredToolResultStatus.SUCCESS
         )
 
         # Create the tool
@@ -138,12 +142,13 @@ class TestPodLoggingTool:
         """Test that all parameters are correctly passed through."""
         # Create mock toolset with capabilities
         mock_toolset = MagicMock(spec=BasePodLoggingToolset)
+        mock_toolset.name = "test-logging-backend"
         mock_toolset.supported_capabilities = {
             LoggingCapability.REGEX_FILTER,
             LoggingCapability.EXCLUDE_FILTER,
         }
         mock_toolset.fetch_pod_logs.return_value = StructuredToolResult(
-            data="Filtered logs", status=ToolResultStatus.SUCCESS
+            data="Filtered logs", status=StructuredToolResultStatus.SUCCESS
         )
 
         # Create the tool
