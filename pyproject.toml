@@ -83,6 +83,8 @@ ignore_missing_imports = true
 scripts_are_modules = true
 exclude = [
     "tests/llm/fixtures/.*",
+    "dist/.*",
+    "site/.*",
 ]
 
 [tool.pytest.ini_options]
@@ -90,6 +92,7 @@ markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
     "datetime: Tests involving datetime functionality",
     "logs: Tests involving log processing",
+    "metrics: Tests involving metrics processing",
     "context_window: Tests involving context window handling",
     "synthetic: Tests using synthetic data",
     "network: Tests requiring network connectivity",
@@ -115,7 +118,8 @@ markers = [
     "answer-given-wrong-place: LLM gave the answer in intermediate steps, not final answer, so its harder for the user to see the answer",
     "datadog: DataDog toolset",
     "storage: Disk related, like I/O or disk space",
-    "prometheus: Tests involving Prometheus metrics"
+    "prometheus: Tests involving Prometheus metrics",
+    "newrelic: New Relic toolset",
 ]
 
 addopts = [

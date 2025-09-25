@@ -1,0 +1,46 @@
+user_prompt:
+- "The payment service in namespace nr-114 is experiencing high latency. Investigate why."
+
+expected_output:
+  - The answer must explicitly state that queries that include a promo code are slow or all slow requests include promo code.
+  - Including a query that mentions promo code is not sufficient.
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+
+
+before_test: |
+  [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
+  echo "🚀 Setting up test 114 - Creating namespace nr-114"
+  kubectl create namespace nr-114 || true
+  kubectl create secret generic newrelickey --from-literal=key="${NEW_RELIC_LICENSE_KEY}" -n nr-114
+  echo "✅ Namespace nr-114 created successfully!"
+
+  echo "🛒 Deploying payment service"
+  kubectl apply -f payment-service.yaml -n nr-114
+
+  echo "⏳ Waiting for payment pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=payment -n nr-114 --timeout=60s
+
+  echo "🔍 Checking payment deployment status"
+  kubectl get pods -n nr-114 -l app=payment
+
+  echo "🚦 Deploying traffic generator"
+  kubectl apply -f traffic-generator.yaml -n nr-114
+
+  echo "⏳ Waiting for traffic generator pod to be ready"
+  kubectl wait --for=condition=ready pod -l app=traffic-generator -n nr-114 --timeout=60s
+
+  echo "🔍 Checking all pods status"
+  kubectl get pods -n nr-114
+
+  echo "⏰ Letting traffic generator run for 20 seconds to generate requests"
+  sleep 60
+
+  echo "✅ Test setup complete!"
+
+after_test: |
+  kubectl delete namespace nr-114 || true
