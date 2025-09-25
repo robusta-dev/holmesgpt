@@ -157,6 +157,7 @@ class ToolParameter(BaseModel):
     required: bool = True
     properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
     items: Optional["ToolParameter"] = None  # For array item schemas
+    enum: Optional[List[str]] = None  # For restricting to specific values
 
 
 class Tool(ABC, BaseModel):
