@@ -44,6 +44,8 @@ class BaseMCPTool(Tool):
     def parse_input_schema(
         cls, input_schema: dict[str, Any]
     ) -> Dict[str, ToolParameter]:
+        if not input_schema:
+            return {}
         required_list = input_schema.get("required", [])
         schema_params = input_schema.get("properties", {})
         parameters = {}
@@ -248,8 +250,7 @@ class StdioMCPToolset(BaseMCPToolset):
         return f"{self.command} {' '.join(self.args)}"
 
     async def _get_server_tools(self):
-        server_params = StdioServerParameters(command=self.command, args=self.args)
-        async with stdio_client(server_params) as (
+        async with stdio_client(self.stdio_server_params) as (
             read_stream,
             write_stream,
         ):
