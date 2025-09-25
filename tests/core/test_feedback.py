@@ -1,12 +1,12 @@
 from unittest.mock import Mock
 
 from holmes.core.feedback import (
+    Feedback,
+    FeedbackCallback,
     FeedbackLLM,
     FeedbackLLMResponse,
     FeedbackMetadata,
     UserFeedback,
-    Feedback,
-    FeedbackCallback,
 )
 from holmes.core.llm import LLM
 
@@ -98,18 +98,6 @@ class TestFeedbackMetadata:
         assert isinstance(metadata.llm, FeedbackLLM)
         assert metadata.llm.model == ""
         assert metadata.llm.max_context_size == 0
-
-    def test_init_with_responses(self):
-        """Test FeedbackMetadata initialization with responses."""
-        responses = [
-            FeedbackLLMResponse("question1", "answer1"),
-            FeedbackLLMResponse("question2", "answer2"),
-        ]
-        metadata = FeedbackMetadata(llm_responses=responses)
-
-        assert len(metadata.llm_responses) == 2
-        assert metadata.llm_responses[0].user_ask == "question1"
-        assert metadata.llm_responses[1].user_ask == "question2"
 
     def test_add_llm_response(self):
         """Test adding LLM response to metadata."""

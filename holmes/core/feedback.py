@@ -1,9 +1,19 @@
+from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
 from .llm import LLM
 
 
-class FeedbackLLM:
+class FeedbackInfoBase(ABC):
+    """Abstract base class for all feedback-related classes that must implement to_dict()."""
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Convert to dictionary representation. Must be implemented by all subclasses."""
+        pass
+
+
+class FeedbackLLM(FeedbackInfoBase):
     """Class to represent a LLM in the feedback."""
 
     def __init__(self, model: str, max_context_size: int):
@@ -16,7 +26,7 @@ class FeedbackLLM:
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
-        return {"model": self.model, "max_context_size": self.max_context_size}
+        return self.__dict__
 
 
 # TODO: extend the FeedbackLLMResponse to include each tool call results details used for evaluate the overall response.
@@ -24,7 +34,7 @@ class FeedbackLLM:
 # - toolcall parameter and success/failure, toolcall truncation size
 # - Holmes plan (todo list)
 # - Holmes intermediate output
-class FeedbackLLMResponse:
+class FeedbackLLMResponse(FeedbackInfoBase):
     """Class to represent a LLM response in the feedback"""
 
     def __init__(self, user_ask: str, response: str):
@@ -33,15 +43,15 @@ class FeedbackLLMResponse:
 
     def to_dict(self) -> dict:
         """Convert to dictionary representation."""
-        return {"user_ask": self.user_ask, "response": self.response}
+        return self.__dict__
 
 
-class FeedbackMetadata:
+class FeedbackMetadata(FeedbackInfoBase):
     """Class to store feedback metadata."""
 
-    def __init__(self, llm_responses: Optional[list[FeedbackLLMResponse]] = None):
+    def __init__(self):
         # In iteration mode, there can be multiple ask and response pairs.
-        self.llm_responses = llm_responses if llm_responses is not None else []
+        self.llm_responses = []
         self.llm = FeedbackLLM("", 0)
 
     def add_llm_response(self, user_ask: str, response: str) -> None:
@@ -61,7 +71,7 @@ class FeedbackMetadata:
         }
 
 
-class UserFeedback:
+class UserFeedback(FeedbackInfoBase):
     """Class to store user rate and comment to the AI response."""
 
     def __init__(self, is_positive: bool, comment: Optional[str]):
@@ -93,7 +103,7 @@ class UserFeedback:
         }
 
 
-class Feedback:
+class Feedback(FeedbackInfoBase):
     """Class to store overall feedback data used to evaluate the AI response."""
 
     def __init__(self):
