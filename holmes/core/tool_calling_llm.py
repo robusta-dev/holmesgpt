@@ -427,8 +427,17 @@ class ToolCallingLLM:
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
+            # Debug logging for token analysis
+            logging.info(f"[Token Analysis] Iteration {i}:")
+            logging.info(f"  - Current message tokens: {total_tokens:,}")
+            logging.info(f"  - Max output tokens reserved: {maximum_output_token:,}")
+            logging.info(f"  - Total needed: {total_tokens + maximum_output_token:,}")
+            logging.info(f"  - Max context window: {max_context_size:,}")
+            logging.info(f"  - Available tokens: {max_context_size - total_tokens:,}")
+            logging.info(f"  - Number of messages: {len(messages)}")
+
             if (total_tokens + maximum_output_token) > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
+                logging.warning(f"Token limit check triggered - need {total_tokens + maximum_output_token:,} tokens but only {max_context_size:,} available. Truncating older messages to fit.")
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
