@@ -767,9 +767,18 @@ operator = HolmesCheckOperator()
 
 
 @kopf.on.startup()
-def startup_handler(**kwargs):
+def startup_handler(settings: kopf.OperatorSettings, **kwargs):
     """Initialize operator on startup."""
     logger.info("Holmes operator starting up...")
+
+    # Configure Kopf for faster processing
+    settings.batching.delay = 0.1  # Reduce batching delay from default (0.1s vs 1s)
+    settings.batching.limit = 100  # Process more events per batch
+    settings.watching.server_timeout = 10  # Reduce long-polling timeout
+
+    # Enable more parallel processing for sync handlers
+    # Default is 5x CPU cores, we increase it for handling multiple health checks
+    settings.execution.max_workers = 50  # Allow up to 50 parallel health checks
 
     # Load k8s config
     try:
