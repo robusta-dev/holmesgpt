@@ -227,10 +227,11 @@ Use this config according to your use case.
 ```yaml-helm-values
 mcp_servers:
   mcp_server_1:
-    type: "sse"
     description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
-    url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
     llm_instructions: "Use Dynatrace to analyze application performance, infrastructure monitoring, and real-time observability data. Query metrics, traces, and logs to identify performance bottlenecks, errors, and system health issues in your applications and infrastructure."
+    config:
+      type: "sse"
+      url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
 ```
 
 After the deployment is complete, you can use HolmesGPT and ask questions like *Using dynatrace what issues do I have in my cluster?*.

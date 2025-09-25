@@ -77,6 +77,7 @@ class RemoteMCPTool(BaseMCPTool):
                         if tool_result.isError
                         else StructuredToolResultStatus.SUCCESS
                     ),
+                    error=merged_text if tool_result.isError else None,
                     data=merged_text,
                     params=params,
                     invocation=f"MCPtool {self.name} with params {params}",
@@ -115,6 +116,7 @@ class StdioMCPTool(BaseMCPTool):
                         if tool_result.isError
                         else StructuredToolResultStatus.SUCCESS
                     ),
+                    error=merged_text if tool_result.isError else None,
                     data=merged_text,
                     params=params,
                     invocation=f"Stdio MCP tool {self.name} with params {params}",
@@ -141,7 +143,6 @@ class StdioMCPTool(BaseMCPTool):
 class BaseMCPToolset(Toolset):
     """Base class for MCP toolsets with shared functionality"""
 
-    name: str
     description: str = "MCP toolset for managing and invoking tools from an MCP server."
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
@@ -202,7 +203,7 @@ class RemoteMCPToolset(BaseMCPToolset):
         return raw
 
     def _get_server_type(self) -> str:
-        return "remote"
+        return "sse"
 
     def _get_connection_info(self) -> str:
         return str(self.url)
@@ -273,10 +274,14 @@ def get_mcp_toolset_from_config(config: dict[str, Any], name: str) -> BaseMCPToo
     if mcp_type == "stdio":
         return StdioMCPToolset(**config, name=name)
 
-    # Backwards compatibility: still support using url or command top-level keys.
+    # DEPRECATED: support top-level url key for backward compatibility will be removed
     url = config.pop("url", None)
+    # In case the user combine the new and old config styles with top-level url key and sse as config.type
     if mcp_type == "sse":
+        if url is not None:
+            mcp_config["url"] = url
         return RemoteMCPToolset(**config, name=name)
+    # When config.type is empty and url is set, assume sse transport.
     if url is not None:
         # fill the mcp server config with URL in case the mcp config is not set
         if mcp_config == {}:

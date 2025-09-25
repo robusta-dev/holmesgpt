@@ -1,12 +1,12 @@
-import pytest
 import re
-from holmes.core.tools import (
-    ToolParameter,
-)
+
+import pytest
 from mcp.types import ListToolsResult, Tool
+
+from holmes.core.tools import ToolParameter
 from holmes.plugins.toolsets.mcp.toolset_mcp import (
-    RemoteMCPToolset,
     RemoteMCPTool,
+    RemoteMCPToolset,
     StdioMCPToolset,
     get_mcp_toolset_from_config,
 )
@@ -56,7 +56,7 @@ def test_mcpserver_unreachable():
 
     result = mcp_toolset.init_server_tools(config=None)
     assert result[0] is False
-    assert "Failed to load remote mcp server test_mcp" in result[1]
+    assert "Failed to load sse mcp server test_mcp" in result[1]
 
 
 def test_mcpserver_1tool(monkeypatch):
@@ -154,6 +154,17 @@ def test_get_mcp_toolset_from_config_stdio_type():
 def test_get_mcp_toolset_from_config_backward_compatibility_with_url():
     """Test backward compatibility when using top-level url key"""
     config = {"url": "http://example.com/api"}
+    toolset = get_mcp_toolset_from_config(config, "test_backward")
+
+    assert isinstance(toolset, RemoteMCPToolset)
+    assert toolset.name == "test_backward"
+    # /sse gets appended by the validator
+    assert toolset.url == "http://example.com/api/sse"
+
+
+def test_get_mcp_toolset_from_config_backward_compatibility_with_both_url_and_config_sse():
+    """Test backward compatibility when using top-level url key"""
+    config = {"url": "http://example.com/api", "config": {"type": "sse"}}
     toolset = get_mcp_toolset_from_config(config, "test_backward")
 
     assert isinstance(toolset, RemoteMCPToolset)
