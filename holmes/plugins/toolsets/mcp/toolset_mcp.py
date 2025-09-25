@@ -13,9 +13,9 @@ from pydantic import Field
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolParameter,
-    StructuredToolResultStatus,
     Toolset,
 )
 
@@ -282,6 +282,7 @@ def get_mcp_toolset_from_config(config: dict[str, Any], name: str) -> BaseMCPToo
             config["config"] = {"url": url}
         else:
             mcp_config["url"] = url
+        mcp_config["type"] = "sse"
         return RemoteMCPToolset(**config, name=name)
 
     raise ValueError(
