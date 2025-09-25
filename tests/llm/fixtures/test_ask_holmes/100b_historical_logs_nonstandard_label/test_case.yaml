@@ -29,7 +29,7 @@ before_test: |
   kubectl apply -f ../../shared/loki.yaml -n app-100b
 
   # Create secret for payment-api with direct push script
-  kubectl create secret generic payment-api-script \
+  kubectl create secret generic payment-api-100b-script \
     --from-file=app-direct-push.py=./app-direct-push.py \
     -n app-100b --dry-run=client -o yaml | kubectl apply -f -
 
@@ -68,10 +68,10 @@ before_test: |
   kubectl apply -f payment-api-direct.yaml
 
   # Wait for payment-api deployment to be progressing
-  kubectl wait --for=condition=progressing deployment/payment-api -n app-100b --timeout=120s
+  kubectl wait --for=condition=progressing deployment/payment-api-100b -n app-100b --timeout=120s
 
   # Wait for payment-api pod to be ready (increased timeout for ContainerCreating)
-  kubectl wait --for=condition=ready pod -l app=payment-api -n app-100b --timeout=300s
+  kubectl wait --for=condition=ready pod -l app=payment-api-100b -n app-100b --timeout=300s
 
   # Wait for logs to appear in Loki
   sleep 5  # Let Promtail initialize

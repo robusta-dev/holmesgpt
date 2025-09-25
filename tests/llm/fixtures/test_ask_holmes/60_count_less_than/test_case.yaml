@@ -24,12 +24,18 @@ before_test: |
     s3=$(kubectl get pod data-analyzer-1 -n test-60 -o jsonpath="{.status.phase}" 2>/dev/null || echo "Unknown")
     s4=$(kubectl get pod data-analyzer-2 -n test-60 -o jsonpath="{.status.phase}" 2>/dev/null || echo "Unknown")
 
+    # Check container waiting reasons for CrashLoopBackOff
+    w1=$(kubectl get pod batch-processor-1 -n test-60 -o jsonpath="{.status.containerStatuses[0].state.waiting.reason}" 2>/dev/null || echo "")
+    w2=$(kubectl get pod batch-processor-2 -n test-60 -o jsonpath="{.status.containerStatuses[0].state.waiting.reason}" 2>/dev/null || echo "")
+    w3=$(kubectl get pod data-analyzer-1 -n test-60 -o jsonpath="{.status.containerStatuses[0].state.waiting.reason}" 2>/dev/null || echo "")
+    w4=$(kubectl get pod data-analyzer-2 -n test-60 -o jsonpath="{.status.containerStatuses[0].state.waiting.reason}" 2>/dev/null || echo "")
+
     # Check if all unstable pods have restarted at least once
-    # We consider a pod "crashed" if it has restarts OR if it's in Failed phase (Error state)
-    pod1_ready=$( [ "$r1" -ge 1 ] || [ "$s1" = "Failed" ] && echo "yes" || echo "no" )
-    pod2_ready=$( [ "$r2" -ge 1 ] || [ "$s2" = "Failed" ] && echo "yes" || echo "no" )
-    pod3_ready=$( [ "$r3" -ge 1 ] || [ "$s3" = "Failed" ] && echo "yes" || echo "no" )
-    pod4_ready=$( [ "$r4" -ge 1 ] || [ "$s4" = "Failed" ] && echo "yes" || echo "no" )
+    # We consider a pod "crashed" if it has restarts OR if it's in Failed phase OR if it's in CrashLoopBackOff
+    pod1_ready=$( [ "$r1" -ge 1 ] || [ "$s1" = "Failed" ] || [ "$w1" = "CrashLoopBackOff" ] && echo "yes" || echo "no" )
+    pod2_ready=$( [ "$r2" -ge 1 ] || [ "$s2" = "Failed" ] || [ "$w2" = "CrashLoopBackOff" ] && echo "yes" || echo "no" )
+    pod3_ready=$( [ "$r3" -ge 1 ] || [ "$s3" = "Failed" ] || [ "$w3" = "CrashLoopBackOff" ] && echo "yes" || echo "no" )
+    pod4_ready=$( [ "$r4" -ge 1 ] || [ "$s4" = "Failed" ] || [ "$w4" = "CrashLoopBackOff" ] && echo "yes" || echo "no" )
 
     if [ "$pod1_ready" = "yes" ] && [ "$pod2_ready" = "yes" ] && [ "$pod3_ready" = "yes" ] && [ "$pod4_ready" = "yes" ]; then
       # Final check: ensure all have actual restarts (not just Error state)
@@ -39,7 +45,7 @@ before_test: |
       fi
     fi
 
-    echo "Waiting for unstable pods to restart... (restarts: $r1, $r2, $r3, $r4) (phases: $s1, $s2, $s3, $s4)"
+    echo "Waiting for unstable pods to restart... (restarts: $r1, $r2, $r3, $r4) (phases: $s1, $s2, $s3, $s4) (waiting: $w1, $w2, $w3, $w4)"
     count=$((count + 1))
     sleep 2
   done

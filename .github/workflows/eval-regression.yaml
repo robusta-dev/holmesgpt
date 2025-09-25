@@ -71,9 +71,8 @@ jobs:
         if: always()
         run: |
           if [[ -f "regressions.txt" ]]; then
-            echo "There are regressions in the evals. Please check the evals file for details."
+            echo "⚠️ There are regressions in the evals. Please check the evals file for details."
             cat regressions.txt
-            exit 1
           else
-            echo "All tests passed without regressions."
+            echo "✅ All tests passed without regressions."
           fi

@@ -35,7 +35,7 @@ before_test: |
   kubectl apply -f promtail-config.yaml -n app-101
 
   # Create secret for payment-api
-  kubectl create secret generic payment-api-script \
+  kubectl create secret generic payment-api-101-script \
     --from-file=app.py=./app.py \
     -n app-101 --dry-run=client -o yaml | kubectl apply -f -
 
@@ -55,7 +55,7 @@ before_test: |
   kubectl apply -f payment-api.yaml
 
   # Wait for payment-api pod to be ready
-  kubectl wait --for=condition=ready pod -l app=payment-api -n app-101 --timeout=60s
+  kubectl wait --for=condition=ready pod -l app=payment-api-101 -n app-101 --timeout=60s
 
   # Wait for logs to appear in Loki
   sleep 5  # Let Promtail initialize
@@ -75,11 +75,11 @@ before_test: |
   # DELETE THE POD - this is the key difference from test 100
   # Holmes will need to investigate using only historical logs
   echo "Deleting payment-api pod to simulate real-world scenario..."
-  kubectl delete deployment payment-api -n app-101
-  kubectl delete pod -l app=payment-api -n app-101
+  kubectl delete deployment payment-api-101 -n app-101
+  kubectl delete pod -l app=payment-api-101 -n app-101
 
   # Verify pod is gone
-  kubectl get pods -n app-101 -l app=payment-api 2>&1 | grep "No resources found" || (echo "ERROR: Pod still exists" && exit 1)
+  kubectl get pods -n app-101 -l app=payment-api-101 2>&1 | grep "No resources found" || (echo "ERROR: Pod still exists" && exit 1)
   echo "Pod successfully deleted - Holmes must use historical logs only"
 
 after_test: |
