@@ -437,7 +437,9 @@ class ToolCallingLLM:
             logging.info(f"  - Number of messages: {len(messages)}")
 
             if (total_tokens + maximum_output_token) > max_context_size:
-                logging.warning(f"Token limit check triggered - need {total_tokens + maximum_output_token:,} tokens but only {max_context_size:,} available. Truncating older messages to fit.")
+                logging.warning(
+                    f"Token limit check triggered - need {total_tokens + maximum_output_token:,} tokens but only {max_context_size:,} available. Truncating older messages to fit."
+                )
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
