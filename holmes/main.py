@@ -1,33 +1,4 @@
 # ruff: noqa: E402
-from holmes.utils.file_utils import write_json_file
-from holmes.utils.console.result import handle_result
-from holmes.utils.console.logging import init_logging
-from holmes.utils.console.consts import system_prompt_help
-from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
-from holmes.plugins.prompts import load_and_render_prompt
-from holmes.plugins.interfaces import Issue
-from holmes.plugins.destinations import DestinationType
-from holmes.interactive import run_interactive_loop
-from holmes.core.tracing import SpanType, TracingFactory
-from holmes.core.tools import pretty_print_toolset_status
-from holmes.core.resource_instruction import ResourceInstructionDocument
-from holmes.core.prompt import build_initial_ask_messages
-from holmes.config import (
-    DEFAULT_CONFIG_LOCATION,
-    Config,
-    SourceFactory,
-    SupportedTicketSources,
-)
-from holmes import get_version  # type: ignore
-from rich.rule import Rule
-from rich.markdown import Markdown
-import typer
-from typing import List, Optional
-from pathlib import Path
-import uuid
-import socket
-import logging
-import json
 import os
 import sys
 
@@ -41,6 +12,38 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 
+
+import json
+import logging
+import socket
+import uuid
+from pathlib import Path
+from typing import List, Optional
+
+import typer
+from rich.markdown import Markdown
+from rich.rule import Rule
+
+from holmes import get_version  # type: ignore
+from holmes.config import (
+    DEFAULT_CONFIG_LOCATION,
+    Config,
+    SourceFactory,
+    SupportedTicketSources,
+)
+from holmes.core.prompt import build_initial_ask_messages
+from holmes.core.resource_instruction import ResourceInstructionDocument
+from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tracing import SpanType, TracingFactory
+from holmes.interactive import run_interactive_loop
+from holmes.plugins.destinations import DestinationType
+from holmes.plugins.interfaces import Issue
+from holmes.plugins.prompts import load_and_render_prompt
+from holmes.plugins.sources.opsgenie import OPSGENIE_TEAM_INTEGRATION_KEY_HELP
+from holmes.utils.console.consts import system_prompt_help
+from holmes.utils.console.logging import init_logging
+from holmes.utils.console.result import handle_result
+from holmes.utils.file_utils import write_json_file
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
