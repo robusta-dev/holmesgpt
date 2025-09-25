@@ -115,7 +115,6 @@ markers = [
     "traces: Tests where the ai is expected to find the solution using the traces",
     "datadog: DataDog toolset",
     "storage: Disk related, like I/O or disk space",
-    "qa: Simple question-answer tests where Holmes answers straightforward questions about the system",
     "question-answer: Simple question-answer tests where Holmes answers straightforward questions about the system",
     "prometheus: Tests involving Prometheus metrics",
     "newrelic: New Relic toolset",
