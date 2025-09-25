@@ -110,3 +110,24 @@ def test_server_not_loads_robusta_ai_when_model_var_exists_and_false_env_var(
     monkeypatch.setenv("MODEL", "some_model")
     config = Config.load_from_env()
     assert "Robusta" not in config.llm_model_registry.models
+
+
+ROBUSTA_HOLMES_ARGS_MODELS = RobustaModelsResponse(
+    models=["Robusta/test", "Robusta/sonnet-1m"],
+    models_holmes_args={"Robusta/sonnet-1m": {"max_context_size": 1000000}},
+    default_model=None,
+)
+
+
+@patch("holmes.core.llm.ROBUSTA_AI", True)
+@patch("holmes.core.llm.fetch_robusta_models", return_value=ROBUSTA_HOLMES_ARGS_MODELS)
+@patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
+def test_robusta_ai_config_get_llm_context_override(
+    mock_parse, mock_cluster, *, monkeypatch
+):
+    """Test that relay holmes_args fields are passed and used for max_context_size.
+    Also makes sure the args are poped before getting to completion call llm"""
+    config = Config.load_from_env()
+    llm = config._get_llm("Robusta/sonnet-1m")
+    assert llm.get_context_window_size() == 1000000
+    assert llm.args.get("custom_args") is None
