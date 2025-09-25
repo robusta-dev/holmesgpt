@@ -46,7 +46,7 @@ stringData:
         while True:
             request_count += 1
 
-            if request_count > 100 and not ever_had_promo:
+            if request_count > 20 and not ever_had_promo:
               include_promo = True
             else:
               # 1% chance to include promo code
@@ -124,14 +124,11 @@ spec:
     spec:
       containers:
       - name: traffic-generator
-        image: python:3.11-slim
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install requests && \
-          # pip install opentelemetry-api opentelemetry-sdk \
-          #   opentelemetry-instrumentation-requests \
-          #   opentelemetry-exporter-otlp-proto-grpc && \
           touch /tmp/ready && \
           python /app/app.py
         volumeMounts:
@@ -149,14 +146,13 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 12
+          failureThreshold: 46
         resources:
           requests:
-            memory: "64Mi"
-            cpu: "25m"
+            memory: "256Mi"
+            cpu: "10m"
           limits:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "256Mi"
       volumes:
       - name: app
         secret:

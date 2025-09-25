@@ -118,14 +118,11 @@ spec:
     spec:
       containers:
       - name: traffic-generator
-        image: python:3.11-slim
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
+        imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
         args:
         - |
-          pip install requests && \
-          # pip install opentelemetry-api opentelemetry-sdk \
-          #   opentelemetry-instrumentation-requests \
-          #   opentelemetry-exporter-otlp-proto-grpc && \
           touch /tmp/ready && \
           python /app/app.py
         volumeMounts:
@@ -139,18 +136,17 @@ spec:
             command:
             - cat
             - /tmp/ready
-          initialDelaySeconds: 5
+          initialDelaySeconds: 30
           periodSeconds: 5
           timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 12
+          failureThreshold: 24
         resources:
           requests:
             memory: "64Mi"
-            cpu: "25m"
+            cpu: "10m"
           limits:
-            memory: "128Mi"
-            cpu: "100m"
+            memory: "256Mi"
       volumes:
       - name: app
         secret:

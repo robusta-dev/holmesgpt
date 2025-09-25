@@ -138,7 +138,7 @@ RUN_LIVE=true poetry run pytest tests/llm/ -n 6
 
 # Test with different models
 # Note: When using Anthropic models, set CLASSIFIER_MODEL to OpenAI (Anthropic not supported as classifier)
-RUN_LIVE=true MODEL=anthropic/claude-3.5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
+RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
 ```
 
 ### Evaluation CLI Reference
@@ -148,7 +148,7 @@ RUN_LIVE=true MODEL=anthropic/claude-3.5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o
 - `--skip-cleanup`: Skip after_test commands (useful for debugging)
 
 **Environment Variables**:
-- `MODEL`: LLM model to use (e.g., `gpt-4o`, `anthropic/claude-3-5-sonnet-20241022`)
+- `MODEL`: LLM model(s) to use - supports comma-separated list (e.g., `gpt-4o` or `gpt-4o,anthropic/claude-sonnet-4-20250514`)
 - `CLASSIFIER_MODEL`: Model for scoring answers (defaults to MODEL)
 - `RUN_LIVE=true`: Execute real commands (recommended for all tests)
 - `ITERATIONS=<number>`: Run each test multiple times
@@ -167,7 +167,7 @@ RUN_LIVE=true ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "
 
 # Model comparison workflow
 RUN_LIVE=true EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
-RUN_LIVE=true EXPERIMENT_ID=claude35_test MODEL=anthropic/claude-3-5-sonnet-20241022 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=claude4_test MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
 
 # Debug with verbose output
 RUN_LIVE=true poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
@@ -206,7 +206,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 
 **Environment Variables**:
 - `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`: LLM API keys
-- `MODEL`: Override default model
+- `MODEL`: Override default model(s) - supports comma-separated list
 - `RUN_LIVE`: Use live tools in tests (strongly recommended)
 - `BRAINTRUST_API_KEY`: For test result tracking and CI/CD report generation
 - `BRAINTRUST_ORG`: Braintrust organization name (default: "robustadev")
@@ -251,6 +251,32 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 - **ALWAYS use `RUN_LIVE=true`** when testing evals to ensure tests match real-world behavior
 - Use `--skip-cleanup` when troubleshooting setup issues (resources remain after test)
 - Use `--skip-setup` if you are debugging the eval itself
+- **kubectl wait race condition warning**: Never use bare `kubectl wait --for=condition=ready pod -l app=foo` immediately after creating resources. This will fail with "no matching resources found" if the pod hasn't been scheduled yet. Instead, use a retry loop:
+  ```bash
+  # WRONG - fails if pod not scheduled yet
+  kubectl apply -f deployment.yaml
+  kubectl wait --for=condition=ready pod -l app=myapp --timeout=300s  # May fail immediately!
+
+  # CORRECT - retry loop handles race condition
+  kubectl apply -f deployment.yaml
+  POD_READY=false
+  for i in {1..60}; do
+    if kubectl wait --for=condition=ready pod -l app=myapp --timeout=5s 2>/dev/null; then
+      echo "✅ Pod is ready!"
+      POD_READY=true
+      break
+    else
+      echo "⏳ Attempt $i/60: Pod not ready yet, waiting 5s..."
+      sleep 5
+    fi
+  done
+
+  if [ "$POD_READY" = false ]; then
+    echo "❌ Pod failed to become ready after 300 seconds"
+    kubectl get pods -l app=myapp  # Show pod status for debugging
+    exit 1
+  fi
+  ```
 - Test cases can specify custom runbooks by adding a `runbooks` field in test_case.yaml:
   - `runbooks: {}` - No runbooks available (empty catalog)
   - `runbooks: {catalog: [...]}` - Custom runbook catalog with entries pointing to .md files in the same directory

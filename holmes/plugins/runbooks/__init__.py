@@ -108,9 +108,14 @@ def get_runbook_by_path(
     Returns:
         Full path to the runbook if found, None otherwise
     """
+    # Validate runbook_relative_path is not empty
+    if not runbook_relative_path or not runbook_relative_path.strip():
+        return None
+
     for search_path in search_paths:
         runbook_path = os.path.join(search_path, runbook_relative_path)
-        if os.path.exists(runbook_path):
+        # Ensure it's a file, not a directory
+        if os.path.isfile(runbook_path):
             return runbook_path
 
     return None

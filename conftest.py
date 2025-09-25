@@ -40,6 +40,49 @@ def pytest_addoption(parser):
         default=False,
         help="Only run before_test setup commands, skip the actual test execution",
     )
+    parser.addoption(
+        "--only-cleanup",
+        action="store_true",
+        default=False,
+        help="Only run after_test cleanup commands, skip the actual test execution",
+    )
+    parser.addoption(
+        "--retry-on-throttle",
+        action="store_true",
+        default=True,
+        help="Retry tests when encountering API throttling/overload errors (default: True)",
+    )
+    parser.addoption(
+        "--no-retry-on-throttle",
+        action="store_false",
+        dest="retry_on_throttle",
+        help="Disable retrying tests on API throttling/overload errors",
+    )
+    parser.addoption(
+        "--include-intermediate",
+        action="store_true",
+        default=True,
+        help="Include intermediate LLM outputs when evaluating correctness (default: True)",
+    )
+    parser.addoption(
+        "--no-include-intermediate",
+        action="store_false",
+        dest="include_intermediate",
+        help="Exclude intermediate LLM outputs from evaluation (only use final answer)",
+    )
+    parser.addoption(
+        "--strict-setup-mode",
+        type=str,
+        default="false",
+        choices=["true", "false"],
+        help="Fail entire pytest run if any test setup fails (true/false, default: false) - useful for benchmarks to ensure all tests run properly",
+    )
+    parser.addoption(
+        "--strict-setup-exceptions",
+        type=str,
+        default="",
+        help="Comma-separated list of test IDs that are allowed to have setup failures even with --strict-setup-mode",
+    )
 
 
 def pytest_configure(config):
