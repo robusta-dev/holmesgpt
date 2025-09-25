@@ -17,15 +17,18 @@ The `holmes check` command allows you to:
 **Important**: Phrase your checks so that PASS means healthy and FAIL means there's a problem.
 
 ✅ **Good examples:**
+
 - "Are all pods in the default namespace running?"
 - "Is CPU usage at acceptable levels (below 90%) on all nodes?"
 - "Are all critical services responding to health checks?"
 
 ❌ **Avoid confusing phrasing:**
+
 - "Is CPU usage above 90%?" (PASS would mean high CPU - bad!)
 - "Are there any pods in CrashLoopBackOff?" (PASS would mean yes - bad!)
 
 The AI will evaluate your question and return:
+
 - **PASS** = The check indicates a healthy state
 - **FAIL** = The check indicates a problem that needs attention
 
@@ -266,7 +269,7 @@ This eliminates ambiguity and provides clear explanations for each result.
 
 ## Alert Integration
 
-**Slack**
+### Slack
 
 Configure Slack alerts in your checks file:
 
@@ -289,7 +292,7 @@ export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
 holmes check
 ```
 
-**PagerDuty**
+### PagerDuty
 
 Configure PagerDuty alerts using the Events API v2:
 
@@ -313,6 +316,7 @@ holmes check
 ```
 
 PagerDuty incidents will be created with:
+
 - Automatic deduplication based on check name
 - Severity determined by tags (critical → critical, etc.)
 - Full check details in custom fields
@@ -320,6 +324,7 @@ PagerDuty incidents will be created with:
 **Future Integrations**
 
 Support for additional destinations is planned:
+
 - Email
 - Webhooks
 - OpsGenie
@@ -329,11 +334,13 @@ Support for additional destinations is planned:
 **Writing Good Check Queries**
 
 ✅ **Good queries are specific and measurable:**
+
 - "Are all pods in the production namespace running?"
 - "Is CPU usage on any node above 80%?"
 - "Can you connect to PostgreSQL at db.prod:5432?"
 
 ❌ **Avoid vague or subjective queries:**
+
 - "Is the system healthy?"
 - "Are things working well?"
 - "Check the infrastructure"
