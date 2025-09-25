@@ -28,6 +28,7 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
             tool_call_result.result.status = StructuredToolResultStatus.ERROR
             tool_call_result.result.data = None
             tool_call_result.result.error = error_message
+            tool_call_result.size = None
 
             sentry_helper.capture_toolcall_contains_too_many_tokens(
                 tool_call_result, tool_call_result.size, max_tokens_allowed
