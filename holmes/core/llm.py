@@ -349,7 +349,7 @@ class DefaultLLM(LLM):
         if content is None:
             return
 
-        if isinstance(content, str):
+        if isinstance(content, str) and content:
             # Convert string to structured format with cache_control
             target_msg["content"] = [
                 {
