@@ -122,7 +122,9 @@ ROBUSTA_HOLMES_ARGS_MODELS = RobustaModelsResponse(
 @patch("holmes.core.llm.ROBUSTA_AI", True)
 @patch("holmes.core.llm.fetch_robusta_models", return_value=ROBUSTA_HOLMES_ARGS_MODELS)
 @patch("holmes.config.Config._Config__get_cluster_name", return_value="test")
-def test_robusta_ai_config_get_llm_context_override(mock_cluster, *, monkeypatch):
+def test_robusta_ai_config_get_llm_context_override(
+    mock_parse, mock_cluster, *, monkeypatch
+):
     """Test that relay holmes_args fields are passed and used for max_context_size.
     Also makes sure the args are poped before getting to completion call llm"""
     config = Config.load_from_env()
