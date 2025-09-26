@@ -134,7 +134,9 @@ def _process_cost_info(
         logging.debug(f"Could not extract cost information: {e}")
 
 
-def limit_max_output_tokens(maximum_model_output_token: int, max_context_size: int) -> int:
+def limit_max_output_tokens(
+    maximum_model_output_token: int, max_context_size: int
+) -> int:
     # TODO: also apply this to the API so that we ensure the total context window is not hit
     calculated_maximum = floor(min(64000, max_context_size / 5))
     if maximum_model_output_token > calculated_maximum:
