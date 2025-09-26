@@ -43,6 +43,7 @@ from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
+from holmes.core.truncation.compaction import compact_conversation_history
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
@@ -875,20 +876,18 @@ class ToolCallingLLM:
             messages.append({"role": "user", "content": user_prompt})
         if msgs:
             messages.extend(msgs)
-        perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
-        perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
+        print(f"MODEL NAME={self.llm.model}")
 
         while i < max_steps:
             i += 1
-            perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
 
             tools = None if i == max_steps else tools
@@ -897,10 +896,12 @@ class ToolCallingLLM:
             total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
-            perf_timing.measure("count tokens")
+            print(f"********** model={self.llm.model}, total_tokens={total_tokens}, maximum_output_token={maximum_output_token}, max_context_size={max_context_size}")
+            if ((total_tokens + maximum_output_token) > max_context_size/2):
+                # messages = compact_conversation_history(original_conversation_history=messages, llm=self.llm)
+                # compacted_total_tokens = self.llm.count_tokens_for_message(messages)
+                # logging.warning(f"Compacted conversation history from {total_tokens} to {compacted_total_tokens} tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
                 )
@@ -908,7 +909,6 @@ class ToolCallingLLM:
                     t.model_dump() for t in truncated_res.truncations
                 ]
                 messages = truncated_res.truncated_messages
-                perf_timing.measure("truncate_messages_to_fit_context")
             else:
                 metadata["truncations"] = []
 
@@ -927,7 +927,6 @@ class ToolCallingLLM:
                 # Log cost information for this iteration (no accumulation in streaming)
                 _process_cost_info(full_response, log_prefix="LLM iteration")
 
-                perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
@@ -986,8 +985,6 @@ class ToolCallingLLM:
                     event=StreamEvents.AI_MESSAGE,
                     data={"content": message, "reasoning": reasoning},
                 )
-
-            perf_timing.measure("pre-tool-calls")
 
             # Check if any tools require approval first
             pending_approvals = []
