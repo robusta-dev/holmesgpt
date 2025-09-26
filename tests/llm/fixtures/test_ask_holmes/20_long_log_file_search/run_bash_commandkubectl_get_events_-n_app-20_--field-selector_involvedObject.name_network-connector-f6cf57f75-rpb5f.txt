@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get events -n app-20 --field-selector involvedObject.name=network-connector-f6cf57f75-rpb5f"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get events -n app-20 --field-selector involvedObject.name=network-connector-f6cf57f75-rpb5f", "params": {"command": "kubectl get events -n app-20 --field-selector involvedObject.name=network-connector-f6cf57f75-rpb5f"}, "icon_url": null}
+kubectl get events -n app-20 --field-selector involvedObject.name=network-connector-f6cf57f75-rpb5f
+No resources found in app-20 namespace.

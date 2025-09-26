@@ -1,0 +1,13 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs network-connector-f6cf57f75-2fg7c -n app-20 --tail=10"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl logs network-connector-f6cf57f75-2fg7c -n app-20 --tail=10", "params": {"command": "kubectl logs network-connector-f6cf57f75-2fg7c -n app-20 --tail=10"}, "icon_url": null}
+kubectl logs network-connector-f6cf57f75-2fg7c -n app-20 --tail=10
+Log entry 99498
+Log entry 99499
+Log entry 99500
+Log entry 99501
+Log entry 99502
+Log entry 99503
+Log entry 99504
+Log entry 99505
+Log entry 99506
+Log entry 99507

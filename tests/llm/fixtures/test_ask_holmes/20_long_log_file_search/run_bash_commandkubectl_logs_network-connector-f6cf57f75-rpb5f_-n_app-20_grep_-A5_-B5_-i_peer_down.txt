@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A5 -B5 -i \"peer down\""}}
+{"schema_version": "robusta:v1.0.0", "status": "error", "error": null, "return_code": 1, "url": null, "invocation": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A5 -B5 -i 'peer down'", "params": {"command": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A5 -B5 -i \"peer down\""}, "icon_url": null}
+kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A5 -B5 -i 'peer down'
+error: error from server (NotFound): pods "network-connector-f6cf57f75-rpb5f" not found in namespace "app-20"

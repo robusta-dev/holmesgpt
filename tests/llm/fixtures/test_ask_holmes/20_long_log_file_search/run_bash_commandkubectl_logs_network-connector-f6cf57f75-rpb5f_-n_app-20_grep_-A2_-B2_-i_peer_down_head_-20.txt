@@ -1,0 +1,8 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A2 -B2 -i \"peer down\" | head -20"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A2 -B2 -i 'peer down' | head -20", "params": {"command": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A2 -B2 -i \"peer down\" | head -20"}, "icon_url": null}
+kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 | grep -A2 -B2 -i 'peer down' | head -20
+Log entry 49998
+Log entry 49999
+Peer down
+Log entry 50001
+Log entry 50002
