@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get svc -A | grep -i redis"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get svc -A | grep -i redis", "params": {"command": "kubectl get svc -A | grep -i redis"}, "icon_url": null}
+kubectl get svc -A | grep -i redis
+app-24a                    redis                                                ClusterIP      10.43.100.92    <none>         6379/TCP                       3h27m
+default                    redis                                                ClusterIP      10.43.84.29     <none>         6379/TCP                       16d

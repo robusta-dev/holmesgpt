@@ -270,8 +270,10 @@ class MockFileManager:
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata.model_dump_json() + "\n")
             f.write(json.dumps(structured_output) + "\n")
-            if content:
-                f.write(content)
+            if content and isinstance(content, dict):
+                f.write(json.dumps(content, indent=2))
+            elif content:
+                f.write(str(content))
 
         logging.info(f"Wrote mock file: {mock_file_path}")
 

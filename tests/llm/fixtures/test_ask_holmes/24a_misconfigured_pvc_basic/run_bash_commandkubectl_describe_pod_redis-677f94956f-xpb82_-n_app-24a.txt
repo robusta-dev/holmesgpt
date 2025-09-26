@@ -1,17 +1,18 @@
-{"toolset_name":"kubernetes/core","tool_name":"kubectl_describe","match_params":{"kind":"pod","name":"redis-747ffc844f-f9ghd","namespace":"app-24a"}}
-{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "kubectl describe pod redis-747ffc844f-f9ghd -n app-24a", "params": {"kind": "pod", "name": "redis-747ffc844f-f9ghd", "namespace": "default"}}
-Name:             redis-747ffc844f-f9ghd
-Namespace:     app-24a
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe pod redis-677f94956f-xpb82 -n app-24a"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe pod redis-677f94956f-xpb82 -n app-24a", "params": {"command": "kubectl describe pod redis-677f94956f-xpb82 -n app-24a"}, "icon_url": null}
+kubectl describe pod redis-677f94956f-xpb82 -n app-24a
+Name:             redis-677f94956f-xpb82
+Namespace:        app-24a
 Priority:         0
 Service Account:  default
 Node:             <none>
 Labels:           app=redis
-                  pod-template-hash=747ffc844f
+                  pod-template-hash=677f94956f
 Annotations:      <none>
 Status:           Pending
 IP:
 IPs:              <none>
-Controlled By:    ReplicaSet/redis-747ffc844f
+Controlled By:    ReplicaSet/redis-677f94956f
 Containers:
   redis:
     Image:      redis:6.2.6
@@ -35,7 +36,7 @@ Containers:
     Environment:  <none>
     Mounts:
       /data from redis-storage (rw)
-      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-vdbtm (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-scsnf (ro)
 Conditions:
   Type           Status
   PodScheduled   False
@@ -44,7 +45,7 @@ Volumes:
     Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
     ClaimName:  redis-standard-pvc
     ReadOnly:   false
-  kube-api-access-vdbtm:
+  kube-api-access-scsnf:
     Type:                    Projected (a volume that contains injected data from multiple sources)
     TokenExpirationSeconds:  3607
     ConfigMapName:           kube-root-ca.crt
@@ -57,4 +58,4 @@ Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists fo
 Events:
   Type     Reason            Age                   From               Message
   ----     ------            ----                  ----               -------
-  Warning  FailedScheduling  100s (x2 over 6m45s)  default-scheduler  0/2 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/2 nodes are available: 2 Preemption is not helpful for scheduling.
+  Warning  FailedScheduling  20m (x37 over 3h20m)  default-scheduler  0/1 nodes are available: pod has unbound immediate PersistentVolumeClaims. preemption: 0/1 nodes are available: 1 Preemption is not helpful for scheduling.

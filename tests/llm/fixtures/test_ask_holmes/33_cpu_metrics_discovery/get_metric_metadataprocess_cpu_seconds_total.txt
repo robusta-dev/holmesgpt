@@ -1,0 +1,14 @@
+{"toolset_name":"prometheus/metrics","tool_name":"get_metric_metadata","match_params":{"metric":"process_cpu_seconds_total"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "url": null, "invocation": null, "params": {"metric": "process_cpu_seconds_total"}, "icon_url": null}
+{
+  "status": "success",
+  "data": {
+    "process_cpu_seconds_total": [
+      {
+        "type": "counter",
+        "unit": "",
+        "help": "Total user and system CPU time spent in seconds."
+      }
+    ]
+  }
+}

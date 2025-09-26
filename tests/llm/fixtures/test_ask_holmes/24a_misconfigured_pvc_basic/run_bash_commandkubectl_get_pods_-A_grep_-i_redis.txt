@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -A | grep -i redis"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pods -A | grep -i redis", "params": {"command": "kubectl get pods -A | grep -i redis"}, "icon_url": null}
+kubectl get pods -A | grep -i redis
+app-24a                    redis-677f94956f-xpb82                                        0/1     Pending                      0                  3h25m
+default                    redis-677f94956f-ntvpn                                        0/1     Pending                      0                  2d1h

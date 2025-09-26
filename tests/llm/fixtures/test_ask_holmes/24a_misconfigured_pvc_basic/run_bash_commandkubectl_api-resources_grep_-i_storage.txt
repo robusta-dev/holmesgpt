@@ -1,0 +1,2 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl api-resources | grep -i storage"}}
+{"schema_version": "robusta:v1.0.0", "status": "approval_required", "error": "Refusing to execute bash command. argument action: invalid choice: 'api-resources' (choose from 'describe', 'events', 'logs', 'top', 'get', 'cluster-info')", "return_code": null, "url": null, "invocation": "kubectl api-resources | grep -i storage", "params": {"command": "kubectl api-resources | grep -i storage"}, "icon_url": null}
