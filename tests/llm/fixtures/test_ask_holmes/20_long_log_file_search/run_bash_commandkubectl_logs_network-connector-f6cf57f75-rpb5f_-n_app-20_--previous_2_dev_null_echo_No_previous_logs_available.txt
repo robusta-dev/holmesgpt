@@ -1,0 +1,6 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 --previous 2>/dev/null || echo \"No previous logs available\""}}
+{"schema_version": "robusta:v1.0.0", "status": "error", "error": null, "return_code": 1, "url": null, "invocation": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 --previous '2>/dev/null' '||' echo 'No previous logs available'", "params": {"command": "kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 --previous 2>/dev/null || echo \"No previous logs available\""}, "icon_url": null}
+kubectl logs network-connector-f6cf57f75-rpb5f -n app-20 --previous '2>/dev/null' '||' echo 'No previous logs available'
+error: expected 'logs [-f] [-p] (POD | TYPE/NAME) [-c CONTAINER]'.
+POD or TYPE/NAME is a required argument for the logs command
+See 'kubectl logs -h' for help and examples

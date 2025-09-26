@@ -54,7 +54,7 @@ class TestCutCliSafeCommands:
     )
     def test_safe_cut_commands(self, input_command, expected_output):
         """Test that safe cut commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -64,24 +64,24 @@ class TestCutCliEdgeCases:
     def test_cut_with_numeric_short_forms(self):
         """Test cut with numeric shorthand forms like -1, -10, etc."""
         # These are valid cut options (shorthand for -f1, -f10, etc.)
-        result = make_command_safe("cut -1", None)
+        result = make_command_safe("cut -1")
         assert result == "cut -1"
 
-        result = make_command_safe("cut -1-3", None)
+        result = make_command_safe("cut -1-3")
         assert result == "cut -1-3"
 
     def test_cut_with_complex_field_ranges(self):
         """Test cut with complex field range specifications."""
-        result = make_command_safe("cut -f1,3-5,7,9-", None)
+        result = make_command_safe("cut -f1,3-5,7,9-")
         assert result == "cut -f1,3-5,7,9-"
 
-        result = make_command_safe("cut -f-3,5-", None)
+        result = make_command_safe("cut -f-3,5-")
         assert result == "cut -f-3,5-"
 
     def test_cut_with_special_delimiters(self):
         """Test cut with special delimiter characters."""
-        result = make_command_safe("cut -d$'\\t' -f1", None)
+        result = make_command_safe("cut -d$'\\t' -f1")
         assert result == "cut -d$\\t -f1"
 
-        result = make_command_safe("cut -d' ' -f1,2", None)
+        result = make_command_safe("cut -d' ' -f1,2")
         assert result == "cut -d  -f1,2"

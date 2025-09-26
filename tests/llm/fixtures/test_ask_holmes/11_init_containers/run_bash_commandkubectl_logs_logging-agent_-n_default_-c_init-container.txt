@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs logging-agent -n default -c init-container"}}
+{"schema_version": "robusta:v1.0.0", "status": "error", "error": null, "return_code": 1, "url": null, "invocation": "kubectl logs logging-agent -n default -c init-container", "params": {"command": "kubectl logs logging-agent -n default -c init-container"}, "icon_url": null}
+kubectl logs logging-agent -n default -c init-container
+error: container init-container is not valid for pod logging-agent

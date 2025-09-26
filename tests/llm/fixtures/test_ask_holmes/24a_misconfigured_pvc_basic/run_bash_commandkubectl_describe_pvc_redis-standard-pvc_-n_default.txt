@@ -1,0 +1,19 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe pvc redis-standard-pvc -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe pvc redis-standard-pvc -n default", "params": {"command": "kubectl describe pvc redis-standard-pvc -n default"}, "icon_url": null}
+kubectl describe pvc redis-standard-pvc -n default
+Name:          redis-standard-pvc
+Namespace:     default
+StorageClass:  standard-v2
+Status:        Pending
+Volume:
+Labels:        <none>
+Annotations:   <none>
+Finalizers:    [kubernetes.io/pvc-protection]
+Capacity:
+Access Modes:
+VolumeMode:    Filesystem
+Used By:       redis-677f94956f-ntvpn
+Events:
+  Type     Reason              Age                    From                         Message
+  ----     ------              ----                   ----                         -------
+  Warning  ProvisioningFailed  3s (x1781 over 7h25m)  persistentvolume-controller  storageclass.storage.k8s.io "standard-v2" not found

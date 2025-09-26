@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -n app-20 -l app=network-connector"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pods -n app-20 -l app=network-connector", "params": {"command": "kubectl get pods -n app-20 -l app=network-connector"}, "icon_url": null}
+kubectl get pods -n app-20 -l app=network-connector
+NAME                                READY   STATUS    RESTARTS   AGE
+network-connector-f6cf57f75-2fg7c   1/1     Running   0          70s

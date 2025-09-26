@@ -1,0 +1,183 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pod logging-agent -n default -o yaml"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pod logging-agent -n default -o yaml", "params": {"command": "kubectl get pod logging-agent -n default -o yaml"}, "icon_url": null}
+kubectl get pod logging-agent -n default -o yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Pod","metadata":{"annotations":{},"name":"logging-agent","namespace":"default"},"spec":{"containers":[{"image":"nginx","name":"exporter","ports":[{"containerPort":80}],"volumeMounts":[{"mountPath":"/usr/share/nginx/html","name":"workdir"}]}],"dnsPolicy":"Default","initContainers":[{"command":["wge","-O","/work-dir/index.html","https://home.robusta.dev"],"image":"busybox:1.28","name":"downloader","volumeMounts":[{"mountPath":"/work-dir","name":"workdir"}]}],"volumes":[{"emptyDir":{},"name":"workdir"}]}}
+  creationTimestamp: "2025-09-26T10:41:58Z"
+  generation: 1
+  name: logging-agent
+  namespace: default
+  resourceVersion: "1608487"
+  uid: 227da44b-3498-478e-98d8-7d5f51fdbf56
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: exporter
+    ports:
+    - containerPort: 80
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /usr/share/nginx/html
+      name: workdir
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-8knw6
+      readOnly: true
+  dnsPolicy: Default
+  enableServiceLinks: true
+  initContainers:
+  - command:
+    - wge
+    - -O
+    - /work-dir/index.html
+    - https://home.robusta.dev
+    image: busybox:1.28
+    imagePullPolicy: IfNotPresent
+    name: downloader
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /work-dir
+      name: workdir
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-8knw6
+      readOnly: true
+  nodeName: threadripper-linux
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - emptyDir: {}
+    name: workdir
+  - name: kube-api-access-8knw6
+    projected:
+      defaultMode: 420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+      - configMap:
+          items:
+          - key: ca.crt
+            path: ca.crt
+          name: kube-root-ca.crt
+      - downwardAPI:
+          items:
+          - fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+            path: namespace
+status:
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2025-09-26T10:41:59Z"
+    status: "True"
+    type: PodReadyToStartContainers
+  - lastProbeTime: null
+    lastTransitionTime: "2025-09-26T10:41:58Z"
+    message: 'containers with incomplete status: [downloader]'
+    reason: ContainersNotInitialized
+    status: "False"
+    type: Initialized
+  - lastProbeTime: null
+    lastTransitionTime: "2025-09-26T10:41:58Z"
+    message: 'containers with unready status: [exporter]'
+    reason: ContainersNotReady
+    status: "False"
+    type: Ready
+  - lastProbeTime: null
+    lastTransitionTime: "2025-09-26T10:41:58Z"
+    message: 'containers with unready status: [exporter]'
+    reason: ContainersNotReady
+    status: "False"
+    type: ContainersReady
+  - lastProbeTime: null
+    lastTransitionTime: "2025-09-26T10:41:58Z"
+    status: "True"
+    type: PodScheduled
+  containerStatuses:
+  - image: nginx
+    imageID: ""
+    lastState: {}
+    name: exporter
+    ready: false
+    restartCount: 0
+    started: false
+    state:
+      waiting:
+        reason: PodInitializing
+    volumeMounts:
+    - mountPath: /usr/share/nginx/html
+      name: workdir
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-8knw6
+      readOnly: true
+      recursiveReadOnly: Disabled
+  hostIP: 192.168.0.30
+  hostIPs:
+  - ip: 192.168.0.30
+  initContainerStatuses:
+  - containerID: containerd://f10a7291e943787a2bad385ff9444e4d550cfc858d72db9f4f87afcf77fc3e1b
+    image: docker.io/library/busybox:1.28
+    imageID: docker.io/library/busybox@sha256:141c253bc4c3fd0a201d32dc1f493bcf3fff003b6df416dea4f41046e0f37d47
+    lastState:
+      terminated:
+        containerID: containerd://f10a7291e943787a2bad385ff9444e4d550cfc858d72db9f4f87afcf77fc3e1b
+        exitCode: 128
+        finishedAt: "2025-09-26T10:42:40Z"
+        message: 'failed to create containerd task: failed to create shim task: OCI
+          runtime create failed: runc create failed: unable to start container process:
+          error during container init: exec: "wge": executable file not found in $PATH'
+        reason: StartError
+        startedAt: "1970-01-01T00:00:00Z"
+    name: downloader
+    ready: false
+    resources: {}
+    restartCount: 3
+    started: false
+    state:
+      waiting:
+        message: back-off 40s restarting failed container=downloader pod=logging-agent_default(227da44b-3498-478e-98d8-7d5f51fdbf56)
+        reason: CrashLoopBackOff
+    user:
+      linux:
+        gid: 0
+        supplementalGroups:
+        - 0
+        - 10
+        uid: 0
+    volumeMounts:
+    - mountPath: /work-dir
+      name: workdir
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-8knw6
+      readOnly: true
+      recursiveReadOnly: Disabled
+  phase: Pending
+  podIP: 10.42.0.184
+  podIPs:
+  - ip: 10.42.0.184
+  qosClass: BestEffort
+  startTime: "2025-09-26T10:41:58Z"

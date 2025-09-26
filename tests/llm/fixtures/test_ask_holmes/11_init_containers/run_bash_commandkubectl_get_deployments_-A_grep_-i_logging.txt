@@ -1,0 +1,3 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get deployments -A | grep -i logging"}}
+{"schema_version": "robusta:v1.0.0", "status": "no_data", "error": null, "return_code": 1, "url": null, "invocation": "kubectl get deployments -A | grep -i logging", "params": {"command": "kubectl get deployments -A | grep -i logging"}, "icon_url": null}
+kubectl get deployments -A | grep -i logging

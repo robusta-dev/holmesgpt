@@ -1456,6 +1456,8 @@ class PrometheusToolset(Toolset):
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
             icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
+            enabled=True,
+            is_default=True,
             tools=[
                 ListPrometheusRules(toolset=self),
                 GetMetricNames(toolset=self),

@@ -1,0 +1,19 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get configmap db-certs-config -n default -o yaml"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get configmap db-certs-config -n default -o yaml", "params": {"command": "kubectl get configmap db-certs-config -n default -o yaml"}, "icon_url": null}
+kubectl get configmap db-certs-config -n default -o yaml
+apiVersion: v1
+data:
+  certificate.pem: |-
+    <OBFUSCATED FOR SECURITY REASONS>
+  key.pem: |-
+    <OBFUSCATED FOR SECURITY REASONS>
+kind: ConfigMap
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","data":{"certificate.pem":"<OBFUSCATED FOR SECURITY REASONS>","key.pem":"<OBFUSCATED FOR SECURITY REASONS>"},"kind":"ConfigMap","metadata":{"annotations":{},"name":"db-certs-config","namespace":"default"}}
+  creationTimestamp: "2025-09-12T08:06:25Z"
+  name: db-certs-config
+  namespace: default
+  resourceVersion: "543187"
+  uid: e7cd34c1-b22a-4fe2-824c-14f9947fa392

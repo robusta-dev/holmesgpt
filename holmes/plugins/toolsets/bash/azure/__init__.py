@@ -1,8 +1,7 @@
 import argparse
-from typing import Any, Optional
+from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import (
     validate_command_and_operations,
@@ -34,9 +33,7 @@ class AzureCommand(BashCommand):
         )
         return azure_parser
 
-    def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         if hasattr(command, "options"):
             validate_command_and_operations(
                 command=command.service,
@@ -45,9 +42,7 @@ class AzureCommand(BashCommand):
                 denied_commands=DENIED_AZURE_COMMANDS,
             )
 
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         parts = ["az", command.service]
 
         if hasattr(command, "options") and command.options:

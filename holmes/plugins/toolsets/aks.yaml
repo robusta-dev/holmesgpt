@@ -3,6 +3,7 @@ toolsets:
     description: "Set of tools to read Azure Kubernetes Service resources"
     tags:
       - cli
+    enabled: False
     prerequisites:
       - command: "az account show"
       - command: "az aks --help"

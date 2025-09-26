@@ -1,9 +1,6 @@
 # Kubernetes Toolsets
 
-## Core ✓
-
-!!! info "Enabled by Default"
-    This toolset is enabled by default and should typically remain enabled.
+## Core
 
 By enabling this toolset, HolmesGPT will be able to describe and find Kubernetes resources like nodes, deployments, pods, etc.
 

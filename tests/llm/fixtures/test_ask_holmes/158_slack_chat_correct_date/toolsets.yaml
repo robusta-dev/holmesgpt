@@ -6,13 +6,13 @@ toolsets:
     config:
       prometheus_url: http://localhost:9090
   kubernetes/core:
-    enabled: true
+    enabled: false
   kubernetes/logs:
-    enabled: true
+    enabled: false
   kubernetes/kube-lineage-extras:
     enabled: false
   bash:
-    enabled: false
+    enabled: true
   helm/core:
     enabled: false
   kafka/admin:
@@ -36,6 +36,6 @@ toolsets:
   docker/core:
     enabled: false
   confluence:
-    enabled: False
+    enabled: false
   slab:
-    enabled: False
+    enabled: false

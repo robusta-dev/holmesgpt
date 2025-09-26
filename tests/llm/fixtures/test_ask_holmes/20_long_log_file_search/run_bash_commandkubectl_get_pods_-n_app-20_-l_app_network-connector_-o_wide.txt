@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -n app-20 -l app=network-connector -o wide"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pods -n app-20 -l app=network-connector -o wide", "params": {"command": "kubectl get pods -n app-20 -l app=network-connector -o wide"}, "icon_url": null}
+kubectl get pods -n app-20 -l app=network-connector -o wide
+NAME                                READY   STATUS    RESTARTS   AGE    IP            NODE                 NOMINATED NODE   READINESS GATES
+network-connector-f6cf57f75-k4hfz   1/1     Running   0          112s   10.42.0.188   threadripper-linux   <none>           <none>

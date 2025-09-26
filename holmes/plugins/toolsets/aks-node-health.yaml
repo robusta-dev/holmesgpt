@@ -1,6 +1,7 @@
 toolsets:
   aks/node-health:
     description: "Set of tools to troubleshoot AKS node health issues"
+    enabled: False
     tags:
       - cli
     prerequisites:

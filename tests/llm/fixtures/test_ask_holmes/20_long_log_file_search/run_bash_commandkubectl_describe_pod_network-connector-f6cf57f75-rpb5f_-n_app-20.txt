@@ -1,0 +1,68 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe pod network-connector-f6cf57f75-rpb5f -n app-20"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe pod network-connector-f6cf57f75-rpb5f -n app-20", "params": {"command": "kubectl describe pod network-connector-f6cf57f75-rpb5f -n app-20"}, "icon_url": null}
+kubectl describe pod network-connector-f6cf57f75-rpb5f -n app-20
+Name:             network-connector-f6cf57f75-rpb5f
+Namespace:        app-20
+Priority:         0
+Service Account:  default
+Node:             threadripper-linux/192.168.0.30
+Start Time:       Fri, 26 Sep 2025 14:05:08 +0200
+Labels:           app=network-connector
+                  pod-template-hash=f6cf57f75
+Annotations:      <none>
+Status:           Running
+IP:               10.42.0.186
+IPs:
+  IP:           10.42.0.186
+Controlled By:  ReplicaSet/network-connector-f6cf57f75
+Containers:
+  network-connector:
+    Container ID:  containerd://668e8179f901a0d954b301c8be4dd2952bf590aeccb5c090f4304ef7b4881e99
+    Image:         python:3.9-slim
+    Image ID:      docker.io/library/python@sha256:914169c7c8398b1b90c0b0ff921c8027445e39d7c25dc440337e56ce0f2566e6
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      python
+    Args:
+      /scripts/generate_logs.py
+    State:          Running
+      Started:      Fri, 26 Sep 2025 14:05:09 +0200
+    Ready:          True
+    Restart Count:  0
+    Requests:
+      cpu:        10m
+      memory:     64Mi
+    Environment:  <none>
+    Mounts:
+      /scripts from script-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-2bh9n (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       True
+  ContainersReady             True
+  PodScheduled                True
+Volumes:
+  script-volume:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  network-connector-logs-script
+    Optional:    false
+  kube-api-access-2bh9n:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   Burstable
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  56s   default-scheduler  Successfully assigned app-20/network-connector-f6cf57f75-rpb5f to threadripper-linux
+  Normal  Pulled     56s   kubelet            Container image "python:3.9-slim" already present on machine
+  Normal  Created    56s   kubelet            Created container: network-connector
+  Normal  Started    56s   kubelet            Started container network-connector

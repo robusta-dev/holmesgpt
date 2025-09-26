@@ -50,5 +50,5 @@ class TestUniqCliSafeCommands:
     )
     def test_safe_uniq_commands(self, input_command, expected_output):
         """Test that safe uniq commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output

@@ -87,6 +87,12 @@ ALLOWED_DOCKER_COMMANDS: dict[str, dict] = {
         "inspect": {},
         "show": {},
     },
+    "logs": {},
+    "inspect": {},
+    "top": {},
+    "history": {},
+    "diff": {},
+    "events": {},
 }
 
 # Blocked Docker operations (state-modifying or dangerous)

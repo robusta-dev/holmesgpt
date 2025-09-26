@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs logging-agent -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "error", "error": null, "return_code": 1, "url": null, "invocation": "kubectl logs logging-agent -n default", "params": {"command": "kubectl logs logging-agent -n default"}, "icon_url": null}
+kubectl logs logging-agent -n default
+Defaulted container "exporter" out of: exporter, downloader (init)
+Error from server (BadRequest): container "exporter" in pod "logging-agent" is waiting to start: PodInitializing

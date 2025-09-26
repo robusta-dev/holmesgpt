@@ -1,0 +1,3 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get all -A | grep -i \"personal\\|certs.*validator\\|validator.*certs\""}}
+{"schema_version": "robusta:v1.0.0", "status": "no_data", "error": null, "return_code": 1, "url": null, "invocation": "kubectl get all -A | grep -i 'personal\\|certs.*validator\\|validator.*certs'", "params": {"command": "kubectl get all -A | grep -i \"personal\\|certs.*validator\\|validator.*certs\""}, "icon_url": null}
+kubectl get all -A | grep -i 'personal\|certs.*validator\|validator.*certs'

@@ -5,6 +5,7 @@ toolsets:
     icon_url: "https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg"
     tags:
       - cli
+    enabled: False
     prerequisites:
       - command: "aws sts get-caller-identity"
 

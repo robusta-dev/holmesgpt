@@ -1,0 +1,5 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pvc redis-standard-pvc -n app-24a"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pvc redis-standard-pvc -n app-24a", "params": {"command": "kubectl get pvc redis-standard-pvc -n app-24a"}, "icon_url": null}
+kubectl get pvc redis-standard-pvc -n app-24a
+NAME                 STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+redis-standard-pvc   Pending                                      standard-v2    <unset>                 3h25m

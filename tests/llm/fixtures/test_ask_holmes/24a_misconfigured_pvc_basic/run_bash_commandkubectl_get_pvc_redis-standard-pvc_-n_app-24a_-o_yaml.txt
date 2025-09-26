@@ -1,0 +1,26 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pvc redis-standard-pvc -n app-24a -o yaml"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pvc redis-standard-pvc -n app-24a -o yaml", "params": {"command": "kubectl get pvc redis-standard-pvc -n app-24a -o yaml"}, "icon_url": null}
+kubectl get pvc redis-standard-pvc -n app-24a -o yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"PersistentVolumeClaim","metadata":{"annotations":{},"name":"redis-standard-pvc","namespace":"app-24a"},"spec":{"accessModes":["ReadWriteOnce"],"resources":{"requests":{"storage":"1Gi"}},"storageClassName":"standard-v2"}}
+  creationTimestamp: "2025-09-26T09:08:28Z"
+  finalizers:
+  - kubernetes.io/pvc-protection
+  name: redis-standard-pvc
+  namespace: app-24a
+  resourceVersion: "1581019"
+  uid: 808e0b83-f65a-4a86-a833-ee2e6b25d50c
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: standard-v2
+  volumeMode: Filesystem
+status:
+  phase: Pending

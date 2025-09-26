@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -A | grep -i logging"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pods -A | grep -i logging", "params": {"command": "kubectl get pods -A | grep -i logging"}, "icon_url": null}
+kubectl get pods -A | grep -i logging
+default                    logging-agent                                                 0/1     Init:RunContainerError       3 (10s ago)        52s

@@ -1,0 +1,7 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get events -n default --field-selector involvedObject.name=db-certs-authenticator-6866469d97-5c4sf --sort-by='.lastTimestamp'"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get events -n default --field-selector involvedObject.name=db-certs-authenticator-6866469d97-5c4sf --sort-by=.lastTimestamp", "params": {"command": "kubectl get events -n default --field-selector involvedObject.name=db-certs-authenticator-6866469d97-5c4sf --sort-by='.lastTimestamp'"}, "icon_url": null}
+kubectl get events -n default --field-selector involvedObject.name=db-certs-authenticator-6866469d97-5c4sf --sort-by=.lastTimestamp
+LAST SEEN   TYPE      REASON    OBJECT                                        MESSAGE
+21m         Normal    Pulled    pod/db-certs-authenticator-6866469d97-5c4sf   (combined from similar events): Successfully pulled image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest" in 1.042s (1.042s including waiting). Image size: 57542453 bytes.
+2m48s       Normal    Pulling   pod/db-certs-authenticator-6866469d97-5c4sf   Pulling image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest"
+104s        Warning   BackOff   pod/db-certs-authenticator-6866469d97-5c4sf   Back-off restarting failed container flask in pod db-certs-authenticator-6866469d97-5c4sf_default(77ea5f53-aa55-4f77-9a1a-2f7fa3a38120)

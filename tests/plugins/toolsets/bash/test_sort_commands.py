@@ -54,7 +54,7 @@ class TestSortCliSafeCommands:
     )
     def test_safe_sort_commands(self, input_command, expected_output):
         """Test that safe sort commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -98,4 +98,4 @@ class TestSortCliUnsafeCommands:
     def test_unsafe_sort_commands(self, input_command, expected_error_message):
         """Test that unsafe sort commands are blocked with appropriate error messages."""
         with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)
+            make_command_safe(input_command)

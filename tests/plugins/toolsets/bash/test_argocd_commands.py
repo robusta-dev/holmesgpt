@@ -8,7 +8,6 @@ These tests verify:
 """
 
 import pytest
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -56,6 +55,10 @@ class TestArgoCDCliSafeCommands:
             (
                 "argocd app history myapp --revision 5",
                 "argocd app history myapp --revision 5",
+            ),
+            (
+                "argocd app history myapp --app-namespace default",
+                "argocd app history myapp --app-namespace default",
             ),
             ("argocd app manifests myapp", "argocd app manifests myapp"),
             (
@@ -235,8 +238,7 @@ class TestArgoCDCliSafeCommands:
     )
     def test_argocd_safe_commands(self, input_command: str, expected_output: str):
         """Test that safe Argo CD commands are parsed and stringified correctly."""
-        config = BashExecutorConfig()
-        output_command = make_command_safe(input_command, config=config)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
 
@@ -376,9 +378,8 @@ class TestArgoCDCliUnsafeCommands:
         self, command: str, expected_exception: type, partial_error_message_content: str
     ):
         """Test that unsafe Argo CD commands are properly rejected."""
-        config = BashExecutorConfig()
         with pytest.raises(expected_exception) as exc_info:
-            make_command_safe(command, config=config)
+            make_command_safe(command)
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)
@@ -389,35 +390,29 @@ class TestArgoCDCliEdgeCases:
 
     def test_argocd_with_grep_combination(self):
         """Test Argo CD commands combined with grep."""
-        config = BashExecutorConfig()
-
         # Valid combination
-        result = make_command_safe("argocd app list | grep myapp", config=config)
+        result = make_command_safe("argocd app list | grep myapp")
         assert result == "argocd app list | grep myapp"
 
         # Invalid - unsafe Argo CD command with grep
         with pytest.raises(ValueError):
-            make_command_safe("argocd app create myapp | grep success", config=config)
+            make_command_safe("argocd app create myapp | grep success")
 
     def test_argocd_commands_without_subcommands(self):
         """Test Argo CD commands that don't require subcommands."""
-        config = BashExecutorConfig()
-
         # Version command without subcommands
-        result = make_command_safe("argocd version", config=config)
+        result = make_command_safe("argocd version")
         assert result == "argocd version"
 
         # Context command without subcommands
-        result = make_command_safe("argocd context", config=config)
+        result = make_command_safe("argocd context")
         assert result == "argocd context"
 
     def test_argocd_complex_valid_parameters(self):
         """Test Argo CD commands with complex but valid parameters."""
-        config = BashExecutorConfig()
-
         # Complex app logs command
         complex_cmd = "argocd app logs myapp --tail 100 --filter error --container web --namespace production --timestamps"
-        result = make_command_safe(complex_cmd, config=config)
+        result = make_command_safe(complex_cmd)
         assert "argocd app logs myapp" in result
         assert "--tail 100" in result
         assert "--filter error" in result
@@ -427,37 +422,29 @@ class TestArgoCDCliEdgeCases:
 
     def test_argocd_case_sensitivity(self):
         """Test that Argo CD commands are case-sensitive where appropriate."""
-        config = BashExecutorConfig()
-
         # Command should be lowercase
         with pytest.raises(ValueError):
-            make_command_safe("argocd APP list", config=config)
+            make_command_safe("argocd APP list")
 
         # Operations should match exactly
         with pytest.raises(ValueError):
-            make_command_safe("argocd app LIST", config=config)
+            make_command_safe("argocd app LIST")
 
     def test_argocd_wait_command_conditions(self):
         """Test Argo CD wait command with different conditions."""
-        config = BashExecutorConfig()
-
         # Valid wait conditions
         conditions = ["--health", "--sync", "--suspended", "--degraded"]
         for condition in conditions:
-            result = make_command_safe(
-                f"argocd app wait myapp {condition}", config=config
-            )
+            result = make_command_safe(f"argocd app wait myapp {condition}")
             assert f"argocd app wait myapp {condition}" == result
 
     def test_argocd_server_connection_options(self):
         """Test server connection options are handled correctly."""
-        config = BashExecutorConfig()
-
         # Valid server options
         server_opts = ["--insecure", "--grpc-web", "--plaintext"]
         for opt in server_opts:
             result = make_command_safe(
-                f"argocd app list --server argocd.example.com {opt}", config=config
+                f"argocd app list --server argocd.example.com {opt}"
             )
             assert opt in result
             assert "--server argocd.example.com" in result

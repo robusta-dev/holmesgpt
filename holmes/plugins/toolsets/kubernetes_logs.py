@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from holmes.common.env_vars import KUBERNETES_LOGS_TIMEOUT_SECONDS
 from holmes.core.tools import (
-    StaticPrerequisite,
+    CallablePrerequisite,
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolsetTag,
@@ -59,24 +59,22 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         }
 
     def __init__(self):
-        prerequisite = StaticPrerequisite(enabled=False, disabled_reason="Initializing")
+        prerequisite = CallablePrerequisite(callable=self.health_check)
         super().__init__(
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/",
             icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
             prerequisites=[prerequisite],
-            is_default=True,
-            tools=[],  # Initialize with empty tools first
+            enabled=False,
+            is_default=False,
+            tools=[],
             tags=[ToolsetTag.CORE],
         )
-        # Now that parent is initialized and self.name exists, create the tool
+        # Constructor of PodLoggingTool requires an initialized toolset
         self.tools = [PodLoggingTool(self)]
-        enabled, disabled_reason = self.health_check()
-        prerequisite.enabled = enabled
-        prerequisite.disabled_reason = disabled_reason
 
-    def health_check(self) -> Tuple[bool, str]:
+    def health_check(self, _config: dict) -> Tuple[bool, str]:
         try:
             # Check if kubectl is available
             result = subprocess.run(
