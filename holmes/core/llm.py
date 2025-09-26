@@ -1,6 +1,7 @@
 import json
 import logging
 from abc import abstractmethod
+from math import floor
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
 from litellm.types.utils import ModelResponse, TextCompletionResponse
@@ -292,26 +293,32 @@ class DefaultLLM(LLM):
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
 
     def get_maximum_output_token(self) -> int:
+        max_output_tokens = floor(min(64000, self.get_context_window_size() / 5))
+
         if OVERRIDE_MAX_OUTPUT_TOKEN:
             logging.debug(
                 f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}"
             )
-            return OVERRIDE_MAX_OUTPUT_TOKEN
+            max_output_tokens = OVERRIDE_MAX_OUTPUT_TOKEN
 
         # Try each name variant
         for name in self._get_model_name_variants_for_lookup():
             try:
-                return litellm.model_cost[name]["max_output_tokens"]
+                litellm_max_output_tokens = litellm.model_cost[name][
+                    "max_output_tokens"
+                ]
+                if litellm_max_output_tokens < max_output_tokens:
+                    max_output_tokens = litellm_max_output_tokens
             except Exception:
                 continue
 
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 4096 tokens for max_output_tokens. "
+            f"using {max_output_tokens} tokens for max_output_tokens. "
             f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
         )
-        return 4096
+        return max_output_tokens
 
     def _add_cache_control_to_last_message(
         self, messages: List[Dict[str, Any]]
