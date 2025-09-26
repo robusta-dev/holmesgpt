@@ -76,16 +76,28 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         mock_prompt_session_class.return_value.prompt.side_effect = [
             "y",
             "Great response!",
+            "Y",  # Final confirmation
         ]
 
         console = Mock()
         style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
 
-        result = handle_feedback_command(style, console)
+        handle_feedback_command(style, console, feedback, feedback_callback)
 
-        self.assertIsInstance(result, UserFeedback)
-        self.assertTrue(result.is_positive)
-        self.assertEqual(result.comment, "Great response!")
+        # Verify feedback object was populated
+        self.assertIsNotNone(feedback.user_feedback)
+        self.assertTrue(feedback.user_feedback.is_positive)
+        self.assertEqual(feedback.user_feedback.comment, "Great response!")
+
+        # Verify callback was called with the feedback object
+        feedback_callback.assert_called_once_with(feedback)
+
+        # Verify thank you message was printed
+        console.print.assert_any_call(
+            "[bold green]Thank you for your feedback! 🙏[/bold green]"
+        )
 
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_negative(self, mock_prompt_session_class):
@@ -93,51 +105,191 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         mock_prompt_session_class.return_value.prompt.side_effect = [
             "n",
             "Could be better",
+            "Y",  # Final confirmation
         ]
 
         console = Mock()
         style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
 
-        result = handle_feedback_command(style, console)
+        handle_feedback_command(style, console, feedback, feedback_callback)
 
-        self.assertIsInstance(result, UserFeedback)
-        self.assertFalse(result.is_positive)
-        self.assertEqual(result.comment, "Could be better")
+        # Verify feedback object was populated
+        self.assertIsNotNone(feedback.user_feedback)
+        self.assertFalse(feedback.user_feedback.is_positive)
+        self.assertEqual(feedback.user_feedback.comment, "Could be better")
+
+        # Verify callback was called with the feedback object
+        feedback_callback.assert_called_once_with(feedback)
+
+        # Verify thank you message was printed
+        console.print.assert_any_call(
+            "[bold green]Thank you for your feedback! 🙏[/bold green]"
+        )
 
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_no_comment(self, mock_prompt_session_class):
         """Test feedback command without comment."""
-        mock_prompt_session_class.return_value.prompt.side_effect = ["y", ""]
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "y",
+            "",  # No comment
+            "Y",  # Final confirmation
+        ]
 
         console = Mock()
         style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
 
-        result = handle_feedback_command(style, console)
+        handle_feedback_command(style, console, feedback, feedback_callback)
 
-        self.assertIsInstance(result, UserFeedback)
-        self.assertTrue(result.is_positive)
-        self.assertIsNone(result.comment)
+        # Verify feedback object was populated
+        self.assertIsNotNone(feedback.user_feedback)
+        self.assertTrue(feedback.user_feedback.is_positive)
+        self.assertIsNone(feedback.user_feedback.comment)
+
+        # Verify callback was called with the feedback object
+        feedback_callback.assert_called_once_with(feedback)
+
+        # Verify thank you message was printed
+        console.print.assert_any_call(
+            "[bold green]Thank you for your feedback! 🙏[/bold green]"
+        )
 
     @patch("holmes.interactive.PromptSession")
     def test_handle_feedback_command_invalid_then_valid_rating(
         self, mock_prompt_session_class
     ):
         """Test feedback command with invalid rating first, then valid."""
-        mock_prompt_session_class.return_value.prompt.side_effect = ["x", "y", ""]
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "x",
+            "y",
+            "",  # No comment
+            "Y",  # Final confirmation
+        ]
 
         console = Mock()
         style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
 
-        result = handle_feedback_command(style, console)
+        handle_feedback_command(style, console, feedback, feedback_callback)
 
-        self.assertIsInstance(result, UserFeedback)
-        self.assertTrue(result.is_positive)
-        self.assertIsNone(result.comment)
+        # Verify feedback object was populated
+        self.assertIsNotNone(feedback.user_feedback)
+        self.assertTrue(feedback.user_feedback.is_positive)
+        self.assertIsNone(feedback.user_feedback.comment)
 
-        # Verify error message was printed
-        console.print.assert_called_with(
+        # Verify callback was called with the feedback object
+        feedback_callback.assert_called_once_with(feedback)
+
+        # Verify error message was printed for invalid input
+        console.print.assert_any_call(
+            "[bold red]Please enter only 'y' for yes or 'n' for no.[/bold red]"
+        )
+
+        # Verify feedback recorded message was printed
+        console.print.assert_any_call(
             "[bold green]✓ Feedback recorded (rating=👍, no comment)[/bold green]"
         )
+
+        # Verify thank you message was printed
+        console.print.assert_any_call(
+            "[bold green]Thank you for your feedback! 🙏[/bold green]"
+        )
+
+    @patch("holmes.interactive.PromptSession")
+    def test_handle_feedback_command_confirmation_cancelled(
+        self, mock_prompt_session_class
+    ):
+        """Test feedback command when final confirmation is cancelled."""
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "y",
+            "Great response!",
+            "n",  # Final confirmation cancelled
+        ]
+
+        console = Mock()
+        style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
+
+        handle_feedback_command(style, console, feedback, feedback_callback)
+
+        # Verify feedback object was NOT populated and callback was NOT called
+        # because final confirmation was cancelled
+        self.assertIsNone(feedback.user_feedback)
+
+        # Verify callback was NOT called since confirmation was cancelled
+        feedback_callback.assert_not_called()
+
+        # Verify cancellation message was printed, not thank you message
+        console.print.assert_any_call("[dim]Feedback cancelled.[/dim]")
+
+        # Ensure thank you message was NOT printed
+        thank_you_calls = [
+            call
+            for call in console.print.call_args_list
+            if "[bold green]Thank you for your feedback! 🙏[/bold green]" in str(call)
+        ]
+        self.assertEqual(len(thank_you_calls), 0)
+
+    @patch("holmes.interactive.PromptSession")
+    def test_handle_feedback_command_keyboard_interrupt(
+        self, mock_prompt_session_class
+    ):
+        """Test feedback command when KeyboardInterrupt is raised."""
+        mock_prompt_session_class.return_value.prompt.side_effect = KeyboardInterrupt()
+
+        console = Mock()
+        style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
+
+        handle_feedback_command(style, console, feedback, feedback_callback)
+
+        # Verify feedback object was not populated and callback was not called
+        self.assertIsNone(feedback.user_feedback)
+        feedback_callback.assert_not_called()
+
+        # Verify cancellation message was printed
+        console.print.assert_any_call("[dim]Feedback cancelled.[/dim]")
+
+    @patch("holmes.interactive.PromptSession")
+    def test_handle_feedback_command_with_comment_containing_markup(
+        self, mock_prompt_session_class
+    ):
+        """Test feedback command with comment containing markup characters that need escaping."""
+        mock_prompt_session_class.return_value.prompt.side_effect = [
+            "y",
+            "Great [bold]response[/bold] & nice <work>!",  # Comment with markup
+            "Y",  # Final confirmation
+        ]
+
+        console = Mock()
+        style = Mock()
+        feedback = Feedback()
+        feedback_callback = Mock()
+
+        handle_feedback_command(style, console, feedback, feedback_callback)
+
+        # Verify feedback object was populated
+        self.assertIsNotNone(feedback.user_feedback)
+        self.assertTrue(feedback.user_feedback.is_positive)
+        self.assertEqual(
+            feedback.user_feedback.comment, "Great [bold]response[/bold] & nice <work>!"
+        )
+
+        # Verify callback was called with the feedback object
+        feedback_callback.assert_called_once_with(feedback)
+
+        # The feedback recorded message should have escaped markup
+        expected_msg = (
+            "[bold green]✓ Feedback recorded (rating=👍, "
+            '"Great \\[bold]response\\[/bold] & nice <work>!")[/bold green]'
+        )
+        console.print.assert_any_call(expected_msg)
 
 
 class TestRunInteractiveLoop(unittest.TestCase):
@@ -191,9 +343,14 @@ class TestRunInteractiveLoop(unittest.TestCase):
         mock_build_messages.return_value = []
         mock_callback = Mock()
 
-        # Mock the feedback handler to return positive feedback
-        mock_user_feedback = UserFeedback(is_positive=True, comment="Great response!")
-        mock_handle_feedback.return_value = mock_user_feedback
+        # Mock the feedback handler to simulate feedback collection and callback invocation
+        def mock_feedback_handler(style, console, feedback, feedback_callback):
+            # Simulate what the real function does
+            user_feedback = UserFeedback(is_positive=True, comment="Great response!")
+            feedback.user_feedback = user_feedback
+            feedback_callback(feedback)
+
+        mock_handle_feedback.side_effect = mock_feedback_handler
 
         # Run the interactive loop
         run_interactive_loop(
@@ -267,9 +424,14 @@ class TestRunInteractiveLoop(unittest.TestCase):
         mock_build_messages.return_value = []
         mock_callback = Mock()
 
-        # Mock the feedback handler to return negative feedback
-        mock_user_feedback = UserFeedback(is_positive=False, comment="Could be better")
-        mock_handle_feedback.return_value = mock_user_feedback
+        # Mock the feedback handler to simulate feedback collection and callback invocation
+        def mock_feedback_handler(style, console, feedback, feedback_callback):
+            # Simulate what the real function does
+            user_feedback = UserFeedback(is_positive=False, comment="Could be better")
+            feedback.user_feedback = user_feedback
+            feedback_callback(feedback)
+
+        mock_handle_feedback.side_effect = mock_feedback_handler
 
         # Run the interactive loop
         run_interactive_loop(
@@ -343,9 +505,14 @@ class TestRunInteractiveLoop(unittest.TestCase):
         ]
         mock_callback = Mock()
 
-        # Mock the feedback handler to return feedback
-        mock_user_feedback = UserFeedback(is_positive=True, comment="Very helpful!")
-        mock_handle_feedback.return_value = mock_user_feedback
+        # Mock the feedback handler to simulate feedback collection and callback invocation
+        def mock_feedback_handler(style, console, feedback, feedback_callback):
+            # Simulate what the real function does
+            user_feedback = UserFeedback(is_positive=True, comment="Very helpful!")
+            feedback.user_feedback = user_feedback
+            feedback_callback(feedback)
+
+        mock_handle_feedback.side_effect = mock_feedback_handler
 
         # Mock tracer for the normal query
         mock_tracer = Mock()
