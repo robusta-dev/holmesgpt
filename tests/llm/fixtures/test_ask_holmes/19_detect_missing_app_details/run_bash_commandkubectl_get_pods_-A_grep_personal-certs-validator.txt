@@ -1,0 +1,3 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -A | grep personal-certs-validator"}}
+{"schema_version": "robusta:v1.0.0", "status": "no_data", "error": null, "return_code": 1, "url": null, "invocation": "kubectl get pods -A | grep personal-certs-validator", "params": {"command": "kubectl get pods -A | grep personal-certs-validator"}, "icon_url": null}
+kubectl get pods -A | grep personal-certs-validator

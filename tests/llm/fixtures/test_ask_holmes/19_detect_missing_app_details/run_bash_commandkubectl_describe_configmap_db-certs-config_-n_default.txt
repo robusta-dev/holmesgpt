@@ -1,0 +1,23 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe configmap db-certs-config -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe configmap db-certs-config -n default", "params": {"command": "kubectl describe configmap db-certs-config -n default"}, "icon_url": null}
+kubectl describe configmap db-certs-config -n default
+Name:         db-certs-config
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+certificate.pem:
+----
+<OBFUSCATED FOR SECURITY REASONS>
+
+key.pem:
+----
+<OBFUSCATED FOR SECURITY REASONS>
+
+
+BinaryData
+====
+
+Events:  <none>

@@ -1,0 +1,3 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl logs logging-agent -n default -c downloader"}}
+{"schema_version": "robusta:v1.0.0", "status": "no_data", "error": null, "return_code": 0, "url": null, "invocation": "kubectl logs logging-agent -n default -c downloader", "params": {"command": "kubectl logs logging-agent -n default -c downloader"}, "icon_url": null}
+kubectl logs logging-agent -n default -c downloader

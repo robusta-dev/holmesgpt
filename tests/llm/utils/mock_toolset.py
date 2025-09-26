@@ -10,6 +10,7 @@ import urllib
 import threading
 from pydantic import BaseModel
 import pytest
+import hashlib
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -200,6 +201,13 @@ class MockFileManager:
             params_data = ""
 
         params_data = sanitize_filename(params_data)
+
+        if len(params_data) > 200:
+            # prevent file names from being too long or they can hit limits of the operating system
+            params_data = (
+                params_data[:160] + hashlib.sha1(params_data.encode()).hexdigest()
+            )
+
         return os.path.join(self.test_case_folder, f"{tool_name}{params_data}.txt")
 
     def read_mock(self, tool_name: str, params: Dict) -> Optional[ToolMock]:
