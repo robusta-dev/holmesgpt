@@ -230,6 +230,7 @@ class InternetBaseToolset(Toolset):
         description: str,
         icon_url: str,
         tools: list[Tool],
+        enabled: bool,
         is_default: bool,
         tags: List[ToolsetTag],
         docs_url: Optional[str] = None,
@@ -243,6 +244,7 @@ class InternetBaseToolset(Toolset):
             ],
             tools=tools,
             tags=tags,
+            enabled=enabled,
             is_default=is_default,
             docs_url=docs_url,
         )
@@ -267,6 +269,8 @@ class InternetToolset(InternetBaseToolset):
             name="internet",
             description="Fetch webpages",
             icon_url="https://platform.robusta.dev/demos/internet-access.svg",
+            enabled=True,
+            is_default=True,
             tools=[
                 FetchWebpage(self),
             ],
@@ -274,5 +278,4 @@ class InternetToolset(InternetBaseToolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            is_default=True,
         )
