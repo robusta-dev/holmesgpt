@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+from math import floor
 import textwrap
 from typing import Dict, List, Optional, Type, Union, Callable, Any
 
@@ -131,6 +132,13 @@ def _process_cost_info(
                 costs.total_cost += cost
     except Exception as e:
         logging.debug(f"Could not extract cost information: {e}")
+
+
+def limit_max_output_tokens(maximum_output_token: int, max_context_size: int) -> int:
+    if maximum_output_token == max_context_size:
+        return floor(min(64000, maximum_output_token / 5))
+    else:
+        return maximum_output_token
 
 
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
@@ -427,6 +435,10 @@ class ToolCallingLLM:
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
+            maximum_output_token = limit_max_output_tokens(
+                maximum_output_token=maximum_output_token,
+                max_context_size=max_context_size,
+            )
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 truncated_res = self.truncate_messages_to_fit_context(
@@ -898,6 +910,11 @@ class ToolCallingLLM:
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
+
+            maximum_output_token = limit_max_output_tokens(
+                maximum_output_token=maximum_output_token,
+                max_context_size=max_context_size,
+            )
 
             if (total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
