@@ -299,18 +299,17 @@ class DefaultLLM(LLM):
             logging.debug(
                 f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}"
             )
-            max_output_tokens = OVERRIDE_MAX_OUTPUT_TOKEN
-        else:
-            # Try each name variant
-            for name in self._get_model_name_variants_for_lookup():
-                try:
-                    litellm_max_output_tokens = litellm.model_cost[name][
-                        "max_output_tokens"
-                    ]
-                    if litellm_max_output_tokens < max_output_tokens:
-                        max_output_tokens = litellm_max_output_tokens
-                except Exception:
-                    continue
+            return OVERRIDE_MAX_OUTPUT_TOKEN
+        # Try each name variant
+        for name in self._get_model_name_variants_for_lookup():
+            try:
+                litellm_max_output_tokens = litellm.model_cost[name][
+                    "max_output_tokens"
+                ]
+                if litellm_max_output_tokens < max_output_tokens:
+                    max_output_tokens = litellm_max_output_tokens
+            except Exception:
+                continue
 
         # Log which lookups we tried
         logging.warning(
