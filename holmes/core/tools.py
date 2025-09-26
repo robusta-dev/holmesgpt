@@ -81,6 +81,7 @@ class StructuredToolResult(BaseModel):
     error: Optional[str] = None
     return_code: Optional[int] = None
     data: Optional[Any] = None
+    llm_data: Optional[str] = None
     url: Optional[str] = None
     invocation: Optional[str] = None
     params: Optional[Dict] = None

@@ -1,0 +1,24 @@
+user_prompt: "Check prometheus metrics for increased 404 errors from service/http-service in the app-160 namespace between 2025-09-18T05:50:00Z and 2025-09-18T08:50:00Z. Using prometheus, narrow down the source of the 404 errors."
+expected_output:
+  - Periodic 404 errors occurring every 3 minutes from IP address 192.168.50.100
+  - 404 errors represent about 10% of total HTTP traffic during those periods
+  - Background HTTP traffic has normal error rate (<3%)
+  - The 404 errors are coming from requests to various endpoints that don't exist
+  - Pattern suggests automated scanning or probing behavior from the specific IP
+tags:
+  - network
+  - prometheus
+  - context_window
+before_test: |
+  kubectl create namespace app-160 || true
+  kubectl apply -f manifest.yaml -n app-160
+  kubectl wait --for=condition=Ready pod -l app=http-service -n app-160 --timeout=300s
+  sleep 30
+after_test: |
+  kubectl delete namespace app-160 --force --grace-period=0
+
+port_forwards:
+  - namespace: default
+    service: service/robusta-kube-prometheus-st-prometheus
+    local_port: 9160
+    remote_port: 9090

@@ -68,6 +68,25 @@ class ToolCallResult(BaseModel):
 
 def format_tool_result_data(tool_result: StructuredToolResult) -> str:
     tool_response = tool_result.data
+    if tool_result.llm_data:
+        # Some tools can return data dedicated to the LLM. This can be reformatted or summarized data
+        # These will end up in the conversation history.
+        # This is a hack to swap the `data` field but maintain the structured output because some models require access to it. For example prometheus graphs require the random_key to generate a usable graph.
+        try:
+            if tool_result.data and isinstance(tool_result.data, str):
+                data_with_random_key = json.loads(tool_result.data)
+                if (
+                    data_with_random_key
+                    and data_with_random_key.get("random_key")
+                    and data_with_random_key.get("data")
+                ):
+                    tool_result = tool_result.model_copy()
+                    data_with_random_key["data"] = tool_result.llm_data
+                    tool_result.data = data_with_random_key
+                    tool_result.llm_data = None
+        except Exception:
+            pass
+
     if isinstance(tool_result.data, str):
         tool_response = tool_result.data
     else:
