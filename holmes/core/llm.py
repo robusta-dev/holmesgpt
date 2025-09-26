@@ -300,6 +300,7 @@ class DefaultLLM(LLM):
                 f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}"
             )
             return OVERRIDE_MAX_OUTPUT_TOKEN
+
         # Try each name variant
         for name in self._get_model_name_variants_for_lookup():
             try:
@@ -308,6 +309,7 @@ class DefaultLLM(LLM):
                 ]
                 if litellm_max_output_tokens < max_output_tokens:
                     max_output_tokens = litellm_max_output_tokens
+                return max_output_tokens
             except Exception:
                 continue
 
