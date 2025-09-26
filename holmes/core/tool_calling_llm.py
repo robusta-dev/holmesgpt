@@ -134,11 +134,12 @@ def _process_cost_info(
         logging.debug(f"Could not extract cost information: {e}")
 
 
-def limit_max_output_tokens(maximum_output_token: int, max_context_size: int) -> int:
-    if maximum_output_token == max_context_size:
-        return floor(min(64000, maximum_output_token / 5))
+def limit_max_output_tokens(maximum_model_output_token: int, max_context_size: int) -> int:
+    calculated_maximum = floor(min(64000, max_context_size / 5))
+    if maximum_model_output_token > calculated_maximum:
+        return calculated_maximum 
     else:
-        return maximum_output_token
+        return maximum_model_output_token
 
 
 # TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
@@ -436,7 +437,7 @@ class ToolCallingLLM:
             perf_timing.measure("count tokens")
 
             maximum_output_token = limit_max_output_tokens(
-                maximum_output_token=maximum_output_token,
+                maximum_model_output_token=maximum_output_token,
                 max_context_size=max_context_size,
             )
             if (total_tokens + maximum_output_token) > max_context_size:
@@ -912,7 +913,7 @@ class ToolCallingLLM:
             perf_timing.measure("count tokens")
 
             maximum_output_token = limit_max_output_tokens(
-                maximum_output_token=maximum_output_token,
+                maximum_model_output_token=maximum_output_token,
                 max_context_size=max_context_size,
             )
 
