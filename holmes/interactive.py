@@ -30,7 +30,12 @@ from rich.markup import escape
 
 from holmes.common.env_vars import ENABLE_CLI_TOOL_APPROVAL
 from holmes.core.config import config_path_dir
-from holmes.core.feedback import Feedback, FeedbackCallback, UserFeedback
+from holmes.core.feedback import (
+    PRIVACY_NOTICE_BANNER,
+    Feedback,
+    FeedbackCallback,
+    UserFeedback,
+)
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
@@ -822,56 +827,83 @@ def handle_last_command(
 def handle_feedback_command(
     style: Style,
     console: Console,
-) -> UserFeedback:
+    feedback: Feedback,
+    feedback_callback: FeedbackCallback,
+) -> None:
     """Handle the /feedback command to collect user feedback."""
-    # Create a temporary session without history for feedback prompts
-    temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+    try:
+        # Create a temporary session without history for feedback prompts
+        temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+        # Prominent privacy notice to users
+        console.print(
+            f"[bold {HELP_COLOR}]Privacy Notice:[/bold {HELP_COLOR}] {PRIVACY_NOTICE_BANNER}"
+        )
+        # A "Cancel" button of equal discoverability to "Sent" or "Submit" buttons must be made available
+        console.print(
+            "[bold yellow]💡 Tip: Press Ctrl+C at any time to cancel feedback[/bold yellow]"
+        )
 
-    # Ask for thumbs up/down rating with validation
-    while True:
-        rating_prompt = temp_session.prompt(
-            [("class:prompt", "Was this response useful to you? 👍(y)/👎(n): ")],
+        # Ask for thumbs up/down rating with validation
+        while True:
+            rating_prompt = temp_session.prompt(
+                [("class:prompt", "Was this response useful to you? 👍(y)/👎(n): ")],
+                style=style,
+            )
+
+            rating_lower = rating_prompt.lower().strip()
+            if rating_lower in ["y", "n"]:
+                break
+            else:
+                console.print(
+                    "[bold red]Please enter only 'y' for yes or 'n' for no.[/bold red]"
+                )
+
+        # Determine rating
+        is_positive = rating_lower == "y"
+
+        # Ask for additional comments
+        comment_prompt = temp_session.prompt(
+            [
+                (
+                    "class:prompt",
+                    "Do you want to provide any additional comments for feedback? (press Enter to skip):\n",
+                )
+            ],
             style=style,
         )
 
-        rating_lower = rating_prompt.lower().strip()
-        if rating_lower in ["y", "n"]:
-            break
+        comment = comment_prompt.strip() if comment_prompt.strip() else None
+
+        # Create UserFeedback object
+        user_feedback = UserFeedback(is_positive, comment)
+
+        if comment:
+            console.print(
+                f'[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, "{escape(comment)}")[/bold green]'
+            )
         else:
             console.print(
-                "[bold red]Please enter only 'y' for yes or 'n' for no.[/bold red]"
+                f"[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, no comment)[/bold green]"
             )
 
-    # Determine rating
-    is_positive = rating_lower == "y"
-
-    # Ask for additional comments
-    comment_prompt = temp_session.prompt(
-        [
-            (
-                "class:prompt",
-                "Do you want to provide any additional comments for feedback? (press Enter to skip): ",
-            )
-        ],
-        style=style,
-    )
-
-    comment = comment_prompt.strip() if comment_prompt.strip() else None
-
-    # Create UserFeedback object
-    user_feedback = UserFeedback(is_positive, comment)
-
-    # Display confirmation
-    if comment:
-        console.print(
-            f'[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, "{escape(comment)}")[/bold green]'
-        )
-    else:
-        console.print(
-            f"[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, no comment)[/bold green]"
+        # Final confirmation before submitting
+        final_confirmation = temp_session.prompt(
+            [("class:prompt", "\nDo you want to submit this feedback? (Y/n): ")],
+            style=style,
         )
 
-    return user_feedback
+        # If user says no, cancel the feedback
+        if final_confirmation.lower().strip().startswith("n"):
+            console.print("[dim]Feedback cancelled.[/dim]")
+            return
+
+        feedback.user_feedback = user_feedback
+        feedback_callback(feedback)
+        console.print("[bold green]Thank you for your feedback! 🙏[/bold green]")
+
+    except KeyboardInterrupt:
+        console.print("[dim]Feedback cancelled.[/dim]")
+        return
 
 
 def display_recent_tool_outputs(
@@ -1141,9 +1173,7 @@ def run_interactive_loop(
                     command == SlashCommands.FEEDBACK.command
                     and feedback_callback is not None
                 ):
-                    user_feedback = handle_feedback_command(style, console)
-                    feedback.user_feedback = user_feedback
-                    feedback_callback(feedback)
+                    handle_feedback_command(style, console, feedback, feedback_callback)
                     return
                 else:
                     console.print(f"Unknown command: {command}")

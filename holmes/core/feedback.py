@@ -1,7 +1,13 @@
+import os
 from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
 from .llm import LLM
+
+DEFAULT_PRIVACY_NOTICE_BANNER = "Your feedback will be used to improve Holmesgpt's performance. Please avoid sharing sensitive personal information. By continuing, you consent to this data usage."
+PRIVACY_NOTICE_BANNER = os.environ.get(
+    "PRIVACY_NOTICE_BANNER", DEFAULT_PRIVACY_NOTICE_BANNER
+)
 
 
 class FeedbackInfoBase(ABC):
