@@ -126,12 +126,10 @@ class Config(RobustaBaseConfig):
         return self._llm_model_registry
 
     def log_useful_info(self):
-        # log the model list when we have more than configured model.
         if self.llm_model_registry.models:
-            if len(self.llm_model_registry.models) > 1:
-                logging.info(
-                    f"Loaded models: {list(self.llm_model_registry.models.keys())}"
-                )
+            logging.info(
+                f"Loaded models: {list(self.llm_model_registry.models.keys())}"
+            )
         else:
             logging.warning("No llm models were loaded")
 
