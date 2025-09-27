@@ -34,11 +34,12 @@ deps-lock: poetry
 ##@ Tools
 
 POETRY = $(shell pwd)/bin/poetry
-POETRY_VERSION = 1.8.5
+POETRY_VERSION = 1.8.4
 
 .PHONY: poetry
 poetry:  ## Download poetry locally if necessary.
 	@if [ ! -f $(POETRY) ] || ! $(POETRY) --version | grep -q "$(POETRY_VERSION)"; then \
 		echo "Installing poetry $(POETRY_VERSION)"; \
 		curl -sSL https://install.python-poetry.org | POETRY_HOME=$(shell pwd) python3 - --version $(POETRY_VERSION); \
+		rm -f VERSION; \
 	fi
