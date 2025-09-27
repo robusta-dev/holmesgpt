@@ -344,7 +344,7 @@ class TestRunInteractiveLoop(unittest.TestCase):
         mock_callback = Mock()
 
         # Mock the feedback handler to simulate feedback collection and callback invocation
-        def mock_feedback_handler(style, console, feedback, feedback_callback):
+        def mock_feedback_handler(_style, _console, feedback, feedback_callback):
             # Simulate what the real function does
             user_feedback = UserFeedback(is_positive=True, comment="Great response!")
             feedback.user_feedback = user_feedback
@@ -425,7 +425,7 @@ class TestRunInteractiveLoop(unittest.TestCase):
         mock_callback = Mock()
 
         # Mock the feedback handler to simulate feedback collection and callback invocation
-        def mock_feedback_handler(style, console, feedback, feedback_callback):
+        def mock_feedback_handler(_style, _console, feedback, feedback_callback):
             # Simulate what the real function does
             user_feedback = UserFeedback(is_positive=False, comment="Could be better")
             feedback.user_feedback = user_feedback
@@ -506,7 +506,7 @@ class TestRunInteractiveLoop(unittest.TestCase):
         mock_callback = Mock()
 
         # Mock the feedback handler to simulate feedback collection and callback invocation
-        def mock_feedback_handler(style, console, feedback, feedback_callback):
+        def mock_feedback_handler(_style, _console, feedback, feedback_callback):
             # Simulate what the real function does
             user_feedback = UserFeedback(is_positive=True, comment="Very helpful!")
             feedback.user_feedback = user_feedback
