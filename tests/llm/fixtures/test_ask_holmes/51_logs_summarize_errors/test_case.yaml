@@ -27,7 +27,7 @@ before_test: |
   kubectl rollout restart deployment/my-app-51 -n ask-holmes-namespace-51
 
   # Wait for deployment to be available
-  kubectl rollout status deployment/my-app-51 -n ask-holmes-namespace-51 --timeout=90s
+  kubectl rollout status deployment/my-app-51 -n ask-holmes-namespace-51 --timeout=180s
 
 after_test: |
   # Delete resources with proper error reporting

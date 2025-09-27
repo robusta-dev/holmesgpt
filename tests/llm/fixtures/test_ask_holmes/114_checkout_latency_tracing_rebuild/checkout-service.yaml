@@ -112,15 +112,20 @@
       if __name__ == '__main__':
           print("[CHECKOUT] Starting checkout service on port 8080", flush=True)
           app.run(host='0.0.0.0', port=8080)
-  ---
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: checkout
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: checkout
+  template:
+    metadata:
+      labels:
         app: checkout
     spec:
       containers:
@@ -148,15 +153,19 @@
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 30
+          initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 24
+          failureThreshold: 60
         resources:
           requests:
             memory: "32Mi"

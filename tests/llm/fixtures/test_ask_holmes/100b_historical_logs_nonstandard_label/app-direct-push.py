@@ -103,10 +103,13 @@ class LogBatcher:
             if response.status == 204:
                 total_logs = sum(len(s["values"]) for s in payload["streams"])
                 print(
-                    f"✓ Pushed {total_logs} logs to Loki ({len(payload['streams'])} streams)"
+                    f"✓ Pushed {total_logs} logs to Loki ({len(payload['streams'])} streams)",
+                    flush=True,
                 )
         except Exception as e:
-            print(f"✗ Failed to push logs to Loki: {e}")
+            print(f"✗ Failed to push logs to Loki: {e}", flush=True)
+            # Don't stop on errors, continue trying
+            pass
 
     def _flush_periodically(self):
         """Flush logs periodically"""
@@ -158,7 +161,7 @@ class HealthHandler(BaseHTTPRequestHandler):
 
 def generate_historical_logs():
     """Generate all historical logs including the incident period."""
-    print("Starting historical log generation...")
+    print("Starting historical log generation...", flush=True)
 
     # Define the problematic period
     problem_start = datetime(2025, 8, 2, 13, 45, 0)
@@ -169,6 +172,7 @@ def generate_historical_logs():
     scenario_now = datetime(2025, 8, 4, 14, 0, 0)
 
     log_count = 0
+    print(f"Will generate logs from {current_time} to {scenario_now}", flush=True)
 
     while current_time < scenario_now:
         # Normal operation logs
@@ -265,23 +269,31 @@ def generate_historical_logs():
         # Flush periodically
         if log_count % 50 == 0:
             log_batcher.flush_all()
-            print(f"Generated {log_count} historical logs so far...")
+            print(f"Generated {log_count} historical logs so far...", flush=True)
 
     # Final flush
     log_batcher.flush_all()
-    print(f"Historical log generation complete! Generated {log_count} logs total")
+    print(
+        f"Historical log generation complete! Generated {log_count} logs total",
+        flush=True,
+    )
 
 
 def main():
+    print("Script started - beginning main()", flush=True)
+
     # Generate all historical logs first
+    print("Calling generate_historical_logs()...", flush=True)
     generate_historical_logs()
 
     # Wait a bit to ensure all logs are pushed
+    print("Waiting 5 seconds for logs to flush...", flush=True)
     time.sleep(5)
 
     # Start health endpoint server
+    print("Creating HTTPServer...", flush=True)
     server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
-    print("Starting HTTP server on port 8080...")
+    print("Starting HTTP server on port 8080...", flush=True)
 
     # Add startup logs
     log_structured("INFO", "Payment API started", port=8080, version="1.2.3")
@@ -345,4 +357,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    print("Python script starting - __main__ block reached", flush=True)
+    try:
+        main()
+    except Exception as e:
+        print(f"Fatal error in main(): {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
+        raise

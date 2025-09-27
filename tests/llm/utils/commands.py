@@ -175,6 +175,17 @@ def _invoke_command(
                 sys.stderr.write(f"[SETUP STDERR] {result.stderr}\n")
 
         return output
+    except subprocess.TimeoutExpired as e:
+        # For timeout, we need to manually capture any partial output
+        # Note: subprocess.run with timeout doesn't capture partial output by default
+        # We'll add the captured output to the exception before re-raising
+        e.stdout = getattr(e, "stdout", "")
+        e.stderr = getattr(e, "stderr", "")
+        if not suppress_logging:
+            truncated_command = _truncate_script(command)
+            message = f"Command `{truncated_command}` timed out after {actual_timeout}s\nPartial stdout:\n{e.stdout}\nPartial stderr:\n{e.stderr}"
+            logging.error(message)
+        raise e
     except subprocess.CalledProcessError as e:
         if not suppress_logging:
             truncated_command = _truncate_script(command)
@@ -245,10 +256,23 @@ def run_commands(
     except subprocess.TimeoutExpired as e:
         elapsed_time = time.time() - start_time
 
+        # Try to capture partial output from the timed-out process
+        partial_stdout = ""
+        partial_stderr = ""
+        if hasattr(e, "stdout") and e.stdout:
+            partial_stdout = e.stdout
+        if hasattr(e, "stderr") and e.stderr:
+            partial_stderr = e.stderr
+
         # Add pod diagnostics for timeout errors too
         extra_diagnostics = _get_pod_diagnostics(test_case, operation)
 
-        error_details = f"TIMEOUT after {e.timeout}s (default: {EVAL_SETUP_TIMEOUT}s)\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds> or by setting 'setup_timeout' in test_case.yaml{extra_diagnostics}"
+        # Include partial output if available
+        output_section = ""
+        if partial_stdout or partial_stderr:
+            output_section = f"\n\nPartial output before timeout:\nstdout:\n{partial_stdout}\n\nstderr:\n{partial_stderr}"
+
+        error_details = f"TIMEOUT after {e.timeout}s (default: {EVAL_SETUP_TIMEOUT}s)\n\nYou can increase timeout with environment variable EVAL_SETUP_TIMEOUT=<seconds> or by setting 'setup_timeout' in test_case.yaml{output_section}{extra_diagnostics}"
 
         return CommandResult(
             command=f"{operation.capitalize()} timeout: {e.cmd}",

@@ -131,16 +131,20 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           exec:
             command:
             - cat
             - /tmp/ready
-          initialDelaySeconds: 30
+          initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 1
           successThreshold: 1
-          failureThreshold: 24
+          failureThreshold: 60
         resources:
           requests:
             memory: "64Mi"

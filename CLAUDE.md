@@ -126,8 +126,14 @@ poetry run mypy
 # Run all LLM tests
 RUN_LIVE=true poetry run pytest -m 'llm' --no-cov
 
-# Run specific test
+# Run specific test - IMPORTANT: Use -k flag, NOT full test path!
+# CORRECT - use -k flag with test name pattern:
 RUN_LIVE=true poetry run pytest -m 'llm' -k "09_crashpod" --no-cov
+RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py -k "114_checkout_latency" --no-cov
+
+# WRONG - DO NOT specify full test path with brackets:
+# RUN_LIVE=true poetry run pytest tests/llm/test_ask_holmes.py::test_ask_holmes[114_checkout_latency_tracing_rebuild-gpt-4o]
+# This syntax fails when environment variables are passed!
 
 # Run regression tests (easy marker) - all should pass with ITERATIONS=10
 RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
@@ -138,7 +144,15 @@ RUN_LIVE=true poetry run pytest tests/llm/ -n 6
 
 # Test with different models
 # Note: When using Anthropic models, set CLASSIFIER_MODEL to OpenAI (Anthropic not supported as classifier)
-RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py
+RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py -k "test_name"
+
+# Setting environment variables - IMPORTANT:
+# Environment variables must be set BEFORE the poetry command, NOT as pytest arguments
+# CORRECT:
+RUN_LIVE=true EVAL_SETUP_TIMEOUT=600 poetry run pytest -m 'llm' -k "slow_test" --no-cov
+
+# WRONG - this won't work:
+# poetry run pytest EVAL_SETUP_TIMEOUT=600 -m 'llm' -k "slow_test"
 ```
 
 ### Evaluation CLI Reference

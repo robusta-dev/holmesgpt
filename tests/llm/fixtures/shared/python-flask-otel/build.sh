@@ -6,7 +6,7 @@ set -e
 
 REGISTRY="me-west1-docker.pkg.dev/robusta-development/development"
 IMAGE_NAME="python-flask-otel"
-IMAGE_TAG="2.0"
+IMAGE_TAG="2.1"
 FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 LOCAL_IMAGE="holmes-test/${IMAGE_NAME}:${IMAGE_TAG}"
 
