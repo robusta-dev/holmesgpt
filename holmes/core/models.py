@@ -230,6 +230,7 @@ class WorkloadHealthRequest(BaseModel):
 
 class ChatRequest(ChatRequestBaseModel):
     ask: str
+    custom_system_prompt: Optional[str] = None
 
 
 class FollowUpAction(BaseModel):
