@@ -101,10 +101,9 @@ HolmesGPT supports running evaluations across multiple models simultaneously to 
 ```bash
 # Test multiple models in a single run
 # Models are specified as comma-separated list
-RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4o \
+RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 \
   CLASSIFIER_MODEL=gpt-4o \
   poetry run pytest -m 'llm and easy' --no-cov
-
 # Run with multiple iterations for statistically significant results
 RUN_LIVE=true ITERATIONS=10 \
   MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 \
