@@ -16,7 +16,7 @@ before_test: |
   [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
 
   PIDFILE="/tmp/nr_sim.pid"
-  DEMO_ENV=app python nr_retail_sim.py --spec specs.json --test-num 124 --duration 900 >/tmp/nr_sim.out 2>&1 &
+  python nr_retail_sim.py --spec specs.json --duration 900 >/tmp/nr_sim.out 2>&1 &
   SIM_PID=$!
 
   if [[ -z "${SIM_PID:-}" ]] || ! [[ "$SIM_PID" =~ ^[0-9]+$ ]]; then
