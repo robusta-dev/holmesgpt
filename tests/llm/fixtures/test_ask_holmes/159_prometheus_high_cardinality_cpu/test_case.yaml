@@ -42,16 +42,35 @@ before_test: |
 
   # Verify metrics are available before proceeding (fail fast if empty)
   echo "Verifying CPU metrics are available in Prometheus..."
+
+  # Run the kubectl/curl command and capture both output and exit code
   METRICS_OUTPUT=$(kubectl run -n app-159 metric-check-$RANDOM --rm -i --restart=Never --image=curlimages/curl -- \
     -s -G "http://robusta-kube-prometheus-st-prometheus.default.svc.cluster.local:9090/api/v1/query" \
     --data-urlencode "query=sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"app-159\"}[2m]))" 2>&1)
 
+  EXIT_CODE=$?
+
+  # First check if kubectl/curl command failed
+  if [ $EXIT_CODE -ne 0 ]; then
+    echo "ERROR: Failed to query Prometheus (kubectl/curl exit code: $EXIT_CODE)" >&2
+    echo "Output: $METRICS_OUTPUT" >&2
+    exit 1
+  fi
+
+  # Check if Prometheus returned a success status
+  if ! echo "$METRICS_OUTPUT" | grep -q '"status":"success"'; then
+    echo "ERROR: Prometheus query did not return success status" >&2
+    echo "Response: $METRICS_OUTPUT" >&2
+    exit 1
+  fi
+
+  # Finally check if we have actual metrics (non-empty result)
   if echo "$METRICS_OUTPUT" | grep -q '"result":\[\]'; then
     echo "ERROR: No CPU metrics found for app-159 within the expected window." >&2
     echo "Prometheus query returned empty result set" >&2
     exit 1
-  else
-    echo "✓ CPU metrics are present for app-159"
   fi
+
+  echo "✓ CPU metrics are present for app-159"
 
 after_test: kubectl delete namespace app-159 --ignore-not-found=true
