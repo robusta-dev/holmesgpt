@@ -272,8 +272,7 @@ RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 pytest -m 'llm and
 HolmesGPT includes a [GitHub Actions workflow](https://github.com/robusta-dev/holmesgpt/blob/main/.github/workflows/eval-benchmarks.yml) for automated benchmarking that runs:
 
 **Automatically:**
-- **Weekly** - Every Sunday at 2 AM UTC with comprehensive testing (`llm and easy` markers, 10 iterations)
-- **On Pull Requests** - When eval-related files are modified (minimal testing with 1 iteration)
+Coming soon: automation to run weekly.
 
 **Manually:**
 - Navigate to Actions tab → "LLM Evaluation Benchmarks" → Run workflow

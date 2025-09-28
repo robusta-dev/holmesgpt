@@ -1,4 +1,5 @@
 import logging
+import os
 import textwrap
 from typing import Any, Dict, List, Optional
 
@@ -11,7 +12,11 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 
-from holmes.plugins.runbooks import get_runbook_by_path, DEFAULT_RUNBOOK_SEARCH_PATH
+from holmes.plugins.runbooks import (
+    get_runbook_by_path,
+    load_runbook_catalog,
+    DEFAULT_RUNBOOK_SEARCH_PATH,
+)
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
@@ -22,9 +27,6 @@ class RunbookFetcher(Tool):
     available_runbooks: List[str] = []
 
     def __init__(self, toolset: "RunbookToolset"):
-        # Load available runbooks from catalog
-        from holmes.plugins.runbooks import load_runbook_catalog
-
         catalog = load_runbook_catalog()
         available_runbooks = []
         if catalog:
@@ -32,42 +34,31 @@ class RunbookFetcher(Tool):
 
         # If additional search paths are configured (e.g., for testing), also scan those for .md files
         # The config will be passed through the additional_search_paths parameter in the RunbookToolset __init__
-        if (
-            hasattr(toolset, "_additional_search_paths")
-            and toolset._additional_search_paths
-        ):
-            import os
-
+        if toolset._additional_search_paths:
             for search_path in toolset._additional_search_paths:
-                if os.path.isdir(search_path):
-                    # Find all .md files in the search path
-                    for file in os.listdir(search_path):
-                        if file.endswith(".md"):
-                            # Add the filename (without path) to available runbooks if not already there
-                            if file not in available_runbooks:
-                                available_runbooks.append(file)
+                if not os.path.isdir(search_path):
+                    continue
+
+                for file in os.listdir(search_path):
+                    if file.endswith(".md") and file not in available_runbooks:
+                        available_runbooks.append(file)
 
         # Build description with available runbooks
-        runbook_list = (
-            ", ".join([f'"{rb}"' for rb in available_runbooks])
-            if available_runbooks
-            else '"networking/dns_troubleshooting_instructions.md", "upgrade/upgrade_troubleshooting_instructions.md"'
-        )
+        runbook_list = ", ".join([f'"{rb}"' for rb in available_runbooks])
 
         super().__init__(
             name="fetch_runbook",
             description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
-                # use link as a more generic term for runbook path, considering we may have external links in the future
                 "link": ToolParameter(
                     description=f"The link to the runbook (non-empty string required). Must be one of: {runbook_list}",
                     type="string",
                     required=True,
                 ),
             },
-            toolset=toolset,  # type: ignore
-            available_runbooks=available_runbooks,  # Pass to parent init
         )
+        self.toolset = toolset
+        self.available_runbooks = available_runbooks
 
     def _invoke(
         self, params: dict, user_approved: bool = False
@@ -90,11 +81,7 @@ class RunbookFetcher(Tool):
         # If additional search paths are configured, allow any .md file from those paths
         if self.available_runbooks and link not in self.available_runbooks:
             # Check if this might be a test runbook from additional search paths
-            has_additional_paths = (
-                self.toolset.config
-                and "additional_search_paths" in self.toolset.config
-                and self.toolset.config["additional_search_paths"]
-            )
+            has_additional_paths = bool(self.toolset._additional_search_paths)
 
             # If no additional search paths or the link doesn't end with .md, enforce validation
             if not has_additional_paths or not link.endswith(".md"):
@@ -107,8 +94,8 @@ class RunbookFetcher(Tool):
                 )
 
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
-        if self.toolset.config and "additional_search_paths" in self.toolset.config:
-            search_paths.extend(self.toolset.config["additional_search_paths"])
+        if self.toolset._additional_search_paths:
+            search_paths.extend(self.toolset._additional_search_paths)
 
         runbook_path = get_runbook_by_path(link, search_paths)
 
@@ -186,7 +173,6 @@ class RunbookToolset(Toolset):
         config = {}
         if additional_search_paths:
             config["additional_search_paths"] = additional_search_paths
-        # Store as temporary attribute for RunbookFetcher to access during its __init__
         self._additional_search_paths = additional_search_paths
 
         super().__init__(

@@ -46,7 +46,7 @@ stringData:
         while True:
             request_count += 1
 
-            if request_count > 20 and not ever_had_promo:
+            if request_count > 100 and not ever_had_promo:
               include_promo = True
             else:
               # 1% chance to include promo code
@@ -124,6 +124,7 @@ spec:
     spec:
       containers:
       - name: traffic-generator
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
         image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
         imagePullPolicy: IfNotPresent
         command: ["/bin/bash", "-c"]
