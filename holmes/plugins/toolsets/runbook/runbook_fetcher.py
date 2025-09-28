@@ -25,17 +25,21 @@ from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
     available_runbooks: List[str] = []
+    additional_search_paths: Optional[List[str]] = None
 
-    def __init__(self, toolset: "RunbookToolset"):
+    def __init__(
+        self,
+        toolset: "RunbookToolset",
+        additional_search_paths: Optional[List[str]] = None,
+    ):
         catalog = load_runbook_catalog()
         available_runbooks = []
         if catalog:
             available_runbooks = [entry.link for entry in catalog.catalog]
 
         # If additional search paths are configured (e.g., for testing), also scan those for .md files
-        # The config will be passed through the additional_search_paths parameter in the RunbookToolset __init__
-        if toolset._additional_search_paths:
-            for search_path in toolset._additional_search_paths:
+        if additional_search_paths:
+            for search_path in additional_search_paths:
                 if not os.path.isdir(search_path):
                     continue
 
@@ -56,9 +60,10 @@ class RunbookFetcher(Tool):
                     required=True,
                 ),
             },
+            toolset=toolset,  # type: ignore[call-arg]
+            available_runbooks=available_runbooks,  # type: ignore[call-arg]
+            additional_search_paths=additional_search_paths,  # type: ignore[call-arg]
         )
-        self.toolset = toolset
-        self.available_runbooks = available_runbooks
 
     def _invoke(
         self, params: dict, user_approved: bool = False
@@ -81,7 +86,7 @@ class RunbookFetcher(Tool):
         # If additional search paths are configured, allow any .md file from those paths
         if self.available_runbooks and link not in self.available_runbooks:
             # Check if this might be a test runbook from additional search paths
-            has_additional_paths = bool(self.toolset._additional_search_paths)
+            has_additional_paths = bool(self.additional_search_paths)
 
             # If no additional search paths or the link doesn't end with .md, enforce validation
             if not has_additional_paths or not link.endswith(".md"):
@@ -94,8 +99,8 @@ class RunbookFetcher(Tool):
                 )
 
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
-        if self.toolset._additional_search_paths:
-            search_paths.extend(self.toolset._additional_search_paths)
+        if self.additional_search_paths:
+            search_paths.extend(self.additional_search_paths)
 
         runbook_path = get_runbook_by_path(link, search_paths)
 
@@ -169,18 +174,17 @@ class RunbookFetcher(Tool):
 
 class RunbookToolset(Toolset):
     def __init__(self, additional_search_paths: Optional[List[str]] = None):
-        # Store additional search paths in config AND as an attribute for RunbookFetcher to access during initialization
+        # Store additional search paths in config for RunbookFetcher to access
         config = {}
         if additional_search_paths:
             config["additional_search_paths"] = additional_search_paths
-        self._additional_search_paths = additional_search_paths
 
         super().__init__(
             name="runbook",
             description="Fetch runbooks",
             icon_url="https://platform.robusta.dev/demos/runbook.svg",
             tools=[
-                RunbookFetcher(self),
+                RunbookFetcher(self, additional_search_paths),
             ],
             docs_url="https://holmesgpt.dev/data-sources/",
             tags=[
