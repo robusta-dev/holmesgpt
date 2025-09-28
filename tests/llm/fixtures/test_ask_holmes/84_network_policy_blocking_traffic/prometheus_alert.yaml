@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: network-connectivity-rules-84
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: application-health
+    interval: 30s
+    rules:
+    - alert: ServiceEndpointUnreachable
+      expr: |
+        # Alert on high rate of connection failures from frontend to backend
+        rate(frontend_backend_connection_failures_total{namespace="namespace-84"}[2m]) > 0.5
+      for: 30s
+      labels:
+        severity: critical
+        namespace: namespace-84
+        service: backend-service
+        source: frontend
+        team: platform
+      annotations:
+        summary: "Frontend to backend connectivity failures detected"
+        description: "The frontend service in namespace-84 is experiencing high failure rates when connecting to backend-service. Connection failure rate is {{ $value | humanizePercentage }} per second."
+        impact: "Frontend unable to reach backend API. Service degradation affecting user experience."
+        dashboard: "https://grafana.example.com/d/service-mesh/service-connectivity"
+        runbook: "https://wiki.internal/runbooks/service-connectivity-issues"

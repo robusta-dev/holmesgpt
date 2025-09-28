@@ -1,0 +1,24 @@
+{
+  "source": "prometheus",
+  "source_instance_id": "bookstore-monitoring",
+  "title": "BookstorePaymentAPIFailures",
+  "description": "The bookstore application in namespace app-17 is experiencing payment API connectivity issues. Frontend service unable to complete checkout transactions.",
+  "subject": {
+    "name": "frontend",
+    "subject_type": "deployment",
+    "namespace": "app-17",
+    "node": "gke-cluster-node-1",
+    "container": "frontend",
+    "annotations": {}
+  },
+  "context": {
+    "robusta_issue_id": "f8a92c34-6b12-4e89-a234-8f9d2c5e7a91"
+  },
+  "include_tool_calls": true,
+  "include_tool_call_results": true,
+  "sections": {
+    "Alert Explanation": "1-2 sentences explaining the alert itself - note don't say \"The alert indicates a warning event related to a Kubernetes pod doing blah\" rather just say \"The pod XYZ did blah\" because that is what the user actually cares about",
+    "Conclusions and Possible Root causes": "What conclusions can you reach based on the data you found? what are possible root causes (if you have enough conviction to say) or what uncertainty remains. Don't say root cause but 'possible root causes'. Be clear to distinguish between what you know for certain and what is a possible explanation",
+    "Related logs": "Truncate and share the most relevant logs, especially if these explain the root cause. For example: \nLogs from pod robusta-holmes:\n```\n<logs>```\n. Always embed the surrounding +/- 5 log lines to any relevant logs."
+  }
+}

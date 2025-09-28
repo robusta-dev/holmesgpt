@@ -1,0 +1,33 @@
+{
+  "id": "f8a92c34-6b12-4e89-a234-8f9d2c5e7a91",
+  "description": "The bookstore application in namespace app-17 is experiencing payment API connectivity issues. Frontend service unable to complete checkout transactions.",
+  "source": "prometheus",
+  "priority": "CRITICAL",
+  "subject_type": "Deployment",
+  "subject_name": "frontend",
+  "subject_namespace": "app-17",
+  "subject_node": "gke-cluster-node-1",
+  "service_key": "",
+  "cluster": "production",
+  "creation_date": "2024-11-28 14:32:15.235001",
+  "title": "BookstorePaymentAPIFailures",
+  "aggregation_key": "BookstorePaymentAPIFailures",
+  "finding_type": "issue",
+  "failure": true,
+  "labels": {
+    "severity": "critical",
+    "alert_type": "payment_api_failure",
+    "service": "bookstore-backend",
+    "deployment": "frontend",
+    "container": "frontend",
+    "component": "payment-processing",
+    "team": "platform",
+    "environment": "production"
+  },
+  "annotations": {
+    "summary": "Bookstore payment API connectivity failures detected",
+    "impact": "CRITICAL - 100% of customer checkouts failing, immediate revenue impact",
+    "slack_channel": "#platform-critical"
+  },
+  "evidence": []
+}

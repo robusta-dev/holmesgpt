@@ -1,0 +1,5 @@
+{
+  "investigation_type": "NetworkConnectivityIssue",
+  "instructions": ["Investigate connectivity issues between services in the cluster. Check pod status, service endpoints, and any network configurations that might affect traffic flow."],
+  "runbooks": []
+}

@@ -1,0 +1,223 @@
+# Secret containing frontend application code
+apiVersion: v1
+kind: Secret
+metadata:
+  name: frontend-code
+type: Opaque
+stringData:
+  frontend.py: |
+    import time
+    import urllib.request
+    import urllib.error
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    import threading
+
+    # Metrics
+    connection_attempts = 0
+    connection_failures = 0
+    connection_successes = 0
+    last_failure_time = 0
+
+    class MetricsHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == '/metrics':
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/plain; version=0.0.4')
+                self.end_headers()
+
+                metrics = f"""# HELP frontend_backend_connection_attempts_total Total connection attempts to backend
+    # TYPE frontend_backend_connection_attempts_total counter
+    frontend_backend_connection_attempts_total{{namespace="namespace-84",service="backend-service"}} {connection_attempts}
+    # HELP frontend_backend_connection_failures_total Total connection failures to backend
+    # TYPE frontend_backend_connection_failures_total counter
+    frontend_backend_connection_failures_total{{namespace="namespace-84",service="backend-service"}} {connection_failures}
+    # HELP frontend_backend_connection_successes_total Total successful connections to backend
+    # TYPE frontend_backend_connection_successes_total counter
+    frontend_backend_connection_successes_total{{namespace="namespace-84",service="backend-service"}} {connection_successes}
+    # HELP frontend_backend_last_failure_timestamp Last failure timestamp
+    # TYPE frontend_backend_last_failure_timestamp gauge
+    frontend_backend_last_failure_timestamp{{namespace="namespace-84",service="backend-service"}} {last_failure_time}
+    """
+                self.wfile.write(metrics.encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def log_message(self, format, *args):
+            pass  # Suppress access logs
+
+    def run_metrics_server():
+        server = HTTPServer(('0.0.0.0', 8000), MetricsHandler)
+        server.serve_forever()
+
+    def check_backend():
+        global connection_attempts, connection_failures, connection_successes, last_failure_time
+        while True:
+            connection_attempts += 1
+            print("Trying to connect to backend-service...", flush=True)
+            try:
+                with urllib.request.urlopen('http://backend-service:80', timeout=5) as response:
+                    response.read()
+                    connection_successes += 1
+                    print("Success!", flush=True)
+            except (urllib.error.URLError, TimeoutError) as e:
+                connection_failures += 1
+                last_failure_time = time.time()
+                print(f"ERROR: Connection timeout to backend-service! {e}", flush=True)
+            time.sleep(15)
+
+    # Start metrics server in background
+    metrics_thread = threading.Thread(target=run_metrics_server, daemon=True)
+    metrics_thread.start()
+
+    # Run backend checks
+    check_backend()
+---
+# Backend deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        tier: backend
+    spec:
+      containers:
+      - name: backend
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+---
+# Backend service
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# Frontend deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: python:3.9-alpine
+        ports:
+        - containerPort: 8000
+          name: metrics
+        command: ["python", "/app/frontend.py"]
+        volumeMounts:
+        - name: code
+          mountPath: /app
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+      volumes:
+      - name: code
+        secret:
+          secretName: frontend-code
+---
+# Frontend metrics service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-metrics
+  labels:
+    app: frontend
+    purpose: metrics
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 8000
+    targetPort: 8000
+    name: metrics
+---
+# ServiceMonitor for Prometheus to scrape frontend metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-metrics
+  labels:
+    app: frontend
+    release: robusta  # Required for Prometheus to pick up this ServiceMonitor
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+      purpose: metrics
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+---
+# Network Policy that blocks frontend->backend traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: backend
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          tier: backend  # Only allows traffic from pods with tier=backend
+    ports:
+    - protocol: TCP
+      port: 80

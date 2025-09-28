@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: application-stability-alert-09
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: application-stability
+    interval: 30s
+    rules:
+    - alert: ApplicationInstability
+      expr: |
+        rate(kube_pod_container_status_restarts_total{namespace="app-09"}[15m]) > 0
+      for: 2m
+      labels:
+        severity: critical
+        namespace: app-09
+        team: platform
+      annotations:
+        summary: "Application experiencing stability issues"
+        description: "Service components in namespace app-09 are showing signs of instability. Customer impact likely."
+        impact: "Service degradation affecting user experience"
+        dashboard: "https://grafana.example.com/d/service-health/application-stability"

@@ -1,0 +1,26 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: pod-crashloop-alert-17
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: pod-stability
+    interval: 30s
+    rules:
+    - alert: KubePodCrashLooping
+      expr: |
+        rate(kube_pod_container_status_restarts_total{namespace="app-17"}[15m]) * 60 * 15 > 3
+      for: 1m
+      labels:
+        severity: critical
+        namespace: app-17
+        team: platform
+      annotations:
+        summary: "Pod is crash looping"
+        description: "Pod in namespace app-17 has restarted more than 3 times in the last 15 minutes. Service stability compromised."
+        impact: "Service experiencing repeated failures, customer impact likely"
+        dashboard: "https://grafana.example.com/d/pod-stability/crashloop-analysis"

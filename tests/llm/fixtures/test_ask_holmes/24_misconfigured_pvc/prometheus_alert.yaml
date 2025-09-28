@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: replicas-mismatch-alert-24
+  namespace: default
+  labels:
+    release: robusta
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: deployment-availability
+    interval: 30s
+    rules:
+    - alert: KubeReplicasMismatch
+      expr: |
+        kube_deployment_spec_replicas{namespace="app-24"} !=
+        kube_deployment_status_replicas_available{namespace="app-24"}
+      for: 5m
+      labels:
+        severity: warning
+        namespace: app-24
+        team: platform
+      annotations:
+        summary: "Deployment replica count mismatch"
+        description: "Deployment in namespace app-24 unable to maintain desired replica count. Service availability may be impacted."
+        impact: "Potential service degradation due to insufficient replicas"
+        dashboard: "https://grafana.example.com/d/k8s-deployments/replica-health"
