@@ -34,7 +34,7 @@ The easiest way to run benchmarks locally is using the `run_benchmarks_local.sh`
 ./run_benchmarks_local.sh
 
 # Test specific models
-./run_benchmarks_local.sh 'gpt-4o,claude-sonnet-4'
+./run_benchmarks_local.sh 'gpt-4o,anthropic/claude-sonnet-4-20250514'
 
 # Run with custom markers and iterations
 ./run_benchmarks_local.sh 'gpt-4o' 'easy and kubernetes' 3

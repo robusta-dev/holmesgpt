@@ -8,6 +8,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: traffic-generator-app
+  namespace: app-121
 type: Opaque
 stringData:
   # No telemetry.py needed - traffic generator doesn't need to send logs to New Relic
@@ -88,6 +89,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: traffic-generator
+  namespace: app-121
 spec:
   replicas: 1
   selector:

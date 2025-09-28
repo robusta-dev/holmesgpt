@@ -82,15 +82,16 @@ class RunbookFetcher(Tool):
                 params=params,
             )
 
-        # Validate link is in the available runbooks list (unless we have additional search paths for testing)
-        # If additional search paths are configured, allow any .md file from those paths
-        if self.available_runbooks and link not in self.available_runbooks:
-            # Check if this might be a test runbook from additional search paths
-            has_additional_paths = bool(self.additional_search_paths)
+        # Build list of allowed search paths
+        search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
+        if self.additional_search_paths:
+            search_paths.extend(self.additional_search_paths)
 
-            # If no additional search paths or the link doesn't end with .md, enforce validation
-            if not has_additional_paths or not link.endswith(".md"):
-                err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks)}"
+        # Validate link is in the available runbooks list OR is a valid path within allowed directories
+        if link not in self.available_runbooks:
+            # For links not in the catalog, perform strict path validation
+            if not link.endswith(".md"):
+                err_msg = f"Invalid runbook link '{link}'. Must end with .md extension."
                 logging.error(err_msg)
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.ERROR,
@@ -98,9 +99,32 @@ class RunbookFetcher(Tool):
                     params=params,
                 )
 
-        search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
-        if self.additional_search_paths:
-            search_paths.extend(self.additional_search_paths)
+            # Check if the link would resolve to a valid path within allowed directories
+            # This prevents path traversal attacks like ../../secret.md
+            is_valid_path = False
+            for search_path in search_paths:
+                candidate_path = os.path.join(search_path, link)
+                # Canonicalize both paths to resolve any .. or . components
+                real_search_path = os.path.realpath(search_path)
+                real_candidate_path = os.path.realpath(candidate_path)
+
+                # Check if the resolved path is within the allowed directory
+                if (
+                    real_candidate_path.startswith(real_search_path + os.sep)
+                    or real_candidate_path == real_search_path
+                ):
+                    if os.path.isfile(real_candidate_path):
+                        is_valid_path = True
+                        break
+
+            if not is_valid_path:
+                err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks) if self.available_runbooks else 'No runbooks available'}"
+                logging.error(err_msg)
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.ERROR,
+                    error=err_msg,
+                    params=params,
+                )
 
         runbook_path = get_runbook_by_path(link, search_paths)
 
