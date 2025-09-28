@@ -9,9 +9,9 @@ Extend HolmesGPT with custom integrations and contribute to the project.
 
 ## Evaluations
 
-- **[Evaluations Overview](evals/index.md)** - Understanding HolmesGPT's evaluation framework
-- **[Adding a New Eval](evals/adding-new-eval.md)** - Create your own evaluation tests
-- **[Reporting with Braintrust](evals/reporting.md)** - Analyze evaluation results
+- **[Evaluations Overview](evaluations/index.md)** - Understanding HolmesGPT's evaluation framework
+- **[Adding a New Eval](evaluations/adding-evals.md)** - Create your own evaluation tests
+- **[Reporting with Braintrust](evaluations/reporting.md)** - Analyze evaluation results
 
 
 ## Development Resources
