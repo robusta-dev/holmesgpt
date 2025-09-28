@@ -1,0 +1,46 @@
+user_prompt:
+- "The payments-checkout-124 service is failing for PayPal users in namespace app-124. Investigate why using only New Relic."
+
+expected_output:
+  - Must explicitly state that PayPal transactions have elevated latency and error rates.
+  - The answer must link errors to the `payments` span in Checkout traces.
+
+tags:
+  - kubernetes
+  - hard
+  - chain-of-causation
+  - traces
+
+
+before_test: |
+  [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
+
+  PIDFILE="/tmp/nr_sim.pid"
+  python nr_retail_sim.py --spec specs.json --duration 900 >/tmp/nr_sim.out 2>&1 &
+  SIM_PID=$!
+
+  if [[ -z "${SIM_PID:-}" ]] || ! [[ "$SIM_PID" =~ ^[0-9]+$ ]]; then
+    echo "Failed to capture SIM PID"; exit 1
+  fi
+  echo "$SIM_PID" > "$PIDFILE"
+  echo "SIM_PID=$SIM_PID (saved to $PIDFILE)"
+  sleep 100
+
+
+after_test: |
+  PIDFILE="/tmp/nr_sim.pid"
+
+  if [[ -f "$PIDFILE" ]]; then
+    SIM_PID="$(cat "$PIDFILE")"
+    if kill -0 "$SIM_PID" 2>/dev/null; then   # probe without terminating
+      kill -TERM "$SIM_PID"                   # graceful stop
+      # wait for it to exit (works with PIDs)
+      timeout 10s bash -c 'while kill -0 '"$SIM_PID"' 2>/dev/null; do sleep 0.5; done' || true
+      kill -KILL "$SIM_PID" 2>/dev/null || true
+    else
+      echo "Process $SIM_PID not running."
+    fi
+    rm -f "$PIDFILE"
+  else
+    echo "No PID file found; nothing to kill."
+  fi
