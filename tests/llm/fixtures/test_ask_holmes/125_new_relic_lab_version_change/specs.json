@@ -1,0 +1,318 @@
+[
+  {
+    "name": "Baseline",
+    "seed": 101,
+    "common": {
+      "namespace": "retail",
+      "k8sNamespace": "frontend",
+      "zone": "us-east-1a",
+      "version": "1.2.3"
+    },
+    "distributions": {
+      "country": { "US": 0.4, "UK": 0.2, "DE": 0.1, "FR": 0.1, "IL": 0.1, "IN": 0.05, "BR": 0.05 },
+      "device": { "mobile": 0.6, "desktop": 0.35, "tablet": 0.05 },
+      "paymentMethod": { "credit_card": 0.6, "paypal": 0.25, "bnpl": 0.15 },
+      "category": { "electronics": 0.35, "clothing": 0.3, "groceries": 0.2, "home": 0.15 }
+    },
+    "session_cardinality_rate": 0.3,
+    "sku_cardinality_rate": 0.2,
+    "metrics": [
+      { "name": "retail.orders.placed.count", "type": "count", "min": 300, "max": 400 },
+      { "name": "retail.revenue.cents.sum", "type": "gauge", "min": 4000000, "max": 7000000 },
+      { "name": "retail.cart.abandonment.ratio", "type": "gauge", "min": 0.05, "max": 0.12 },
+      { "name": "retail.payment.failures.count", "type": "count", "min": 0, "max": 3 },
+      { "name": "retail.items.out_of_stock.count", "type": "count", "min": 0, "max": 2 },
+      { "name": "retail.http.duration.ms", "type": "gauge", "min": 120, "max": 220 },
+      { "name": "retail.http.requests.count", "type": "count", "min": 600, "max": 800 },
+      { "name": "retail.http.5xx.count", "type": "count", "min": 0, "max": 1 },
+      { "name": "retail.queue.lag.messages", "type": "gauge", "min": 0, "max": 5 },
+      { "name": "retail.search.duration.ms", "type": "gauge", "min": 80, "max": 160 },
+      { "name": "retail.cache.hit.ratio", "type": "gauge", "min": 0.93, "max": 0.97 },
+      { "name": "retail.recs.duration.ms", "type": "gauge", "min": 60, "max": 140 },
+      { "name": "retail.db.slow_queries.count", "type": "count", "min": 3, "max": 8 },
+      { "name": "retail.db.query.duration.ms", "type": "gauge", "min": 40, "max": 120 },
+      { "name": "retail.kafka.consumer.lag", "type": "gauge", "min": 0, "max": 2 },
+      { "name": "retail.k8s.pod.restarts.count", "type": "count", "min": 0, "max": 1 },
+      { "name": "retail.node.cpu.utilization.pct", "type": "gauge", "min": 0.25, "max": 0.45 },
+      { "name": "retail.node.mem.working_set.bytes", "type": "gauge", "min": 8000000000, "max": 14000000000 }
+    ],
+    "traces": [
+      {
+        "traceName": "BrowseProduct",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/browse",
+            "method": "GET",
+            "min_ms": 40,
+            "max_ms": 110,
+            "delay_ms": [0, 10],
+            "info_logs": [
+              "GET /product start | user={userId} session={sessionId} sku={productSku}",
+              "SSR render complete for sku={productSku} on device={device}"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "catalog",
+            "service": "catalog",
+            "min_ms": 60,
+            "max_ms": 120,
+            "delay_ms": [10, 30],
+            "info_logs": [
+              "catalog lookup ok | sku={productSku} region={zone}",
+              "cache {productSku} hit=true"
+            ],
+            "warn_logs": []
+          }
+        ]
+      },
+      {
+        "traceName": "AddToCart",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/add-to-cart",
+            "method": "GET",
+            "min_ms": 50,
+            "max_ms": 120,
+            "delay_ms": [0, 10],
+            "info_logs": [
+              "POST /cart start | user={userId} session={sessionId} sku={productSku}",
+              "validated request signature for session={sessionId}"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "cart",
+            "service": "cart",
+            "min_ms": 80,
+            "max_ms": 150,
+            "delay_ms": [10, 40],
+            "info_logs": [
+              "cart updated | user={userId} items+=1 sku={productSku}",
+              "write succeeded | txn={txnId}"
+            ],
+            "warn_logs": []
+          }
+        ]
+      },
+      {
+        "traceName": "Checkout",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/pay",
+            "method": "GET",
+            "min_ms": 50,
+            "max_ms": 120,
+            "delay_ms": [0, 10],
+            "info_logs": [
+              "payments-checkout-124 start | user={userId} session={sessionId}",
+              "loaded payment options: cc, paypal, bnpl"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "payments-checkout-124",
+            "service": "payments-checkout-124",
+            "min_ms": 80,
+            "max_ms": 180,
+            "delay_ms": [10, 30],
+            "info_logs": [
+              "validating cart | session={sessionId} items>0",
+              "shipping quote computed | order={orderId}"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "payments",
+            "service": "payments",
+            "min_ms": 100,
+            "max_ms": 240,
+            "delay_ms": [20, 60],
+            "attributes": {
+              "component": "gateway",
+              "phase": "auth"
+            },
+            "info_logs": [
+              "payment initiated | order={orderId} payment={paymentId}",
+              "gateway auth OK | payment={paymentId}"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "orders",
+            "service": "orders",
+            "min_ms": 60,
+            "max_ms": 140,
+            "delay_ms": [10, 20],
+            "info_logs": [
+              "order persisted | order={orderId} user={userId}",
+              "event published | txn={txnId}"
+            ],
+            "warn_logs": []
+          }
+        ]
+      },
+      {
+        "traceName": "Recommendation",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/reccomend",
+            "method": "GET",
+            "min_ms": 40,
+            "max_ms": 90,
+            "delay_ms": [0, 10],
+            "info_logs": [
+              "GET /recs | user={userId} session={sessionId}",
+              "hydrate recommendations widget"
+            ],
+            "warn_logs": []
+          },
+          {
+            "name": "recs",
+            "service": "recs",
+            "min_ms": 60,
+            "max_ms": 140,
+            "delay_ms": [10, 30],
+            "info_logs": ["recs cache hit | model=recs_v1"],
+            "warn_logs": []
+          }
+        ]
+      }
+    ],
+    "trace_rate_per_min": 120,
+    "transactions": {
+      "kpi": { "amount": { "min": 15, "max": 350 }, "cartSize": { "min": 1, "max": 5 } },
+      "attrs": { "flow": "baseline" }
+    },
+    "txn_rate_per_min": 350,
+    "logs": {
+      "service_name": "frontend",
+      "info_rate_per_min": 240,
+      "warn_rate_per_min": 30,
+      "info_messages": [
+        "baseline tick ok | session={sessionId}",
+        "user navigated to /product | user={userId} sku={productSku}",
+        "content rendered | ttfb_ms=92"
+      ],
+      "warn_messages": [
+        "recs cache miss | sku={productSku}, model=recs_v1 (warming)",
+        "retrying slow dependency catalog | attempt=1"
+      ]
+    }
+  },
+  {
+    "name": "B - Payment 5xx After Deploy (Always Failing)",
+    "seed": 302,
+    "common": {
+      "namespace": "retail",
+      "k8sNamespace": "backend",
+      "zone": "us-east-1b",
+      "version": "1.2.5"
+    },
+    "distributions": {
+      "country": { "US": 0.35, "UK": 0.2, "DE": 0.12, "FR": 0.1, "IL": 0.11, "IN": 0.06, "BR": 0.06 },
+      "device": { "mobile": 0.58, "desktop": 0.37, "tablet": 0.05 },
+      "paymentMethod": { "credit_card": 0.55, "paypal": 0.25, "bnpl": 0.2 },
+      "category": { "electronics": 0.35, "clothing": 0.3, "groceries": 0.2, "home": 0.15 }
+    },
+    "metrics": [
+      { "name": "retail.http.duration.ms", "type": "gauge", "min": 170, "max": 320 },
+      { "name": "retail.http.requests.count", "type": "count", "min": 620, "max": 850 },
+      { "name": "retail.http.5xx.count", "type": "count", "min": 200, "max": 300 },
+      { "name": "retail.payment.failures.count", "type": "count", "min": 80, "max": 160 }
+    ],
+    "traces": [
+      {
+        "traceName": "Checkout",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/pay",
+            "method": "GET",
+            "min_ms": 55,
+            "max_ms": 120,
+            "delay_ms": [0, 10],
+            "info_logs": ["deploy 1.2.5 live | user={userId}"],
+            "warn_logs": [],
+            "attributes": { "version": "1.2.5" }
+          },
+          {
+            "name": "payments-checkout-124",
+            "service": "payments-checkout-124",
+            "min_ms": 70,
+            "max_ms": 180,
+            "delay_ms": [10, 30],
+            "info_logs": ["payments-checkout-124 ok | session={sessionId}"],
+            "warn_logs": [],
+            "attributes": { "version": "1.2.5" }
+          },
+          {
+            "name": "payments",
+            "service": "payments",
+            "min_ms": 140,
+            "max_ms": 320,
+            "delay_ms": [20, 40],
+            "error_prob": 1.0,
+            "attributes": {
+              "http.status_code": 500,
+              "error": true,
+              "error.type": "UpstreamGatewayError",
+              "error.message": "Gateway returned HTTP 500 during /charge",
+              "component": "gateway",
+              "phase": "charge",
+              "version": "1.2.5"
+            },
+            "info_logs": [
+              "HTTP 500 from gateway | payment={paymentId} order={orderId} endpoint=/charge",
+              "circuit probe in progress | order={orderId}"
+            ],
+            "warn_logs": [
+              "HTTP GET /pay 500 | last_1m spike",
+              "circuit open | endpoint=/charge"
+            ]
+          },
+          {
+            "name": "orders",
+            "service": "orders",
+            "min_ms": 60,
+            "max_ms": 140,
+            "delay_ms": [10, 20],
+            "info_logs": ["order write attempt | order={orderId}"],
+            "warn_logs": []
+          }
+        ],
+        "attributes": { "version": "1.2.5" }
+      }
+    ],
+    "trace_rate_per_min": 110,
+    "transactions": {
+      "kpi": { "amount": { "min": 10, "max": 180 }, "cartSize": { "min": 1, "max": 3 } },
+      "attrs": { "flow": "payment-5xx-always", "version": "1.2.5" }
+    },
+    "txn_rate_per_min": 260,
+    "logs": {
+      "service_name": "payments",
+      "info_rate_per_min": 120,
+      "warn_rate_per_min": 200,
+      "info_messages": [
+        "deploy complete | version=1.2.5",
+        "upstream responded 500 | endpoint=/charge payment={paymentId}",
+        "charge attempt failed 500 | order={orderId}"
+      ],
+      "warn_messages": [
+        "HTTP 500 errors sustained | last_1m={retail.http.5xx.count}",
+        "5xx rate critical | p95_ms=300",
+        "circuit open | auto-retry disabled"
+      ]
+    }
+  }
+]

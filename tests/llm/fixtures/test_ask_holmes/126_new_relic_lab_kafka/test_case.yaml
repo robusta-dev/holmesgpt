@@ -1,5 +1,5 @@
 user_prompt:
-- "The payments-checkout-124 service is failing for PayPal users in namespace app-124. Investigate why using only New Relic."
+- "The payments-checkout-126 service is failing for PayPal users in namespace app-126. Investigate why using only New Relic."
 
 expected_output:
   - Must explicitly state that PayPal transactions have elevated latency and error rates.
@@ -16,7 +16,7 @@ before_test: |
   [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
 
   PIDFILE="/tmp/nr_sim.pid"
-  python nr_retail_sim.py --spec specs.json --duration 900 >/tmp/nr_sim.out 2>&1 &
+  DEMO_ENV=app python nr_retail_sim.py --spec specs.json --test-num 126 --duration 900 --create-dashboards >/tmp/nr_sim.out 2>&1 &
   SIM_PID=$!
 
   if [[ -z "${SIM_PID:-}" ]] || ! [[ "$SIM_PID" =~ ^[0-9]+$ ]]; then

@@ -1,9 +1,7 @@
 user_prompt:
-- "The payments-checkout-124 service is failing for PayPal users in namespace app-124. Investigate why using only New Relic."
-
+- "Investigate payments-125 issues in namespace app-125."
 expected_output:
-  - Must explicitly state that PayPal transactions have elevated latency and error rates.
-  - The answer must link errors to the `payments` span in Checkout traces.
+  - Must mention that 500 errors in the payments service post-deploy and correlate with a version change (1.2.4 → 1.2.5).
 
 tags:
   - kubernetes
@@ -15,8 +13,10 @@ tags:
 before_test: |
   [ -n "${NEW_RELIC_ACCOUNT_ID:-}" ] && [ -n "${NEW_RELIC_API_KEY:-}" ] && [ -n "${NEW_RELIC_LICENSE_KEY:-}" ] || { for v in NEW_RELIC_ACCOUNT_ID NEW_RELIC_API_KEY NEW_RELIC_LICENSE_KEY; do [ -n "${!v:-}" ] || echo "Missing env var: $v"; done; exit 1; }
 
+  python nr_retail_sim.py --spec specs_clean.json --test-num 125 --duration 90
+
   PIDFILE="/tmp/nr_sim.pid"
-  python nr_retail_sim.py --spec specs.json --duration 900 >/tmp/nr_sim.out 2>&1 &
+  DEMO_ENV=app python nr_retail_sim.py --spec specs.json --test-num 125 --duration 900 --create-dashboards >/tmp/nr_sim.out 2>&1 &
   SIM_PID=$!
 
   if [[ -z "${SIM_PID:-}" ]] || ! [[ "$SIM_PID" =~ ^[0-9]+$ ]]; then
@@ -24,7 +24,7 @@ before_test: |
   fi
   echo "$SIM_PID" > "$PIDFILE"
   echo "SIM_PID=$SIM_PID (saved to $PIDFILE)"
-  sleep 100
+  sleep 60
 
 
 after_test: |
