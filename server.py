@@ -332,7 +332,7 @@ def chat(chat_request: ChatRequest):
             ai=ai,
             config=config,
             global_instructions=global_instructions,
-            custom_system_prompt=chat_request.custom_system_prompt
+            additional_system_prompt=chat_request.additional_system_prompt
         )
 
         # Process tool decisions if provided

@@ -262,7 +262,10 @@ def build_issue_chat_messages(
 
 
 def add_or_update_system_prompt(
-    conversation_history: List[Dict[str, str]], ai: ToolCallingLLM, config: Config, custom_system_prompt: Optional[str] = None
+    conversation_history: List[Dict[str, str]],
+    ai: ToolCallingLLM,
+    config: Config,
+    additional_system_prompt: Optional[str] = None
 ):
     """Either add the system prompt or replace an existing system prompt.
     As a 'defensive' measure, this code will only replace an existing system prompt if it is the
@@ -278,8 +281,8 @@ def add_or_update_system_prompt(
 
     system_prompt = load_and_render_prompt(template_path, context)
 
-    if custom_system_prompt:
-        system_prompt = system_prompt + '\n' + custom_system_prompt
+    if additional_system_prompt:
+        system_prompt = system_prompt + '\n' + additional_system_prompt
 
     if not conversation_history or len(conversation_history) == 0:
         conversation_history.append({"role": "system", "content": system_prompt})
@@ -306,7 +309,7 @@ def build_chat_messages(
     ai: ToolCallingLLM,
     config: Config,
     global_instructions: Optional[Instructions] = None,
-    custom_system_prompt: Optional[str] = None
+    additional_system_prompt: Optional[str] = None
 ) -> List[dict]:
     """
     This function generates a list of messages for general chat conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -362,7 +365,7 @@ def build_chat_messages(
         conversation_history = conversation_history.copy()
 
     conversation_history = add_or_update_system_prompt(
-        conversation_history=conversation_history, ai=ai, config=config, custom_system_prompt=custom_system_prompt
+        conversation_history=conversation_history, ai=ai, config=config, additional_system_prompt=additional_system_prompt
     )
 
     ask = add_global_instructions_to_user_prompt(ask, global_instructions)
