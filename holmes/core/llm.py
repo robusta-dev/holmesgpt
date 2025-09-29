@@ -32,6 +32,10 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
+CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT = environ_get_safe_int(
+    "CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT", default="80"
+)
+
 ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
@@ -172,7 +176,6 @@ class DefaultLLM(LLM):
         Returns a list of names to try in order: exact, lowercase, without prefix, etc.
         """
         names_to_try = [self.model, self.model.lower()]
-        print(f"** names_to_try={names_to_try}")
 
         # If there's a prefix, also try without it
         if "/" in self.model:
@@ -184,11 +187,9 @@ class DefaultLLM(LLM):
 
     def get_context_window_size(self) -> int:
         if self.max_context_size:
-            print(f"** RETURN self.max_context_size={self.max_context_size}")
             return self.max_context_size
 
         if OVERRIDE_MAX_CONTENT_SIZE:
-            print(f"** RETURN OVERRIDE_MAX_CONTENT_SIZE={OVERRIDE_MAX_CONTENT_SIZE}")
             logging.warning(
                 f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}"
             )
@@ -197,7 +198,6 @@ class DefaultLLM(LLM):
         # Try each name variant
         for name in self._get_model_name_variants_for_lookup():
             try:
-                print(f"** FOUND NAME VARIANT={name} with max_input_tokens={litellm.model_cost[name]['max_input_tokens']}")
                 return litellm.model_cost[name]["max_input_tokens"]
             except Exception:
                 continue
@@ -208,7 +208,6 @@ class DefaultLLM(LLM):
             f"using default 128k tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
-        print("** RETRUNING FALLBACK 128k tokens context window")
         return 128000
 
     @sentry_sdk.trace

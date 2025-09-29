@@ -324,7 +324,6 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 @app.post("/api/chat")
 def chat(chat_request: ChatRequest):
     try:
-        print(f"************* CHAT REQUEST\n{chat_request.model_dump_json(indent=2)}")
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
         global_instructions = dal.get_global_instructions_for_account()
         messages = build_chat_messages(

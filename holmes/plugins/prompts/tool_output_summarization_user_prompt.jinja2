@@ -1,0 +1,16 @@
+This is chunk #{{chunk_id}} out of {{total_chunks}} total chunks.
+{% if iterative_summary -%}
+# Iterative Summary
+
+{{ iterative_summary }}
+
+Return an updated summary that merges the summarization of this new chunk of data with the "Iterative Summary" above.
+
+{%- else -%}
+Summarize the chunk of data below.
+
+{%- endif -%}
+
+# Content of Chunk #{{chunk_id}}
+
+{{ chunk_data }}

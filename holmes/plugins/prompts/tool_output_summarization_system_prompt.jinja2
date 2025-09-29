@@ -1,0 +1,18 @@
+You are given the output of a tool/function call in separate chunks. This output is chunked because it is too big to process at once.
+
+Your objective is to iteratively summarize this output. This is part of an overall investigation of an application or infrastructure issue.
+This is not interactive and you cannot ask question to the user. You MUST return a summary to the best of your abilities.
+
+Summarize FACTS found in logs and DO NOT infer meaning or interpret the logs.
+
+For example:
+
+!!! TODO !!!
+
+Here is some context:
+- User question: {{original_user_prompt}}
+- Overall investigation progress:
+{{tasks}}
+
+# Tool call
+{{tool_call_summary}}

@@ -443,10 +443,8 @@ class Config(RobustaBaseConfig):
 
     # TODO: move this to the llm model registry
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
-        print(f"********* config._get_llm({model_key})")
         sentry_sdk.set_tag("requested_model", model_key)
         model_params = self.llm_model_registry.get_model_params(model_key)
-        print(f"********* model_params({model_params})")
         api_base = self.api_base
         api_version = self.api_version
 

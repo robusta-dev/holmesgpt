@@ -34,17 +34,24 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM, get_llm_usage
+from holmes.core.llm import CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT, LLM, get_llm_usage
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
+from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
-from holmes.core.truncation.compaction import compact_conversation_history
+from holmes.core.truncation.compaction import (
+    compact_conversation_history,
+    summarize_tool_output,
+)
 from holmes.plugins.prompts import load_and_render_prompt
+from holmes.plugins.toolsets.investigator.core_investigation import (
+    get_tasks_from_potential_openai_tool_call,
+)
 from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
     Instructions,
@@ -331,6 +338,8 @@ class ToolCallingLLM:
                         tool_to_call=tool_call_obj,
                         previous_tool_calls=[],
                         trace_span=DummySpan(),
+                        user_prompt="",
+                        tasks="",
                         tool_number=None,
                     )
                     messages.append(llm_tool_result.as_tool_call_message())
@@ -407,7 +416,7 @@ class ToolCallingLLM:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
         costs = LLMCosts()
-
+        tasks = ""
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
@@ -558,12 +567,21 @@ class ToolCallingLLM:
                 for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
                     tool_number = tool_number_offset + tool_index
+
+                    new_tasks = get_tasks_from_potential_openai_tool_call(
+                        tool_to_call=t
+                    )
+                    if new_tasks:
+                        tasks = format_tasks(new_tasks)
+
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,
                         previous_tool_calls=tool_calls,
                         trace_span=trace_span,
                         tool_number=tool_number,
+                        tasks=tasks,
+                        user_prompt=user_prompt or "",
                     )
                     futures_tool_numbers[future] = tool_number
                     futures.append(future)
@@ -706,6 +724,8 @@ class ToolCallingLLM:
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
+        user_prompt: str,
+        tasks: str,
         trace_span=None,
         tool_number=None,
     ) -> ToolCallResult:
@@ -741,6 +761,13 @@ class ToolCallingLLM:
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
                 )
+
+            tool_call_result = summarize_tool_output(
+                tool_result=tool_call_result,
+                fast_llm=self.llm,
+                original_user_prompt=user_prompt,
+                tasks=tasks,
+            )
 
             prevent_overly_big_tool_response(
                 tool_call_result=tool_call_result, llm=self.llm
@@ -884,7 +911,7 @@ class ToolCallingLLM:
         metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
-        print(f"MODEL NAME={self.llm.model}")
+        tasks: str = ""
 
         while i < max_steps:
             i += 1
@@ -893,22 +920,29 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
-            print(f"********** model={self.llm.model}, total_tokens={total_tokens}, maximum_output_token={maximum_output_token}, max_context_size={max_context_size}")
-            if ((total_tokens + maximum_output_token) > max_context_size/2):
-                # messages = compact_conversation_history(original_conversation_history=messages, llm=self.llm)
-                # compacted_total_tokens = self.llm.count_tokens_for_message(messages)
-                # logging.warning(f"Compacted conversation history from {total_tokens} to {compacted_total_tokens} tokens")
-
-                truncated_res = self.truncate_messages_to_fit_context(
-                    messages, max_context_size, maximum_output_token
+            if (initial_total_tokens + maximum_output_token) > (
+                max_context_size * CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT / 100
+            ):
+                messages = compact_conversation_history(
+                    original_conversation_history=messages, llm=self.llm
                 )
-                metadata["truncations"] = [
-                    t.model_dump() for t in truncated_res.truncations
-                ]
-                messages = truncated_res.truncated_messages
+                compacted_total_tokens = self.llm.count_tokens_for_message(messages)
+
+                if compacted_total_tokens < initial_total_tokens:
+                    logging.warning(
+                        f"Compacted conversation history from {initial_total_tokens} to {compacted_total_tokens} tokens"
+                    )
+
+                    truncated_res = self.truncate_messages_to_fit_context(
+                        messages, max_context_size, maximum_output_token
+                    )
+                    metadata["truncations"] = [
+                        t.model_dump() for t in truncated_res.truncations
+                    ]
+                    messages = truncated_res.truncated_messages
             else:
                 metadata["truncations"] = []
 
@@ -994,10 +1028,19 @@ class ToolCallingLLM:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     tool_number = tool_number_offset + tool_index
+
+                    new_tasks = get_tasks_from_potential_openai_tool_call(
+                        tool_to_call=t
+                    )
+                    if new_tasks:
+                        tasks = format_tasks(new_tasks)
+
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,  # type: ignore
                         previous_tool_calls=tool_calls,
+                        user_prompt=user_prompt or "",
+                        tasks=tasks,
                         trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
                         tool_number=tool_number,
                     )

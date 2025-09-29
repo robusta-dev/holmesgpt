@@ -1,8 +1,11 @@
+import json
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from uuid import uuid4
+
+from litellm import ChatCompletionMessageToolCall
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
     Toolset,
@@ -14,9 +17,44 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
+TODO_WRITE_TOOL_NAME = "TodoWrite"
+
+
+def parse_tasks(todos_data: Any) -> list[Task]:
+    tasks = []
+
+    for todo_item in todos_data:
+        if isinstance(todo_item, dict):
+            task = Task(
+                id=todo_item.get("id", str(uuid4())),
+                content=todo_item.get("content", ""),
+                status=TaskStatus(todo_item.get("status", "pending")),
+            )
+            tasks.append(task)
+
+    return tasks
+
+
+def get_tasks_from_potential_openai_tool_call(
+    tool_to_call: ChatCompletionMessageToolCall,
+) -> Optional[list[Task]]:
+    if (
+        hasattr(tool_to_call, "function")
+        and tool_to_call.function.name == TODO_WRITE_TOOL_NAME
+    ):
+        try:
+            args = json.loads(tool_to_call.function.arguments)
+            return parse_tasks(args.get("todos"))
+        except Exception:
+            logging.info(
+                f"Failed to parse arguments for TodoWrite tool when extracting tasks status. args={tool_to_call.function.arguments}"
+            )
+
+    return None
+
 
 class TodoWriteTool(Tool):
-    name: str = "TodoWrite"
+    name: str = TODO_WRITE_TOOL_NAME
     description: str = "Save investigation tasks to break down complex problems into manageable sub-tasks. ALWAYS provide the COMPLETE list of all tasks, not just the ones being updated."
     parameters: Dict[str, ToolParameter] = {
         "todos": ToolParameter(
@@ -80,16 +118,7 @@ class TodoWriteTool(Tool):
         try:
             todos_data = params.get("todos", [])
 
-            tasks = []
-
-            for todo_item in todos_data:
-                if isinstance(todo_item, dict):
-                    task = Task(
-                        id=todo_item.get("id", str(uuid4())),
-                        content=todo_item.get("content", ""),
-                        status=TaskStatus(todo_item.get("status", "pending")),
-                    )
-                    tasks.append(task)
+            tasks = parse_tasks(todos_data=todos_data)
 
             logging.info(f"Tasks: {len(tasks)}")
 
