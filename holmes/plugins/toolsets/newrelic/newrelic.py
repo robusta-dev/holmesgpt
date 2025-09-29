@@ -128,7 +128,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             enriched_params = dict(params)
             enriched_params["query"] = query
             return_result = self._format_metrics(result, params=enriched_params)
-            if len(return_result.get("data", {}).get("results", [])):
+            if len(return_result.get("data", {}).get("result", [])) == 0:
                 return_result = result  # type: ignore[assignment]
             return json.dumps(return_result, indent=2)
         else:
