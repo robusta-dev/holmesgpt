@@ -139,6 +139,13 @@ stringData:
       nrh.setLevel(logging.INFO)
       logger.addHandler(nrh)
 
+      # Also add console handler so logs appear in stdout
+      console_handler = logging.StreamHandler()
+      console_handler.setLevel(logging.INFO)
+      formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+      console_handler.setFormatter(formatter)
+      logger.addHandler(console_handler)
+
       return tracer, logger
 
     def record_exception_on_current_span(exc: Exception):
@@ -185,7 +192,7 @@ stringData:
         if promo_code:
           span.set_attribute("promo.code", promo_code)
 
-        logger.info(f"Processing checkout for user {user_id}")
+        logger.info(f"Processing checkout request for user {user_id}")
 
         # Simulated DB query span
         with tracer.start_as_current_span("database_query") as db_span:
@@ -264,12 +271,10 @@ spec:
     spec:
       containers:
       - name: checkout
-        image: python:3.11-slim
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          pip install -r /app/requirements.txt && \
-          python /app/app.py
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.1
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
         volumeMounts:
         - name: app
           mountPath: /app
@@ -313,15 +318,19 @@ spec:
         - name: KUBERNETES_NAMESPACE
           valueFrom: { fieldRef: { fieldPath: metadata.namespace } }
 
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 10
+          initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 24
+          failureThreshold: 60
         resources:
           requests:
             memory: "128Mi"
