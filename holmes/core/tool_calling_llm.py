@@ -679,7 +679,7 @@ class ToolCallingLLM:
 
         tool = self.tool_executor.get_tool_by_name(tool_name)
 
-        return ToolCallResult(
+        tool_call_result = ToolCallResult(
             tool_call_id=tool_call_id,
             tool_name=tool_name,
             description=str(tool.get_parameterized_one_liner(tool_params))
@@ -687,6 +687,12 @@ class ToolCallingLLM:
             else "",
             result=tool_response,
         )
+
+        message = tool_call_result.as_tool_call_message()
+
+        token_count = self.llm.count_tokens_for_message(messages=[message])
+        tool_call_result.size = token_count
+        return tool_call_result
 
     @staticmethod
     def _log_tool_call_result(tool_span, tool_call_result: ToolCallResult):
@@ -698,6 +704,7 @@ class ToolCallingLLM:
             metadata={
                 "status": tool_call_result.result.status,
                 "description": tool_call_result.description,
+                "token_count": tool_call_result.size,
             },
         )
 
