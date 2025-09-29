@@ -2,7 +2,7 @@ user_prompt:
 - "Why are customers abandoning their carts. Investigate why using only New Relic. Only investigate in namespace app-126, any other namespace is a failure of investigation"
 
 expected_output:
-  - The answer must reference waiting on premium user waiting on DB write and traces
+  - The answer must reference consumers are getting lag due to slow database writes
   - any reference to namespace app-125, app-124 or app-127 is a failure
 
 tags:
