@@ -94,7 +94,14 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         if self._toolset.format_results:
             final_result = self._format_results(params, query, result)
         else:
-            final_result = yaml.dump(result, default_flow_style=False)
+            result_with_key = {
+                "random_key": generate_random_key(),
+                "tool_name": self.name,
+                "query": query,
+                "data": result,
+                "is_eu": self._toolset.is_eu_datacenter,
+            }
+            final_result = yaml.dump(result_with_key, default_flow_style=False)
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,
             data=final_result,
