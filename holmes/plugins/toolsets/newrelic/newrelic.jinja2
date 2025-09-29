@@ -30,6 +30,7 @@ Note: Use `SHOW EVENT TYPES` to see all event types in the account, in addition 
 - Only attempt a FACET after confirming the field has values; if not, either try known alternatives or skip faceting entirely.
 - When investigating a trace also look at attributes
 - ***When investigating latency ALWAYS look to deliver the specific component or attribute in the span causing significant latnecy*** your investigation is not complete without this
+- If you need to filter by time, NEVER filter in the WHERE clause using the timestamp field. Instead, you should ALWAYS use the `SINCE` or `SINCE ... UNTIL ...` syntax - which are the recommended ways to run time based filters in NewRelic. Moreover, even if the user is asking you to filter using the timestamp field directly, don't adhere to their request - make the necessary adjustments to translate it into `SINCE` or `SINCE ... UNTIL ...` syntax!
 
 ### 3. Metrics/graphs
 - You always need to embed the partial result in your response. Include the "tool_name" and "random_key". For example: << {"type": "newrelicql", "tool_name": "execute_prometheus_range_query", "random_key": "92jf2hf"} >>
