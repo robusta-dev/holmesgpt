@@ -4,7 +4,7 @@
     "seed": 101,
     "common": {
       "namespace": "retail",
-      "k8sNamespace": "frontend",
+      "k8sNamespace": "app-126",
       "zone": "us-east-1a",
       "version": "1.2.3"
     },
@@ -12,25 +12,19 @@
       "country": {"US": 0.4, "UK": 0.2, "DE": 0.1, "FR": 0.1, "IL": 0.1, "IN": 0.05, "BR": 0.05},
       "device": {"mobile": 0.6, "desktop": 0.35, "tablet": 0.05},
       "paymentMethod": {"credit_card": 0.6, "paypal": 0.25, "bnpl": 0.15},
-      "category": {"electronics": 0.35, "clothing": 0.3, "groceries": 0.2, "home": 0.15}
+      "category": {"electronics": 0.35, "clothing": 0.3, "groceries": 0.2, "home": 0.15},
+      "userType": {"guest": 0.5, "logged_in": 0.3, "premium": 0.2}
     },
     "session_cardinality_rate": 0.3,
     "sku_cardinality_rate": 0.2,
     "metrics": [
-      {"name": "retail.orders.placed.count", "type": "count", "min": 300, "max": 400},
-      {"name": "retail.revenue.cents.sum", "type": "gauge", "min": 4000000, "max": 7000000},
-      {"name": "retail.cart.abandonment.ratio", "type": "gauge", "min": 0.05, "max": 0.12},
-      {"name": "retail.payment.failures.count", "type": "count", "min": 0, "max": 3},
-      {"name": "retail.items.out_of_stock.count", "type": "count", "min": 0, "max": 2},
+      {"name": "retail.orders.placed.count", "type": "count", "min": 320, "max": 420},
+      {"name": "retail.revenue.cents.sum", "type": "gauge", "min": 4200000, "max": 7200000},
+      {"name": "retail.cart.abandonment.ratio", "type": "gauge", "min": 0.06, "max": 0.12},
       {"name": "retail.http.duration.ms", "type": "gauge", "min": 120, "max": 220},
-      {"name": "retail.http.requests.count", "type": "count", "min": 600, "max": 800},
-      {"name": "retail.queue.lag.messages", "type": "gauge", "min": 0, "max": 5},
-      {"name": "retail.search.duration.ms", "type": "gauge", "min": 80, "max": 160},
-      {"name": "retail.cache.hit.ratio", "type": "gauge", "min": 0.93, "max": 0.97},
-      {"name": "retail.recs.duration.ms", "type": "gauge", "min": 60, "max": 140},
-      {"name": "retail.db.slow_queries.count", "type": "count", "min": 3, "max": 8},
-      {"name": "retail.db.query.duration.ms", "type": "gauge", "min": 40, "max": 120},
-      {"name": "retail.kafka.consumer.lag", "type": "gauge", "min": 0, "max": 2},
+      {"name": "retail.http.requests.count", "type": "count", "min": 650, "max": 820},
+      {"name": "retail.kafka.consumer.backlog.messages", "type": "gauge", "min": 0, "max": 2},
+      {"name": "retail.txn.publish.delay.ms", "type": "gauge", "min": 30, "max": 120},
       {"name": "retail.k8s.pod.restarts.count", "type": "count", "min": 0, "max": 1},
       {"name": "retail.node.cpu.utilization.pct", "type": "gauge", "min": 0.25, "max": 0.45},
       {"name": "retail.node.mem.working_set.bytes", "type": "gauge", "min": 8000000000, "max": 14000000000}
@@ -74,7 +68,7 @@
             "name": "frontend",
             "service": "frontend",
             "route": "/add-to-cart",
-            "method": "GET",
+            "method": "POST",
             "min_ms": 50,
             "max_ms": 120,
             "delay_ms": [0, 10],
@@ -99,84 +93,41 @@
         ]
       },
       {
-        "traceName": "Checkout",
+        "traceName": "Purchase (Guest/Free - Fast Path)",
         "spans": [
           {
             "name": "frontend",
             "service": "frontend",
-            "route": "/pay",
-            "method": "GET",
-            "min_ms": 50,
-            "max_ms": 120,
+            "route": "/purchase",
+            "method": "POST",
+            "min_ms": 70,
+            "max_ms": 130,
             "delay_ms": [0, 10],
+            "attributes": {"user.type": "guest"},
             "info_logs": [
-              "payments-checkout-124 start | user={userId} session={sessionId}",
-              "loaded payment options: cc, paypal, bnpl"
+              "purchase click | user={userId} session={sessionId} type=guest",
+              "enqueue order event | topic=orders"
             ],
             "warn_logs": []
           },
           {
-            "name": "payments-checkout-124",
-            "service": "payments-checkout-124",
-            "min_ms": 80,
-            "max_ms": 180,
-            "delay_ms": [10, 30],
-            "info_logs": [
-              "validating cart | session={sessionId} items>0",
-              "shipping quote computed | order={orderId}"
-            ],
-            "warn_logs": []
-          },
-          {
-            "name": "payments",
-            "service": "payments",
-            "min_ms": 100,
-            "max_ms": 240,
-            "delay_ms": [20, 60],
-            "info_logs": [
-              "payment initiated | order={orderId} payment={paymentId}",
-              "gateway auth OK | payment={paymentId}"
-            ],
-            "warn_logs": []
-          },
-          {
-            "name": "orders",
-            "service": "orders",
-            "min_ms": 60,
-            "max_ms": 140,
-            "delay_ms": [10, 20],
-            "info_logs": [
-              "order persisted | order={orderId} user={userId}",
-              "event published | txn={txnId}"
-            ],
-            "warn_logs": []
-          }
-        ]
-      },
-      {
-        "traceName": "Recommendation",
-        "spans": [
-          {
-            "name": "frontend",
-            "service": "frontend",
-            "route": "/reccomend",
-            "method": "GET",
+            "name": "orders-consumer",
+            "service": "orders-consumer",
             "min_ms": 40,
             "max_ms": 90,
-            "delay_ms": [0, 10],
-            "info_logs": [
-              "GET /recs | user={userId} session={sessionId}",
-              "hydrate recommendations widget"
-            ],
+            "delay_ms": [5, 15],
+            "attributes": {"consumer.group": "cg-orders-v1", "partitions": 8, "user.type": "guest"},
+            "info_logs": ["consumed order event | offset+=1 processing=fast"],
             "warn_logs": []
           },
           {
-            "name": "recs",
-            "service": "recs",
-            "min_ms": 60,
-            "max_ms": 140,
-            "delay_ms": [10, 30],
-            "info_logs": ["recs cache hit | model=recs_v1"],
+            "name": "orders-ack",
+            "service": "orders",
+            "min_ms": 20,
+            "max_ms": 50,
+            "delay_ms": [5, 10],
+            "attributes": {"path": "ack", "user.type": "guest"},
+            "info_logs": ["order acknowledged | user={userId}"],
             "warn_logs": []
           }
         ]
@@ -185,9 +136,9 @@
     "trace_rate_per_min": 120,
     "transactions": {
       "kpi": { "amount": { "min": 15.0, "max": 350.0 }, "cartSize": { "min": 1, "max": 5 } },
-      "attrs": { "flow": "baseline" }
+      "attrs": { "flow": "baseline", "delayed": false }
     },
-    "txn_rate_per_min": 350,
+    "txn_rate_per_min": 360,
     "logs": {
       "service_name": "frontend",
       "info_rate_per_min": 240,
@@ -204,57 +155,158 @@
     }
   },
   {
-    "name": "C - Kafka Consumer Lag",
-    "seed": 401,
-    "common": { "namespace": "retail", "k8sNamespace": "infra", "zone": "us-east-1a", "version": "1.2.3" },
+    "name": "C - Cart Abandonment Rising (Premium Purchases Blocked on DB Write)",
+    "seed": 402,
+    "common": { "namespace": "retail", "k8sNamespace": "app-126", "zone": "us-east-1a", "version": "1.2.3" },
+    "distributions": {
+      "userType": {"guest": 0.45, "logged_in": 0.25, "premium": 0.30},
+      "paymentMethod": {"credit_card": 0.55, "paypal": 0.25, "bnpl": 0.20}
+    },
     "metrics": [
-      {"name": "retail.kafka.consumer.lag", "type": "gauge", "min": 20000, "max": 50000},
-      {"name": "retail.cart.abandonment.ratio", "type": "gauge", "min": 0.15, "max": 0.28}
+      { "name": "retail.kafka.consumer.backlog.messages", "type": "gauge", "min": 20000, "max": 50000 },
+      { "name": "retail.txn.publish.delay.ms", "type": "gauge", "min": 1500, "max": 4200 },
+      { "name": "retail.checkout.duration.ms", "type": "gauge", "min": 380, "max": 1200 },
+      { "name": "retail.cart.abandonment.ratio", "type": "gauge", "min": 0.32, "max": 0.58 },
+      { "name": "retail.orders.placed.count", "type": "count", "min": 140, "max": 220 }
     ],
     "traces": [
       {
-        "traceName": "AddToCart",
+        "traceName": "Purchase (Premium - Waiting on DB Write)",
         "spans": [
           {
             "name": "frontend",
             "service": "frontend",
-            "route": "/add-to-cart",
-            "method": "GET",
-            "min_ms": 60,
-            "max_ms": 140,
+            "route": "/purchase",
+            "method": "POST",
+            "min_ms": 90,
+            "max_ms": 160,
             "delay_ms": [0, 10],
-            "info_logs": ["add-to-cart | user={userId} sku={productSku}"],
+            "attributes": {"user.type": "premium"},
+            "info_logs": [
+              "purchase click | user={userId} session={sessionId} type=premium",
+              "enqueue order event | topic=orders"
+            ],
+            "warn_logs": [
+              "user still on checkout | wait_ms=~{retail.txn.publish.delay.ms}"
+            ]
+          },
+          {
+            "name": "orders-consumer",
+            "service": "orders-consumer",
+            "min_ms": 220,
+            "max_ms": 420,
+            "delay_ms": [40, 100],
+            "attributes": {
+              "consumer.group": "cg-orders-v1",
+              "topic": "orders",
+              "partitions": 8,
+              "user.type": "premium",
+              "queue.depth": 30000
+            },
+            "info_logs": [
+              "picked order from queue | depth=~{queue.depth}",
+              "processing premium purchase | user={userId}"
+            ],
+            "warn_logs": [
+              "downstream write not immediately available | deferring commit",
+              "consumer throughput reduced by slow database response"
+            ]
+          },
+          {
+            "name": "orders-db",
+            "service": "orders-db",
+            "min_ms": 1600,
+            "max_ms": 3600,
+            "delay_ms": [80, 160],
+            "attributes": {
+              "db.system": "postgresql",
+              "db.operation": "INSERT",
+              "db.lock.type": "row",
+              "db.lock.wait_ms": 1200,
+              "db.lock.blocked": true,
+              "user.type": "premium"
+            },
+            "info_logs": [
+              "waiting on row lock | key=order:{orderId}",
+              "lock acquired | waited_ms=~{db.lock.wait_ms}"
+            ],
+            "warn_logs": [
+              "writer blocked by concurrent transaction | state=waiting",
+              "commit delayed due to lock hold time | elapsed_ms>1800"
+            ]
+          },
+          {
+            "name": "purchase-complete",
+            "service": "orders",
+            "min_ms": 40,
+            "max_ms": 90,
+            "delay_ms": [5, 15],
+            "attributes": {"state": "completed", "user.type": "premium"},
+            "info_logs": ["order persisted after wait | order={orderId}"],
+            "warn_logs": []
+          }
+        ]
+      },
+      {
+        "traceName": "Purchase (Guest/Free - Fast Path)",
+        "spans": [
+          {
+            "name": "frontend",
+            "service": "frontend",
+            "route": "/purchase",
+            "method": "POST",
+            "min_ms": 70,
+            "max_ms": 130,
+            "delay_ms": [0, 10],
+            "attributes": {"user.type": "guest"},
+            "info_logs": [
+              "purchase click | user={userId} type=guest",
+              "enqueue order event | topic=orders"
+            ],
             "warn_logs": []
           },
           {
-            "name": "cart",
-            "service": "cart",
-            "min_ms": 120,
-            "max_ms": 260,
-            "delay_ms": [10, 60],
-            "info_logs": ["cart write delayed | txn={txnId} backlog>0"],
-            "warn_logs": ["queue backlog growing | lag_msgs~{retail.kafka.consumer.lag}"]
+            "name": "orders-consumer",
+            "service": "orders-consumer",
+            "min_ms": 40,
+            "max_ms": 90,
+            "delay_ms": [5, 15],
+            "attributes": {"consumer.group": "cg-orders-v1", "user.type": "guest"},
+            "info_logs": ["processed with cache-only flow | user={userId}"],
+            "warn_logs": []
+          },
+          {
+            "name": "purchase-complete",
+            "service": "orders",
+            "min_ms": 20,
+            "max_ms": 50,
+            "delay_ms": [5, 10],
+            "attributes": {"state": "completed", "user.type": "guest"},
+            "info_logs": ["order acknowledged | user={userId}"],
+            "warn_logs": []
           }
         ]
       }
     ],
-    "trace_rate_per_min": 80,
+    "trace_rate_per_min": 95,
     "transactions": {
       "kpi": { "amount": { "min": 5.0, "max": 250.0 }, "cartSize": { "min": 1, "max": 4 } },
-      "attrs": { "flow": "consumer-lag", "delayed": true }
+      "attrs": { "flow": "purchase-delayed-by-db-write", "delayed": true }
     },
-    "txn_rate_per_min": 220,
+    "txn_rate_per_min": 200,
     "logs": {
-      "service_name": "cart",
-      "info_rate_per_min": 60,
-      "warn_rate_per_min": 90,
+      "service_name": "orders-consumer",
+      "info_rate_per_min": 80,
+      "warn_rate_per_min": 130,
       "info_messages": [
-        "cart event queued | txn={txnId}",
-        "retry scheduled | txn={txnId} in=5s"
+        "queue depth increased | current=~{retail.kafka.consumer.backlog.messages}",
+        "processing slowed by downstream database",
+        "premium purchase queued | user={userId}"
       ],
       "warn_messages": [
-        "consumer lag rising | partition=7 lag=+1200",
-        "processing delay detected | p95_ms=410"
+        "database write waiting on lock | writer paused",
+        "transaction wait threshold exceeded | wait_ms>1500",
+        "contention observed | insert taking unusually long"
       ]
     }
   }
