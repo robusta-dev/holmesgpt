@@ -24,6 +24,14 @@ AI Agent for Troubleshooting Cloud-Native Environments.
 
     [:octicons-arrow-right-24: Install](installation/ui-installation.md)
 
+-   :material-chart-line:{ .lg .middle } **[View Evaluations](development/evaluations/index.md)**
+
+    ---
+
+    Compare LLM performance across 150+ test scenarios
+
+    [:octicons-arrow-right-24: Evaluations](development/evaluations/index.md)
+
 </div>
 
 ## Need Help?
