@@ -1352,8 +1352,23 @@ def main():
     # Generate report sections
     report_lines = []
 
-    # Header
-    report_lines.append("# HolmesGPT LLM Evaluation Benchmark Results")
+    # Header - check if output file is in history format
+    output_filename = Path(args.output_file).name
+    import re
+
+    match = re.match(
+        r"results_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})\.md", output_filename
+    )
+    if match:
+        # Extract date components and format as title
+        year, month, day, hour, minute, second = match.groups()
+        date_obj = datetime(int(year), int(month), int(day))
+        # Format as "Month Day, Year" (no time)
+        title = date_obj.strftime("%B %d, %Y")
+        report_lines.append(f"# {title}")
+    else:
+        # Default title for latest-results.md
+        report_lines.append("# HolmesGPT LLM Evaluation Benchmark Results")
     report_lines.append("")
     # Format duration nicely
     duration_seconds = results.get("duration", 0)

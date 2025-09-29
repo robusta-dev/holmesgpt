@@ -1,0 +1,9 @@
+nav:
+  - index.md
+  - Installation: installation
+  - Walkthrough: walkthrough
+  - AI Providers: ai-providers
+  - Data Sources: data-sources
+  - Development: development
+  - Reference: reference
+  - Community: community.md

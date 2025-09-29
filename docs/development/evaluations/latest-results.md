@@ -1,9 +1,9 @@
-# HolmesGPT LLM Evaluation Benchmark Results
+# Latest Benchmark Results
 
-**Generated**: 2025-09-28 00:14 UTC
+**Generated**: 2025-09-29 10:51 UTC
 **Total Duration**: 1h 4m 41s
 **Iterations**: 1
-**Judge (classifier) model**: gpt-4o
+**Judge (classifier) model**: gpt-4.1
 
 ## About this Benchmark
 
