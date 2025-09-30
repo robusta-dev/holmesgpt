@@ -9,11 +9,8 @@ import sentry_sdk
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
 
-
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
-from holmes.common.env_vars import (
-    ROBUSTA_CONFIG_PATH,
-)
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -33,8 +30,8 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
-from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.config import config_path_dir
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
@@ -129,7 +126,7 @@ class Config(RobustaBaseConfig):
         return self._llm_model_registry
 
     def log_useful_info(self):
-        if self.llm_model_registry and self.llm_model_registry.models:
+        if self.llm_model_registry.models:
             logging.info(
                 f"Loaded models: {list(self.llm_model_registry.models.keys())}"
             )
