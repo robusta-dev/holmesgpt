@@ -2,7 +2,6 @@ import logging
 from math import ceil
 from typing import Optional
 from holmes.common.env_vars import (
-    ENABLE_CONVERSATION_HISTORY_COMPACTION,
     MAX_NUMBER_OF_LLM_SUBCALLS_IN_TOOL_OUTPUT_SUMMARIZATION,
 )
 from holmes.core.llm import LLM
@@ -21,52 +20,6 @@ def strip_system_prompt(
     if first_message and first_message.get("role") == "system":
         return conversation_history[1:], first_message
     return conversation_history[:], None  # TODO: return same object instead of a copy?
-
-
-def compact_conversation_history(
-    original_conversation_history: list[dict], llm: LLM
-) -> list[dict]:
-    if not ENABLE_CONVERSATION_HISTORY_COMPACTION:
-        return original_conversation_history
-
-    conversation_history, system_prompt_message = strip_system_prompt(
-        original_conversation_history
-    )
-    compaction_instructions = load_and_render_prompt(
-        prompt="builtin://conversation_history_compaction.jinja2", context={}
-    )
-    conversation_history.append({"role": "user", "content": compaction_instructions})
-
-    response: ModelResponse = llm.completion(conversation_history)  # type: ignore
-    response_message = None
-    if (
-        response
-        and response.choices
-        and response.choices[0]
-        and response.choices[0].message
-    ):  # type:ignore
-        response_message = response.choices[0].message  # type:ignore
-    else:
-        logging.error(
-            "Failed to compact conversation history. Unexpected LLM's response for compaction"
-        )
-        return conversation_history
-
-    compacted_conversation_history: list[dict] = []
-    if system_prompt_message:
-        compacted_conversation_history.append(system_prompt_message)
-    compacted_conversation_history.append(
-        response_message.model_dump(
-            exclude_defaults=True, exclude_unset=True, exclude_none=True
-        )
-    )
-    compacted_conversation_history.append(
-        {
-            "role": "system",
-            "content": "The conversation history has been compacted to preserve available space in the context window. Continue.",
-        }
-    )
-    return compacted_conversation_history
 
 
 def split_text_in_chunks(
@@ -163,9 +116,9 @@ def summarize_tool_output(
                 response
                 and response.choices
                 and response.choices[0]
-                and response.choices[0].message
-                and response.choices[0].message.content
-            ):  # type:ignore
+                and response.choices[0].message  # type:ignore
+                and response.choices[0].message.content  # type:ignore
+            ):
                 iterative_summary = response.choices[0].message.content  # type:ignore
             else:
                 logging.error(

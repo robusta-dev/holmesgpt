@@ -34,7 +34,7 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT, LLM, get_llm_usage
+from holmes.core.llm import LLM, get_llm_usage
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
@@ -45,7 +45,6 @@ from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
 from holmes.core.truncation.compaction import (
-    compact_conversation_history,
     summarize_tool_output,
 )
 from holmes.plugins.prompts import load_and_render_prompt
@@ -923,26 +922,16 @@ class ToolCallingLLM:
             initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
-            if (initial_total_tokens + maximum_output_token) > (
-                max_context_size * CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT / 100
-            ):
-                messages = compact_conversation_history(
-                    original_conversation_history=messages, llm=self.llm
+            if (initial_total_tokens + maximum_output_token) > (max_context_size):
+                logging.warning("Token limit exceeded. Truncating tool responses.")
+
+                truncated_res = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
                 )
-                compacted_total_tokens = self.llm.count_tokens_for_message(messages)
-
-                if compacted_total_tokens < initial_total_tokens:
-                    logging.warning(
-                        f"Compacted conversation history from {initial_total_tokens} to {compacted_total_tokens} tokens"
-                    )
-
-                    truncated_res = self.truncate_messages_to_fit_context(
-                        messages, max_context_size, maximum_output_token
-                    )
-                    metadata["truncations"] = [
-                        t.model_dump() for t in truncated_res.truncations
-                    ]
-                    messages = truncated_res.truncated_messages
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
             else:
                 metadata["truncations"] = []
 

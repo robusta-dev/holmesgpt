@@ -33,9 +33,6 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
-CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT = environ_get_safe_int(
-    "CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT", default="80"
-)
 
 ROBUSTA_AI_MODEL_NAME = "Robusta"
 
@@ -191,7 +188,7 @@ class DefaultLLM(LLM):
             return self.max_context_size
 
         if OVERRIDE_MAX_CONTENT_SIZE:
-            logging.warning(
+            logging.debug(
                 f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}"
             )
             return OVERRIDE_MAX_CONTENT_SIZE
