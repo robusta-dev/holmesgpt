@@ -33,6 +33,7 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
+
 ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
@@ -430,6 +431,7 @@ class LLMModelRegistry:
                 return
 
             account_id, token = self.dal.get_ai_credentials()
+
             robusta_models: RobustaModelsResponse | None = fetch_robusta_models(
                 account_id, token
             )
