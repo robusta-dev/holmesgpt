@@ -1,3 +1,4 @@
+import os
 from typing import Any, cast, Set
 from pydantic import BaseModel
 
@@ -23,7 +24,11 @@ from holmes.plugins.toolsets.utils import (
 from holmes.plugins.toolsets.grafana.loki_api import (
     query_loki_logs_by_label,
 )
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    ToolParameter,
+)
 
 
 class GrafanaLokiLabelsConfig(BaseModel):
@@ -33,6 +38,24 @@ class GrafanaLokiLabelsConfig(BaseModel):
 
 class GrafanaLokiConfig(GrafanaConfig):
     labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
+
+
+class LokiPodLoggingTool(PodLoggingTool):
+    """Custom pod logging tool for Loki with wildcard support"""
+
+    def _get_tool_parameters(self, toolset: BasePodLoggingToolset) -> dict:
+        """Override to add wildcard support to pod_name parameter"""
+        # Get base parameters from parent
+        params = super()._get_tool_parameters(toolset)
+
+        # Override pod_name description to indicate wildcard support
+        params["pod_name"] = ToolParameter(
+            description="The kubernetes pod name. Use '*' to fetch logs from all pods in the namespace, or use wildcards like 'payment-*' to match multiple pods",
+            type="string",
+            required=True,
+        )
+
+        return params
 
 
 class GrafanaLokiToolset(BasePodLoggingToolset):
@@ -51,7 +74,9 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             tools=[],  # Initialize with empty tools first
         )
         # Now that parent is initialized and self.name exists, create the tool
-        self.tools = [PodLoggingTool(self)]
+        # Use our custom LokiPodLoggingTool with wildcard support
+        self.tools = [LokiPodLoggingTool(self)]
+        self._reload_instructions()
 
     def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
         if not config:
@@ -109,3 +134,10 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
                 status=StructuredToolResultStatus.NO_DATA,
                 params=params.model_dump(),
             )
+
+    def _reload_instructions(self):
+        """Load Loki specific instructions."""
+        template_file_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "loki_instructions.jinja2")
+        )
+        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
