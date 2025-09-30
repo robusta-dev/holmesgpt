@@ -530,13 +530,14 @@ class LLMModelRegistry:
     def _create_robusta_model_entry(
         self, model_name: str, args: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
-        return self._create_model_entry(
+        entry = self._create_model_entry(
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
-            args=args or {},
         )
+        entry["custom_args"] = args or {}  # type: ignore[assignment]
+        return entry
 
     def _create_model_entry(
         self,
@@ -544,18 +545,13 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
-        args: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        entry = {
+        return {
             "name": model_name,
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
         }
-        if args:
-            entry["custom_args"] = args  # type: ignore[assignment]
-
-        return entry
 
 
 def get_llm_usage(

@@ -66,7 +66,7 @@ Our CI/CD pipeline runs evaluations automatically:
 - **Pull Requests** - When eval-related files are modified (quick validation)
 - **On-demand** - Via GitHub Actions UI
 
-Results are published here and archived in [history/](./history/).
+Results are published here and archived in [history](./history/index.md).
 
 ## Model Comparison
 
@@ -86,4 +86,4 @@ See the [latest results](./latest-results.md) for current model performance comp
 - **[Running Evaluations](./running-evals.md)** - Complete guide to running tests
 - **[Adding New Evaluations](./adding-evals.md)** - Contribute test scenarios
 - **[Reporting with Braintrust](./reporting.md)** - Analyze results in detail
-- **[Historical Results](./history/)** - Past benchmark data
+- **[Historical Results](./history/index.md)** - Past benchmark data
