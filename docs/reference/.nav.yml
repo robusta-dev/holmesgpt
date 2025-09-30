@@ -1,0 +1,6 @@
+nav:
+  - Environment Variables: environment-variables.md
+  - Helm Configuration: helm-configuration.md
+  - HTTP API: http-api.md
+  - Slash Commands: slash-commands.md
+  - Troubleshooting: troubleshooting.md
