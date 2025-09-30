@@ -1,6 +1,5 @@
 description: "Test if holmes pulls logs reliably, expects env var NEW_RELIC_LICENSE_KEY"
 
-
 user_prompt:
 - fetch error logs for app payment-gateway-s1fdsa-231ds from newrelic
 
@@ -10,6 +9,7 @@ expected_output:
 tags:
   - newrelic
   - logs
+  - medium
 
 # Custom timeout for setup (needs 5 min sleep + setup time)
 setup_timeout: 360  # 6 minutes total

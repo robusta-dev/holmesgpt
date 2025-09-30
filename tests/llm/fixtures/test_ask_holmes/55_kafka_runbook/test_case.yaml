@@ -3,10 +3,10 @@ tags:
   - logs
   - kafka
   - runbooks
-  - medium # gpt-4o does not get to the root cause which is slower consumer due to email processing.
+  - medium
 
 skip: true
-skip_reason: this hangs when the port-forward is not set up correctly
+skip_reason: this hangs when the port-forward is not set up correctly, can fix with eval port-forward capability (and should also fix so kafka timeouts and does not hang)
 
 expected_output: |
   `invoices-app` is slow to process messages because email sending is slow

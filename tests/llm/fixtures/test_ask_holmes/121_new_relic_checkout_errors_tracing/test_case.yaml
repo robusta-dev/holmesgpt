@@ -10,6 +10,7 @@ tags:
   - hard
   - chain-of-causation
   - traces
+  - newrelic
 
 setup_timeout: 600  # 10 minutes for pod scheduling
 
