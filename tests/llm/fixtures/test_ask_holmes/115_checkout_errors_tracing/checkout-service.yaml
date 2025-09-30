@@ -143,14 +143,10 @@ spec:
     spec:
       containers:
       - name: checkout
-        image: python:3.11-slim
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          pip install flask opentelemetry-api opentelemetry-sdk \
-            opentelemetry-instrumentation-flask \
-            opentelemetry-exporter-otlp-proto-grpc && \
-          python /app/app.py
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
         volumeMounts:
         - name: app
           mountPath: /app
@@ -171,6 +167,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           httpGet:
             path: /health
@@ -179,14 +179,13 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 24
+          failureThreshold: 46
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
+            memory: "256Mi"
+            cpu: "10m"
           limits:
             memory: "256Mi"
-            cpu: "200m"
       volumes:
       - name: app
         secret:
