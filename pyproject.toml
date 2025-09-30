@@ -120,6 +120,7 @@ markers = [
     "question-answer: Simple question-answer tests where Holmes answers straightforward questions about the system",
     "prometheus: Tests involving Prometheus metrics",
     "newrelic: New Relic toolset",
+    "no-cicd: Tests to skip in the GitHub action because we're missing prerequisites in the KIND cluster like a Prometheus instance",
 ]
 
 addopts = [
