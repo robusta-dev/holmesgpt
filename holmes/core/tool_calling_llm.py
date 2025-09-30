@@ -900,23 +900,27 @@ class ToolCallingLLM:
             if (initial_total_tokens + maximum_output_token) > (
                 max_context_size * CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT / 100
             ):
-                messages = compact_conversation_history(
+                compacted_messages = compact_conversation_history(
                     original_conversation_history=messages, llm=self.llm
                 )
                 compacted_total_tokens = self.llm.count_tokens_for_message(messages)
 
                 if compacted_total_tokens < initial_total_tokens:
-                    logging.warning(
+                    messages = compacted_messages
+                    logging.info(
                         f"Compacted conversation history from {initial_total_tokens} to {compacted_total_tokens} tokens"
                     )
 
-                    truncated_res = self.truncate_messages_to_fit_context(
-                        messages, max_context_size, maximum_output_token
-                    )
-                    metadata["truncations"] = [
-                        t.model_dump() for t in truncated_res.truncations
-                    ]
-                    messages = truncated_res.truncated_messages
+            initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            if (initial_total_tokens + maximum_output_token) > max_context_size:
+                # Compaction was not sufficient. Truncating messages.
+                truncated_res = self.truncate_messages_to_fit_context(
+                    messages, max_context_size, maximum_output_token
+                )
+                metadata["truncations"] = [
+                    t.model_dump() for t in truncated_res.truncations
+                ]
+                messages = truncated_res.truncated_messages
             else:
                 metadata["truncations"] = []
 

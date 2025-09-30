@@ -191,7 +191,7 @@ class DefaultLLM(LLM):
             return self.max_context_size
 
         if OVERRIDE_MAX_CONTENT_SIZE:
-            logging.warning(
+            logging.debug(
                 f"Using override OVERRIDE_MAX_CONTENT_SIZE {OVERRIDE_MAX_CONTENT_SIZE}"
             )
             return OVERRIDE_MAX_CONTENT_SIZE

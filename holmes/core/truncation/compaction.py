@@ -13,10 +13,12 @@ TOKENS_RESERVED_FOR_SUMMARIZATION_PROMPT = 500
 def strip_system_prompt(
     conversation_history: list[dict],
 ) -> tuple[list[dict], Optional[dict]]:
+    if not conversation_history:
+        return conversation_history, None
     first_message = conversation_history[0]
     if first_message and first_message.get("role") == "system":
         return conversation_history[1:], first_message
-    return conversation_history[:], None  # TODO: return same object instead of a copy?
+    return conversation_history[:], None
 
 
 def compact_conversation_history(
@@ -46,7 +48,7 @@ def compact_conversation_history(
         logging.error(
             "Failed to compact conversation history. Unexpected LLM's response for compaction"
         )
-        return conversation_history
+        return original_conversation_history
 
     compacted_conversation_history: list[dict] = []
     if system_prompt_message:
