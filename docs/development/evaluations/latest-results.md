@@ -306,3 +306,4 @@ Status of all evaluations across models. Color coding:
 
 ---
 *Results are automatically generated and updated weekly. View full traces and detailed analysis in [Braintrust experiment: local-benchmark-20250930-092035](https://www.braintrust.dev/app/robustadev/p/HolmesGPT/experiments/local-benchmark-20250930-092035).*
+
