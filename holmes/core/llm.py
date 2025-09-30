@@ -1,6 +1,7 @@
 import json
 import logging
 from abc import abstractmethod
+from math import floor
 from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
 
 from litellm.types.utils import ModelResponse, TextCompletionResponse
@@ -292,6 +293,8 @@ class DefaultLLM(LLM):
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
 
     def get_maximum_output_token(self) -> int:
+        max_output_tokens = floor(min(64000, self.get_context_window_size() / 5))
+
         if OVERRIDE_MAX_OUTPUT_TOKEN:
             logging.debug(
                 f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}"
@@ -301,17 +304,22 @@ class DefaultLLM(LLM):
         # Try each name variant
         for name in self._get_model_name_variants_for_lookup():
             try:
-                return litellm.model_cost[name]["max_output_tokens"]
+                litellm_max_output_tokens = litellm.model_cost[name][
+                    "max_output_tokens"
+                ]
+                if litellm_max_output_tokens < max_output_tokens:
+                    max_output_tokens = litellm_max_output_tokens
+                return max_output_tokens
             except Exception:
                 continue
 
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 4096 tokens for max_output_tokens. "
+            f"using {max_output_tokens} tokens for max_output_tokens. "
             f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
         )
-        return 4096
+        return max_output_tokens
 
     def _add_cache_control_to_last_message(
         self, messages: List[Dict[str, Any]]
@@ -349,7 +357,7 @@ class DefaultLLM(LLM):
         if content is None:
             return
 
-        if isinstance(content, str):
+        if isinstance(content, str) and content:
             # Convert string to structured format with cache_control
             target_msg["content"] = [
                 {
@@ -520,13 +528,14 @@ class LLMModelRegistry:
     def _create_robusta_model_entry(
         self, model_name: str, args: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
-        return self._create_model_entry(
+        entry = self._create_model_entry(
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
-            args=args or {},
         )
+        entry["custom_args"] = args or {}  # type: ignore[assignment]
+        return entry
 
     def _create_model_entry(
         self,
@@ -534,18 +543,13 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
-        args: Optional[dict[str, Any]] = None,
     ) -> dict[str, Any]:
-        entry = {
+        return {
             "name": model_name,
             "base_url": base_url,
             "is_robusta_model": is_robusta_model,
             "model": model,
         }
-        if args:
-            entry["custom_args"] = args  # type: ignore[assignment]
-
-        return entry
 
 
 def get_llm_usage(

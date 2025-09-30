@@ -193,14 +193,11 @@ Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-
 
 ## Community
 
-Join our community meetings to discuss the HolmesGPT roadmap and share feedback:
+Join our community to discuss the HolmesGPT roadmap and share feedback:
 
-📅 **First Community Meeting:** Thursday, August 21, 2025
-- **Time:** 8:00-9:00 AM PT / 11:00 AM-12:00 PM ET / 8:30-9:30 PM IST
-- **Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
-- **Agenda:** [Roadmap discussion](https://github.com/orgs/robusta-dev/projects/2), community feedback, and Q&A
-
-[📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Full Details](https://holmesgpt.dev/community/)
+📹 **First Community Meetup Recording:** [Watch on YouTube](https://youtu.be/slQRc6nlFQU)
+- **Topics:** Roadmap discussion, community feedback, and Q&A
+- **Resources:** [📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Community Page](https://holmesgpt.dev/community/)
 
 ## Support
 

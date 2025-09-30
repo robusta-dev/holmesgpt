@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: payment-app
-  namespace: nr-114
+  namespace: app-122
 type: Opaque
 stringData:
   telemetry.py: |
@@ -91,7 +91,7 @@ stringData:
       deploy_env = os.getenv("DEPLOYMENT_ENV", "dev")
 
       instance_id = os.getenv("POD_NAME") or os.getenv("K8S_POD_NAME") or socket.gethostname()
-      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "nr-114"
+      ns = os.getenv("KUBERNETES_NAMESPACE") or os.getenv("K8S_NAMESPACE") or "app-122"
       container = os.getenv("CONTAINER_NAME") or "payment"
 
       resource = Resource.create({
@@ -245,7 +245,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: payment
-  namespace: nr-114
+  namespace: app-122
 spec:
   replicas: 1
   selector:
@@ -258,13 +258,10 @@ spec:
     spec:
       containers:
       - name: payment
-        image: python:3.11-slim
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          set -e
-          python -m pip install --no-cache-dir --disable-pip-version-check -r /app/requirements.txt && \
-          python /app/app.py
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.1
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
         volumeMounts:
         - name: app
           mountPath: /app
@@ -309,15 +306,19 @@ spec:
         - name: POD_NAME
           valueFrom: { fieldRef: { fieldPath: metadata.name } }
 
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           httpGet:
             path: /health
             port: 8080
-          initialDelaySeconds: 60    # allow time for pip install
+          initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 60       # generous budget for slow networks
+          failureThreshold: 60
         resources:
           requests:
             memory: "128Mi"
@@ -335,7 +336,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: payment
-  namespace: nr-114
+  namespace: app-122
 spec:
   selector:
     app: payment
