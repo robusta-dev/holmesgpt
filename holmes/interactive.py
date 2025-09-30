@@ -1072,7 +1072,10 @@ def run_interactive_loop(
     # TODO: merge the /feedback command description to WELCOME_BANNER once we implement feedback callback
     welcome_banner = WELCOME_BANNER
     if feedback_callback:
-        welcome_banner = welcome_banner.rstrip(".") + f", '{SlashCommands.FEEDBACK.command}' to share your thoughts."
+        welcome_banner = (
+            welcome_banner.rstrip(".")
+            + f", '{SlashCommands.FEEDBACK.command}' to share your thoughts."
+        )
     console.print(welcome_banner)
 
     if initial_user_input:
@@ -1156,12 +1159,12 @@ def run_interactive_loop(
                     continue
                 elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.command):].strip()
+                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
                     handle_show_command(show_arg, all_tool_calls_history, console)
                     continue
                 elif command.startswith(SlashCommands.RUN.command):
                     bash_command = original_input[
-                        len(SlashCommands.RUN.command):
+                        len(SlashCommands.RUN.command) :
                     ].strip()
                     shared_input = handle_run_command(
                         bash_command, session, style, console
