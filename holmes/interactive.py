@@ -1151,12 +1151,12 @@ def run_interactive_loop(
                     continue
                 elif command.startswith(SlashCommands.SHOW.command):
                     # Parse the command to extract tool index or name
-                    show_arg = original_input[len(SlashCommands.SHOW.command) :].strip()
+                    show_arg = original_input[len(SlashCommands.SHOW.command):].strip()
                     handle_show_command(show_arg, all_tool_calls_history, console)
                     continue
                 elif command.startswith(SlashCommands.RUN.command):
                     bash_command = original_input[
-                        len(SlashCommands.RUN.command) :
+                        len(SlashCommands.RUN.command):
                     ].strip()
                     shared_input = handle_run_command(
                         bash_command, session, style, console
@@ -1174,7 +1174,7 @@ def run_interactive_loop(
                     and feedback_callback is not None
                 ):
                     handle_feedback_command(style, console, feedback, feedback_callback)
-                    return
+                    continue
                 else:
                     console.print(f"Unknown command: {command}")
                     continue
