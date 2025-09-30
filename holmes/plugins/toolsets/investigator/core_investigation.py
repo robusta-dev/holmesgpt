@@ -8,12 +8,12 @@ from uuid import uuid4
 from litellm import ChatCompletionMessageToolCall
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
-    Toolset,
-    ToolsetTag,
-    ToolParameter,
-    Tool,
     StructuredToolResult,
     StructuredToolResultStatus,
+    Tool,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
@@ -162,7 +162,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
