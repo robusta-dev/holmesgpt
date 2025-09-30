@@ -1069,7 +1069,12 @@ def run_interactive_loop(
 
     input_prompt = [("class:prompt", "User: ")]
 
-    console.print(WELCOME_BANNER)
+    # TODO: merge the /feedback command description to WELCOME_BANNER once we implement feedback callback
+    welcome_banner = WELCOME_BANNER
+    if feedback_callback:
+        welcome_banner = welcome_banner.rstrip(".") + f", '{SlashCommands.FEEDBACK.command}' to share your thoughts."
+    console.print(welcome_banner)
+
     if initial_user_input:
         console.print(
             f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
