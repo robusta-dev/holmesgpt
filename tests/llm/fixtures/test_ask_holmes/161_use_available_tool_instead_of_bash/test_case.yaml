@@ -1,0 +1,12 @@
+# Cf. https://github.com/robusta-dev/holmesgpt/issues/997
+user_prompt: "check the system pods"
+
+description: "Ensures that Holmes uses the right tool instead of having to request approval"
+
+expected_output:
+  - "System pods are functioning normally/properly"
+
+tags:
+  - kubernetes
+
+include_tool_calls: true
