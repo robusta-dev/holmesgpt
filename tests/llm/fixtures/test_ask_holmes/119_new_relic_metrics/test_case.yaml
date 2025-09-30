@@ -1,5 +1,4 @@
-description: "Test if holmes pulls logs reliably"
-
+description: "Test if holmes pulls metrics reliably"
 
 user_prompt:
 - give me a graph of the custom newrelic metric sales.amount and the currency
@@ -13,6 +12,7 @@ expected_output:
 tags:
   - newrelic
   - metrics
+  - medium
 
 # Custom timeout for setup (needs 2 min sleep + setup time)
 setup_timeout: 240  # 4 minutes total

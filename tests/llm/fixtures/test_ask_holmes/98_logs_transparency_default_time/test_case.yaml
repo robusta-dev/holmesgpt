@@ -16,6 +16,7 @@ skip_reason: We need to test this with loki - with kubectl logs it just returns 
 
 tags:
   - logs
+  - loki
   - transparency
   - datetime
   - medium

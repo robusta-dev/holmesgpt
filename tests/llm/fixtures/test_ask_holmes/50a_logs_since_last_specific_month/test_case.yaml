@@ -7,9 +7,6 @@ expected_output:
   - 2024-12-15 Syntax error for query fetch_user_logs
   - 2024-12-19 SSL certificate expired
 
-evaluation:
-  correctness: 1
-
 # Default policy is to not mock (run live)
 mock_policy: never_mock
 
