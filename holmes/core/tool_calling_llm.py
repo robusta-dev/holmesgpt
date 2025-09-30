@@ -39,19 +39,14 @@ from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
 from holmes.core.truncation.compaction import (
     compact_conversation_history,
-    summarize_tool_output,
 )
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.plugins.toolsets.investigator.core_investigation import (
-    get_tasks_from_potential_openai_tool_call,
-)
 from holmes.utils import sentry_helper
 from holmes.utils.global_instructions import (
     Instructions,
@@ -338,8 +333,6 @@ class ToolCallingLLM:
                         tool_to_call=tool_call_obj,
                         previous_tool_calls=[],
                         trace_span=DummySpan(),
-                        user_prompt="",
-                        tasks="",
                         tool_number=None,
                     )
                     messages.append(llm_tool_result.as_tool_call_message())
@@ -416,7 +409,6 @@ class ToolCallingLLM:
         perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls = []  # type: ignore
         costs = LLMCosts()
-        tasks = ""
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
@@ -568,20 +560,12 @@ class ToolCallingLLM:
                     logging.debug(f"Tool to call: {t}")
                     tool_number = tool_number_offset + tool_index
 
-                    new_tasks = get_tasks_from_potential_openai_tool_call(
-                        tool_to_call=t
-                    )
-                    if new_tasks:
-                        tasks = format_tasks(new_tasks)
-
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,
                         previous_tool_calls=tool_calls,
                         trace_span=trace_span,
                         tool_number=tool_number,
-                        tasks=tasks,
-                        user_prompt=user_prompt or "",
                     )
                     futures_tool_numbers[future] = tool_number
                     futures.append(future)
@@ -724,8 +708,6 @@ class ToolCallingLLM:
         self,
         tool_to_call: ChatCompletionMessageToolCall,
         previous_tool_calls: list[dict],
-        user_prompt: str,
-        tasks: str,
         trace_span=None,
         tool_number=None,
     ) -> ToolCallResult:
@@ -761,13 +743,6 @@ class ToolCallingLLM:
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
                 )
-
-            tool_call_result = summarize_tool_output(
-                tool_result=tool_call_result,
-                fast_llm=self.llm,
-                original_user_prompt=user_prompt,
-                tasks=tasks,
-            )
 
             prevent_overly_big_tool_response(
                 tool_call_result=tool_call_result, llm=self.llm
@@ -911,7 +886,6 @@ class ToolCallingLLM:
         metadata: Dict[Any, Any] = {}
         i = 0
         tool_number_offset = 0
-        tasks: str = ""
 
         while i < max_steps:
             i += 1
@@ -1029,18 +1003,10 @@ class ToolCallingLLM:
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     tool_number = tool_number_offset + tool_index
 
-                    new_tasks = get_tasks_from_potential_openai_tool_call(
-                        tool_to_call=t
-                    )
-                    if new_tasks:
-                        tasks = format_tasks(new_tasks)
-
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,  # type: ignore
                         previous_tool_calls=tool_calls,
-                        user_prompt=user_prompt or "",
-                        tasks=tasks,
                         trace_span=DummySpan(),  # Streaming mode doesn't support tracing yet
                         tool_number=tool_number,
                     )
