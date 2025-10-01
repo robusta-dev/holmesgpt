@@ -44,8 +44,8 @@ PROMETHEUS_METADATA_API_LIMIT = 100  # Default limit for Prometheus metadata API
 # Default timeout values for PromQL queries
 DEFAULT_QUERY_TIMEOUT_SECONDS = 20
 MAX_QUERY_TIMEOUT_SECONDS = 180
-# Default token limit for query responses to prevent token limit issues
-DEFAULT_QUERY_RESPONSE_SIZE_LIMIT = 5000
+# Default token limit in % of the alowed total input tokens for query responses to prevent token limit issues
+DEFAULT_QUERY_RESPONSE_SIZE_LIMIT_PCT = 15
 # Default timeout for metadata API calls (discovery endpoints)
 DEFAULT_METADATA_TIMEOUT_SECONDS = 20
 MAX_METADATA_TIMEOUT_SECONDS = 60
@@ -93,8 +93,8 @@ class PrometheusConfig(BaseModel):
     rules_cache_duration_seconds: Optional[int] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
-    query_response_size_limit: Optional[int] = (
-        DEFAULT_QUERY_RESPONSE_SIZE_LIMIT  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues
+    query_response_size_limit_pct: Optional[int] = (
+        DEFAULT_QUERY_RESPONSE_SIZE_LIMIT_PCT  # Limit the max number of tokens (in % of allowed total input tokens) that a query result can take to proactively prevent token limit issues
     )
 
     @field_validator("prometheus_url")
@@ -1156,8 +1156,8 @@ class ExecuteInstantQuery(BasePrometheusTool):
 
                     token_limit = context.max_token_count
                     if (
-                        self.toolset.config.query_response_size_limit
-                        and self.toolset.config.query_response_size_limit < token_limit
+                        self.toolset.config.query_response_size_limit_pct
+                        and self.toolset.config.query_response_size_limit_pct < token_limit
                     ):
                         token_limit = self.toolset.config.query_response_size_limit
 

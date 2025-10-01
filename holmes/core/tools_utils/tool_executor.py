@@ -11,15 +11,13 @@ from holmes.core.tools import (
     ToolsetStatusEnum,
     ToolInvokeContext,
 )
-from holmes.core.llm import LLM
 from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_toolset
 
 
 class ToolExecutor:
-    def __init__(self, toolsets: List[Toolset], llm: Optional[LLM] = None):
+    def __init__(self, toolsets: List[Toolset]):
         # TODO: expose function for this instead of callers accessing directly
         self.toolsets = toolsets
-        self.llm = llm
 
         enabled_toolsets: list[Toolset] = list(
             filter(
@@ -52,6 +50,9 @@ class ToolExecutor:
     def invoke(
         self, tool_name: str, params: dict, context: ToolInvokeContext
     ) -> StructuredToolResult:
+        """TODO: remove this function as it seems unused.
+        We call tool_executor.get_tool_by_name() and then tool.invoke() directly instead of this invoke function
+        """
         tool = self.get_tool_by_name(tool_name)
         if not tool:
             return StructuredToolResult(

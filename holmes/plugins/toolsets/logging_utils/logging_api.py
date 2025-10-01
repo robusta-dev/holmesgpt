@@ -26,6 +26,15 @@ DEFAULT_GRAPH_TIME_SPAN_SECONDS = 1 * 60 * 60  # 1 hour in seconds
 
 POD_LOGGING_TOOL_NAME = "fetch_pod_logs"
 
+# Approximate number of character per LLM token.
+# There is less chances the auto-truncation will remove too many characters if this number is optimistic (i.e. lower than actual) rather than pessimistic
+APPROXIMATE_CHAR_TO_TOKEN_RATIO = 4
+
+TRUNCATION_PROMPT_PREFIX = "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]"
+MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE: int = (
+    50 + len(TRUNCATION_PROMPT_PREFIX)
+)  # prevents the truncation algorithm from going too slow once the actual token count gets close to the expected limit
+
 
 class LoggingCapability(str, Enum):
     """Optional advanced logging capabilities"""
@@ -78,16 +87,6 @@ class BasePodLoggingToolset(Toolset, ABC):
         return ""
 
 
-# Approximate number of character per LLM token.
-# There is less chances the auto-truncation will remove too many characters if this number is optimistic (i.e. lower than actual) rather than pessimistic
-APPROXIMATE_CHAR_TO_TOKEN_RATIO = 4
-
-TRUNCATION_PROMPT_PREFIX = "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]\n"
-MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE: int = (
-    50 + len(TRUNCATION_PROMPT_PREFIX)
-)  # prevents the truncation algorithm from going too slow once the actual token count gets close to the expected limit
-
-
 def truncate_logs(
     logging_structured_tool_result: StructuredToolResult, llm: LLM, token_limit: int
 ):
@@ -95,6 +94,7 @@ def truncate_logs(
         llm=llm, structured_tool_result=logging_structured_tool_result
     )
     text = None
+    logging.info(f"token_count={token_count}, token_limit={token_limit}")
     while token_count > token_limit:
         # Loop because we are counting tokens but trimming characters. This means we try to trim a number of
         # characters proportional to the number of tokens but we may still have too many tokens
@@ -115,6 +115,9 @@ def truncate_logs(
         number_of_characters_to_truncate = max(
             MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE, number_of_characters_to_truncate
         )
+        logging.info(
+            f"token_count={token_count}, token_limit={token_limit}, ratio={ratio}, character_count={character_count}, number_of_characters_to_truncate={number_of_characters_to_truncate}"
+        )
 
         if len(text) <= number_of_characters_to_truncate:
             logging.warning(
@@ -122,7 +125,20 @@ def truncate_logs(
             )
             return
         else:
-            text = TRUNCATION_PROMPT_PREFIX + text[number_of_characters_to_truncate:]
+            linefeed_truncation_offset = max(
+                text[number_of_characters_to_truncate:].find("\n"), 0
+            )  # keep log lines atomic
+
+            # Tentatively add the truncation prefix. 
+            # When counting tokens, we want to include the TRUNCATION_PROMPT_PREFIX because it will be part of the tool response.
+            # Because we're truncating based on character counts but utltimately checking tokens count,
+            # It is possible that the character truncation is incorrect and more need to be truncated.
+            # This will be caught in the next iteration and the truncation prefix removed 
+            # because MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE cannot be smaller than TRUNCATION_PROMPT_PREFIX
+            text = (
+                TRUNCATION_PROMPT_PREFIX
+                + text[number_of_characters_to_truncate + linefeed_truncation_offset :]
+            )
             logging_structured_tool_result.data = text
             token_count = count_tool_response_tokens(
                 llm=llm, structured_tool_result=logging_structured_tool_result

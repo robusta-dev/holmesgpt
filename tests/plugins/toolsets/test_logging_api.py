@@ -7,6 +7,7 @@ import pytest
 
 from holmes.core.tools_utils.token_counting import count_tool_response_tokens
 from holmes.plugins.toolsets.logging_utils.logging_api import (
+    TRUNCATION_PROMPT_PREFIX,
     PodLoggingTool,
     BasePodLoggingToolset,
     FetchPodLogsParams,
@@ -200,7 +201,8 @@ class TestTruncateLogs:
             pytest.skip("Missing MODEL env var.")
         llm = DefaultLLM(model=model)
 
-        log_data = "ERROR: Database connection failed\n" * 2000  # Long log data
+        log_message = "ERROR: Database connection failed\n"
+        log_data = log_message * 2000  # Long log data
 
         structured_result = StructuredToolResult(
             data=log_data, status=StructuredToolResultStatus.SUCCESS
@@ -216,13 +218,16 @@ class TestTruncateLogs:
 
         truncated_log_data = str(structured_result.data)
 
-        assert truncated_log_data.startswith(
-            "[... PREVIOUS LOGS ABOVE THIS LINE HAVE BEEN TRUNCATED]\n"
-        )
-
         assert len(truncated_log_data) < len(log_data)
 
-        assert "ERROR: Database connection failed" in truncated_log_data
+        assert truncated_log_data.startswith(TRUNCATION_PROMPT_PREFIX)
+
+        truncated_log_data_whithout_prefix = truncated_log_data[
+            len(TRUNCATION_PROMPT_PREFIX) :
+        ].strip()
+        assert truncated_log_data_whithout_prefix.startswith(
+            log_message
+        )  # Ensures the log line following the truncation prefix is not cut in half
 
         truncated_token_count = count_tool_response_tokens(
             structured_tool_result=structured_result, llm=llm
