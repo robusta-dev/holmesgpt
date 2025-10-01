@@ -362,7 +362,7 @@ def create_data_summary_for_large_result(
         )
 
         return {
-            "message": f"Data too large to return ({data_size_tokens:,} characters). Query returned {num_items} time series with {total_points:,} total data points.",
+            "message": f"Data too large to return ({data_size_tokens:,} tokens). Query returned {num_items} time series with {total_points:,} total data points.",
             "series_count": num_items,
             "total_data_points": total_points,
             "data_size_tokens": data_size_tokens,

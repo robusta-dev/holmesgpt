@@ -43,7 +43,7 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
                 or tool_call_result.result.data
                 or "Unknown error"
             )
-            truncated_error = original_error[:100]
+            truncated_error = str(original_error)[:100]
             error_message = f"The tool call returned an error it is too large to return\nThe following original error is truncated:\n{truncated_error}"
 
         tool_call_result.result.status = StructuredToolResultStatus.ERROR
