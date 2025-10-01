@@ -29,6 +29,7 @@ class TestDefaultLLMConstructor:
                 "test-key",
                 "https://test.api.base",
                 "2023-12-01",
+                {"param": "value"},
             )
 
     def test_constructor_with_defaults(self):
@@ -42,7 +43,7 @@ class TestDefaultLLMConstructor:
             assert llm.api_version is None
             assert llm.args == {}
 
-            mock_check.assert_called_once_with("test-model", None, None, None)
+            mock_check.assert_called_once_with("test-model", None, None, None, {})
 
     def test_constructor_partial_parameters(self):
         """Test DefaultLLM constructor with some parameters set."""
