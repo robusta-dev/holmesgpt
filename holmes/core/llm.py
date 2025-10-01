@@ -106,7 +106,7 @@ class DefaultLLM(LLM):
         api_key: Optional[str],
         api_base: Optional[str],
         api_version: Optional[str],
-        args: Optional[dict],
+        args: Optional[dict] = None,
     ):
         args = args or {}
         logging.debug(f"Checking LiteLLM model {model}")
