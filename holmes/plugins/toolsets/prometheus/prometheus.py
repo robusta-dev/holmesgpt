@@ -422,8 +422,14 @@ class MetricsBasedResponse(BaseModel):
 def create_structured_tool_result(
     params: dict, response: MetricsBasedResponse
 ) -> StructuredToolResult:
+    status = StructuredToolResultStatus.SUCCESS
+    if response.error_message or response.status.lower() in ("failed", "error"):
+        status = StructuredToolResultStatus.ERROR
+    elif not response.data:
+        status = StructuredToolResultStatus.NO_DATA
+
     return StructuredToolResult(
-        status=StructuredToolResultStatus.SUCCESS,
+        status=status,
         data=response.model_dump_json(indent=2),
         params=params,
     )
