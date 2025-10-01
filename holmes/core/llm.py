@@ -144,14 +144,17 @@ class DefaultLLM(LLM):
                     "environment variable for proper functionality. For more information, refer to the documentation: "
                     "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
-        elif provider == "bedrock" and (
-            os.environ.get("AWS_PROFILE") or os.environ.get("AWS_BEARER_TOKEN_BEDROCK")
-        ):
-            model_requirements = {"keys_in_environment": True, "missing_keys": []}
-        elif provider == "bedrock" and (
-            args.get("aws_access_key_id") and args.get("aws_secret_access_key")
-        ):
-            return  # break fast.
+        elif provider == "bedrock":
+            if os.environ.get("AWS_PROFILE") or os.environ.get(
+                "AWS_BEARER_TOKEN_BEDROCK"
+            ):
+                model_requirements = {"keys_in_environment": True, "missing_keys": []}
+            elif args.get("aws_access_key_id") and args.get("aws_secret_access_key"):
+                return  # break fast.
+            else:
+                model_requirements = litellm.validate_environment(
+                    model=model, api_key=api_key, api_base=api_base
+                )
         else:
             model_requirements = litellm.validate_environment(
                 model=model, api_key=api_key, api_base=api_base
