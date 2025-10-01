@@ -196,3 +196,10 @@ class TestDefaultLLMCheckLLM:
                 api_base="https://test.api.base",
                 api_version="2023-12-01",
             )
+
+    def test_check_bedrock_model_list_without_env_vars(self):
+        """Test Bedrock provider does not raise for model list when env vars are not set up."""
+        DefaultLLM(
+            "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
+            args={"aws_access_key_id": "test", "aws_secret_access_key": "test"},
+        )

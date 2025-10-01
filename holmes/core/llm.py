@@ -92,7 +92,9 @@ class DefaultLLM(LLM):
         self.tracer = tracer
         self.name = name
         self.update_custom_args()
-        self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
+        self.check_llm(
+            self.model, self.api_key, self.api_base, self.api_version, self.args
+        )
 
     def update_custom_args(self):
         self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
@@ -104,7 +106,9 @@ class DefaultLLM(LLM):
         api_key: Optional[str],
         api_base: Optional[str],
         api_version: Optional[str],
+        args: Optional[dict],
     ):
+        args = args or {}
         logging.debug(f"Checking LiteLLM model {model}")
         lookup = litellm.get_llm_provider(model)
         if not lookup:
@@ -144,6 +148,10 @@ class DefaultLLM(LLM):
             os.environ.get("AWS_PROFILE") or os.environ.get("AWS_BEARER_TOKEN_BEDROCK")
         ):
             model_requirements = {"keys_in_environment": True, "missing_keys": []}
+        elif provider == "bedrock" and (
+            args.get("aws_access_key_id") and args.get("aws_secret_access_key")
+        ):
+            return  # break fast.
         else:
             model_requirements = litellm.validate_environment(
                 model=model, api_key=api_key, api_base=api_base
