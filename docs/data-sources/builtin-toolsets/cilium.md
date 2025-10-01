@@ -20,7 +20,7 @@ By enabling this toolset, HolmesGPT will be able to interact with Cilium CNI and
     # Verify Cilium is accessible
     cilium version
     cilium status
-    
+
     # Verify Hubble is accessible (if using Hubble tools)
     hubble version
     hubble status
