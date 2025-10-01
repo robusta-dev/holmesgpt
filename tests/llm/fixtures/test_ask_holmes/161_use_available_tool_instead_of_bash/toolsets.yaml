@@ -1,0 +1,5 @@
+toolsets:
+  bash:
+    enabled: True
+  kubernetes/core:
+    enabled: True
