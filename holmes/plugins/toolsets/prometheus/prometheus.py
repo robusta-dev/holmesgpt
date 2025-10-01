@@ -22,6 +22,7 @@ from holmes.core.tools import (
     ToolsetTag,
 )
 from holmes.core.tools_utils.token_counting import count_tool_response_tokens
+from holmes.core.tools_utils.tool_context_window_limiter import get_pct_token_count
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
@@ -44,8 +45,6 @@ PROMETHEUS_METADATA_API_LIMIT = 100  # Default limit for Prometheus metadata API
 # Default timeout values for PromQL queries
 DEFAULT_QUERY_TIMEOUT_SECONDS = 20
 MAX_QUERY_TIMEOUT_SECONDS = 180
-# Default token limit for query responses to prevent token limit issues
-DEFAULT_QUERY_RESPONSE_SIZE_LIMIT = 5000
 # Default timeout for metadata API calls (discovery endpoints)
 DEFAULT_METADATA_TIMEOUT_SECONDS = 20
 MAX_METADATA_TIMEOUT_SECONDS = 60
@@ -93,8 +92,8 @@ class PrometheusConfig(BaseModel):
     rules_cache_duration_seconds: Optional[int] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
-    query_response_size_limit: Optional[int] = (
-        DEFAULT_QUERY_RESPONSE_SIZE_LIMIT  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues
+    query_response_size_limit_pct: Optional[int] = (
+        None  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues. Expressed in % of the maximum input tokens the model can take
     )
 
     @field_validator("prometheus_url")
@@ -1155,11 +1154,13 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     )
 
                     token_limit = context.max_token_count
-                    if (
-                        self.toolset.config.query_response_size_limit
-                        and self.toolset.config.query_response_size_limit < token_limit
-                    ):
-                        token_limit = self.toolset.config.query_response_size_limit
+                    if self.toolset.config.query_response_size_limit_pct:
+                        custom_token_limit = get_pct_token_count(
+                            percent_of_total_context_window=self.toolset.config.query_response_size_limit_pct,
+                            llm=context.llm,
+                        )
+                        if custom_token_limit < token_limit:
+                            token_limit = custom_token_limit
 
                     # Provide summary if data is too large
                     if token_count > token_limit:
@@ -1397,11 +1398,13 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     )
 
                     token_limit = context.max_token_count
-                    if (
-                        self.toolset.config.query_response_size_limit
-                        and self.toolset.config.query_response_size_limit < token_limit
-                    ):
-                        token_limit = self.toolset.config.query_response_size_limit
+                    if self.toolset.config.query_response_size_limit_pct:
+                        custom_token_limit = get_pct_token_count(
+                            percent_of_total_context_window=self.toolset.config.query_response_size_limit_pct,
+                            llm=context.llm,
+                        )
+                        if custom_token_limit < token_limit:
+                            token_limit = custom_token_limit
 
                     # Provide summary if data is too large
                     if token_count > token_limit:

@@ -222,10 +222,10 @@ class TestTruncateLogs:
 
         assert truncated_log_data.startswith(TRUNCATION_PROMPT_PREFIX)
 
-        truncated_log_data_whithout_prefix = truncated_log_data[
+        truncated_log_data_without_prefix = truncated_log_data[
             len(TRUNCATION_PROMPT_PREFIX) :
         ].strip()
-        assert truncated_log_data_whithout_prefix.startswith(
+        assert truncated_log_data_without_prefix.startswith(
             log_message
         )  # Ensures the log line following the truncation prefix is not cut in half
 
