@@ -2,17 +2,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-api
+  name: payment-api-101
   namespace: app-101
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-api
+      app: payment-api-101
   template:
     metadata:
       labels:
-        app: payment-api
+        app: payment-api-101
     spec:
       containers:
       # Main application container
@@ -71,7 +71,7 @@ spec:
       volumes:
       - name: app-script
         secret:
-          secretName: payment-api-script
+          secretName: payment-api-101-script
           defaultMode: 0755
       - name: logs
         emptyDir: {}

@@ -57,7 +57,7 @@ class ServiceNowToolset(Toolset):
             self.config: Dict = ServiceNowConfig(**config).model_dump()
             self._session.headers.update(
                 {
-                    "x-sn-apikey": self.config.get("api_key"),
+                    "x-sn-apikey": self.config.get("api_key"),  # type: ignore
                 }
             )
 

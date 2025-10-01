@@ -18,7 +18,6 @@ from tests.llm.utils.mock_toolset import (
     MockMode,
     MockFileManager,
     MockableToolWrapper,
-    MockDataNotFoundError,
 )
 
 
@@ -288,12 +287,13 @@ class TestMockableToolWrapper:
             assert result.data == "Mocked output"
 
     def test_mock_mode_without_mock_raises_error(self):
-        """Test that mock mode raises error when no mock exists."""
+        """Test that mock mode returns error result when no mock exists."""
         context = create_mock_tool_invoke_context()
         with tempfile.TemporaryDirectory() as tmpdir:
             tool = self.create_mock_tool()
             file_manager = MockFileManager(tmpdir)
             mock_request = Mock()
+            mock_request.node.user_properties = []
 
             wrapper = MockableToolWrapper(
                 tool=tool,
@@ -303,11 +303,17 @@ class TestMockableToolWrapper:
                 request=mock_request,
             )
 
-            with pytest.raises(MockDataNotFoundError) as exc_info:
-                wrapper.invoke({}, context)
+            result = wrapper.invoke({}, context)
 
-            assert "No mock data found" in str(exc_info.value)
-            assert "RUN_LIVE=true" in str(exc_info.value)
+            # Should return error result instead of raising
+            assert result.status == StructuredToolResultStatus.ERROR
+            assert "Mock data error" in result.error
+            assert "No mock data found" in result.error
+
+            # Check that error was tracked in user_properties
+            assert len(mock_request.node.user_properties) == 1
+            assert mock_request.node.user_properties[0][0] == "mock_data_error"
+            assert mock_request.node.user_properties[0][1]["tool"] == "test_tool"
 
     def test_generate_mode(self):
         """Test that generate mode calls tool and saves mock."""
@@ -550,7 +556,7 @@ class TestMockToolsMatching:
         ],
     )
     def test_mock_tools_do_not_match(self, params):
-        """Test that tools fail with MockDataNotFoundError when parameters don't match."""
+        """Test that tools return error result when parameters don't match in mock mode."""
         with patch(
             "holmes.plugins.toolsets.service_discovery.find_service_url",
             return_value="http://mock-prometheus:9090",
@@ -595,8 +601,22 @@ class TestMockToolsMatching:
 
                 # In mock mode, calling with non-matching params should raise MockDataNotFoundError
                 context = create_mock_tool_invoke_context()
-                with pytest.raises(MockDataNotFoundError):
-                    tool_executor.invoke("kubectl_describe", params, context)
+
+                # In mock mode, calling with non-matching params should return error result
+                result = tool_executor.invoke("kubectl_describe", params, context)
+
+                # Should return error result
+                assert result.status == StructuredToolResultStatus.ERROR
+                assert "Mock data error" in result.error
+
+                # Check that error was tracked in user_properties
+                errors = [
+                    p
+                    for p in mock_request.node.user_properties
+                    if p[0] == "mock_data_error"
+                ]
+                assert len(errors) > 0
+                assert errors[0][1]["tool"] == "kubectl_describe"
 
     def test_mock_tools_generate_mode_does_not_throw(self):
         """Test that generate mode creates mocks when they don't exist."""
