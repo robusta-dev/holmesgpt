@@ -129,11 +129,11 @@ def truncate_logs(
                 text[number_of_characters_to_truncate:].find("\n"), 0
             )  # keep log lines atomic
 
-            # Tentatively add the truncation prefix. 
+            # Tentatively add the truncation prefix.
             # When counting tokens, we want to include the TRUNCATION_PROMPT_PREFIX because it will be part of the tool response.
             # Because we're truncating based on character counts but utltimately checking tokens count,
             # It is possible that the character truncation is incorrect and more need to be truncated.
-            # This will be caught in the next iteration and the truncation prefix removed 
+            # This will be caught in the next iteration and the truncation prefix removed
             # because MIN_NUMBER_OF_CHARACTERS_TO_TRUNCATE cannot be smaller than TRUNCATION_PROMPT_PREFIX
             text = (
                 TRUNCATION_PROMPT_PREFIX
