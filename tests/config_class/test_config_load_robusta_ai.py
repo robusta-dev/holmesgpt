@@ -1,9 +1,18 @@
+import json
 from unittest.mock import patch
 from holmes.config import Config
-from holmes.clients.robusta_client import RobustaModelsResponse
+from holmes.clients.robusta_client import RobustaModelsResponse, RobustaModel
 
 
-ROBUSTA_TEST_MODELS = RobustaModelsResponse(models=["Robusta/test"], default_model=None)
+ROBUSTA_TEST_MODELS = RobustaModelsResponse(
+    models={
+        "Robusta/test": RobustaModel(
+            holmes_args={},
+            model="azure/gpt-4o",
+            is_default=False,
+        )
+    }
+)
 
 
 @patch("holmes.core.llm.ROBUSTA_AI", True)
@@ -27,6 +36,7 @@ def test_server_loads_robusta_ai_when_not_exists_and_not_other_models(
     mock_cluster, mock_fetch, *, monkeypatch
 ):
     config = Config.load_from_env()
+    print(json.dumps(config.llm_model_registry.models, indent=2))
     assert "Robusta/test" in config.llm_model_registry.models
 
 
@@ -113,9 +123,18 @@ def test_server_not_loads_robusta_ai_when_model_var_exists_and_false_env_var(
 
 
 ROBUSTA_HOLMES_ARGS_MODELS = RobustaModelsResponse(
-    models=["Robusta/test", "Robusta/sonnet-1m"],
-    models_holmes_args={"Robusta/sonnet-1m": {"max_context_size": 1000000}},
-    default_model=None,
+    models={
+        "Robusta/test": RobustaModel(
+            holmes_args={},
+            model="azure/gpt-4o",
+            is_default=False,
+        ),
+        "Robusta/sonnet-1m": RobustaModel(
+            holmes_args={"max_context_size": 1000000},
+            model="claude-sonnet-4-20250514",
+            is_default=False,
+        ),
+    }
 )
 
 

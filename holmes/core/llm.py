@@ -442,6 +442,7 @@ class LLMModelRegistry:
                 return
 
             default_model = None
+            logging.info(f"CREATED LLMs1 {self._llms}")
             for model_name in robusta_models.models:
                 model_data = robusta_models.models[model_name]
                 logging.info(f"Loading Robusta AI model: {model_name}")

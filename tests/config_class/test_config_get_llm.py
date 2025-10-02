@@ -9,7 +9,7 @@ def test_server_config_get_llm_no_model_key_returns_default_model(
 ):
     llm: DefaultLLM = server_config._get_llm()
     assert llm.name == DEFAULT_ROBUSTA_MODEL
-    assert llm.model == "gpt-4o"
+    assert llm.model == "azure/gpt-5-mini"
     assert llm.api_base == f"https://api.robusta.dev/llm/{DEFAULT_ROBUSTA_MODEL}"
 
 
@@ -29,7 +29,7 @@ def test_server_config_get_llm_unexisting_model_key_returns_default_model(
 ):
     llm: DefaultLLM = server_config._get_llm(model_key="unexisting_model")
     assert llm.name == DEFAULT_ROBUSTA_MODEL
-    assert llm.model == "gpt-4o"
+    assert llm.model == "azure/gpt-5-mini"
     assert llm.api_base == f"https://api.robusta.dev/llm/{DEFAULT_ROBUSTA_MODEL}"
 
 
