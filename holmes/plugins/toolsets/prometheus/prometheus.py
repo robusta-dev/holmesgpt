@@ -92,9 +92,12 @@ class PrometheusConfig(BaseModel):
     rules_cache_duration_seconds: Optional[int] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
-    query_response_size_limit_pct: Optional[int] = (
-        5  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues. Expressed in % of the model's context window
-    )
+
+    # Custom limit to the max number of tokens that a query result can take to proactively
+    #   prevent token limit issues. Expressed in % of the model's context window.
+    # This limit only overrides the global limit for all tools  (TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT)
+    #   if it is lower.
+    query_response_size_limit_pct: Optional[int] = None
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
