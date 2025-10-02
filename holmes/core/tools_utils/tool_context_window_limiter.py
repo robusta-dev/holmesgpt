@@ -29,8 +29,7 @@ def is_tool_call_too_big(
         )
 
         return (
-            messages_token > max_tokens_allowed
-            or tool_call_result.tool_name == "run_bash_command",
+            messages_token > max_tokens_allowed,
             ToolCallSizeMetadata(
                 messages_token=messages_token, max_tokens_allowed=max_tokens_allowed
             ),

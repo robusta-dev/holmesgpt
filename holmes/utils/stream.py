@@ -15,6 +15,7 @@ class StreamEvents(str, Enum):
     ERROR = "error"
     AI_MESSAGE = "ai_message"
     APPROVAL_REQUIRED = "approval_required"
+    CONVERSATION_HISTORY_COMPACTED = "conversation_history_compacted"
 
 
 class StreamMessage(BaseModel):

@@ -903,12 +903,32 @@ class ToolCallingLLM:
                 compacted_messages = compact_conversation_history(
                     original_conversation_history=messages, llm=self.llm
                 )
-                compacted_total_tokens = self.llm.count_tokens_for_message(messages)
+                compacted_total_tokens = self.llm.count_tokens_for_message(
+                    compacted_messages
+                )
 
                 if compacted_total_tokens < initial_total_tokens:
                     messages = compacted_messages
-                    logging.info(
-                        f"Compacted conversation history from {initial_total_tokens} to {compacted_total_tokens} tokens"
+                    compaction_message = f"The conversation history has been compacted from {initial_total_tokens} to {compacted_total_tokens} tokens"
+                    logging.info(compaction_message)
+                    yield StreamMessage(
+                        event=StreamEvents.CONVERSATION_HISTORY_COMPACTED,
+                        data={
+                            "content": compaction_message,
+                            "messages": compacted_messages,
+                            "metadata": {
+                                "initial_tokens": initial_total_tokens,
+                                "compacted_tokens": compacted_total_tokens,
+                            },
+                        },
+                    )
+                    yield StreamMessage(
+                        event=StreamEvents.AI_MESSAGE,
+                        data={"content": compaction_message},
+                    )
+                else:
+                    logging.debug(
+                        f"Failed to reduce token count when compacting conversation history. Original tokens:{initial_total_tokens}. Compacted tokens:{compacted_total_tokens}"
                     )
 
             initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
