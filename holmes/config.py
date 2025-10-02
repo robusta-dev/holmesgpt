@@ -454,6 +454,7 @@ class Config(RobustaBaseConfig):
         else:
             api_key = model_params.pop("api_key", None)
 
+        print(f"_get_llm is_robusta_model={is_robusta_model}, {model_params}")
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.
         # Handle both api_base and base_url - api_base takes precedence

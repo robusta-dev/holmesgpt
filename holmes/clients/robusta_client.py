@@ -38,7 +38,7 @@ def fetch_robusta_models(
         )
         resp.raise_for_status()
         response_json = resp.json()
-        return RobustaModelsResponse(**response_json)
+        return RobustaModelsResponse(**{"models": response_json})
     except Exception:
         logging.exception("Failed to fetch robusta models")
         return None
