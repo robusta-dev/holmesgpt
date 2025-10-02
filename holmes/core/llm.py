@@ -11,7 +11,11 @@ from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from pydantic import BaseModel
 import litellm
 import os
-from holmes.clients.robusta_client import RobustaModelsResponse, fetch_robusta_models
+from holmes.clients.robusta_client import (
+    RobustaModel,
+    RobustaModelsResponse,
+    fetch_robusta_models,
+)
 from holmes.common.env_vars import (
     LOAD_ALL_ROBUSTA_MODELS,
     REASONING_EFFORT,
@@ -437,15 +441,19 @@ class LLMModelRegistry:
                 self._load_default_robusta_config()
                 return
 
+            default_model = None
             for model_name in robusta_models.models:
+                model_data = robusta_models.models[model_name]
                 logging.info(f"Loading Robusta AI model: {model_name}")
-                self._llms[model_name] = self._create_robusta_model_entry(model_name=model_name, model_data=robusta_models.models[model_name])
-
-            if robusta_models.default_model:
-                logging.info(
-                    f"Setting default Robusta AI model to: {robusta_models.default_model}"
+                self._llms[model_name] = self._create_robusta_model_entry(
+                    model_name=model_name, model_data=model_data
                 )
-                self._default_robusta_model: str = robusta_models.default_model  # type: ignore
+                if model_data.is_default:
+                    default_model = model_name
+
+            if default_model:
+                logging.info(f"Setting default Robusta AI model to: {default_model}")
+                self._default_robusta_model: str = default_model  # type: ignore
 
         except Exception:
             logging.exception("Failed to get all robusta models")
@@ -525,15 +533,16 @@ class LLMModelRegistry:
         return models
 
     def _create_robusta_model_entry(
-        self, model_name: str, args: Optional[dict[str, Any]] = None
+        self, model_name: str, model_data: RobustaModel
     ) -> dict[str, Any]:
         entry = self._create_model_entry(
-            model="gpt-4o",  # Robusta AI model is using openai like API.
+            model=model_data.model
+            or "gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
         )
-        entry["custom_args"] = args or {}  # type: ignore[assignment]
+        entry["custom_args"] = model_data.holmes_args or {}  # type: ignore[assignment]
         return entry
 
     def _create_model_entry(
