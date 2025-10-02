@@ -4,6 +4,7 @@ import json
 from typing import Any, Dict, Tuple
 from holmes.core.tools import (
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     ToolsetTag,
 )
@@ -44,9 +45,7 @@ class FetchNotion(Tool):
             return f"https://api.notion.com/v1/blocks/{notion_id}/children"
         return url  # Return original URL if no match is found
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         url: str = params["url"]
 
         # Get headers from the toolset configuration

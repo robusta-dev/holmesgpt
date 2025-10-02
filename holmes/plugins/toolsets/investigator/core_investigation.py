@@ -8,6 +8,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -74,9 +75,7 @@ class TodoWriteTool(Tool):
 
         logging.info(separator)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 
