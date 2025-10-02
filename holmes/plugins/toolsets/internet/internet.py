@@ -6,6 +6,7 @@ from typing import Any, Optional, Tuple, Dict, List
 from requests import RequestException, Timeout  # type: ignore
 from holmes.core.tools import (
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -186,9 +187,7 @@ class FetchWebpage(Tool):
             toolset=toolset,  # type: ignore
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         url: str = params["url"]
 
         additional_headers = (

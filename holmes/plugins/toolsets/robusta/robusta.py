@@ -7,6 +7,7 @@ from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StaticPrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -45,9 +46,7 @@ class FetchRobustaFinding(Tool):
             logging.error(error)
             return {"error": error}
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         finding_id = params[PARAM_FINDING_ID]
         try:
             finding = self._fetch_finding(finding_id)
@@ -115,9 +114,7 @@ class FetchResourceRecommendation(Tool):
             )
         return None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             recommendations = self._resource_recommendation(params)
             if recommendations:
@@ -175,9 +172,7 @@ class FetchConfigurationChanges(Tool):
             )
         return None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             changes = self._fetch_change_history(params)
             if changes:
