@@ -14,13 +14,14 @@ class HolmesInfo(BaseModel):
     latest_version: Optional[str] = None
 
 
-class RobustaModelsResponse(BaseModel):
+class RobustaModel(BaseModel):
     model_config = ConfigDict(extra="ignore")
-    models: List[str]
-    models_args: Dict[str, Any] = Field(
-        default_factory=dict, alias="models_holmes_args"
-    )
-    default_model: Optional[str] = None
+    holmes_args: dict[str, Any]
+    model: str
+    is_default: bool
+
+class RobustaModelsResponse(BaseModel):
+    models: Dict[str, RobustaModel]
 
 
 @cache
@@ -30,7 +31,7 @@ def fetch_robusta_models(
     try:
         session_request = {"session_token": token, "account_id": account_id}
         resp = requests.post(
-            f"{ROBUSTA_API_ENDPOINT}/api/llm/models",
+            f"{ROBUSTA_API_ENDPOINT}/api/llm/models/v2",
             json=session_request,
             timeout=10,
         )

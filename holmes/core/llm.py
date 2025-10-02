@@ -437,10 +437,9 @@ class LLMModelRegistry:
                 self._load_default_robusta_config()
                 return
 
-            for model in robusta_models.models:
-                logging.info(f"Loading Robusta AI model: {model}")
-                args = robusta_models.models_args.get(model)
-                self._llms[model] = self._create_robusta_model_entry(model, args)
+            for model_name in robusta_models.models:
+                logging.info(f"Loading Robusta AI model: {model_name}")
+                self._llms[model_name] = self._create_robusta_model_entry(model_name=model_name, model_data=robusta_models.models[model_name])
 
             if robusta_models.default_model:
                 logging.info(
