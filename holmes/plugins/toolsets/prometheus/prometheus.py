@@ -93,7 +93,7 @@ class PrometheusConfig(BaseModel):
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
     query_response_size_limit_pct: Optional[int] = (
-        None  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues. Expressed in % of the model's context window
+        2  # Limit the max number of tokens that a query result can take to proactively prevent token limit issues. Expressed in % of the model's context window
     )
 
     @field_validator("prometheus_url")

@@ -214,6 +214,7 @@ class TestTruncateLogs:
             logging_structured_tool_result=structured_result,
             llm=llm,
             token_limit=token_limit,
+            structured_params=FetchPodLogsParams(pod_name="dummy", namespace="dummy"),
         )
 
         truncated_log_data = str(structured_result.data)
