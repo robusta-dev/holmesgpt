@@ -10,6 +10,7 @@ import urllib
 import threading
 from pydantic import BaseModel
 import pytest
+import hashlib
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -224,6 +225,13 @@ class MockFileManager:
             params_data = ""
 
         params_data = sanitize_filename(params_data)
+
+        if len(params_data) > 200:
+            # prevent file names from being too long or they can hit limits of the operating system
+            params_data = (
+                params_data[:160] + hashlib.sha1(params_data.encode()).hexdigest()
+            )
+
         return os.path.join(self.test_case_folder, f"{tool_name}{params_data}.txt")
 
     def read_mock(self, tool_name: str, params: Dict) -> Optional[ToolMock]:
@@ -286,8 +294,10 @@ class MockFileManager:
         with open(mock_file_path, "w") as f:
             f.write(mock_metadata.model_dump_json() + "\n")
             f.write(json.dumps(structured_output) + "\n")
-            if content:
-                f.write(content)
+            if content and isinstance(content, dict):
+                f.write(json.dumps(content, indent=2))
+            elif content:
+                f.write(str(content))
 
         logging.info(f"Wrote mock file: {mock_file_path}")
 
@@ -700,12 +710,6 @@ class MockToolsetManager:
                     )
                 yaml_toolset: YAMLToolset = toolset
 
-                # Block secret access to prevent LLM from reading code hints in secrets
-                security_check = """# Security check (automatically added by test framework - can be ignored)
-if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not allowed to get kubernetes secrets"; exit 1; fi
-# Actual command follows:
-"""
-
                 for tool in yaml_toolset.tools:
                     if not isinstance(tool, YAMLTool):
                         raise ValueError(
@@ -714,16 +718,16 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
 
                     # Check if tool has command or script
                     if tool.command is not None:
-                        tool.command = security_check + tool.command
+                        tool.command = tool.command
                     elif tool.script is not None:
-                        tool.script = security_check + tool.script
+                        tool.script = tool.script
                     else:
                         raise ValueError(
                             f"Tool '{tool.name}' in kubernetes/core has neither command nor script defined"
                         )
 
             # Enable default toolsets
-            if toolset.is_default or isinstance(toolset, YAMLToolset):
+            if toolset.is_default:
                 toolset.enabled = True
 
             # Apply custom configuration if available

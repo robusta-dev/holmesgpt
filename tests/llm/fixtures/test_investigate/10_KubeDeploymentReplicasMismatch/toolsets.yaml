@@ -1,8 +1,8 @@
 toolsets:
   prometheus/metrics:
     enabled: False
-  kubernetes/core:
-    enabled: true
+  bash:
+    enabled: True
   robusta:
     enabled: true
   internet:

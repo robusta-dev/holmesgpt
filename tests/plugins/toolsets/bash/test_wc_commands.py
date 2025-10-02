@@ -35,7 +35,7 @@ class TestWcCliSafeCommands:
     )
     def test_safe_wc_commands(self, input_command, expected_output):
         """Test that safe wc commands are parsed and stringified correctly."""
-        result = make_command_safe(input_command, None)
+        result = make_command_safe(input_command)
         assert result == expected_output
 
 
@@ -55,4 +55,4 @@ class TestWcCliUnsafeCommands:
     def test_unsafe_wc_commands(self, input_command, expected_error_message):
         """Test that unsafe wc commands are blocked with appropriate error messages."""
         with pytest.raises(ValueError, match=expected_error_message):
-            make_command_safe(input_command, None)
+            make_command_safe(input_command)

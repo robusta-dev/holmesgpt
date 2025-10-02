@@ -1,0 +1,9 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get events -n app-20 --sort-by='.lastTimestamp' | grep network-connector"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get events -n app-20 --sort-by=.lastTimestamp | grep network-connector", "params": {"command": "kubectl get events -n app-20 --sort-by='.lastTimestamp' | grep network-connector"}, "icon_url": null}
+kubectl get events -n app-20 --sort-by=.lastTimestamp | grep network-connector
+67s         Normal   Scheduled           pod/network-connector-f6cf57f75-2fg7c    Successfully assigned app-20/network-connector-f6cf57f75-2fg7c to threadripper-linux
+67s         Normal   SuccessfulCreate    replicaset/network-connector-f6cf57f75   Created pod: network-connector-f6cf57f75-2fg7c
+67s         Normal   ScalingReplicaSet   deployment/network-connector             Scaled up replica set network-connector-f6cf57f75 from 0 to 1
+66s         Normal   Pulled              pod/network-connector-f6cf57f75-2fg7c    Container image "python:3.9-slim" already present on machine
+66s         Normal   Created             pod/network-connector-f6cf57f75-2fg7c    Created container: network-connector
+66s         Normal   Started             pod/network-connector-f6cf57f75-2fg7c    Started container network-connector

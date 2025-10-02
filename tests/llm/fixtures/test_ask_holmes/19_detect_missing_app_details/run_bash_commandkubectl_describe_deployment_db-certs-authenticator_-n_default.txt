@@ -1,0 +1,48 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe deployment db-certs-authenticator -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe deployment db-certs-authenticator -n default", "params": {"command": "kubectl describe deployment db-certs-authenticator -n default"}, "icon_url": null}
+kubectl describe deployment db-certs-authenticator -n default
+Name:                   db-certs-authenticator
+Namespace:              default
+CreationTimestamp:      Fri, 12 Sep 2025 10:06:25 +0200
+Labels:                 app=flask
+Annotations:            deployment.kubernetes.io/revision: 1
+Selector:               app=flask
+Replicas:               1 desired | 1 updated | 1 total | 0 available | 1 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=flask
+  Containers:
+   flask:
+    Image:        us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest
+    Port:         5000/TCP
+    Host Port:    0/TCP
+    Environment:  <none>
+    Mounts:
+      /certs from writable-certs (rw)
+      /certs/certificate.pem from cert-volume (rw,path="certificate.pem")
+      /certs/key.pem from key-volume (rw,path="key.pem")
+  Volumes:
+   cert-volume:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      db-certs-config
+    Optional:  false
+   key-volume:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      db-certs-config
+    Optional:  false
+   writable-certs:
+    Type:          EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:     <unset>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Progressing    True    NewReplicaSetAvailable
+  Available      False   MinimumReplicasUnavailable
+OldReplicaSets:  <none>
+NewReplicaSet:   db-certs-authenticator-6866469d97 (1/1 replicas created)
+Events:          <none>

@@ -1,0 +1,86 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe pod logging-agent -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe pod logging-agent -n default", "params": {"command": "kubectl describe pod logging-agent -n default"}, "icon_url": null}
+kubectl describe pod logging-agent -n default
+Name:             logging-agent
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             threadripper-linux/192.168.0.30
+Start Time:       Fri, 26 Sep 2025 12:41:58 +0200
+Labels:           <none>
+Annotations:      <none>
+Status:           Pending
+IP:               10.42.0.184
+IPs:
+  IP:  10.42.0.184
+Init Containers:
+  downloader:
+    Container ID:  containerd://f10a7291e943787a2bad385ff9444e4d550cfc858d72db9f4f87afcf77fc3e1b
+    Image:         busybox:1.28
+    Image ID:      docker.io/library/busybox@sha256:141c253bc4c3fd0a201d32dc1f493bcf3fff003b6df416dea4f41046e0f37d47
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      wge
+      -O
+      /work-dir/index.html
+      https://home.robusta.dev
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       StartError
+      Message:      failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "wge": executable file not found in $PATH
+      Exit Code:    128
+      Started:      Thu, 01 Jan 1970 01:00:00 +0100
+      Finished:     Fri, 26 Sep 2025 12:42:40 +0200
+    Ready:          False
+    Restart Count:  3
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-8knw6 (ro)
+      /work-dir from workdir (rw)
+Containers:
+  exporter:
+    Container ID:
+    Image:          nginx
+    Image ID:
+    Port:           80/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /usr/share/nginx/html from workdir (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-8knw6 (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 False
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  workdir:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:  <unset>
+  kube-api-access-8knw6:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  58s                default-scheduler  Successfully assigned default/logging-agent to threadripper-linux
+  Normal   Pulled     17s (x4 over 59s)  kubelet            Container image "busybox:1.28" already present on machine
+  Normal   Created    17s (x4 over 59s)  kubelet            Created container: downloader
+  Warning  Failed     17s (x4 over 59s)  kubelet            Error: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "wge": executable file not found in $PATH
+  Warning  BackOff    1s (x5 over 57s)   kubelet            Back-off restarting failed container downloader in pod logging-agent_default(227da44b-3498-478e-98d8-7d5f51fdbf56)

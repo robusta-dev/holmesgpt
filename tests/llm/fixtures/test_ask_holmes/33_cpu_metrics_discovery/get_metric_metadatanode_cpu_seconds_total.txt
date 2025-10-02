@@ -1,0 +1,14 @@
+{"toolset_name":"prometheus/metrics","tool_name":"get_metric_metadata","match_params":{"metric":"node_cpu_seconds_total"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "url": null, "invocation": null, "params": {"metric": "node_cpu_seconds_total"}, "icon_url": null}
+{
+  "status": "success",
+  "data": {
+    "node_cpu_seconds_total": [
+      {
+        "type": "counter",
+        "unit": "",
+        "help": "Seconds the CPUs spent in each mode."
+      }
+    ]
+  }
+}

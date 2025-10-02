@@ -1,0 +1,15 @@
+{"toolset_name":"core_investigation","tool_name":"TodoWrite","match_params":{"todos":[{"content":"Find network-connector pods in namespace app-20","id":"1","status":"completed"},{"content":"Check pod status and events for any issues","id":"2","status":"completed"},{"content":"Examine pod logs for 'Peer down' messages","id":"3","status":"completed"},{"content":"Check previous pod logs if pod has restarted","id":"4","status":"completed"},{"content":"Verify findings and provide summary","id":"5","status":"in_progress"}]}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": null, "url": null, "invocation": null, "params": {"todos": [{"content": "Find network-connector pods in namespace app-20", "id": "1", "status": "completed"}, {"content": "Check pod status and events for any issues", "id": "2", "status": "completed"}, {"content": "Examine pod logs for 'Peer down' messages", "id": "3", "status": "completed"}, {"content": "Check previous pod logs if pod has restarted", "id": "4", "status": "completed"}, {"content": "Verify findings and provide summary", "id": "5", "status": "in_progress"}]}, "icon_url": null}
+✅ Investigation plan updated with 5 tasks. Tasks are now stored in session and will appear in subsequent prompts.
+
+# CURRENT INVESTIGATION TASKS
+
+**Task Status**: 4 completed, 1 in progress, 0 pending
+
+[~] [5] Verify findings and provide summary
+[✓] [1] Find network-connector pods in namespace app-20
+[✓] [2] Check pod status and events for any issues
+[✓] [3] Examine pod logs for 'Peer down' messages
+[✓] [4] Check previous pod logs if pod has restarted
+
+**Instructions**: Use TodoWrite tool to update task status as you work. Mark tasks as 'in_progress' when starting, 'completed' when finished.

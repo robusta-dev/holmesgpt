@@ -1,5 +1,5 @@
 toolsets:
   datadog/traces:
     enabled: false
-  kubernetes/core:
-    enabled: true
+  bash:
+    enabled: True

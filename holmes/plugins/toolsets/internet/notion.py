@@ -127,6 +127,7 @@ class NotionToolset(InternetBaseToolset):
             tags=[
                 ToolsetTag.CORE,
             ],
+            enabled=False,
             is_default=False,
         )
 

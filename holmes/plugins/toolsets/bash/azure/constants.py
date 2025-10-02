@@ -14,6 +14,9 @@ ALLOWED_AZURE_COMMANDS: dict[str, dict] = {
         "list-vm-resize-options": {},
         "get-instance-view": {},
     },
+    "vmss": {
+        "list": {},
+    },
     # Network commands (read-only)
     "network": {
         "vnet": {"list": {}, "show": {}, "subnet": {"list": {}, "show": {}}},
@@ -57,6 +60,7 @@ ALLOWED_AZURE_COMMANDS: dict[str, dict] = {
         "get-upgrades": {},
         "nodepool": {"list": {}, "show": {}},
         "check-acr": {},
+        "check-network": {"inbound": {}, "outbound": {}},
     },
     # Monitoring (read-only)
     "monitor": {

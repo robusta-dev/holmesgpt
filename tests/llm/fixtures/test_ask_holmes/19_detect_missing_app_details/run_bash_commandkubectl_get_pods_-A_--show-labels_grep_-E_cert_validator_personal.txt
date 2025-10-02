@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get pods -A --show-labels | grep -E \"(cert|validator|personal)\""}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get pods -A --show-labels | grep -E '(cert|validator|personal)'", "params": {"command": "kubectl get pods -A --show-labels | grep -E \"(cert|validator|personal)\""}, "icon_url": null}
+kubectl get pods -A --show-labels | grep -E '(cert|validator|personal)'
+default                    db-certs-authenticator-6866469d97-5c4sf                       0/1     CrashLoopBackOff             945 (100s ago)     14d     app=flask,pod-template-hash=6866469d97

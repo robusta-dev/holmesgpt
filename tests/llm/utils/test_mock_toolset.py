@@ -449,8 +449,8 @@ class TestMockToolsMatching:
 
                 # Write mock file for the exact params
                 file_manager.write_mock(
-                    tool_name="kubectl_describe",
-                    toolset_name="kubernetes/core",
+                    tool_name="run_bash_command",
+                    toolset_name="bash",
                     params=params,
                     result=mock_result,
                 )
@@ -475,7 +475,7 @@ class TestMockToolsMatching:
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
-                result = tool_executor.invoke("kubectl_describe", params)
+                result = tool_executor.invoke("run_bash_command", params)
 
                 # Should return mocked data for exact match
                 assert result.data == "this tool is mocked"
@@ -505,8 +505,8 @@ class TestMockToolsMatching:
 
                 # Write mock file without params in filename
                 file_manager.write_mock(
-                    tool_name="kubectl_describe",
-                    toolset_name="kubernetes/core",
+                    tool_name="run_bash_command",
+                    toolset_name="bash",
                     params={},  # Params don't matter when add_params_to_filename=False
                     result=mock_result,
                 )
@@ -531,7 +531,7 @@ class TestMockToolsMatching:
                 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
-                result = tool_executor.invoke("kubectl_describe", params)
+                result = tool_executor.invoke("run_bash_command", params)
 
                 # Should return mocked data for ANY params when add_params_to_filename=False
                 assert result.data == "this tool is mocked"
@@ -564,8 +564,8 @@ class TestMockToolsMatching:
 
                 # Write mock file only for specific params
                 file_manager.write_mock(
-                    tool_name="kubectl_describe",
-                    toolset_name="kubernetes/core",
+                    tool_name="run_bash_command",
+                    toolset_name="bash",
                     params={"field1": "1", "field2": "2"},
                     result=mock_result,
                 )
@@ -592,7 +592,7 @@ class TestMockToolsMatching:
                 tool_executor = ToolExecutor(mock_toolsets.toolsets)
 
                 # In mock mode, calling with non-matching params should return error result
-                result = tool_executor.invoke("kubectl_describe", params)
+                result = tool_executor.invoke("run_bash_command", params)
 
                 # Should return error result
                 assert result.status == StructuredToolResultStatus.ERROR

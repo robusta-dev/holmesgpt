@@ -137,7 +137,6 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
         toolset.type = ToolsetType.BUILTIN
         # dont' expose build-in toolsets path
         toolset.path = None
-
     return all_toolsets  # type: ignore
 
 

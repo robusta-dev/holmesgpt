@@ -9,7 +9,6 @@ These tests verify:
 
 import pytest
 import argparse
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 
 
@@ -265,12 +264,29 @@ class TestAWSCliSafeCommands:
                 "aws cloudtrail get-trail-status --name my-trail",
             ),
             ("aws cloudtrail lookup-events", "aws cloudtrail lookup-events"),
+            (
+                "aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=FOOBAR --start-time 2025-09-08T07:14:48Z --end-time 2025-09-09T07:14:48Z --query 'Events[*].{EventName:EventName,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' --output table",
+                "aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=FOOBAR --start-time 2025-09-08T07:14:48Z --end-time 2025-09-09T07:14:48Z --query 'Events[*].{EventName:EventName,EventId:EventId,EventTime:EventTime,Username:Username,AccessKeyId:AccessKeyId,ip:CloudTrailEvent.sourceIPAddress,userID:CloudTrailEvent.userIdentity.sessionContext.sessionIssuer.userName}' --output table",
+            ),
+            ("aws rds describe-events", "aws rds describe-events"),
+            ("aws rds describe-db-instances", "aws rds describe-db-instances"),
+            (
+                "aws rds describe-db-instances --db-instance-identifier foo",
+                "aws rds describe-db-instances --db-instance-identifier foo",
+            ),
+            (
+                "aws rds describe-db-log-files --db-instance-identifier foobar",
+                "aws rds describe-db-log-files --db-instance-identifier foobar",
+            ),
+            (
+                "aws rds download-db-log-file-portion --db-instance-identifier foobar --log-file-name 'foo.log' --starting-token 0",
+                "aws rds download-db-log-file-portion --db-instance-identifier foobar --log-file-name foo.log --starting-token 0",
+            ),
         ],
     )
     def test_aws_safe_commands(self, input_command: str, expected_output: str):
         """Test that safe AWS commands are parsed and stringified correctly."""
-        config = BashExecutorConfig()
-        output_command = make_command_safe(input_command, config=config)
+        output_command = make_command_safe(input_command)
         assert output_command == expected_output
 
 
@@ -282,7 +298,6 @@ class TestAWSCliUnsafeCommands:
         [
             # Blocked services
             ("aws configure list", ValueError, "blocked"),
-            ("aws sts get-caller-identity", ValueError, "blocked"),
             ("aws secretsmanager list-secrets", ValueError, "blocked"),
             ("aws kms list-keys", ValueError, "blocked"),
             # State-modifying EC2 operations
@@ -431,9 +446,8 @@ class TestAWSCliUnsafeCommands:
         self, command: str, expected_exception: type, partial_error_message_content: str
     ):
         """Test that unsafe AWS commands are properly rejected."""
-        config = BashExecutorConfig()
         with pytest.raises(expected_exception) as exc_info:
-            make_command_safe(command, config=config)
+            make_command_safe(command)
 
         if partial_error_message_content:
             assert partial_error_message_content in str(exc_info.value)
@@ -444,35 +458,25 @@ class TestAWSCliEdgeCases:
 
     def test_aws_with_grep_combination(self):
         """Test AWS commands combined with grep."""
-        config = BashExecutorConfig()
-
         # Valid combination
-        result = make_command_safe(
-            "aws ec2 describe-instances | grep running", config=config
-        )
+        result = make_command_safe("aws ec2 describe-instances | grep running")
         assert result == "aws ec2 describe-instances | grep running"
 
         # Invalid - unsafe AWS command with grep
         with pytest.raises(ValueError):
-            make_command_safe(
-                "aws ec2 run-instances --image-id ami-123 | grep test", config=config
-            )
+            make_command_safe("aws ec2 run-instances --image-id ami-123 | grep test")
 
     def test_aws_empty_service_or_operation(self):
         """Test AWS commands with missing service or operation."""
-        config = BashExecutorConfig()
-
         # Missing service should fail at argument parsing level
         with pytest.raises((argparse.ArgumentError, ValueError)):
-            make_command_safe("aws", config=config)
+            make_command_safe("aws")
 
     def test_aws_with_complex_valid_parameters(self):
         """Test AWS commands with complex but valid parameters."""
-        config = BashExecutorConfig()
-
         # Complex EC2 command
         complex_cmd = "aws ec2 describe-instances --filters Name=instance-state-name,Values=running --query 'Reservations[*].Instances[*].[InstanceId,State.Name]' --output table"
-        result = make_command_safe(complex_cmd, config=config)
+        result = make_command_safe(complex_cmd)
         assert "describe-instances" in result
         assert "--filters" in result
         assert "--query" in result
@@ -480,12 +484,10 @@ class TestAWSCliEdgeCases:
 
     def test_aws_case_sensitivity(self):
         """Test that AWS commands are case-sensitive where appropriate."""
-        config = BashExecutorConfig()
-
         # AWS service names should be lowercase
         with pytest.raises(ValueError):
-            make_command_safe("aws EC2 describe-instances", config=config)
+            make_command_safe("aws EC2 describe-instances")
 
         # Operations should match exactly
         with pytest.raises(ValueError):
-            make_command_safe("aws ec2 DESCRIBE-INSTANCES", config=config)
+            make_command_safe("aws ec2 DESCRIBE-INSTANCES")

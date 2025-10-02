@@ -1,0 +1,4 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl get deployments -A | grep -i -E \"(personal|certs|validator)\""}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl get deployments -A | grep -i -E '(personal|certs|validator)'", "params": {"command": "kubectl get deployments -A | grep -i -E \"(personal|certs|validator)\""}, "icon_url": null}
+kubectl get deployments -A | grep -i -E '(personal|certs|validator)'
+default                   db-certs-authenticator                       0/1      1            0           14d

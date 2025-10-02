@@ -1,0 +1,75 @@
+{"toolset_name":"bash","tool_name":"run_bash_command","match_params":{"command":"kubectl describe pod db-certs-authenticator-6866469d97-5c4sf -n default"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "url": null, "invocation": "kubectl describe pod db-certs-authenticator-6866469d97-5c4sf -n default", "params": {"command": "kubectl describe pod db-certs-authenticator-6866469d97-5c4sf -n default"}, "icon_url": null}
+kubectl describe pod db-certs-authenticator-6866469d97-5c4sf -n default
+Name:             db-certs-authenticator-6866469d97-5c4sf
+Namespace:        default
+Priority:         0
+Service Account:  default
+Node:             threadripper-linux/192.168.0.30
+Start Time:       Fri, 12 Sep 2025 10:06:30 +0200
+Labels:           app=flask
+                  pod-template-hash=6866469d97
+Annotations:      <none>
+Status:           Running
+IP:               10.42.0.55
+IPs:
+  IP:           10.42.0.55
+Controlled By:  ReplicaSet/db-certs-authenticator-6866469d97
+Containers:
+  flask:
+    Container ID:   containerd://134ffee2f003bfd55ef123ead4036c412069a5c6642e68b1ec67eac5bb663374
+    Image:          us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest
+    Image ID:       us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app@sha256:2829937cca7723f59949d75911af8d65c4aa92292e7c85a2787e108dfdc14cb4
+    Port:           5000/TCP
+    Host Port:      0/TCP
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Fri, 26 Sep 2025 12:50:20 +0200
+      Finished:     Fri, 26 Sep 2025 12:51:22 +0200
+    Ready:          False
+    Restart Count:  944
+    Environment:    <none>
+    Mounts:
+      /certs from writable-certs (rw)
+      /certs/certificate.pem from cert-volume (rw,path="certificate.pem")
+      /certs/key.pem from key-volume (rw,path="key.pem")
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-hn4gn (ro)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True
+  Initialized                 True
+  Ready                       False
+  ContainersReady             False
+  PodScheduled                True
+Volumes:
+  cert-volume:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      db-certs-config
+    Optional:  false
+  key-volume:
+    Type:      ConfigMap (a volume populated by a ConfigMap)
+    Name:      db-certs-config
+    Optional:  false
+  writable-certs:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:  <unset>
+  kube-api-access-hn4gn:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason   Age                     From     Message
+  ----     ------   ----                    ----     -------
+  Normal   Pulled   14m (x43 over 5h4m)     kubelet  (combined from similar events): Successfully pulled image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest" in 1.042s (1.042s including waiting). Image size: 57542453 bytes.
+  Normal   Pulling  2m30s (x59 over 5h40m)  kubelet  Pulling image "us-central1-docker.pkg.dev/genuine-flight-317411/devel/flask-app:latest"
+  Warning  BackOff  21s (x1277 over 5h39m)  kubelet  Back-off restarting failed container flask in pod db-certs-authenticator-6866469d97-5c4sf_default(77ea5f53-aa55-4f77-9a1a-2f7fa3a38120)

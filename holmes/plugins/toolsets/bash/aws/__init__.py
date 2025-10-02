@@ -1,8 +1,7 @@
 import argparse
-from typing import Any, Optional
+from typing import Any
 
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.common.stringify import escape_shell_args
 from holmes.plugins.toolsets.bash.common.validators import (
     validate_command_and_operations,
@@ -40,9 +39,7 @@ class AWSCommand(BashCommand):
         )
         return aws_parser
 
-    def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         # Build options list with operation and remaining arguments
         options = [command.operation] + (
             command.options if hasattr(command, "options") else []
@@ -54,9 +51,7 @@ class AWSCommand(BashCommand):
             denied_commands=DENIED_AWS_COMMANDS,
         )
 
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         """Convert parsed AWS command back to safe command string."""
         parts = ["aws", command.service, command.operation]
 

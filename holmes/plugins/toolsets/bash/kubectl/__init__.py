@@ -1,6 +1,5 @@
-from typing import Any, Optional
+from typing import Any
 from holmes.plugins.toolsets.bash.common.bash_command import BashCommand
-from holmes.plugins.toolsets.bash.common.config import BashExecutorConfig
 from holmes.plugins.toolsets.bash.kubectl.constants import (
     SAFE_NAME_PATTERN,
     SAFE_NAMESPACE_PATTERN,
@@ -12,6 +11,9 @@ from holmes.plugins.toolsets.bash.kubectl.kubectl_events import KubectlEventsCom
 from holmes.plugins.toolsets.bash.kubectl.kubectl_logs import KubectlLogsCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_top import KubectlTopCommand
 from holmes.plugins.toolsets.bash.kubectl.kubectl_get import KubectlGetCommand
+from holmes.plugins.toolsets.bash.kubectl.kubectl_cluster_info import (
+    KubectlClusterInfoCommand,
+)
 
 
 class KubectlCommand(BashCommand):
@@ -24,6 +26,7 @@ class KubectlCommand(BashCommand):
             KubectlLogsCommand(),
             KubectlTopCommand(),
             KubectlGetCommand(),
+            KubectlClusterInfoCommand(),
         ]
 
     def add_parser(self, parent_parser: Any):
@@ -39,9 +42,7 @@ class KubectlCommand(BashCommand):
         for sub_command in self.sub_commands:
             sub_command.add_parser(action_subparsers)
 
-    def validate_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> None:
+    def validate_command(self, command: Any, original_command: str) -> None:
         """
         Validate common kubectl command fields to prevent injection attacks.
         Raises ValueError if validation fails.
@@ -80,22 +81,19 @@ class KubectlCommand(BashCommand):
             for sub_command in self.sub_commands:
                 if command.action == sub_command.name:
                     if hasattr(sub_command, "validate_command"):
-                        sub_command.validate_command(command, original_command, config)
+                        sub_command.validate_command(command, original_command)
                     break
 
-    def stringify_command(
-        self, command: Any, original_command: str, config: Optional[BashExecutorConfig]
-    ) -> str:
+    def stringify_command(self, command: Any, original_command: str) -> str:
         if command.cmd == "kubectl":
             for sub_command in self.sub_commands:
                 if command.action == sub_command.name:
                     return sub_command.stringify_command(
                         command=command,
                         original_command=original_command,
-                        config=config,
                     )
             raise ValueError(
-                f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run"
+                f"Unsupported {command.tool_name} action {command.action}. Supported actions are: get, describe, events, top, run, cluster-info"
             )
         else:
             raise ValueError(f"Unsupported command {command.tool_name}")
