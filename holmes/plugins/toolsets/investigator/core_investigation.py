@@ -29,7 +29,11 @@ class TodoWriteTool(Tool):
                 properties={
                     "id": ToolParameter(type="string", required=True),
                     "content": ToolParameter(type="string", required=True),
-                    "status": ToolParameter(type="string", required=True),
+                    "status": ToolParameter(
+                        type="string",
+                        required=True,
+                        enum=["pending", "in_progress", "completed"],
+                    ),
                 },
             ),
         ),
