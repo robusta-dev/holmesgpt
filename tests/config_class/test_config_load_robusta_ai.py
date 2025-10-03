@@ -1,4 +1,3 @@
-import json
 from unittest.mock import patch
 from holmes.config import Config
 from holmes.clients.robusta_client import RobustaModelsResponse, RobustaModel
@@ -36,7 +35,6 @@ def test_server_loads_robusta_ai_when_not_exists_and_not_other_models(
     mock_cluster, mock_fetch, *, monkeypatch
 ):
     config = Config.load_from_env()
-    print(json.dumps(config.llm_model_registry.models, indent=2))
     assert "Robusta/test" in config.llm_model_registry.models
 
 
