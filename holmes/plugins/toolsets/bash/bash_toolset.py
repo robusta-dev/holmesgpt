@@ -16,6 +16,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -82,9 +83,7 @@ class KubectlRunImageCommand(BaseBashTool):
         command_str = get_param_or_raise(params, "command")
         return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i -- {command_str}"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         timeout = params.get("timeout", 60)
 
         image = get_param_or_raise(params, "image")
@@ -164,9 +163,7 @@ class RunBashCommand(BaseBashTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         command_str = params.get("command")
         timeout = params.get("timeout", 60)
 
@@ -187,7 +184,7 @@ class RunBashCommand(BaseBashTool):
         command_to_execute = command_str
 
         # Only run the safety check if user has NOT approved the command
-        if not user_approved:
+        if not context.user_approved:
             try:
                 command_to_execute = make_command_safe(command_str, self.toolset.config)
 

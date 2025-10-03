@@ -15,6 +15,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     Tool,
+    ToolInvokeContext,
     Toolset,
     ToolsetStatusEnum,
     YAMLTool,
@@ -429,12 +430,14 @@ class MockableToolWrapper(Tool):
         self._toolset_name = toolset_name
         self._request = request
 
-    def _call_live_invoke(self, params: Dict) -> StructuredToolResult:
+    def _call_live_invoke(
+        self, params: Dict, context: ToolInvokeContext
+    ) -> StructuredToolResult:
         """Call the tool in live mode."""
         logging.info(f"Calling live tool {self.name} with params: {params}")
-        return self._tool.invoke(params)
+        return self._tool.invoke(params, context)
 
-    def _call_mock_invoke(self, params: Dict):
+    def _call_mock_invoke(self, params: Dict, context: ToolInvokeContext):
         # Mock mode: read from mock file
         mock = self._file_manager.read_mock(self.name, params)
         if not mock:
@@ -488,18 +491,16 @@ class MockableToolWrapper(Tool):
             raise MockDataNotFoundError(error_msg, tool_name=self.name)
         return mock.return_value
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         """Execute the tool based on the current mode."""
         try:
             if self._mode == MockMode.GENERATE:
                 try:
-                    return self._call_mock_invoke(params)
+                    return self._call_mock_invoke(params, context)
                 except MockDataNotFoundError as e:
                     logging.debug(str(e))
 
-                result = self._call_live_invoke(params)
+                result = self._call_live_invoke(params, context)
                 # Write mock file
                 mock_file_path = self._file_manager.write_mock(
                     tool_name=self.name,
@@ -520,9 +521,9 @@ class MockableToolWrapper(Tool):
                 return result
             elif self._mode == MockMode.LIVE:
                 # Live mode: just call the real tool
-                return self._call_live_invoke(params)
+                return self._call_live_invoke(params, context)
             elif self._mode == MockMode.MOCK:
-                return self._call_mock_invoke(params)
+                return self._call_mock_invoke(params, context)
             else:
                 raise ValueError(f"Unknown mock mode: {self._mode}")
         except MockDataError as e:
