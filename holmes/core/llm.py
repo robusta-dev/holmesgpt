@@ -77,6 +77,7 @@ class DefaultLLM(LLM):
     api_base: Optional[str]
     api_version: Optional[str]
     args: Dict
+    is_robusta_model: bool
 
     def __init__(
         self,
@@ -87,6 +88,7 @@ class DefaultLLM(LLM):
         args: Optional[Dict] = None,
         tracer: Optional[Any] = None,
         name: Optional[str] = None,
+        is_robusta_model: bool = False,
     ):
         self.model = model
         self.api_key = api_key
@@ -97,6 +99,7 @@ class DefaultLLM(LLM):
         self.name = name
         self.update_custom_args()
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
+        self.is_robusta_model = is_robusta_model
 
     def update_custom_args(self):
         self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
@@ -240,6 +243,21 @@ class DefaultLLM(LLM):
                     total_token_count += token_count
         return total_token_count
 
+    def get_litellm_corrected_name_for_robusta_ai(self) -> str:
+        if self.is_robusta_model:
+            # For robusta models, self.name is the underlying provider/model used by Robusta AI
+            # To avoid litellm modifying the API URL according to the provider, the provider name
+            # is replaced with 'openai/' just before doing a completion() call
+            # Cf. https://docs.litellm.ai/docs/providers/openai_compatible
+            split_model_name = self.model.split("/")
+            return (
+                split_model_name[0]
+                if len(split_model_name) == 1
+                else f"openai/{split_model_name[1]}"
+            )
+        else:
+            return self.model
+
     def completion(
         self,
         messages: List[Dict[str, Any]],
@@ -275,8 +293,10 @@ class DefaultLLM(LLM):
 
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
+
+        litellm_model_name = self.get_litellm_corrected_name_for_robusta_ai()
         result = litellm_to_use.completion(
-            model=self.model,
+            model=litellm_model_name,
             api_key=self.api_key,
             base_url=self.api_base,
             api_version=self.api_version,
