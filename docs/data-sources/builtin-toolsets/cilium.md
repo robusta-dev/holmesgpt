@@ -146,23 +146,27 @@ toolsets:
 
 ## Common Troubleshooting Scenarios
 
-**"My pods can't communicate"**
+### "My pods can't communicate"
+
 1. Check Cilium agent health: `cilium_status`
 2. Verify endpoints are healthy: `cilium_endpoint_health`
 3. Observe blocked flows: `hubble_observe_drops`
 4. Trace policy decisions: `cilium_policy_trace`
 
-**"DNS resolution is failing"**
+### "DNS resolution is failing"
+
 1. Monitor DNS queries: `hubble_observe_dns`
 2. Check endpoint configuration: `cilium_endpoint_get`
 3. Verify service mappings: `cilium_service_list`
 
-**"Network policies aren't working"**
+### "Network policies aren't working"
+
 1. View denied flows: `hubble_observe_denied`
 2. Trace policy evaluation: `cilium_policy_trace_verbose`
 3. Check applied policies: `cilium_policy_get`
 
-**"Load balancing issues"**
+### "Load balancing issues"
+
 1. Examine service backends: `cilium_service_get`
 2. Check BPF load balancer state: `cilium_loadbalancer_list`
 3. Monitor service traffic: `hubble_observe_service`
