@@ -11,10 +11,96 @@ Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do
 
 ## Configuration
 
-```bash
-export OPENAI_API_KEY="your-openai-api-key"
-holmes ask "what pods are failing?"
-```
+=== "Holmes CLI"
+
+    ```bash
+    export OPENAI_API_KEY="your-openai-api-key"
+    holmes ask "what pods are failing?"
+    ```
+
+=== "Holmes Helm Chart"
+
+    **Create Kubernetes Secret:**
+    ```bash
+    kubectl create secret generic holmes-secrets \
+      --from-literal=openai-api-key="sk-..." \
+      -n <namespace>
+    ```
+
+    **Configure Helm Values:**
+    ```yaml
+    # values.yaml
+    additionalEnvVars:
+      - name: OPENAI_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: holmes-secrets
+            key: openai-api-key
+
+    # Configure at least one model using modelList
+    modelList:
+      gpt-4o:
+        api_key: "{{ env.OPENAI_API_KEY }}"
+        model: openai/gpt-4o
+        temperature: 0
+
+      gpt-4o-mini:
+        api_key: "{{ env.OPENAI_API_KEY }}"
+        model: openai/gpt-4o-mini
+        temperature: 0
+
+      gpt-5:
+        api_key: "{{ env.OPENAI_API_KEY }}"
+        model: openai/gpt-5
+        temperature: 1
+        reasoning_effort: medium
+
+    # Optional: Set default model (use modelList key name, not the model path)
+    config:
+      model: "gpt-4o"  # This refers to the key name in modelList above
+    ```
+
+=== "Robusta Helm Chart"
+
+    **Create Kubernetes Secret:**
+    ```bash
+    kubectl create secret generic robusta-holmes-secret \
+      --from-literal=openai-api-key="sk-..." \
+      -n <namespace>
+    ```
+
+    **Configure Helm Values:**
+    ```yaml
+    # values.yaml
+    holmes:
+      additionalEnvVars:
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: robusta-holmes-secret
+              key: openai-api-key
+
+      # Configure at least one model using modelList
+      modelList:
+        gpt-4.1:
+          api_key: "{{ env.OPENAI_API_KEY }}"
+          model: openai/gpt-4.1
+          temperature: 0
+
+        gpt-4o-mini:
+          api_key: "{{ env.OPENAI_API_KEY }}"
+          model: openai/gpt-4o-mini
+          temperature: 0
+
+        gpt-5:
+          api_key: "{{ env.OPENAI_API_KEY }}"
+          model: openai/gpt-5
+          temperature: 1
+          reasoning_effort: medium
+
+      # Optional: Set default model (use modelList key name, not the model path)
+      config:
+        model: "gpt-4.1"  # This refers to the key name in modelList above
 
 ## Using CLI Parameters
 

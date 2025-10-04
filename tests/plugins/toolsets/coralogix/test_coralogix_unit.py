@@ -12,6 +12,7 @@ from holmes.plugins.toolsets.coralogix.utils import (
     parse_logs,
     normalize_datetime,
     stringify_flattened_logs,
+    extract_field,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
 
@@ -43,10 +44,19 @@ def formatted_logs():
 
 @pytest.fixture
 def coralogix_config():
+    from holmes.plugins.toolsets.coralogix.utils import CoralogixLabelsConfig
+
+    labels_config = CoralogixLabelsConfig(
+        pod="kubernetes.pod_name",
+        namespace="kubernetes.namespace_name",
+        log_message="log",
+        timestamp="time",
+    )
     return CoralogixConfig(
         api_key="dummy_api_key",
         team_hostname="my-team",
         domain="eu2.coralogix.com",
+        labels=labels_config,
     )
 
 
@@ -58,8 +68,10 @@ def coralogix_toolset(coralogix_config):
     return toolset
 
 
-def test_format_logs(raw_logs_result, formatted_logs):
-    actual_output = stringify_flattened_logs(parse_logs(raw_logs_result))
+def test_format_logs(raw_logs_result, formatted_logs, coralogix_config):
+    actual_output = stringify_flattened_logs(
+        parse_logs(raw_logs_result, coralogix_config.labels)
+    )
     logs_match = actual_output.strip() == formatted_logs.strip()
     actual_file_path_for_debugging = os.path.join(
         FIXTURES_DIR, "formatted_logs.txt.actual"
@@ -136,3 +148,20 @@ def test_build_coralogix_link_to_logs(coralogix_config):
     expected_url = f"https://{coralogix_config.team_hostname}.app.{coralogix_config.domain}/#/query-new/logs?query=source+logs+%7C+lucene+%27app%3Atest+AND+level%3Aerror%27+%7C+limit+100&querySyntax=dataprime&time=from:{start},to:{end}"
     actual_url = build_coralogix_link_to_logs(coralogix_config, query, start, end)
     assert actual_url == expected_url
+
+
+@pytest.mark.parametrize(
+    "data_obj, field, expected",
+    [
+        ({"key": "value"}, "key", "value"),
+        (
+            {"parent": {"child": {"grandchild": "deep_value"}}},
+            "parent.child.grandchild",
+            "deep_value",
+        ),
+        ({}, "key", None),
+        (None, "key", None),
+    ],
+)
+def test_extract_field(data_obj, field, expected):
+    assert extract_field(data_obj, field) == expected

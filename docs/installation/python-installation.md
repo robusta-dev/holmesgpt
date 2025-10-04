@@ -279,7 +279,7 @@ from holmes.config import Config
 # Basic configuration example
 config = Config(
     api_key="your-api-key",
-    model="gpt-4.1",  # or "anthropic/claude-opus-4-1-20250805" (recommended), "gpt-5", etc.
+    model="gpt-4.1",  # or "anthropic/claude-sonnet-4-20250514", etc.
     max_steps=10
 )
 

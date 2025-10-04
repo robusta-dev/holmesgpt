@@ -11,7 +11,6 @@ from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tool_calling_llm import IssueInvestigator
 from holmes.core.tracing import TracingFactory, SpanType
 from holmes.config import Config
-from holmes.common.env_vars import DEFAULT_MODEL
 from holmes.core.investigation import investigate_issues
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
@@ -20,16 +19,24 @@ from tests.llm.utils.classifiers import (
 )
 from tests.llm.utils.commands import set_test_env_vars
 from tests.llm.utils.mock_dal import MockSupabaseDal
-from tests.llm.utils.mock_toolset import MockToolsetManager
+from tests.llm.utils.mock_toolset import MockToolsetManager, check_for_mock_errors
 from tests.llm.utils.test_case_utils import (
     InvestigateTestCase,
     check_and_skip_test,
+    get_models,
 )
-from tests.llm.utils.property_manager import set_initial_properties, update_test_results
+from tests.llm.utils.retry_handler import retry_on_throttle
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    set_trace_properties,
+    update_test_results,
+    handle_test_error,
+)
 from os import path
 from unittest.mock import patch
 
 from tests.llm.utils.iteration_utils import get_test_cases
+from tests.llm.utils.braintrust import log_to_braintrust
 
 TEST_CASES_FOLDER = Path(
     path.abspath(path.join(path.dirname(__file__), "fixtures", "test_investigate"))
@@ -50,6 +57,7 @@ class MockConfig(Config):
                 test_case_folder=self._test_case.folder,
                 mock_generation_config=self._mock_generation_config,
                 mock_policy=self._test_case.mock_policy,
+                mock_overrides=getattr(self._test_case, "mock_overrides", None),
             )
 
             # With the new file-based mock system, mocks are loaded from disk automatically
@@ -74,8 +82,10 @@ def get_investigate_test_cases():
 
 
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_investigate_test_cases())
 def test_investigate(
+    model: str,
     test_case: InvestigateTestCase,
     caplog,
     request,
@@ -83,21 +93,12 @@ def test_investigate(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
-
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
-
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+    set_initial_properties(request, test_case, model)
 
     tracer = TracingFactory.create_tracer("braintrust")
     config = MockConfig(test_case, tracer, mock_generation_config)
-    config.model = os.environ.get("MODEL", DEFAULT_MODEL)
-    metadata = {"model": config.model or "Unknown"}
+    config.model = model
+    metadata = {"model": model}
     tracer.start_experiment(additional_metadata=metadata)
 
     mock_dal = MockSupabaseDal(
@@ -110,93 +111,101 @@ def test_investigate(
     input = test_case.investigate_request
     expected = test_case.expected_output
     result = None
+    output = None
+    scores = {}
 
     investigate_request = test_case.investigate_request
     if not investigate_request.sections:
         investigate_request.sections = DEFAULT_SECTIONS
 
-    with patch.dict(
-        os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
-    ):
-        with tracer.start_trace(
-            name=test_case.id, span_type=SpanType.EVAL
-        ) as eval_span:
-            # Store span info in user properties for conftest to access
-            if hasattr(eval_span, "id"):
-                request.node.user_properties.append(
-                    ("braintrust_span_id", str(eval_span.id))
-                )
-            if hasattr(eval_span, "root_span_id"):
-                request.node.user_properties.append(
-                    ("braintrust_root_span_id", str(eval_span.root_span_id))
-                )
+    try:
+        with patch.dict(
+            os.environ, {"HOLMES_STRUCTURED_OUTPUT_CONVERSION_FEATURE_FLAG": "False"}
+        ):
+            with tracer.start_trace(
+                name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
+            ) as eval_span:
+                set_trace_properties(request, eval_span)
+                check_and_skip_test(test_case, request, shared_test_infrastructure)
 
-            with set_test_env_vars(test_case):
-                with eval_span.start_span(
-                    "Caching tools executor for create_issue_investigator",
-                    type=SpanType.TASK.value,
-                ):
-                    config.create_tool_executor(mock_dal)
-                with eval_span.start_span(
-                    "Holmes Run", type=SpanType.TASK.value
-                ) as holmes_span:
-                    start_time = time.time()
-                    result = investigate_issues(
-                        investigate_request=investigate_request,
-                        config=config,
-                        dal=mock_dal,
-                        trace_span=holmes_span,
+                with set_test_env_vars(test_case):
+                    with eval_span.start_span(
+                        "Caching tools executor for create_issue_investigator",
+                        type=SpanType.TASK.value,
+                    ):
+                        config.create_tool_executor(mock_dal)
+                    with eval_span.start_span(
+                        "Holmes Run", type=SpanType.TASK.value
+                    ) as holmes_span:
+                        start_time = time.time()
+                        retry_enabled = request.config.getoption(
+                            "retry-on-throttle", default=True
+                        )
+                        result = retry_on_throttle(
+                            investigate_issues,
+                            investigate_request=investigate_request,
+                            config=config,
+                            dal=mock_dal,
+                            trace_span=holmes_span,
+                            retry_enabled=retry_enabled,
+                            test_id=test_case.id,
+                            model=model,
+                        )
+                        holmes_duration = time.time() - start_time
+                    # Log duration directly to eval_span
+                    eval_span.log(metadata={"holmes_duration": holmes_duration})
+
+                # Check for any mock errors that occurred during tool execution
+                # This will raise an exception if any mock data errors happened
+                check_for_mock_errors(request)
+
+                # Evaluate and log results inside the span context
+                assert result, "No result returned by investigate_issues()"
+
+                output = result.analysis
+
+                correctness_eval = evaluate_correctness(
+                    output=output,
+                    expected_elements=expected,
+                    parent_span=eval_span,
+                    caplog=caplog,
+                    evaluation_type="strict",
+                )
+                scores["correctness"] = correctness_eval.score
+
+                if test_case.expected_sections:
+                    sections = {
+                        key: bool(value)
+                        for key, value in test_case.expected_sections.items()
+                    }
+                    sections_eval = evaluate_sections(
+                        sections=sections, output=output, parent_span=eval_span
                     )
-                    holmes_duration = time.time() - start_time
-                eval_span.log(metadata={"Holmes Duration": holmes_duration})
-    assert result, "No result returned by investigate_issues()"
+                    scores["sections"] = sections_eval.score
 
-    output = result.analysis
-
-    scores = {}
-
-    debug_expected = "\n-  ".join(expected)
-
-    print(f"** EXPECTED **\n-  {debug_expected}")
-    correctness_eval = evaluate_correctness(
-        output=output,
-        expected_elements=expected,
-        parent_span=eval_span,
-        caplog=caplog,
-        evaluation_type="strict",
-    )
-    print(
-        f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-    )
-    scores["correctness"] = correctness_eval.score
-
-    if test_case.expected_sections:
-        sections = {
-            key: bool(value) for key, value in test_case.expected_sections.items()
-        }
-        sections_eval = evaluate_sections(
-            sections=sections, output=output, parent_span=eval_span
+                # Log evaluation results to the span
+                log_to_braintrust(
+                    eval_span=eval_span,
+                    test_case=test_case,
+                    model=model,
+                    result=result,
+                    scores=scores,
+                    mock_generation_config=mock_generation_config,
+                )
+    except Exception as e:
+        handle_test_error(
+            request=request,
+            error=e,
+            eval_span=eval_span if "eval_span" in locals() else None,
+            test_case=test_case,
+            model=model,
+            result=result,
+            mock_generation_config=mock_generation_config,
         )
-        scores["sections"] = sections_eval.score
+        raise
 
-    # Log evaluation results directly to the span
-    if eval_span:
-        eval_span.log(
-            input=input,
-            output=output or "",
-            expected=str(expected),
-            dataset_record_id=test_case.id,
-            scores=scores,
-            tags=test_case.tags,
-        )
-    tools_called = [t.tool_name for t in result.tool_calls]
-    print(f"\n** TOOLS CALLED **\n{tools_called}")
-    print(f"\n** OUTPUT **\n{output}")
-    print(f"\n** SCORES **\n{scores}")
-
-    # Store data for summary plugin
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+    tools_called = [t.tool_name for t in result.tool_calls] if result.tool_calls else []
+    update_test_results(request, output, tools_called, scores, result)
 
     assert result.sections, "Missing sections"
     assert (

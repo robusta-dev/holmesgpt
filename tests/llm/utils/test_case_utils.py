@@ -8,11 +8,43 @@ from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError, ConfigDict
+from holmes.common.env_vars import DEFAULT_MODEL
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
 from holmes.core.tool_calling_llm import ResourceInstructions
 from tests.llm.utils.constants import ALLOWED_EVAL_TAGS, get_allowed_tags_list
+
+
+class SetupFailureError(Exception):
+    """Custom exception for setup failures with additional context."""
+
+    def __init__(
+        self,
+        message: str,
+        test_id: str,
+        command: Optional[str] = None,
+        output: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.test_id = test_id
+        self.command = command
+        self.output = output
+
+
+def get_models() -> List[str]:
+    """Get list of models to test from MODEL env var (supports comma-separated list)."""
+    models_str: str = os.environ.get("MODEL", DEFAULT_MODEL)
+    # Strip whitespace from each model and filter out empty strings
+    models = [m.strip() for m in models_str.split(",") if m.strip()]
+
+    # If multiple models are specified, require explicit non-empty CLASSIFIER_MODEL
+    if len(models) > 1:
+        classifier_model = os.environ.get("CLASSIFIER_MODEL", "").strip()
+        if not classifier_model:
+            raise ValueError("Multiple models require CLASSIFIER_MODEL to be set")
+
+    return models
 
 
 def read_file(file_path: Path):
@@ -46,20 +78,26 @@ class HolmesTestCase(BaseModel):
 
     id: str
     folder: str
+    base_id: Optional[str] = None  # Base test case ID for parameterized tests
     mocked_date: Optional[str] = None
     tags: Optional[list[ALLOWED_EVAL_TAGS]] = None
     skip: Optional[bool] = None
     skip_reason: Optional[str] = None
     expected_output: Union[str, List[str]]  # Whether an output is expected
     evaluation: LLMEvaluations = LLMEvaluations()
+    include_tool_calls: Optional[bool] = False  # Include tool calls in LLM evaluation
     before_test: Optional[str] = None
     after_test: Optional[str] = None
+    setup_timeout: Optional[int] = None  # Override default setup timeout in seconds
     conversation_history: Optional[list[dict]] = None
     test_env_vars: Optional[Dict[str, str]] = (
         None  # Environment variables to set during test execution
     )
     mock_policy: Optional[str] = (
         "inherit"  # Mock policy: always_mock, never_mock, or inherit
+    )
+    mock_overrides: Optional[Dict[str, str]] = (
+        None  # Per-toolset mock policy overrides: {"toolset_name": "always_mock|never_mock|inherit"}
     )
     description: Optional[str] = None
     generate_mocks: Optional[bool] = None
@@ -76,6 +114,9 @@ class AskHolmesTestCase(HolmesTestCase, BaseModel):
     cluster_name: Optional[str] = None
     include_files: Optional[List[str]] = None  # matches include_files option of the CLI
     runbooks: Optional[Dict[str, Any]] = None  # Optional runbook catalog override
+    allow_toolset_failures: Optional[bool] = (
+        False  # Allow toolsets to fail prerequisite checks (default False)
+    )
 
     # Internal fields for variant handling
     variant_index: Optional[int] = None  # Which variant this instance represents
@@ -101,14 +142,64 @@ class HealthCheckTestCase(HolmesTestCase, BaseModel):
     request: Any = None
 
 
-def check_and_skip_test(test_case: HolmesTestCase) -> None:
-    """Check if test should be skipped and raise pytest.skip if needed.
+def check_and_skip_test(
+    test_case: HolmesTestCase, request=None, shared_test_infrastructure=None
+) -> None:
+    """Check if test should be skipped or has setup failures, and raise appropriate pytest exceptions.
 
     Args:
         test_case: A HolmesTestCase or any of its subclasses
+        request: The pytest request object (optional, needed for setup failure tracking)
+        shared_test_infrastructure: Shared test infrastructure dict (optional, needed for setup failure checking)
     """
+    # Check if test should be skipped
     if test_case.skip:
         pytest.skip(test_case.skip_reason or "Test skipped")
+
+    # Check for setup failures FIRST - before any other skips
+    if shared_test_infrastructure is not None and request is not None:
+        setup_failures = shared_test_infrastructure.get("setup_failures", {})
+        if test_case.id in setup_failures:
+            setup_error_detail = setup_failures[test_case.id]
+            request.node.user_properties.append(("is_setup_failure", True))
+            request.node.user_properties.append(
+                ("setup_failure_detail", setup_error_detail)
+            )
+
+            # Just pass the full error detail through - no parsing needed
+            raise SetupFailureError(
+                message=setup_error_detail,
+                test_id=test_case.id,
+                command="Setup script",
+                output=setup_error_detail,  # Full details including stdout/stderr
+            )
+
+    # Check if --only-setup is set (AFTER checking for setup failures)
+    if request and request.config.getoption("--only-setup", False):
+        print("   ⚙️  --only-setup mode: Skipping test execution, only ran setup")
+        pytest.skip("Skipping test execution due to --only-setup flag")
+
+    # Check if --only-cleanup is set
+    if request and request.config.getoption("--only-cleanup", False):
+        print(
+            "   ⚙️  --only-cleanup mode: Skipping test execution, only running cleanup"
+        )
+        pytest.skip("Skipping test execution due to --only-cleanup flag")
+
+    # Check for setup failures - early return if no infrastructure or request
+    if shared_test_infrastructure is None or request is None:
+        return
+
+    # Check if test should be skipped due to port conflicts
+    tests_to_skip_port_conflicts = shared_test_infrastructure.get(
+        "tests_to_skip_port_conflicts", {}
+    )
+    if test_case.id in tests_to_skip_port_conflicts:
+        skip_reason = tests_to_skip_port_conflicts[test_case.id]
+        if request:
+            request.node.user_properties.append(("port_conflict_skip", True))
+            request.node.user_properties.append(("port_conflict_reason", skip_reason))
+        pytest.skip(f"Test skipped due to port conflict: {skip_reason}")
 
 
 class MockHelper:
@@ -172,6 +263,9 @@ class MockHelper:
                                 original_user_prompt
                             )
                             variant_config["id"] = f"{test_case_id}[{i}]"
+                            variant_config["base_id"] = (
+                                test_case_id  # Store base ID for deduplication
+                            )
                             test_case = TypeAdapter(AskHolmesTestCase).validate_python(
                                 variant_config
                             )
@@ -224,18 +318,50 @@ class MockHelper:
                 logging.debug(f"Successfully loaded test case {test_case_id}")
                 test_cases.append(test_case)
             except ValidationError as e:
+                error_msg = (
+                    f"\n❌ VALIDATION ERROR in test case: {test_case_folder.name}\n"
+                )
+                error_msg += "=" * 60 + "\n"
+
+                # Check for common issues first
+                if (
+                    not config_dict.get("user_prompt")
+                    and self._test_cases_folder.name == "test_ask_holmes"
+                ):
+                    error_msg += "Missing required field: 'user_prompt'\n"
+                    error_msg += "Note: Use 'user_prompt' instead of 'question' for ask_holmes tests\n"
+
+                if "id" in config_dict:
+                    error_msg += "⚠️  Found 'id' field in test_case.yaml - this should not be included\n"
+                    error_msg += (
+                        "   (ID is automatically derived from the directory name)\n"
+                    )
+
+                if "description" in config_dict and not config_dict.get("user_prompt"):
+                    error_msg += (
+                        "⚠️  Found 'description' but missing 'user_prompt' field\n"
+                    )
+
+                # Check for tag issues
                 problematic_tags = []
                 for error in e.errors():
                     if error["type"] == "literal_error" and "tags" in str(error["loc"]):
                         problematic_tags.append(error["input"])
 
                 if problematic_tags:
-                    error_msg = (
-                        f"VALIDATION ERROR in test case: {test_case_folder.name}\n"
-                    )
-                    error_msg += f"Problematic tags: {', '.join(problematic_tags)}\n"
-                    error_msg += f"Allowed tags; {get_allowed_tags_list()}"
-                    print(error_msg)
+                    error_msg += f"Invalid tags: {', '.join(problematic_tags)}\n"
+                    error_msg += f"Allowed tags: {get_allowed_tags_list()}\n"
+
+                # Show all validation errors
+                error_msg += "\nDetailed validation errors:\n"
+                for error in e.errors():
+                    loc = " -> ".join(str(item) for item in error["loc"])
+                    error_msg += f"  - {loc}: {error['msg']}\n"
+                    if error.get("input") is not None:
+                        error_msg += f"    Input value: {error['input']}\n"
+
+                error_msg += "=" * 60
+                print(error_msg)
                 raise e
             except FileNotFoundError:
                 logging.debug(

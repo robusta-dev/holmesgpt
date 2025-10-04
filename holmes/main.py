@@ -76,6 +76,9 @@ opt_api_key: Optional[str] = typer.Option(
     help="API key to use for the LLM (if not given, uses environment variables OPENAI_API_KEY or AZURE_API_KEY)",
 )
 opt_model: Optional[str] = typer.Option(None, help="Model to use for the LLM")
+opt_fast_model: Optional[str] = typer.Option(
+    None, help="Optional fast model for summarization tasks"
+)
 opt_config_file: Optional[Path] = typer.Option(
     DEFAULT_CONFIG_LOCATION,  # type: ignore
     "--config",
@@ -94,7 +97,7 @@ opt_custom_runbooks: Optional[List[Path]] = typer.Option(
     help="Path to a custom runbooks (can specify -r multiple times to add multiple runbooks)",
 )
 opt_max_steps: Optional[int] = typer.Option(
-    10,
+    40,
     "--max-steps",
     help="Advanced. Maximum number of steps the LLM can take to investigate the issue",
 )
@@ -103,6 +106,11 @@ opt_verbose: Optional[List[bool]] = typer.Option(
     "--verbose",
     "-v",
     help="Verbose output. You can pass multiple times to increase the verbosity. e.g. -v or -vv or -vvv",
+)
+opt_log_costs: bool = typer.Option(
+    False,
+    "--log-costs",
+    help="Show LLM cost information in the output",
 )
 opt_echo_request: bool = typer.Option(
     True,
@@ -172,10 +180,12 @@ def ask(
     # common options
     api_key: Optional[str] = opt_api_key,
     model: Optional[str] = opt_model,
+    fast_model: Optional[str] = opt_fast_model,
     config_file: Optional[Path] = opt_config_file,
     custom_toolsets: Optional[List[Path]] = opt_custom_toolsets,
     max_steps: Optional[int] = opt_max_steps,
     verbose: Optional[List[bool]] = opt_verbose,
+    log_costs: bool = opt_log_costs,
     # semi-common options
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
@@ -219,7 +229,7 @@ def ask(
     """
     Ask any question and answer using available tools
     """
-    console = init_logging(verbose)  # type: ignore
+    console = init_logging(verbose, log_costs)  # type: ignore
     # Detect and read piped input
     piped_data = None
 
@@ -238,6 +248,7 @@ def ask(
         config_file,
         api_key=api_key,
         model=model,
+        fast_model=fast_model,
         max_steps=max_steps,
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,

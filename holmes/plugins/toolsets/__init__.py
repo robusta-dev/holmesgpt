@@ -7,7 +7,10 @@ import yaml  # type: ignore
 from pydantic import ValidationError
 
 import holmes.utils.env as env_utils
-from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
+from holmes.common.env_vars import (
+    USE_LEGACY_KUBERNETES_LOGS,
+    DISABLE_PROMETHEUS_TOOLSET,
+)
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
@@ -26,6 +29,9 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_traces import (
 from holmes.plugins.toolsets.datadog.toolset_datadog_rds import (
     DatadogRDSToolset,
 )
+from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
+    DatadogGeneralToolset,
+)
 from holmes.plugins.toolsets.git import GitToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana import GrafanaToolset
 from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiToolset
@@ -35,15 +41,17 @@ from holmes.plugins.toolsets.internet.notion import NotionToolset
 from holmes.plugins.toolsets.kafka import KafkaToolset
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
-from holmes.plugins.toolsets.newrelic import NewRelicToolset
+from holmes.plugins.toolsets.newrelic.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
-from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
 from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
+from holmes.plugins.toolsets.investigator.core_investigation import (
+    CoreInvestigationToolset,
+)
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -68,6 +76,7 @@ def load_toolsets_from_file(
 def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
     toolsets: list[Toolset] = [
+        CoreInvestigationToolset(),  # Load first for higher priority
         InternetToolset(),
         RobustaToolset(dal),
         OpenSearchToolset(),
@@ -78,10 +87,10 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         NotionToolset(),
         KafkaToolset(),
         DatadogLogsToolset(),
+        DatadogGeneralToolset(),
         DatadogMetricsToolset(),
         DatadogTracesToolset(),
         DatadogRDSToolset(),
-        PrometheusToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
         CoralogixLogsToolset(),
@@ -93,6 +102,12 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         AzureSQLToolset(),
         ServiceNowToolset(),
     ]
+
+    if not DISABLE_PROMETHEUS_TOOLSET:
+        from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
+
+        toolsets.append(PrometheusToolset())
+
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 
@@ -151,15 +166,22 @@ def load_toolsets_from_config(
 
     loaded_toolsets: list[Toolset] = []
     if is_old_toolset_config(toolsets):
-        message = "Old toolset config format detected, please update to the new format: https://docs.robusta.dev/master/configuration/holmesgpt/custom_toolsets.html"
+        message = "Old toolset config format detected, please update to the new format: https://holmesgpt.dev/data-sources/custom-toolsets/"
         logging.warning(message)
         raise ValueError(message)
 
     for name, config in toolsets.items():
         try:
             toolset_type = config.get("type", ToolsetType.BUILTIN.value)
-            # MCP server is not a built-in toolset, so we need to set the type explicitly
+
+            # Resolve env var placeholders before creating the Toolset.
+            # If done after, .override_with() will overwrite resolved values with placeholders
+            # because model_dump() returns the original, unprocessed config from YAML.
+            if config:
+                config = env_utils.replace_env_vars_values(config)
+
             validated_toolset: Optional[Toolset] = None
+            # MCP server is not a built-in toolset, so we need to set the type explicitly
             if toolset_type == ToolsetType.MCP.value:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
@@ -169,10 +191,6 @@ def load_toolsets_from_config(
                     **config, name=name
                 )
 
-            if validated_toolset.config:
-                validated_toolset.config = env_utils.replace_env_vars_values(
-                    validated_toolset.config
-                )
             loaded_toolsets.append(validated_toolset)
         except ValidationError as e:
             logging.warning(f"Toolset '{name}' is invalid: {e}")

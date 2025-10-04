@@ -1,5 +1,4 @@
 # type: ignore
-import os
 import time
 from pathlib import Path
 from typing import Optional
@@ -10,7 +9,6 @@ from server import workload_health_check
 from holmes.core.tracing import SpanType, TracingFactory
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.config import Config
-from holmes.common.env_vars import DEFAULT_MODEL
 
 from holmes.core.supabase_dal import SupabaseDal
 from tests.llm.utils.classifiers import (
@@ -22,8 +20,15 @@ from tests.llm.utils.test_case_utils import (
     Evaluation,
     HealthCheckTestCase,
     check_and_skip_test,
+    get_models,
 )
-from tests.llm.utils.property_manager import set_initial_properties, update_test_results
+from tests.llm.utils.retry_handler import retry_on_throttle
+from tests.llm.utils.property_manager import (
+    set_initial_properties,
+    set_trace_properties,
+    update_test_results,
+    handle_test_error,
+)
 from os import path
 from unittest.mock import patch
 
@@ -53,6 +58,8 @@ class MockConfig(Config):
             test_case_folder=self._test_case.folder,
             mock_generation_config=self._mock_generation_config,
             request=self._request,
+            mock_policy=getattr(self._test_case, "mock_policy", "inherit"),
+            mock_overrides=getattr(self._test_case, "mock_overrides", None),
         )
 
         # With the new file-based mock system, mocks are loaded from disk automatically
@@ -65,8 +72,10 @@ def get_workload_health_test_cases():
 
 
 @pytest.mark.llm
+@pytest.mark.parametrize("model", get_models())
 @pytest.mark.parametrize("test_case", get_workload_health_test_cases())
 def test_health_check(
+    model: str,
     test_case: HealthCheckTestCase,
     caplog,
     request,
@@ -74,22 +83,14 @@ def test_health_check(
     shared_test_infrastructure,  # type: ignore
 ):
     # Set initial properties early so they're available even if test fails
-    set_initial_properties(request, test_case)
-
-    # Check if test should be skipped
-    check_and_skip_test(test_case)
-
-    # Check for setup failures
-    setup_failures = shared_test_infrastructure.get("setup_failures", {})
-    if test_case.id in setup_failures:
-        request.node.user_properties.append(("is_setup_failure", True))
-        pytest.fail(f"Test setup failed: {setup_failures[test_case.id]}")
+    set_initial_properties(request, test_case, model)
 
     tracer = TracingFactory.create_tracer("braintrust")
-    tracer.start_experiment()
+    metadata = {"model": model}
+    tracer.start_experiment(additional_metadata=metadata)
 
     config = MockConfig(test_case, tracer, mock_generation_config, request)
-    config.model = os.environ.get("MODEL", DEFAULT_MODEL)
+    config.model = model
 
     mock_dal = MockSupabaseDal(
         test_case_folder=Path(test_case.folder),
@@ -101,65 +102,98 @@ def test_health_check(
     input = test_case.workload_health_request
     expected = test_case.expected_output
 
-    with tracer.start_trace(name=test_case.id, span_type=SpanType.EVAL) as eval_span:
-        # Store span info in user properties for conftest to access
-        if hasattr(eval_span, "id"):
-            request.node.user_properties.append(
-                ("braintrust_span_id", str(eval_span.id))
+    result = None
+    with tracer.start_trace(
+        name=f"{test_case.id}[{model}]", span_type=SpanType.EVAL
+    ) as eval_span:
+        set_trace_properties(request, eval_span)
+        check_and_skip_test(test_case, request, shared_test_infrastructure)
+
+        try:
+            with patch.multiple("server", dal=mock_dal, config=config):
+                # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
+                with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
+                    start_time = time.time()
+                    retry_enabled = request.config.getoption("retry_on_throttle", True)
+                    result = retry_on_throttle(
+                        workload_health_check,
+                        input,  # Pass as positional arg
+                        request=request,  # Pass pytest request fixture for user_properties
+                        retry_enabled=retry_enabled,
+                        test_id=test_case.id,
+                        model=model,
+                    )
+                    holmes_duration = time.time() - start_time
+                    eval_span.log(metadata={"Holmes Duration": holmes_duration})
+
+            # Check for any mock errors that occurred during tool execution
+            # This will raise an exception if any mock data errors happened
+            from tests.llm.utils.mock_toolset import check_for_mock_errors
+
+            check_for_mock_errors(request)
+
+            assert result, "No result returned by workload_health_check()"
+
+            # check that analysis is json parsable otherwise failed.
+            print(f"\n🧪 TEST: {test_case.id}")
+            print(f"   • Model: {model}")
+            print(f"** ANALYSIS **\n-  {result.analysis}")
+            json.loads(result.analysis)
+            output = result.analysis
+
+            debug_expected = "\n-  ".join(expected)
+
+            print(f"** EXPECTED **\n-  {debug_expected}")
+            correctness_eval = evaluate_correctness(
+                output=output,
+                expected_elements=expected,
+                parent_span=eval_span,
+                caplog=caplog,
+                evaluation_type="strict",
             )
-        if hasattr(eval_span, "root_span_id"):
-            request.node.user_properties.append(
-                ("braintrust_root_span_id", str(eval_span.root_span_id))
+            print(
+                f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
             )
+            scores = {}
+            scores["correctness"] = correctness_eval.score
 
-        with patch.multiple("server", dal=mock_dal, config=config):
-            # Note: Currently workload_health_check does not trace llm calls and the run includes the startup time of the tools
-            with eval_span.start_span("Holmes Run", type=SpanType.TASK.value):
-                start_time = time.time()
-                result = workload_health_check(request=input)
-                holmes_duration = time.time() - start_time
-                eval_span.log(metadata={"Holmes Duration": holmes_duration})
+            # Log evaluation results directly to the span
+            if eval_span:
+                # Prepare tags with model
+                tags = (test_case.tags or []).copy()
+                tags.append(f"model:{model}")
 
-        assert result, "No result returned by workload_health_check()"
-        # check that analysis is json parsable otherwise failed.
-        print(f"** ANALYSIS **\n-  {result.analysis}")
-        json.loads(result.analysis)
-        output = result.analysis
+                eval_span.log(
+                    input=input,
+                    output=output or "",
+                    expected=str(expected),
+                    dataset_record_id=test_case.id,
+                    scores=scores,
+                    metadata={"model": model},
+                    tags=tags,
+                )
 
-        debug_expected = "\n-  ".join(expected)
-
-        print(f"** EXPECTED **\n-  {debug_expected}")
-        correctness_eval = evaluate_correctness(
-            output=output,
-            expected_elements=expected,
-            parent_span=eval_span,
-            caplog=caplog,
-            evaluation_type="strict",
-        )
-        print(
-            f"\n** CORRECTNESS **\nscore = {correctness_eval.score}\nrationale = {correctness_eval.metadata.get('rationale', '')}"
-        )
-        scores = {}
-        scores["correctness"] = correctness_eval.score
-
-        # Log evaluation results directly to the span
-        if eval_span:
-            eval_span.log(
-                input=input,
-                output=output or "",
-                expected=str(expected),
-                dataset_record_id=test_case.id,
-                scores=scores,
-                metadata={"tags": test_case.tags},
+            tools_called = (
+                [t.tool_name for t in result.tool_calls] if result.tool_calls else []
             )
+            print(f"\n** TOOLS CALLED **\n{tools_called}")
+            print(f"\n** OUTPUT **\n{output}")
+            print(f"\n** SCORES **\n{scores}")
 
-        tools_called = [t.tool_name for t in result.tool_calls]
-        print(f"\n** TOOLS CALLED **\n{tools_called}")
-        print(f"\n** OUTPUT **\n{output}")
-        print(f"\n** SCORES **\n{scores}")
+            # Update test results
+            update_test_results(request, output, tools_called, scores, result)
 
-    # Update test results
-    update_test_results(request, output, tools_called, scores)
+        except Exception as e:
+            handle_test_error(
+                request=request,
+                error=e,
+                eval_span=eval_span,
+                test_case=test_case,
+                model=model,
+                result=result,
+                mock_generation_config=mock_generation_config,
+            )
+            raise
 
     if test_case.evaluation.correctness:
         expected_correctness = test_case.evaluation.correctness

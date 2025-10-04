@@ -1,5 +1,5 @@
 import subprocess
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 
 def execute_bash_command(cmd: str, timeout: int, params: dict) -> StructuredToolResult:
@@ -18,11 +18,11 @@ def execute_bash_command(cmd: str, timeout: int, params: dict) -> StructuredTool
         stdout = process.stdout.strip() if process.stdout else ""
         result_data = f"{cmd}\n" f"{stdout}"
 
-        status = ToolResultStatus.ERROR
+        status = StructuredToolResultStatus.ERROR
         if process.returncode == 0 and stdout:
-            status = ToolResultStatus.SUCCESS
+            status = StructuredToolResultStatus.SUCCESS
         elif not stdout:
-            status = ToolResultStatus.NO_DATA
+            status = StructuredToolResultStatus.NO_DATA
 
         return StructuredToolResult(
             status=status,
@@ -33,20 +33,20 @@ def execute_bash_command(cmd: str, timeout: int, params: dict) -> StructuredTool
         )
     except subprocess.TimeoutExpired:
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR,
+            status=StructuredToolResultStatus.ERROR,
             error=f"Error: Command '{cmd}' timed out after {timeout} seconds.",
             params=params,
         )
     except FileNotFoundError:
         # This might occur if /bin/bash is not found, or if shell=False and command is not found
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR,
+            status=StructuredToolResultStatus.ERROR,
             error="Error: Bash executable or command not found. Ensure bash is installed and the command is valid.",
             params=params,
         )
     except Exception as e:
         return StructuredToolResult(
-            status=ToolResultStatus.ERROR,
+            status=StructuredToolResultStatus.ERROR,
             error=f"Error executing command '{cmd}': {str(e)}",
             params=params,
         )

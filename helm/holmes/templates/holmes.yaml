@@ -6,7 +6,10 @@ metadata:
   labels:
     app: holmes
 spec:
-  replicas: 1
+  {{- if (not .Values.autoscaling.enabled) }}
+  replicas: {{ .Values.replicas }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       app: holmes

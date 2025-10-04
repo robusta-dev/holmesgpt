@@ -1,11 +1,20 @@
 certificate: "" # base64 encoded
 logLevel: INFO
 
-
 additionalEnvVars: []
 additional_env_vars: []
 imagePullSecrets: []
 podAnnotations: {}
+
+replicas: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPU: "60"
+  targetMemory: ""
+  behavior: {}
 
 image: holmes:0.0.0
 registry: robustadev
@@ -14,6 +23,7 @@ sentryDSN: https://51f9cd9bd2fdee16144db08fc423cd3b@o1120648.ingest.us.sentry.io
 enableTelemetry: true
 
 enableAccountsCreate: true
+revisionHistoryLimit: 10
 
 createServiceAccount: true
 customServiceAccountName: ""
@@ -48,9 +58,9 @@ mcp_servers: {}
 resources:
   requests:
     cpu: 100m
-    memory: 1024Mi
+    memory: 2048Mi
   limits:
-    memory: 1024Mi
+    memory: 2048Mi
 
 additionalVolumes: []
 additionalVolumeMounts: []

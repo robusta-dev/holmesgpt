@@ -24,6 +24,26 @@ def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str
         type_obj = {"type": "object"}
         if strict_mode:
             type_obj["additionalProperties"] = False
+
+        # Use explicit properties if provided
+        if hasattr(param_attributes, "properties") and param_attributes.properties:
+            type_obj["properties"] = {
+                name: type_to_open_ai_schema(prop, strict_mode)
+                for name, prop in param_attributes.properties.items()
+            }
+            if strict_mode:
+                type_obj["required"] = list(param_attributes.properties.keys())
+
+    elif param_type == "array":
+        # Handle arrays with explicit item schemas
+        if hasattr(param_attributes, "items") and param_attributes.items:
+            items_schema = type_to_open_ai_schema(param_attributes.items, strict_mode)
+            type_obj = {"type": "array", "items": items_schema}
+        else:
+            # Fallback for arrays without explicit item schema
+            type_obj = {"type": "array", "items": {"type": "object"}}
+            if strict_mode:
+                type_obj["items"]["additionalProperties"] = False
     else:
         match = re.match(pattern, param_type)
 
@@ -33,10 +53,9 @@ def type_to_open_ai_schema(param_attributes: Any, strict_mode: bool) -> dict[str
         if match.group("inner_type"):
             inner_type = match.group("inner_type")
             if inner_type == "object":
-                items_obj: dict[str, Any] = {"type": "object"}
-                if strict_mode:
-                    items_obj["additionalProperties"] = False
-                type_obj = {"type": "array", "items": items_obj}
+                raise ValueError(
+                    "object inner type must have schema. Use ToolParameter.items"
+                )
             else:
                 type_obj = {"type": "array", "items": {"type": inner_type}}
         else:
@@ -61,6 +80,19 @@ def format_tool_to_open_ai_standard(
         )
         if param_attributes.description is not None:
             tool_properties[param_name]["description"] = param_attributes.description
+        # Add enum constraint if specified
+        if hasattr(param_attributes, "enum") and param_attributes.enum:
+            enum_values = list(
+                param_attributes.enum
+            )  # Create a copy to avoid modifying original
+            # In strict mode, optional parameters need None in their enum to match the type allowing null
+            if (
+                strict_mode
+                and not param_attributes.required
+                and None not in enum_values
+            ):
+                enum_values.append(None)
+            tool_properties[param_name]["enum"] = enum_values
 
     result: dict[str, Any] = {
         "type": "function",

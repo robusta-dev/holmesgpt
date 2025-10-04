@@ -26,11 +26,19 @@ from prompt_toolkit.widgets import TextArea
 from pygments.lexers import guess_lexer
 from rich.console import Console
 from rich.markdown import Markdown, Panel
+from rich.markup import escape
 
+from holmes.common.env_vars import ENABLE_CLI_TOOL_APPROVAL
 from holmes.core.config import config_path_dir
+from holmes.core.feedback import (
+    PRIVACY_NOTICE_BANNER,
+    Feedback,
+    FeedbackCallback,
+    UserFeedback,
+)
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
-from holmes.core.tools import pretty_print_toolset_status
+from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
 from holmes.utils.colors import (
     AI_COLOR,
@@ -61,19 +69,25 @@ class SlashCommands(Enum):
     )
     CONTEXT = ("/context", "Show conversation context size and token count")
     SHOW = ("/show", "Show specific tool output in scrollable view")
+    FEEDBACK = ("/feedback", "Provide feedback on the agent's response")
 
     def __init__(self, command, description):
         self.command = command
         self.description = description
 
 
-SLASH_COMMANDS_REFERENCE = {cmd.command: cmd.description for cmd in SlashCommands}
-ALL_SLASH_COMMANDS = [cmd.command for cmd in SlashCommands]
-
-
 class SlashCommandCompleter(Completer):
-    def __init__(self):
-        self.commands = SLASH_COMMANDS_REFERENCE
+    def __init__(self, unsupported_commands: Optional[List[str]] = None):
+        # Build commands dictionary, excluding unsupported commands
+        all_commands = {cmd.command: cmd.description for cmd in SlashCommands}
+        if unsupported_commands:
+            self.commands = {
+                cmd: desc
+                for cmd, desc in all_commands.items()
+                if cmd not in unsupported_commands
+            }
+        else:
+            self.commands = all_commands
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor
@@ -584,6 +598,53 @@ def prompt_for_llm_sharing(
     return None
 
 
+def handle_tool_approval(
+    command: Optional[str],
+    error_message: Optional[str],
+    style: Style,
+    console: Console,
+) -> tuple[bool, Optional[str]]:
+    """
+    Handle user approval for potentially sensitive commands.
+
+    Args:
+        command: The command that needs approval
+        error_message: The error message explaining why approval is needed
+        session: PromptSession for user input
+        style: Style for prompts
+        console: Rich console for output
+
+    Returns:
+        Tuple of (approved: bool, feedback: Optional[str])
+        - approved: True if user approves, False if denied
+        - feedback: User's optional feedback message when denying
+    """
+    console.print("\n[bold yellow]⚠️  Command Approval Required[/bold yellow]")
+    console.print(f"[yellow]Command:[/yellow] {command or 'unknown'}")
+    console.print(f"[yellow]Reason:[/yellow] {error_message or 'unknown'}")
+    console.print()
+
+    # Create a temporary session without history for approval prompts
+    temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+
+    approval_prompt = temp_session.prompt(
+        [("class:prompt", "Do you want to approve and execute this command? (y/N): ")],
+        style=style,
+    )
+
+    if approval_prompt.lower().startswith("y"):
+        return True, None
+    else:
+        # Ask for optional feedback when denying
+        feedback_prompt = temp_session.prompt(
+            [("class:prompt", "Optional feedback for the AI (press Enter to skip): ")],
+            style=style,
+        )
+
+        feedback = feedback_prompt.strip() if feedback_prompt.strip() else None
+        return False, feedback
+
+
 def handle_run_command(
     bash_command: str, session: PromptSession, style: Style, console: Console
 ) -> Optional[str]:
@@ -763,6 +824,88 @@ def handle_last_command(
         )
 
 
+def handle_feedback_command(
+    style: Style,
+    console: Console,
+    feedback: Feedback,
+    feedback_callback: FeedbackCallback,
+) -> None:
+    """Handle the /feedback command to collect user feedback."""
+    try:
+        # Create a temporary session without history for feedback prompts
+        temp_session = PromptSession(history=InMemoryHistory())  # type: ignore
+        # Prominent privacy notice to users
+        console.print(
+            f"[bold {HELP_COLOR}]Privacy Notice:[/bold {HELP_COLOR}] {PRIVACY_NOTICE_BANNER}"
+        )
+        # A "Cancel" button of equal discoverability to "Sent" or "Submit" buttons must be made available
+        console.print(
+            "[bold yellow]💡 Tip: Press Ctrl+C at any time to cancel feedback[/bold yellow]"
+        )
+
+        # Ask for thumbs up/down rating with validation
+        while True:
+            rating_prompt = temp_session.prompt(
+                [("class:prompt", "Was this response useful to you? 👍(y)/👎(n): ")],
+                style=style,
+            )
+
+            rating_lower = rating_prompt.lower().strip()
+            if rating_lower in ["y", "n"]:
+                break
+            else:
+                console.print(
+                    "[bold red]Please enter only 'y' for yes or 'n' for no.[/bold red]"
+                )
+
+        # Determine rating
+        is_positive = rating_lower == "y"
+
+        # Ask for additional comments
+        comment_prompt = temp_session.prompt(
+            [
+                (
+                    "class:prompt",
+                    "Do you want to provide any additional comments for feedback? (press Enter to skip):\n",
+                )
+            ],
+            style=style,
+        )
+
+        comment = comment_prompt.strip() if comment_prompt.strip() else None
+
+        # Create UserFeedback object
+        user_feedback = UserFeedback(is_positive, comment)
+
+        if comment:
+            console.print(
+                f'[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, "{escape(comment)}")[/bold green]'
+            )
+        else:
+            console.print(
+                f"[bold green]✓ Feedback recorded (rating={user_feedback.rating_emoji}, no comment)[/bold green]"
+            )
+
+        # Final confirmation before submitting
+        final_confirmation = temp_session.prompt(
+            [("class:prompt", "\nDo you want to submit this feedback? (Y/n): ")],
+            style=style,
+        )
+
+        # If user says no, cancel the feedback
+        if final_confirmation.lower().strip().startswith("n"):
+            console.print("[dim]Feedback cancelled.[/dim]")
+            return
+
+        feedback.user_feedback = user_feedback
+        feedback_callback(feedback)
+        console.print("[bold green]Thank you for your feedback! 🙏[/bold green]")
+
+    except KeyboardInterrupt:
+        console.print("[dim]Feedback cancelled.[/dim]")
+        return
+
+
 def display_recent_tool_outputs(
     tool_calls: List[ToolCallResult],
     console: Console,
@@ -775,7 +918,10 @@ def display_recent_tool_outputs(
     for tool_call in tool_calls:
         tool_index = find_tool_index_in_history(tool_call, all_tool_calls_history)
         preview_output = format_tool_call_output(tool_call, tool_index)
-        title = f"{tool_call.result.status.to_emoji()} {tool_call.description} -> returned {tool_call.result.return_code}"
+        title = (
+            f"{tool_call.result.status.to_emoji()} {tool_call.description} -> "
+            f"returned {tool_call.result.return_code}"
+        )
 
         console.print(
             Panel(
@@ -798,6 +944,7 @@ def run_interactive_loop(
     runbooks=None,
     system_prompt_additions: Optional[str] = None,
     check_version: bool = True,
+    feedback_callback: Optional[FeedbackCallback] = None,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
@@ -811,8 +958,26 @@ def run_interactive_loop(
         }
     )
 
+    # Set up approval callback for potentially sensitive commands
+    def approval_handler(
+        tool_call_result: StructuredToolResult,
+    ) -> tuple[bool, Optional[str]]:
+        return handle_tool_approval(
+            command=tool_call_result.invocation,
+            error_message=tool_call_result.error,
+            style=style,
+            console=console,
+        )
+
+    if ENABLE_CLI_TOOL_APPROVAL:
+        ai.approval_callback = approval_handler
+
     # Create merged completer with slash commands, conditional executables, show command, and smart paths
-    slash_completer = SlashCommandCompleter()
+    # TODO: remove unsupported_commands support once we implement feedback callback
+    unsupported_commands = []
+    if feedback_callback is None:
+        unsupported_commands.append(SlashCommands.FEEDBACK.command)
+    slash_completer = SlashCommandCompleter(unsupported_commands)
     executable_completer = ConditionalExecutableCompleter()
     show_completer = ShowCommandCompleter()
     path_completer = SmartPathCompleter()
@@ -828,6 +993,9 @@ def run_interactive_loop(
     history = FileHistory(history_file)
     if initial_user_input:
         history.append_string(initial_user_input)
+
+    feedback = Feedback()
+    feedback.metadata.update_llm(ai.llm)
 
     # Create custom key bindings for Ctrl+C behavior
     bindings = KeyBindings()
@@ -901,7 +1069,15 @@ def run_interactive_loop(
 
     input_prompt = [("class:prompt", "User: ")]
 
-    console.print(WELCOME_BANNER)
+    # TODO: merge the /feedback command description to WELCOME_BANNER once we implement feedback callback
+    welcome_banner = WELCOME_BANNER
+    if feedback_callback:
+        welcome_banner = (
+            welcome_banner.rstrip(".")
+            + f", '{SlashCommands.FEEDBACK.command}' to share your thoughts."
+        )
+    console.print(welcome_banner)
+
     if initial_user_input:
         console.print(
             f"[bold {USER_COLOR}]User:[/bold {USER_COLOR}] {initial_user_input}"
@@ -923,14 +1099,18 @@ def run_interactive_loop(
             if user_input.startswith("/"):
                 original_input = user_input.strip()
                 command = original_input.lower()
-
                 # Handle prefix matching for slash commands
-                matches = [cmd for cmd in ALL_SLASH_COMMANDS if cmd.startswith(command)]
+                matches = [
+                    cmd
+                    for cmd in slash_completer.commands.keys()
+                    if cmd.startswith(command)
+                ]
                 if len(matches) == 1:
                     command = matches[0]
                 elif len(matches) > 1:
                     console.print(
-                        f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
+                        f"[bold {ERROR_COLOR}]Ambiguous command '{command}'. "
+                        f"Matches: {', '.join(matches)}[/bold {ERROR_COLOR}]"
                     )
                     continue
 
@@ -940,13 +1120,20 @@ def run_interactive_loop(
                     console.print(
                         f"[bold {HELP_COLOR}]Available commands:[/bold {HELP_COLOR}]"
                     )
-                    for cmd, description in SLASH_COMMANDS_REFERENCE.items():
+                    for cmd, description in slash_completer.commands.items():
+                        # Only show feedback command if callback is available
+                        if (
+                            cmd == SlashCommands.FEEDBACK.command
+                            and feedback_callback is None
+                        ):
+                            continue
                         console.print(f"  [bold]{cmd}[/bold] - {description}")
                     continue
                 elif command == SlashCommands.CLEAR.command:
                     console.clear()
                     console.print(
-                        f"[bold {STATUS_COLOR}]Screen cleared and context reset. You can now ask a new question.[/bold {STATUS_COLOR}]"
+                        f"[bold {STATUS_COLOR}]Screen cleared and context reset. "
+                        f"You can now ask a new question.[/bold {STATUS_COLOR}]"
                     )
                     messages = None
                     last_response = None
@@ -990,6 +1177,12 @@ def run_interactive_loop(
                     if shared_input is None:
                         continue  # User chose not to share or no output, continue to next input
                     user_input = shared_input
+                elif (
+                    command == SlashCommands.FEEDBACK.command
+                    and feedback_callback is not None
+                ):
+                    handle_feedback_command(style, console, feedback, feedback_callback)
+                    continue
                 else:
                     console.print(f"Unknown command: {command}")
                     continue
@@ -1029,6 +1222,7 @@ def run_interactive_loop(
 
             messages = response.messages  # type: ignore
             last_response = response
+            feedback.metadata.add_llm_response(user_input, response.result)
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)
