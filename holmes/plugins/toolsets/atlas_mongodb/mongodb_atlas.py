@@ -4,6 +4,7 @@ from typing import Any, Dict, Tuple, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
@@ -66,8 +67,8 @@ class MongoDBAtlasToolset(Toolset):
                 {"Accept": "application/vnd.atlas.2025-03-12+json"}
             )
             self._session.auth = HTTPDigestAuth(
-                self.config.get("public_key"),
-                self.config.get("private_key"),
+                self.config.get("public_key"),  # type: ignore
+                self.config.get("private_key"),  # type: ignore
             )
             return True, ""
         except Exception:
@@ -118,9 +119,7 @@ class ReturnProjectAlerts(MongoDBAtlasBaseTool):
         project_id = self.toolset.config.get("project_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Alerts ({project_id})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/alerts".format(
                 project_id=self.toolset.config.get("project_id")
@@ -145,9 +144,7 @@ class ReturnProjectProcesses(MongoDBAtlasBaseTool):
         project_id = self.toolset.config.get("project_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Processes ({project_id})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = "https://cloud.mongodb.com/api/atlas/v2/groups/{project_id}/processes".format(
                 project_id=self.toolset.config.get("project_id")
@@ -180,9 +177,7 @@ class ReturnProjectSlowQueries(MongoDBAtlasBaseTool):
         process_id = params.get("process_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Slow Queries ({process_id})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = self.url.format(
                 project_id=self.toolset.config.get("project_id"),
@@ -209,9 +204,7 @@ class ReturnEventsFromProject(MongoDBAtlasBaseTool):
         project_id = self.toolset.config.get("project_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Project Events ({project_id})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         params.update({"itemsPerPage": 500})
         try:
             now_utc = datetime.now(timezone.utc)
@@ -268,9 +261,7 @@ class ReturnLogsForProcessInProject(MongoDBAtlasBaseTool):
         hostname = params.get("hostName", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Host Logs ({hostname})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
         try:
             url = self.url.format(
@@ -324,9 +315,7 @@ class ReturnEventTypeFromProject(MongoDBAtlasBaseTool):
         event_type = params.get("eventType", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Event Details ({event_type})"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = self.url.format(projectId=self.toolset.config.get("project_id"))
 

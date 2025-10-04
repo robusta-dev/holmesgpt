@@ -1,16 +1,17 @@
 import logging
 import os
 from typing import Any, Dict
-
 from uuid import uuid4
+
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
-    Toolset,
-    ToolsetTag,
-    ToolParameter,
-    Tool,
     StructuredToolResult,
     StructuredToolResultStatus,
+    Tool,
+    ToolInvokeContext,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
@@ -28,7 +29,11 @@ class TodoWriteTool(Tool):
                 properties={
                     "id": ToolParameter(type="string", required=True),
                     "content": ToolParameter(type="string", required=True),
-                    "status": ToolParameter(type="string", required=True),
+                    "status": ToolParameter(
+                        type="string",
+                        required=True,
+                        enum=["pending", "in_progress", "completed"],
+                    ),
                 },
             ),
         ),
@@ -72,9 +77,7 @@ class TodoWriteTool(Tool):
             + f"\n{separator}"
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 
@@ -130,7 +133,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

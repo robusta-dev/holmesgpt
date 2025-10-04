@@ -31,6 +31,7 @@ from pydantic import (
 )
 from rich.console import Console
 
+from holmes.core.llm import LLM
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.transformers import (
@@ -157,6 +158,16 @@ class ToolParameter(BaseModel):
     required: bool = True
     properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
     items: Optional["ToolParameter"] = None  # For array item schemas
+    enum: Optional[List[str]] = None  # For restricting to specific values
+
+
+class ToolInvokeContext(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    tool_number: Optional[int] = None
+    user_approved: bool = False
+    llm: LLM
+    max_token_count: int
 
 
 class Tool(ABC, BaseModel):
@@ -225,15 +236,14 @@ class Tool(ABC, BaseModel):
     def invoke(
         self,
         params: Dict,
-        tool_number: Optional[int] = None,
-        user_approved: bool = False,
+        context: ToolInvokeContext,
     ) -> StructuredToolResult:
-        tool_number_str = f"#{tool_number} " if tool_number else ""
+        tool_number_str = f"#{context.tool_number} " if context.tool_number else ""
         logger.info(
             f"Running tool {tool_number_str}[bold]{self.name}[/bold]: {self.get_parameterized_one_liner(params)}"
         )
         start_time = time.time()
-        result = self._invoke(params=params, user_approved=user_approved)
+        result = self._invoke(params=params, context=context)
         result.icon_url = self.icon_url
 
         # Apply transformers to the result
@@ -244,7 +254,7 @@ class Tool(ABC, BaseModel):
             if hasattr(transformed_result, "get_stringified_data")
             else str(transformed_result)
         )
-        show_hint = f"/show {tool_number}" if tool_number else "/show"
+        show_hint = f"/show {context.tool_number}" if context.tool_number else "/show"
         line_count = output_str.count("\n") + 1 if output_str else 0
         logger.info(
             f"  [dim]Finished {tool_number_str}in {elapsed:.2f}s, output length: {len(output_str):,} characters ({line_count:,} lines) - {show_hint} to view contents[/dim]"
@@ -340,7 +350,9 @@ class Tool(ABC, BaseModel):
 
     @abstractmethod
     def _invoke(
-        self, params: dict, user_approved: bool = False
+        self,
+        params: dict,
+        context: ToolInvokeContext,
     ) -> StructuredToolResult:
         """
         params: the tool params
@@ -400,7 +412,9 @@ class YAMLTool(Tool, BaseModel):
         return StructuredToolResultStatus.SUCCESS
 
     def _invoke(
-        self, params: dict, user_approved: bool = False
+        self,
+        params: dict,
+        context: ToolInvokeContext,
     ) -> StructuredToolResult:
         if self.command is not None:
             raw_output, return_code, invocation = self.__invoke_command(params)

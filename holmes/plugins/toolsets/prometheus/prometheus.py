@@ -15,11 +15,14 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
+from holmes.core.tools_utils.token_counting import count_tool_response_tokens
+from holmes.core.tools_utils.tool_context_window_limiter import get_pct_token_count
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
@@ -42,8 +45,6 @@ PROMETHEUS_METADATA_API_LIMIT = 100  # Default limit for Prometheus metadata API
 # Default timeout values for PromQL queries
 DEFAULT_QUERY_TIMEOUT_SECONDS = 20
 MAX_QUERY_TIMEOUT_SECONDS = 180
-# Default character limit for query responses to prevent token limit issues
-DEFAULT_QUERY_RESPONSE_SIZE_LIMIT = 30000
 # Default timeout for metadata API calls (discovery endpoints)
 DEFAULT_METADATA_TIMEOUT_SECONDS = 20
 MAX_METADATA_TIMEOUT_SECONDS = 60
@@ -91,9 +92,12 @@ class PrometheusConfig(BaseModel):
     rules_cache_duration_seconds: Optional[int] = 1800  # 30 minutes
     additional_labels: Optional[Dict[str, str]] = None
     prometheus_ssl_enabled: bool = True
-    query_response_size_limit: Optional[int] = (
-        DEFAULT_QUERY_RESPONSE_SIZE_LIMIT  # Limit the max number of characters in a query result to proactively prevent token limit issues (roughly 5-6k tokens)
-    )
+
+    # Custom limit to the max number of tokens that a query result can take to proactively
+    #   prevent token limit issues. Expressed in % of the model's context window.
+    # This limit only overrides the global limit for all tools  (TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT)
+    #   if it is lower.
+    query_response_size_limit_pct: Optional[int] = None
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
@@ -318,7 +322,7 @@ def add_prometheus_auth(prometheus_auth_header: Optional[str]) -> Dict[str, Any]
 
 
 def create_data_summary_for_large_result(
-    result_data: Dict, query: str, data_size_chars: int, is_range_query: bool = False
+    result_data: Dict, query: str, data_size_tokens: int, is_range_query: bool = False
 ) -> Dict[str, Any]:
     """
     Create a summary for large Prometheus results instead of returning full data.
@@ -326,7 +330,7 @@ def create_data_summary_for_large_result(
     Args:
         result_data: The Prometheus data result
         query: The original PromQL query
-        data_size_chars: Size of the data in characters
+        data_size_tokens: Size of the data in tokens
         is_range_query: Whether this is a range query (vs instant query)
 
     Returns:
@@ -361,10 +365,10 @@ def create_data_summary_for_large_result(
         )
 
         return {
-            "message": f"Data too large to return ({data_size_chars:,} characters). Query returned {num_items} time series with {total_points:,} total data points.",
+            "message": f"Data too large to return ({data_size_tokens:,} tokens). Query returned {num_items} time series with {total_points:,} total data points.",
             "series_count": num_items,
             "total_data_points": total_points,
-            "data_size_characters": data_size_chars,
+            "data_size_tokens": data_size_tokens,
             "label_cardinality": label_summary,
             "suggestion": f'Consider using topk({min(5, num_items)}, {query}) to limit results to the top {min(5, num_items)} series. To also capture remaining data as \'other\': topk({min(5, num_items)}, {query}) or label_replace((sum({query}) - sum(topk({min(5, num_items)}, {query}))), "pod", "other", "", "")',
         }
@@ -394,13 +398,44 @@ def create_data_summary_for_large_result(
         )
 
         return {
-            "message": f"Data too large to return ({data_size_chars:,} characters). Query returned {num_items} results.",
+            "message": f"Data too large to return ({data_size_tokens:,} tokens). Query returned {num_items} results.",
             "result_count": num_items,
             "result_type": result_type,
-            "data_size_characters": data_size_chars,
+            "data_size_tokens": data_size_tokens,
             "label_cardinality": label_summary,
             "suggestion": f'Consider using topk({min(5, num_items)}, {query}) to limit results. To also capture remaining data as \'other\': topk({min(5, num_items)}, {query}) or label_replace((sum({query}) - sum(topk({min(5, num_items)}, {query}))), "instance", "other", "", "")',
         }
+
+
+class MetricsBasedResponse(BaseModel):
+    status: str
+    error_message: Optional[str] = None
+    data: Optional[str] = None
+    random_key: str
+    tool_name: str
+    description: str
+    query: str
+    start: Optional[str] = None
+    end: Optional[str] = None
+    step: Optional[float] = None
+    output_type: Optional[str] = None
+    data_summary: Optional[dict[str, Any]] = None
+
+
+def create_structured_tool_result(
+    params: dict, response: MetricsBasedResponse
+) -> StructuredToolResult:
+    status = StructuredToolResultStatus.SUCCESS
+    if response.error_message or response.status.lower() in ("failed", "error"):
+        status = StructuredToolResultStatus.ERROR
+    elif not response.data:
+        status = StructuredToolResultStatus.NO_DATA
+
+    return StructuredToolResult(
+        status=status,
+        data=response.model_dump_json(indent=2),
+        params=params,
+    )
 
 
 class ListPrometheusRules(BasePrometheusTool):
@@ -413,9 +448,7 @@ class ListPrometheusRules(BasePrometheusTool):
         )
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -533,9 +566,7 @@ class GetMetricNames(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -654,9 +685,7 @@ class GetLabelValues(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -770,9 +799,7 @@ class GetAllLabels(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -877,9 +904,7 @@ class GetSeries(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -981,9 +1006,7 @@ class GetMetricMetadata(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1072,9 +1095,7 @@ class ExecuteInstantQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1120,56 +1141,64 @@ class ExecuteInstantQuery(BasePrometheusTool):
                     error_message = (
                         "The prometheus query returned no result. Is the query correct?"
                     )
-                response_data = {
-                    "status": status,
-                    "error_message": error_message,
-                    "random_key": generate_random_key(),
-                    "tool_name": self.name,
-                    "description": description,
-                    "query": query,
-                }
-
+                response_data = MetricsBasedResponse(
+                    status=status,
+                    error_message=error_message,
+                    random_key=generate_random_key(),
+                    tool_name=self.name,
+                    description=description,
+                    query=query,
+                )
+                structured_tool_result: StructuredToolResult
                 # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
                     result_data = data.get("data", {})
+                    response_data.data = result_data
 
-                    # Estimate the size of the data
-                    data_str_preview = json.dumps(result_data)
-                    data_size_chars = len(data_str_preview)
+                    structured_tool_result = create_structured_tool_result(
+                        params=params, response=response_data
+                    )
+                    token_count = count_tool_response_tokens(
+                        llm=context.llm, structured_tool_result=structured_tool_result
+                    )
+
+                    token_limit = context.max_token_count
+                    if self.toolset.config.query_response_size_limit_pct:
+                        custom_token_limit = get_pct_token_count(
+                            percent_of_total_context_window=self.toolset.config.query_response_size_limit_pct,
+                            llm=context.llm,
+                        )
+                        if custom_token_limit < token_limit:
+                            token_limit = custom_token_limit
 
                     # Provide summary if data is too large
-                    if (
-                        self.toolset.config.query_response_size_limit
-                        and data_size_chars
-                        > self.toolset.config.query_response_size_limit
-                    ):
-                        response_data["data_summary"] = (
+                    if token_count > token_limit:
+                        response_data.data = None
+                        response_data.data_summary = (
                             create_data_summary_for_large_result(
                                 result_data,
                                 query,
-                                data_size_chars,
+                                token_count,
                                 is_range_query=False,
                             )
                         )
                         logging.info(
                             f"Prometheus instant query returned large dataset: "
-                            f"{response_data['data_summary'].get('result_count', 0)} results, "
-                            f"{data_size_chars:,} characters (limit: {self.toolset.config.query_response_size_limit:,}). "
+                            f"{response_data.data_summary.get('result_count', 0)} results, "
+                            f"{token_count:,} tokens (limit: {token_limit:,}). "
                             f"Returning summary instead of full data."
                         )
-                        # Also add character info to the summary for debugging
-                        response_data["data_summary"]["_debug_info"] = (
-                            f"Data size: {data_size_chars:,} chars exceeded limit of {self.toolset.config.query_response_size_limit:,} chars"
+                        # Also add token info to the summary for debugging
+                        response_data.data_summary["_debug_info"] = (
+                            f"Data size: {token_count:,} tokens exceeded limit of {token_limit:,} tokens"
                         )
                     else:
-                        response_data["data"] = result_data
+                        response_data.data = result_data
 
-                data_str = json.dumps(response_data, indent=2)
-                return StructuredToolResult(
-                    status=StructuredToolResultStatus.SUCCESS,
-                    data=data_str,
-                    params=params,
+                structured_tool_result = create_structured_tool_result(
+                    params=params, response=response_data
                 )
+                return structured_tool_result
 
             # Handle known Prometheus error status codes
             error_msg = "Unknown error occurred"
@@ -1280,9 +1309,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -1352,58 +1379,68 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     error_message = (
                         "The prometheus query returned no result. Is the query correct?"
                     )
-                response_data = {
-                    "status": status,
-                    "error_message": error_message,
-                    "random_key": generate_random_key(),
-                    "tool_name": self.name,
-                    "description": description,
-                    "query": query,
-                    "start": start,
-                    "end": end,
-                    "step": step,
-                    "output_type": output_type,
-                }
+                response_data = MetricsBasedResponse(
+                    status=status,
+                    error_message=error_message,
+                    random_key=generate_random_key(),
+                    tool_name=self.name,
+                    description=description,
+                    query=query,
+                    start=start,
+                    end=end,
+                    step=step,
+                    output_type=output_type,
+                )
+
+                structured_tool_result: StructuredToolResult
 
                 # Check if data should be included based on size
                 if self.toolset.config.tool_calls_return_data:
                     result_data = data.get("data", {})
+                    response_data.data = result_data
+                    structured_tool_result = create_structured_tool_result(
+                        params=params, response=response_data
+                    )
 
-                    # Estimate the size of the data
-                    data_str_preview = json.dumps(result_data)
-                    data_size_chars = len(data_str_preview)
+                    token_count = count_tool_response_tokens(
+                        llm=context.llm, structured_tool_result=structured_tool_result
+                    )
+
+                    token_limit = context.max_token_count
+                    if self.toolset.config.query_response_size_limit_pct:
+                        custom_token_limit = get_pct_token_count(
+                            percent_of_total_context_window=self.toolset.config.query_response_size_limit_pct,
+                            llm=context.llm,
+                        )
+                        if custom_token_limit < token_limit:
+                            token_limit = custom_token_limit
 
                     # Provide summary if data is too large
-                    if (
-                        self.toolset.config.query_response_size_limit
-                        and data_size_chars
-                        > self.toolset.config.query_response_size_limit
-                    ):
-                        response_data["data_summary"] = (
+                    if token_count > token_limit:
+                        response_data.data = None
+                        response_data.data_summary = (
                             create_data_summary_for_large_result(
-                                result_data, query, data_size_chars, is_range_query=True
+                                result_data, query, token_count, is_range_query=True
                             )
                         )
                         logging.info(
                             f"Prometheus range query returned large dataset: "
-                            f"{response_data['data_summary'].get('series_count', 0)} series, "
-                            f"{data_size_chars:,} characters (limit: {self.toolset.config.query_response_size_limit:,}). "
+                            f"{response_data.data_summary.get('series_count', 0)} series, "
+                            f"{token_count:,} tokens (limit: {token_limit:,}). "
                             f"Returning summary instead of full data."
                         )
                         # Also add character info to the summary for debugging
-                        response_data["data_summary"]["_debug_info"] = (
-                            f"Data size: {data_size_chars:,} chars exceeded limit of {self.toolset.config.query_response_size_limit:,} chars"
+                        response_data.data_summary["_debug_info"] = (
+                            f"Data size: {token_count:,} tokens exceeded limit of {token_limit:,} tokens"
                         )
                     else:
-                        response_data["data"] = result_data
+                        response_data.data = result_data
 
-                data_str = json.dumps(response_data, indent=2)
-
-                return StructuredToolResult(
-                    status=StructuredToolResultStatus.SUCCESS,
-                    data=data_str,
-                    params=params,
+                structured_tool_result = create_structured_tool_result(
+                    params=params, response=response_data
                 )
+
+                return structured_tool_result
 
             error_msg = "Unknown error occurred"
             if response.status_code in [400, 429]:

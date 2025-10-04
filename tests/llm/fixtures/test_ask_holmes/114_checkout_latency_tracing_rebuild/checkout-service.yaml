@@ -112,79 +112,79 @@
       if __name__ == '__main__':
           print("[CHECKOUT] Starting checkout service on port 8080", flush=True)
           app.run(host='0.0.0.0', port=8080)
-  ---
-  apiVersion: apps/v1
-  kind: Deployment
-  metadata:
-    name: checkout
-  spec:
-    replicas: 1
-    selector:
-      matchLabels:
-        app: checkout
-    template:
-      metadata:
-        labels:
-          app: checkout
-      spec:
-        containers:
-        - name: checkout
-          image: python:3.11-slim
-          command: ["/bin/bash", "-c"]
-          args:
-          - |
-            pip install flask opentelemetry-api opentelemetry-sdk \
-              opentelemetry-instrumentation-flask \
-              opentelemetry-exporter-otlp-proto-grpc && \
-            python /app/app.py
-          volumeMounts:
-          - name: app
-            mountPath: /app
-          ports:
-          - containerPort: 8080
-          env:
-          - name: PYTHONUNBUFFERED
-            value: "1"
-          - name: K8S_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-          - name: K8S_POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: K8S_NODE_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: spec.nodeName
-          startupProbe:
-            httpGet:
-              path: /health
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            timeoutSeconds: 3
-            successThreshold: 1
-            failureThreshold: 24
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "50m"
-            limits:
-              memory: "256Mi"
-              cpu: "200m"
-        volumes:
-        - name: app
-          secret:
-            secretName: checkout-app
-  ---
-  apiVersion: v1
-  kind: Service
-  metadata:
-    name: checkout
-  spec:
-    selector:
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: checkout
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
       app: checkout
-    ports:
-    - port: 8080
-      targetPort: 8080
+  template:
+    metadata:
+      labels:
+        app: checkout
+    spec:
+      containers:
+      - name: checkout
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
+        volumeMounts:
+        - name: app
+          mountPath: /app
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 60
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "256Mi"
+      volumes:
+      - name: app
+        secret:
+          secretName: checkout-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: checkout
+spec:
+  selector:
+    app: checkout
+  ports:
+  - port: 8080
+    targetPort: 8080

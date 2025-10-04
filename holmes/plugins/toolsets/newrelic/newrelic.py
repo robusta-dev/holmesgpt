@@ -4,17 +4,16 @@ from typing import Any, Optional, Dict, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
 )
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
-from holmes.plugins.toolsets.prometheus.model import PromResponse
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
 import yaml
-import json
 from holmes.utils.keygen_utils import generate_random_key
 
 
@@ -76,27 +75,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
         self._toolset = toolset
 
-    def format_metrics(
-        self,
-        records: List[Dict[str, Any]],
-        params: Optional[Dict[str, Any]] = None,
-        begin_key: str = "beginTimeSeconds",
-        end_key: str = "endTimeSeconds",
-        facet_key: str = "facet",
-    ) -> Dict[str, Any]:
-        resp = PromResponse.from_newrelic_records(
-            records=records,
-            tool_name=self.name,
-            params=params or {},
-            begin_key=begin_key,
-            end_key=end_key,
-            facet_key=facet_key,
-        )
-        return resp.to_json()
-
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self._toolset.nr_api_key or not self._toolset.nr_account_id:
             raise ValueError("NewRelic API key or account ID is not configured")
 
@@ -107,52 +86,28 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
 
         query = params["query"]
-        result: List[Dict[str, Any]] = api.execute_nrql_query(query)
-
+        result = api.execute_nrql_query(query)
         qtype = params.get("query_type", "").lower()
 
-        if qtype == "traces":
-            response_data = {
+        if self._toolset.format_results and qtype == "logs":
+            formatted = self._format_logs(result)
+            final_result = yaml.dump(formatted, default_flow_style=False)
+        else:
+            result_with_key = {
                 "random_key": generate_random_key(),
                 "tool_name": self.name,
                 "query": query,
                 "data": result,
                 "is_eu": self._toolset.is_eu_datacenter,
             }
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.SUCCESS,
-                data=json.dumps(response_data, indent=2),
-                params=params,
-            )
-        elif qtype == "logs":
-            formatted = self.format_logs(result)
-            # For logs we keep your existing YAML output (unchanged)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.SUCCESS,
-                data=yaml.dump(formatted, default_flow_style=False),
-                params=params,
-            )
-
-        # Treat explicit "Metrics" OR any query containing TIMESERIES as metrics
-        if qtype == "metrics" or "timeseries" in query.lower():
-            enriched_params = dict(params)
-            enriched_params["query"] = query
-            return_result = self.format_metrics(result, params=enriched_params)
-            if len(return_result.get("data", {}).get("results", [])):
-                return_result = result  # type: ignore[assignment]
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.SUCCESS,
-                data=json.dumps(return_result, indent=2),
-                params=params,
-            )
-
+            final_result = yaml.dump(result_with_key, default_flow_style=False)
         return StructuredToolResult(
             status=StructuredToolResultStatus.SUCCESS,
-            data=yaml.dump(result, default_flow_style=False),
+            data=final_result,
             params=params,
         )
 
-    def format_logs(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _format_logs(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Build a single grouped object from a list of log records.
         """
@@ -205,12 +160,14 @@ class NewrelicConfig(BaseModel):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
     is_eu_datacenter: Optional[bool] = False
+    format_results: Optional[bool] = False
 
 
 class NewRelicToolset(Toolset):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
     is_eu_datacenter: bool = False
+    format_results: bool = False
 
     def __init__(self):
         super().__init__(
@@ -222,7 +179,6 @@ class NewRelicToolset(Toolset):
             tools=[
                 ExecuteNRQLQuery(self),
             ],
-            experimental=False,
             tags=[ToolsetTag.CORE],
         )
         template_file_path = os.path.abspath(
@@ -241,6 +197,7 @@ class NewRelicToolset(Toolset):
             self.nr_account_id = nr_config.nr_account_id
             self.nr_api_key = nr_config.nr_api_key
             self.is_eu_datacenter = nr_config.is_eu_datacenter or False
+            self.format_results = nr_config.format_results or False
 
             if not self.nr_account_id or not self.nr_api_key:
                 return False, "New Relic account ID or API key is missing"
@@ -249,9 +206,6 @@ class NewRelicToolset(Toolset):
         except Exception as e:
             logging.exception("Failed to set up New Relic toolset")
             return False, str(e)
-
-    def call_nerdql(self):
-        pass
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
