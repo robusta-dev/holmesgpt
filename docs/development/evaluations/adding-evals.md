@@ -37,7 +37,7 @@ spec:
 
 4. Run test:
 ```bash
-pytest tests/llm/test_ask_holmes.py -k "99_your_test" -v
+poetry run pytest tests/llm/test_ask_holmes.py -k "99_your_test" -v
 ```
 
 ## Test Configuration
@@ -76,17 +76,56 @@ pytest tests/llm/test_ask_holmes.py -k "99_your_test" -v
 - `conversation_history`: For multi-turn conversation tests
 - `expected_sections`: For investigation tests only
 
-## Mock Generation
+## Mock Data Usage
+
+**Live evaluations (`RUN_LIVE=true`) are strongly preferred** because they're more reliable and accurate.
+
+### Why Live Evaluations Are Preferred
+
+**LLMs can take multiple paths to reach the same conclusion.** When using mock data:
+- The LLM might call tools in a different order than when mocks were generated
+- It might use different tool combinations to diagnose the same issue
+- It might ask for additional information not captured in the mocks
+- Mock data represents only one possible investigation path
+
+With live evaluations, the LLM can explore any path it chooses, making tests more robust and realistic.
+
+### When Mock Data Is Necessary
+
+Mock data is sometimes unavoidable:
+- CI/CD environments without Kubernetes cluster access
+- Testing specific edge cases that require controlled responses
+- Reproducing exact historical scenarios
+
+**Important**: Even when using mocks, always validate with `RUN_LIVE=true` in a real environment.
+
+### Generating Mock Data
 
 ```bash
 # Generate mocks for one test
-ITERATIONS=100 pytest tests/llm/test_ask_holmes.py -k "your_test" --generate-mocks
+poetry run pytest tests/llm/test_ask_holmes.py -k "your_test" --generate-mocks
 
 # Remove any existing mocks for your test and generate them from scratch
-pytest tests/llm/test_ask_holmes.py -k "your_test" --regenerate-all-mocks
+poetry run pytest tests/llm/test_ask_holmes.py -k "your_test" --regenerate-all-mocks
 ```
 
 Mock files are named: `{tool_name}_{context}.txt`
+
+### Mock Data Guidelines
+
+When creating mock data:
+- Never generate mock data manually - always use `--generate-mocks` with live execution
+- Mock data should match real-world responses exactly
+- Include all fields that would be present in actual responses
+- Maintain proper timestamps and data relationships
+
+### Important Notes About Mocks
+
+- **Mock data captures only one investigation path** - LLMs may take completely different approaches
+- Tests with mocks often fail when the LLM chooses a different but equally valid investigation strategy
+- Mock execution misses the dynamic nature of real troubleshooting
+- Always develop and validate tests with `RUN_LIVE=true`
+- Mock data becomes stale as APIs and tool behaviors evolve
 
 ## Advanced Features
 
