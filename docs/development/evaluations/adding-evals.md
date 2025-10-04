@@ -83,6 +83,7 @@ poetry run pytest tests/llm/test_ask_holmes.py -k "99_your_test" -v
 ### Why Live Evaluations Are Preferred
 
 **LLMs can take multiple paths to reach the same conclusion.** When using mock data:
+
 - The LLM might call tools in a different order than when mocks were generated
 - It might use different tool combinations to diagnose the same issue
 - It might ask for additional information not captured in the mocks
