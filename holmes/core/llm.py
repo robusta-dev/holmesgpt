@@ -420,7 +420,7 @@ class LLMModelRegistry:
         # so we need to check if the user has set an OPENAI_API_KEY to load the config model.
         has_openai_key = os.environ.get("OPENAI_API_KEY")
         if has_openai_key:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4.1"
             return True
 
         return False
@@ -466,6 +466,7 @@ class LLMModelRegistry:
                 "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
+                # This seems like a mistake?
                 "model": "gpt-4o",
             }
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
@@ -535,6 +536,7 @@ class LLMModelRegistry:
         self, model_name: str, args: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         entry = self._create_model_entry(
+            # this also seems like a mistake? (wont token counts be wrong etc)
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
