@@ -53,7 +53,7 @@ def count_results(results: List[dict], result_type: ResultType) -> int:
         return sum(1 for r in results if r.get("mock_data_failure", False))
 
     if result_type == ResultType.THROTTLED:
-        return sum(1 for r in results if r.get("is_throttled", False))
+        return sum(1 for r in results if r.get("failed_due_to_throttling", False))
 
     if result_type == ResultType.FAILED:
         # Real failures (not mock, setup, or throttled)
@@ -63,7 +63,7 @@ def count_results(results: List[dict], result_type: ResultType) -> int:
             if not TestStatus(r).passed
             and not r.get("mock_data_failure", False)
             and not r.get("is_setup_failure", False)
-            and not r.get("is_throttled", False)
+            and not r.get("failed_due_to_throttling", False)
             and r.get("status") != "skipped"
         )
 

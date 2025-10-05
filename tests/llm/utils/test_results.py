@@ -51,7 +51,9 @@ class TestStatus:
             "status", ""
         )  # pytest status (passed, failed, skipped, etc.)
         self.is_setup_failure = result.get("is_setup_failure", False)
-        self.is_throttled = result.get("is_throttled", False)
+        # Throttling flags
+        self.failed_due_to_throttling = result.get("failed_due_to_throttling", False)
+        self.encountered_throttling = result.get("encountered_throttling", False)
 
     @property
     def passed(self) -> bool:
@@ -70,7 +72,7 @@ class TestStatus:
             or self.passed
             or self.is_mock_failure
             or self.is_setup_failure
-            or self.is_throttled
+            or self.failed_due_to_throttling
         ):
             return False
         # Known failure (expected to fail)
@@ -80,7 +82,7 @@ class TestStatus:
 
     @property
     def markdown_symbol(self) -> str:
-        if self.is_throttled:
+        if self.failed_due_to_throttling:
             return ":no_entry_sign:"
         elif self.is_skipped:
             return ":minus:"
@@ -97,7 +99,7 @@ class TestStatus:
 
     @property
     def console_status(self) -> str:
-        if self.is_throttled:
+        if self.failed_due_to_throttling:
             return "[red]THROTTLED[/red]"
         elif self.is_skipped:
             return "[cyan]SKIPPED[/cyan]"
@@ -112,7 +114,7 @@ class TestStatus:
 
     @property
     def short_status(self) -> str:
-        if self.is_throttled:
+        if self.failed_due_to_throttling:
             return "THROTTLED"
         elif self.is_skipped:
             return "SKIPPED"
