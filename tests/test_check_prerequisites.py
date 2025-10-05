@@ -340,8 +340,9 @@ def test_check_prerequisites_env_before_command():
             self.original_in = os.environ.__contains__
 
         def __call__(self, key):
-            if key == "TEST_ENV" and "env_check" not in executed:
-                executed.append("env_check")
+            if key == "TEST_ENV":
+                if "env_check" not in executed:
+                    executed.append("env_check")
             return self.original_in(key)
 
     # Mock that tracks command execution
@@ -359,11 +360,9 @@ def test_check_prerequisites_env_before_command():
     toolset = SampleToolset(prerequisites=prerequisites, config={})
 
     # Patch both env check and subprocess
-    from holmes.core import tools
-
     env_tracker = EnvTracker()
 
-    with patch.object(tools.os.environ, "__contains__", env_tracker):
+    with patch.object(os.environ.__class__, "__contains__", env_tracker):
         with patch("subprocess.run", side_effect=mock_run):
             toolset.check_prerequisites()
 
