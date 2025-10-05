@@ -466,7 +466,7 @@ class LLMModelRegistry:
                 "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
-                # This seems like a mistake?
+                # TODO: tech debt, this isn't really gpt-4o at all
                 "model": "gpt-4o",
             }
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
@@ -536,7 +536,7 @@ class LLMModelRegistry:
         self, model_name: str, args: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         entry = self._create_model_entry(
-            # this also seems like a mistake? (wont token counts be wrong etc)
+            # TODO: tech debt, this isn't really gpt-4o at all (wont token counts be wrong etc)
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
