@@ -805,7 +805,13 @@ def _collect_test_results_from_stats(terminalreporter):
                 "mock_data_failure": mock_data_failure,
                 "user_prompt": user_props.get("user_prompt", ""),
                 "is_setup_failure": user_props.get("is_setup_failure", False),
-                "is_throttled": user_props.get("is_throttled", False),
+                # Throttling flags
+                "failed_due_to_throttling": user_props.get(
+                    "failed_due_to_throttling", False
+                ),  # Terminal failure after max retries
+                "encountered_throttling": user_props.get(
+                    "encountered_throttling", False
+                ),  # Any throttling during execution
                 "model": user_props.get("model", "Unknown"),
                 "clean_test_case_id": user_props.get("clean_test_case_id"),
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
