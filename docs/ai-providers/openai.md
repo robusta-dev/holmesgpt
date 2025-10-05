@@ -122,6 +122,7 @@ holmes ask "what pods are failing?" --model="gpt-5"
 
 !!! tip "Best Results"
     For optimal investigation quality, consider using Anthropic's Claude models:
+
     - **Claude Opus 4.1**: Most powerful for complex investigations
     - **Claude Sonnet 4.5 or 4**: Best balance of speed and quality
 
