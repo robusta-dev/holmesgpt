@@ -698,73 +698,8 @@ def generate_eval_dashboard_heatmap(results: Dict[str, Any]) -> str:
     lines.append("- ⏭️ Test skipped (e.g., known issue or precondition not met)")
     lines.append("")
 
-    # Custom sort function to prioritize by status
-    def get_eval_sort_key(eval_case):
-        """Sort key that prioritizes: real runs (pass/fail) > any mock failures > setup failures > skips"""
-        # Get the status across all models for this eval
-        has_real_runs = False
-        has_mock_failures = False
-        all_setup_failures = True
-        all_skipped = True
-        total_mock_failure_count = 0  # Count total mock failures across all models
-
-        for model in all_models:
-            stats = eval_model_stats[eval_case][model]
-            if stats["total"] > 0:
-                mock_failures = stats.get("mock_failures", 0)
-                setup_failures = stats.get("setup_failures", 0)
-                skipped = stats.get("skipped", 0)
-                valid_tests = stats["total"] - mock_failures - setup_failures - skipped
-
-                # Add to total mock failure count
-                total_mock_failure_count += mock_failures
-
-                if valid_tests > 0:
-                    has_real_runs = True
-                    all_setup_failures = False
-                    all_skipped = False
-                if mock_failures > 0:
-                    has_mock_failures = True
-                    all_skipped = False
-                if setup_failures == 0:
-                    all_setup_failures = False
-                if skipped == 0:
-                    all_skipped = False
-
-        # Return tuple for sorting: (priority_group, sub_priority, eval_name)
-        # Priority groups:
-        # 0 = has real runs (pass/fail) - rows with at least one model having real test runs
-        # 1 = has any mock failures (even if some models have real runs) - rows with at least one mock failure
-        # 2 = all setup failures (no real runs or mock failures)
-        # 3 = all skipped
-
-        # If the row has both real runs and mock failures, it still goes in the mock failures group
-        # This ensures rows with ANY mock failures appear after all rows with only real runs
-        if has_mock_failures:
-            # Even if there are real runs, if ANY model has mock failures, sort it later
-            # Sub-sort by number of mock failures (fewer first, more later)
-            priority = 1
-            sub_priority = (
-                total_mock_failure_count  # More mock failures = later in sort
-            )
-        elif has_real_runs:
-            # Only real runs, no mock failures
-            priority = 0
-            sub_priority = 0
-        elif all_setup_failures and not all_skipped:
-            priority = 2
-            sub_priority = 0
-        elif all_skipped:
-            priority = 3
-            sub_priority = 0
-        else:
-            priority = 2  # Mixed setup failures and skips
-            sub_priority = 0
-
-        return (priority, sub_priority, eval_case)
-
-    # Sort evals with custom function, models alphabetically with aliasing
-    sorted_evals = sorted(all_evals, key=get_eval_sort_key)
+    # Sort evals alphabetically by name
+    sorted_evals = sorted(all_evals)
 
     # Sort models using shared sorting function
     sorted_models = sorted(all_models, key=get_model_sort_key)

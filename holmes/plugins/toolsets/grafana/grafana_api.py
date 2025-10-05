@@ -27,7 +27,7 @@ def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
         response.raise_for_status()
         return True, ""
     except Exception as e:
-        logging.error(f"Failed to fetch grafana health status at {url}", exc_info=True)
+        logging.debug(f"Failed to fetch grafana health status at {url}", exc_info=True)
         error_msg = f"Failed to fetch grafana health status at {url}. {str(e)}"
 
         # Add helpful hint if this looks like a common misconfiguration
