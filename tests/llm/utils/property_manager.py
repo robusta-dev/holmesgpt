@@ -289,8 +289,8 @@ def handle_test_error(
     )
 
     if is_throttled_error:
-        # Mark as throttled
-        request.node.user_properties.append(("is_throttled", True))
+        # Mark as failed due to throttling (terminal failure after max retries)
+        request.node.user_properties.append(("failed_due_to_throttling", True))
         request.node.user_properties.append(("throttle_reason", str(error)))
         return  # Don't check for other error types
 

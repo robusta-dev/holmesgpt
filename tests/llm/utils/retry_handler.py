@@ -120,6 +120,10 @@ def retry_on_throttle(
 
             last_error = e
 
+            # Mark that we encountered throttling (even if we might succeed later)
+            if request and attempt == 0:  # Only mark once on first throttle
+                request.node.user_properties.append(("encountered_throttling", True))
+
             # Check if retries are disabled
             if not retry_enabled:
                 warning = (
