@@ -9,7 +9,7 @@ import sentry_sdk
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
 
-from holmes.common.env_vars import ROBUSTA_CONFIG_PATH, DEFAULT_MODEL
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
@@ -44,7 +44,7 @@ class SupportedTicketSources(str, Enum):
 
 
 class Config(RobustaBaseConfig):
-    model: Optional[str] = DEFAULT_MODEL
+    model: Optional[str] = None
     api_base: Optional[str] = None
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
