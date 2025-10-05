@@ -203,7 +203,7 @@ class DefaultLLM(LLM):
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 128k tokens for max_input_tokens. "
+            f"using default {FALLBACK_CONTEXT_WINDOW_SIZE} tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
         return FALLBACK_CONTEXT_WINDOW_SIZE
