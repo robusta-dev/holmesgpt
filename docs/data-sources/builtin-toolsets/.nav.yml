@@ -5,6 +5,8 @@ nav:
   - AWS: aws.md
   - Azure Kubernetes Service: aks.md
   - Azure SQL Database: azure-sql.md
+  - Bash: bash.md
+  - Cilium: cilium.md
   - Confluence: confluence.md
   - Coralogix logs: coralogix-logs.md
   - DataDog: datadog.md

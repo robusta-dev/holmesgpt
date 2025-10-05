@@ -91,11 +91,11 @@ class TestTodoWriteTool:
 
         params = {"todos": [{"content": "task1"}, {"content": "task2"}]}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert f"{params.get('todos')} investigation tasks" in one_liner
+        assert one_liner == "Update investigation tasks"
 
         params = {"todos": []}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert f"{params.get('todos')} investigation tasks" in one_liner
+        assert one_liner == "Update investigation tasks"
 
     def test_task_status_enum(self):
         """Test TaskStatus enum values."""

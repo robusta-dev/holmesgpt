@@ -42,7 +42,6 @@ class MongoDBAtlasToolset(Toolset):
     def __init__(self):
         super().__init__(
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            experimental=True,
             tools=[
                 ReturnProjectAlerts(toolset=self),
                 ReturnProjectProcesses(toolset=self),
