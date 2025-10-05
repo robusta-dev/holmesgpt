@@ -127,6 +127,8 @@ holmes ask "what pods are failing?" --model="gpt-5"
 
     GPT-4.1 provides a good alternative with faster response times.
 
+    See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
+
 ## GPT-5 Reasoning Effort
 
 When using GPT-5 models, you can control the reasoning effort level by setting the `REASONING_EFFORT` environment variable. This allows you to balance between response quality and processing time/cost.

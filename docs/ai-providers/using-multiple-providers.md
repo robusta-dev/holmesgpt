@@ -158,7 +158,7 @@ If you're a Robusta SaaS customer, you can also use [Robusta AI](robusta-ai.md) 
 ## Best Practices
 
 1. **Secure API keys**: Always use Kubernetes secrets for API keys
-2. **Model recommendations**: For best results, consider using Anthropic's Claude Opus 4.1 or Claude Sonnet 4 models. GPT-4.1 provides a good balance of speed and capability as an alternative.
+2. **Model recommendations**: For best results, consider using Anthropic's Claude Opus 4.1 or Claude Sonnet 4 models. GPT-4.1 provides a good balance of speed and capability as an alternative. See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
 
 ## Limitations
 

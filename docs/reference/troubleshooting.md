@@ -72,6 +72,8 @@ config:
 - `anthropic/claude-sonnet-4-20250514` - Superior reasoning with faster performance
 - `gpt-4.1` - Good balance of speed/capability
 
+See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
+
 ---
 
 ## Still stuck?
