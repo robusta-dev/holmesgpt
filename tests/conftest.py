@@ -11,7 +11,7 @@ DEFAULT_ROBUSTA_MODEL = "Robusta/gpt-5-mini preview (minimal reasoning)"
 ROBUSTA_SONNET_4_MODEL = "Robusta/sonnet-4 preview"
 
 # Map of Robusta model names to their underlying LiteLLM model names
-ROBUSTA_MODELS = {
+ROBUSTA_MODELS: dict[str, str] = {
     ROBUSTA_SONNET_4_MODEL: "claude-sonnet-4-20250514",
     "Robusta/gpt-5-mini preview (minimal reasoning)": "azure/gpt-5-mini",
     "Robusta/gpt-5 preview (minimal reasoning)": "azure/gpt-5",
