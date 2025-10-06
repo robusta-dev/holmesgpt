@@ -46,21 +46,18 @@ class TempoAPIError(Exception):
 class GrafanaTempoAPI:
     """Python wrapper for Grafana Tempo REST API.
 
-    This class provides a clean interface to all Tempo API endpoints,
-    supporting both GET and POST methods based on configuration.
+    This class provides a clean interface to all Tempo API endpoints.
     """
 
-    def __init__(self, config: GrafanaTempoConfig, use_post: bool = False):
+    def __init__(self, config: GrafanaTempoConfig):
         """Initialize the Tempo API wrapper.
 
         Args:
             config: GrafanaTempoConfig instance with connection details
-            use_post: If True, use POST method for API calls. Defaults to False (GET).
         """
         self.config = config
         self.base_url = get_base_url(config)
         self.headers = build_headers(config.api_key, config.headers)
-        self.use_post = use_post
 
     def _make_request(
         self,
@@ -74,7 +71,7 @@ class GrafanaTempoAPI:
 
         Args:
             endpoint: API endpoint path (e.g., "/api/echo")
-            params: Query parameters (GET) or body parameters (POST)
+            params: Query parameters
             path_params: Parameters to substitute in the endpoint path
             timeout: Request timeout in seconds
             retries: Number of retry attempts
@@ -101,22 +98,13 @@ class GrafanaTempoAPI:
             and e.response.status_code < 500,
         )
         def make_request():
-            if self.use_post:
-                # POST request with JSON body
-                response = requests.post(
-                    url,
-                    headers=self.headers,
-                    json=params or {},
-                    timeout=timeout,
-                )
-            else:
-                # GET request with query parameters
-                response = requests.get(
-                    url,
-                    headers=self.headers,
-                    params=params,
-                    timeout=timeout,
-                )
+            # GET request with query parameters
+            response = requests.get(
+                url,
+                headers=self.headers,
+                params=params,
+                timeout=timeout,
+            )
             response.raise_for_status()
             return response.json()
 
@@ -145,7 +133,7 @@ class GrafanaTempoAPI:
         """Query the echo endpoint to check Tempo status.
 
         API Endpoint: GET /api/echo
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Returns:
             bool: True if endpoint returns 200 status code, False otherwise
@@ -153,18 +141,11 @@ class GrafanaTempoAPI:
         url = f"{self.base_url}/api/echo"
 
         try:
-            if self.use_post:
-                response = requests.post(
-                    url,
-                    headers=self.headers,
-                    timeout=30,
-                )
-            else:
-                response = requests.get(
-                    url,
-                    headers=self.headers,
-                    timeout=30,
-                )
+            response = requests.get(
+                url,
+                headers=self.headers,
+                timeout=30,
+            )
 
             # Just check status code, don't try to parse JSON
             return response.status_code == 200
@@ -182,7 +163,7 @@ class GrafanaTempoAPI:
         """Query a trace by its ID.
 
         API Endpoint: GET /api/v2/traces/{trace_id}
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             trace_id: The trace ID to retrieve
@@ -250,7 +231,7 @@ class GrafanaTempoAPI:
         """Search for traces using tag-based search.
 
         API Endpoint: GET /api/search
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             tags: logfmt-encoded span/process attributes (required)
@@ -291,7 +272,7 @@ class GrafanaTempoAPI:
         """Search for traces using TraceQL query.
 
         API Endpoint: GET /api/search
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Note: minDuration and maxDuration are not supported with TraceQL queries.
         Use the TraceQL query syntax to filter by duration instead.
@@ -326,7 +307,7 @@ class GrafanaTempoAPI:
         """Search for available tag names.
 
         API Endpoint: GET /api/v2/search/tags
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             scope: Optional scope filter ("resource", "span", or "intrinsic")
@@ -367,7 +348,7 @@ class GrafanaTempoAPI:
         """Search for values of a specific tag with optional TraceQL filtering.
 
         API Endpoint: GET /api/v2/search/tag/{tag}/values
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             tag: The tag name to get values for (required)
@@ -410,7 +391,7 @@ class GrafanaTempoAPI:
         Computes a single value across the entire time range.
 
         API Endpoint: GET /api/metrics/query
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             q: TraceQL metrics query (required)
@@ -445,7 +426,7 @@ class GrafanaTempoAPI:
         Returns metrics computed at regular intervals over the time range.
 
         API Endpoint: GET /api/metrics/query_range
-        HTTP Method: GET (or POST if use_post=True)
+        HTTP Method: GET
 
         Args:
             q: TraceQL metrics query (required)

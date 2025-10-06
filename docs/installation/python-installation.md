@@ -299,7 +299,7 @@ from holmes.config import Config
 config = Config(
     # LLM settings
     api_key="your-api-key",
-    model="gpt-4o",
+    model="gpt-4.1",
     max_steps=10,
 
     # Custom toolsets and runbooks

@@ -113,15 +113,22 @@ holmes ask "what pods are failing?" --api-key="your-api-key"
 ## Available Models
 
 ```bash
-# GPT-4o (default)
+# GPT-4.1 (default) - fast and capable
 holmes ask "what pods are failing?"
 
-# GPT-4o mini (faster, but results are not as accurate)
-holmes ask "what pods are failing?" --model="gpt-4o-mini"
-
-# GPT-5
+# GPT-5 (more accurate but much slower)
 holmes ask "what pods are failing?" --model="gpt-5"
 ```
+
+!!! tip "Best Results"
+    For optimal investigation quality, consider using Anthropic's Claude models:
+
+    - **Claude Opus 4.1**: Most powerful for complex investigations
+    - **Claude Sonnet 4.5 or 4**: Best balance of speed and quality
+
+    GPT-4.1 provides a good alternative with faster response times.
+
+    See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
 
 ## GPT-5 Reasoning Effort
 

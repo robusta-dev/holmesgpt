@@ -5,6 +5,7 @@ from holmes.plugins.toolsets.datadog.toolset_datadog_metrics import (
     DatadogMetricsToolset,
     DatadogMetricsConfig,
 )
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestDatadogMetricsToolset:
@@ -37,7 +38,7 @@ class TestDatadogMetricsToolset:
 
         params = {}
         tool = self.toolset.tools[0]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert "system.cpu.user" in result.data
@@ -67,7 +68,7 @@ class TestDatadogMetricsToolset:
             "from_time": "2023-01-01T00:00:00Z",
         }
         tool = self.toolset.tools[0]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
 
@@ -102,7 +103,7 @@ class TestDatadogMetricsToolset:
             "to_time": "2021-01-01T01:00:00Z",
         }
         tool = self.toolset.tools[1]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert "system.cpu.user" in result.data
@@ -122,7 +123,7 @@ class TestDatadogMetricsToolset:
             "query": "nonexistent.metric{*}",
         }
         tool = self.toolset.tools[1]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.NO_DATA
         assert "no data" in result.error.lower()
@@ -143,7 +144,7 @@ class TestDatadogMetricsToolset:
 
         params = {"metric_names": "system.cpu.user"}
         tool = self.toolset.tools[2]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         data = json.loads(result.data)
@@ -164,7 +165,7 @@ class TestDatadogMetricsToolset:
 
         params = {"metric_names": "nonexistent.metric"}
         tool = self.toolset.tools[2]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.ERROR
         data = json.loads(result.data)
@@ -194,7 +195,7 @@ class TestDatadogMetricsToolset:
 
         params = {"metric_names": "system.cpu.user, system.mem.used"}
         tool = self.toolset.tools[2]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         data = json.loads(result.data)
@@ -214,7 +215,7 @@ class TestDatadogMetricsToolset:
 
         params = {"metric_names": "system.cpu.user, nonexistent.metric"}
         tool = self.toolset.tools[2]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         data = json.loads(result.data)
@@ -228,7 +229,7 @@ class TestDatadogMetricsToolset:
 
         params = {}
         tool = self.toolset.tools[0]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.ERROR
         assert result.error == "The toolset is missing its configuration"
@@ -244,7 +245,7 @@ class TestDatadogMetricsToolset:
 
         params = {}
         tool = self.toolset.tools[0]
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.ERROR
         assert "rate limit exceeded" in result.error.lower()

@@ -1,4 +1,5 @@
 from holmes.core.tools import (
+    ToolInvokeContext,
     Toolset,
     Tool,
     ToolParameter,
@@ -24,9 +25,7 @@ class RemoteMCPTool(Tool):
     url: str
     headers: Optional[Dict[str, str]] = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             return asyncio.run(self._invoke_async(params))
         except Exception as e:

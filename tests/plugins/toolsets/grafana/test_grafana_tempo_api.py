@@ -25,20 +25,14 @@ class TestGrafanaTempoAPI:
         )
 
     @pytest.fixture
-    def api_get(self, config):
-        """Create API instance with GET method (default)."""
-        return GrafanaTempoAPI(config, use_post=False)
-
-    @pytest.fixture
-    def api_post(self, config):
-        """Create API instance with POST method."""
-        return GrafanaTempoAPI(config, use_post=True)
+    def api(self, config):
+        """Create API instance."""
+        return GrafanaTempoAPI(config)
 
     def test_initialization(self, config):
         """Test API initialization with config."""
         api = GrafanaTempoAPI(config)
         assert api.config == config
-        assert api.use_post is False
         assert (
             api.base_url
             == "https://grafana.example.com/api/datasources/proxy/uid/tempo-uid"
@@ -46,99 +40,78 @@ class TestGrafanaTempoAPI:
         assert "Authorization" in api.headers
         assert api.headers["Authorization"] == "Bearer test-api-key"
 
-    def test_initialization_with_post(self, config):
-        """Test API initialization with POST enabled."""
-        api = GrafanaTempoAPI(config, use_post=True)
-        assert api.use_post is True
-
     @patch("requests.get")
-    def test_query_echo_endpoint_get(self, mock_get, api_get):
-        """Test query_echo_endpoint with GET method."""
+    def test_query_echo_endpoint(self, mock_get, api):
+        """Test query_echo_endpoint method."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
 
-        result = api_get.query_echo_endpoint()
+        result = api.query_echo_endpoint()
 
         assert result is True
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/echo",
-            headers=api_get.headers,
-            timeout=30,
-        )
-
-    @patch("requests.post")
-    def test_query_echo_endpoint_post(self, mock_post, api_post):
-        """Test query_echo_endpoint with POST method."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_post.return_value = mock_response
-
-        result = api_post.query_echo_endpoint()
-
-        assert result is True
-        mock_post.assert_called_once_with(
-            f"{api_post.base_url}/api/echo",
-            headers=api_post.headers,
+            f"{api.base_url}/api/echo",
+            headers=api.headers,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_query_echo_endpoint_non_200(self, mock_get, api_get):
+    def test_query_echo_endpoint_non_200(self, mock_get, api):
         """Test query_echo_endpoint with non-200 status code."""
         mock_response = MagicMock()
         mock_response.status_code = 404
         mock_get.return_value = mock_response
 
-        result = api_get.query_echo_endpoint()
+        result = api.query_echo_endpoint()
 
         assert result is False
 
     @patch("requests.get")
-    def test_query_trace_by_id_v2(self, mock_get, api_get):
+    def test_query_trace_by_id_v2(self, mock_get, api):
         """Test query_trace_by_id_v2 method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"traceID": "123abc"}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_trace_by_id_v2("123abc", start=1000, end=2000)
+        result = api.query_trace_by_id_v2("123abc", start=1000, end=2000)
 
         assert result == {"traceID": "123abc"}
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/v2/traces/123abc",
-            headers=api_get.headers,
+            f"{api.base_url}/api/v2/traces/123abc",
+            headers=api.headers,
             params={"start": "1000", "end": "2000"},
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_query_trace_by_id_v2_no_time_params(self, mock_get, api_get):
+    def test_query_trace_by_id_v2_no_time_params(self, mock_get, api):
         """Test query_trace_by_id_v2 without time parameters."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"traceID": "123abc"}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_trace_by_id_v2("123abc")
+        result = api.query_trace_by_id_v2("123abc")
 
         assert result == {"traceID": "123abc"}
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/v2/traces/123abc",
-            headers=api_get.headers,
+            f"{api.base_url}/api/v2/traces/123abc",
+            headers=api.headers,
             params={},
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_search_traces_by_tags(self, mock_get, api_get):
+    def test_search_traces_by_tags(self, mock_get, api):
         """Test search_traces_by_tags method with all parameters."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"traces": []}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.search_traces_by_tags(
+        result = api.search_traces_by_tags(
             tags=f"resource.service.name={TEST_SERVICE_NAME}",
             min_duration="5s",
             max_duration="30s",
@@ -159,21 +132,21 @@ class TestGrafanaTempoAPI:
             "spss": "5",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/search",
-            headers=api_get.headers,
+            f"{api.base_url}/api/search",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_search_traces_by_query(self, mock_get, api_get):
+    def test_search_traces_by_query(self, mock_get, api):
         """Test search_traces_by_query method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"traces": []}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.search_traces_by_query(
+        result = api.search_traces_by_query(
             q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             limit=100,
             start=1000,
@@ -190,21 +163,21 @@ class TestGrafanaTempoAPI:
             "spss": "5",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/search",
-            headers=api_get.headers,
+            f"{api.base_url}/api/search",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_search_tag_names_v2(self, mock_get, api_get):
+    def test_search_tag_names_v2(self, mock_get, api):
         """Test search_tag_names_v2 method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"scopes": {"resource": ["service.name"]}}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.search_tag_names_v2(
+        result = api.search_tag_names_v2(
             scope="resource",
             q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}}',
             start=1000,
@@ -223,14 +196,14 @@ class TestGrafanaTempoAPI:
             "maxStaleValues": "100",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/v2/search/tags",
-            headers=api_get.headers,
+            f"{api.base_url}/api/v2/search/tags",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_search_tag_values_v2(self, mock_get, api_get):
+    def test_search_tag_values_v2(self, mock_get, api):
         """Test search_tag_values_v2 method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -239,7 +212,7 @@ class TestGrafanaTempoAPI:
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.search_tag_values_v2(
+        result = api.search_tag_values_v2(
             tag="resource.service.name",
             q='{resource.cluster="us-east-1"}',
             start=1000,
@@ -257,21 +230,21 @@ class TestGrafanaTempoAPI:
             "maxStaleValues": "100",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/v2/search/tag/resource.service.name/values",
-            headers=api_get.headers,
+            f"{api.base_url}/api/v2/search/tag/resource.service.name/values",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_query_metrics_instant(self, mock_get, api_get):
+    def test_query_metrics_instant(self, mock_get, api):
         """Test query_metrics_instant method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"metrics": {"value": 123}}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_metrics_instant(
+        result = api.query_metrics_instant(
             q="{status=error} | count_over_time() by (resource.service.name)",
             start=1000,
             end=2000,
@@ -286,14 +259,14 @@ class TestGrafanaTempoAPI:
             "since": "1h",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/metrics/query",
-            headers=api_get.headers,
+            f"{api.base_url}/api/metrics/query",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_query_metrics_range(self, mock_get, api_get):
+    def test_query_metrics_range(self, mock_get, api):
         """Test query_metrics_range method."""
         mock_response = MagicMock()
         mock_response.json.return_value = {
@@ -302,7 +275,7 @@ class TestGrafanaTempoAPI:
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_metrics_range(
+        result = api.query_metrics_range(
             q='{resource.service.name="myservice"} | rate()',
             step="1m",
             start=1000,
@@ -321,21 +294,21 @@ class TestGrafanaTempoAPI:
             "exemplars": "100",
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/metrics/query_range",
-            headers=api_get.headers,
+            f"{api.base_url}/api/metrics/query_range",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_query_metrics_instant_required_only(self, mock_get, api_get):
+    def test_query_metrics_instant_required_only(self, mock_get, api):
         """Test query_metrics_instant with only required parameter."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"metrics": {"value": 123}}
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
-        result = api_get.query_metrics_instant(
+        result = api.query_metrics_instant(
             q=f'{{resource.service.name="{TEST_SERVICE_NAME}"}} | count()'
         )
 
@@ -344,32 +317,23 @@ class TestGrafanaTempoAPI:
             "q": f'{{resource.service.name="{TEST_SERVICE_NAME}"}} | count()'
         }
         mock_get.assert_called_once_with(
-            f"{api_get.base_url}/api/metrics/query",
-            headers=api_get.headers,
+            f"{api.base_url}/api/metrics/query",
+            headers=api.headers,
             params=expected_params,
             timeout=30,
         )
 
     @patch("requests.get")
-    def test_error_handling(self, mock_get, api_get):
+    def test_error_handling(self, mock_get, api):
         """Test error handling for failed requests."""
         mock_get.side_effect = RequestException("Connection error")
 
         # query_echo_endpoint now returns False on error
-        result = api_get.query_echo_endpoint()
-        assert result is False
-
-    @patch("requests.post")
-    def test_error_handling_post(self, mock_post, api_post):
-        """Test error handling for failed POST requests."""
-        mock_post.side_effect = RequestException("Connection error")
-
-        # query_echo_endpoint now returns False on error
-        result = api_post.query_echo_endpoint()
+        result = api.query_echo_endpoint()
         assert result is False
 
     @patch("requests.get")
-    def test_http_error_handling(self, mock_get, api_get):
+    def test_http_error_handling(self, mock_get, api):
         """Test handling of HTTP errors."""
         mock_response = MagicMock()
         # Create an HTTPError with a response attribute
@@ -383,13 +347,13 @@ class TestGrafanaTempoAPI:
         from holmes.plugins.toolsets.grafana.grafana_tempo_api import TempoAPIError
 
         with pytest.raises(TempoAPIError) as exc_info:
-            api_get.query_trace_by_id_v2("nonexistent")
+            api.query_trace_by_id_v2("nonexistent")
 
         assert "404" in str(exc_info.value)
         assert exc_info.value.status_code == 404
 
     @patch("requests.get")
-    def test_special_characters_in_path_params(self, mock_get, api_get):
+    def test_special_characters_in_path_params(self, mock_get, api):
         """Test handling of special characters in path parameters."""
         mock_response = MagicMock()
         mock_response.json.return_value = {"tagValues": []}
@@ -397,15 +361,13 @@ class TestGrafanaTempoAPI:
         mock_get.return_value = mock_response
 
         # Tag with special characters that need encoding
-        api_get.search_tag_values_v2(tag="service/name:test")
+        api.search_tag_values_v2(tag="service/name:test")
 
         # Check that the URL was properly encoded
-        expected_url = (
-            f"{api_get.base_url}/api/v2/search/tag/service%2Fname%3Atest/values"
-        )
+        expected_url = f"{api.base_url}/api/v2/search/tag/service%2Fname%3Atest/values"
         mock_get.assert_called_once_with(
             expected_url,
-            headers=api_get.headers,
+            headers=api.headers,
             params={},
             timeout=30,
         )
