@@ -563,8 +563,7 @@ class LLMModelRegistry:
         self, model_name: str, model_data: RobustaModel
     ) -> dict[str, Any]:
         entry = self._create_model_entry(
-            model=model_data.model
-            or "gpt-4o",  # Robusta AI model is using openai like API.
+            model=model_data.model,
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
