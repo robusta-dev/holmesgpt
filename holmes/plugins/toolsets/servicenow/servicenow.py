@@ -37,7 +37,6 @@ class ServiceNowToolset(Toolset):
     def __init__(self):
         super().__init__(
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            experimental=True,
             tools=[
                 ReturnChangesInTimerange(toolset=self),
                 ReturnChange(toolset=self),

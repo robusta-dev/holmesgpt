@@ -352,6 +352,12 @@ class DefaultLLM(LLM):
         Add cache_control to the last non-user message for Anthropic prompt caching.
         Removes any existing cache_control from previous messages to avoid accumulation.
         """
+        # Skip cache_control for VertexAI/Gemini models as they don't support it with tools
+        if self.model and (
+            "vertex" in self.model.lower() or "gemini" in self.model.lower()
+        ):
+            return
+
         # First, remove any existing cache_control from all messages
         for msg in messages:
             content = msg.get("content")
@@ -438,7 +444,7 @@ class LLMModelRegistry:
         # so we need to check if the user has set an OPENAI_API_KEY to load the config model.
         has_openai_key = os.environ.get("OPENAI_API_KEY")
         if has_openai_key:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4.1"
             return True
 
         return False
@@ -487,6 +493,7 @@ class LLMModelRegistry:
                 "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
+                # TODO: tech debt, this isn't really gpt-4o at all
                 "model": "gpt-4o",
             }
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
