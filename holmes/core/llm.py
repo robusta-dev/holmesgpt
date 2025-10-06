@@ -22,6 +22,7 @@ from holmes.common.env_vars import (
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
+    FALLBACK_CONTEXT_WINDOW_SIZE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -209,10 +210,10 @@ class DefaultLLM(LLM):
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 128k tokens for max_input_tokens. "
+            f"using default {FALLBACK_CONTEXT_WINDOW_SIZE} tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
-        return 128000
+        return FALLBACK_CONTEXT_WINDOW_SIZE
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
