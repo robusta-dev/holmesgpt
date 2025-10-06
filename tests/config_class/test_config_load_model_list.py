@@ -39,6 +39,7 @@ def test_config_load_model_list_valid_with_robusta_ai(server_config: Config):
         == f"{ROBUSTA_API_ENDPOINT}/llm/Robusta/sonnet-4 preview"
     )
     assert sonnet_model.get("name") == "Robusta/sonnet-4 preview"
+    assert sonnet_model.get("model") == "claude-sonnet-4-20250514"
     assert sonnet_model.get("is_robusta_model")
 
     assert (

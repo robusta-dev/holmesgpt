@@ -36,14 +36,12 @@ def server_config(tmp_path, monkeypatch, responses):
     responses.post(
         "https://api.robusta.dev/api/llm/models/v2",
         json={
-            "models": {
-                model_name: {
-                    "model": underlying_model,
-                    "holmes_args": {},
-                    "is_default": model_name == DEFAULT_ROBUSTA_MODEL,
-                }
-                for model_name, underlying_model in ROBUSTA_MODELS.items()
+            model_name: {
+                "model": underlying_model,
+                "holmes_args": {},
+                "is_default": model_name == DEFAULT_ROBUSTA_MODEL,
             }
+            for model_name, underlying_model in ROBUSTA_MODELS.items()
         },
     )
     temp_config_file = tmp_path / "custom_toolset.yaml"
