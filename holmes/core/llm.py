@@ -98,9 +98,9 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
         self.name = name
+        self.is_robusta_model = is_robusta_model
         self.update_custom_args()
         self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
-        self.is_robusta_model = is_robusta_model
 
     def update_custom_args(self):
         self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
@@ -113,6 +113,11 @@ class DefaultLLM(LLM):
         api_base: Optional[str],
         api_version: Optional[str],
     ):
+        if self.is_robusta_model:
+            # The model is assumed correctly configured if it is a robusta model
+            # For robusta models, this code would fail because Holmes has no knowledge of the API keys
+            # to azure or bedrock as all completion API calls go through robusta's LLM proxy
+            return
         logging.debug(f"Checking LiteLLM model {model}")
         lookup = litellm.get_llm_provider(model)
         if not lookup:

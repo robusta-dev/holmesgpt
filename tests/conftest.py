@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 import pytest
 import yaml
 
@@ -11,11 +11,27 @@ DEFAULT_ROBUSTA_MODEL = "Robusta/gpt-5-mini preview (minimal reasoning)"
 ROBUSTA_SONNET_4_MODEL = "Robusta/sonnet-4 preview"
 
 # Map of Robusta model names to their underlying LiteLLM model names
-ROBUSTA_MODELS: dict[str, str] = {
-    ROBUSTA_SONNET_4_MODEL: "claude-sonnet-4-20250514",
-    "Robusta/gpt-5-mini preview (minimal reasoning)": "azure/gpt-5-mini",
-    "Robusta/gpt-5 preview (minimal reasoning)": "azure/gpt-5",
-    "Robusta/gpt-4o": "azure/gpt-4o",
+ROBUSTA_MODELS: dict[str, Any] = {
+    ROBUSTA_SONNET_4_MODEL: {
+        "model": "claude-sonnet-4-20250514",
+        "holmes_args": {},
+        "is_default": False,
+    },
+    DEFAULT_ROBUSTA_MODEL: {
+        "model": "azure/gpt-5-mini",
+        "holmes_args": {},
+        "is_default": True,
+    },
+    "Robusta/gpt-5 preview (minimal reasoning)": {
+        "model": "azure/gpt-5",
+        "holmes_args": {},
+        "is_default": False,
+    },
+    "Robusta/gpt-4o": {
+        "model": "azure/gpt-4o",
+        "holmes_args": {"api_version": "XYZ"},
+        "is_default": False,
+    },
 }
 
 
@@ -35,14 +51,7 @@ def clear_all_caches():
 def server_config(tmp_path, monkeypatch, responses):
     responses.post(
         "https://api.robusta.dev/api/llm/models/v2",
-        json={
-            model_name: {
-                "model": underlying_model,
-                "holmes_args": {},
-                "is_default": model_name == DEFAULT_ROBUSTA_MODEL,
-            }
-            for model_name, underlying_model in ROBUSTA_MODELS.items()
-        },
+        json=ROBUSTA_MODELS,
     )
     temp_config_file = tmp_path / "custom_toolset.yaml"
     data = {
