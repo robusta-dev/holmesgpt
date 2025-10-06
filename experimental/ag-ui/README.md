@@ -34,6 +34,7 @@ docker compose up -d
 # Start HolmesGPT AG-UI compatible server
 cd holmesgpt
 export HOLMES_PORT=5050
+export PROMETHEUS_URL=http://localhost:9090
 poetry run python experimental/ag-ui/server.py
 ```
 
