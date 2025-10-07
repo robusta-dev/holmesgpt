@@ -10,17 +10,14 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 
 # Safe to import networked libs below
-import litellm
 from starlette.responses import PlainTextResponse
 
-from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
 import uvicorn
 import colorlog
 import time
 
-from litellm.exceptions import AuthenticationError
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from holmes.utils.stream import StreamMessage, StreamEvents
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -33,7 +30,6 @@ from holmes.core.conversations import (
 from holmes.core.models import (
     ChatRequest,
 )
-from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
 from fastapi.middleware.cors import CORSMiddleware
 
 import uuid
@@ -213,7 +209,7 @@ def agui_chat(input_data: RunAgentInput, request: Request):
 
 def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
     for fe_tool_name in frontend_tools:
-        if "execute_prometheus" in fe_tool_name and backend_tool_name in (
+        if "execute_prom" in fe_tool_name and backend_tool_name in (
                 "execute_prometheus_range_query", "execute_prometheus_instant_query"):
             return True
         elif "execute_ppl" in fe_tool_name and backend_tool_name == "execute_ppl_query":

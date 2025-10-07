@@ -26,7 +26,7 @@ _⚠️ **Disclaimer**: AG-UI is experimental within HolmesGPT. APIs and interfa
 
 A simple way to generate synthetic Prometheus metrics, OpenSearch logs, traces and more, is to use: [opentelemetry-demo](https://github.com/open-telemetry/opentelemetry-demo)
 
-```
+```bash
 git clone git@github.com:open-telemetry/opentelemetry-demo.git
 cd opentelemetry-demo
 docker compose up -d
@@ -52,7 +52,7 @@ poetry run python experimental/ag-ui/server.py
 ExampleOps✨ is a lightweight observability frontend that demonstrates AG-UI capabilities (page context, state sharing, front-end tools execution, etc).
 Create .env file at `experimental/ag-ui/front-end/.env`. See example below and replace Prometheus/OpenSearch urls as needed:
 
-```
+```env
 # AG-UI Agent Configuration
 HOLMES_PORT=5050
 AGENT_URL=http://localhost:${HOLMES_PORT}
