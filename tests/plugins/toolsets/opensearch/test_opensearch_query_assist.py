@@ -265,7 +265,6 @@ class TestOpenSearchQueryAssistToolset:
     def test_reload_instructions_with_real_file_path(self, mock_dirname, mock_join, mock_abspath):
         """Test _reload_instructions with realistic file paths."""
         # Arrange
-        current_file = "/app/holmes/plugins/toolsets/opensearch/opensearch_query_assist.py"
         template_dir = "/app/holmes/plugins/toolsets/opensearch"
         template_path = "/app/holmes/plugins/toolsets/opensearch/opensearch_query_assist_instructions.jinja2"
         abs_template_path = "/app/holmes/plugins/toolsets/opensearch/opensearch_query_assist_instructions.jinja2"

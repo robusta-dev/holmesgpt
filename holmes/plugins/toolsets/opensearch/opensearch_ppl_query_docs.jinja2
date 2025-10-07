@@ -258,7 +258,7 @@ SOURCE: https://docs.opensearch.org/latest/search-plugins/sql/sql-ppl-api
 LANGUAGE: PPL
 CODE:
 ```
-POST_plugins/_ppl/_explain?format=simple{"query":"source=state_country | where country = 'USA' OR country = 'England' | stats count() by country"}
+POST _plugins/_ppl/_explain?format=simple{"query":"source=state_country | where country = 'USA' OR country = 'England' | stats count() by country"}
 ```
 
 LANGUAGE: JSON
@@ -402,7 +402,7 @@ SOURCE: https://docs.opensearch.org/latest/search-plugins/sql/sql-ppl-api
 LANGUAGE: PPL
 CODE:
 ```
-POST_plugins/_ppl/_explain{"query":"source=state_country | where country = 'USA' OR country = 'England' | stats count() by country"}
+POST _plugins/_ppl/_explain{"query":"source=state_country | where country = 'USA' OR country = 'England' | stats count() by country"}
 ```
 
 LANGUAGE: JSON

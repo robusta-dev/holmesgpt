@@ -68,8 +68,9 @@
 .chart-container canvas {
   background: #fafafa;
   border-radius: 0.25rem;
-}/* Custo
-m scrollable legend */
+}
+
+/* Custom scrollable legend */
 .custom-legend {
   margin-top: 1rem;
   border-top: 1px solid #e9ecef;

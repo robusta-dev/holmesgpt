@@ -95,6 +95,7 @@ class Config(RobustaBaseConfig):
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
 
     _server_tool_executor: Optional[ToolExecutor] = None
+    _agui_tool_executor: Optional[ToolExecutor] = None
 
     # TODO: Separate those fields to facade class, this shouldn't be part of the config.
     _toolset_manager: Optional[ToolsetManager] = PrivateAttr(None)
@@ -247,17 +248,17 @@ class Config(RobustaBaseConfig):
         Creates ToolExecutor for the AG-UI server endpoints
         """
 
-        if self._server_tool_executor:
-            return self._server_tool_executor
+        if self._agui_tool_executor:
+            return self._agui_tool_executor
 
         # Use same toolset as CLI for AG-UI front-end.
         agui_toolsets = self.toolset_manager.list_console_toolsets(
             dal=dal, refresh_status=True
         )
 
-        self._server_tool_executor = ToolExecutor(agui_toolsets)
+        self._agui_tool_executor = ToolExecutor(agui_toolsets)
 
-        return self._server_tool_executor
+        return self._agui_tool_executor
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
         """

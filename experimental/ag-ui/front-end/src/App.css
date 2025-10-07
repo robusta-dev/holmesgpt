@@ -593,8 +593,9 @@ servability Platform Styles */
   white-space: pre-wrap;
   word-break: break-word;
   min-height: 100%;
-}/
-* Maximize button and result actions */
+}
+
+/* Maximize button and result actions */
 .result-actions {
   display: flex;
   align-items: center;
@@ -736,8 +737,9 @@ servability Platform Styles */
 .graph-modal-overlay:focus-within .close-modal-button {
   outline: 2px solid #0d6efd;
   outline-offset: 2px;
-}/*
- OpenSearch indices discovery */
+}
+
+/* OpenSearch indices discovery */
 .opensearch-actions {
   display: flex;
   gap: 8px;
@@ -859,8 +861,9 @@ servability Platform Styles */
   .indices-help {
     padding: 0.75rem 1rem;
   }
-}/* Vi
-sualization container */
+}
+
+/* Visualization container */
 .visualization-container {
   width: 100%;
   max-width: 100%;
@@ -904,8 +907,9 @@ sualization container */
   margin: 0;
   font-size: 0.85rem;
   color: #495057;
-}/* I
-ndices Discovery Section */
+}
+
+/* Indices Discovery Section */
 .indices-discovery-section {
   margin: 1rem 2rem;
   padding: 1.5rem;
@@ -986,11 +990,6 @@ ndices Discovery Section */
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
 /* Responsive design for indices discovery */
 @media (max-width: 768px) {
   .indices-discovery-section {
@@ -1011,8 +1010,9 @@ ndices Discovery Section */
     font-size: 0.9rem;
     min-width: 180px;
   }
-}/*
- Arrow states for indices toggle */
+}
+
+/* Arrow states for indices toggle */
 .dropdown-arrow.up {
   transform: rotate(180deg);
 }
@@ -1030,8 +1030,9 @@ ndices Discovery Section */
 .show-indices-btn:hover:has(.dropdown-arrow.up) {
   background: linear-gradient(135deg, #1e7e34 0%, #155724 100%);
   box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
-}/*
- Indices count styling */
+}
+
+/* Indices count styling */
 .indices-count {
   color: #007bff;
   font-weight: 600;
@@ -1073,8 +1074,9 @@ ndices Discovery Section */
     font-size: 0.75rem;
     padding: 0.1rem 0.3rem;
   }
-}/* I
-ndices Discovery Section - Compact Design */
+}
+
+/* Indices Discovery Section - Compact Design */
 .indices-discovery-section {
   margin: 0.5rem 2rem;
   padding: 0.75rem 1rem;
@@ -1194,8 +1196,9 @@ ndices Discovery Section - Compact Design */
     min-width: 140px;
     align-self: stretch;
   }
-}/
-* Brand credit styling */
+}
+
+/* Brand credit styling */
 .brand-title {
   position: relative;
   cursor: help;
@@ -1291,8 +1294,9 @@ ndices Discovery Section - Compact Design */
     padding: 0.375rem 0.5rem;
     bottom: -32px;
   }
-}/* GitHub 
-icon styling */
+}
+
+/* GitHub icon styling */
 .github-icon {
   font-size: 0.7rem;
   margin-right: 0.25rem;
@@ -1389,8 +1393,9 @@ icon styling */
 
 .github-credit:hover .github-logo {
   transform: scale(1.1);
-}/* Disabled 
-navigation item */
+}
+
+/* Disabled navigation item */
 .nav-item.disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1405,8 +1410,9 @@ navigation item */
 
 .nav-item.disabled .nav-icon {
   opacity: 0.5;
-}/
-* Service icons for connection status */
+}
+
+/* Service icons for connection status */
 .service-icon {
   width: 20px;
   height: 20px;
@@ -1432,8 +1438,9 @@ navigation item */
     height: 18px;
     margin-right: 0.375rem;
   }
-}/* Floa
-ting maximize button overlay */
+}
+
+/* Floating maximize button overlay */
 .maximize-button-overlay {
   position: absolute;
   top: 1rem;
@@ -1494,8 +1501,9 @@ ting maximize button overlay */
   .query-hint-inline {
     font-size: 0.7rem;
   }
-}/*
- Prometheus Series Explorer - Three-box interface */
+}
+
+/* Prometheus Series Explorer - Three-box interface */
 .prometheus-explorer {
   margin: 1rem 2rem;
   background: white;
@@ -1680,8 +1688,9 @@ ting maximize button overlay */
     font-size: 0.75rem;
     padding: 0.375rem 0.5rem;
   }
-}/* OpenSear
-ch single-box layout */
+}
+
+/* OpenSearch single-box layout */
 .opensearch-single-box {
   grid-column: 1 / -1; /* Span all columns */
 }
@@ -1694,8 +1703,9 @@ ch single-box layout */
 /* Alternative approach for better browser support */
 .explorer-boxes.single-box {
   grid-template-columns: 1fr;
-}/* 
-Query helper text */
+}
+
+/* Query helper text */
 .query-helper-text {
   font-size: 0.8rem;
   color: #6c757d;

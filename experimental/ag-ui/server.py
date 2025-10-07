@@ -1,8 +1,4 @@
-# ruff: noqa: E402
 import os
-
-import litellm
-from starlette.responses import PlainTextResponse
 
 from holmes.utils.cert_utils import add_custom_certificate
 
@@ -12,6 +8,11 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+
+# Safe to import networked libs below
+import litellm
+from starlette.responses import PlainTextResponse
+
 from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
 import uvicorn
@@ -90,7 +91,7 @@ app.add_middleware(
 
 
 @app.get("/api/agui/chat/health")
-def agui_chat(request: Request):
+def agui_chat_health(request: Request):
     return JSONResponse(content="ok")
 
 
@@ -186,7 +187,8 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                 yield encoder.encode(tool_event)
                         if not front_end_tool_invoked:
                             async for event in _stream_agui_text_message_event(
-                                    message=f"🔧 {tool_name} result:\n{chunk.data.get("result", {}).get("data", "")[0:200]}..."):
+                                message=f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
+                            ):
                                 yield encoder.encode(event)
             yield encoder.encode(
                 RunFinishedEvent(
