@@ -334,9 +334,6 @@ class ToolCallingLLM:
                         tool_number=None,
                         user_approved=True,
                     )
-                    print(
-                        f"*** TOOL RESULT status={llm_tool_result.result.status} error={llm_tool_result.result.error}"
-                    )
                     tool_call_message = llm_tool_result.as_tool_call_message()
 
                 except Exception as e:
@@ -357,6 +354,10 @@ class ToolCallingLLM:
                     "name": tool_call_with_decision.tool_call.function.name,
                     "content": "Tool execution was denied by the user.",
                 }
+
+            # It is expected that the tool call result directly follows the tool call request from the LLM
+            # The API call may contain a user ask which is appended to the messages so we can't just append
+            # tool call results; they need to be inserted right after the llm's message requesting tool calls
             messages.insert(
                 tool_call_with_decision.message_index + 1, tool_call_message
             )
@@ -925,7 +926,6 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
-                print(f"***LLM MESSAGES***\n{json.dumps(messages[1:])}")
                 full_response = self.llm.completion(
                     messages=parse_messages_tags(messages),  # type: ignore
                     tools=tools,
@@ -1090,7 +1090,6 @@ class ToolCallingLLM:
                             "requires_approval": True,
                         },
                     )
-                    print(f"***FINAL MESSAGES***\n{json.dumps(messages[1:])}")
                     return
 
                 # Update the tool number offset for the next iteration

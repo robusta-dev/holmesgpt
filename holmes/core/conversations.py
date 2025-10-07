@@ -371,14 +371,14 @@ def build_chat_messages(
         additional_system_prompt=additional_system_prompt,
     )
 
-    if ask:
-        ask = add_global_instructions_to_user_prompt(ask, global_instructions)
-        conversation_history.append(  # type: ignore
-            {
-                "role": "user",
-                "content": ask,
-            },
-        )
+    ask = add_global_instructions_to_user_prompt(ask, global_instructions)
+    conversation_history.append(  # type: ignore
+        {
+            "role": "user",
+            "content": ask,
+        },
+    )
+
     number_of_tools = len(
         [message for message in conversation_history if message.get("role") == "tool"]  # type: ignore
     )
