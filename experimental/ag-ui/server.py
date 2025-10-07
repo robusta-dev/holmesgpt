@@ -167,7 +167,8 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                     tool_call_name="graph_timeseries_data",
                                     tool_call_args=ts_data):
                                 yield encoder.encode(tool_event)
-                        if _should_execute_suggested_query(tool_name=tool_name):
+                        if _should_execute_suggested_query(backend_tool_name=tool_name,
+                                                           frontend_tools=input_data.tools):
                             front_end_tool_invoked = True
                             tool_call_id = chunk.data.get("tool_call_id", chunk.data.get("id", "unknown"))
                             front_end_query_tool = None
@@ -176,7 +177,7 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                             elif tool_name in ("execute_prometheus_range_query", "execute_prometheus_instant_query"):
                                 front_end_query_tool = "execute_promql_query"
 
-                            async for tool_event in  _invoke_front_end_tool(
+                            async for tool_event in _invoke_front_end_tool(
                                     tool_call_id=tool_call_id,
                                     tool_call_name=front_end_query_tool,
                                     tool_call_args={
@@ -224,8 +225,14 @@ def _remove_empty_user_messages(messages: list) -> list:
     return messages_copy
 
 
-def _should_execute_suggested_query(tool_name: str) -> bool:
-    return tool_name in ("opensearch_ppl_query_assist", "execute_prometheus_range_query", "execute_prometheus_instant_query")
+def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
+    for fe_tool_name in frontend_tools:
+        if "execute_prometheus" in fe_tool_name and backend_tool_name in (
+                "execute_prometheus_range_query", "execute_prometheus_instant_query"):
+            return True
+        elif "execute_ppl" in fe_tool_name and backend_tool_name == "execute_ppl_query":
+            return True
+    return False
 
 
 def _parse_query(data) -> str:

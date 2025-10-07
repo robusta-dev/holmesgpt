@@ -29,12 +29,15 @@ docker compose up -d
 ```
 
 ### **2. Start HolmesGPT AG-UI Server on port 5050**
-
+Assumes there is a local Prometheus server (containing metrics) at `localhost:9090` (e.g. [opentelemetry-demo](https://github.com/open-telemetry/opentelemetry-demo)) and using AWS Bedrock as LLM. See [HolmesGPT documentation](https://holmesgpt.dev/) for alternate configurations.
 ```bash
 # Start HolmesGPT AG-UI compatible server
 cd holmesgpt
 export HOLMES_PORT=5050
 export PROMETHEUS_URL=http://localhost:9090
+export AWS_PROFILE=default
+export AWS_REGION=us-east-1
+export MODEL=bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
 poetry run python experimental/ag-ui/server.py
 ```
 
