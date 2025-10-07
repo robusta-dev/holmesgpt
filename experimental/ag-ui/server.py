@@ -208,11 +208,11 @@ def agui_chat(input_data: RunAgentInput, request: Request):
 
 
 def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
-    for fe_tool_name in frontend_tools:
-        if "execute_prom" in fe_tool_name and backend_tool_name in (
+    for fe_tool in frontend_tools:
+        if "execute_prom" in fe_tool.name and backend_tool_name in (
                 "execute_prometheus_range_query", "execute_prometheus_instant_query"):
             return True
-        elif "execute_ppl" in fe_tool_name and backend_tool_name == "execute_ppl_query":
+        elif "execute_ppl" in fe_tool.name and backend_tool_name == "opensearch_ppl_query_assist":
             return True
     return False
 

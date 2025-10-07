@@ -271,10 +271,24 @@ const MainContent: React.FC<MainContentProps> = ({
 
     // Add current query if exists
     if (query.trim()) {
+      // If metrics page, assume PromQL. For logs assume PPL
+      if (selectedPage === 'metrics') {
+        context.push({
+          description: "Current PromQL query",
+          value: query.trim()
+        });
+      } else if (selectedPage === 'logs') {
+        context.push({
+          description: "Current PPL query",
+          value: query.trim()
+        });
+      } else{
       context.push({
         description: `Current ${selectedPage} query`,
         value: query.trim()
       });
+      }
+
     }
 
     // Add current result info if exists
