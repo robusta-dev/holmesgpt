@@ -1,9 +1,7 @@
 import logging
 import os
 from typing import Any, Dict
-from uuid import uuid4
 
-from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
@@ -11,33 +9,27 @@ from holmes.core.tools import (
     ToolParameter,
     Toolset,
     ToolsetTag,
+    ToolInvokeContext,
 )
-from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
-from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
 class PplQueryAssistTool(Tool):
-    name: str = "opensearch_ppl_query_assist"
-    description: str = "Generate valid OpenSearch Piped Processing Language (PPL) queries to suggest to users for execution"
-    parameters: Dict[str, ToolParameter] = {
-        "query": ToolParameter(
-            description="valid OpenSearch Piped Processing Language (PPL) query to suggest to users for execution",
-            type="string",
-            required=True,
-            items=ToolParameter(
-                type="object",
-                properties={
-                    "id": ToolParameter(type="string", required=True),
-                    "content": ToolParameter(type="string", required=True),
-                    "status": ToolParameter(type="string", required=True),
-                },
-            ),
-        ),
-    }
 
-    def _invoke(
-            self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def __init__(self, toolset: "OpenSearchQueryAssistToolset"):
+        super().__init__(
+            name="opensearch_ppl_query_assist",
+            description="Generate valid OpenSearch Piped Processing Language (PPL) queries to suggest to users for execution",
+            parameters={
+                "query": ToolParameter(
+                    description="Valid OpenSearch Piped Processing Language (PPL) query to suggest to users for execution",
+                    type="string",
+                    required=True,
+                ),
+            },
+        )
+        self._toolset = toolset
+
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             query = params.get("query", "")
             response_data = {
@@ -53,7 +45,7 @@ class PplQueryAssistTool(Tool):
             logging.exception(f"error using {self.name} tool")
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
-                error=f"Failed to process tasks: {str(e)}",
+                error=f"Failed to generate PPL query: {str(e)}",
                 params=params,
             )
 
@@ -71,7 +63,7 @@ class OpenSearchQueryAssistToolset(Toolset):
             description="OpenSearch query assist with PPL queries.",
             experimental=True,
             enabled=True,
-            tools=[PplQueryAssistTool()],
+            tools=[PplQueryAssistTool(self)],
             tags=[ToolsetTag.CORE],
             is_default=True,
         )

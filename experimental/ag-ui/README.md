@@ -6,7 +6,7 @@ _⚠️ **Disclaimer**: AG-UI is experimental within HolmesGPT. APIs and interfa
 
 ![ExampleOps demo video](https://github.com/kylehounslow/holmesgpt/blob/docs/experimental/ag-ui/docs/holmesgpt-agui-demo-1.gif?raw=true)
 
-### Known Limitations:
+## Known Limitations:
 
 1. Front-end tool auto-discovery and integration with LLM is not yet supported. Front-end tool discovery and execution is handled statically in the back-end.
 1. Front-end tool results are not yet supported. No-op 200 response is returned to front-end.

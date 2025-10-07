@@ -7,6 +7,7 @@ from holmes.core.tools import (
     StructuredToolResultStatus,
     ToolParameter,
     ToolsetTag,
+    ToolInvokeContext,
 )
 from holmes.plugins.toolsets.opensearch.opensearch_query_assist import (
     PplQueryAssistTool,
@@ -19,7 +20,9 @@ class TestPplQueryAssistTool:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.tool = PplQueryAssistTool()
+        self.toolset = OpenSearchQueryAssistToolset()
+        self.tool = PplQueryAssistTool(self.toolset)
+        self.mock_context = MagicMock(spec=ToolInvokeContext)
 
     def test_tool_initialization(self):
         """Test that the tool initializes with correct properties."""
@@ -37,7 +40,7 @@ class TestPplQueryAssistTool:
         params = {"query": test_query}
 
         # Act
-        result = self.tool._invoke(params, user_approved=True)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -52,7 +55,7 @@ class TestPplQueryAssistTool:
         params = {"query": ""}
 
         # Act
-        result = self.tool._invoke(params, user_approved=False)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -66,7 +69,7 @@ class TestPplQueryAssistTool:
         params = {}
 
         # Act
-        result = self.tool._invoke(params, user_approved=True)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -88,7 +91,7 @@ class TestPplQueryAssistTool:
         params = {"query": complex_query}
 
         # Act
-        result = self.tool._invoke(params, user_approved=True)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -103,7 +106,7 @@ class TestPplQueryAssistTool:
         params = {"query": test_query}
 
         # Act
-        result = self.tool._invoke(params, user_approved=True)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -118,7 +121,7 @@ class TestPplQueryAssistTool:
         params = {"query": None}
 
         # Act
-        result = self.tool._invoke(params, user_approved=True)
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -134,7 +137,7 @@ class TestPplQueryAssistTool:
         params = {"query": test_query}
 
         # Act
-        result = self.tool._invoke(params)  # user_approved defaults to False
+        result = self.tool._invoke(params, self.mock_context)
 
         # Assert
         assert isinstance(result, StructuredToolResult)
@@ -220,7 +223,7 @@ class TestOpenSearchQueryAssistToolset:
         assert self.toolset.enabled is True
         assert self.toolset.is_default is True
         assert ToolsetTag.CORE in self.toolset.tags
-        
+
         # Check that it has the correct tool
         assert len(self.toolset.tools) == 1
         assert isinstance(self.toolset.tools[0], PplQueryAssistTool)
@@ -240,7 +243,7 @@ class TestOpenSearchQueryAssistToolset:
         mock_dirname.return_value = "/path/to/opensearch"
         mock_join.return_value = "/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
         mock_abspath.return_value = "/absolute/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
-        
+
         # Mock the _load_llm_instructions method
         with patch.object(self.toolset, '_load_llm_instructions') as mock_load_instructions:
             # Act
@@ -268,11 +271,11 @@ class TestOpenSearchQueryAssistToolset:
         template_dir = "/app/holmes/plugins/toolsets/opensearch"
         template_path = "/app/holmes/plugins/toolsets/opensearch/opensearch_query_assist_instructions.jinja2"
         abs_template_path = "/app/holmes/plugins/toolsets/opensearch/opensearch_query_assist_instructions.jinja2"
-        
+
         mock_dirname.return_value = template_dir
         mock_join.return_value = template_path
         mock_abspath.return_value = abs_template_path
-        
+
         # Mock the _load_llm_instructions method
         with patch.object(self.toolset, '_load_llm_instructions') as mock_load_instructions:
             # Act
@@ -285,37 +288,21 @@ class TestOpenSearchQueryAssistToolset:
     def test_toolset_has_correct_tool_configuration(self):
         """Test that the toolset's tool is properly configured."""
         tool = self.toolset.tools[0]
-        
+
         # Verify tool name and description
         assert tool.name == "opensearch_ppl_query_assist"
         assert "Generate valid OpenSearch Piped Processing Language" in tool.description
-        
+
         # Verify tool parameters
         assert "query" in tool.parameters
         query_param = tool.parameters["query"]
         assert query_param.required is True
         assert query_param.type == "string"
-        
-        # Verify nested parameter structure
-        assert hasattr(query_param, 'items')
-        assert query_param.items.type == "object"
-        assert "properties" in query_param.items.__dict__
-        
-        properties = query_param.items.properties
-        assert "id" in properties
-        assert "content" in properties
-        assert "status" in properties
-        
-        # Verify all nested properties are required strings
-        for prop_name in ["id", "content", "status"]:
-            prop = properties[prop_name]
-            assert prop.type == "string"
-            assert prop.required is True
 
     def test_toolset_inheritance(self):
         """Test that the toolset properly inherits from Toolset base class."""
         from holmes.core.tools import Toolset
-        
+
         assert isinstance(self.toolset, Toolset)
         assert hasattr(self.toolset, 'name')
         assert hasattr(self.toolset, 'description')
@@ -338,7 +325,8 @@ class TestIntegration:
         params = {"query": test_query}
 
         # Act
-        result = tool._invoke(params, user_approved=True)
+        mock_context = MagicMock(spec=ToolInvokeContext)
+        result = tool._invoke(params, mock_context)
         one_liner = tool.get_parameterized_one_liner(params)
 
         # Assert
@@ -350,18 +338,18 @@ class TestIntegration:
     def test_toolset_configuration_consistency(self):
         """Test that toolset configuration is consistent."""
         toolset = OpenSearchQueryAssistToolset()
-        
+
         # Verify toolset properties
         assert toolset.experimental is True
         assert toolset.enabled is True
         assert toolset.is_default is True
-        
+
         # Verify it has exactly one tool
         assert len(toolset.tools) == 1
-        
+
         # Verify the tool is the correct type
         assert isinstance(toolset.tools[0], PplQueryAssistTool)
-        
+
         # Verify tags include CORE
         assert ToolsetTag.CORE in toolset.tags
 
@@ -370,16 +358,16 @@ class TestIntegration:
         """Test behavior when template file exists or doesn't exist."""
         # This test verifies the path construction logic
         toolset = OpenSearchQueryAssistToolset()
-        
+
         # Mock file existence
         mock_exists.return_value = True
-        
+
         with patch.object(toolset, '_load_llm_instructions') as mock_load:
             toolset._reload_instructions()
-            
+
             # Verify that _load_llm_instructions was called
             mock_load.assert_called_once()
-            
+
             # Verify the call includes the correct file:// prefix
             call_args = mock_load.call_args[1]
             assert 'jinja_template' in call_args

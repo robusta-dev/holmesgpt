@@ -204,12 +204,6 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                     message=f"Agent encountered an error: {str(e)}"
                 )
             )
-            if isinstance(e, AuthenticationError):
-                raise HTTPException(status_code=401, detail=e.message) from e
-            elif isinstance(e, litellm.exceptions.RateLimitError):
-                raise HTTPException(status_code=429, detail=e.message) from e
-            else:
-                raise HTTPException(status_code=500, detail=str(e)) from e
 
     return StreamingResponse(
         event_generator(messages),
