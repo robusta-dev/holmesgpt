@@ -325,7 +325,8 @@ def already_answered(conversation_history: Optional[List[dict]]) -> bool:
 def chat(chat_request: ChatRequest):
     try:
         ai = config.create_toolcalling_llm(dal=dal, model=chat_request.model)
-        global_instructions = dal.get_global_instructions_for_account()
+        global_instructions = None  # dal.get_global_instructions_for_account()
+        print(chat_request.model_dump_json())
         messages = build_chat_messages(
             chat_request.ask,
             chat_request.conversation_history,
@@ -364,6 +365,7 @@ def chat(chat_request: ChatRequest):
                 ),
             ]
 
+        print(json.dumps(messages))
         if chat_request.stream:
             return StreamingResponse(
                 stream_chat_formatter(
