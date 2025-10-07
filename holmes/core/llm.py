@@ -113,7 +113,9 @@ class DefaultLLM(LLM):
         api_base: Optional[str],
         api_version: Optional[str],
     ):
-        if self.is_robusta_model:
+        if getattr(
+            self, "is_robusta_model", False
+        ):  # using getattr because some tests call check_llm() without properly instantiating the class.
             # The model is assumed correctly configured if it is a robusta model
             # For robusta models, this code would fail because Holmes has no knowledge of the API keys
             # to azure or bedrock as all completion API calls go through robusta's LLM proxy
