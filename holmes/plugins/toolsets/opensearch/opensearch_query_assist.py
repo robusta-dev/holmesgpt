@@ -39,7 +39,7 @@ class PplQueryAssistTool(Tool):
             self, params: dict, user_approved: bool = False
     ) -> StructuredToolResult:
         try:
-            query = params.get("query", [])
+            query = params.get("query", "")
             response_data = {
                 "query": query
             }
@@ -58,7 +58,7 @@ class PplQueryAssistTool(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        query = params.get("query", [])
+        query = params.get("query", "")
         return f"OpenSearchQueryToolset: Query ({query})"
 
 

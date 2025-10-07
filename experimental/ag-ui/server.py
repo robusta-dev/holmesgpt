@@ -217,16 +217,6 @@ def agui_chat(input_data: RunAgentInput, request: Request):
     )
 
 
-def _remove_empty_user_messages(messages: list) -> list:
-    messages_copy = []
-    for msg in messages:
-        if not (msg.get("role", "") == "user" and len(str(msg.get("content", "")).strip()) == 0):
-            messages_copy.append(msg)
-        else:
-            logging.warning(f"Removing empty user message from conversation history: {msg}")
-    return messages_copy
-
-
 def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
     for fe_tool_name in frontend_tools:
         if "execute_prometheus" in fe_tool_name and backend_tool_name in (
@@ -281,15 +271,6 @@ def _parse_timeseries_data(data) -> dict:
         if "data" in result_data:
             prometheus_data = json.loads(result_data["data"]).get("data")
             result_type = prometheus_data.get("resultType", "unknown")
-
-        # Generate a meaningful title
-        title = f"Prometheus Query Results"
-        if query:
-            # Truncate long queries for display
-            display_query = query if len(query) <= 50 else query[:47] + "..."
-            title = f"Prometheus: {display_query}"
-        elif tool_name:
-            title = f"{tool_name} Results"
 
         # Prepare metadata
         metadata = {
@@ -360,7 +341,7 @@ async def _stream_agui_text_message_event(message: str):
 
 
 def _is_tool_result_message(input_data: RunAgentInput) -> bool:
-    return input_data.messages[-1].role == "tool"
+    return len(input_data.messages) > 0 and input_data.messages[-1].role == "tool"
 
 
 def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest:

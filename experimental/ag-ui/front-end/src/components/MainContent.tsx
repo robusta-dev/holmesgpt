@@ -548,7 +548,7 @@ const MainContent: React.FC<MainContentProps> = ({
     const timeoutId = setTimeout(() => {
       if (query.trim()) {
         const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('query', encodeURIComponent(query.trim()));
+        urlParams.set('query', query.trim());
         const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
         window.history.replaceState({}, '', newUrl);
       } else {
