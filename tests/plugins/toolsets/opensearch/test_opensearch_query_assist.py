@@ -171,7 +171,7 @@ class TestPplQueryAssistTool:
         result = self.tool.get_parameterized_one_liner(params)
 
         # Assert
-        expected = "OpenSearchQueryToolset: Query ("")"
+        expected = "OpenSearchQueryToolset: Query ()"
         assert result == expected
 
     def test_get_parameterized_one_liner_with_empty_query(self):

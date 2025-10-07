@@ -32,6 +32,63 @@ interface ChatAssistantProps {
   onExecutePPLQuery?: (query: string) => void;
 }
 
+const TOOL_DEFINITIONS = [
+  {
+    name: 'graph_timeseries_data',
+    description: 'Display time series data as an interactive graph. Use this when you have prometheus data or any time series data that should be visualized.',
+    parameters: {
+      type: 'object',
+      properties: {
+        title: {
+          type: 'string',
+          description: 'Title for the graph'
+        },
+        data: {
+          type: 'object',
+          description: 'Prometheus-style data with result array containing metric and values'
+        },
+        query: {
+          type: 'string',
+          description: 'The original query used to generate this data'
+        },
+        metadata: {
+          type: 'object',
+          description: 'Additional metadata like time range, step, etc.'
+        }
+      },
+      required: ['title', 'data']
+    }
+  },
+  {
+    name: 'execute_promql_query',
+    description: 'Navigate to the Metrics page and execute a PromQL query. Use this when you want to run a specific Prometheus query and show the results.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The PromQL query to execute (e.g., "rate(http_requests_total[5m])", "cpu_usage", "memory_usage")'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: 'execute_ppl_query',
+    description: 'Navigate to the Logs page and execute a PPL (Piped Processing Language) query. Use this when you want to run a specific OpenSearch PPL query and show the results.',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The PPL query to execute (e.g., "source=logs-* | stats count() by level", "source=ai-agent-logs-* | where level=\'ERROR\'")'
+        }
+      },
+      required: ['query']
+    }
+  }
+];
+
 const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecutePromQLQuery, onExecutePPLQuery }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -515,62 +572,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         // Run the agent with the initial message
         await agentRef.current.runAgent({
           runId: 'initial-run-' + Date.now(),
-          tools: [
-            {
-              name: 'graph_timeseries_data',
-              description: 'Display time series data as an interactive graph. Use this when you have prometheus data or any time series data that should be visualized.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  title: {
-                    type: 'string',
-                    description: 'Title for the graph'
-                  },
-                  data: {
-                    type: 'object',
-                    description: 'Prometheus-style data with result array containing metric and values'
-                  },
-                  query: {
-                    type: 'string',
-                    description: 'The original query used to generate this data'
-                  },
-                  metadata: {
-                    type: 'object',
-                    description: 'Additional metadata like time range, step, etc.'
-                  }
-                },
-                required: ['title', 'data']
-              }
-            },
-            {
-              name: 'execute_promql_query',
-              description: 'Navigate to the Metrics page and execute a PromQL query. Use this when you want to run a specific Prometheus query and show the results.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'The PromQL query to execute (e.g., "rate(http_requests_total[5m])", "cpu_usage", "memory_usage")'
-                  }
-                },
-                required: ['query']
-              }
-            },
-            {
-              name: 'execute_ppl_query',
-              description: 'Navigate to the Logs page and execute a PPL (Piped Processing Language) query. Use this when you want to run a specific OpenSearch PPL query and show the results.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'The PPL query to execute (e.g., "source=logs-* | stats count() by level", "source=ai-agent-logs-* | where level=\'ERROR\'")'
-                  }
-                },
-                required: ['query']
-              }
-            }
-          ],
+          tools: TOOL_DEFINITIONS,
           context: pageContext
         });
       }
@@ -767,62 +769,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           // Wrap runAgent in a timeout to prevent hanging
           const runAgentPromise = agentRef.current.runAgent({
             runId: 'run-' + Date.now(),
-            tools: [
-              {
-                name: 'graph_timeseries_data',
-                description: 'Display time series data as an interactive graph. Use this when you have prometheus data or any time series data that should be visualized.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    title: {
-                      type: 'string',
-                      description: 'Title for the graph'
-                    },
-                    data: {
-                      type: 'object',
-                      description: 'Prometheus-style data with result array containing metric and values'
-                    },
-                    query: {
-                      type: 'string',
-                      description: 'The original query used to generate this data'
-                    },
-                    metadata: {
-                      type: 'object',
-                      description: 'Additional metadata like time range, step, etc.'
-                    }
-                  },
-                  required: ['title', 'data']
-                }
-              },
-              {
-                name: 'execute_promql_query',
-                description: 'Navigate to the Metrics page and execute a PromQL query. Use this when you want to run a specific Prometheus query and show the results.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: {
-                      type: 'string',
-                      description: 'The PromQL query to execute (e.g., "rate(http_requests_total[5m])", "cpu_usage", "memory_usage")'
-                    }
-                  },
-                  required: ['query']
-                }
-              },
-              {
-                name: 'execute_ppl_query',
-                description: 'Navigate to the Logs page and execute a PPL (Piped Processing Language) query. Use this when you want to run a specific OpenSearch PPL query and show the results.',
-                parameters: {
-                  type: 'object',
-                  properties: {
-                    query: {
-                      type: 'string',
-                      description: 'The PPL query to execute (e.g., "source=logs-* | stats count() by level", "source=ai-agent-logs-* | where level=\'ERROR\'")'
-                    }
-                  },
-                  required: ['query']
-                }
-              }
-            ],
+            tools: TOOL_DEFINITIONS,
             context: pageContext
           });
 
