@@ -205,11 +205,11 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                 )
             )
             if isinstance(e, AuthenticationError):
-                raise HTTPException(status_code=401, detail=e.message)
+                raise HTTPException(status_code=401, detail=e.message) from e
             elif isinstance(e, litellm.exceptions.RateLimitError):
-                raise HTTPException(status_code=429, detail=e.message)
+                raise HTTPException(status_code=429, detail=e.message) from e
             else:
-                raise HTTPException(status_code=500, detail=str(e))
+                raise HTTPException(status_code=500, detail=str(e)) from e
 
     return StreamingResponse(
         event_generator(messages),
@@ -387,7 +387,7 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
 
 @app.get("/api/model")
 def get_model():
-    return {"model_name": json.dumps(config.get_models_list())}
+    return {"model_name": config.get_models_list()}
 
 
 if __name__ == "__main__":
