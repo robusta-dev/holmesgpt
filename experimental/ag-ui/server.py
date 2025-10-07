@@ -183,7 +183,7 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                 yield encoder.encode(tool_event)
                         if not front_end_tool_invoked:
                             async for event in _stream_agui_text_message_event(
-                                message=f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
+                                    message=f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
                             ):
                                 yield encoder.encode(event)
             yield encoder.encode(
@@ -351,10 +351,6 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
         {"role": "system",
          "content": "You are Holmes, an AI assistant for observability. You use Prometheus metrics, alerts and OpenSearch logs to quickly perform root cause analysis."}
     ]
-    if input_data.context:
-        conversation_history.append({"role": "system",
-                                     "content": f"The user has the following information in their current web page for which you are assisting them. {input_data.context}"
-                                     })
     if len(non_system_messages) > 1:
         conversation_history.extend([
             {"role": msg.role, "content": msg.content.strip() if msg.content else ""}
@@ -365,6 +361,13 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
     last_user_message = ""
     if non_system_messages and non_system_messages[-1].role == 'user':
         last_user_message = non_system_messages[-1].content.strip() if non_system_messages[-1].content else ""
+
+    if input_data.context:
+        # insert page context at 2nd to last entry (behind latest user message).
+        # page context might change. Don't want it to get buried in past messages.
+        conversation_history.insert(-1, {"role": "system",
+                                         "content": f"The user has the following information in their current web page for which you are assisting them. {input_data.context}"
+                                         })
 
     chat_request = ChatRequest(
         ask=last_user_message,
