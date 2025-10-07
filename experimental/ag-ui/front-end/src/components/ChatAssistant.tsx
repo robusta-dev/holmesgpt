@@ -555,6 +555,20 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 },
                 required: ['query']
               }
+            },
+            {
+              name: 'execute_ppl_query',
+              description: 'Navigate to the Logs page and execute a PPL (Piped Processing Language) query. Use this when you want to run a specific OpenSearch PPL query and show the results.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  query: {
+                    type: 'string',
+                    description: 'The PPL query to execute (e.g., "source=logs-* | stats count() by level", "source=ai-agent-logs-* | where level=\'ERROR\'")'
+                  }
+                },
+                required: ['query']
+              }
             }
           ],
           context: pageContext
@@ -789,6 +803,20 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                     query: {
                       type: 'string',
                       description: 'The PromQL query to execute (e.g., "rate(http_requests_total[5m])", "cpu_usage", "memory_usage")'
+                    }
+                  },
+                  required: ['query']
+                }
+              },
+              {
+                name: 'execute_ppl_query',
+                description: 'Navigate to the Logs page and execute a PPL (Piped Processing Language) query. Use this when you want to run a specific OpenSearch PPL query and show the results.',
+                parameters: {
+                  type: 'object',
+                  properties: {
+                    query: {
+                      type: 'string',
+                      description: 'The PPL query to execute (e.g., "source=logs-* | stats count() by level", "source=ai-agent-logs-* | where level=\'ERROR\'")'
                     }
                   },
                   required: ['query']

@@ -27,7 +27,10 @@ class TestPplQueryAssistTool:
     def test_tool_initialization(self):
         """Test that the tool initializes with correct properties."""
         assert self.tool.name == "opensearch_ppl_query_assist"
-        assert "Generate valid OpenSearch Piped Processing Language" in self.tool.description
+        assert (
+            "Generate valid OpenSearch Piped Processing Language"
+            in self.tool.description
+        )
         assert "query" in self.tool.parameters
         assert isinstance(self.tool.parameters["query"], ToolParameter)
         assert self.tool.parameters["query"].required is True
@@ -74,7 +77,7 @@ class TestPplQueryAssistTool:
         # Assert
         assert isinstance(result, StructuredToolResult)
         assert result.status == StructuredToolResultStatus.SUCCESS
-        assert result.data["query"] == []  # Default value when key is missing
+        assert result.data["query"] == ""  # Default value when key is missing
         assert result.params == params
 
     def test_invoke_with_complex_query(self):
@@ -168,7 +171,7 @@ class TestPplQueryAssistTool:
         result = self.tool.get_parameterized_one_liner(params)
 
         # Assert
-        expected = "OpenSearchQueryToolset: Query ([])"
+        expected = "OpenSearchQueryToolset: Query ("")"
         assert result == expected
 
     def test_get_parameterized_one_liner_with_empty_query(self):
@@ -234,26 +237,33 @@ class TestOpenSearchQueryAssistToolset:
         assert isinstance(config, dict)
         assert len(config) == 0
 
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.abspath')
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.join')
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.dirname')
-    def test_reload_instructions_template_path_construction(self, mock_dirname, mock_join, mock_abspath):
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.abspath")
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.join")
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.dirname")
+    def test_reload_instructions_template_path_construction(
+        self, mock_dirname, mock_join, mock_abspath
+    ):
         """Test that _reload_instructions constructs the correct template path."""
         # Arrange
         mock_dirname.return_value = "/path/to/opensearch"
-        mock_join.return_value = "/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
-        mock_abspath.return_value = "/absolute/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
+        mock_join.return_value = (
+            "/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
+        )
+        mock_abspath.return_value = (
+            "/absolute/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
+        )
 
         # Mock the _load_llm_instructions method
-        with patch.object(self.toolset, '_load_llm_instructions') as mock_load_instructions:
+        with patch.object(
+            self.toolset, "_load_llm_instructions"
+        ) as mock_load_instructions:
             # Act
             self.toolset._reload_instructions()
 
             # Assert
             mock_dirname.assert_called_once()
             mock_join.assert_called_once_with(
-                "/path/to/opensearch", 
-                "opensearch_query_assist_instructions.jinja2"
+                "/path/to/opensearch", "opensearch_query_assist_instructions.jinja2"
             )
             mock_abspath.assert_called_once_with(
                 "/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
@@ -262,10 +272,12 @@ class TestOpenSearchQueryAssistToolset:
                 jinja_template="file:///absolute/path/to/opensearch/opensearch_query_assist_instructions.jinja2"
             )
 
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.abspath')
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.join')
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.dirname')
-    def test_reload_instructions_with_real_file_path(self, mock_dirname, mock_join, mock_abspath):
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.abspath")
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.join")
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.dirname")
+    def test_reload_instructions_with_real_file_path(
+        self, mock_dirname, mock_join, mock_abspath
+    ):
         """Test _reload_instructions with realistic file paths."""
         # Arrange
         template_dir = "/app/holmes/plugins/toolsets/opensearch"
@@ -277,13 +289,17 @@ class TestOpenSearchQueryAssistToolset:
         mock_abspath.return_value = abs_template_path
 
         # Mock the _load_llm_instructions method
-        with patch.object(self.toolset, '_load_llm_instructions') as mock_load_instructions:
+        with patch.object(
+            self.toolset, "_load_llm_instructions"
+        ) as mock_load_instructions:
             # Act
             self.toolset._reload_instructions()
 
             # Assert
             expected_file_uri = f"file://{abs_template_path}"
-            mock_load_instructions.assert_called_once_with(jinja_template=expected_file_uri)
+            mock_load_instructions.assert_called_once_with(
+                jinja_template=expected_file_uri
+            )
 
     def test_toolset_has_correct_tool_configuration(self):
         """Test that the toolset's tool is properly configured."""
@@ -304,13 +320,13 @@ class TestOpenSearchQueryAssistToolset:
         from holmes.core.tools import Toolset
 
         assert isinstance(self.toolset, Toolset)
-        assert hasattr(self.toolset, 'name')
-        assert hasattr(self.toolset, 'description')
-        assert hasattr(self.toolset, 'tools')
-        assert hasattr(self.toolset, 'tags')
-        assert hasattr(self.toolset, 'experimental')
-        assert hasattr(self.toolset, 'enabled')
-        assert hasattr(self.toolset, 'is_default')
+        assert hasattr(self.toolset, "name")
+        assert hasattr(self.toolset, "description")
+        assert hasattr(self.toolset, "tools")
+        assert hasattr(self.toolset, "tags")
+        assert hasattr(self.toolset, "experimental")
+        assert hasattr(self.toolset, "enabled")
+        assert hasattr(self.toolset, "is_default")
 
 
 class TestIntegration:
@@ -321,7 +337,9 @@ class TestIntegration:
         # Arrange
         toolset = OpenSearchQueryAssistToolset()
         tool = toolset.tools[0]
-        test_query = "source=ai-agent-logs-* | where level='ERROR' | stats count() by message"
+        test_query = (
+            "source=ai-agent-logs-* | where level='ERROR' | stats count() by message"
+        )
         params = {"query": test_query}
 
         # Act
@@ -353,7 +371,7 @@ class TestIntegration:
         # Verify tags include CORE
         assert ToolsetTag.CORE in toolset.tags
 
-    @patch('holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.exists')
+    @patch("holmes.plugins.toolsets.opensearch.opensearch_query_assist.os.path.exists")
     def test_template_file_existence_check(self, mock_exists):
         """Test behavior when template file exists or doesn't exist."""
         # This test verifies the path construction logic
@@ -362,7 +380,7 @@ class TestIntegration:
         # Mock file existence
         mock_exists.return_value = True
 
-        with patch.object(toolset, '_load_llm_instructions') as mock_load:
+        with patch.object(toolset, "_load_llm_instructions") as mock_load:
             toolset._reload_instructions()
 
             # Verify that _load_llm_instructions was called
@@ -370,9 +388,11 @@ class TestIntegration:
 
             # Verify the call includes the correct file:// prefix
             call_args = mock_load.call_args[1]
-            assert 'jinja_template' in call_args
-            assert call_args['jinja_template'].startswith('file://')
-            assert call_args['jinja_template'].endswith('opensearch_query_assist_instructions.jinja2')
+            assert "jinja_template" in call_args
+            assert call_args["jinja_template"].startswith("file://")
+            assert call_args["jinja_template"].endswith(
+                "opensearch_query_assist_instructions.jinja2"
+            )
 
 
 if __name__ == "__main__":
