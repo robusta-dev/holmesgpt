@@ -57,6 +57,7 @@ class ModelEntry(BaseModel):
         extra="allow",
     )
 
+    @classmethod
     def load_from_dict(cls, data: dict) -> Self:
         return cls.model_validate(data)
 
