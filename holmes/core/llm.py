@@ -1,24 +1,25 @@
 import json
 import logging
+import os
 from abc import abstractmethod
 from math import floor
-from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
-from litellm.types.utils import ModelResponse, TextCompletionResponse
-import sentry_sdk
-
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from pydantic import BaseModel
 import litellm
-import os
+import sentry_sdk
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from litellm.types.utils import ModelResponse, TextCompletionResponse
+from pydantic import BaseModel, ConfigDict, SecretStr
+from typing_extensions import Self
+
 from holmes.clients.robusta_client import RobustaModelsResponse, fetch_robusta_models
 from holmes.common.env_vars import (
+    FALLBACK_CONTEXT_WINDOW_SIZE,
     LOAD_ALL_ROBUSTA_MODELS,
     REASONING_EFFORT,
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
-    FALLBACK_CONTEXT_WINDOW_SIZE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -35,6 +36,29 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 ROBUSTA_AI_MODEL_NAME = "Robusta"
+
+
+class ModelEntry(BaseModel):
+    """ModelEntry represents a single LLM model configuration."""
+
+    model: str
+    # TODO: the name field seems to be redundant, can we remove it?
+    name: Optional[str] = None
+    api_key: Optional[SecretStr] = None
+    base_url: Optional[str] = None
+    is_robusta_model: Optional[bool] = None
+    custom_args: Optional[Dict[str, Any]] = None
+
+    # LLM configurations used specifically for Azure OpenAI Service
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+
+    def load_from_dict(cls, data: dict) -> Self:
+        return cls.model_validate(data)
 
 
 class LLM:
@@ -389,7 +413,7 @@ class DefaultLLM(LLM):
 class LLMModelRegistry:
     def __init__(self, config: "Config", dal: SupabaseDal) -> None:
         self.config = config
-        self._llms: dict[str, dict[str, Any]] = {}
+        self._llms: dict[str, ModelEntry] = {}
         self._default_robusta_model = None
         self.dal = dal
 
@@ -411,6 +435,8 @@ class LLMModelRegistry:
                 model_name=self.config.model,
                 base_url=self.config.api_base,
                 is_robusta_model=False,
+                api_key=self.config.api_key,
+                api_version=self.config.api_version,
             )
 
     def _should_load_config_model(self) -> bool:
@@ -463,13 +489,12 @@ class LLMModelRegistry:
     def _load_default_robusta_config(self):
         if self._should_load_robusta_ai():
             logging.info("Loading default Robusta AI model")
-            self._llms[ROBUSTA_AI_MODEL_NAME] = {
-                "name": ROBUSTA_AI_MODEL_NAME,
-                "base_url": ROBUSTA_API_ENDPOINT,
-                "is_robusta_model": True,
-                # TODO: tech debt, this isn't really gpt-4o at all
-                "model": "gpt-4o",
-            }
+            self._llms[ROBUSTA_AI_MODEL_NAME] = ModelEntry(
+                name=ROBUSTA_AI_MODEL_NAME,
+                model="gpt-4o",  # TODO: tech debt, this isn't really
+                base_url=ROBUSTA_API_ENDPOINT,
+                is_robusta_model=True,
+            )
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
 
     def _should_load_robusta_ai(self) -> bool:
@@ -491,7 +516,7 @@ class LLMModelRegistry:
 
         return True
 
-    def get_model_params(self, model_key: Optional[str] = None) -> dict:
+    def get_model_params(self, model_key: Optional[str] = None) -> ModelEntry:
         if not self._llms:
             raise Exception("No llm models were loaded")
 
@@ -523,19 +548,23 @@ class LLMModelRegistry:
         return self._llms[name]  # type: ignore
 
     @property
-    def models(self) -> dict[str, dict[str, Any]]:
+    def models(self) -> dict[str, ModelEntry]:
         return self._llms
 
-    def _parse_models_file(self, path: str):
+    def _parse_models_file(self, path: str) -> dict[str, ModelEntry]:
         models = load_yaml_file(path, raise_error=False, warn_not_found=False)
         for _, params in models.items():
             params = replace_env_vars_values(params)
 
-        return models
+        llms = {}
+        for model_name, params in models.items():
+            llms[model_name] = ModelEntry.model_validate(params)
+
+        return llms
 
     def _create_robusta_model_entry(
         self, model_name: str, args: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
+    ) -> ModelEntry:
         entry = self._create_model_entry(
             # TODO: tech debt, this isn't really gpt-4o at all (wont token counts be wrong etc)
             model="gpt-4o",  # Robusta AI model is using openai like API.
@@ -543,7 +572,7 @@ class LLMModelRegistry:
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
         )
-        entry["custom_args"] = args or {}  # type: ignore[assignment]
+        entry.custom_args = args or {}
         return entry
 
     def _create_model_entry(
@@ -552,13 +581,19 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
-    ) -> dict[str, Any]:
-        return {
-            "name": model_name,
-            "base_url": base_url,
-            "is_robusta_model": is_robusta_model,
-            "model": model,
-        }
+        api_key: Optional[SecretStr] = None,
+        api_base: Optional[str] = None,
+        api_version: Optional[str] = None,
+    ) -> ModelEntry:
+        return ModelEntry(
+            name=model_name,
+            model=model,
+            base_url=base_url,
+            is_robusta_model=is_robusta_model,
+            api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
+        )
 
 
 def get_llm_usage(
