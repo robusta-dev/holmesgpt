@@ -1,0 +1,190 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-35
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-scripts
+  namespace: app-35
+type: Opaque
+stringData:
+  app.py: |
+    import time
+    import random
+    import json
+    import traceback
+    from datetime import datetime
+
+    def log_json(level, message, **metadata):
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "level": level,
+            "service": "inventory-service",
+            "message": message,
+            **metadata
+        }
+        print(json.dumps(entry), flush=True)
+
+    # Startup logs
+    log_json("INFO", "Starting inventory management service", version="3.2.0")
+    log_json("INFO", "Connecting to PostgreSQL database", host="postgres.app-35.svc", port=5432)
+
+    # This is the real problem - appears once early
+    log_json("ERROR", "Database migration failed",
+             migration_version="v3.2.0_add_warehouse_tracking",
+             error="ALTER TABLE inventory ADD COLUMN warehouse_id failed: column 'location_id' does not exist",
+             rollback_status="failed",
+             database_state="inconsistent")
+
+    log_json("WARN", "Proceeding with degraded schema - some features may not work")
+
+    # Now generate tons of schema-related errors
+    queries = [
+        ("SELECT * FROM products WHERE warehouse_id = %s", "column warehouse_id does not exist"),
+        ("INSERT INTO inventory_tracking (product_id, warehouse_id, quantity) VALUES (%s, %s, %s)", "relation inventory_tracking does not exist"),
+        ("UPDATE products SET location_id = %s WHERE id = %s", "column location_id does not exist"),
+        ("SELECT p.*, w.name FROM products p JOIN warehouses w ON p.warehouse_id = w.id", "relation warehouses does not exist"),
+        ("DELETE FROM inventory_history WHERE created_at < %s", "relation inventory_history does not exist"),
+        ("SELECT COUNT(*) FROM order_items WHERE warehouse_id IS NOT NULL", "column warehouse_id does not exist"),
+        ("INSERT INTO audit_log (entity, action, warehouse_id) VALUES (%s, %s, %s)", "column warehouse_id does not exist"),
+        ("UPDATE inventory SET last_counted = NOW() WHERE warehouse_id = %s", "column warehouse_id does not exist"),
+    ]
+
+    iteration = 0
+    while True:
+        iteration += 1
+
+        # Generate a flood of schema errors with full stack traces
+        if iteration % 2 == 0:
+            query, error = random.choice(queries)
+
+            # Create realistic stack trace
+            log_json("ERROR", "Database query failed",
+                    query=query,
+                    error=f"psycopg2.errors.UndefinedColumn: {error}",
+                    traceback=[
+                        "Traceback (most recent call last):",
+                        "  File \"/app/inventory/handlers.py\", line 234, in get_inventory",
+                        "    cursor.execute(query, params)",
+                        "  File \"/usr/local/lib/python3.11/site-packages/psycopg2/cursor.py\", line 197, in execute",
+                        "    return super().execute(query, vars)",
+                        f"psycopg2.errors.UndefinedColumn: {error}",
+                        "",
+                        "During handling of the above exception, another exception occurred:",
+                        "",
+                        "Traceback (most recent call last):",
+                        "  File \"/app/main.py\", line 456, in process_request",
+                        "    result = handler.execute(request)",
+                        "  File \"/app/inventory/handlers.py\", line 238, in get_inventory",
+                        "    raise DatabaseError(f\"Query failed: {e}\")",
+                        f"app.errors.DatabaseError: Query failed: {error}"
+                    ],
+                    request_id=f"req-{random.randint(100000, 999999)}",
+                    user_id=random.randint(1, 1000),
+                    endpoint=random.choice(["/api/inventory", "/api/products", "/api/warehouses", "/api/orders"]))
+
+        # Add more noise with related but different errors
+        if iteration % 3 == 0:
+            log_json("ERROR", "Transaction rollback",
+                    reason="schema_mismatch",
+                    affected_tables=["products", "inventory", "orders"],
+                    duration_ms=random.randint(100, 500))
+
+        if iteration % 5 == 0:
+            log_json("WARN", "Falling back to legacy query",
+                    original_query="optimized_inventory_query_v3",
+                    fallback="legacy_inventory_query_v2",
+                    reason="missing_columns")
+
+        if iteration % 7 == 0:
+            log_json("ERROR", "ORM mapping failure",
+                    model="InventoryItem",
+                    error="SQLAlchemy: Can't map column 'warehouse_id' - column does not exist in table",
+                    affected_operations=["create", "update", "bulk_insert"])
+
+        # Occasional successful operations to make it realistic
+        if iteration % 10 == 0:
+            log_json("INFO", "Health check completed",
+                    database_connected=True,
+                    schema_version="v3.1.0",  # Wrong version!
+                    pending_migrations=1)
+
+        time.sleep(0.05)  # Fast generation to fill logs quickly
+
+  migration.sql: |
+    -- Migration v3.2.0_add_warehouse_tracking
+    -- This migration adds warehouse tracking capabilities
+
+    BEGIN;
+
+    -- Add warehouse_id to products table
+    ALTER TABLE products ADD COLUMN warehouse_id INTEGER;
+
+    -- Create warehouse table
+    CREATE TABLE warehouses (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        location_id INTEGER REFERENCES locations(id),  -- This fails! locations table doesn't exist
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    -- Add foreign key constraint
+    ALTER TABLE products
+        ADD CONSTRAINT fk_products_warehouse
+        FOREIGN KEY (warehouse_id)
+        REFERENCES warehouses(id);
+
+    -- Create inventory tracking table
+    CREATE TABLE inventory_tracking (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER REFERENCES products(id),
+        warehouse_id INTEGER REFERENCES warehouses(id),
+        quantity INTEGER NOT NULL,
+        last_updated TIMESTAMP DEFAULT NOW()
+    );
+
+    -- Create indexes
+    CREATE INDEX idx_products_warehouse ON products(warehouse_id);
+    CREATE INDEX idx_tracking_product_warehouse ON inventory_tracking(product_id, warehouse_id);
+
+    COMMIT;
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory-service
+  namespace: app-35
+  labels:
+    app: inventory-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory-service
+  template:
+    metadata:
+      labels:
+        app: inventory-service
+    spec:
+      containers:
+      - name: api
+        image: python:3.11-slim
+        command: ["python", "-u", "/scripts/app.py"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: scripts
+        secret:
+          secretName: app-scripts
+      restartPolicy: Always

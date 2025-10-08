@@ -22,3 +22,11 @@ expected_output: |
   random_key may be different than the above example so long as its a random looking key, but all other parameters (type and tool_name) must be as described
 
   Output must NOT tell the user it doesn't have access to metrics or that they should use another tool
+
+skip: true
+skip_reason: "missing setup - need to write data to datadog"
+tags:
+- datadog
+- metrics
+- medium
+- embeds
