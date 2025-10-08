@@ -48,6 +48,7 @@ DEVELOPMENT_MODE = load_bool("DEVELOPMENT_MODE", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
+EXTRA_HEADERS = os.environ.get("EXTRA_HEADERS", "")
 THINKING = os.environ.get("THINKING", "")
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip().lower()
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
