@@ -19,7 +19,7 @@ jobs:
     - uses: google-github-actions/auth@v2
       with:
         project_id: 'robusta-development'
-        workload_identity_provider: 'projects/429189597230/locations/global/workloadIdentityPools/github/providers/robusta-repos'
+        workload_identity_provider: 'https://iam.googleapis.com/projects/479654156100/locations/global/workloadIdentityPools/github/providers/robusta-repos'
 
     - name: Set up gcloud CLI
       uses: google-github-actions/setup-gcloud@v2
