@@ -2,11 +2,12 @@
 
 from unittest.mock import Mock, patch
 
-from holmes.core.tools import ToolResultStatus
+from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.datadog.toolset_datadog_general import (
     DatadogGeneralToolset,
     is_endpoint_allowed,
 )
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestEndpointValidation:
@@ -127,21 +128,11 @@ class TestDatadogGeneralToolset:
         list_tool = toolset.tools[2]  # ListDatadogAPIResources
 
         # Test listing all resources
-        result = list_tool._invoke({"category": "all"})
-        assert result.status == ToolResultStatus.SUCCESS
-        assert "monitors" in result.data.lower()
-        assert "dashboards" in result.data.lower()
-
-        # Test filtering by category
-        result = list_tool._invoke({"category": "monitors"})
-        assert result.status == ToolResultStatus.SUCCESS
+        result = list_tool._invoke({}, context=create_mock_tool_invoke_context())
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "monitor" in result.data.lower()
-        assert "GET /api/v1/monitor" in result.data
-
-        # Test invalid category
-        result = list_tool._invoke({"category": "invalid_category"})
-        assert result.status == ToolResultStatus.ERROR
-        assert "Unknown category" in result.error
+        assert "dashboard" in result.data.lower()
+        assert "POST     /api/v1/monitor" in result.data
 
     @patch(
         "holmes.plugins.toolsets.datadog.toolset_datadog_general.execute_datadog_http_request"
@@ -167,18 +158,20 @@ class TestDatadogGeneralToolset:
                 "endpoint": "/api/v1/monitor",
                 "query_params": {"limit": 10},
                 "description": "List monitors",
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
-        assert result.status == ToolResultStatus.SUCCESS
+        assert result.status == StructuredToolResultStatus.SUCCESS
         assert "test_response" in result.data
 
         # Test blocked endpoint
         result = get_tool._invoke(
-            {"endpoint": "/api/v1/monitor/create", "description": "Create monitor"}
+            {"endpoint": "/api/v1/monitor/create", "description": "Create monitor"},
+            context=create_mock_tool_invoke_context(),
         )
 
-        assert result.status == ToolResultStatus.ERROR
+        assert result.status == StructuredToolResultStatus.ERROR
         assert "blacklisted operation" in result.error
 
     def test_example_config(self):

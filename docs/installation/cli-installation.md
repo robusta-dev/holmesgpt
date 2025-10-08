@@ -94,11 +94,12 @@ After installation, choose your AI provider and follow the steps below. See supp
 
     3. **Ask your first question**:
         ```bash
-        # Uses gpt-4o by default
+        # Uses gpt-4.1 by default (fast and capable)
+        # For best results, consider using Anthropic's Claude Opus 4.1 or Claude Sonnet 4 models
         holmes ask "what is wrong with the user-profile-import pod?"
 
         # Or specify a different model
-        holmes ask "what is wrong with the user-profile-import pod?" --model="gpt-5"
+        holmes ask "what is wrong with the user-profile-import pod?" --model="anthropic/claude-opus-4-1-20250805"
         ```
 
 === "Azure OpenAI"
@@ -143,7 +144,7 @@ After installation, choose your AI provider and follow the steps below. See supp
         holmes ask "what is wrong with the user-profile-import pod?" --model="bedrock/<your-model-name>"
         ```
 
-        **Note**: You must install `boto3>=1.28.57` and replace `<your-model-name>` with an actual model name like `anthropic.claude-3-5-sonnet-20240620-v1:0`. See [Finding Available Models](../ai-providers/aws-bedrock.md#finding-available-models) for instructions.
+        **Note**: You must install `boto3>=1.28.57` and replace `<your-model-name>` with an actual model name like `anthropic.claude-sonnet-4-20250514-v1:0`. See [Finding Available Models](../ai-providers/aws-bedrock.md#finding-available-models) for instructions.
 
     Ask follow-up questions to refine your investigation
 

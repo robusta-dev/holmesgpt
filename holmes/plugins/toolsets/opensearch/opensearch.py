@@ -8,8 +8,9 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -93,13 +94,11 @@ class ListShards(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         shards = client.client.cat.shards()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(shards),
             params=params,
         )
@@ -124,15 +123,13 @@ class GetClusterSettings(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host"))
         response = client.client.cluster.get_settings(
             include_defaults=True, flat_settings=True
         )
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(response),
             params=params,
         )
@@ -157,13 +154,11 @@ class GetClusterHealth(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         client = get_client(self.toolset.clients, host=params.get("host", ""))
         health = client.client.cluster.health()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(health),
             params=params,
         )
@@ -182,12 +177,10 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         hosts = [host for client in self.toolset.clients for host in client.hosts]
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS,
+            status=StructuredToolResultStatus.SUCCESS,
             data=str(hosts),
             params=params,
         )

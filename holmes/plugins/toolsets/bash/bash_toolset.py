@@ -16,8 +16,9 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
@@ -82,9 +83,7 @@ class KubectlRunImageCommand(BaseBashTool):
         command_str = get_param_or_raise(params, "command")
         return f"kubectl run {pod_name} --image={image} --namespace={namespace} --rm --attach --restart=Never -i -- {command_str}"
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         timeout = params.get("timeout", 60)
 
         image = get_param_or_raise(params, "image")
@@ -94,7 +93,7 @@ class KubectlRunImageCommand(BaseBashTool):
 
         if namespace and not re.match(SAFE_NAMESPACE_PATTERN, namespace):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Error: The namespace is invalid. Valid namespaces must match the following regexp: {SAFE_NAMESPACE_PATTERN}",
                 params=params,
             )
@@ -118,7 +117,7 @@ class KubectlRunImageCommand(BaseBashTool):
                 }
             )
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e),
                 params=params,
             )
@@ -164,22 +163,20 @@ class RunBashCommand(BaseBashTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         command_str = params.get("command")
         timeout = params.get("timeout", 60)
 
         if not command_str:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error="The 'command' parameter is required and was not provided.",
                 params=params,
             )
 
         if not isinstance(command_str, str):
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"The 'command' parameter must be a string, got {type(command_str).__name__}.",
                 params=params,
             )
@@ -187,7 +184,7 @@ class RunBashCommand(BaseBashTool):
         command_to_execute = command_str
 
         # Only run the safety check if user has NOT approved the command
-        if not user_approved:
+        if not context.user_approved:
             try:
                 command_to_execute = make_command_safe(command_str, self.toolset.config)
 
@@ -202,7 +199,7 @@ class RunBashCommand(BaseBashTool):
                     logging.info(f"Refusing LLM tool call {command_str}")
 
                     return StructuredToolResult(
-                        status=ToolResultStatus.APPROVAL_REQUIRED,
+                        status=StructuredToolResultStatus.APPROVAL_REQUIRED,
                         error=f"Refusing to execute bash command. {str(e)}",
                         params=params,
                         invocation=command_str,

@@ -2,7 +2,12 @@ import logging
 from typing import Any, Dict, Tuple
 from datetime import datetime, timezone
 
-from holmes.core.tools import StructuredToolResult, ToolParameter, ToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    ToolInvokeContext,
+    ToolParameter,
+    StructuredToolResultStatus,
+)
 from holmes.plugins.toolsets.azure_sql.azure_base_toolset import (
     BaseAzureSQLTool,
     BaseAzureSQLToolset,
@@ -151,9 +156,7 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
 
         return "\n".join(report_sections)
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             hours_back = params.get("hours_back", 2)
 
@@ -200,7 +203,7 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
             )
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=report_text,
                 params=params,
             )
@@ -208,7 +211,7 @@ class AnalyzeDatabaseConnections(BaseAzureSQLTool):
             error_msg = f"Failed to generate connection report: {str(e)}"
             logging.error(error_msg)
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=error_msg,
                 params=params,
             )

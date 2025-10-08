@@ -1,9 +1,10 @@
 from holmes.core.tools import (
+    ToolInvokeContext,
     Toolset,
     Tool,
     ToolParameter,
     StructuredToolResult,
-    ToolResultStatus,
+    StructuredToolResultStatus,
     CallablePrerequisite,
 )
 
@@ -24,14 +25,12 @@ class RemoteMCPTool(Tool):
     url: str
     headers: Optional[Dict[str, str]] = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             return asyncio.run(self._invoke_async(params))
         except Exception as e:
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=str(e.args),
                 params=params,
                 invocation=f"MCPtool {self.name} with params {params}",
@@ -48,9 +47,9 @@ class RemoteMCPTool(Tool):
                 )
                 return StructuredToolResult(
                     status=(
-                        ToolResultStatus.ERROR
+                        StructuredToolResultStatus.ERROR
                         if tool_result.isError
-                        else ToolResultStatus.SUCCESS
+                        else StructuredToolResultStatus.SUCCESS
                     ),
                     data=merged_text,
                     params=params,

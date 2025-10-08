@@ -1,8 +1,13 @@
-#model: "gpt-4o"
+#model: "gpt-4.1"
 #api_key: "..."
 
 #model: "azure/model-deployment-name"
 #api_key: "..."
+
+# Fast Model Summarization
+# Optional fast model for summarizing large tool outputs before sending to main LLM
+# Helps reduce context window usage, improve performance, and reduce costs
+#fast_model: "gpt-4o-mini"
 
 # try adding your own tools here!
 # e.g. query company-specific data, fetch logs from your existing observability tools, etc
