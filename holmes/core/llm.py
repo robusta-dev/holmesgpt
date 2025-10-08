@@ -142,9 +142,7 @@ class DefaultLLM(LLM):
         api_version: Optional[str],
         args: Optional[dict] = None,
     ):
-        if getattr(
-            self, "is_robusta_model", False
-        ):  # using getattr because some tests call check_llm() without properly instantiating the class.
+        if self.is_robusta_model:
             # The model is assumed correctly configured if it is a robusta model
             # For robusta models, this code would fail because Holmes has no knowledge of the API keys
             # to azure or bedrock as all completion API calls go through robusta's LLM proxy
@@ -515,8 +513,7 @@ class LLMModelRegistry:
                 return
 
             default_model = None
-            for model_name in robusta_models.models:
-                model_data = robusta_models.models[model_name]
+            for model_name, model_data in robusta_models.models.items():
                 logging.info(f"Loading Robusta AI model: {model_name}")
                 self._llms[model_name] = self._create_robusta_model_entry(
                     model_name=model_name, model_data=model_data

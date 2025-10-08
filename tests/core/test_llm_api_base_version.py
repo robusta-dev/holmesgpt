@@ -74,6 +74,7 @@ class TestDefaultLLMCheckLLM:
 
         # Create instance without __init__
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
         llm.check_llm(
             model="test-model",
             api_key="test-key",
@@ -98,6 +99,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
         llm.check_llm(
             model="azure/gpt-4o",
             api_key="test-key",
@@ -123,6 +125,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -148,6 +151,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -171,6 +175,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -189,6 +194,7 @@ class TestDefaultLLMCheckLLM:
         mock_get_provider.return_value = None
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(Exception, match="Unknown provider for model"):
             llm.check_llm(
