@@ -25,6 +25,7 @@ from holmes.common.env_vars import (
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
+    EXTRA_HEADERS,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -320,6 +321,9 @@ class DefaultLLM(LLM):
 
         if THINKING:
             self.args.setdefault("thinking", json.loads(THINKING))
+
+        if EXTRA_HEADERS:
+            self.args.setdefault("extra_headers", json.loads(EXTRA_HEADERS))
 
         if self.args.get("thinking", None):
             litellm.modify_params = True
