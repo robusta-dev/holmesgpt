@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+from pydantic import SecretStr
 import yaml
 
 from holmes.config import Config
@@ -61,7 +62,7 @@ def test_config_get_llm_with_azure_openai_parameters():
     """Test that Config._get_llm passes api_base and api_version to DefaultLLM."""
     config = Config(
         model="azure/gpt-4o",
-        api_key="test-key",
+        api_key=SecretStr("test-key"),
         api_base="https://test.api.base",
         api_version="2023-12-01",
     )
@@ -72,14 +73,14 @@ def test_config_get_llm_with_azure_openai_parameters():
 
         result = config._get_llm()
 
-        # Check that DefaultLLM was called with the right positional arguments
-        call_args = mock_default_llm.call_args[0]
-        assert call_args[0] == "azure/gpt-4o"
-        assert call_args[1] == "test-key"
-        assert call_args[2] == "https://test.api.base"
-        assert call_args[3] == "2023-12-01"
-        assert call_args[4] == {}
-        assert call_args[5] is None  # tracer
+        # Check that DefaultLLM was called with the right named arguments
+        call_args = mock_default_llm.call_args[1]
+        assert call_args["model"] == "azure/gpt-4o"
+        assert call_args["api_key"] == "test-key"
+        assert call_args["api_base"] == "https://test.api.base"
+        assert call_args["api_version"] == "2023-12-01"
+        assert call_args["args"] == {}
+        assert call_args["tracer"] is None
         assert result == mock_llm_instance
 
 
