@@ -12,7 +12,11 @@ import sentry_sdk
 from pydantic import BaseModel, ConfigDict, SecretStr
 from typing_extensions import Self
 
-from holmes.clients.robusta_client import RobustaModel, RobustaModelsResponse, fetch_robusta_models
+from holmes.clients.robusta_client import (
+    RobustaModel,
+    RobustaModelsResponse,
+    fetch_robusta_models,
+)
 
 from holmes.common.env_vars import (
     FALLBACK_CONTEXT_WINDOW_SIZE,
@@ -607,7 +611,7 @@ class LLMModelRegistry:
 
     def _create_robusta_model_entry(
         self, model_name: str, model_data: RobustaModel
-    ) -> dict[str, Any]:
+    ) -> ModelEntry:
         entry = self._create_model_entry(
             model=model_data.model,
             model_name=model_name,
