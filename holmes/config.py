@@ -45,6 +45,9 @@ class SupportedTicketSources(str, Enum):
 
 class Config(RobustaBaseConfig):
     model: Optional[str] = None
+    api_key: Optional[SecretStr] = (
+        None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
+    )
     api_base: Optional[str] = None
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
@@ -441,7 +444,8 @@ class Config(RobustaBaseConfig):
     # TODO: move this to the llm model registry
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
         sentry_sdk.set_tag("requested_model", model_key)
-        model_params = self.llm_model_registry.get_model_params(model_key)
+        model_entry = self.llm_model_registry.get_model_params(model_key)
+        model_params = model_entry.model_dump(exclude_none=True)
         api_base = self.api_base
         api_version = self.api_version
 
@@ -453,6 +457,8 @@ class Config(RobustaBaseConfig):
             api_key = f"{account_id} {token}"
         else:
             api_key = model_params.pop("api_key", None)
+            if api_key is not None:
+                api_key = api_key.get_secret_value()
 
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.

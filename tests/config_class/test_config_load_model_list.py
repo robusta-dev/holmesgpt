@@ -21,26 +21,25 @@ def test_load_custom_toolsets_config_valid(monkeypatch, tmp_path):
     assert isinstance(config.llm_model_registry.models, dict)
     assert len(list(config.llm_model_registry.models.keys())) == 3
     az = config.llm_model_registry.models.get("azure")
-    assert az.get("model") == "test-value"
+    assert az.model == "test-value"
 
 
 def test_config_load_model_list_valid_with_robusta_ai(server_config: Config):
     assert isinstance(server_config.llm_model_registry.models, dict)
     assert len(list(server_config.llm_model_registry.models.keys())) == 5
     assert (
-        server_config.llm_model_registry.models["our_local_model"]["model"]
+        server_config.llm_model_registry.models["our_local_model"].model
         == "bedrock/custom_ai_model"
     )
 
     sonnet_model = server_config.llm_model_registry.models["Robusta/sonnet-4 preview"]
 
     assert (
-        sonnet_model.get("base_url")
-        == f"{ROBUSTA_API_ENDPOINT}/llm/Robusta/sonnet-4 preview"
+        sonnet_model.base_url == f"{ROBUSTA_API_ENDPOINT}/llm/Robusta/sonnet-4 preview"
     )
-    assert sonnet_model.get("name") == "Robusta/sonnet-4 preview"
-    assert sonnet_model.get("model") == "claude-sonnet-4-20250514"
-    assert sonnet_model.get("is_robusta_model")
+    assert sonnet_model..name == "Robusta/sonnet-4 preview"
+    assert sonnet_model.model == "claude-sonnet-4-20250514"
+    assert sonnet_model.is_robusta_model
 
     assert (
         server_config.llm_model_registry.default_robusta_model
