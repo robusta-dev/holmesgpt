@@ -29,7 +29,6 @@ from holmes.plugins.toolsets.utils import (
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
-TEMPO_API_USE_POST = False  # Use GET method for direct API mapping
 
 
 class BaseGrafanaTempoToolset(BaseGrafanaToolset):
@@ -56,7 +55,7 @@ class BaseGrafanaTempoToolset(BaseGrafanaToolset):
 
         # Then check Tempo-specific echo endpoint
         try:
-            api = GrafanaTempoAPI(self.grafana_config, use_post=TEMPO_API_USE_POST)
+            api = GrafanaTempoAPI(self.grafana_config)
             if api.query_echo_endpoint():
                 return True, "Successfully connected to Tempo"
             else:
@@ -231,9 +230,7 @@ Examples:
             start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
             # Create API instance
-            api = GrafanaTempoAPI(
-                self._toolset.grafana_config, use_post=TEMPO_API_USE_POST
-            )
+            api = GrafanaTempoAPI(self._toolset.grafana_config)
 
             # Step 1: Get all trace summaries
             stats_query = f"{{{base_query}}}"
@@ -416,7 +413,7 @@ class SearchTracesByQuery(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -498,7 +495,7 @@ class SearchTracesByTags(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -562,7 +559,7 @@ class QueryTraceById(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -639,7 +636,7 @@ class SearchTagNames(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -717,7 +714,7 @@ class SearchTagValues(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -797,7 +794,7 @@ class QueryMetricsInstant(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
@@ -883,7 +880,7 @@ class QueryMetricsRange(Tool):
     def _invoke(
         self, params: Dict, user_approved: bool = False
     ) -> StructuredToolResult:
-        api = GrafanaTempoAPI(self._toolset.grafana_config, use_post=TEMPO_API_USE_POST)
+        api = GrafanaTempoAPI(self._toolset.grafana_config)
 
         start, end = BaseGrafanaTempoToolset.adjust_start_end_time(params)
 
