@@ -158,6 +158,7 @@ class ToolParameter(BaseModel):
     required: bool = True
     properties: Optional[Dict[str, "ToolParameter"]] = None  # For object types
     items: Optional["ToolParameter"] = None  # For array item schemas
+    enum: Optional[List[str]] = None  # For restricting to specific values
 
 
 class ToolInvokeContext(BaseModel):
@@ -682,7 +683,26 @@ class Toolset(BaseModel):
     def check_prerequisites(self):
         self.status = ToolsetStatusEnum.ENABLED
 
-        for prereq in self.prerequisites:
+        # Sort prerequisites by type to fail fast on missing env vars before
+        # running slow commands (e.g., ArgoCD checks that timeout):
+        # 1. Static checks (instant)
+        # 2. Environment variable checks (instant, often required by commands)
+        # 3. Callable checks (variable speed)
+        # 4. Command checks (slowest - may timeout or hang)
+        def prereq_priority(prereq):
+            if isinstance(prereq, StaticPrerequisite):
+                return 0
+            elif isinstance(prereq, ToolsetEnvironmentPrerequisite):
+                return 1
+            elif isinstance(prereq, CallablePrerequisite):
+                return 2
+            elif isinstance(prereq, ToolsetCommandPrerequisite):
+                return 3
+            return 4  # Unknown types go last
+
+        sorted_prereqs = sorted(self.prerequisites, key=prereq_priority)
+
+        for prereq in sorted_prereqs:
             if isinstance(prereq, ToolsetCommandPrerequisite):
                 try:
                     command = self.interpolate_command(prereq.command)

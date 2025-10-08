@@ -257,6 +257,12 @@ class LLMResult(LLMCosts):
         )
 
 
+class ToolCallWithDecision(BaseModel):
+    message_index: int
+    tool_call: ChatCompletionMessageToolCall
+    decision: Optional[ToolApprovalDecision]
+
+
 class ToolCallingLLM:
     llm: LLM
 
@@ -284,83 +290,79 @@ class ToolCallingLLM:
         Returns:
             Updated messages list with tool execution results
         """
-        # Import here to avoid circular imports
-
-        # Find the last message with pending approvals
-        pending_message_idx = None
-        pending_tool_calls = None
-
-        for i in reversed(range(len(messages))):
-            msg = messages[i]
-            if msg.get("role") == "assistant" and msg.get("pending_approval"):
-                pending_message_idx = i
-                pending_tool_calls = msg.get("tool_calls", [])
-                break
-
-        if pending_message_idx is None or not pending_tool_calls:
-            # No pending approvals found
-            if tool_decisions:
-                logging.warning(
-                    f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
-                )
+        if not tool_decisions:
             return messages
 
         # Create decision lookup
-        decisions_by_id = {
+        decisions_by_tool_call_id = {
             decision.tool_call_id: decision for decision in tool_decisions
         }
 
-        # Validate that all decisions have corresponding pending tool calls
-        pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
-        invalid_decisions = [
-            decision.tool_call_id
-            for decision in tool_decisions
-            if decision.tool_call_id not in pending_tool_ids
-        ]
+        pending_tool_calls: list[ToolCallWithDecision] = []
 
-        if invalid_decisions:
-            logging.warning(
-                f"Received decisions for non-pending tool calls: {invalid_decisions}"
-            )
+        for i in reversed(range(len(messages))):
+            msg = messages[i]
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                message_tool_calls = msg.get("tool_calls", [])
+                for tool_call in message_tool_calls:
+                    decision = decisions_by_tool_call_id.get(tool_call.get("id"), None)
+                    if tool_call.get("pending_approval"):
+                        del tool_call[
+                            "pending_approval"
+                        ]  # Cleanup so that a pending approval is not tagged on message in a future response
+                        pending_tool_calls.append(
+                            ToolCallWithDecision(
+                                tool_call=ChatCompletionMessageToolCall(**tool_call),
+                                decision=decision,
+                                message_index=i,
+                            )
+                        )
 
-        # Process each tool call
-        for tool_call in pending_tool_calls:
-            tool_call_id = tool_call["id"]
-            decision = decisions_by_id.get(tool_call_id)
+        if not pending_tool_calls:
+            error_message = f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
+            logging.error(error_message)
+            raise Exception(error_message)
 
+        for tool_call_with_decision in pending_tool_calls:
+            tool_call_message: dict
+            tool_call = tool_call_with_decision.tool_call
+            decision = tool_call_with_decision.decision
             if decision and decision.approved:
                 try:
-                    tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
                     llm_tool_result = self._invoke_llm_tool_call(
-                        tool_to_call=tool_call_obj,
+                        tool_to_call=tool_call,
                         previous_tool_calls=[],
-                        trace_span=DummySpan(),
+                        trace_span=DummySpan(),  # TODO: replace with proper span
                         tool_number=None,
+                        user_approved=True,
                     )
-                    messages.append(llm_tool_result.as_tool_call_message())
+                    tool_call_message = llm_tool_result.as_tool_call_message()
 
                 except Exception as e:
                     logging.error(
-                        f"Failed to execute approved tool {tool_call_id}: {e}"
+                        f"Failed to execute approved tool {tool_call.id}: {e}"
                     )
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call_id,
-                            "role": "tool",
-                            "name": tool_call["function"]["name"],
-                            "content": f"Tool execution failed: {str(e)}",
-                        }
-                    )
+                    tool_call_message = {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_call.function.name,
+                        "content": f"Tool execution failed: {str(e)}",
+                    }
             else:
                 # Tool was rejected or no decision found, add rejection message
-                messages.append(
-                    {
-                        "tool_call_id": tool_call_id,
-                        "role": "tool",
-                        "name": tool_call["function"]["name"],
-                        "content": "Tool execution was denied by the user.",
-                    }
-                )
+                tool_call_message = {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": tool_call.function.name,
+                    "content": "Tool execution was denied by the user.",
+                }
+
+            # It is expected that the tool call result directly follows the tool call request from the LLM
+            # The API call may contain a user ask which is appended to the messages so we can't just append
+            # tool call results; they need to be inserted right after the llm's message requesting tool calls
+            messages.insert(
+                tool_call_with_decision.message_index + 1, tool_call_message
+            )
 
         return messages
 
@@ -483,7 +485,7 @@ class ToolCallingLLM:
 
                 if incorrect_tool_call:
                     logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4.1' or other structured output compatible models. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
                     sentry_helper.capture_structured_output_incorrect_tool_call()
@@ -650,6 +652,7 @@ class ToolCallingLLM:
         tool_call_id: str,
         tool_name: str,
         tool_arguments: str,
+        user_approved: bool,
         previous_tool_calls: list[dict],
         tool_number: Optional[int] = None,
     ) -> ToolCallResult:
@@ -671,7 +674,7 @@ class ToolCallingLLM:
             tool_response = self._directly_invoke_tool_call(
                 tool_name=tool_name,
                 tool_params=tool_params,
-                user_approved=False,
+                user_approved=user_approved,
                 tool_number=tool_number,
             )
 
@@ -716,6 +719,7 @@ class ToolCallingLLM:
         previous_tool_calls: list[dict],
         trace_span=None,
         tool_number=None,
+        user_approved: bool = False,
     ) -> ToolCallResult:
         if trace_span is None:
             trace_span = DummySpan()
@@ -748,6 +752,7 @@ class ToolCallingLLM:
                     tool_arguments,
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
+                    user_approved=user_approved,
                 )
 
             prevent_overly_big_tool_response(
@@ -958,7 +963,7 @@ class ToolCallingLLM:
 
                 if incorrect_tool_call:
                     logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4.1' or other structured output compatible models. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
                     sentry_helper.capture_structured_output_incorrect_tool_call()
@@ -1069,23 +1074,11 @@ class ToolCallingLLM:
                 # If we have approval required tools, end the stream with pending approvals
                 if pending_approvals:
                     # Add assistant message with pending tool calls
-                    assistant_msg = {
-                        "role": "assistant",
-                        "content": response_message.content,
-                        "tool_calls": [
-                            {
-                                "id": result.tool_call_id,
-                                "type": "function",
-                                "function": {
-                                    "name": result.tool_name,
-                                    "arguments": json.dumps(result.result.params or {}),
-                                },
-                            }
-                            for result in approval_required_tools
-                        ],
-                        "pending_approval": True,
-                    }
-                    messages.append(assistant_msg)
+                    for result in approval_required_tools:
+                        tool_call = self.find_assistant_tool_call_request(
+                            tool_call_id=result.tool_call_id, messages=messages
+                        )
+                        tool_call["pending_approval"] = True
 
                     # End stream with approvals required
                     yield StreamMessage(
@@ -1106,6 +1099,21 @@ class ToolCallingLLM:
 
         raise Exception(
             f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"
+        )
+
+    def find_assistant_tool_call_request(
+        self, tool_call_id: str, messages: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        for message in messages:
+            if message.get("role") == "assistant":
+                for tool_call in message.get("tool_calls", []):
+                    if tool_call.get("id") == tool_call_id:
+                        return tool_call
+
+        # Should not happen unless there is a bug.
+        # If we are here
+        raise Exception(
+            f"Failed to find assistant request for a tool_call in conversation history. tool_call_id={tool_call_id}"
         )
 
 

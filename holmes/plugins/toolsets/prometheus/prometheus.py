@@ -1591,7 +1591,7 @@ class PrometheusToolset(Toolset):
                 )
 
         except Exception as e:
-            logging.exception("Failed to initialize Prometheus", exc_info=True)
+            logging.debug("Failed to initialize Prometheus", exc_info=True)
             return (
                 False,
                 f"Failed to initialize using url={url}. Unexpected error: {str(e)}",
