@@ -1,3 +1,4 @@
+from typing import Any, Optional
 from unittest.mock import Mock
 
 from holmes.core.feedback import (
@@ -8,7 +9,7 @@ from holmes.core.feedback import (
     FeedbackMetadata,
     UserFeedback,
 )
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, TokenCountMetadata
 
 
 class MockLLM(LLM):
@@ -24,8 +25,16 @@ class MockLLM(LLM):
     def get_maximum_output_token(self) -> int:
         return 1024
 
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
-        return 100
+    def count_tokens(
+        self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
+    ) -> TokenCountMetadata:
+        return TokenCountMetadata(
+            total_tokens=100,
+            system_tokens=0,
+            tools_to_call_tokens=0,
+            tools_tokens=0,
+            user_tokens=0,
+        )
 
     def completion(self, *args, **kwargs):
         return Mock()

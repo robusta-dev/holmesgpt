@@ -1,13 +1,20 @@
 import pytest
+from holmes.core.llm import TokenCountMetadata
 from holmes.core.tool_calling_llm import truncate_messages_to_fit_context
 
 
-def simple_token_counter(messages):
+def simple_token_counter(messages) -> TokenCountMetadata:
     """Simple token counter that counts characters for testing."""
     total = 0
     for message in messages:
         total += len(message.get("content", ""))
-    return total
+    return TokenCountMetadata(
+        total_tokens=total,
+        system_tokens=0,
+        tools_to_call_tokens=0,
+        tools_tokens=0,
+        user_tokens=0,
+    )
 
 
 class TestTruncateMessagesToFitContext:
@@ -193,7 +200,14 @@ class TestTruncateMessagesToFitContextEdgeCases:
         max_context_size = len("sysusr") + len(truncation_notice) + maximum_output_token
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),
@@ -223,7 +237,14 @@ class TestTruncateMessagesToFitContextEdgeCases:
         max_context_size = len("sysusr") + 5 + maximum_output_token
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),
@@ -260,7 +281,14 @@ class TestTruncateMessagesToFitContextEdgeCases:
         maximum_output_token = 10
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),

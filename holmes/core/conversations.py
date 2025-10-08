@@ -26,7 +26,8 @@ def calculate_tool_size(
         return DEFAULT_TOOL_SIZE
 
     context_window = ai.llm.get_context_window_size()
-    message_size_without_tools = ai.llm.count_tokens_for_message(messages_without_tools)
+    tokens = ai.llm.count_tokens(messages_without_tools)
+    message_size_without_tools = tokens.total_tokens
     maximum_output_token = ai.llm.get_maximum_output_token()
 
     tool_size = min(

@@ -164,7 +164,8 @@ def truncate_messages_to_fit_context(
     messages_except_tools = [
         message for message in messages if message["role"] != "tool"
     ]
-    message_size_without_tools = count_tokens_fn(messages_except_tools)
+    tokens = count_tokens_fn(messages_except_tools)
+    message_size_without_tools = tokens.total_tokens
 
     tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
@@ -185,7 +186,9 @@ def truncate_messages_to_fit_context(
     )
     remaining_space = available_space
     tool_call_messages.sort(
-        key=lambda x: count_tokens_fn([{"role": "tool", "content": x["content"]}])
+        key=lambda x: count_tokens_fn(
+            [{"role": "tool", "content": x["content"]}]
+        ).total_tokens
     )
 
     truncations = []
@@ -196,7 +199,9 @@ def truncate_messages_to_fit_context(
     for i, msg in enumerate(tool_call_messages):
         remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
-        needed_space = count_tokens_fn([{"role": "tool", "content": msg["content"]}])
+        needed_space = count_tokens_fn(
+            [{"role": "tool", "content": msg["content"]}]
+        ).total_tokens
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
@@ -429,12 +434,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
+            if (tokens.total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -524,11 +529,13 @@ class ToolCallingLLM:
                     )
                     costs.total_cost += post_processing_cost
 
-                    self.llm.count_tokens_for_message(messages)
+                    tokens = self.llm.count_tokens(messages=messages, tools=tools)
                     perf_timing.end(f"- completed in {i} iterations -")
                     metadata["usage"] = get_llm_usage(full_response)
+                    metadata["tokens"] = tokens.model_dump()
                     metadata["max_tokens"] = max_context_size
                     metadata["max_output_tokens"] = maximum_output_token
+
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -863,7 +870,7 @@ class ToolCallingLLM:
             messages,
             max_context_size,
             maximum_output_token,
-            self.llm.count_tokens_for_message,
+            self.llm.count_tokens,
         )
         if truncated_res.truncations:
             sentry_helper.capture_tool_truncations(truncated_res.truncations)
@@ -908,12 +915,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
+            if (tokens.total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -979,10 +986,15 @@ class ToolCallingLLM:
 
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                self.llm.count_tokens_for_message(messages)
+                tokens = self.llm.count_tokens(messages=messages, tools=tools)
                 metadata["usage"] = get_llm_usage(full_response)
+                metadata["tokens"] = tokens.model_dump()
                 metadata["max_tokens"] = max_context_size
                 metadata["max_output_tokens"] = maximum_output_token
+
+                print("TOKEN SUMMARY:")
+                print(f'\t llm.usage:{metadata["usage"]}')
+                print(f'\t tokens:{metadata["tokens"]}')
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
