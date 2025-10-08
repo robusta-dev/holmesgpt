@@ -8,6 +8,7 @@ from typing import Any, List, Literal, Optional, TypeVar, Union, cast
 
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError, ConfigDict
+from holmes.common.env_vars import DEFAULT_MODEL
 from holmes.core.models import InvestigateRequest, WorkloadHealthRequest
 from holmes.core.prompt import append_file_to_user_prompt
 
@@ -33,7 +34,7 @@ class SetupFailureError(Exception):
 
 def get_models() -> List[str]:
     """Get list of models to test from MODEL env var (supports comma-separated list)."""
-    models_str: str = os.environ.get("MODEL", "gpt-4o")
+    models_str: str = os.environ.get("MODEL", DEFAULT_MODEL)
     # Strip whitespace from each model and filter out empty strings
     models = [m.strip() for m in models_str.split(",") if m.strip()]
 

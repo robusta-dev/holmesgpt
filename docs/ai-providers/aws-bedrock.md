@@ -69,7 +69,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
           budget_tokens: 10000
           type: enabled
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```
@@ -119,7 +119,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
             budget_tokens: 10000
             type: enabled
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```
@@ -143,8 +143,7 @@ aws bedrock list-foundation-models --region=us-east-1 | grep modelId
 **Important**: Different models are available in different regions. For example, Claude Opus is only available in us-west-2.
 
 ### Model Name Examples
-
-Be sure to replace `<your-bedrock-model>` with a model you have access to, such as `anthropic.claude-sonnet-4-20250514-v1:0`
+Be sure to replace `<your-bedrock-model>` with a model you have access to, such as `anthropic.claude-opus-4-1-20250805-v1:0` or `anthropic.claude-sonnet-4-20250514-v1:0`
 
 ## Additional Resources
 

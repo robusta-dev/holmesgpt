@@ -2,6 +2,16 @@ import os
 import json
 from typing import Optional
 
+# Recommended models for different providers
+RECOMMENDED_OPENAI_MODEL = "gpt-4.1"
+RECOMMENDED_ANTHROPIC_MODEL = "anthropic/claude-opus-4-1-20250805"
+
+# Default model for HolmesGPT
+DEFAULT_MODEL = RECOMMENDED_OPENAI_MODEL
+FALLBACK_CONTEXT_WINDOW_SIZE = (
+    200000  # Fallback context window size if it can't be determined from the model
+)
+
 
 def load_bool(env_var, default: Optional[bool]) -> Optional[bool]:
     env_value = os.environ.get(env_var)
@@ -85,3 +95,5 @@ TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT = float(
 MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION = int(
     os.environ.get("MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION", 3000)
 )
+
+DISABLE_PROMETHEUS_TOOLSET = load_bool("DISABLE_PROMETHEUS_TOOLSET", False)

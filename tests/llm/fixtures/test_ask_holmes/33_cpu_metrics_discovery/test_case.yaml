@@ -8,6 +8,7 @@ tags:
   - prometheus
   - easy
   - metrics
+  - no-cicd
 
 include_tool_calls: true
 

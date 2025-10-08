@@ -9,6 +9,7 @@ from pytest_shared_session_scope import (
 
 from tests.llm.utils.test_results import TestResult
 from tests.llm.utils.classifiers import create_llm_client
+from holmes.common.env_vars import DEFAULT_MODEL
 from tests.llm.utils.mock_toolset import (  # type: ignore[attr-defined]
     MockMode,
     MockGenerationConfig,
@@ -351,9 +352,9 @@ def check_llm_api_with_test_call():
     if not classifier_model:
         # Parse MODEL to get first model for API key checking
         # Note: get_models() will enforce CLASSIFIER_MODEL requirement for multi-model tests
-        model_str = os.environ.get("MODEL", "gpt-4o")
+        model_str = os.environ.get("MODEL", DEFAULT_MODEL)
         models = [m.strip() for m in model_str.split(",") if m.strip()]
-        classifier_model = models[0] if models else "gpt-4o"
+        classifier_model = models[0] if models else DEFAULT_MODEL
 
     failed_models = []
     error_messages = []
@@ -436,7 +437,6 @@ def check_llm_api_with_test_call():
     if failed_models:
         # Gather environment info for better error message
         azure_base = os.environ.get("AZURE_API_BASE")
-
         error_msg = "Failed to validate API access for the following models:\n\n"
         # Add spacing between error messages for better readability
         formatted_errors = []
@@ -805,7 +805,13 @@ def _collect_test_results_from_stats(terminalreporter):
                 "mock_data_failure": mock_data_failure,
                 "user_prompt": user_props.get("user_prompt", ""),
                 "is_setup_failure": user_props.get("is_setup_failure", False),
-                "is_throttled": user_props.get("is_throttled", False),
+                # Throttling flags
+                "failed_due_to_throttling": user_props.get(
+                    "failed_due_to_throttling", False
+                ),  # Terminal failure after max retries
+                "encountered_throttling": user_props.get(
+                    "encountered_throttling", False
+                ),  # Any throttling during execution
                 "model": user_props.get("model", "Unknown"),
                 "clean_test_case_id": user_props.get("clean_test_case_id"),
                 "braintrust_span_id": user_props.get("braintrust_span_id"),

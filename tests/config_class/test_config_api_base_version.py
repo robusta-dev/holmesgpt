@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock, patch
+
+from pydantic import SecretStr
 import yaml
-from unittest.mock import patch, MagicMock
 
 from holmes.config import Config
 
@@ -45,14 +47,40 @@ def test_config_get_llm_with_api_base_version():
 
         result = config._get_llm()
 
-        # Check that DefaultLLM was called with the right positional arguments
-        call_args = mock_default_llm.call_args[0]
-        assert call_args[0] == "test-model"
-        assert call_args[1] is None
-        assert call_args[2] == "https://test.api.base"
-        assert call_args[3] == "2023-12-01"
-        assert call_args[4] == {}
-        assert call_args[5] is None  # tracer
+        # Check that DefaultLLM was called with the right named arguments
+        call_args = mock_default_llm.call_args[1]
+        assert call_args["model"] == "test-model"
+        assert call_args["api_key"] is None
+        assert call_args["api_base"] == "https://test.api.base"
+        assert call_args["api_version"] == "2023-12-01"
+        assert call_args["args"] == {}
+        assert call_args["tracer"] is None
+        assert result == mock_llm_instance
+
+
+def test_config_get_llm_with_azure_openai_parameters():
+    """Test that Config._get_llm passes api_base and api_version to DefaultLLM."""
+    config = Config(
+        model="azure/gpt-4o",
+        api_key=SecretStr("test-key"),
+        api_base="https://test.api.base",
+        api_version="2023-12-01",
+    )
+
+    with patch("holmes.config.DefaultLLM") as mock_default_llm:
+        mock_llm_instance = MagicMock()
+        mock_default_llm.return_value = mock_llm_instance
+
+        result = config._get_llm()
+
+        # Check that DefaultLLM was called with the right named arguments
+        call_args = mock_default_llm.call_args[1]
+        assert call_args["model"] == "azure/gpt-4o"
+        assert call_args["api_key"] == "test-key"
+        assert call_args["api_base"] == "https://test.api.base"
+        assert call_args["api_version"] == "2023-12-01"
+        assert call_args["args"] == {}
+        assert call_args["tracer"] is None
         assert result == mock_llm_instance
 
 
@@ -80,13 +108,14 @@ def test_config_get_llm_with_model_list_api_base_version(monkeypatch, tmp_path):
         result = config._get_llm("test-model")
 
         mock_default_llm.assert_called_once_with(
-            "azure/gpt-4o",
-            "model-key",
-            "https://model.api.base",
-            "2024-02-01",
-            {},
-            None,  # tracer,
-            "test-model",
+            model="azure/gpt-4o",
+            api_key="model-key",
+            api_base="https://model.api.base",
+            api_version="2024-02-01",
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
         assert result == mock_llm_instance
 
@@ -117,13 +146,14 @@ def test_config_get_llm_model_list_overrides_config_values(monkeypatch, tmp_path
 
         # Should use values from model list, not config
         mock_default_llm.assert_called_once_with(
-            "azure/gpt-4o",
-            "model-key",
-            "https://override.api.base",  # from model list
-            "2024-03-01",  # from model list
-            {},
-            None,  # tracer
-            "test-model",
+            model="azure/gpt-4o",
+            api_key="model-key",
+            api_base="https://override.api.base",  # from model list
+            api_version="2024-03-01",  # from model list
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
 
 
@@ -152,13 +182,14 @@ def test_config_get_llm_model_list_defaults_to_config_values(monkeypatch, tmp_pa
 
         # Should use config values as fallback
         mock_default_llm.assert_called_once_with(
-            "azure/gpt-4o",
-            "model-key",
-            "https://config.api.base",  # from config
-            "2023-01-01",  # from config
-            {},
-            None,  # tracer
-            "test-model",
+            model="azure/gpt-4o",
+            api_key="model-key",
+            api_base="https://config.api.base",  # from config
+            api_version="2023-01-01",  # from config
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
 
 
@@ -201,13 +232,14 @@ def test_config_get_llm_with_non_none_model_list_first_model_fallback(
 
         # Should use the first model's values (iteration order in Python dicts is insertion order)
         mock_default_llm.assert_called_once_with(
-            "gpt-4",  # from first model
-            "first-key",  # from first model
-            "https://first.api.base",  # from first model
-            "2024-01-01",  # from first model
-            {},
-            None,  # tracer
-            "gpt-4",
+            model="gpt-4",  # from first model
+            api_key="first-key",  # from first model
+            api_base="https://first.api.base",  # from first model
+            api_version="2024-01-01",  # from first model
+            args={},
+            tracer=None,
+            name="gpt-4",
+            is_robusta_model=False,
         )
 
 
@@ -257,13 +289,14 @@ def test_config_get_llm_with_specific_model_from_model_list(monkeypatch, tmp_pat
 
         # Should use the specified model's values, not the first or config defaults
         mock_default_llm.assert_called_once_with(
-            "gpt-3.5-turbo",  # from openai-gpt35 model
-            "openai-key",  # from openai-gpt35 model
-            "https://openai.api.base",  # from openai-gpt35 model
-            "2024-04-01",  # from openai-gpt35 model
-            {},
-            None,  # tracer,
-            "openai-gpt35",
+            model="gpt-3.5-turbo",  # from openai-gpt35 model
+            api_key="openai-key",  # from openai-gpt35 model
+            api_base="https://openai.api.base",  # from openai-gpt35 model
+            api_version="2024-04-01",  # from openai-gpt35 model
+            args={},
+            tracer=None,
+            name="openai-gpt35",
+            is_robusta_model=False,
         )
 
 
@@ -293,13 +326,14 @@ def test_config_get_llm_with_base_url_only(monkeypatch, tmp_path):
 
         # Should use base_url value as api_base
         mock_default_llm.assert_called_once_with(
-            "gpt-4",
-            "test-key",
-            "https://base.url.only",  # base_url used as api_base
-            "2024-01-01",
-            {},
-            None,  # tracer
-            "test-model",
+            model="gpt-4",
+            api_key="test-key",
+            api_base="https://base.url.only",  # base_url used as api_base
+            api_version="2024-01-01",
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
 
 
@@ -330,13 +364,14 @@ def test_config_get_llm_api_base_overrides_base_url(monkeypatch, tmp_path):
 
         # Should use api_base value, not base_url
         mock_default_llm.assert_called_once_with(
-            "gpt-4",
-            "test-key",
-            "https://api.base.wins",  # api_base takes precedence
-            "2024-01-01",
-            {},
-            None,  # tracer
-            "test-model",
+            model="gpt-4",
+            api_key="test-key",
+            api_base="https://api.base.wins",  # api_base takes precedence
+            api_version="2024-01-01",
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
 
 
@@ -368,13 +403,14 @@ def test_config_get_llm_neither_api_base_nor_base_url_uses_config(
 
         # Should use config api_base as fallback
         mock_default_llm.assert_called_once_with(
-            "gpt-4",
-            "test-key",
-            "https://config.fallback.base",  # config api_base used as fallback
-            "2024-01-01",
-            {},
-            None,  # tracer
-            "test-model",
+            model="gpt-4",
+            api_key="test-key",
+            api_base="https://config.fallback.base",  # config api_base used as fallback
+            api_version="2024-01-01",
+            args={},
+            tracer=None,
+            name="test-model",
+            is_robusta_model=False,
         )
 
 
@@ -405,8 +441,8 @@ def test_config_get_llm_both_params_popped_from_model_params(monkeypatch, tmp_pa
         config._get_llm("test-model")
 
         # Verify that model_params only contains custom_param, not api_base or base_url
-        call_args = mock_default_llm.call_args[0]
-        model_params = call_args[4]
+        call_args = mock_default_llm.call_args[1]
+        model_params = call_args["args"]
         assert "api_base" not in model_params
         assert "base_url" not in model_params
         assert "custom_param" in model_params

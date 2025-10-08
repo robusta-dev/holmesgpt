@@ -9,7 +9,7 @@ def test_server_config_get_llm_no_model_key_returns_default_model(
 ):
     llm: DefaultLLM = server_config._get_llm()
     assert llm.name == DEFAULT_ROBUSTA_MODEL
-    assert llm.model == "gpt-4o"
+    assert llm.model == "azure/gpt-5-mini"
     assert llm.api_base == f"https://api.robusta.dev/llm/{DEFAULT_ROBUSTA_MODEL}"
 
 
@@ -29,7 +29,7 @@ def test_server_config_get_llm_unexisting_model_key_returns_default_model(
 ):
     llm: DefaultLLM = server_config._get_llm(model_key="unexisting_model")
     assert llm.name == DEFAULT_ROBUSTA_MODEL
-    assert llm.model == "gpt-4o"
+    assert llm.model == "azure/gpt-5-mini"
     assert llm.api_base == f"https://api.robusta.dev/llm/{DEFAULT_ROBUSTA_MODEL}"
 
 
@@ -64,12 +64,12 @@ def test_cli_config_get_llm_loads_default_gpt_4o(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "openai_api_key")
     cli_config = get_cli_config()
     llm: DefaultLLM = cli_config._get_llm()
-    assert llm.name == "gpt-4o"
-    assert llm.model == "gpt-4o"
+    assert llm.name == "gpt-4.1"
+    assert llm.model == "gpt-4.1"
     assert llm.api_base is None
 
     assert len(cli_config.llm_model_registry._llms) == 1
-    assert cli_config.get_models_list() == ["gpt-4o"]
+    assert cli_config.get_models_list() == ["gpt-4.1"]
 
 
 def test_cli_config_get_llm_loads_model_from_env_var(monkeypatch):

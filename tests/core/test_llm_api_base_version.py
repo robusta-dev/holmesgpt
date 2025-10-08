@@ -29,6 +29,7 @@ class TestDefaultLLMConstructor:
                 "test-key",
                 "https://test.api.base",
                 "2023-12-01",
+                {"param": "value"},
             )
 
     def test_constructor_with_defaults(self):
@@ -42,7 +43,7 @@ class TestDefaultLLMConstructor:
             assert llm.api_version is None
             assert llm.args == {}
 
-            mock_check.assert_called_once_with("test-model", None, None, None)
+            mock_check.assert_called_once_with("test-model", None, None, None, {})
 
     def test_constructor_partial_parameters(self):
         """Test DefaultLLM constructor with some parameters set."""
@@ -73,6 +74,7 @@ class TestDefaultLLMCheckLLM:
 
         # Create instance without __init__
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
         llm.check_llm(
             model="test-model",
             api_key="test-key",
@@ -97,6 +99,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
         llm.check_llm(
             model="azure/gpt-4o",
             api_key="test-key",
@@ -122,6 +125,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -147,6 +151,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -170,6 +175,7 @@ class TestDefaultLLMCheckLLM:
         }
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(
             Exception,
@@ -188,6 +194,7 @@ class TestDefaultLLMCheckLLM:
         mock_get_provider.return_value = None
 
         llm = DefaultLLM.__new__(DefaultLLM)
+        llm.is_robusta_model = False
 
         with pytest.raises(Exception, match="Unknown provider for model"):
             llm.check_llm(
@@ -196,3 +203,10 @@ class TestDefaultLLMCheckLLM:
                 api_base="https://test.api.base",
                 api_version="2023-12-01",
             )
+
+    def test_check_bedrock_model_list_without_env_vars(self):
+        """Test Bedrock provider does not raise for model list when env vars are not set up."""
+        DefaultLLM(
+            "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
+            args={"aws_access_key_id": "test", "aws_secret_access_key": "test"},
+        )

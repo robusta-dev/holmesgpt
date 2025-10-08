@@ -5,8 +5,8 @@
 set -e  # Exit on error
 
 # Default values from workflow
-DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514"
-DEFAULT_MARKERS="easy"
+DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514,novita/deepseek/deepseek-v3.1-terminus"
+DEFAULT_MARKERS="easy or medium or hard"
 DEFAULT_ITERATIONS="1"
 
 # Parse command line arguments
@@ -80,10 +80,11 @@ else
 fi
 
 # Export environment variables (same as workflow step)
-export MODEL="$MODELS"
-export ITERATIONS="$ITERATIONS"
-export RUN_LIVE="true"
-export CLASSIFIER_MODEL="gpt-4o"  # Always use OpenAI for classification (same as workflow)
+# Only set these if not already set
+export MODEL="${MODEL:-$MODELS}"
+export ITERATIONS="${ITERATIONS:-$ITERATIONS}"
+export RUN_LIVE="${RUN_LIVE:-true}"
+export CLASSIFIER_MODEL="${CLASSIFIER_MODEL:-gpt-4.1}"  # Always use OpenAI for classification (same as workflow)
 
 # Set experiment ID if not already set
 if [ -z "$EXPERIMENT_ID" ]; then

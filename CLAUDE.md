@@ -144,7 +144,7 @@ RUN_LIVE=true poetry run pytest tests/llm/ -n 6
 
 # Test with different models
 # Note: When using Anthropic models, set CLASSIFIER_MODEL to OpenAI (Anthropic not supported as classifier)
-RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/test_ask_holmes.py -k "test_name"
+RUN_LIVE=true MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4.1 poetry run pytest tests/llm/test_ask_holmes.py -k "test_name"
 
 # Setting environment variables - IMPORTANT:
 # Environment variables must be set BEFORE the poetry command, NOT as pytest arguments
@@ -162,7 +162,7 @@ RUN_LIVE=true EVAL_SETUP_TIMEOUT=600 poetry run pytest -m 'llm' -k "slow_test" -
 - `--skip-cleanup`: Skip after_test commands (useful for debugging)
 
 **Environment Variables**:
-- `MODEL`: LLM model(s) to use - supports comma-separated list (e.g., `gpt-4o` or `gpt-4o,anthropic/claude-sonnet-4-20250514`)
+- `MODEL`: LLM model(s) to use - supports comma-separated list (e.g., `gpt-4.1` or `gpt-4.1,anthropic/claude-sonnet-4-20250514`)
 - `CLASSIFIER_MODEL`: Model for scoring answers (defaults to MODEL)
 - `RUN_LIVE=true`: Execute real commands (recommended for all tests)
 - `ITERATIONS=<number>`: Run each test multiple times
@@ -180,8 +180,8 @@ RUN_LIVE=true EVAL_SETUP_TIMEOUT=600 poetry run pytest -m 'llm' -k "slow_test" -
 RUN_LIVE=true ITERATIONS=100 poetry run pytest tests/llm/test_ask_holmes.py -k "flaky_test"
 
 # Model comparison workflow
-RUN_LIVE=true EXPERIMENT_ID=gpt4o_baseline MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
-RUN_LIVE=true EXPERIMENT_ID=claude4_test MODEL=anthropic/claude-sonnet-4-20250514 CLASSIFIER_MODEL=gpt-4o poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=gpt41_baseline MODEL=gpt-4.1 poetry run pytest tests/llm/ -n 6
+RUN_LIVE=true EXPERIMENT_ID=claude_opus41_test MODEL=anthropic/claude-opus-4-1-20250805 CLASSIFIER_MODEL=gpt-4.1 poetry run pytest tests/llm/ -n 6
 
 # Debug with verbose output
 RUN_LIVE=true poetry run pytest -vv -s tests/llm/test_ask_holmes.py -k "failing_test" --no-cov
@@ -212,7 +212,7 @@ Check in pyproject.toml and NEVER use a marker/tag that doesn't exist there. Ask
 **Config File Location**: `~/.holmes/config.yaml`
 
 **Key Configuration Sections**:
-- `model`: LLM model to use (default: gpt-4o)
+- `model`: LLM model to use (default: gpt-4.1)
 - `api_key`: LLM API key (or use environment variables)
 - `custom_toolsets`: Override or add toolsets
 - `custom_runbooks`: Add investigation runbooks

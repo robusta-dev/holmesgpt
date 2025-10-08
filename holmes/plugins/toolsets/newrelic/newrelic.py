@@ -4,17 +4,16 @@ from typing import Any, Optional, Dict, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
 )
 from pydantic import BaseModel
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
-from holmes.plugins.toolsets.prometheus.model import PromResponse
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.plugins.toolsets.newrelic.new_relic_api import NewRelicAPI
 import yaml
-import json
 from holmes.utils.keygen_utils import generate_random_key
 
 
@@ -76,9 +75,7 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self._toolset.nr_api_key or not self._toolset.nr_account_id:
             raise ValueError("NewRelic API key or account ID is not configured")
 
@@ -90,9 +87,11 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
 
         query = params["query"]
         result = api.execute_nrql_query(query)
+        qtype = params.get("query_type", "").lower()
 
-        if self._toolset.format_results:
-            final_result = self._format_results(params, query, result)
+        if self._toolset.format_results and qtype == "logs":
+            formatted = self._format_logs(result)
+            final_result = yaml.dump(formatted, default_flow_style=False)
         else:
             result_with_key = {
                 "random_key": generate_random_key(),
@@ -107,50 +106,6 @@ SELECT count(*), transactionType FROM Transaction FACET transactionType
             data=final_result,
             params=params,
         )
-
-    def _format_results(self, params: dict, query: str, result):
-        qtype = params.get("query_type", "").lower()
-        if qtype == "traces":
-            response_data = {
-                "random_key": generate_random_key(),
-                "tool_name": self.name,
-                "query": query,
-                "data": result,
-                "is_eu": self._toolset.is_eu_datacenter,
-            }
-            return json.dumps(response_data)
-        elif qtype == "logs":
-            formatted = self._format_logs(result)
-            # For logs, use yaml output
-            return yaml.dump(formatted, default_flow_style=False)
-        # Treat explicit "Metrics" OR any query containing TIMESERIES as metrics
-        elif qtype == "metrics" or "timeseries" in query.lower():
-            enriched_params = dict(params)
-            enriched_params["query"] = query
-            return_result = self._format_metrics(result, params=enriched_params)
-            if len(return_result.get("data", {}).get("result", [])) == 0:
-                return_result = result  # type: ignore[assignment]
-            return json.dumps(return_result, indent=2)
-        else:
-            return yaml.dump(result, default_flow_style=False)
-
-    def _format_metrics(
-        self,
-        records: List[Dict[str, Any]],
-        params: Optional[Dict[str, Any]] = None,
-        begin_key: str = "beginTimeSeconds",
-        end_key: str = "endTimeSeconds",
-        facet_key: str = "facet",
-    ) -> Dict[str, Any]:
-        resp = PromResponse.from_newrelic_records(
-            records=records,
-            tool_name=self.name,
-            params=params or {},
-            begin_key=begin_key,
-            end_key=end_key,
-            facet_key=facet_key,
-        )
-        return resp.to_json()
 
     def _format_logs(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
