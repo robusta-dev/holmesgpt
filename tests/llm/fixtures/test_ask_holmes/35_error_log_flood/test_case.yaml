@@ -3,6 +3,7 @@ tags:
   - logs
   - context_window
   - database
+  - hard
 
 expected_output:
   - Database migration v3.2.0_add_warehouse_tracking failed because the locations table doesn't exist, leaving the schema in an inconsistent state
