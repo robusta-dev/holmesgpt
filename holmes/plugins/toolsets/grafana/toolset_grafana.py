@@ -3,6 +3,7 @@ from urllib.parse import urlencode, urljoin
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
 )
@@ -43,9 +44,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
         )
         self._toolset = toolset
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         url = urljoin(
             self._toolset._grafana_config.url, "/api/search?query=&type=dash-db"
         )

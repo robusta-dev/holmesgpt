@@ -2,7 +2,10 @@ from unittest.mock import MagicMock, patch
 
 import yaml
 
-from holmes.core.tools import StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResultStatus,
+)
+from tests.conftest import create_mock_tool_invoke_context
 from holmes.plugins.toolsets.grafana.common import GrafanaTempoConfig
 from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     FetchTracesSimpleComparison,
@@ -41,7 +44,8 @@ def test_fetch_traces_simple_comparison_validation():
     tool = FetchTracesSimpleComparison(toolset)
 
     # Test with no parameters - should fail validation
-    result = tool.invoke(params={})
+    context = create_mock_tool_invoke_context()
+    result = tool.invoke(params={}, context=context)
     assert result.status == StructuredToolResultStatus.ERROR
     assert "At least one of the following argument is expected" in result.error
 
@@ -133,13 +137,15 @@ def test_fetch_traces_simple_comparison_with_mocked_data():
         mock_api.query_trace_by_id_v2.return_value = mock_full_trace
 
         # Test with service name filter
+        context = create_mock_tool_invoke_context()
         result = tool.invoke(
             params={
                 "service_name": "frontend",
                 "sample_count": 2,
                 "start": "-3600",
                 "end": "0",
-            }
+            },
+            context=context,
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -202,7 +208,8 @@ def test_fetch_traces_simple_comparison_with_multiple_filters():
                 "pod_name": "api-pod",
                 "node_name": "node-1",
                 "sample_count": 5,
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS
@@ -249,7 +256,8 @@ def test_fetch_traces_simple_comparison_with_base_query():
         mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
         custom_query = "span.http.status_code >= 400"
-        result = tool.invoke(params={"base_query": custom_query})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke(params={"base_query": custom_query}, context=context)
 
         assert result.status == StructuredToolResultStatus.SUCCESS
 
@@ -276,7 +284,8 @@ def test_fetch_traces_simple_comparison_error_handling():
         mock_api_class.return_value = mock_api
         mock_api.search_traces_by_query.side_effect = Exception("API Error")
 
-        result = tool.invoke(params={"service_name": "test-service"})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke(params={"service_name": "test-service"}, context=context)
 
         assert result.status == StructuredToolResultStatus.ERROR
         assert "Error fetching traces: API Error" in result.error
@@ -309,7 +318,8 @@ def test_fetch_traces_simple_comparison_percentile_calculations():
         mock_api.search_traces_by_query.return_value = mock_traces
         mock_api.query_trace_by_id_v2.return_value = {"batches": []}
 
-        result = tool.invoke(params={"service_name": "test"})
+        context = create_mock_tool_invoke_context()
+        result = tool.invoke(params={"service_name": "test"}, context=context)
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert result.data is not None
 
@@ -399,7 +409,8 @@ def test_fetch_traces_simple_comparison_with_negative_start_time():
                 "service_name": "test",
                 "start": "-7200",  # 2 hours ago
                 "end": "0",  # Now
-            }
+            },
+            context=create_mock_tool_invoke_context(),
         )
 
         assert result.status == StructuredToolResultStatus.SUCCESS

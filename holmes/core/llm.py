@@ -18,6 +18,7 @@ from holmes.common.env_vars import (
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
+    FALLBACK_CONTEXT_WINDOW_SIZE,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -213,10 +214,10 @@ class DefaultLLM(LLM):
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 128k tokens for max_input_tokens. "
+            f"using default {FALLBACK_CONTEXT_WINDOW_SIZE} tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
-        return 128000
+        return FALLBACK_CONTEXT_WINDOW_SIZE
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
@@ -339,6 +340,12 @@ class DefaultLLM(LLM):
         Add cache_control to the last non-user message for Anthropic prompt caching.
         Removes any existing cache_control from previous messages to avoid accumulation.
         """
+        # Skip cache_control for VertexAI/Gemini models as they don't support it with tools
+        if self.model and (
+            "vertex" in self.model.lower() or "gemini" in self.model.lower()
+        ):
+            return
+
         # First, remove any existing cache_control from all messages
         for msg in messages:
             content = msg.get("content")
@@ -425,7 +432,7 @@ class LLMModelRegistry:
         # so we need to check if the user has set an OPENAI_API_KEY to load the config model.
         has_openai_key = os.environ.get("OPENAI_API_KEY")
         if has_openai_key:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4.1"
             return True
 
         return False
@@ -471,6 +478,7 @@ class LLMModelRegistry:
                 "name": ROBUSTA_AI_MODEL_NAME,
                 "base_url": ROBUSTA_API_ENDPOINT,
                 "is_robusta_model": True,
+                # TODO: tech debt, this isn't really gpt-4o at all
                 "model": "gpt-4o",
             }
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
@@ -540,6 +548,7 @@ class LLMModelRegistry:
         self, model_name: str, args: Optional[dict[str, Any]] = None
     ) -> dict[str, Any]:
         entry = self._create_model_entry(
+            # TODO: tech debt, this isn't really gpt-4o at all (wont token counts be wrong etc)
             model="gpt-4o",  # Robusta AI model is using openai like API.
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",

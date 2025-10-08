@@ -15,6 +15,7 @@ from holmes.plugins.toolsets.grafana.toolset_grafana_tempo import (
     QueryMetricsInstant,
     QueryMetricsRange,
 )
+from tests.conftest import create_mock_tool_invoke_context
 
 
 @pytest.fixture
@@ -56,7 +57,8 @@ class TestSearchTracesByQuery:
                 {
                     "q": '{resource.service.name="api"}',
                     "limit": 10,
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -78,7 +80,9 @@ class TestSearchTracesByQuery:
         ) as mock_search:
             mock_search.side_effect = Exception("API Error")
 
-            result = tool._invoke({"q": "{invalid}"})
+            result = tool._invoke(
+                {"q": "{invalid}"}, context=create_mock_tool_invoke_context()
+            )
 
             assert result.status == StructuredToolResultStatus.ERROR
             assert "API Error" in result.error
@@ -97,7 +101,9 @@ class TestSearchTracesByQuery:
                 url="http://tempo/api/search",
             )
 
-            result = tool._invoke({"q": "{invalid syntax}"})
+            result = tool._invoke(
+                {"q": "{invalid syntax}"}, context=create_mock_tool_invoke_context()
+            )
 
             assert result.status == StructuredToolResultStatus.ERROR
             assert "invalid TraceQL query: unexpected token" in result.error
@@ -121,7 +127,8 @@ class TestSearchTracesByTags:
                     "tags": 'service.name="api" http.status_code="500"',
                     "min_duration": "100ms",
                     "max_duration": "5s",
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -150,7 +157,9 @@ class TestQueryTraceById:
         ) as mock_query:
             mock_query.return_value = mock_trace_data
 
-            result = tool._invoke({"trace_id": "abc123"})
+            result = tool._invoke(
+                {"trace_id": "abc123"}, context=create_mock_tool_invoke_context()
+            )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
             mock_query.assert_called_once_with(
@@ -173,7 +182,8 @@ class TestQueryTraceById:
                     "trace_id": "abc123",
                     "start": 1234567890,
                     "end": 1234567900,
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -202,7 +212,7 @@ class TestSearchTagNames:
         ) as mock_search:
             mock_search.return_value = mock_response
 
-            result = tool._invoke({})
+            result = tool._invoke({}, context=create_mock_tool_invoke_context())
 
             assert result.status == StructuredToolResultStatus.SUCCESS
             assert "scopes" in result.data
@@ -221,7 +231,8 @@ class TestSearchTagNames:
                     "scope": "resource",
                     "q": '{resource.cluster="prod"}',
                     "limit": 50,
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -252,7 +263,9 @@ class TestSearchTagValues:
         ) as mock_search:
             mock_search.return_value = mock_response
 
-            result = tool._invoke({"tag": "service.name"})
+            result = tool._invoke(
+                {"tag": "service.name"}, context=create_mock_tool_invoke_context()
+            )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
             assert "tagValues" in result.data
@@ -266,7 +279,9 @@ class TestSearchTagValues:
         ) as mock_search:
             mock_search.side_effect = Exception("Tag not found")
 
-            result = tool._invoke({"tag": "invalid.tag"})
+            result = tool._invoke(
+                {"tag": "invalid.tag"}, context=create_mock_tool_invoke_context()
+            )
 
             assert result.status == StructuredToolResultStatus.ERROR
             assert "Tag not found" in result.error
@@ -293,7 +308,8 @@ class TestQueryMetricsInstant:
             result = tool._invoke(
                 {
                     "q": "{ } | histogram_quantile(.95)",
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -331,7 +347,8 @@ class TestQueryMetricsRange:
                 {
                     "q": '{ service.name="api" } | rate()',
                     "step": "8m",
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -357,7 +374,8 @@ class TestQueryMetricsRange:
                 {
                     "q": "{ } | rate()",
                     "exemplars": 100,
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -384,7 +402,8 @@ class TestNegativeTimestamps:
 
             # Use negative start (-3600 = 1 hour before end)
             result = tool._invoke(
-                {"q": '{resource.service.name="api"}', "start": "-3600"}
+                {"q": '{resource.service.name="api"}', "start": "-3600"},
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -410,7 +429,8 @@ class TestNegativeTimestamps:
                     "trace_id": "test123",
                     "start": "-7200",  # 2 hours before end
                     "end": "-3600",  # 1 hour before now
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -439,7 +459,8 @@ class TestNegativeTimestamps:
                     "q": "{ } | rate()",
                     "start": now + 3600,  # 1 hour after "end"
                     "end": now,
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -461,7 +482,8 @@ class TestNegativeTimestamps:
                 {
                     "start": "-3600",  # Negative (relative)
                     "end": "2024-01-01T12:00:00Z",  # RFC3339
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -514,7 +536,7 @@ class TestNegativeTimestamps:
             ) as mock_method:
                 mock_method.return_value = {"status": "success"}
 
-                result = tool._invoke(params)
+                result = tool._invoke(params, context=create_mock_tool_invoke_context())
                 assert result.status == StructuredToolResultStatus.SUCCESS
 
                 # Verify the negative start was converted properly
@@ -544,7 +566,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
                     "q": "{ } | rate()",
                     "start": 1000000,
                     "end": 1003600,  # 1 hour later
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -569,7 +592,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
                     "start": 1000000,
                     "end": 1086400,  # 1 day later
                     "step": "1m",  # Too small - would create too many points
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -593,7 +617,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
                     "start": 1000000,
                     "end": 1003600,  # 1 hour later
                     "step": "5m",  # 300s is larger than minimum
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -616,7 +641,8 @@ class TestQueryMetricsRangeWithStepAdjustment:
                     "start": 1000000,
                     "end": 1000300,  # 5 minutes later
                     "step": "30",  # 30 seconds as bare number
-                }
+                },
+                context=create_mock_tool_invoke_context(),
             )
 
             assert result.status == StructuredToolResultStatus.SUCCESS
@@ -652,7 +678,7 @@ class TestQueryMetricsRangeWithStepAdjustment:
                 if input_step:
                     params["step"] = input_step
 
-                result = tool._invoke(params)
+                result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
                 assert result.status == StructuredToolResultStatus.SUCCESS
                 args, kwargs = mock_query.call_args
