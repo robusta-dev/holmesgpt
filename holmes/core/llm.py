@@ -49,7 +49,7 @@ class ModelEntry(BaseModel):
     is_robusta_model: Optional[bool] = None
     custom_args: Optional[Dict[str, Any]] = None
 
-    # LLM configurations used specifically for Azure OpenAI Service
+    # LLM configurations used services like Azure OpenAI Service
     api_base: Optional[str] = None
     api_version: Optional[str] = None
 
