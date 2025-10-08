@@ -8,5 +8,6 @@ nav:
   - Ollama: ollama.md
   - OpenAI: openai.md
   - OpenAI-Compatible: openai-compatible.md
+  - Other: other.md
   - Robusta AI: robusta-ai.md
   - Using Multiple Providers: using-multiple-providers.md

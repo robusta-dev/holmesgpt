@@ -69,7 +69,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
           budget_tokens: 10000
           type: enabled
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```
@@ -119,7 +119,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
             budget_tokens: 10000
             type: enabled
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```
