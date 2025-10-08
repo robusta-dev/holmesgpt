@@ -60,7 +60,7 @@ Get a paid [OpenAI API key](https://help.openai.com/en/articles/4936850-where-do
 
     # Optional: Set default model (use modelList key name)
     config:
-      model: "gpt-4o"  # This refers to the key name in modelList above
+      model: "gpt-4.1"  # This refers to the key name in modelList above
     ```
 
 === "Robusta Helm Chart"
