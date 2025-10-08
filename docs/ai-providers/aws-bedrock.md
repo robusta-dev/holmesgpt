@@ -132,17 +132,17 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
             budget_tokens: 10000
             type: enabled
 
-      bedrock-claude-sonnet-4-1M-context:
-        aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
-        aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
-        aws_region_name: eu-south-2
-        model: bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
-        temperature: 1
-        thinking:
-          budget_tokens: 10000
-          type: enabled
-        extra_headers:
-          anthropic-beta: context-1m-2025-08-07
+        bedrock-claude-sonnet-4-1M-context:
+          aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
+          aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
+          aws_region_name: eu-south-2
+          model: bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
+          temperature: 1
+          thinking:
+            budget_tokens: 10000
+            type: enabled
+          extra_headers:
+            anthropic-beta: context-1m-2025-08-07
 
       # Optional: Set default model (use modelList key name, not the model path)
       config:
