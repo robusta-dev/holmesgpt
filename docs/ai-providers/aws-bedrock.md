@@ -82,7 +82,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
         extra_headers:
           anthropic-beta: context-1m-2025-08-07
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```
@@ -144,7 +144,7 @@ Configure HolmesGPT to use AWS Bedrock foundation models.
           extra_headers:
             anthropic-beta: context-1m-2025-08-07
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "bedrock-claude-35-sonnet"  # This refers to the key name in modelList above
     ```

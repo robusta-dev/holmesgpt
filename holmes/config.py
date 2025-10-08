@@ -471,7 +471,14 @@ class Config(RobustaBaseConfig):
         sentry_sdk.set_tag("model_name", model_name)
         logging.info(f"Creating LLM with model: {model_name}")
         return DefaultLLM(
-            model, api_key, api_base, api_version, model_params, tracer, model_name
+            model=model,
+            api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
+            args=model_params,
+            tracer=tracer,
+            name=model_name,
+            is_robusta_model=is_robusta_model,
         )  # type: ignore
 
     def get_models_list(self) -> List[str]:
