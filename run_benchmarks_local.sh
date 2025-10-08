@@ -5,8 +5,8 @@
 set -e  # Exit on error
 
 # Default values from workflow
-DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514"
-DEFAULT_MARKERS="easy"
+DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514,novita/deepseek/deepseek-v3.1-terminus"
+DEFAULT_MARKERS="easy or medium or hard"
 DEFAULT_ITERATIONS="1"
 
 # Parse command line arguments
