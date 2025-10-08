@@ -253,7 +253,7 @@ class DefaultLLM(LLM):
 
     def get_litellm_corrected_name_for_robusta_ai(self) -> str:
         if self.is_robusta_model:
-            # For robusta models, self.name is the underlying provider/model used by Robusta AI
+            # For robusta models, self.model is the underlying provider/model used by Robusta AI
             # To avoid litellm modifying the API URL according to the provider, the provider name
             # is replaced with 'openai/' just before doing a completion() call
             # Cf. https://docs.litellm.ai/docs/providers/openai_compatible
