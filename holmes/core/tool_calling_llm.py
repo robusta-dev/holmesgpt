@@ -260,7 +260,7 @@ class LLMResult(LLMCosts):
 class ToolCallWithDecision(BaseModel):
     message_index: int
     tool_call: ChatCompletionMessageToolCall
-    decision: ToolApprovalDecision
+    decision: Optional[ToolApprovalDecision]
 
 
 class ToolCallingLLM:
@@ -305,8 +305,8 @@ class ToolCallingLLM:
             if msg.get("role") == "assistant" and msg.get("tool_calls"):
                 message_tool_calls = msg.get("tool_calls", [])
                 for tool_call in message_tool_calls:
-                    decision = decisions_by_tool_call_id.get(tool_call.get("id"))
-                    if tool_call.get("pending_approval") and decision:
+                    decision = decisions_by_tool_call_id.get(tool_call.get("id"), None)
+                    if tool_call.get("pending_approval"):
                         del tool_call[
                             "pending_approval"
                         ]  # Cleanup so that a pending approval is not tagged on message in a future response
@@ -325,10 +325,12 @@ class ToolCallingLLM:
 
         for tool_call_with_decision in pending_tool_calls:
             tool_call_message: dict
-            if tool_call_with_decision.decision.approved:
+            tool_call = tool_call_with_decision.tool_call
+            decision = tool_call_with_decision.decision
+            if decision and decision.approved:
                 try:
                     llm_tool_result = self._invoke_llm_tool_call(
-                        tool_to_call=tool_call_with_decision.tool_call,
+                        tool_to_call=tool_call,
                         previous_tool_calls=[],
                         trace_span=DummySpan(),  # TODO: replace with proper span
                         tool_number=None,
@@ -338,20 +340,20 @@ class ToolCallingLLM:
 
                 except Exception as e:
                     logging.error(
-                        f"Failed to execute approved tool {tool_call_with_decision.tool_call.id}: {e}"
+                        f"Failed to execute approved tool {tool_call.id}: {e}"
                     )
                     tool_call_message = {
-                        "tool_call_id": tool_call_with_decision.tool_call.id,
+                        "tool_call_id": tool_call.id,
                         "role": "tool",
-                        "name": tool_call_with_decision.tool_call.function.name,
+                        "name": tool_call.function.name,
                         "content": f"Tool execution failed: {str(e)}",
                     }
             else:
                 # Tool was rejected or no decision found, add rejection message
                 tool_call_message = {
-                    "tool_call_id": tool_call_with_decision.tool_call.id,
+                    "tool_call_id": tool_call.id,
                     "role": "tool",
-                    "name": tool_call_with_decision.tool_call.function.name,
+                    "name": tool_call.function.name,
                     "content": "Tool execution was denied by the user.",
                 }
 
