@@ -682,11 +682,10 @@ class MockToolsetManager:
 
         # First, validate that all custom definitions reference existing toolsets
         builtin_names = {ts.name for ts in builtin_toolsets}
-        definition = None
-        for definition in custom_configs.values():
-            if definition.name not in builtin_names:
+        for toolset_name in custom_configs.keys():
+            if toolset_name not in builtin_names:
                 raise RuntimeError(
-                    f"Toolset '{definition.name}' referenced in toolsets.yaml does not exist. "
+                    f"Toolset '{toolset_name}' referenced in toolsets.yaml does not exist. "
                     f"Available toolsets: {', '.join(sorted(builtin_names))}"
                 )
 
