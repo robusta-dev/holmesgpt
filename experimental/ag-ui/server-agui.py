@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import os
 
 from holmes.utils.cert_utils import add_custom_certificate
@@ -10,14 +11,18 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 
 # Safe to import networked libs below
-from starlette.responses import PlainTextResponse
-
+import json
 import logging
+import time
+import uuid
 import uvicorn
 import colorlog
-import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse, JSONResponse
+from starlette.responses import PlainTextResponse
+
 from holmes.utils.stream import StreamMessage, StreamEvents
 from holmes.common.env_vars import (
     HOLMES_HOST,
@@ -30,12 +35,7 @@ from holmes.core.conversations import (
 from holmes.core.models import (
     ChatRequest,
 )
-from fastapi.middleware.cors import CORSMiddleware
 
-import uuid
-import json
-from fastapi import Request
-from fastapi.responses import StreamingResponse, JSONResponse
 from ag_ui.core import (
     AssistantMessage,
     RunAgentInput,
