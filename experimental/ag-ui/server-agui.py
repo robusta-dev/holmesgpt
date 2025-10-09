@@ -93,7 +93,7 @@ def agui_chat_health(request: Request):
 
 @app.post("/api/agui/chat")
 def agui_chat(input_data: RunAgentInput, request: Request):
-    accept_header = request.headers.get("accept")
+    accept_header = request.headers.get("accept", "")
     encoder = EventEncoder(accept=accept_header)
 
     logging.debug(f"AG-UI context: {input_data.context}")
@@ -394,8 +394,7 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
         if msg.role in ("user", "assistant"):
             non_system_messages.append(msg)
         elif msg.role == "tool":
-            msg_tmp = msg
-            msg_tmp.role = "assistant"
+            msg_tmp = type(msg)(role="assistant", content=msg.content)
             non_system_messages.append(msg_tmp)
     conversation_history = [
         {
