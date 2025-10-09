@@ -191,7 +191,7 @@ class FetchConfigurationChangesMetadata(Tool):
                 start_datetime=params["start_datetime"],
                 end_datetime=params["end_datetime"],
                 limit=min(
-                    params.get("limit", DEFAULT_LIMIT_CHANGE_ROWS),
+                    params.get("limit") or DEFAULT_LIMIT_CHANGE_ROWS,
                     MAX_LIMIT_CHANGE_ROWS,
                 ),
                 ns=params.get("namespace"),
