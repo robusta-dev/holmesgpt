@@ -469,8 +469,7 @@ class Config(RobustaBaseConfig):
         api_version = model_params.pop("api_version", api_version)
         model_name = model_params.pop("name", None) or model_key or model
         sentry_sdk.set_tag("model_name", model_name)
-        logging.info(f"Creating LLM with model: {model_name}")
-        return DefaultLLM(
+        llm = DefaultLLM(
             model=model,
             api_key=api_key,
             api_base=api_base,
@@ -480,6 +479,10 @@ class Config(RobustaBaseConfig):
             name=model_name,
             is_robusta_model=is_robusta_model,
         )  # type: ignore
+        logging.info(
+            f"Using model: {model_name} ({llm.get_context_window_size():,} total tokens, {llm.get_maximum_output_token():,} output tokens)"
+        )
+        return llm
 
     def get_models_list(self) -> List[str]:
         if self.llm_model_registry and self.llm_model_registry.models:
