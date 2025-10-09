@@ -15,8 +15,13 @@ from holmes.core.config import config_path_dir
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.toolset_cache import ToolsetStatusCache
 from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
+from holmes.plugins.toolsets import (
+    load_builtin_toolsets,
+    load_toolsets_from_config,
+    load_mcp_servers,
+)
 from holmes.utils.definitions import CUSTOM_TOOLSET_DIR
+from holmes.utils.dict_utils import deep_merge
 
 if TYPE_CHECKING:
     pass
@@ -88,7 +93,7 @@ class ToolsetRegistry:
         toolset = self.toolsets[name]
 
         # Simple approach: apply each field
-        # For 'config' field specifically, merge if it's a dict
+        # For 'config' field specifically, use deep merge if it's a dict
         if "enabled" in config:
             toolset.enabled = config["enabled"]
 
@@ -98,8 +103,8 @@ class ToolsetRegistry:
             elif isinstance(toolset.config, dict) and isinstance(
                 config["config"], dict
             ):
-                # Merge: user config overrides default config
-                toolset.config = {**toolset.config, **config["config"]}
+                # Deep merge: user config overrides default config at each level
+                toolset.config = deep_merge(toolset.config, config["config"])
             else:
                 # Non-dict or incompatible types, replace entirely
                 toolset.config = config["config"]
@@ -129,25 +134,20 @@ class ToolsetRegistry:
         mcp_config = copy.deepcopy(mcp_config) if mcp_config else {}
         toolsets_config = copy.deepcopy(toolsets_config) if toolsets_config else {}
 
-        # Mark MCP servers with their type
-        for server_config in mcp_config.values():
-            server_config["type"] = ToolsetType.MCP.value
-
         # Add path info to toolset configs
         for toolset_config in toolsets_config.values():
             toolset_config["path"] = str(file_path)
 
-        # Merge both configs
-        toolsets_config.update(mcp_config)
-
-        if not toolsets_config:
+        # Check if we have any configs
+        all_names = set(toolsets_config.keys()) | set(mcp_config.keys())
+        if not all_names:
             raise ValueError(
                 f"No 'toolsets' or 'mcp_servers' key found in: {file_path}"
             )
 
         # Check for conflicts with builtin toolsets
         builtin_names = set(self.toolsets.keys())
-        conflicts = set(toolsets_config.keys()) & builtin_names
+        conflicts = all_names & builtin_names
 
         if conflicts:
             raise ValueError(
@@ -156,11 +156,17 @@ class ToolsetRegistry:
                 f"To configure builtin toolsets, use the 'toolsets' section in config.yaml."
             )
 
-        # Add new custom toolsets (all fields required)
-        new_toolsets = load_toolsets_from_config(toolsets_config)
-        self.add(new_toolsets)
+        # Load regular custom toolsets
+        if toolsets_config:
+            new_toolsets = load_toolsets_from_config(toolsets_config)
+            self.add(new_toolsets)
 
-        return set(toolsets_config.keys())
+        # Load MCP servers separately with proper URL handling
+        if mcp_config:
+            new_mcp_servers = load_mcp_servers(mcp_config)
+            self.add(new_mcp_servers)
+
+        return all_names
 
     def get_by_tags(self, tags: List[ToolsetTag]) -> List[Toolset]:
         """Filter toolsets by tags"""
@@ -269,21 +275,16 @@ class ToolsetManager:
 
         Handles both old-style (single dict) and new-style (split toolsets/mcp_servers)
         configurations, returning a unified dictionary of all toolset configurations.
+
+        Note: This method is kept for backward compatibility but may not be used
+        since we now handle toolsets and mcp_servers separately.
         """
         result = {}
 
         if "toolsets" in config or "mcp_servers" in config:
             # New style - split config
             result.update(config.get("toolsets", {}))
-
-            # Add type to MCP servers
-            mcp_servers = config.get("mcp_servers", {})
-            if mcp_servers:
-                # Deep copy to avoid mutating original config
-                mcp_config = copy.deepcopy(mcp_servers)
-                for server_config in mcp_config.values():
-                    server_config["type"] = ToolsetType.MCP.value
-                result.update(mcp_config)
+            result.update(config.get("mcp_servers", {}))
         else:
             # Old style - all in one dict
             result = config
@@ -307,12 +308,9 @@ class ToolsetManager:
 
             # Handle MCP servers (allowed to add new ones)
             if "mcp_servers" in self.config:
-                mcp_config = copy.deepcopy(self.config["mcp_servers"])
-                for server_config in mcp_config.values():
-                    server_config["type"] = ToolsetType.MCP.value
-                new_mcp_servers = load_toolsets_from_config(mcp_config)
+                new_mcp_servers = load_mcp_servers(self.config["mcp_servers"])
                 self.registry.add(new_mcp_servers)
-                configured_names.update(mcp_config.keys())
+                configured_names.update(self.config["mcp_servers"].keys())
 
         # Load custom toolsets from files
         for path in self.custom_paths:

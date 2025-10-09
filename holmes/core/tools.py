@@ -531,17 +531,24 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
     env: List[str] = []  # optional
 
 
-class Toolset(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    experimental: bool = False
+class ToolsetMetadata(BaseModel):
+    """Base class for toolset metadata fields shared across different toolset types."""
 
-    enabled: bool = False
     name: str
     description: str
+    enabled: bool = False
+    config: Optional[Any] = None
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     additional_instructions: Optional[str] = ""
+
+
+class Toolset(ToolsetMetadata):
+    """Full toolset with tools and runtime information."""
+
+    model_config = ConfigDict(extra="forbid")
+    experimental: bool = False
     prerequisites: List[
         Union[
             StaticPrerequisite,
@@ -554,7 +561,6 @@ class Toolset(BaseModel):
     tags: List[ToolsetTag] = Field(
         default_factory=lambda: [ToolsetTag.CORE],
     )
-    config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
     transformers: Optional[List[Transformer]] = None

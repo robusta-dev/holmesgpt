@@ -2,7 +2,7 @@ import os
 
 import yaml
 
-from holmes.plugins.toolsets import load_toolsets_from_config
+from holmes.plugins.toolsets import load_mcp_servers
 
 toolsets_config_str = """
   mcp_test:
@@ -29,7 +29,7 @@ def test_load_mcp_toolsets_definition():
 
         toolsets_config = yaml.safe_load(toolsets_config_str)
         assert isinstance(toolsets_config, dict)
-        definitions = load_toolsets_from_config(toolsets=toolsets_config)
+        definitions = load_mcp_servers(servers_config=toolsets_config)
         assert len(definitions) == 1
         mcp_test = definitions[0]
         config = mcp_test.config
