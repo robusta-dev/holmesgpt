@@ -34,7 +34,7 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM, get_llm_usage
+from holmes.core.llm import LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
@@ -535,11 +535,15 @@ class ToolCallingLLM:
                     costs.total_cost += post_processing_cost
 
                     tokens = self.llm.count_tokens(messages=messages, tools=tools)
+
+                    add_token_count_to_metadata(
+                        tokens=tokens,
+                        full_llm_response=full_response,
+                        max_context_size=max_context_size,
+                        maximum_output_token=maximum_output_token,
+                        metadata=metadata,
+                    )
                     perf_timing.end(f"- completed in {i} iterations -")
-                    metadata["usage"] = get_llm_usage(full_response)
-                    metadata["tokens"] = tokens.model_dump()
-                    metadata["max_tokens"] = max_context_size
-                    metadata["max_output_tokens"] = maximum_output_token
 
                     return LLMResult(
                         result=post_processed_response,
