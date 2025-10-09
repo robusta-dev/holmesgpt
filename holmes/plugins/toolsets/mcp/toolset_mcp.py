@@ -15,6 +15,7 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
 )
@@ -23,9 +24,7 @@ from holmes.core.tools import (
 class BaseMCPTool(Tool):
     """Base class for MCP tools with shared functionality"""
 
-    def _invoke(
-        self, params: Dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             return asyncio.run(self._invoke_async(params))
         except Exception as e:
@@ -101,6 +100,7 @@ class RemoteMCPTool(BaseMCPTool):
 class StdioMCPTool(BaseMCPTool):
     server_params: StdioServerParameters
 
+    # TODO(mainred): instead of starting a new process for each tool call, can we reuse the client session across calls?
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
         async with stdio_client(self.server_params) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:

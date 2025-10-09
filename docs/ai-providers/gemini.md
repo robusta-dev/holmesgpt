@@ -54,7 +54,7 @@ Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
         model: gemini/gemini-exp-1206
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "gemini-pro"  # This refers to the key name in modelList above
     ```
@@ -98,7 +98,7 @@ Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
           model: gemini/gemini-exp-1206
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "gemini-pro"  # This refers to the key name in modelList above
     ```

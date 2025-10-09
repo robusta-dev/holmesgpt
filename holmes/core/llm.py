@@ -1,22 +1,31 @@
 import json
 import logging
+import os
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Type, Union, TYPE_CHECKING
+from math import floor
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
+import litellm
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ModelResponse, TextCompletionResponse
 import sentry_sdk
+from pydantic import BaseModel, ConfigDict, SecretStr
+from typing_extensions import Self
 
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from pydantic import BaseModel
-import litellm
-import os
-from holmes.clients.robusta_client import RobustaModelsResponse, fetch_robusta_models
+from holmes.clients.robusta_client import (
+    RobustaModel,
+    RobustaModelsResponse,
+    fetch_robusta_models,
+)
+
 from holmes.common.env_vars import (
+    FALLBACK_CONTEXT_WINDOW_SIZE,
     LOAD_ALL_ROBUSTA_MODELS,
     REASONING_EFFORT,
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
+    EXTRA_HEADERS,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -33,6 +42,30 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 ROBUSTA_AI_MODEL_NAME = "Robusta"
+
+
+class ModelEntry(BaseModel):
+    """ModelEntry represents a single LLM model configuration."""
+
+    model: str
+    # TODO: the name field seems to be redundant, can we remove it?
+    name: Optional[str] = None
+    api_key: Optional[SecretStr] = None
+    base_url: Optional[str] = None
+    is_robusta_model: Optional[bool] = None
+    custom_args: Optional[Dict[str, Any]] = None
+
+    # LLM configurations used services like Azure OpenAI Service
+    api_base: Optional[str] = None
+    api_version: Optional[str] = None
+
+    model_config = ConfigDict(
+        extra="allow",
+    )
+
+    @classmethod
+    def load_from_dict(cls, data: dict) -> Self:
+        return cls.model_validate(data)
 
 
 class LLM:
@@ -72,6 +105,7 @@ class DefaultLLM(LLM):
     api_base: Optional[str]
     api_version: Optional[str]
     args: Dict
+    is_robusta_model: bool
 
     def __init__(
         self,
@@ -82,6 +116,7 @@ class DefaultLLM(LLM):
         args: Optional[Dict] = None,
         tracer: Optional[Any] = None,
         name: Optional[str] = None,
+        is_robusta_model: bool = False,
     ):
         self.model = model
         self.api_key = api_key
@@ -90,8 +125,11 @@ class DefaultLLM(LLM):
         self.args = args or {}
         self.tracer = tracer
         self.name = name
+        self.is_robusta_model = is_robusta_model
         self.update_custom_args()
-        self.check_llm(self.model, self.api_key, self.api_base, self.api_version)
+        self.check_llm(
+            self.model, self.api_key, self.api_base, self.api_version, self.args
+        )
 
     def update_custom_args(self):
         self.max_context_size = self.args.get("custom_args", {}).get("max_context_size")
@@ -103,7 +141,14 @@ class DefaultLLM(LLM):
         api_key: Optional[str],
         api_base: Optional[str],
         api_version: Optional[str],
+        args: Optional[dict] = None,
     ):
+        if self.is_robusta_model:
+            # The model is assumed correctly configured if it is a robusta model
+            # For robusta models, this code would fail because Holmes has no knowledge of the API keys
+            # to azure or bedrock as all completion API calls go through robusta's LLM proxy
+            return
+        args = args or {}
         logging.debug(f"Checking LiteLLM model {model}")
         lookup = litellm.get_llm_provider(model)
         if not lookup:
@@ -139,10 +184,17 @@ class DefaultLLM(LLM):
                     "environment variable for proper functionality. For more information, refer to the documentation: "
                     "https://docs.litellm.ai/docs/providers/watsonx#usage---models-in-deployment-spaces"
                 )
-        elif provider == "bedrock" and (
-            os.environ.get("AWS_PROFILE") or os.environ.get("AWS_BEARER_TOKEN_BEDROCK")
-        ):
-            model_requirements = {"keys_in_environment": True, "missing_keys": []}
+        elif provider == "bedrock":
+            if os.environ.get("AWS_PROFILE") or os.environ.get(
+                "AWS_BEARER_TOKEN_BEDROCK"
+            ):
+                model_requirements = {"keys_in_environment": True, "missing_keys": []}
+            elif args.get("aws_access_key_id") and args.get("aws_secret_access_key"):
+                return  # break fast.
+            else:
+                model_requirements = litellm.validate_environment(
+                    model=model, api_key=api_key, api_base=api_base
+                )
         else:
             model_requirements = litellm.validate_environment(
                 model=model, api_key=api_key, api_base=api_base
@@ -201,10 +253,10 @@ class DefaultLLM(LLM):
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 128k tokens for max_input_tokens. "
+            f"using default {FALLBACK_CONTEXT_WINDOW_SIZE} tokens for max_input_tokens. "
             f"To override, set OVERRIDE_MAX_CONTENT_SIZE environment variable to the correct value for your model."
         )
-        return 128000
+        return FALLBACK_CONTEXT_WINDOW_SIZE
 
     @sentry_sdk.trace
     def count_tokens_for_message(self, messages: list[dict]) -> int:
@@ -235,6 +287,21 @@ class DefaultLLM(LLM):
                     total_token_count += token_count
         return total_token_count
 
+    def get_litellm_corrected_name_for_robusta_ai(self) -> str:
+        if self.is_robusta_model:
+            # For robusta models, self.model is the underlying provider/model used by Robusta AI
+            # To avoid litellm modifying the API URL according to the provider, the provider name
+            # is replaced with 'openai/' just before doing a completion() call
+            # Cf. https://docs.litellm.ai/docs/providers/openai_compatible
+            split_model_name = self.model.split("/")
+            return (
+                split_model_name[0]
+                if len(split_model_name) == 1
+                else f"openai/{split_model_name[1]}"
+            )
+        else:
+            return self.model
+
     def completion(
         self,
         messages: List[Dict[str, Any]],
@@ -255,6 +322,9 @@ class DefaultLLM(LLM):
         if THINKING:
             self.args.setdefault("thinking", json.loads(THINKING))
 
+        if EXTRA_HEADERS:
+            self.args.setdefault("extra_headers", json.loads(EXTRA_HEADERS))
+
         if self.args.get("thinking", None):
             litellm.modify_params = True
 
@@ -270,8 +340,10 @@ class DefaultLLM(LLM):
 
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
+
+        litellm_model_name = self.get_litellm_corrected_name_for_robusta_ai()
         result = litellm_to_use.completion(
-            model=self.model,
+            model=litellm_model_name,
             api_key=self.api_key,
             base_url=self.api_base,
             api_version=self.api_version,
@@ -292,6 +364,8 @@ class DefaultLLM(LLM):
             raise Exception(f"Unexpected type returned by the LLM {type(result)}")
 
     def get_maximum_output_token(self) -> int:
+        max_output_tokens = floor(min(64000, self.get_context_window_size() / 5))
+
         if OVERRIDE_MAX_OUTPUT_TOKEN:
             logging.debug(
                 f"Using OVERRIDE_MAX_OUTPUT_TOKEN {OVERRIDE_MAX_OUTPUT_TOKEN}"
@@ -301,17 +375,22 @@ class DefaultLLM(LLM):
         # Try each name variant
         for name in self._get_model_name_variants_for_lookup():
             try:
-                return litellm.model_cost[name]["max_output_tokens"]
+                litellm_max_output_tokens = litellm.model_cost[name][
+                    "max_output_tokens"
+                ]
+                if litellm_max_output_tokens < max_output_tokens:
+                    max_output_tokens = litellm_max_output_tokens
+                return max_output_tokens
             except Exception:
                 continue
 
         # Log which lookups we tried
         logging.warning(
             f"Couldn't find model {self.model} in litellm's model list (tried: {', '.join(self._get_model_name_variants_for_lookup())}), "
-            f"using default 4096 tokens for max_output_tokens. "
+            f"using {max_output_tokens} tokens for max_output_tokens. "
             f"To override, set OVERRIDE_MAX_OUTPUT_TOKEN environment variable to the correct value for your model."
         )
-        return 4096
+        return max_output_tokens
 
     def _add_cache_control_to_last_message(
         self, messages: List[Dict[str, Any]]
@@ -320,6 +399,12 @@ class DefaultLLM(LLM):
         Add cache_control to the last non-user message for Anthropic prompt caching.
         Removes any existing cache_control from previous messages to avoid accumulation.
         """
+        # Skip cache_control for VertexAI/Gemini models as they don't support it with tools
+        if self.model and (
+            "vertex" in self.model.lower() or "gemini" in self.model.lower()
+        ):
+            return
+
         # First, remove any existing cache_control from all messages
         for msg in messages:
             content = msg.get("content")
@@ -349,7 +434,7 @@ class DefaultLLM(LLM):
         if content is None:
             return
 
-        if isinstance(content, str):
+        if isinstance(content, str) and content:
             # Convert string to structured format with cache_control
             target_msg["content"] = [
                 {
@@ -374,7 +459,7 @@ class DefaultLLM(LLM):
 class LLMModelRegistry:
     def __init__(self, config: "Config", dal: SupabaseDal) -> None:
         self.config = config
-        self._llms: dict[str, dict[str, Any]] = {}
+        self._llms: dict[str, ModelEntry] = {}
         self._default_robusta_model = None
         self.dal = dal
 
@@ -396,6 +481,8 @@ class LLMModelRegistry:
                 model_name=self.config.model,
                 base_url=self.config.api_base,
                 is_robusta_model=False,
+                api_key=self.config.api_key,
+                api_version=self.config.api_version,
             )
 
     def _should_load_config_model(self) -> bool:
@@ -406,7 +493,7 @@ class LLMModelRegistry:
         # so we need to check if the user has set an OPENAI_API_KEY to load the config model.
         has_openai_key = os.environ.get("OPENAI_API_KEY")
         if has_openai_key:
-            self.config.model = "gpt-4o"
+            self.config.model = "gpt-4.1"
             return True
 
         return False
@@ -429,16 +516,18 @@ class LLMModelRegistry:
                 self._load_default_robusta_config()
                 return
 
-            for model in robusta_models.models:
-                logging.info(f"Loading Robusta AI model: {model}")
-                args = robusta_models.models_args.get(model)
-                self._llms[model] = self._create_robusta_model_entry(model, args)
-
-            if robusta_models.default_model:
-                logging.info(
-                    f"Setting default Robusta AI model to: {robusta_models.default_model}"
+            default_model = None
+            for model_name, model_data in robusta_models.models.items():
+                logging.info(f"Loading Robusta AI model: {model_name}")
+                self._llms[model_name] = self._create_robusta_model_entry(
+                    model_name=model_name, model_data=model_data
                 )
-                self._default_robusta_model: str = robusta_models.default_model  # type: ignore
+                if model_data.is_default:
+                    default_model = model_name
+
+            if default_model:
+                logging.info(f"Setting default Robusta AI model to: {default_model}")
+                self._default_robusta_model: str = default_model  # type: ignore
 
         except Exception:
             logging.exception("Failed to get all robusta models")
@@ -448,12 +537,12 @@ class LLMModelRegistry:
     def _load_default_robusta_config(self):
         if self._should_load_robusta_ai():
             logging.info("Loading default Robusta AI model")
-            self._llms[ROBUSTA_AI_MODEL_NAME] = {
-                "name": ROBUSTA_AI_MODEL_NAME,
-                "base_url": ROBUSTA_API_ENDPOINT,
-                "is_robusta_model": True,
-                "model": "gpt-4o",
-            }
+            self._llms[ROBUSTA_AI_MODEL_NAME] = ModelEntry(
+                name=ROBUSTA_AI_MODEL_NAME,
+                model="gpt-4o",  # TODO: tech debt, this isn't really
+                base_url=ROBUSTA_API_ENDPOINT,
+                is_robusta_model=True,
+            )
             self._default_robusta_model = ROBUSTA_AI_MODEL_NAME
 
     def _should_load_robusta_ai(self) -> bool:
@@ -475,7 +564,7 @@ class LLMModelRegistry:
 
         return True
 
-    def get_model_params(self, model_key: Optional[str] = None) -> dict:
+    def get_model_params(self, model_key: Optional[str] = None) -> ModelEntry:
         if not self._llms:
             raise Exception("No llm models were loaded")
 
@@ -507,26 +596,31 @@ class LLMModelRegistry:
         return self._llms[name]  # type: ignore
 
     @property
-    def models(self) -> dict[str, dict[str, Any]]:
+    def models(self) -> dict[str, ModelEntry]:
         return self._llms
 
-    def _parse_models_file(self, path: str):
+    def _parse_models_file(self, path: str) -> dict[str, ModelEntry]:
         models = load_yaml_file(path, raise_error=False, warn_not_found=False)
         for _, params in models.items():
             params = replace_env_vars_values(params)
 
-        return models
+        llms = {}
+        for model_name, params in models.items():
+            llms[model_name] = ModelEntry.model_validate(params)
+
+        return llms
 
     def _create_robusta_model_entry(
-        self, model_name: str, args: Optional[dict[str, Any]] = None
-    ) -> dict[str, Any]:
-        return self._create_model_entry(
-            model="gpt-4o",  # Robusta AI model is using openai like API.
+        self, model_name: str, model_data: RobustaModel
+    ) -> ModelEntry:
+        entry = self._create_model_entry(
+            model=model_data.model,
             model_name=model_name,
             base_url=f"{ROBUSTA_API_ENDPOINT}/llm/{model_name}",
             is_robusta_model=True,
-            args=args or {},
         )
+        entry.custom_args = model_data.holmes_args or {}  # type: ignore[assignment]
+        return entry
 
     def _create_model_entry(
         self,
@@ -534,18 +628,19 @@ class LLMModelRegistry:
         model_name: str,
         base_url: Optional[str] = None,
         is_robusta_model: Optional[bool] = None,
-        args: Optional[dict[str, Any]] = None,
-    ) -> dict[str, Any]:
-        entry = {
-            "name": model_name,
-            "base_url": base_url,
-            "is_robusta_model": is_robusta_model,
-            "model": model,
-        }
-        if args:
-            entry["custom_args"] = args  # type: ignore[assignment]
-
-        return entry
+        api_key: Optional[SecretStr] = None,
+        api_base: Optional[str] = None,
+        api_version: Optional[str] = None,
+    ) -> ModelEntry:
+        return ModelEntry(
+            name=model_name,
+            model=model,
+            base_url=base_url,
+            is_robusta_model=is_robusta_model,
+            api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
+        )
 
 
 def get_llm_usage(

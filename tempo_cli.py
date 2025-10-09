@@ -33,7 +33,6 @@ def get_api_client(
     url: Optional[str] = None,
     api_key: Optional[str] = None,
     grafana_datasource_uid: Optional[str] = None,
-    use_post: bool = False,
 ) -> GrafanaTempoAPI:
     """Create and return a GrafanaTempoAPI client."""
     # Get from environment if not provided
@@ -53,7 +52,7 @@ def get_api_client(
         url=url, api_key=api_key, grafana_datasource_uid=grafana_datasource_uid
     )
 
-    return GrafanaTempoAPI(config, use_post=use_post)
+    return GrafanaTempoAPI(config)
 
 
 def print_result(result: Dict, pretty: bool = True):
@@ -83,13 +82,10 @@ def echo(
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
     ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
-    ),
 ):
     """Check Tempo status using the echo endpoint."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.query_echo_endpoint()
         if result:
             console.print("[green]✓ Tempo is responding[/green]")
@@ -110,9 +106,6 @@ def trace(
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
     ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
-    ),
     start: Optional[int] = typer.Option(
         None, "--start", "-s", help="Start time in Unix epoch seconds"
     ),
@@ -125,7 +118,7 @@ def trace(
 ):
     """Query a trace by its ID."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.query_trace_by_id_v2(trace_id, start, end)
         print_result(result, pretty)
     except Exception as e:
@@ -141,9 +134,6 @@ def search_tags(
     ),
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
-    ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
     ),
     min_duration: Optional[str] = typer.Option(
         None, "--min-duration", help="Minimum trace duration (e.g., '5s')"
@@ -167,7 +157,7 @@ def search_tags(
 ):
     """Search for traces using tag-based search."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.search_traces_by_tags(
             tags=tags,
             min_duration=min_duration,
@@ -192,9 +182,6 @@ def search_query(
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
     ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
-    ),
     limit: Optional[int] = typer.Option(
         None, "--limit", "-l", help="Max number of traces to return"
     ),
@@ -211,7 +198,7 @@ def search_query(
 ):
     """Search for traces using TraceQL query."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.search_traces_by_query(
             q=q, limit=limit, start=start, end=end, spss=spss
         )
@@ -228,9 +215,6 @@ def tag_names(
     ),
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
-    ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
     ),
     scope: Optional[str] = typer.Option(
         None, "--scope", help="Scope filter: 'resource', 'span', or 'intrinsic'"
@@ -256,7 +240,7 @@ def tag_names(
 ):
     """Search for available tag names."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.search_tag_names_v2(
             scope=scope,
             q=q,
@@ -280,9 +264,6 @@ def tag_values(
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
     ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
-    ),
     q: Optional[str] = typer.Option(
         None, "--query", "-q", help="TraceQL query to filter values"
     ),
@@ -304,7 +285,7 @@ def tag_values(
 ):
     """Search for values of a specific tag."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.search_tag_values_v2(
             tag=tag,
             q=q,
@@ -328,9 +309,6 @@ def metrics_instant(
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
     ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
-    ),
     start: Optional[str] = typer.Option(
         None, "--start", "-s", help="Start time (Unix seconds/nanoseconds/RFC3339)"
     ),
@@ -346,7 +324,7 @@ def metrics_instant(
 ):
     """Query TraceQL metrics for an instant value."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.query_metrics_instant(q=q, start=start, end=end, since=since)
         print_result(result, pretty)
     except Exception as e:
@@ -362,9 +340,6 @@ def metrics_range(
     ),
     grafana_datasource_uid: Optional[str] = typer.Option(
         None, "--grafana-uid", "-g", help="Grafana datasource UID"
-    ),
-    use_post: bool = typer.Option(
-        False, "--use-post", "-p", help="Use POST method instead of GET"
     ),
     step: Optional[str] = typer.Option(
         None, "--step", help="Time series granularity (e.g., '1m', '5m')"
@@ -387,7 +362,7 @@ def metrics_range(
 ):
     """Query TraceQL metrics for a time series range."""
     try:
-        client = get_api_client(url, api_key, grafana_datasource_uid, use_post)
+        client = get_api_client(url, api_key, grafana_datasource_uid)
         result = client.query_metrics_range(
             q=q, step=step, start=start, end=end, since=since, exemplars=exemplars
         )

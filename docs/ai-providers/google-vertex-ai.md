@@ -78,7 +78,7 @@ Configure HolmesGPT to use Google Vertex AI with Gemini models.
         model: vertex_ai/gemini-1.5-flash
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "vertex-gemini-pro"  # This refers to the key name in modelList above
     ```
@@ -142,7 +142,7 @@ Configure HolmesGPT to use Google Vertex AI with Gemini models.
           model: vertex_ai/gemini-1.5-flash
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "vertex-gemini-pro"  # This refers to the key name in modelList above
     ```

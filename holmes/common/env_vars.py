@@ -2,6 +2,16 @@ import os
 import json
 from typing import Optional
 
+# Recommended models for different providers
+RECOMMENDED_OPENAI_MODEL = "gpt-4.1"
+RECOMMENDED_ANTHROPIC_MODEL = "anthropic/claude-opus-4-1-20250805"
+
+# Default model for HolmesGPT
+DEFAULT_MODEL = RECOMMENDED_OPENAI_MODEL
+FALLBACK_CONTEXT_WINDOW_SIZE = (
+    200000  # Fallback context window size if it can't be determined from the model
+)
+
 
 def load_bool(env_var, default: Optional[bool]) -> Optional[bool]:
     env_value = os.environ.get(env_var)
@@ -38,6 +48,7 @@ DEVELOPMENT_MODE = load_bool("DEVELOPMENT_MODE", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
+EXTRA_HEADERS = os.environ.get("EXTRA_HEADERS", "")
 THINKING = os.environ.get("THINKING", "")
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip().lower()
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
@@ -82,6 +93,11 @@ TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT = float(
     os.environ.get("TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT", 15)
 )
 
+# Absolute max tokens to allocate for a single tool response
+TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS = 25000
+
 MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION = int(
     os.environ.get("MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION", 3000)
 )
+
+DISABLE_PROMETHEUS_TOOLSET = load_bool("DISABLE_PROMETHEUS_TOOLSET", False)

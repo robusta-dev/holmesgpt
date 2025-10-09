@@ -1,5 +1,6 @@
 import base64
 import binascii
+import gzip
 import json
 import logging
 import os
@@ -7,7 +8,6 @@ import threading
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
-import gzip
 
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
@@ -66,7 +66,7 @@ class SupabaseDal:
         self.enabled = self.__init_config()
         self.cluster = cluster
         if not self.enabled:
-            logging.info(
+            logging.debug(
                 "Not connecting to Robusta platform - robusta token not provided - using ROBUSTA_AI will not be possible"
             )
             return
@@ -124,7 +124,7 @@ class SupabaseDal:
                 )
 
         if not os.path.exists(config_file_path):
-            logging.info(f"No robusta config in {config_file_path}")
+            logging.debug(f"No robusta config in {config_file_path}")
             return None
 
         logging.info(f"loading config {config_file_path}")
@@ -342,6 +342,7 @@ class SupabaseDal:
             self.unzip_evidence_file(enrich)
             for enrich in evidence.data
             if enrich.get("enrichment_type") == "text_file"
+            or enrich.get("enrichment_type") == "alert_raw_data"
         ]
 
         data.extend(unzipped_files)
