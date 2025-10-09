@@ -8,7 +8,7 @@ from rich.console import Console
 
 from holmes.core.feedback import FeedbackMetadata
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.interactive import (
+from holmes.interactive_mode import (
     Feedback,
     SlashCommandCompleter,
     SlashCommands,

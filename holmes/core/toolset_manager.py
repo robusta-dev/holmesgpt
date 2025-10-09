@@ -34,13 +34,14 @@ class ToolsetManager:
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
         global_fast_model: Optional[str] = None,
+        suppress_logging: bool = False,
     ):
-        self.toolsets = toolsets
         self.toolsets = toolsets or {}
         if mcp_servers is not None:
             for _, mcp_server in mcp_servers.items():
                 mcp_server["type"] = ToolsetType.MCP.value
-        self.toolsets.update(mcp_servers or {})
+            self.toolsets.update(mcp_servers)
+
         self.custom_toolsets = custom_toolsets
         self.global_fast_model = global_fast_model
 
@@ -55,6 +56,11 @@ class ToolsetManager:
 
         self.custom_toolsets_from_cli = custom_toolsets_from_cli
         self.toolset_status_location = toolset_status_location
+        self.suppress_logging = suppress_logging
+
+    def set_suppress_logging(self, suppress: bool) -> None:
+        """Temporarily control logging output"""
+        self.suppress_logging = suppress
 
     @property
     def cli_tool_tags(self) -> List[ToolsetTag]:
@@ -76,6 +82,7 @@ class ToolsetManager:
         check_prerequisites=True,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        progress_callback=None,
     ) -> List[Toolset]:
         """
         List all built-in and custom toolsets.
@@ -137,19 +144,33 @@ class ToolsetManager:
                 enabled_toolsets.append(toolset)
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
-        self.check_toolset_prerequisites(enabled_toolsets)
+        self.check_toolset_prerequisites(enabled_toolsets, progress_callback)
 
         return final_toolsets
 
-    @classmethod
-    def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = []
-            for toolset in toolsets:
-                futures.append(executor.submit(toolset.check_prerequisites))
+    def check_toolset_prerequisites(
+        self, toolsets: list[Toolset], progress_callback=None
+    ):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            futures = {}
+            active_checks = []
 
-            for _ in concurrent.futures.as_completed(futures):
-                pass
+            for toolset in toolsets:
+                future = executor.submit(
+                    toolset.check_prerequisites, quiet=self.suppress_logging
+                )
+                futures[future] = toolset
+                active_checks.append(toolset.name)
+
+            completed = 0
+            total = len(futures)
+            for future in concurrent.futures.as_completed(futures):
+                completed += 1
+                toolset = futures[future]
+                active_checks.remove(toolset.name)
+
+                if progress_callback:
+                    progress_callback(completed, total, active_checks)
 
     def _load_toolsets_from_config(
         self,
@@ -193,6 +214,7 @@ class ToolsetManager:
         dal: Optional[SupabaseDal] = None,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        progress_callback=None,
     ):
         """
         Refresh the status of all toolsets and cache the status to a file.
@@ -208,6 +230,7 @@ class ToolsetManager:
             check_prerequisites=True,
             enable_all_toolsets=enable_all_toolsets,
             toolset_tags=toolset_tags,
+            progress_callback=progress_callback,
         )
 
         if self.toolset_status_location and not os.path.exists(
@@ -224,7 +247,10 @@ class ToolsetManager:
                 for toolset in all_toolsets
             ]
             json.dump(toolset_status, f, indent=2)
-        logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
+        if not self.suppress_logging:
+            logging.info(
+                f"Toolset statuses are cached to {self.toolset_status_location}"
+            )
 
     def load_toolset_with_status(
         self,
@@ -232,6 +258,7 @@ class ToolsetManager:
         refresh_status: bool = False,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        skip_prerequisite_check: bool = False,
     ) -> List[Toolset]:
         """
         Load the toolset with status from the cache file.
@@ -241,7 +268,8 @@ class ToolsetManager:
         """
 
         if not os.path.exists(self.toolset_status_location) or refresh_status:
-            logging.info("Refreshing available datasources (toolsets)")
+            if not self.suppress_logging:
+                logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
                 dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
             )
@@ -250,8 +278,19 @@ class ToolsetManager:
             using_cached = True
 
         cached_toolsets: List[dict[str, Any]] = []
-        with open(self.toolset_status_location, "r") as f:
-            cached_toolsets = json.load(f)
+        try:
+            with open(self.toolset_status_location, "r") as f:
+                cached_toolsets = json.load(f)
+        except (json.JSONDecodeError, ValueError) as e:
+            # Handle corrupted or empty status file
+            if not self.suppress_logging:
+                logging.warning(f"Corrupted toolsets status file, regenerating: {e}")
+            self.refresh_toolset_status(
+                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
+            )
+            with open(self.toolset_status_location, "r") as f:
+                cached_toolsets = json.load(f)
+            using_cached = False
 
         # load status from cached file and update the toolset details
         toolsets_status_by_name: dict[str, dict[str, Any]] = {
@@ -281,7 +320,10 @@ class ToolsetManager:
             ):
                 # MCP servers need to reload their tools even if previously failed, so rerun prerequisites
                 enabled_toolsets_from_cache.append(toolset)
-        self.check_toolset_prerequisites(enabled_toolsets_from_cache)
+
+        # Only check prerequisites if not skipping (e.g., when we're about to refresh in background)
+        if not skip_prerequisite_check:
+            self.check_toolset_prerequisites(enabled_toolsets_from_cache)
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -302,20 +344,18 @@ class ToolsetManager:
                 )
             enabled_toolsets_from_cli.append(custom_toolset_from_cli)
         # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-        self.check_toolset_prerequisites(enabled_toolsets_from_cli)
+        if not skip_prerequisite_check:
+            self.check_toolset_prerequisites(enabled_toolsets_from_cli)
 
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
+        # Just store metadata about whether we used cache
+        self._loaded_from_cache = using_cached
         if using_cached:
-            num_available_toolsets = len(
-                [toolset for toolset in all_toolsets_with_status if toolset.enabled]
-            )
-            logging.info(
-                f"Using {num_available_toolsets} datasources (toolsets). To refresh: use flag `--refresh-toolsets`"
-            )
+            self._cache_timestamp = os.path.getmtime(self.toolset_status_location)
         return all_toolsets_with_status
 
     def list_console_toolsets(
-        self, dal: Optional[SupabaseDal] = None, refresh_status=False
+        self, refresh_status=False, skip_prerequisite_check=False
     ) -> List[Toolset]:
         """
         List all enabled toolsets that cli tools can use.
@@ -324,10 +364,11 @@ class ToolsetManager:
         refreshed specifically and cached locally.
         """
         toolsets_with_status = self.load_toolset_with_status(
-            dal,
+            dal=None,  # CLI always uses None for DAL
             refresh_status=refresh_status,
-            enable_all_toolsets=True,
-            toolset_tags=self.cli_tool_tags,
+            enable_all_toolsets=True,  # Console always enables all toolsets
+            toolset_tags=self.cli_tool_tags,  # Console always uses CLI tags
+            skip_prerequisite_check=skip_prerequisite_check,
         )
         return toolsets_with_status
 

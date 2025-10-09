@@ -35,7 +35,7 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.core.tracing import SpanType, TracingFactory
-from holmes.interactive import run_interactive_loop
+from holmes.interactive_mode import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
 from holmes.plugins.interfaces import Issue
 from holmes.plugins.prompts import load_and_render_prompt
@@ -259,10 +259,18 @@ def ask(
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
     tracer.start_experiment()
 
+    # Check if we have a cache and will do background refresh in interactive mode
+    skip_prerequisite_check = False
+    if interactive and not refresh_toolsets:
+        cache_location = config.toolset_manager.toolset_status_location
+        if os.path.exists(cache_location):
+            # We have cache and will do background refresh, skip prerequisite check
+            skip_prerequisite_check = True
+
     ai = config.create_console_toolcalling_llm(
-        dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
+        skip_prerequisite_check=skip_prerequisite_check,
     )
 
     if prompt_file and prompt:
@@ -305,6 +313,9 @@ def ask(
             tracer,
             config.get_runbook_catalog(),
             system_prompt_additions,
+            check_version=True,
+            config=config,
+            refresh_toolsets=refresh_toolsets,  # Pass whether we just refreshed
         )
         return
 

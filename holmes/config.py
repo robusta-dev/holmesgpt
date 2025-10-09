@@ -229,7 +229,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self, refresh_status: bool = False, skip_prerequisite_check: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -241,7 +241,8 @@ class Config(RobustaBaseConfig):
         3. Custom toolsets from config files which can not override built-in toolsets
         """
         cli_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=refresh_status
+            refresh_status=refresh_status,
+            skip_prerequisite_check=skip_prerequisite_check,
         )
         return ToolExecutor(cli_toolsets)
 
@@ -265,11 +266,13 @@ class Config(RobustaBaseConfig):
 
     def create_console_toolcalling_llm(
         self,
-        dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        skip_prerequisite_check: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(
+            refresh_toolsets, skip_prerequisite_check
+        )
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
@@ -323,7 +326,7 @@ class Config(RobustaBaseConfig):
         from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(dal=dal)
+        tool_executor = self.create_console_tool_executor()
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(
@@ -454,11 +457,11 @@ class Config(RobustaBaseConfig):
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             account_id, token = self.dal.get_ai_credentials()
-            api_key = f"{account_id} {token}"
+            api_key: str = f"{account_id} {token}"
         else:
-            api_key = model_params.pop("api_key", None)
-            if api_key is not None:
-                api_key = api_key.get_secret_value()
+            api_key_secret: Optional[SecretStr] = model_params.pop("api_key", None)
+            if api_key_secret is not None:
+                api_key = api_key_secret.get_secret_value()
 
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.
