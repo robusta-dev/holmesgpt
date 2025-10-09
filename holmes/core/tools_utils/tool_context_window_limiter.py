@@ -1,5 +1,8 @@
 from typing import Optional
-from holmes.common.env_vars import TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+from holmes.common.env_vars import (
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+)
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.models import ToolCallResult
@@ -16,8 +19,12 @@ def get_pct_token_count(percent_of_total_context_window: float, llm: LLM) -> int
 
 
 def get_max_token_count_for_single_tool(llm: LLM) -> int:
-    return get_pct_token_count(
-        percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT, llm=llm
+    return min(
+        TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+        get_pct_token_count(
+            percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+            llm=llm,
+        ),
     )
 
 
@@ -25,7 +32,9 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
     max_tokens_allowed = get_max_token_count_for_single_tool(llm)
 
     message = tool_call_result.as_tool_call_message()
-    messages_token = llm.count_tokens_for_message(messages=[message])
+
+    tokens = llm.count_tokens(messages=[message])
+    messages_token = tokens.total_tokens
 
     if messages_token > max_tokens_allowed:
         relative_pct = ((messages_token - max_tokens_allowed) / messages_token) * 100

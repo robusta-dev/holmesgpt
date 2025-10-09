@@ -49,7 +49,7 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
         model: anthropic/claude-opus-4-1-20250805
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "claude-sonnet-4"  # This refers to the key name in modelList above
     ```
@@ -89,7 +89,7 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
           model: anthropic/claude-opus-4-1-20250805
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "claude-sonnet-4"  # This refers to the key name in modelList above
     ```
