@@ -399,7 +399,7 @@ class ToolsetManager:
     @classmethod
     def _create_from_config(
         cls,
-        config: "Config",
+        config: Optional["Config"],
         tags: List[ToolsetTag],
         dal: Optional[SupabaseDal] = None,
         default_enabled: bool = False,
@@ -407,14 +407,14 @@ class ToolsetManager:
         """Common factory method logic"""
         # Build combined config dict if needed
         toolset_config = {}
-        if config.toolsets:
+        if config and config.toolsets:
             toolset_config["toolsets"] = config.toolsets
-        if config.mcp_servers:
+        if config and config.mcp_servers:
             toolset_config["mcp_servers"] = config.mcp_servers
 
         # Check for deprecated custom_toolset_paths
         custom_paths = None
-        if config.custom_toolset_paths:
+        if config and config.custom_toolset_paths:
             logging.warning(
                 "The 'custom_toolset_paths' config field is deprecated.\n"
                 f"Please move your custom toolset files to: {CUSTOM_TOOLSET_DIR}/\n"
@@ -433,7 +433,7 @@ class ToolsetManager:
         )
 
     @classmethod
-    def for_cli(cls, config: "Config"):
+    def for_cli(cls, config: Optional["Config"]):
         """Create CLI-configured manager from Config object"""
         return cls._create_from_config(config, CLI_TOOL_TAGS, default_enabled=True)
 
