@@ -44,6 +44,15 @@ OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
+class TokenCountMetadata(BaseModel):
+    total_tokens: int
+    tools_tokens: int
+    system_tokens: int
+    user_tokens: int
+    tools_to_call_tokens: int
+    other_tokens: int
+
+
 class ModelEntry(BaseModel):
     """ModelEntry represents a single LLM model configuration."""
 
@@ -82,7 +91,9 @@ class LLM:
         pass
 
     @abstractmethod
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
+    def count_tokens(
+        self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
+    ) -> TokenCountMetadata:
         pass
 
     @abstractmethod
@@ -259,33 +270,57 @@ class DefaultLLM(LLM):
         return FALLBACK_CONTEXT_WINDOW_SIZE
 
     @sentry_sdk.trace
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
-        total_token_count = 0
+    def count_tokens(
+        self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
+    ) -> TokenCountMetadata:
+        # TODO: Add a recount:bool flag to save time. When the flag is false, reuse 'message["token_count"]' for individual messages.
+        # It's only necessary to recount message tokens at the beginning of a session because the LLM model may have changed.
+        # Changing the model requires recounting tokens because the tokenizer may be different
+        total_tokens = 0
+        tools_tokens = 0
+        system_tokens = 0
+        user_tokens = 0
+        other_tokens = 0
+        tools_to_call_tokens = 0
         for message in messages:
-            if "token_count" in message and message["token_count"]:
-                total_token_count += message["token_count"]
+            # count message tokens individually because it gives us fine grain information about each tool call/message etc.
+            # However be aware that the sum of individual message tokens is not equal to the overall messages token
+            token_count = litellm.token_counter(  # type: ignore
+                model=self.model, messages=[message]
+            )
+            message["token_count"] = token_count
+            role = message.get("role")
+            if role == "system":
+                system_tokens += token_count
+            elif role == "user":
+                user_tokens += token_count
+            elif role == "tool":
+                tools_tokens += token_count
             else:
-                # message can be counted by this method only if message contains a "content" key
-                if "content" in message:
-                    if isinstance(message["content"], str):
-                        message_to_count = [
-                            {"type": "text", "text": message["content"]}
-                        ]
-                    elif isinstance(message["content"], list):
-                        message_to_count = [
-                            {"type": "text", "text": json.dumps(message["content"])}
-                        ]
-                    elif isinstance(message["content"], dict):
-                        if "type" not in message["content"]:
-                            message_to_count = [
-                                {"type": "text", "text": json.dumps(message["content"])}
-                            ]
-                    token_count = litellm.token_counter(
-                        model=self.model, messages=message_to_count
-                    )
-                    message["token_count"] = token_count
-                    total_token_count += token_count
-        return total_token_count
+                # although this should not be needed,
+                # it is defensive code so that all tokens are accounted for
+                # and can potentially make debugging easier
+                other_tokens += token_count
+
+        messages_token_count_without_tools = litellm.token_counter(  # type: ignore
+            model=self.model, messages=messages
+        )
+
+        total_tokens = litellm.token_counter(  # type: ignore
+            model=self.model,
+            messages=messages,
+            tools=tools,  # type: ignore
+        )
+        tools_to_call_tokens = max(0, total_tokens - messages_token_count_without_tools)
+
+        return TokenCountMetadata(
+            total_tokens=total_tokens,
+            system_tokens=system_tokens,
+            user_tokens=user_tokens,
+            tools_tokens=tools_tokens,
+            tools_to_call_tokens=tools_to_call_tokens,
+            other_tokens=other_tokens,
+        )
 
     def get_litellm_corrected_name_for_robusta_ai(self) -> str:
         if self.is_robusta_model:
