@@ -1,22 +1,34 @@
 """Status bar management for interactive mode."""
 
 import threading
-from typing import Optional, Dict, Any, Callable
+from enum import Enum
+from typing import Optional, Dict, Callable, Union, Tuple, List
+
+
+class MessageType(Enum):
+    """Types of status bar messages."""
+
+    STATUS = "status"  # General status messages (e.g., Ctrl+C message)
+    VERSION = "version"  # Version update messages
+    TOOLSETS = "toolsets"  # Toolset refresh messages
 
 
 class StatusBarManager:
     """Manages the bottom toolbar status messages in interactive mode."""
 
     def __init__(self):
-        self.messages = {
-            "status": "",  # General status messages (e.g., Ctrl+C message)
-            "version": "",  # Version update messages
-            "toolsets": "",  # Toolset refresh messages
+        self.messages: Dict[
+            MessageType, Union[str, List[Tuple[str, str]], Tuple[str, str]]
+        ] = {
+            MessageType.STATUS: "",
+            MessageType.VERSION: "",
+            MessageType.TOOLSETS: "",
         }
         self.active_timers = []
         self.spinner_chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
         self.spinner_index = 0
         self.spinner_timer = None
+        self.spinner_active = False  # Track if spinner is running
         self.session_app = None  # Will be set when session is available
 
     def set_session_app(self, app):
@@ -40,10 +52,18 @@ class StatusBarManager:
         self.active_timers.clear()
 
     def set_message(
-        self, message_type: str, content: str, duration: Optional[float] = None
+        self,
+        message_type: MessageType,
+        content: str,
+        duration: Optional[float] = None,
+        style: Optional[str] = None,
     ):
         """Set a status message, optionally auto-clearing after duration seconds."""
-        self.messages[message_type] = content
+        # Apply style if provided, otherwise use default for message type
+        if style:
+            self.messages[message_type] = (style, content)
+        else:
+            self.messages[message_type] = self._get_default_style(message_type, content)
         self._invalidate()
 
         if duration:
@@ -54,50 +74,50 @@ class StatusBarManager:
 
             self._create_timer(duration, clear_message)
 
-    def start_spinner(
-        self, base_message: str, get_progress_info: Optional[Callable] = None
-    ):
-        """Start an animated spinner with optional progress info."""
+    def _get_default_style(
+        self, message_type: MessageType, content: str
+    ) -> Tuple[str, str]:
+        """Get default style for a message type."""
+        if message_type == MessageType.STATUS:
+            return ("bg:#ff0000 fg:#000000", content)
+        elif message_type == MessageType.VERSION:
+            return ("bg:#ffff00 fg:#000000", content)
+        elif message_type == MessageType.TOOLSETS:
+            # Simple heuristic for error vs success
+            if "✗" in content or "failed" in content.lower():
+                return ("bg:#ff0000 fg:#000000", content)
+            elif "ready" in content:
+                return ("bg:ansigreen ansiblack", content)
+            else:
+                return ("bg:#0080ff fg:#000000", content)
+        else:
+            return ("", content)
+
+    def start_spinner(self, get_message: Callable[[], Tuple[str, Optional[str]]]):
+        """Start an animated spinner. The callback should return (main_message, right_message)."""
         self.stop_spinner()  # Stop any existing spinner
+        self.spinner_active = True  # Track spinner state
 
         def update_spinner():
-            if not self.messages.get("toolsets"):  # Stop if message was cleared
+            if not self.spinner_active:  # Stop if spinner was stopped
                 return
 
             spinner = self.spinner_chars[self.spinner_index % len(self.spinner_chars)]
             self.spinner_index += 1
 
-            msg = f"{spinner} {base_message}"
+            # Get the formatted messages from the callback
+            main_msg, right_msg = get_message()
+            msg = f"{spinner} {main_msg}"
 
-            # Add progress info if available
-            if get_progress_info:
-                progress = get_progress_info()
-                if progress and progress.get("total", 0) > 0:
-                    msg = f"{spinner} {base_message} {progress['current']}/{progress['total']}"
+            # Build styled message
+            styled_parts = [("bg:#0080ff fg:#000000", msg)]
+            if right_msg:
+                styled_parts.append(("fg:#000000", " "))  # Separator
+                styled_parts.append(("bg:#808080 fg:#000000", right_msg))
 
-                    # Format with active checks info for right-alignment
-                    if progress.get("active"):
-                        first_active = progress["active"][0]
-                        extra = (
-                            f" +{len(progress['active']) - 1}"
-                            if len(progress["active"]) > 1
-                            else ""
-                        )
-                        # Return formatted list for proper splitting
-                        self.messages["toolsets"] = [
-                            ("bg:#0080ff fg:#000000", msg),
-                            ("fg:#000000", " "),  # Separator
-                            (
-                                "bg:#808080 fg:#000000",
-                                f"checking {first_active}{extra}",
-                            ),
-                        ]
-                        self._invalidate()
-                        self.spinner_timer = self._create_timer(0.1, update_spinner)
-                        return
-
-            # Simple message without progress
-            self.messages["toolsets"] = [("bg:#0080ff fg:#000000", msg)]
+            self.messages[MessageType.TOOLSETS] = (
+                styled_parts if len(styled_parts) > 1 else styled_parts[0]
+            )
             self._invalidate()
 
             # Schedule next update
@@ -108,107 +128,65 @@ class StatusBarManager:
 
     def stop_spinner(self):
         """Stop the spinner animation."""
+        self.spinner_active = False  # Mark spinner as inactive
         if self.spinner_timer:
             self.spinner_timer.cancel()
             self.spinner_timer = None
 
-    def set_toolset_status(self, status_data: Dict[str, Any]):
-        """Set toolset refresh completion status."""
+    def show_toolset_complete(
+        self, styled_parts: List[Tuple[str, str]], duration: float = 5
+    ):
+        """Show toolset refresh completion message with styled parts."""
         self.stop_spinner()
-
-        if not status_data.get("success"):
-            self.set_message("toolsets", "✗ Toolset refresh failed", duration=5)
-            return
-
-        # Build formatted status message
-        total_enabled = status_data["total_enabled"]
-        newly_enabled = status_data.get("newly_enabled", set())
-        newly_disabled = status_data.get("newly_disabled", set())
-
-        if newly_enabled or newly_disabled:
-            status_parts = []
-
-            # First section with green background
-            status_parts.append(("bg:ansigreen ansiblack", f" {total_enabled} ready "))
-
-            if newly_enabled:
-                # Show first 3 toolsets by name, then count if more
-                names_to_show = sorted(newly_enabled)[:3]
-                if len(newly_enabled) > 3:
-                    extra_count = len(newly_enabled) - 3
-                    names_display = " ".join(names_to_show) + f" +{extra_count}"
-                else:
-                    names_display = " ".join(names_to_show)
-                status_parts.append(
-                    ("bg:ansiblue ansiwhite", f" new: {names_display} ")
-                )
-
-            if newly_disabled:
-                # Show first 3 toolsets by name, then count if more
-                names_to_show = sorted(newly_disabled)[:3]
-                if len(newly_disabled) > 3:
-                    extra_count = len(newly_disabled) - 3
-                    names_display = " ".join(names_to_show) + f" +{extra_count}"
-                else:
-                    names_display = " ".join(names_to_show)
-                status_parts.append(
-                    ("bg:ansired ansiwhite", f" disabled: {names_display} ")
-                )
-
-            self.messages["toolsets"] = status_parts
-        else:
-            # No changes - show simple status
-            self.messages["toolsets"] = [
-                ("bg:ansigreen ansiblack", f" {total_enabled} datasources ready "),
-                ("bg:ansibrightblack ansiwhite", " no changes "),
-            ]
-
+        self.messages[MessageType.TOOLSETS] = styled_parts
         self._invalidate()
 
-        # Clear after 5 seconds
-        def clear_status():
-            self.messages["toolsets"] = ""
-            self._invalidate()
+        if duration:
 
-        self._create_timer(5, clear_status)
+            def clear_message():
+                self.messages[MessageType.TOOLSETS] = ""
+                self._invalidate()
+
+            self._create_timer(duration, clear_message)
 
     def get_bottom_toolbar(self, terminal_width: Optional[int] = None):
         """Generate the formatted bottom toolbar."""
-        left_messages = []
-        right_messages = []
+        left_messages: List[Tuple[str, str]] = []
+        right_messages: List[Tuple[str, str]] = []
 
-        # Status message (red background) - goes on left
-        if self.messages["status"]:
-            left_messages.append(("bg:#ff0000 fg:#000000", self.messages["status"]))
+        # Process each message type
+        for msg_type in [MessageType.STATUS, MessageType.VERSION, MessageType.TOOLSETS]:
+            msg = self.messages[msg_type]
+            if not msg:
+                continue
 
-        # Version message (yellow background) - goes on left
-        if self.messages["version"]:
+            # Add separator if not first message
             if left_messages:
                 left_messages.append(("", " | "))
-            left_messages.append(("bg:#ffff00 fg:#000000", self.messages["version"]))
 
-        # Toolsets message
-        toolsets_msg = self.messages["toolsets"]
-        if toolsets_msg:
-            if isinstance(toolsets_msg, list) and len(toolsets_msg) > 2:
-                # Split message - main part on left, active toolset on right
-                if left_messages:
-                    left_messages.append(("", " | "))
-                left_messages.append(toolsets_msg[0])
-                right_messages.append(toolsets_msg[2])
-            else:
-                # Regular message handling
-                if left_messages:
-                    left_messages.append(("", " | "))
+            # Handle different message formats
+            if isinstance(msg, str):
+                # Plain string - shouldn't happen with new structure but handle it
+                left_messages.append(("", msg))
+            elif isinstance(msg, tuple):
+                # Single styled message
+                left_messages.append(msg)
+            elif isinstance(msg, list):
+                # Multiple parts - check for right-aligned content
+                # Right-aligned content will have separator in middle
+                separator_idx = None
+                for i, part in enumerate(msg):
+                    if part[0] == "fg:#000000" and part[1] == " ":
+                        separator_idx = i
+                        break
 
-                if isinstance(toolsets_msg, list):
-                    left_messages.extend(toolsets_msg)
-                elif isinstance(toolsets_msg, str):
-                    # Handle string messages (errors)
-                    if "✗" in toolsets_msg:
-                        left_messages.append(("bg:#ff0000 fg:#000000", toolsets_msg))
-                    else:
-                        left_messages.append(("bg:#00ff00 fg:#000000", toolsets_msg))
+                if separator_idx is not None and separator_idx < len(msg) - 1:
+                    # Has right-aligned content
+                    left_messages.extend(msg[:separator_idx])
+                    right_messages.extend(msg[separator_idx + 1 :])
+                else:
+                    # All content on left
+                    left_messages.extend(msg)
 
         if not left_messages and not right_messages:
             return None

@@ -711,8 +711,10 @@ class Toolset(BaseModel):
                         shell=True,
                         check=True,
                         text=True,
+                        stdin=subprocess.DEVNULL,  # Prevent interactive prompts
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        timeout=10,  # 10 second timeout for prerequisite checks
                     )
                     if (
                         prereq.expected_output
@@ -720,6 +722,9 @@ class Toolset(BaseModel):
                     ):
                         self.status = ToolsetStatusEnum.FAILED
                         self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
+                except subprocess.TimeoutExpired:
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` timed out after 10 seconds"
                 except subprocess.CalledProcessError as e:
                     self.status = ToolsetStatusEnum.FAILED
                     self.error = f"`{prereq.command}` returned {e.returncode}"
