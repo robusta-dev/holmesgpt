@@ -469,10 +469,11 @@ class Config(RobustaBaseConfig):
 
         is_robusta_model = model_params.pop("is_robusta_model", False)
         sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
+        api_key: Optional[str] = None
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             account_id, token = self.dal.get_ai_credentials()
-            api_key: str = f"{account_id} {token}"
+            api_key = f"{account_id} {token}"
         else:
             api_key_secret: Optional[SecretStr] = model_params.pop("api_key", None)
             if api_key_secret is not None:
