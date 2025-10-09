@@ -272,6 +272,9 @@ class DefaultLLM(LLM):
     def count_tokens(
         self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
     ) -> TokenCountMetadata:
+        # TODO: Add a recount:bool flag to save time. When the flag is false, reuse 'message["token_count"]' for individual messages.
+        # It's only necessary to recount message tokens at the beginning of a session because the LLM model may have changed.
+        # Changing the model requires recounting tokens because the tokenizer may be different
         total_tokens = 0
         tools_tokens = 0
         system_tokens = 0

@@ -58,7 +58,12 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
-from holmes.utils.stream import StreamEvents, StreamMessage
+from holmes.utils.stream import (
+    StreamEvents,
+    StreamMessage,
+    add_token_count_to_metadata,
+    build_stream_event_token_count,
+)
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
@@ -984,17 +989,18 @@ class ToolCallingLLM:
                 )
             )
 
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)
+            add_token_count_to_metadata(
+                tokens=tokens,
+                full_llm_response=full_response,
+                max_context_size=max_context_size,
+                maximum_output_token=maximum_output_token,
+                metadata=metadata,
+            )
+            yield build_stream_event_token_count(metadata=metadata)
+
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                tokens = self.llm.count_tokens(messages=messages, tools=tools)
-                metadata["usage"] = get_llm_usage(full_response)
-                metadata["tokens"] = tokens.model_dump()
-                metadata["max_tokens"] = max_context_size
-                metadata["max_output_tokens"] = maximum_output_token
-
-                print("TOKEN SUMMARY:")
-                print(f'\t llm.usage:{metadata["usage"]}')
-                print(f'\t tokens:{metadata["tokens"]}')
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
@@ -1010,7 +1016,11 @@ class ToolCallingLLM:
             if reasoning or message:
                 yield StreamMessage(
                     event=StreamEvents.AI_MESSAGE,
-                    data={"content": message, "reasoning": reasoning},
+                    data={
+                        "content": message,
+                        "reasoning": reasoning,
+                        "metadata": metadata,
+                    },
                 )
 
             perf_timing.measure("pre-tool-calls")
