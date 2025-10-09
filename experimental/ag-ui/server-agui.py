@@ -37,6 +37,7 @@ import json
 from fastapi import Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from ag_ui.core import (
+    AssistantMessage,
     RunAgentInput,
     EventType,
     RunStartedEvent,
@@ -394,8 +395,7 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
         if msg.role in ("user", "assistant"):
             non_system_messages.append(msg)
         elif msg.role == "tool":
-            msg_tmp = type(msg)(role="assistant", content=msg.content)
-            non_system_messages.append(msg_tmp)
+            non_system_messages.append(AssistantMessage(content=msg.content, id=msg.id))
     conversation_history = [
         {
             "role": "system",
