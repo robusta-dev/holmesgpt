@@ -44,7 +44,7 @@ export PROMETHEUS_URL=http://localhost:9090
 export AWS_PROFILE=default
 export AWS_REGION=us-east-1
 export MODEL=bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
-poetry run python experimental/ag-ui/server.py
+poetry run python experimental/ag-ui/server-agui.py
 ```
 
 ### **3. Run "ExampleOps✨" Demo Frontend**
