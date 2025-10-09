@@ -43,6 +43,8 @@ def test_config_get_llm_with_api_base_version():
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
+        mock_llm_instance.get_context_window_size.return_value = 128000
+        mock_llm_instance.get_maximum_output_token.return_value = 4096
         mock_default_llm.return_value = mock_llm_instance
 
         result = config._get_llm()
@@ -69,6 +71,8 @@ def test_config_get_llm_with_azure_openai_parameters():
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
+        mock_llm_instance.get_context_window_size.return_value = 128000
+        mock_llm_instance.get_maximum_output_token.return_value = 4096
         mock_default_llm.return_value = mock_llm_instance
 
         result = config._get_llm()
@@ -104,6 +108,8 @@ def test_config_get_llm_with_model_list_api_base_version(monkeypatch, tmp_path):
 
     with patch("holmes.config.DefaultLLM") as mock_default_llm:
         mock_llm_instance = MagicMock()
+        mock_llm_instance.get_context_window_size.return_value = 128000
+        mock_llm_instance.get_maximum_output_token.return_value = 4096
         mock_default_llm.return_value = mock_llm_instance
         result = config._get_llm("test-model")
 
