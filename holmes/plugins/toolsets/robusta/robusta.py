@@ -19,6 +19,8 @@ START_TIME = "start_datetime"
 END_TIME = "end_datetime"
 NAMESPACE = "namespace"
 WORKLOAD = "workload"
+DEFAULT_LIMIT_CHANGE_ROWS = 100
+MAX_LIMIT_CHANGE_ROWS = 200
 
 
 class FetchRobustaFinding(Tool):
@@ -27,7 +29,7 @@ class FetchRobustaFinding(Tool):
     def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
             name="fetch_finding_by_id",
-            description="Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update",
+            description="Fetches a robusta finding. Findings are events, like a Prometheus alert or a deployment update and configuration change.",
             parameters={
                 PARAM_FINDING_ID: ToolParameter(
                     description="The id of the finding to fetch",
@@ -75,7 +77,7 @@ class FetchRobustaFinding(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Robusta: Fetch Alert Metadata"
+        return f"Robusta: Fetch finding data {params}"
 
 
 class FetchResourceRecommendation(Tool):
@@ -142,13 +144,17 @@ class FetchResourceRecommendation(Tool):
         return f"Robusta: Check Historical Resource Utilization: ({str(params)})"
 
 
-class FetchConfigurationChanges(Tool):
+class FetchConfigurationChangesMetadata(Tool):
     _dal: Optional[SupabaseDal]
 
     def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
-            name="fetch_configuration_changes",
-            description="Fetch configuration changes in a given time range. By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload",
+            name="fetch_configuration_changes_metadata",
+            description=(
+                "Fetch configuration changes metadata in a given time range. "
+                "By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload. "
+                "Use fetch_finding_by_id to get detailed change of one specific configuration change."
+            ),
             parameters={
                 START_TIME: ToolParameter(
                     description="The starting time boundary for the search period. String in RFC3339 format.",
@@ -160,15 +166,36 @@ class FetchConfigurationChanges(Tool):
                     type="string",
                     required=True,
                 ),
+                "namespace": ToolParameter(
+                    description="The Kubernetes namespace name for filtering confgiuration changes",
+                    type="string",
+                    required=False,
+                ),
+                "workload": ToolParameter(
+                    description="The kubernetes workload name for filtering confgiuration changes. Deployment name or Pod name for example.",
+                    type="string",
+                    required=False,
+                ),
+                "limit": ToolParameter(
+                    description=f"Maximum number of rows to return. Default is {DEFAULT_LIMIT_CHANGE_ROWS} and the maximum is 200",
+                    type="integer",
+                    required=False,
+                ),
             },
         )
         self._dal = dal
 
     def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
-            return self._dal.get_configuration_changes(
+            return self._dal.get_configuration_changes_metadata(
                 start_datetime=params["start_datetime"],
                 end_datetime=params["end_datetime"],
+                limit=min(
+                    params.get("limit", DEFAULT_LIMIT_CHANGE_ROWS),
+                    MAX_LIMIT_CHANGE_ROWS,
+                ),
+                ns=params.get("namespace"),
+                workload=params.get("workload"),
             )
         return None
 
@@ -197,7 +224,7 @@ class FetchConfigurationChanges(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return "Robusta: Search Change History"
+        return f"Robusta: Search Change History {params}"
 
 
 class RobustaToolset(Toolset):
@@ -219,7 +246,7 @@ class RobustaToolset(Toolset):
             prerequisites=[dal_prereq],
             tools=[
                 FetchRobustaFinding(dal),
-                FetchConfigurationChanges(dal),
+                FetchConfigurationChangesMetadata(dal),
                 FetchResourceRecommendation(dal),
             ],
             tags=[
