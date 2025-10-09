@@ -22,6 +22,7 @@ class TestPreventOverlyBigToolResponse:
             tools_to_call_tokens=0,
             tools_tokens=0,
             user_tokens=0,
+            other_tokens=0,
         )
         return llm
 
@@ -104,6 +105,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             original_status = success_tool_call_result.result.status
@@ -131,6 +133,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
@@ -162,6 +165,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
             mock_llm.get_context_window_size.return_value = 4096
 
@@ -186,6 +190,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
@@ -210,6 +215,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
@@ -234,6 +240,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             original_status = success_tool_call_result.result.status
@@ -258,6 +265,7 @@ class TestPreventOverlyBigToolResponse:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                other_tokens=0,
             )
 
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
