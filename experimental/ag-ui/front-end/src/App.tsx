@@ -15,7 +15,7 @@ const App: React.FC = () => {
   const [selectedPage, setSelectedPage] = useState<ObservabilityPage>('metrics');
   const [pageContext, setPageContext] = useState<ContextItem[]>([]);
   const [triggerQuery, setTriggerQuery] = useState<string | null>(null);
-  
+
   // Store separate queries for each page
   const [pageQueries, setPageQueries] = useState<Record<ObservabilityPage, string>>({
     metrics: '',
@@ -27,20 +27,20 @@ const App: React.FC = () => {
   const handleExecutePromQLQuery = (query: string) => {
     // Navigate to metrics page
     setSelectedPage('metrics');
-    
+
     // Store the query for metrics page
     setPageQueries(prev => ({
       ...prev,
       metrics: query
     }));
-    
+
     // Update URL to reflect the change
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('app', 'metrics');
     urlParams.set('query', encodeURIComponent(query));
     const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
-    
+
     // Set the query to be executed
     setTriggerQuery(query);
   };
@@ -49,20 +49,20 @@ const App: React.FC = () => {
   const handleExecutePPLQuery = (query: string) => {
     // Navigate to logs page
     setSelectedPage('logs');
-    
+
     // Store the query for logs page
     setPageQueries(prev => ({
       ...prev,
       logs: query
     }));
-    
+
     // Update URL to reflect the change
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('app', 'logs');
     urlParams.set('query', encodeURIComponent(query));
     const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
-    
+
     // Set the query to be executed
     setTriggerQuery(query);
   };
@@ -100,10 +100,10 @@ const App: React.FC = () => {
     // Set initial query from URL parameter for the current page
     if (queryParam) {
       const decodedQuery = decodeURIComponent(queryParam);
-      const currentPage = (appParam && ['metrics', 'logs', 'traces'].includes(appParam)) 
-        ? appParam as ObservabilityPage 
+      const currentPage = (appParam && ['metrics', 'logs', 'traces'].includes(appParam))
+        ? appParam as ObservabilityPage
         : 'metrics';
-      
+
       setPageQueries(prev => ({
         ...prev,
         [currentPage]: decodedQuery
@@ -114,11 +114,11 @@ const App: React.FC = () => {
   // Update URL when page changes
   const handlePageChange = (page: ObservabilityPage) => {
     setSelectedPage(page);
-    
+
     // Update URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     urlParams.set('app', page);
-    
+
     // Set the query parameter to the stored query for this page
     const storedQuery = pageQueries[page];
     if (storedQuery) {
@@ -126,7 +126,7 @@ const App: React.FC = () => {
     } else {
       urlParams.delete('query');
     }
-    
+
     const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
     window.history.replaceState({}, '', newUrl);
   };
@@ -163,9 +163,9 @@ const App: React.FC = () => {
         </nav>
         <div className="sidebar-footer">
           <div className="credit-text">✨ vibe-coded with love by</div>
-          <a 
-            href="https://github.com/kylehounslow" 
-            target="_blank" 
+          <a
+            href="https://github.com/kylehounslow"
+            target="_blank"
             rel="noopener noreferrer"
             className="github-credit"
           >
@@ -176,17 +176,17 @@ const App: React.FC = () => {
           </a>
         </div>
       </div>
-      <MainContent 
-        selectedPage={selectedPage} 
-        initialQuery={pageQueries[selectedPage]} 
+      <MainContent
+        selectedPage={selectedPage}
+        initialQuery={pageQueries[selectedPage]}
         triggerQuery={triggerQuery}
         onContextChange={setPageContext}
         onQueryTriggered={clearTriggerQuery}
         onQueryUpdate={handleQueryUpdate}
       />
       <ErrorBoundary>
-        <ChatAssistant 
-          pageContext={pageContext} 
+        <ChatAssistant
+          pageContext={pageContext}
           onExecutePromQLQuery={handleExecutePromQLQuery}
           onExecutePPLQuery={handleExecutePPLQuery}
         />

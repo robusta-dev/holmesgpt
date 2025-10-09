@@ -295,10 +295,10 @@ class Config(RobustaBaseConfig):
         )
 
     def create_agui_toolcalling_llm(
-            self,
-            dal: Optional["SupabaseDal"] = None,
-            model: Optional[str] = None,
-            tracer=None,
+        self,
+        dal: Optional["SupabaseDal"] = None,
+        model: Optional[str] = None,
+        tracer=None,
     ) -> "ToolCallingLLM":
         tool_executor = self.create_agui_tool_executor(dal)
         from holmes.core.tool_calling_llm import ToolCallingLLM

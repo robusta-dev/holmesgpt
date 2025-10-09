@@ -71,5 +71,5 @@ npm install && npm start
 ```
 
 ## Running HolmesGPT in OpenSearch Dashboards
-OpenSearch Dashboards (>=3.3) supports AG-UI compatible agents for its AI chat. For an example HolmesGPT configuration, 
+OpenSearch Dashboards (>=3.3) supports AG-UI compatible agents for its AI chat. For an example HolmesGPT configuration,
 see [gist](https://gist.github.com/kylehounslow/07290ee15768a5b15a924831f7759217).

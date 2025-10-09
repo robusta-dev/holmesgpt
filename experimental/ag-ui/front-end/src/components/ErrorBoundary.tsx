@@ -30,7 +30,7 @@ class ErrorBoundary extends Component<Props, State> {
           <div className="error-content">
             <h3>⚠️ Something went wrong</h3>
             <p>The chat assistant encountered an error and needs to be reloaded.</p>
-            <button 
+            <button
               onClick={() => this.setState({ hasError: false, error: undefined })}
               className="retry-button"
             >

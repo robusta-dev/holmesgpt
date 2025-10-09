@@ -519,33 +519,33 @@ servability Platform Styles */
   .platform-header {
     padding: 1.5rem 1rem;
   }
-  
+
   .header-content h1 {
     font-size: 1.5rem;
   }
-  
+
   .query-section {
     padding: 1rem;
   }
-  
+
   .query-input-wrapper {
     flex-direction: column;
   }
-  
+
   .results-section {
     padding: 1rem;
   }
-  
+
   .result-header {
     padding: 0.5rem 1rem;
   }
-  
+
   .result-info {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
+
   .result-title {
     flex-direction: column;
     align-items: flex-start;
@@ -719,15 +719,15 @@ servability Platform Styles */
     border-radius: 0;
     padding: 0;
   }
-  
+
   .graph-modal-overlay {
     padding: 0;
   }
-  
+
   .graph-modal-header {
     padding: 16px 20px 12px;
   }
-  
+
   .graph-modal-content {
     padding: 16px 20px;
   }
@@ -848,16 +848,16 @@ servability Platform Styles */
   .indices-display {
     margin: 1rem;
   }
-  
+
   .indices-list {
     grid-template-columns: 1fr;
     padding: 1rem;
   }
-  
+
   .indices-header {
     padding: 0.75rem 1rem;
   }
-  
+
   .indices-help {
     padding: 0.75rem 1rem;
   }
@@ -996,15 +996,15 @@ servability Platform Styles */
     margin: 1rem;
     padding: 1rem;
   }
-  
+
   .indices-discovery-header h4 {
     font-size: 1rem;
   }
-  
+
   .indices-discovery-header p {
     font-size: 0.85rem;
   }
-  
+
   .show-indices-btn {
     padding: 0.625rem 1.25rem;
     font-size: 0.9rem;
@@ -1069,7 +1069,7 @@ servability Platform Styles */
   .indices-count {
     font-size: 0.9rem;
   }
-  
+
   .indices-count-badge {
     font-size: 0.75rem;
     padding: 0.1rem 0.3rem;
@@ -1178,18 +1178,18 @@ servability Platform Styles */
     gap: 0.5rem;
     min-height: auto;
   }
-  
+
   .indices-discovery-header h4 {
     font-size: 0.9rem;
   }
-  
+
   .indices-discovery-header p {
     font-size: 0.75rem;
     white-space: normal;
     overflow: visible;
     text-overflow: unset;
   }
-  
+
   .show-indices-btn {
     padding: 0.5rem 0.875rem;
     font-size: 0.8rem;
@@ -1341,11 +1341,11 @@ servability Platform Styles */
     max-width: 200px;
     text-align: center;
   }
-  
+
   .github-link {
     padding: 0.1rem 0.2rem;
   }
-  
+
   .github-icon {
     font-size: 0.65rem;
   }
@@ -1497,7 +1497,7 @@ servability Platform Styles */
     align-items: flex-start;
     gap: 0.25rem;
   }
-  
+
   .query-hint-inline {
     font-size: 0.7rem;
   }
@@ -1645,12 +1645,12 @@ servability Platform Styles */
     grid-template-columns: 1fr;
     gap: 0;
   }
-  
+
   .explorer-box {
     min-height: 150px;
     max-height: 188px;
   }
-  
+
   .prometheus-explorer {
     margin: 1rem;
   }
@@ -1660,30 +1660,30 @@ servability Platform Styles */
   .explorer-header {
     padding: 0.75rem 1rem;
   }
-  
+
   .explorer-title h4 {
     font-size: 0.9rem;
   }
-  
+
   .explorer-title p {
     font-size: 0.8rem;
   }
-  
+
   .toggle-icon {
     font-size: 0.7rem;
   }
-  
+
   .series-count-pill {
     font-size: 0.7rem;
     padding: 0.1rem 0.375rem;
     margin-left: 0.375rem;
     margin-right: 0.2rem;
   }
-  
+
   .box-header {
     padding: 0.5rem 0.75rem;
   }
-  
+
   .explorer-item {
     font-size: 0.75rem;
     padding: 0.375rem 0.5rem;

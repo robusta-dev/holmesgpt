@@ -350,7 +350,7 @@
   .log-table {
     min-width: 600px;
   }
-  
+
   .column-wide {
     min-width: 200px;
     max-width: 250px;
@@ -363,43 +363,43 @@
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .query {
     min-width: 100%;
   }
-  
+
   .log-table {
     font-size: 0.8rem;
     min-width: 500px;
   }
-  
+
   .log-header {
     padding: 0.5rem 0.25rem;
   }
-  
+
   .log-cell {
     padding: 0.375rem 0.25rem;
   }
-  
+
   .column-type {
     font-size: 0.65rem;
   }
-  
+
   .log-table-wrapper {
     max-height: 400px;
   }
-  
+
   .log-table-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
   }
-  
+
   .column-wide {
     min-width: 150px;
     max-width: 200px;
   }
-  
+
   .column-timestamp {
     min-width: 140px;
     width: 140px;
@@ -419,12 +419,12 @@
     border: none;
     box-shadow: none;
   }
-  
+
   .log-table-wrapper {
     max-height: none;
     overflow: visible;
   }
-  
+
   .export-btn {
     display: none;
   }

@@ -127,14 +127,14 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
       }
       return;
     }
-    
+
     try {
       agentInitializedRef.current = true;
       setConnectionStatus('connecting');
-      
+
       const agentUrl = `${process.env.AGENT_URL || 'http://localhost:5050'}/api/agui/chat`;
       console.log('Initializing agent with URL:', agentUrl);
-      
+
       agentRef.current = new HttpAgent({
         url: agentUrl,
         threadId: threadIdRef.current,
@@ -173,9 +173,9 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
 
       onTextMessageContentEvent: (params: { event: { delta: string; messageId: string; }; }) => {
         currentMessageRef.current += params.event.delta;
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === params.event.messageId 
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === params.event.messageId
               ? { ...msg, text: currentMessageRef.current }
               : msg
           )
@@ -188,15 +188,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
 
       onToolCallStartEvent: (params: { event: { toolCallName: string; toolCallId: string; }; }) => {
         console.log('Tool call started:', params.event);
-        
+
         // Store tool call metadata for later use
-        toolCallsRef.current.set(params.event.toolCallId, { 
-          name: params.event.toolCallName 
+        toolCallsRef.current.set(params.event.toolCallId, {
+          name: params.event.toolCallName
         });
-        
+
         // Initialize empty args string for this tool call
         toolArgsRef.current.set(params.event.toolCallId, '');
-        
+
         if (params.event.toolCallName === 'graph_timeseries_data') {
           const toolMessage: ChatMessage = {
             id: 'tool-' + params.event.toolCallId,
@@ -226,7 +226,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
 
       onToolCallArgsEvent: (params: { event: { toolCallId: string; delta: string; }; }) => {
         console.log('Tool call args:', params.event);
-        
+
         // Accumulate the arguments delta
         const currentArgs = toolArgsRef.current.get(params.event.toolCallId) || '';
         toolArgsRef.current.set(params.event.toolCallId, currentArgs + params.event.delta);
@@ -234,13 +234,13 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
 
       onToolCallEndEvent: (params: { event: { toolCallId: string; }; toolCallArgs: any; }) => {
         console.log('Tool call ended:', params.event, params.toolCallArgs);
-        
+
         // Retrieve tool call info and accumulated arguments
         const toolCallInfo = toolCallsRef.current.get(params.event.toolCallId);
         const accumulatedArgsString = toolArgsRef.current.get(params.event.toolCallId) || '';
-        
+
         console.log('Accumulated args string:', accumulatedArgsString);
-        
+
         if (toolCallInfo?.name === 'graph_timeseries_data') {
           try {
             // Parse accumulated arguments
@@ -254,7 +254,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               }
             }
             console.log('Graph tool args:', args);
-            
+
             // Handle the case where data might be a JSON string
             let processedArgs: any = { ...args };
             if (typeof (args as any).data === 'string') {
@@ -264,7 +264,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 console.warn('Could not parse data as JSON, using as-is:', parseError);
               }
             }
-            
+
             // Create a graph visualization message
             const graphMessage: ChatMessage = {
               id: 'graph-' + params.event.toolCallId,
@@ -273,11 +273,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               type: 'graph',
               graphData: processedArgs
             };
-            
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === 'tool-' + params.event.toolCallId 
-                  ? graphMessage 
+
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === 'tool-' + params.event.toolCallId
+                  ? graphMessage
                   : msg
               )
             );
@@ -296,13 +296,13 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 args = {};
               }
             }
-            
+
             console.log('Execute PromQL query parsed args:', args);
-            
+
             if (args.query && onExecutePromQLQuery) {
               // Execute the PromQL query
               onExecutePromQLQuery(args.query);
-              
+
               // Update the tool message to show success
               const successMessage: ChatMessage = {
                 id: 'tool-' + params.event.toolCallId,
@@ -310,11 +310,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 sender: 'assistant',
                 timestamp: new Date()
               };
-              
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === 'tool-' + params.event.toolCallId 
-                    ? successMessage 
+
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === 'tool-' + params.event.toolCallId
+                    ? successMessage
                     : msg
                 )
               );
@@ -322,15 +322,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               const missingQuery = !args.query;
               const missingCallback = !onExecutePromQLQuery;
               const errorDetails = [];
-              
+
               if (missingQuery) errorDetails.push('query parameter');
               if (missingCallback) errorDetails.push('callback function');
-              
+
               throw new Error(`Missing: ${errorDetails.join(', ')}. Args: ${JSON.stringify(args)}`);
             }
           } catch (error) {
             console.error('Error executing PromQL query:', error);
-            
+
             // Update the tool message to show error
             const errorMessage: ChatMessage = {
               id: 'tool-' + params.event.toolCallId,
@@ -338,11 +338,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               sender: 'assistant',
               timestamp: new Date()
             };
-            
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === 'tool-' + params.event.toolCallId 
-                  ? errorMessage 
+
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === 'tool-' + params.event.toolCallId
+                  ? errorMessage
                   : msg
               )
             );
@@ -359,13 +359,13 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 args = {};
               }
             }
-            
+
             console.log('Execute PPL query parsed args:', args);
-            
+
             if (args.query && onExecutePPLQuery) {
               // Execute the PPL query
               onExecutePPLQuery(args.query);
-              
+
               // Update the tool message to show success
               const successMessage: ChatMessage = {
                 id: 'tool-' + params.event.toolCallId,
@@ -373,11 +373,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 sender: 'assistant',
                 timestamp: new Date()
               };
-              
-              setMessages(prev => 
-                prev.map(msg => 
-                  msg.id === 'tool-' + params.event.toolCallId 
-                    ? successMessage 
+
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === 'tool-' + params.event.toolCallId
+                    ? successMessage
                     : msg
                 )
               );
@@ -385,15 +385,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               const missingQuery = !args.query;
               const missingCallback = !onExecutePPLQuery;
               const errorDetails = [];
-              
+
               if (missingQuery) errorDetails.push('query parameter');
               if (missingCallback) errorDetails.push('callback function');
-              
+
               throw new Error(`Missing: ${errorDetails.join(', ')}. Args: ${JSON.stringify(args)}`);
             }
           } catch (error) {
             console.error('Error executing PPL query:', error);
-            
+
             // Update the tool message to show error
             const errorMessage: ChatMessage = {
               id: 'tool-' + params.event.toolCallId,
@@ -401,17 +401,17 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
               sender: 'assistant',
               timestamp: new Date()
             };
-            
-            setMessages(prev => 
-              prev.map(msg => 
-                msg.id === 'tool-' + params.event.toolCallId 
-                  ? errorMessage 
+
+            setMessages(prev =>
+              prev.map(msg =>
+                msg.id === 'tool-' + params.event.toolCallId
+                  ? errorMessage
                   : msg
               )
             );
           }
         }
-        
+
         // Clean up the stored tool call info and accumulated args
         toolCallsRef.current.delete(params.event.toolCallId);
         toolArgsRef.current.delete(params.event.toolCallId);
@@ -421,7 +421,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         setIsLoading(false);
         setIsThinking(false);
         setConnectionStatus('error');
-        
+
         const errorMessage: ChatMessage = {
           id: 'error-' + Date.now(),
           sender: 'assistant',
@@ -429,14 +429,14 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           type: 'error',
           error: {
             title: 'Connection Error',
-            description: typeof params.event.message === 'string' 
-              ? params.event.message 
+            description: typeof params.event.message === 'string'
+              ? params.event.message
               : 'Failed to communicate with the AI service',
             retryable: true
           }
         };
         setMessages(prev => [...prev, errorMessage]);
-        
+
         // Schedule reconnection attempt
         scheduleReconnect();
       },
@@ -447,7 +447,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         setIsLoading(false);
         setIsThinking(false);
         setConnectionStatus('disconnected');
-        
+
         const errorMessage: ChatMessage = {
           id: 'network-error-' + Date.now(),
           sender: 'assistant',
@@ -460,7 +460,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           }
         };
         setMessages(prev => [...prev, errorMessage]);
-        
+
         scheduleReconnect();
       }
     };
@@ -468,10 +468,10 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
       agentRef.current.subscribe(subscriber);
       console.log('Agent subscribed, setting status to connected');
       setConnectionStatus('connected');
-      
+
       // Fetch model information after successful connection
       fetchModel();
-      
+
     } catch (error) {
       console.error('Failed to initialize agent:', error);
       setConnectionStatus('error');
@@ -486,7 +486,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     try {
       const baseUrl = process.env.AGENT_URL || 'http://localhost:5050';
       const modelUrl = `${baseUrl}/api/model`;
-      
+
       const response = await fetch(modelUrl, {
         method: 'GET',
         timeout: 5000
@@ -502,15 +502,15 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     try {
       const baseUrl = process.env.AGENT_URL || 'http://localhost:5050';
       const modelUrl = `${baseUrl}/api/model`;
-      
+
       const response = await fetch(modelUrl, {
         method: 'GET',
         timeout: 5000
       } as any);
-      
+
       if (response.ok) {
         const modelData = await response.json();
-        
+
         // Parse the model_name which might come as a JSON string array
         let modelName = 'Unknown';
         if (modelData.model_name) {
@@ -527,7 +527,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
             modelName = modelData.model_name;
           }
         }
-        
+
         setCurrentModel(modelName);
       } else {
         setCurrentModel(null);
@@ -541,12 +541,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
   // Send initial "Hi." message
   const sendInitialMessage = React.useCallback(async () => {
     if (!agentRef.current || isLoading || initialMessageSentRef.current) return;
-    
+
     // Mark as sent to prevent duplicates
     initialMessageSentRef.current = true;
 
     const initialMessage = "Hi.";
-    
+
     // Don't show the initial "Hi." message in the chat interface
     setIsLoading(true);
     setIsThinking(true);
@@ -590,13 +590,13 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
-    
+
     const delay = Math.min(1000 * Math.pow(2, retryCount), 30000); // Exponential backoff, max 30s
-    
+
     reconnectTimeoutRef.current = setTimeout(async () => {
       // Check if server is reachable before attempting reconnection
       const isServerReachable = await checkConnection();
-      
+
       if (isServerReachable) {
         setRetryCount(prev => prev + 1);
         initializeAgent();
@@ -613,14 +613,14 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       console.error('Unhandled promise rejection:', event.reason);
       event.preventDefault(); // Prevent the default browser behavior
-      
+
       // Handle network errors specifically
-      if (event.reason?.message?.includes('network error') || 
+      if (event.reason?.message?.includes('network error') ||
           event.reason?.message?.includes('ERR_INCOMPLETE_CHUNKED_ENCODING')) {
         setIsLoading(false);
         setIsThinking(false);
         setConnectionStatus('error');
-        
+
         const errorMessage: ChatMessage = {
           id: 'unhandled-error-' + Date.now(),
           sender: 'assistant',
@@ -654,7 +654,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
   // Initialize agent on mount
   useEffect(() => {
     initializeAgent();
-    
+
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
@@ -688,11 +688,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      
+
       const newWidth = window.innerWidth - e.clientX;
       const minWidth = 250;
       const maxWidth = window.innerWidth * 0.8; // Max 80% of window width
-      
+
       if (newWidth >= minWidth && newWidth <= maxWidth) {
         setWidth(newWidth);
       }
@@ -729,12 +729,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
       sender: 'user',
       timestamp: new Date()
     };
-    
+
     // Add to message history if it's not already the last message
     if (messageHistory[messageHistory.length - 1] !== textToSend) {
       setMessageHistory(prev => [...prev, textToSend]);
     }
-    
+
     setMessages(prev => [...prev, userMessage]);
     if (!messageText) {
       setInputValue('');
@@ -754,12 +754,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         // Add the user message to the agent's message history
         if (agentRef.current && userMessage.text && userMessage.text.trim()) {
           const messageContent = userMessage.text.trim();
-          
+
           // Double-check content is not empty before adding to agent
           if (messageContent.length === 0) {
             throw new Error('Cannot send empty message');
           }
-          
+
           agentRef.current.addMessage({
             id: userMessage.id,
             role: 'user',
@@ -786,12 +786,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         setIsThinking(false);
         setConnectionStatus('error');
         setLastFailedMessage(textToSend);
-        
+
         // Determine error type for better user messaging
         let errorTitle = 'Message Failed';
         let errorDescription = 'Failed to send message to AI service';
-        
-        if (error.message?.includes('network error') || 
+
+        if (error.message?.includes('network error') ||
             error.message?.includes('ERR_INCOMPLETE_CHUNKED_ENCODING')) {
           errorTitle = 'Network Error';
           errorDescription = 'Connection interrupted. The AI service may be temporarily unavailable.';
@@ -802,7 +802,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           errorTitle = 'Connection Error';
           errorDescription = 'Not connected to AI service. Attempting to reconnect...';
         }
-        
+
         const errorMessage: ChatMessage = {
           id: 'send-error-' + Date.now(),
           sender: 'assistant',
@@ -815,7 +815,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           }
         };
         setMessages(prev => [...prev, errorMessage]);
-        
+
         // Try to reconnect
         scheduleReconnect();
       }
@@ -848,11 +848,11 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       if (messageHistory.length === 0) return;
-      
-      const newIndex = historyIndex === -1 
-        ? messageHistory.length - 1 
+
+      const newIndex = historyIndex === -1
+        ? messageHistory.length - 1
         : Math.max(0, historyIndex - 1);
-      
+
       setHistoryIndex(newIndex);
       setInputValue(messageHistory[newIndex]);
       return;
@@ -861,7 +861,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       if (historyIndex === -1) return;
-      
+
       const newIndex = historyIndex + 1;
       if (newIndex >= messageHistory.length) {
         setHistoryIndex(-1);
@@ -875,12 +875,12 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
   };
 
   return (
-    <div 
+    <div
       ref={chatAssistantRef}
-      className="chat-assistant" 
+      className="chat-assistant"
       style={{ width: `${width}px` }}
     >
-      <div 
+      <div
         className={`resize-handle ${isResizing ? 'resizing' : ''}`}
         onMouseDown={handleMouseDown}
       />
@@ -906,7 +906,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           </div>
         )}
       </div>
-      
+
       <div className="chat-messages">
         {messages.map((message) => (
           <div
@@ -920,7 +920,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
                 <div className="error-title">{message.error.title}</div>
                 <div className="error-description">{message.error.description}</div>
                 {message.error.retryable && (
-                  <button 
+                  <button
                     className="retry-message-button"
                     onClick={retryLastMessage}
                     disabled={isLoading}
@@ -953,7 +953,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
         )}
         <div ref={messagesEndRef} />
       </div>
-      
+
       <div className="chat-controls">
         <label className="auto-scroll-checkbox">
           <input
@@ -964,7 +964,7 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           Auto-scroll
         </label>
       </div>
-      
+
       <div className="chat-input">
         <input
           type="text"
@@ -980,8 +980,8 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({ pageContext = [], onExecu
           placeholder={isThinking ? "Holmes is thinking..." : "Type your message..."}
           disabled={isLoading || isThinking}
         />
-        <button 
-          onClick={() => handleSendMessage()} 
+        <button
+          onClick={() => handleSendMessage()}
           disabled={isLoading || isThinking || !inputValue.trim() || connectionStatus === 'disconnected'}
         >
           {isThinking ? 'Thinking...' : isLoading ? 'Sending...' : connectionStatus === 'disconnected' ? 'Disconnected' : 'Send'}

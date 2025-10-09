@@ -47,7 +47,7 @@ from ag_ui.core import (
     ToolCallStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
-    RunErrorEvent
+    RunErrorEvent,
 )
 from ag_ui.encoder import EventEncoder
 
@@ -104,7 +104,9 @@ def agui_chat(input_data: RunAgentInput, request: Request):
 
     chat_request = _agui_input_to_holmes_chat_request(input_data=input_data)
     if not chat_request.ask:
-        return PlainTextResponse("Bad request. Chat message cannot be empty", status_code=400)
+        return PlainTextResponse(
+            "Bad request. Chat message cannot be empty", status_code=400
+        )
 
     ai = config.create_agui_toolcalling_llm(dal=dal, model=chat_request.model)
     global_instructions = dal.get_global_instructions_for_account()
@@ -125,59 +127,84 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                 RunStartedEvent(
                     type=EventType.RUN_STARTED,
                     thread_id=input_data.thread_id,
-                    run_id=input_data.run_id
+                    run_id=input_data.run_id,
                 )
             )
             hgpt_chat_stream_response: StreamMessage = ai.call_stream(
                 msgs=message_history,
-                enable_tool_approval=chat_request.enable_tool_approval or False)
+                enable_tool_approval=chat_request.enable_tool_approval or False,
+            )
             for chunk in hgpt_chat_stream_response:
-                if hasattr(chunk, 'event'):
-                    event_type = chunk.event.value if hasattr(chunk.event, 'value') else str(chunk.event)
+                if hasattr(chunk, "event"):
+                    event_type = (
+                        chunk.event.value
+                        if hasattr(chunk.event, "value")
+                        else str(chunk.event)
+                    )
                     logging.debug(f"Streaming chunk: {event_type}")
                 else:
-                    event_type = 'unknown'
+                    event_type = "unknown"
                     logging.debug(f"Streaming chunk: {chunk}")
-                if hasattr(chunk, 'data'):
-                    tool_name = chunk.data.get('tool_name', chunk.data.get('name', 'Tool'))
-                    if event_type in (StreamEvents.AI_MESSAGE, StreamEvents.ANSWER_END, "unknown"):
+                if hasattr(chunk, "data"):
+                    tool_name = chunk.data.get(
+                        "tool_name", chunk.data.get("name", "Tool")
+                    )
+                    if event_type in (
+                        StreamEvents.AI_MESSAGE,
+                        StreamEvents.ANSWER_END,
+                        "unknown",
+                    ):
                         async for event in _stream_agui_text_message_event(
-                                message=str(chunk.data.get("content", ""))):
+                            message=str(chunk.data.get("content", ""))
+                        ):
                             yield encoder.encode(event)
                     elif event_type == StreamEvents.START_TOOL:
                         async for event in _stream_agui_text_message_event(
-                                message=f"🔧 Using Agent tool: `{tool_name}`..."):
+                            message=f"🔧 Using Agent tool: `{tool_name}`..."
+                        ):
                             yield encoder.encode(event)
                     elif event_type == StreamEvents.TOOL_RESULT:
-                        logging.debug(f"🔧 TOOL_RESULT received - tool_name: {tool_name}")
+                        logging.debug(
+                            f"🔧 TOOL_RESULT received - tool_name: {tool_name}"
+                        )
                         front_end_tool_invoked = False
                         if _should_graph_timeseries_data(tool_name=tool_name):
                             front_end_tool_invoked = True
-                            logging.debug(f"🔧 Should graph timeseries data for tool: {tool_name}")
+                            logging.debug(
+                                f"🔧 Should graph timeseries data for tool: {tool_name}"
+                            )
                             ts_data = _parse_timeseries_data(chunk.data)
-                            tool_call_id = chunk.data.get("tool_call_id", chunk.data.get("id", "unknown"))
+                            tool_call_id = chunk.data.get(
+                                "tool_call_id", chunk.data.get("id", "unknown")
+                            )
                             # TODO [FUTURE]: Automate front-end tools discovery and let LLM decide which to invoke.
                             async for tool_event in _invoke_front_end_tool(
-                                    tool_call_id=tool_call_id,
-                                    tool_call_name="graph_timeseries_data",
-                                    tool_call_args=ts_data):
+                                tool_call_id=tool_call_id,
+                                tool_call_name="graph_timeseries_data",
+                                tool_call_args=ts_data,
+                            ):
                                 yield encoder.encode(tool_event)
-                        if _should_execute_suggested_query(backend_tool_name=tool_name,
-                                                           frontend_tools=input_data.tools):
+                        if _should_execute_suggested_query(
+                            backend_tool_name=tool_name, frontend_tools=input_data.tools
+                        ):
                             front_end_tool_invoked = True
-                            tool_call_id = chunk.data.get("tool_call_id", chunk.data.get("id", "unknown"))
+                            tool_call_id = chunk.data.get(
+                                "tool_call_id", chunk.data.get("id", "unknown")
+                            )
                             front_end_query_tool = None
                             if tool_name == "opensearch_ppl_query_assist":
                                 front_end_query_tool = "execute_ppl_query"
-                            elif tool_name in ("execute_prometheus_range_query", "execute_prometheus_instant_query"):
+                            elif tool_name in (
+                                "execute_prometheus_range_query",
+                                "execute_prometheus_instant_query",
+                            ):
                                 front_end_query_tool = "execute_promql_query"
 
                             async for tool_event in _invoke_front_end_tool(
-                                    tool_call_id=tool_call_id,
-                                    tool_call_name=front_end_query_tool,
-                                    tool_call_args={
-                                        "query": _parse_query(chunk.data)
-                                    }):
+                                tool_call_id=tool_call_id,
+                                tool_call_name=front_end_query_tool,
+                                tool_call_args={"query": _parse_query(chunk.data)},
+                            ):
                                 yield encoder.encode(tool_event)
                         if not front_end_tool_invoked:
                             # TODO [FUTURE]: Render "TodoWrite" tool_name results prettier. Use code block for now.
@@ -188,7 +215,7 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                 tool_message = f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
 
                             async for event in _stream_agui_text_message_event(
-                                    message=tool_message
+                                message=tool_message
                             ):
                                 yield encoder.encode(event)
             yield encoder.encode(
@@ -196,28 +223,24 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                     type=EventType.RUN_FINISHED,
                     thread_id=input_data.thread_id,
                     run_id=input_data.run_id,
-                ))
+                )
+            )
         except Exception as e:
             logging.error(f"Error in /api/agui/chat: {e}", exc_info=True)
             yield encoder.encode(
                 RunErrorEvent(
                     type=EventType.RUN_ERROR,
-                    message=f"Agent encountered an error: {str(e)}"
+                    message=f"Agent encountered an error: {str(e)}",
                 )
             )
 
     return StreamingResponse(
-        event_generator(messages),
-        media_type=encoder.get_content_type()
+        event_generator(messages), media_type=encoder.get_content_type()
     )
 
 
 def _format_todo_write(data) -> str:
-    status_icons = {
-        'pending': '⬜',
-        'in_progress': '⏳',
-        'completed': '✅'
-    }
+    status_icons = {"pending": "⬜", "in_progress": "⏳", "completed": "✅"}
     result_data = data.get("result", {})
     params = result_data.get("params", {})
     todos = params.get("todos", {})
@@ -232,12 +255,19 @@ def _format_todo_write(data) -> str:
     return output_str
 
 
-def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
+def _should_execute_suggested_query(
+    backend_tool_name: str, frontend_tools: list
+) -> bool:
     for fe_tool in frontend_tools:
         if "execute_prom" in fe_tool.name and backend_tool_name in (
-                "execute_prometheus_range_query", "execute_prometheus_instant_query"):
+            "execute_prometheus_range_query",
+            "execute_prometheus_instant_query",
+        ):
             return True
-        elif "execute_ppl" in fe_tool.name and backend_tool_name == "opensearch_ppl_query_assist":
+        elif (
+            "execute_ppl" in fe_tool.name
+            and backend_tool_name == "opensearch_ppl_query_assist"
+        ):
             return True
     return False
 
@@ -251,14 +281,19 @@ def _parse_query(data) -> str:
 
 def _should_graph_timeseries_data(tool_name: str) -> bool:
     # Only support prometheus timeseries data for now.
-    return tool_name in ("execute_prometheus_range_query", "execute_prometheus_instant_query")
+    return tool_name in (
+        "execute_prometheus_range_query",
+        "execute_prometheus_instant_query",
+    )
 
 
 def _parse_timeseries_data(data) -> dict:
     try:
         logging.debug(f"🔍 _parse_timeseries_data received data: {data}")
         logging.debug(f"🔍 Data type: {type(data)}")
-        logging.debug(f"🔍 Data keys: {list(data.keys()) if hasattr(data, 'keys') else 'No keys'}")
+        logging.debug(
+            f"🔍 Data keys: {list(data.keys()) if hasattr(data, 'keys') else 'No keys'}"
+        )
 
         # Extract the result from chunk.data
         result_data = data.get("result", {})
@@ -293,14 +328,14 @@ def _parse_timeseries_data(data) -> dict:
             "source": "Prometheus",
             "result_type": result_type,
             "description": description,
-            "query": query
+            "query": query,
         }
 
         return {
             "title": description,
             "query": query,
             "data": prometheus_data,
-            "metadata": metadata
+            "metadata": metadata,
         }
 
     except Exception as e:
@@ -309,50 +344,40 @@ def _parse_timeseries_data(data) -> dict:
         return {
             "title": "Prometheus Query Results (Parse Error)",
             "query": data.get("query", ""),
-            "data": {
-                "result": []
-            },
+            "data": {"result": []},
             "metadata": {
                 "timestamp": int(time.time()),
                 "source": "Prometheus",
-                "error": str(e)
-            }
+                "error": str(e),
+            },
         }
 
 
-async def _invoke_front_end_tool(tool_call_id: str, tool_call_name: str, tool_call_args: dict):
+async def _invoke_front_end_tool(
+    tool_call_id: str, tool_call_name: str, tool_call_args: dict
+):
     yield ToolCallStartEvent(
         type=EventType.TOOL_CALL_START,
         tool_call_id=tool_call_id,
-        tool_call_name=tool_call_name
+        tool_call_name=tool_call_name,
     )
     yield ToolCallArgsEvent(
         type=EventType.TOOL_CALL_ARGS,
         tool_call_id=tool_call_id,
-        delta=json.dumps(tool_call_args)
+        delta=json.dumps(tool_call_args),
     )
-    yield ToolCallEndEvent(
-        type=EventType.TOOL_CALL_END,
-        tool_call_id=tool_call_id
-    )
+    yield ToolCallEndEvent(type=EventType.TOOL_CALL_END, tool_call_id=tool_call_id)
 
 
 async def _stream_agui_text_message_event(message: str):
     message_id = str(uuid.uuid4())
     yield TextMessageStartEvent(
-        type=EventType.TEXT_MESSAGE_START,
-        message_id=message_id,
-        role="assistant"
+        type=EventType.TEXT_MESSAGE_START, message_id=message_id, role="assistant"
     )
     yield TextMessageContentEvent(
-        type=EventType.TEXT_MESSAGE_CONTENT,
-        message_id=message_id,
-        delta=message
+        type=EventType.TEXT_MESSAGE_CONTENT, message_id=message_id, delta=message
     )
-    yield TextMessageEndEvent(
-        type=EventType.TEXT_MESSAGE_END,
-        message_id=message_id
-    )
+    yield TextMessageEndEvent(type=EventType.TEXT_MESSAGE_END, message_id=message_id)
 
 
 def _is_tool_result_message(input_data: RunAgentInput) -> bool:
@@ -373,32 +398,47 @@ def _agui_input_to_holmes_chat_request(input_data: RunAgentInput) -> ChatRequest
             msg_tmp.role = "assistant"
             non_system_messages.append(msg_tmp)
     conversation_history = [
-        {"role": "system",
-         "content": "You are Holmes, an AI assistant for observability. You use Prometheus metrics, alerts and OpenSearch logs to quickly perform root cause analysis."}
+        {
+            "role": "system",
+            "content": "You are Holmes, an AI assistant for observability. You use Prometheus metrics, alerts and OpenSearch logs to quickly perform root cause analysis.",
+        }
     ]
     if len(non_system_messages) > 1:
-        conversation_history.extend([
-            {"role": msg.role, "content": msg.content.strip() if msg.content else ""}
-            for msg in non_system_messages[:-1]
-        ])
+        conversation_history.extend(
+            [
+                {
+                    "role": msg.role,
+                    "content": msg.content.strip() if msg.content else "",
+                }
+                for msg in non_system_messages[:-1]
+            ]
+        )
 
     # Get the last user message and validate it
     last_user_message = ""
-    if non_system_messages and non_system_messages[-1].role == 'user':
-        last_user_message = non_system_messages[-1].content.strip() if non_system_messages[-1].content else ""
+    if non_system_messages and non_system_messages[-1].role == "user":
+        last_user_message = (
+            non_system_messages[-1].content.strip()
+            if non_system_messages[-1].content
+            else ""
+        )
 
     if input_data.context:
         # insert page context at 2nd to last entry (behind latest user message).
         # page context might change. Don't want it to get buried in past messages.
-        conversation_history.insert(-1, {"role": "system",
-                                         "content": f"The user has the following information in their current web page for which you are assisting them. {input_data.context}"
-                                         })
+        conversation_history.insert(
+            -1,
+            {
+                "role": "system",
+                "content": f"The user has the following information in their current web page for which you are assisting them. {input_data.context}",
+            },
+        )
 
     chat_request = ChatRequest(
         ask=last_user_message,
         conversation_history=conversation_history,
-        model=getattr(input_data, 'model', None),
-        stream=True
+        model=getattr(input_data, "model", None),
+        stream=True,
     )
     return chat_request
 
@@ -416,4 +456,6 @@ if __name__ == "__main__":
     log_config["formatters"]["default"]["fmt"] = (
         "%(asctime)s %(levelname)-8s %(message)s"
     )
-    uvicorn.run(app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config, reload=False)
+    uvicorn.run(
+        app, host=HOLMES_HOST, port=HOLMES_PORT, log_config=log_config, reload=False
+    )

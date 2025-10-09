@@ -26,9 +26,9 @@ interface MainContentProps {
   onQueryUpdate?: (page: ObservabilityPage, query: string) => void;
 }
 
-const MainContent: React.FC<MainContentProps> = ({ 
-  selectedPage, 
-  initialQuery = '', 
+const MainContent: React.FC<MainContentProps> = ({
+  selectedPage,
+  initialQuery = '',
   triggerQuery,
   onContextChange,
   onQueryTriggered,
@@ -36,18 +36,18 @@ const MainContent: React.FC<MainContentProps> = ({
 }) => {
   const [query, setQuery] = useState(initialQuery);
   const [isExecuting, setIsExecuting] = useState(false);
-  
+
   // Track current query execution to prevent race conditions
   const currentQueryRef = React.useRef<string>('');
   const abortControllerRef = React.useRef<AbortController | null>(null);
-  
+
   // Store separate results for each page
   const [pageResults, setPageResults] = useState<Record<ObservabilityPage, QueryResult | null>>({
     metrics: null,
     logs: null,
     traces: null
   });
-  
+
   // Get current page's result
   const currentResult = pageResults[selectedPage];
   const [prometheusStatus, setPrometheusStatus] = useState<'checking' | 'connected' | 'disconnected'>('checking');
@@ -56,12 +56,12 @@ const MainContent: React.FC<MainContentProps> = ({
   const [opensearchUrl] = useState(process.env.REACT_APP_OPENSEARCH_URL || 'http://localhost:9200');
   const [opensearchUser] = useState(process.env.REACT_APP_OPENSEARCH_USER);
   const [opensearchPassword] = useState(process.env.REACT_APP_OPENSEARCH_PASSWORD);
-  
+
   // Indices discovery state
   const [availableIndices, setAvailableIndices] = useState<string[]>([]);
 
   const [loadingIndices, setLoadingIndices] = useState(false);
-  
+
   // Metrics discovery state - three-box interface
   const [availableMetrics, setAvailableMetrics] = useState<string[]>([]);
   const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
@@ -106,7 +106,7 @@ const MainContent: React.FC<MainContentProps> = ({
           .map((idx: any) => idx.index)
           .filter((name: string) => !name.startsWith('.')) // Filter out system indices
           .sort();
-        
+
         setAvailableIndices(indexNames);
       } else {
         console.error('Failed to fetch indices count:', response.status, response.statusText);
@@ -134,7 +134,7 @@ const MainContent: React.FC<MainContentProps> = ({
           const metricNames = result.data
             .filter((name: string) => name && !name.startsWith('__')) // Filter out internal metrics
             .sort();
-          
+
           setAvailableMetrics(metricNames);
         } else {
           console.error('Failed to fetch metrics: Invalid response format');
@@ -172,7 +172,7 @@ const MainContent: React.FC<MainContentProps> = ({
               }
             });
           });
-          
+
           const labels = Array.from(labelSet).sort();
           setAvailableLabels(labels);
         } else {
@@ -252,7 +252,7 @@ const MainContent: React.FC<MainContentProps> = ({
 
 
   const isUpdatingFromParent = React.useRef(false);
-  
+
   // Retry delay state
   const prometheusRetryTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const opensearchRetryTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -262,7 +262,7 @@ const MainContent: React.FC<MainContentProps> = ({
     if (!onContextChange) return;
 
     const context: ContextItem[] = [];
-    
+
     // Add current page info
     context.push({
       description: "Current page",
@@ -295,17 +295,17 @@ const MainContent: React.FC<MainContentProps> = ({
     if (currentResult) {
       if (currentResult.error) {
         let errorValue = currentResult.error;
-        
+
         // For logs, include detailed error response in the same entry
         if (selectedPage === 'logs' && currentResult.errorDetails) {
           errorValue += `\n\nDetailed error response: ${JSON.stringify(currentResult.errorDetails, null, 2)}`;
         }
-        
+
         context.push({
           description: `${selectedPage} query error`,
           value: errorValue
         });
-        
+
         // Add detailed error response for non-logs pages only
         if (selectedPage !== 'logs' && currentResult.errorDetails) {
           context.push({
@@ -392,31 +392,31 @@ const MainContent: React.FC<MainContentProps> = ({
 
     // Safety timeout to prevent getting stuck in 'checking' state
     let safetyTimeout: NodeJS.Timeout | null = null;
-    
+
     try {
       console.log('Starting Prometheus connection check...', { prometheusUrl, isRetry, currentStatus: prometheusStatus });
       setPrometheusStatus('checking');
       console.log('Set status to checking, now fetching...', prometheusUrl);
-      
+
       safetyTimeout = setTimeout(() => {
         console.warn('Prometheus check taking too long, forcing disconnected state');
         setPrometheusStatus('disconnected');
       }, 12000); // 12 second safety timeout
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
-      
+
       // Try a simpler endpoint first
       console.log('About to fetch from:', `${prometheusUrl}/api/v1/query?query=up`);
       const response = await fetch(`${prometheusUrl}/api/v1/query?query=up`, {
         method: 'GET',
         signal: controller.signal
       });
-      
+
       console.log('Fetch completed, clearing timeouts...');
       clearTimeout(timeoutId);
       if (safetyTimeout) clearTimeout(safetyTimeout);
-      
+
       console.log('Prometheus response received:', { status: response.status, ok: response.ok, url: response.url });
       if (response.ok) {
         console.log('Setting Prometheus status to connected');
@@ -427,17 +427,17 @@ const MainContent: React.FC<MainContentProps> = ({
       }
     } catch (error: any) {
       console.warn('Prometheus connection check failed:', error);
-      
+
       // Clear safety timeout if it exists
       if (safetyTimeout) clearTimeout(safetyTimeout);
-      
+
       // Handle specific error types
       if (error.name === 'AbortError') {
         console.warn('Prometheus connection check timed out');
       }
-      
+
       setPrometheusStatus('disconnected');
-      
+
       // Auto-retry after 10 seconds if not a manual retry
       if (!isRetry) {
         prometheusRetryTimeoutRef.current = setTimeout(() => {
@@ -474,7 +474,7 @@ const MainContent: React.FC<MainContentProps> = ({
         headers: getOpensearchHeaders(),
         signal: AbortSignal.timeout(5000), // 5 second timeout
       });
-      
+
       // If root endpoint fails, try cluster health
       if (!response.ok) {
         response = await fetch(`${opensearchUrl}/_cluster/health`, {
@@ -483,7 +483,7 @@ const MainContent: React.FC<MainContentProps> = ({
           signal: AbortSignal.timeout(5000), // 5 second timeout
         });
       }
-      
+
       if (response.ok) {
         setOpensearchStatus('connected');
       } else {
@@ -511,7 +511,7 @@ const MainContent: React.FC<MainContentProps> = ({
         console.warn('Prometheus status stuck in checking, forcing retry...');
         checkPrometheusConnection(true, true); // Force retry
       }, 15000); // 15 second timeout
-      
+
       return () => clearTimeout(resetTimeout);
     }
   }, [prometheusStatus, checkPrometheusConnection]);
@@ -524,7 +524,7 @@ const MainContent: React.FC<MainContentProps> = ({
     } else if (selectedPage === 'logs') {
       checkOpensearchConnection();
     }
-    
+
     // Set up interval for active page only
     let interval: NodeJS.Timeout | null = null;
     if (selectedPage === 'metrics') {
@@ -532,7 +532,7 @@ const MainContent: React.FC<MainContentProps> = ({
     } else if (selectedPage === 'logs') {
       interval = setInterval(() => checkOpensearchConnection(), 30000);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -569,7 +569,7 @@ const MainContent: React.FC<MainContentProps> = ({
         // Remove query parameter if empty
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.delete('query');
-        const newUrl = urlParams.toString() 
+        const newUrl = urlParams.toString()
           ? `${window.location.pathname}?${urlParams.toString()}`
           : window.location.pathname;
         window.history.replaceState({}, '', newUrl);
@@ -587,7 +587,7 @@ const MainContent: React.FC<MainContentProps> = ({
 
     try {
       const url = `${prometheusUrl}/api/v1/query_range?query=${encodeURIComponent(promqlQuery)}&start=${startTime}&end=${endTime}&step=${step}`;
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -604,7 +604,7 @@ const MainContent: React.FC<MainContentProps> = ({
         (error as any).statusCode = response.status;
         throw error;
       }
-      
+
       if (result.status !== 'success') {
         // Create detailed error with Prometheus error response
         const error = new Error(`Prometheus query error: ${result.error || 'Unknown error'}`);
@@ -649,7 +649,7 @@ const MainContent: React.FC<MainContentProps> = ({
         // Check if it's a PPL plugin not available error (404 or 500)
         if (response.status === 404 || response.status === 500) {
           const error = new Error(`PPL plugin not available on this OpenSearch cluster (${response.status}). This AWS OpenSearch cluster may not have PPL enabled.`);
-          (error as any).responseData = { 
+          (error as any).responseData = {
             suggestion: "AWS OpenSearch clusters may not have PPL plugin enabled by default. Consider using OpenSearch Query DSL or enabling PPL plugin.",
             pplQuery: pplQuery,
             alternativeEndpoint: `${opensearchUrl}/_search`,
@@ -657,14 +657,14 @@ const MainContent: React.FC<MainContentProps> = ({
           };
           throw error;
         }
-        
+
         // Create detailed error with response data
         const error = new Error(`OpenSearch query failed: ${response.status} ${response.statusText}`);
         (error as any).responseData = result;
         (error as any).statusCode = response.status;
         throw error;
       }
-      
+
       if (result.error) {
         // Handle specific PPL errors
         if (result.error.type === 'NoSuchElementException') {
@@ -674,7 +674,7 @@ const MainContent: React.FC<MainContentProps> = ({
           (error as any).suggestion = "Try: source=your_actual_index_name | head 10 (replace 'your_actual_index_name' with an actual index)";
           throw error;
         }
-        
+
         // Create detailed error with OpenSearch error response
         const error = new Error(`OpenSearch PPL error: ${result.error.reason || 'Unknown error'}`);
         (error as any).responseData = result;
@@ -720,7 +720,7 @@ const MainContent: React.FC<MainContentProps> = ({
 
     try {
       let responseData: any;
-      
+
       if (selectedPage === 'metrics') {
         // Query Prometheus for metrics
         responseData = await queryPrometheus(query.trim());
@@ -757,14 +757,14 @@ const MainContent: React.FC<MainContentProps> = ({
       }));
     } catch (error: any) {
       console.error('Query execution error:', error);
-      const errorMessage = selectedPage === 'metrics' 
+      const errorMessage = selectedPage === 'metrics'
         ? `Prometheus query failed: ${error.message || 'Unknown error'}`
         : `${selectedPage} query failed: ${error.message || 'Unknown error'}`;
-        
+
       setPageResults(prev => ({
         ...prev,
-        [selectedPage]: prev[selectedPage] ? { 
-          ...prev[selectedPage], 
+        [selectedPage]: prev[selectedPage] ? {
+          ...prev[selectedPage],
           error: errorMessage,
           errorDetails: error.responseData || null
         } : null
@@ -795,7 +795,7 @@ const MainContent: React.FC<MainContentProps> = ({
     if (triggerQuery && triggerQuery.trim() && triggerQuery !== processedTriggerQuery.current) {
       processedTriggerQuery.current = triggerQuery;
       setQuery(triggerQuery);
-      
+
       // Execute the query automatically with the triggered query
       const executeTriggeredQuery = async () => {
         setIsExecuting(true);
@@ -808,19 +808,19 @@ const MainContent: React.FC<MainContentProps> = ({
           } else {
             throw new Error('Traces not implemented yet');
           }
-          
+
           const newResult: QueryResult = {
             id: Date.now().toString(),
             query: triggerQuery,
             timestamp: new Date(),
             data: result
           };
-          
+
           setPageResults(prev => ({
             ...prev,
             [selectedPage]: newResult
           }));
-          
+
           if (onQueryTriggered) {
             onQueryTriggered();
           }
@@ -832,7 +832,7 @@ const MainContent: React.FC<MainContentProps> = ({
             error: error.message || 'An error occurred',
             errorDetails: error
           };
-          
+
           setPageResults(prev => ({
             ...prev,
             [selectedPage]: errorResult
@@ -841,7 +841,7 @@ const MainContent: React.FC<MainContentProps> = ({
           setIsExecuting(false);
         }
       };
-      
+
       // Small delay to ensure state is updated
       setTimeout(executeTriggeredQuery, 100);
     }
@@ -907,7 +907,7 @@ const MainContent: React.FC<MainContentProps> = ({
             </div>
           </div>
           {prometheusStatus === 'disconnected' && (
-            <button 
+            <button
               className="retry-connection-btn"
               onClick={() => checkPrometheusConnection(true)}
             >
@@ -932,7 +932,7 @@ const MainContent: React.FC<MainContentProps> = ({
             </div>
           </div>
           {opensearchStatus === 'disconnected' && (
-            <button 
+            <button
               className="retry-connection-btn"
               onClick={() => checkOpensearchConnection(true)}
             >
@@ -957,7 +957,7 @@ const MainContent: React.FC<MainContentProps> = ({
               <p>Browse series, labels, and values to build your query</p>
             </div>
           </div>
-          
+
           {showExplorer && (
             <div className="explorer-boxes">
             {/* Box 1: Series List */}
@@ -969,8 +969,8 @@ const MainContent: React.FC<MainContentProps> = ({
               <div className="box-content">
                 {availableMetrics.length > 0 ? (
                   availableMetrics.map((metric, i) => (
-                    <div 
-                      key={i} 
+                    <div
+                      key={i}
                       className={`explorer-item ${selectedMetric === metric ? 'selected' : ''}`}
                       onClick={() => handleMetricSelect(metric)}
                       title={`Click to explore labels for: ${metric}`}
@@ -996,8 +996,8 @@ const MainContent: React.FC<MainContentProps> = ({
                 {selectedMetric ? (
                   availableLabels.length > 0 ? (
                     availableLabels.map((label, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className={`explorer-item ${selectedLabel === label ? 'selected' : ''}`}
                         onClick={() => handleLabelSelect(label)}
                         title={`Click to explore values for label: ${label}`}
@@ -1026,8 +1026,8 @@ const MainContent: React.FC<MainContentProps> = ({
                 {selectedLabel ? (
                   availableLabelValues.length > 0 ? (
                     availableLabelValues.map((value, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className="explorer-item"
                         onClick={() => handleLabelValueSelect(value)}
                         title={`Click to build query: ${selectedMetric}{${selectedLabel}="${value}"}`}
@@ -1065,7 +1065,7 @@ const MainContent: React.FC<MainContentProps> = ({
               <p>Browse available indices to build your PPL query</p>
             </div>
           </div>
-          
+
           {showIndicesExplorer && (
             <div className="explorer-boxes">
               {/* Single Box: Indices List */}
@@ -1077,8 +1077,8 @@ const MainContent: React.FC<MainContentProps> = ({
                 <div className="box-content">
                   {availableIndices.length > 0 ? (
                     availableIndices.map((index, i) => (
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className="explorer-item"
                         onClick={() => {
                           setQuery(`source=${index} | head 10`);
@@ -1121,7 +1121,7 @@ const MainContent: React.FC<MainContentProps> = ({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={
-                selectedPage === 'metrics' 
+                selectedPage === 'metrics'
                   ? "Enter PromQL query (e.g., cpu_usage, memory_usage, http_requests_total)...\n\nOr use Prometheus Series Explorer above to build your query"
                   : selectedPage === 'logs'
                   ? "Enter PPL query (e.g., source=logs-* | head 10)...\n\nOr use OpenSearch Indices Explorer above to build your query\n\nNote: PPL plugin may not be available on all AWS clusters"
@@ -1179,7 +1179,7 @@ const MainContent: React.FC<MainContentProps> = ({
                 <div className="visualization-container">
                   {/* Detect data type and render appropriate visualization */}
                   {/* Check if data is already structured (has title, data, query) or raw (has schema, datarows) */}
-                  {(currentResult.data.schema && currentResult.data.datarows) || 
+                  {(currentResult.data.schema && currentResult.data.datarows) ||
                    (currentResult.data.data && currentResult.data.data.schema && currentResult.data.data.datarows) ? (
                     <div className="visualization-container">
                       <button
@@ -1189,9 +1189,9 @@ const MainContent: React.FC<MainContentProps> = ({
                       >
                         ⛶
                       </button>
-                      <LogsVisualization 
+                      <LogsVisualization
                         data={
-                          currentResult.data.title ? 
+                          currentResult.data.title ?
                             // Data is already structured
                             currentResult.data :
                             // Data is raw, need to structure it
@@ -1204,10 +1204,10 @@ const MainContent: React.FC<MainContentProps> = ({
                                 source: 'OpenSearch PPL'
                               }
                             }
-                        } 
+                        }
                       />
                     </div>
-                  ) : (currentResult.data.result !== undefined) || 
+                  ) : (currentResult.data.result !== undefined) ||
                        (currentResult.data.data && currentResult.data.data.result !== undefined) ? (
                     <div className="visualization-container">
                       <button
@@ -1217,9 +1217,9 @@ const MainContent: React.FC<MainContentProps> = ({
                       >
                         ⛶
                       </button>
-                      <GraphVisualization 
+                      <GraphVisualization
                         data={
-                          currentResult.data.title ? 
+                          currentResult.data.title ?
                             // Data is already structured
                             currentResult.data :
                             // Data is raw, need to structure it
@@ -1263,8 +1263,8 @@ const MainContent: React.FC<MainContentProps> = ({
             <div className="graph-modal-header">
               <div className="graph-modal-title">
                 <h3>
-                  {selectedPage === 'metrics' ? '📊 Metrics Visualization' : 
-                   selectedPage === 'logs' ? '📝 Logs Visualization' : 
+                  {selectedPage === 'metrics' ? '📊 Metrics Visualization' :
+                   selectedPage === 'logs' ? '📝 Logs Visualization' :
                    '🔍 Traces Visualization'}
                 </h3>
                 <div className="graph-modal-query">
@@ -1281,11 +1281,11 @@ const MainContent: React.FC<MainContentProps> = ({
             </div>
             <div className="graph-modal-content">
               {/* Detect data type and render appropriate visualization */}
-              {(currentResult.data.schema && currentResult.data.datarows) || 
+              {(currentResult.data.schema && currentResult.data.datarows) ||
                (currentResult.data.data && currentResult.data.data.schema && currentResult.data.data.datarows) ? (
-                <LogsVisualization 
+                <LogsVisualization
                   data={
-                    currentResult.data.title ? 
+                    currentResult.data.title ?
                       // Data is already structured
                       currentResult.data :
                       // Data is raw, need to structure it
@@ -1298,13 +1298,13 @@ const MainContent: React.FC<MainContentProps> = ({
                           source: 'OpenSearch PPL'
                         }
                       }
-                  } 
+                  }
                 />
-              ) : (currentResult.data.result !== undefined) || 
+              ) : (currentResult.data.result !== undefined) ||
                    (currentResult.data.data && currentResult.data.data.result !== undefined) ? (
-                <GraphVisualization 
+                <GraphVisualization
                   data={
-                    currentResult.data.title ? 
+                    currentResult.data.title ?
                       // Data is already structured
                       currentResult.data :
                       // Data is raw, need to structure it

@@ -172,16 +172,16 @@
   .legend-items {
     max-height: 100px;
   }
-  
+
   .legend-items.vertical {
     max-height: 150px;
   }
-  
+
   .legend-item {
     font-size: 11px;
     padding: 3px 6px;
   }
-  
+
   .legend-color {
     width: 10px;
     height: 10px;

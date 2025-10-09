@@ -74,28 +74,28 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
   // Generate series label from metric
   const generateSeriesLabel = (metric: Record<string, string>, index: number) => {
     console.log('Metric data for series', index, ':', metric);
-    
+
     // First try to use __name__ if it exists
     if (metric.__name__) {
       // If there are other meaningful labels, combine them
       const filteredMetric = Object.entries(metric).filter(
         ([key]) => key !== '__name__'
       );
-      
+
       if (filteredMetric.length > 0) {
         const labels = filteredMetric
           .map(([key, value]) => `${key}="${value}"`)
           .join(', ');
         return `${metric.__name__}{${labels}}`;
       }
-      
+
       // Just return the metric name
       return metric.__name__;
     }
-    
+
     // If no __name__, use all available labels (including job)
     const allLabels = Object.entries(metric);
-    
+
     if (allLabels.length > 0) {
       // For single label, just show the value part if it's descriptive
       if (allLabels.length === 1) {
@@ -106,13 +106,13 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
         }
         return value;
       }
-      
+
       // For multiple labels, show key=value format
       return allLabels
         .map(([key, value]) => `${key}="${value}"`)
         .join(', ');
     }
-    
+
     // Last resort: use series index
     return `Series ${index + 1}`;
   };
@@ -126,7 +126,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
     const datasets = graphData.result.map((series, index) => {
       const color = generateColor(index);
       const label = generateSeriesLabel(series.metric, index);
-      
+
       const dataPoints = series.values?.map(([timestamp, value]) => ({
         x: timestamp * 1000, // Convert to milliseconds
         y: parseFloat(value),
@@ -214,30 +214,30 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
   // Determine if legend should be vertical based on number of series and label length
   const shouldUseVerticalLegend = (datasets: any[]) => {
     const seriesCount = datasets.length;
-    const maxLabelLength = Math.max(...datasets.map(dataset => 
+    const maxLabelLength = Math.max(...datasets.map(dataset =>
       dataset.label ? dataset.label.length : 0
     ));
-    const hasLongLabels = datasets.some(dataset => 
+    const hasLongLabels = datasets.some(dataset =>
       dataset.label && dataset.label.length > 30  // Lowered from 40 to 30
     );
-    
+
     console.log('Legend layout check:', {
       seriesCount,
       maxLabelLength,
       hasLongLabels,
       sampleLabels: datasets.slice(0, 3).map(d => d.label)
     });
-    
+
     // Use vertical layout if:
     // - More than 5 series (lowered from 6), OR
     // - Any label is longer than 30 characters (lowered from 40), OR
     // - More than 3 series AND any label is longer than 20 characters
-    const shouldBeVertical = seriesCount > 5 || 
-           hasLongLabels || 
-           (seriesCount > 3 && datasets.some(dataset => 
+    const shouldBeVertical = seriesCount > 5 ||
+           hasLongLabels ||
+           (seriesCount > 3 && datasets.some(dataset =>
              dataset.label && dataset.label.length > 20
            ));
-    
+
     console.log('Should use vertical legend:', shouldBeVertical);
     return shouldBeVertical;
   };
@@ -265,18 +265,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
           <h4>{title}</h4>
           {query && <code className="query">{query}</code>}
         </div>
-        
+
         <div className="chart-container">
           <Line data={chartData} options={chartOptions} />
         </div>
-        
+
         {/* Custom scrollable legend */}
         <div className="custom-legend">
           <div className={`legend-items ${shouldUseVerticalLegend(chartData.datasets) ? 'vertical' : ''}`}>
             {chartData.datasets.map((dataset, index) => (
               <div key={index} className="legend-item">
-                <div 
-                  className="legend-color" 
+                <div
+                  className="legend-color"
                   style={{ backgroundColor: dataset.borderColor as string }}
                 ></div>
                 <span className="legend-label">{dataset.label}</span>
@@ -284,11 +284,11 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ data }) => {
             ))}
           </div>
         </div>
-        
+
         {metadata && (
           <div className="graph-metadata">
             <small>
-              Source: {metadata.source || 'Unknown'} | 
+              Source: {metadata.source || 'Unknown'} |
               Generated: {metadata.timestamp ? new Date(metadata.timestamp * 1000).toLocaleString() : 'Unknown'}
               {metadata.start_time && metadata.end_time && (
                 <> | Range: {new Date(metadata.start_time).toLocaleString()} - {new Date(metadata.end_time).toLocaleString()}</>

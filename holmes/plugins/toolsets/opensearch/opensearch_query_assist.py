@@ -14,7 +14,6 @@ from holmes.core.tools import (
 
 
 class PplQueryAssistTool(Tool):
-
     def __init__(self, toolset: "OpenSearchQueryAssistToolset"):
         super().__init__(
             name="opensearch_ppl_query_assist",
@@ -32,9 +31,7 @@ class PplQueryAssistTool(Tool):
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             query = params.get("query", "")
-            response_data = {
-                "query": query
-            }
+            response_data = {"query": query}
             return StructuredToolResult(
                 status=StructuredToolResultStatus.SUCCESS,
                 data=response_data,
@@ -73,6 +70,8 @@ class OpenSearchQueryAssistToolset(Toolset):
 
     def _reload_instructions(self):
         template_file_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "opensearch_query_assist_instructions.jinja2")
+            os.path.join(
+                os.path.dirname(__file__), "opensearch_query_assist_instructions.jinja2"
+            )
         )
         self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
