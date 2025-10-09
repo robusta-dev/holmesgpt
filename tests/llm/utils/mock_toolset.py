@@ -682,6 +682,7 @@ class MockToolsetManager:
 
         # First, validate that all custom definitions reference existing toolsets
         builtin_names = {ts.name for ts in builtin_toolsets}
+        definition = None
         for definition in custom_configs.values():
             if definition.name not in builtin_names:
                 raise RuntimeError(
@@ -740,6 +741,7 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                 toolset.enabled = True
 
             # Apply custom configuration if available
+            config_override = None
             if toolset.name in custom_configs:
                 config_override = custom_configs[toolset.name]
                 if "config" in config_override:
@@ -762,8 +764,8 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                         # If this toolset was explicitly enabled in the test config but failed prerequisites,
                         # the test should fail (unless allow_toolset_failures is True)
                         if (
-                            definition
-                            and definition.enabled
+                            config_override
+                            and config_override["enabled"]
                             and toolset.status != ToolsetStatusEnum.ENABLED
                             and not self.allow_toolset_failures
                         ):
@@ -773,7 +775,7 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                             )
                     except Exception as e:
                         # If this toolset was explicitly enabled in the test config, re-raise the error
-                        if definition and definition.enabled:
+                        if config_override and config_override["enabled"]:
                             raise RuntimeError(
                                 f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
                                 f"but failed prerequisites check: {str(e)}"
