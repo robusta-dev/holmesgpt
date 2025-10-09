@@ -53,7 +53,7 @@ Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-ser
         api_version: "2025-01-01-preview"
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "azure-gpt-41"  # This refers to the key name in modelList above
     ```
@@ -94,7 +94,7 @@ Create an [Azure OpenAI resource](https://learn.microsoft.com/en-us/azure/ai-ser
           api_version: "2025-01-01-preview"
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "azure-gpt-41"  # This refers to the key name in modelList above
     ```

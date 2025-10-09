@@ -48,6 +48,7 @@ DEVELOPMENT_MODE = load_bool("DEVELOPMENT_MODE", False)
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
 SENTRY_TRACES_SAMPLE_RATE = float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.0"))
 
+EXTRA_HEADERS = os.environ.get("EXTRA_HEADERS", "")
 THINKING = os.environ.get("THINKING", "")
 REASONING_EFFORT = os.environ.get("REASONING_EFFORT", "").strip().lower()
 TEMPERATURE = float(os.environ.get("TEMPERATURE", "0.00000001"))
@@ -91,6 +92,9 @@ MAX_GRAPH_POINTS = float(os.environ.get("MAX_GRAPH_POINTS", 100))
 TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT = float(
     os.environ.get("TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT", 15)
 )
+
+# Absolute max tokens to allocate for a single tool response
+TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS = 25000
 
 MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION = int(
     os.environ.get("MAX_EVIDENCE_DATA_CHARACTERS_BEFORE_TRUNCATION", 3000)
