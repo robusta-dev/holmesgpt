@@ -4,7 +4,7 @@ import pytest
 import yaml
 
 from holmes.config import Config
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, TokenCountMetadata
 from holmes.core.tools import ToolInvokeContext
 
 DEFAULT_ROBUSTA_MODEL = "Robusta/gpt-5-mini preview (minimal reasoning)"
@@ -92,10 +92,19 @@ class MockLLM(LLM):
     def get_maximum_output_token(self) -> int:
         return 2048
 
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
+    def count_tokens(
+        self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
+    ) -> TokenCountMetadata:
         # Simple approximation: count characters and divide by 4
         total_chars = sum(len(str(msg.get("content", ""))) for msg in messages)
-        return total_chars // 4
+        return TokenCountMetadata(
+            total_tokens=total_chars // 4,
+            system_tokens=0,
+            tools_to_call_tokens=0,
+            tools_tokens=0,
+            user_tokens=0,
+            other_tokens=0,
+        )
 
     def completion(self, *args, **kwargs):  # type: ignore
         # Mock completion that returns a basic response

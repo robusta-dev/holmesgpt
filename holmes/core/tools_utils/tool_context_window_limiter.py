@@ -32,7 +32,9 @@ def prevent_overly_big_tool_response(tool_call_result: ToolCallResult, llm: LLM)
     max_tokens_allowed = get_max_token_count_for_single_tool(llm)
 
     message = tool_call_result.as_tool_call_message()
-    messages_token = llm.count_tokens_for_message(messages=[message])
+
+    tokens = llm.count_tokens(messages=[message])
+    messages_token = tokens.total_tokens
 
     if messages_token > max_tokens_allowed:
         relative_pct = ((messages_token - max_tokens_allowed) / messages_token) * 100
