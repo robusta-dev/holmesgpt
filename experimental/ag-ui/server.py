@@ -149,8 +149,6 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                 message=f"🔧 Using Agent tool: `{tool_name}`..."):
                             yield encoder.encode(event)
                     elif event_type == StreamEvents.TOOL_RESULT:
-                        # TODO [FUTURE]: Render "TodoWrite" tool_name results prettier.
-                        #                 Ideally using TOOL_STEP events.
                         logging.debug(f"🔧 TOOL_RESULT received - tool_name: {tool_name}")
                         front_end_tool_invoked = False
                         if _should_graph_timeseries_data(tool_name=tool_name):
@@ -182,8 +180,15 @@ def agui_chat(input_data: RunAgentInput, request: Request):
                                     }):
                                 yield encoder.encode(tool_event)
                         if not front_end_tool_invoked:
+                            # TODO [FUTURE]: Render "TodoWrite" tool_name results prettier. Use code block for now.
+                            #                 Ideally using TOOL_STEP events.
+                            if tool_name == "TodoWrite":
+                                tool_message = _format_todo_write(data=chunk.data)
+                            else:
+                                tool_message = f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
+
                             async for event in _stream_agui_text_message_event(
-                                    message=f"🔧 {tool_name} result:\n{chunk.data.get('result', {}).get('data', '')[0:200]}..."
+                                    message=tool_message
                             ):
                                 yield encoder.encode(event)
             yield encoder.encode(
@@ -205,6 +210,26 @@ def agui_chat(input_data: RunAgentInput, request: Request):
         event_generator(messages),
         media_type=encoder.get_content_type()
     )
+
+
+def _format_todo_write(data) -> str:
+    status_icons = {
+        'pending': '⬜',
+        'in_progress': '⏳',
+        'completed': '✅'
+    }
+    result_data = data.get("result", {})
+    params = result_data.get("params", {})
+    todos = params.get("todos", {})
+    output_str = "### Investigation Tasks:  \n"
+    task_list = []
+    for idx, todo in enumerate(todos):
+        status = todo.get("status", "")
+        icon = status_icons.get(status, "⬜")
+        content = todo.get("content", "")
+        task_list.append(f"{idx+1}. {icon} - {content}")
+    output_str += "  \n".join(task for task in task_list)
+    return output_str
 
 
 def _should_execute_suggested_query(backend_tool_name: str, frontend_tools: list) -> bool:
