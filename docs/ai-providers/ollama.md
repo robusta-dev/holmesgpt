@@ -41,7 +41,7 @@ Configure HolmesGPT to use local models with Ollama.
         model: ollama_chat/codellama
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "ollama-llama3"  # This refers to the key name in modelList above
     ```
@@ -71,7 +71,7 @@ Configure HolmesGPT to use local models with Ollama.
           model: ollama_chat/codellama
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "ollama-llama3"  # This refers to the key name in modelList above
     ```
