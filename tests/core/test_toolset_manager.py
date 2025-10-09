@@ -38,10 +38,10 @@ def test_server_tool_tags():
 
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
-@patch("holmes.core.toolset_manager.load_toolsets_from_config")
-def test__list_all_toolsets_merges_configs(
-    mock_load_toolsets_from_config, mock_load_builtin_toolsets, toolset_manager
+def test__list_all_toolsets_cannot_add_new_via_config(
+    mock_load_builtin_toolsets, toolset_manager
 ):
+    """Test that new toolsets cannot be added via 'toolsets' config - only existing can be configured"""
     builtin_toolset = MagicMock(spec=Toolset)
     builtin_toolset.name = "builtin"
     builtin_toolset.tags = [ToolsetTag.CORE]
@@ -50,33 +50,27 @@ def test__list_all_toolsets_merges_configs(
     builtin_toolset.error = None
     builtin_toolset.type = ToolsetType.BUILTIN
     builtin_toolset.path = None
+    builtin_toolset.config = None
+    builtin_toolset.additional_instructions = None
     builtin_toolset.check_prerequisites = MagicMock(
         return_value=ToolsetStatusEnum.ENABLED
     )
     mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    config_toolset = MagicMock(spec=Toolset)
-    config_toolset.name = "config"
-    config_toolset.tags = [ToolsetTag.CLI]
-    config_toolset.enabled = True
-    config_toolset.status = ToolsetStatusEnum.ENABLED
-    config_toolset.error = None
-    config_toolset.type = ToolsetType.CUSTOMIZED
-    config_toolset.path = None
-    config_toolset.check_prerequisites = MagicMock(
-        return_value=ToolsetStatusEnum.ENABLED
-    )
-    mock_load_toolsets_from_config.return_value = [config_toolset]
 
-    # Create a new manager with config
+    # Create a new manager with config trying to add new toolset
     toolset_manager = ToolsetManager(
         tags=[ToolsetTag.CORE, ToolsetTag.CLI],
-        config={"toolsets": {"config": {"description": "test config toolset"}}},
+        config={
+            "toolsets": {"new-custom-tool": {"description": "test config toolset"}}
+        },
         default_enabled=True,
+        suppress_logging=True,  # Suppress the error log in tests
     )
     toolsets = toolset_manager.registry.get_by_tags([ToolsetTag.CORE, ToolsetTag.CLI])
     names = [t.name for t in toolsets]
     assert "builtin" in names
-    assert "config" in names
+    # New toolset should NOT be added via config
+    assert "new-custom-tool" not in names
 
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
@@ -88,6 +82,7 @@ def test__list_all_toolsets_override_builtin_config(
         tags=[ToolsetTag.CORE],
         description="Builtin toolset",
         experimental=False,
+        tools=[],  # Required field after validator fix
     )
     mock_load_builtin_toolsets.return_value = [builtin_toolset]
     # Create a new manager with config override
@@ -99,34 +94,6 @@ def test__list_all_toolsets_override_builtin_config(
     toolsets = toolset_manager.registry.get_by_tags([ToolsetTag.CORE])
     assert len(toolsets) == 1
     assert toolsets[0].enabled is False
-
-
-@patch("holmes.core.toolset_manager.load_builtin_toolsets")
-def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_manager):
-    builtin_toolset = YAMLToolset(
-        name="builtin",
-        tags=[ToolsetTag.CORE],
-        description="Builtin toolset",
-        experimental=False,
-    )
-    mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".yaml") as tmpfile:
-        # Only override the enabled field, not trying to recreate the entire toolset
-        data = {"toolsets": {"builtin": {"enabled": False}}}
-        yaml.dump(data, tmpfile)
-        tmpfile_path = tmpfile.name
-    # Create a new manager with custom toolset path
-    from pathlib import Path
-
-    toolset_manager = ToolsetManager(
-        tags=[ToolsetTag.CORE],
-        config={},
-        custom_toolset_paths=[Path(tmpfile_path)],
-        default_enabled=True,
-    )
-    # Check that the override worked
-    assert toolset_manager.registry.toolsets["builtin"].enabled is False
-    os.remove(tmpfile_path)
 
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
@@ -314,55 +281,57 @@ def test_registry_add_and_update():
     toolset1 = MagicMock(spec=Toolset)
     toolset1.name = "test1"
     toolset1.tags = [ToolsetTag.CORE]
+    toolset1.enabled = True
+    toolset1.config = {"existing": "value"}
+    toolset1.additional_instructions = None
     registry.add([toolset1])
     assert "test1" in registry.toolsets
 
-    # Test update with override
-    original_toolset = registry.toolsets["test1"]
-    original_toolset.override_with = MagicMock()
-    registry.update_from_config({"test1": {"enabled": False}})
-    # Note: update creates a new toolset and calls override_with in current implementation
+    # Test update config for existing toolset
+    registry.update_from_config(
+        {"test1": {"enabled": False, "config": {"new": "data"}}}
+    )
+    # Should have updated the existing toolset
+    assert registry.toolsets["test1"].enabled is False
+    # Config should be merged
+    assert registry.toolsets["test1"].config == {"existing": "value", "new": "data"}
 
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
-def test_load_custom_builtin_toolsets_valid(mock_load_builtin_toolsets, tmp_path):
+def test_custom_file_cannot_override_builtin(mock_load_builtin_toolsets, tmp_path):
+    """Test that custom YAML files cannot override builtin toolsets"""
     # Create a mock builtin toolset named dummy_tool
     builtin_toolset = MagicMock(spec=Toolset)
     builtin_toolset.name = "dummy_tool"
     builtin_toolset.tags = [ToolsetTag.CORE]
     builtin_toolset.enabled = False  # Default disabled
-
-    # Mock override_with to actually update the enabled field
-    def mock_override(override):
-        if hasattr(override, "enabled"):
-            builtin_toolset.enabled = override.enabled
-
-    builtin_toolset.override_with = MagicMock(side_effect=mock_override)
+    builtin_toolset.config = None
+    builtin_toolset.additional_instructions = None
 
     mock_load_builtin_toolsets.return_value = [builtin_toolset]
 
-    # Override it with custom YAML
+    # Try to override it with custom YAML (should fail)
     custom_file = tmp_path / "custom_toolset.yaml"
     data = {
         "toolsets": {
             "dummy_tool": {
-                "enabled": True,  # Override to enabled
+                "enabled": True,  # Try to override to enabled
+                "description": "Custom override attempt",
             }
         }
     }
     custom_file.write_text(yaml.dump(data))
 
-    toolset_manager = ToolsetManager(
-        tags=[ToolsetTag.CORE],
-        config={},
-        custom_toolset_paths=[custom_file],
-        default_enabled=False,  # Don't auto-enable
-    )
+    # This should raise an error about conflict
+    with pytest.raises(ValueError) as exc_info:
+        ToolsetManager(
+            tags=[ToolsetTag.CORE],
+            config={},
+            custom_toolset_paths=[custom_file],
+            default_enabled=False,
+        )
 
-    # The toolset should be in the registry and enabled
-    assert "dummy_tool" in toolset_manager.registry.toolsets
-    # The override should have set enabled=True
-    assert toolset_manager.registry.toolsets["dummy_tool"].enabled is True
+    assert "conflict with builtin toolsets" in str(exc_info.value)
 
 
 def test_load_custom_toolsets_valid(tmp_path):
@@ -373,6 +342,7 @@ def test_load_custom_toolsets_valid(tmp_path):
                 "enabled": True,
                 "description": "dummy",
                 "config": {"key": "value"},
+                "tools": [],  # Required field after validator fix
             }
         }
     }
@@ -391,11 +361,12 @@ def test_load_custom_toolsets_valid(tmp_path):
 
 
 def test_load_custom_toolsets_missing_field_invalid(tmp_path):
+    """Test that toolsets missing required fields are skipped with error logging"""
     custom_file = tmp_path / "custom_toolset.yaml"
     data = {"toolsets": {"dummy_tool": {"enabled": True, "config": {"key": "value"}}}}
     custom_file.write_text(yaml.dump(data))
 
-    # This should log a warning but not fail
+    # This should log an error but not raise - invalid toolset is skipped
     toolset_manager = ToolsetManager(
         tags=[ToolsetTag.CORE],
         config={},
@@ -463,7 +434,8 @@ def test_mcp_servers_from_custom_toolset_config(tmp_path):
     assert toolset_manager.registry.toolsets["mcp1"].type == ToolsetType.MCP
 
 
-def test_mcp_servers_from_config():
+def test_mcp_servers_can_be_added_via_config():
+    """Test that MCP servers CAN be added via mcp_servers config section"""
     mcp_servers = {
         "mcp1": {
             "url": "http://example.com:8000/sse",
@@ -472,6 +444,7 @@ def test_mcp_servers_from_config():
         }
     }
 
+    # MCP servers can be added via the mcp_servers section
     toolset_manager = ToolsetManager(
         tags=[ToolsetTag.CORE],
         config={"toolsets": {}, "mcp_servers": mcp_servers},
@@ -619,7 +592,6 @@ def test_list_all_toolsets_applies_fast_model_injection(mock_load_builtin_toolse
     assert config_dict["llm_summarize"]["input_threshold"] == 1000  # Original
     assert config_dict["llm_summarize"]["prompt"] == "K8s prompt"  # Original
 
+    # MCP server should be added
     assert "mcp1" in toolset_manager.registry.toolsets
-    # The type should be set on the toolset object, not in config
-    # Note: type might be None if the toolset wasn't properly created
-    # This test might need adjustment based on how MCP servers are loaded
+    assert toolset_manager.registry.toolsets["mcp1"].type == ToolsetType.MCP

@@ -55,7 +55,9 @@ def test_load_toolsets_from_config_multiple_old_format_toolsets():
 
 
 toolsets_config_str = """
-grafana/loki:
+my-custom-loki:
+    description: "Test custom Loki toolset"
+    tools: []
     config:
         api_key: "{{env.GRAFANA_API_KEY}}"
         url: "{{env.GRAFANA_URL}}"
@@ -68,19 +70,17 @@ env_vars = {
 }
 
 
-def test_load_toolsets_from_config(monkeypatch):
+def test_load_toolsets_from_config_env_var_substitution(monkeypatch):
     for key, value in env_vars.items():
         os.environ[key] = value
         monkeypatch.setenv(key, value)
 
     toolsets_config = yaml.safe_load(toolsets_config_str)
     assert isinstance(toolsets_config, dict)
-    definitions = load_toolsets_from_config(
-        toolsets=toolsets_config, strict_check=False
-    )
+    definitions = load_toolsets_from_config(toolsets=toolsets_config)
     assert len(definitions) == 1
-    grafana_loki = definitions[0]
-    config = grafana_loki.config
+    custom_toolset = definitions[0]
+    config = custom_toolset.config
     assert config
     assert config.get("api_key") == "glsa_sdj1q2o3prujpqfd"
     assert config.get("url") == "https://my-grafana.com/"

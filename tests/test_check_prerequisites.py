@@ -1,7 +1,7 @@
 # type: ignore
 import os
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import Mock, call, patch
 
 from holmes.core.tools import (
@@ -40,8 +40,10 @@ class SampleToolset(Toolset):
     description: str = "A sample toolset for testing"
 
     def __init__(self, *args, **kwargs):
+        # Ensure tools is provided before calling super().__init__
+        if "tools" not in kwargs:
+            kwargs["tools"] = [DummyTool()]
         super().__init__(*args, **kwargs)
-        self.tools: List[Tool] = [DummyTool()]
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

@@ -568,20 +568,15 @@ class Toolset(BaseModel):
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
 
-    def override_with(self, override: "Toolset") -> None:
-        """
-        Overrides the current attributes with values from the Toolset loaded from custom config
-        if they are not None.
-        """
-        for field, value in override.model_dump(
-            exclude_unset=True,
-            exclude=("name"),  # type: ignore
-        ).items():
-            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
-                setattr(self, field, value)
-
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
+        # Get tools, defaulting to None if not present
+        tools_data = values.get("tools", None)
+        if not tools_data:
+            # If missing, None, or empty list, let Pydantic handle validation
+            return values
+
+        # Add additional_instructions to each tool
         additional_instructions = values.get("additional_instructions", "")
         transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
@@ -664,6 +659,12 @@ class Toolset(BaseModel):
                 )
             tools.append(tool)
         values["tools"] = tools
+        if additional_instructions:
+            for tool in tools_data:
+                if isinstance(tool, dict):
+                    tool["additional_instructions"] = additional_instructions
+                elif isinstance(tool, Tool):
+                    tool.additional_instructions = additional_instructions
 
         return values
 
@@ -782,39 +783,6 @@ class YAMLToolset(Toolset):
         super().__init__(**kwargs)
         if self.llm_instructions:
             self._load_llm_instructions(self.llm_instructions)
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
-
-
-class ToolsetYamlFromConfig(Toolset):
-    """
-    ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
-    To override a build-in toolset fields, we don't have to explicitly set all required fields,
-    instead, we only put the fields we want to override in the YAML file.
-    ToolsetYamlFromConfig helps py-pass the pydantic validation of the required fields and together with
-    `override_with` method, a build-in toolset object with new configurations is created.
-    """
-
-    name: str
-    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
-    # Built-in toolsets are exception and should be disabled by default when loaded
-    enabled: bool = True
-    additional_instructions: Optional[str] = None
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-        ]
-    ] = []  # type: ignore
-    tools: Optional[List[YAMLTool]] = []  # type: ignore
-    description: Optional[str] = None  # type: ignore
-    docs_url: Optional[str] = None
-    icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-    config: Optional[Any] = None
-    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

@@ -2,6 +2,10 @@
 
 HolmesGPT connects to your monitoring and observability tools to provide comprehensive root cause analysis.
 
+## Getting Started
+
+First, understand how to [configure toolsets](configuring-toolsets.md) for your environment, then explore the available options below.
+
 ## Available Options
 
 <div class="grid cards" markdown>

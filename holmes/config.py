@@ -164,6 +164,17 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_env(cls):
         kwargs = {}
+
+        # Load builtin toolsets config from environment if present (used by Helm)
+        builtin_toolsets_json = os.environ.get("HOLMES_BUILTIN_TOOLSETS_CONFIG")
+        if builtin_toolsets_json:
+            try:
+                import json
+
+                kwargs["toolsets"] = json.loads(builtin_toolsets_json)
+            except json.JSONDecodeError:
+                logging.error("Failed to parse HOLMES_BUILTIN_TOOLSETS_CONFIG JSON")
+
         for field_name in [
             "model",
             "fast_model",

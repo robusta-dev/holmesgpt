@@ -18,8 +18,8 @@ spec:
       labels:
         app: holmes
       annotations:
-        # checksum annotation triggering pod reload when .Values.toolsets changes by helm upgrade
-        checksum/toolset-config: {{ list .Values.toolsets .Values.modelList .Values.mcp_servers | toYaml | sha256sum }}
+        # checksum annotation triggering pod reload when toolsets config changes by helm upgrade
+        checksum/toolset-config: {{ list .Values.toolsets .Values.custom_toolsets .Values.modelList .Values.mcp_servers | toYaml | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -54,6 +54,14 @@ spec:
             value: {{ .Values.enableTelemetry | quote }}
           - name: SENTRY_DSN
             value: {{ .Values.sentryDSN }}
+          # Set custom toolset directory for Helm deployments
+          - name: CUSTOM_TOOLSET_DIR
+            value: /etc/holmes/toolsets
+          {{- if .Values.toolsets }}
+          # Pass builtin toolset configuration as JSON
+          - name: HOLMES_BUILTIN_TOOLSETS_CONFIG
+            value: {{ .Values.toolsets | toJson | quote }}
+          {{- end }}
           {{ if .Values.certificate -}}
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
@@ -80,7 +88,7 @@ spec:
           - name: playbooks-config-secret
             mountPath: /etc/robusta/config
           - name: custom-toolsets-configmap
-            mountPath: /etc/holmes/config
+            mountPath: /etc/holmes/toolsets
           {{- if .Values.additionalVolumeMounts -}}
           {{ toYaml .Values.additionalVolumeMounts | nindent 10 }}
           {{- end }}

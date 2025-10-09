@@ -1,14 +1,26 @@
-{{- if .Values.toolsets | not | empty }}
+{{- if or .Values.custom_toolsets .Values.mcp_servers (not (empty .Values.toolsets)) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: custom-toolsets-configmap
   namespace: {{ .Release.Namespace }}
 data:
-  custom_toolset.yaml: |-
-    toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
+  # This file contains ONLY custom (non-builtin) toolsets and MCP servers
+  # To configure builtin toolsets, use environment variables or config file
+  custom.yaml: |-
+    {{- if .Values.custom_toolsets }}
+    toolsets: {{ toYaml .Values.custom_toolsets | nindent 6 }}
+    {{- end }}
+    {{- if .Values.mcp_servers }}
     mcp_servers: {{ toYaml .Values.mcp_servers | nindent 6 }}
+    {{- end }}
+  {{- if .Values.toolsets }}
+  # Builtin toolset configuration (passed via environment variable)
+  builtin_toolsets_config.json: |-
+    {{ .Values.toolsets | toJson | nindent 4 }}
+  {{- end }}
+  {{- if .Values.modelList }}
   model_list.yaml: |-
     {{ .Values.modelList | toYaml | nindent 4 }}
-
+  {{- end }}
 {{- end }}

@@ -29,9 +29,7 @@ def test_load_mcp_toolsets_definition():
 
         toolsets_config = yaml.safe_load(toolsets_config_str)
         assert isinstance(toolsets_config, dict)
-        definitions = load_toolsets_from_config(
-            toolsets=toolsets_config, strict_check=False
-        )
+        definitions = load_toolsets_from_config(toolsets=toolsets_config)
         assert len(definitions) == 1
         mcp_test = definitions[0]
         config = mcp_test.config

@@ -34,7 +34,7 @@ from holmes.config import (
 from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tools import pretty_print_toolset_status
-from holmes.core.toolset_manager import ToolsetManager
+from holmes.core.toolset_manager import ToolsetManager, cache_exists
 from holmes.core.tracing import SpanType, TracingFactory
 from holmes.interactive_mode import run_interactive_loop
 from holmes.plugins.destinations import DestinationType
@@ -45,6 +45,7 @@ from holmes.utils.console.consts import system_prompt_help
 from holmes.utils.console.logging import init_logging
 from holmes.utils.console.result import handle_result
 from holmes.utils.file_utils import write_json_file
+
 
 app = typer.Typer(add_completion=False, pretty_exceptions_show_locals=False)
 investigate_app = typer.Typer(
@@ -259,9 +260,6 @@ def ask(
     # Create tracer if trace option is provided
     tracer = TracingFactory.create_tracer(trace, project="HolmesGPT-CLI")
     tracer.start_experiment()
-
-    # Check if toolsets will be loaded from cache
-    from holmes.core.toolset_manager import cache_exists
 
     # In non-interactive mode, always refresh toolsets for fresh results
     # In interactive mode, use cache unless explicitly told to refresh

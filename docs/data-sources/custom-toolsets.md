@@ -69,7 +69,7 @@ This example creates a toolset that helps HolmesGPT view and suggest relevant Gr
 
     ```yaml
     holmes:
-      customToolsets:
+      custom_toolsets:
         grafana:
           description: "View and suggest Grafana dashboards"
           prerequisites: "Grafana instance accessible from HolmesGPT"
@@ -173,7 +173,7 @@ This example creates a toolset with advanced diagnostic tools for Kubernetes clu
 
     ```yaml
     holmes:
-      customToolsets:
+      custom_toolsets:
         k8s-diagnostics:
           description: "Advanced Kubernetes diagnostic tools"
           prerequisites: "kubectl access to the cluster"
@@ -286,7 +286,7 @@ This example shows how to create a toolset for fetching information from GitHub 
 
     ```yaml
     holmes:
-      customToolsets:
+      custom_toolsets:
         github:
           description: "Fetch information from GitHub repositories"
           prerequisites: "GitHub API token with repository access"
