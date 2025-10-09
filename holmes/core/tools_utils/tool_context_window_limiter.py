@@ -1,5 +1,8 @@
 from typing import Optional
-from holmes.common.env_vars import TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+from holmes.common.env_vars import (
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+)
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.models import ToolCallResult
@@ -16,8 +19,12 @@ def get_pct_token_count(percent_of_total_context_window: float, llm: LLM) -> int
 
 
 def get_max_token_count_for_single_tool(llm: LLM) -> int:
-    return get_pct_token_count(
-        percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT, llm=llm
+    return min(
+        TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+        get_pct_token_count(
+            percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+            llm=llm,
+        ),
     )
 
 
