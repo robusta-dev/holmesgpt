@@ -63,7 +63,7 @@ Configure HolmesGPT to use any OpenAI-compatible API.
         model: openai/your-custom-model
         temperature: 1
 
-    # Optional: Set default model (use modelList key name, not the model path)
+    # Optional: Set default model (use modelList key name)
     config:
       model: "local-llama"  # This refers to the key name in modelList above
     ```
@@ -106,7 +106,7 @@ Configure HolmesGPT to use any OpenAI-compatible API.
           model: openai/your-custom-model
           temperature: 1
 
-      # Optional: Set default model (use modelList key name, not the model path)
+      # Optional: Set default model (use modelList key name)
       config:
         model: "local-llama"  # This refers to the key name in modelList above
     ```

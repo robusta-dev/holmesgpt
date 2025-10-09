@@ -1,11 +1,15 @@
 import json
 from enum import Enum
-from typing import Generator, Optional, List
+from typing import Generator, Optional, List, Union
 import litellm
 from pydantic import BaseModel, Field
 from holmes.core.investigation_structured_output import process_response_into_sections
 from functools import partial
 import logging
+from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from litellm.types.utils import ModelResponse, TextCompletionResponse
+
+from holmes.core.llm import TokenCountMetadata, get_llm_usage
 
 
 class StreamEvents(str, Enum):
@@ -15,6 +19,7 @@ class StreamEvents(str, Enum):
     ERROR = "error"
     AI_MESSAGE = "ai_message"
     APPROVAL_REQUIRED = "approval_required"
+    TOKEN_COUNT = "token_count"
     CONVERSATION_HISTORY_COMPACTED = "conversation_history_compacted"
 
 
@@ -113,3 +118,27 @@ def stream_chat_formatter(
             yield create_rate_limit_error_message(str(e))
         else:
             yield create_sse_error_message(description=str(e), error_code=1, msg=str(e))
+
+
+def add_token_count_to_metadata(
+    tokens: TokenCountMetadata,
+    metadata: dict,
+    max_context_size: int,
+    maximum_output_token: int,
+    full_llm_response: Union[
+        ModelResponse, CustomStreamWrapper, TextCompletionResponse
+    ],
+):
+    metadata["usage"] = get_llm_usage(full_llm_response)
+    metadata["tokens"] = tokens.model_dump()
+    metadata["max_tokens"] = max_context_size
+    metadata["max_output_tokens"] = maximum_output_token
+
+
+def build_stream_event_token_count(metadata: dict) -> StreamMessage:
+    return StreamMessage(
+        event=StreamEvents.TOKEN_COUNT,
+        data={
+            "metadata": metadata,
+        },
+    )

@@ -1,6 +1,9 @@
 from typing import Optional
 from pydantic import BaseModel
-from holmes.common.env_vars import TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+from holmes.common.env_vars import (
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+)
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.models import ToolCallResult
@@ -10,6 +13,25 @@ from holmes.utils import sentry_helper
 class ToolCallSizeMetadata(BaseModel):
     messages_token: int
     max_tokens_allowed: int
+
+
+def get_pct_token_count(percent_of_total_context_window: float, llm: LLM) -> int:
+    context_window_size = llm.get_context_window_size()
+
+    if 0 < percent_of_total_context_window and percent_of_total_context_window <= 100:
+        return int(context_window_size * percent_of_total_context_window // 100)
+    else:
+        return context_window_size
+
+
+def get_max_token_count_for_single_tool(llm: LLM) -> int:
+    return min(
+        TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
+        get_pct_token_count(
+            percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+            llm=llm,
+        ),
+    )
 
 
 def is_tool_call_too_big(
@@ -22,16 +44,17 @@ def is_tool_call_too_big(
     ):
         message = tool_call_result.as_tool_call_message()
 
-        messages_token = llm.count_tokens_for_message(messages=[message])
+        tokens = llm.count_tokens(messages=[message])
         context_window_size = llm.get_context_window_size()
         max_tokens_allowed: int = int(
             context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
         )
 
         return (
-            messages_token > max_tokens_allowed,
+            tokens.total_tokens > max_tokens_allowed,
             ToolCallSizeMetadata(
-                messages_token=messages_token, max_tokens_allowed=max_tokens_allowed
+                messages_token=tokens.total_tokens,
+                max_tokens_allowed=max_tokens_allowed,
             ),
         )
     return False, None

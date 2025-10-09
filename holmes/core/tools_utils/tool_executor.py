@@ -9,6 +9,7 @@ from holmes.core.tools import (
     StructuredToolResultStatus,
     Toolset,
     ToolsetStatusEnum,
+    ToolInvokeContext,
 )
 from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_toolset
 
@@ -46,16 +47,20 @@ class ToolExecutor:
                     )
                 self.tools_by_name[tool.name] = tool
 
-    def invoke(self, tool_name: str, params: dict) -> StructuredToolResult:
+    def invoke(
+        self, tool_name: str, params: dict, context: ToolInvokeContext
+    ) -> StructuredToolResult:
+        """TODO: remove this function as it seems unused.
+        We call tool_executor.get_tool_by_name() and then tool.invoke() directly instead of this invoke function
+        """
         tool = self.get_tool_by_name(tool_name)
-        return (
-            tool.invoke(params)
-            if tool
-            else StructuredToolResult(
+        if not tool:
+            return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error=f"Could not find tool named {tool_name}",
             )
-        )
+
+        return tool.invoke(params, context)
 
     def get_tool_by_name(self, name: str) -> Optional[Tool]:
         if name in self.tools_by_name:

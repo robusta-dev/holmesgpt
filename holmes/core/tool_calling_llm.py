@@ -34,13 +34,18 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT, LLM, get_llm_usage
+from holmes.core.llm import CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT, LLM
 from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    ToolInvokeContext,
+)
 from holmes.core.tools_utils.tool_context_window_limiter import (
+    get_max_token_count_for_single_tool,
     prevent_overly_big_tool_response,
 )
 from holmes.core.truncation.compaction import (
@@ -56,7 +61,12 @@ from holmes.utils.tags import format_tags_in_string, parse_messages_tags
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import DummySpan
 from holmes.utils.colors import AI_COLOR
-from holmes.utils.stream import StreamEvents, StreamMessage
+from holmes.utils.stream import (
+    StreamEvents,
+    StreamMessage,
+    add_token_count_to_metadata,
+    build_stream_event_token_count,
+)
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
@@ -162,7 +172,8 @@ def truncate_messages_to_fit_context(
     messages_except_tools = [
         message for message in messages if message["role"] != "tool"
     ]
-    message_size_without_tools = count_tokens_fn(messages_except_tools)
+    tokens = count_tokens_fn(messages_except_tools)
+    message_size_without_tools = tokens.total_tokens
 
     tool_call_messages = [message for message in messages if message["role"] == "tool"]
 
@@ -183,7 +194,9 @@ def truncate_messages_to_fit_context(
     )
     remaining_space = available_space
     tool_call_messages.sort(
-        key=lambda x: count_tokens_fn([{"role": "tool", "content": x["content"]}])
+        key=lambda x: count_tokens_fn(
+            [{"role": "tool", "content": x["content"]}]
+        ).total_tokens
     )
 
     truncations = []
@@ -194,7 +207,9 @@ def truncate_messages_to_fit_context(
     for i, msg in enumerate(tool_call_messages):
         remaining_tools = len(tool_call_messages) - i
         max_allocation = remaining_space // remaining_tools
-        needed_space = count_tokens_fn([{"role": "tool", "content": msg["content"]}])
+        needed_space = count_tokens_fn(
+            [{"role": "tool", "content": msg["content"]}]
+        ).total_tokens
         allocated_space = min(needed_space, max_allocation)
 
         if needed_space > allocated_space:
@@ -255,6 +270,12 @@ class LLMResult(LLMCosts):
         )
 
 
+class ToolCallWithDecision(BaseModel):
+    message_index: int
+    tool_call: ChatCompletionMessageToolCall
+    decision: Optional[ToolApprovalDecision]
+
+
 class ToolCallingLLM:
     llm: LLM
 
@@ -282,83 +303,79 @@ class ToolCallingLLM:
         Returns:
             Updated messages list with tool execution results
         """
-        # Import here to avoid circular imports
-
-        # Find the last message with pending approvals
-        pending_message_idx = None
-        pending_tool_calls = None
-
-        for i in reversed(range(len(messages))):
-            msg = messages[i]
-            if msg.get("role") == "assistant" and msg.get("pending_approval"):
-                pending_message_idx = i
-                pending_tool_calls = msg.get("tool_calls", [])
-                break
-
-        if pending_message_idx is None or not pending_tool_calls:
-            # No pending approvals found
-            if tool_decisions:
-                logging.warning(
-                    f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
-                )
+        if not tool_decisions:
             return messages
 
         # Create decision lookup
-        decisions_by_id = {
+        decisions_by_tool_call_id = {
             decision.tool_call_id: decision for decision in tool_decisions
         }
 
-        # Validate that all decisions have corresponding pending tool calls
-        pending_tool_ids = {tool_call["id"] for tool_call in pending_tool_calls}
-        invalid_decisions = [
-            decision.tool_call_id
-            for decision in tool_decisions
-            if decision.tool_call_id not in pending_tool_ids
-        ]
+        pending_tool_calls: list[ToolCallWithDecision] = []
 
-        if invalid_decisions:
-            logging.warning(
-                f"Received decisions for non-pending tool calls: {invalid_decisions}"
-            )
+        for i in reversed(range(len(messages))):
+            msg = messages[i]
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                message_tool_calls = msg.get("tool_calls", [])
+                for tool_call in message_tool_calls:
+                    decision = decisions_by_tool_call_id.get(tool_call.get("id"), None)
+                    if tool_call.get("pending_approval"):
+                        del tool_call[
+                            "pending_approval"
+                        ]  # Cleanup so that a pending approval is not tagged on message in a future response
+                        pending_tool_calls.append(
+                            ToolCallWithDecision(
+                                tool_call=ChatCompletionMessageToolCall(**tool_call),
+                                decision=decision,
+                                message_index=i,
+                            )
+                        )
 
-        # Process each tool call
-        for tool_call in pending_tool_calls:
-            tool_call_id = tool_call["id"]
-            decision = decisions_by_id.get(tool_call_id)
+        if not pending_tool_calls:
+            error_message = f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
+            logging.error(error_message)
+            raise Exception(error_message)
 
+        for tool_call_with_decision in pending_tool_calls:
+            tool_call_message: dict
+            tool_call = tool_call_with_decision.tool_call
+            decision = tool_call_with_decision.decision
             if decision and decision.approved:
                 try:
-                    tool_call_obj = ChatCompletionMessageToolCall(**tool_call)
                     llm_tool_result = self._invoke_llm_tool_call(
-                        tool_to_call=tool_call_obj,
+                        tool_to_call=tool_call,
                         previous_tool_calls=[],
-                        trace_span=DummySpan(),
+                        trace_span=DummySpan(),  # TODO: replace with proper span
                         tool_number=None,
+                        user_approved=True,
                     )
-                    messages.append(llm_tool_result.as_tool_call_message())
+                    tool_call_message = llm_tool_result.as_tool_call_message()
 
                 except Exception as e:
                     logging.error(
-                        f"Failed to execute approved tool {tool_call_id}: {e}"
+                        f"Failed to execute approved tool {tool_call.id}: {e}"
                     )
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call_id,
-                            "role": "tool",
-                            "name": tool_call["function"]["name"],
-                            "content": f"Tool execution failed: {str(e)}",
-                        }
-                    )
+                    tool_call_message = {
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": tool_call.function.name,
+                        "content": f"Tool execution failed: {str(e)}",
+                    }
             else:
                 # Tool was rejected or no decision found, add rejection message
-                messages.append(
-                    {
-                        "tool_call_id": tool_call_id,
-                        "role": "tool",
-                        "name": tool_call["function"]["name"],
-                        "content": "Tool execution was denied by the user.",
-                    }
-                )
+                tool_call_message = {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": tool_call.function.name,
+                    "content": "Tool execution was denied by the user.",
+                }
+
+            # It is expected that the tool call result directly follows the tool call request from the LLM
+            # The API call may contain a user ask which is appended to the messages so we can't just append
+            # tool call results; they need to be inserted right after the llm's message requesting tool calls
+            messages.insert(
+                tool_call_with_decision.message_index + 1, tool_call_message
+            )
 
         return messages
 
@@ -424,12 +441,12 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            total_tokens = self.llm.count_tokens_for_message(messages)
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
             perf_timing.measure("count tokens")
 
-            if (total_tokens + maximum_output_token) > max_context_size:
+            if (tokens.total_tokens + maximum_output_token) > max_context_size:
                 logging.warning("Token limit exceeded. Truncating tool responses.")
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -480,7 +497,7 @@ class ToolCallingLLM:
 
                 if incorrect_tool_call:
                     logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4.1' or other structured output compatible models. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
                     sentry_helper.capture_structured_output_incorrect_tool_call()
@@ -519,11 +536,17 @@ class ToolCallingLLM:
                     )
                     costs.total_cost += post_processing_cost
 
-                    self.llm.count_tokens_for_message(messages)
+                    tokens = self.llm.count_tokens(messages=messages, tools=tools)
+
+                    add_token_count_to_metadata(
+                        tokens=tokens,
+                        full_llm_response=full_response,
+                        max_context_size=max_context_size,
+                        maximum_output_token=maximum_output_token,
+                        metadata=metadata,
+                    )
                     perf_timing.end(f"- completed in {i} iterations -")
-                    metadata["usage"] = get_llm_usage(full_response)
-                    metadata["max_tokens"] = max_context_size
-                    metadata["max_output_tokens"] = maximum_output_token
+
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
@@ -625,9 +648,13 @@ class ToolCallingLLM:
             )
 
         try:
-            tool_response = tool.invoke(
-                tool_params, tool_number=tool_number, user_approved=user_approved
+            invoke_context = ToolInvokeContext(
+                tool_number=tool_number,
+                user_approved=user_approved,
+                llm=self.llm,
+                max_token_count=get_max_token_count_for_single_tool(self.llm),
             )
+            tool_response = tool.invoke(tool_params, context=invoke_context)
         except Exception as e:
             logging.error(
                 f"Tool call to {tool_name} failed with an Exception", exc_info=True
@@ -644,6 +671,7 @@ class ToolCallingLLM:
         tool_call_id: str,
         tool_name: str,
         tool_arguments: str,
+        user_approved: bool,
         previous_tool_calls: list[dict],
         tool_number: Optional[int] = None,
     ) -> ToolCallResult:
@@ -665,7 +693,7 @@ class ToolCallingLLM:
             tool_response = self._directly_invoke_tool_call(
                 tool_name=tool_name,
                 tool_params=tool_params,
-                user_approved=False,
+                user_approved=user_approved,
                 tool_number=tool_number,
             )
 
@@ -710,6 +738,7 @@ class ToolCallingLLM:
         previous_tool_calls: list[dict],
         trace_span=None,
         tool_number=None,
+        user_approved: bool = False,
     ) -> ToolCallResult:
         if trace_span is None:
             trace_span = DummySpan()
@@ -742,6 +771,7 @@ class ToolCallingLLM:
                     tool_arguments,
                     previous_tool_calls=previous_tool_calls,
                     tool_number=tool_number,
+                    user_approved=user_approved,
                 )
 
             prevent_overly_big_tool_response(
@@ -852,7 +882,7 @@ class ToolCallingLLM:
             messages,
             max_context_size,
             maximum_output_token,
-            self.llm.count_tokens_for_message,
+            self.llm.count_tokens,
         )
         if truncated_res.truncations:
             sentry_helper.capture_tool_truncations(truncated_res.truncations)
@@ -894,22 +924,21 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
+            initial_tokens = self.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
             max_context_size = self.llm.get_context_window_size()
             maximum_output_token = self.llm.get_maximum_output_token()
-            if (initial_total_tokens + maximum_output_token) > (
+            if (initial_tokens.total_tokens + maximum_output_token) > (
                 max_context_size * CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT / 100
             ):
                 compacted_messages = compact_conversation_history(
                     original_conversation_history=messages, llm=self.llm
                 )
-                compacted_total_tokens = self.llm.count_tokens_for_message(
-                    compacted_messages
-                )
+                compacted_tokens = self.llm.count_tokens(compacted_messages)
+                compacted_total_tokens = compacted_tokens.total_tokens
 
-                if compacted_total_tokens < initial_total_tokens:
+                if compacted_total_tokens < initial_tokens.total_tokens:
                     messages = compacted_messages
-                    compaction_message = f"The conversation history has been compacted from {initial_total_tokens} to {compacted_total_tokens} tokens"
+                    compaction_message = f"The conversation history has been compacted from {initial_tokens.total_tokens} to {compacted_total_tokens} tokens"
                     logging.info(compaction_message)
                     yield StreamMessage(
                         event=StreamEvents.CONVERSATION_HISTORY_COMPACTED,
@@ -917,7 +946,7 @@ class ToolCallingLLM:
                             "content": compaction_message,
                             "messages": compacted_messages,
                             "metadata": {
-                                "initial_tokens": initial_total_tokens,
+                                "initial_tokens": initial_tokens.total_tokens,
                                 "compacted_tokens": compacted_total_tokens,
                             },
                         },
@@ -928,11 +957,11 @@ class ToolCallingLLM:
                     )
                 else:
                     logging.debug(
-                        f"Failed to reduce token count when compacting conversation history. Original tokens:{initial_total_tokens}. Compacted tokens:{compacted_total_tokens}"
+                        f"Failed to reduce token count when compacting conversation history. Original tokens:{initial_tokens.total_tokens}. Compacted tokens:{compacted_total_tokens}"
                     )
 
-            initial_total_tokens = self.llm.count_tokens_for_message(messages)  # type: ignore
-            if (initial_total_tokens + maximum_output_token) > max_context_size:
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
+            if (tokens.total_tokens + maximum_output_token) > max_context_size:
                 # Compaction was not sufficient. Truncating messages.
                 truncated_res = self.truncate_messages_to_fit_context(
                     messages, max_context_size, maximum_output_token
@@ -980,7 +1009,7 @@ class ToolCallingLLM:
 
                 if incorrect_tool_call:
                     logging.warning(
-                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4o'. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
+                        "Detected incorrect tool call. Structured output will be disabled. This can happen on models that do not support tool calling. For Azure AI, make sure the model name contains 'gpt-4.1' or other structured output compatible models. To disable this holmes behaviour, set REQUEST_STRUCTURED_OUTPUT_FROM_LLM to `false`."
                     )
                     # disable structured output going forward and and retry
                     sentry_helper.capture_structured_output_incorrect_tool_call()
@@ -994,12 +1023,18 @@ class ToolCallingLLM:
                 )
             )
 
+            tokens = self.llm.count_tokens(messages=messages, tools=tools)
+            add_token_count_to_metadata(
+                tokens=tokens,
+                full_llm_response=full_response,
+                max_context_size=max_context_size,
+                maximum_output_token=maximum_output_token,
+                metadata=metadata,
+            )
+            yield build_stream_event_token_count(metadata=metadata)
+
             tools_to_call = getattr(response_message, "tool_calls", None)
             if not tools_to_call:
-                self.llm.count_tokens_for_message(messages)
-                metadata["usage"] = get_llm_usage(full_response)
-                metadata["max_tokens"] = max_context_size
-                metadata["max_output_tokens"] = maximum_output_token
                 yield StreamMessage(
                     event=StreamEvents.ANSWER_END,
                     data={
@@ -1015,7 +1050,11 @@ class ToolCallingLLM:
             if reasoning or message:
                 yield StreamMessage(
                     event=StreamEvents.AI_MESSAGE,
-                    data={"content": message, "reasoning": reasoning},
+                    data={
+                        "content": message,
+                        "reasoning": reasoning,
+                        "metadata": metadata,
+                    },
                 )
 
             # Check if any tools require approval first
@@ -1090,23 +1129,11 @@ class ToolCallingLLM:
                 # If we have approval required tools, end the stream with pending approvals
                 if pending_approvals:
                     # Add assistant message with pending tool calls
-                    assistant_msg = {
-                        "role": "assistant",
-                        "content": response_message.content,
-                        "tool_calls": [
-                            {
-                                "id": result.tool_call_id,
-                                "type": "function",
-                                "function": {
-                                    "name": result.tool_name,
-                                    "arguments": json.dumps(result.result.params or {}),
-                                },
-                            }
-                            for result in approval_required_tools
-                        ],
-                        "pending_approval": True,
-                    }
-                    messages.append(assistant_msg)
+                    for result in approval_required_tools:
+                        tool_call = self.find_assistant_tool_call_request(
+                            tool_call_id=result.tool_call_id, messages=messages
+                        )
+                        tool_call["pending_approval"] = True
 
                     # End stream with approvals required
                     yield StreamMessage(
@@ -1127,6 +1154,21 @@ class ToolCallingLLM:
 
         raise Exception(
             f"Too many LLM calls - exceeded max_steps: {i}/{self.max_steps}"
+        )
+
+    def find_assistant_tool_call_request(
+        self, tool_call_id: str, messages: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        for message in messages:
+            if message.get("role") == "assistant":
+                for tool_call in message.get("tool_calls", []):
+                    if tool_call.get("id") == tool_call_id:
+                        return tool_call
+
+        # Should not happen unless there is a bug.
+        # If we are here
+        raise Exception(
+            f"Failed to find assistant request for a tool_call in conversation history. tool_call_id={tool_call_id}"
         )
 
 

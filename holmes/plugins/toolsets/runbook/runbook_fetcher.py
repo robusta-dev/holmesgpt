@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -65,11 +66,8 @@ class RunbookFetcher(Tool):
             additional_search_paths=additional_search_paths,  # type: ignore[call-arg]
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         link: str = params.get("link", "")
-
         # Validate link is not empty
         if not link or not link.strip():
             err_msg = (
