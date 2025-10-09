@@ -167,12 +167,12 @@ class FetchConfigurationChangesMetadata(Tool):
                     required=True,
                 ),
                 "namespace": ToolParameter(
-                    description="The Kubernetes namespace name for filtering confgiuration changes",
+                    description="The Kubernetes namespace name for filtering configuration changes",
                     type="string",
                     required=False,
                 ),
                 "workload": ToolParameter(
-                    description="The kubernetes workload name for filtering confgiuration changes. Deployment name or Pod name for example.",
+                    description="The kubernetes workload name for filtering configuration changes. Deployment name or Pod name for example.",
                     type="string",
                     required=False,
                 ),
