@@ -566,6 +566,7 @@ class ToolsetManager:
             custom_toolset_paths=custom_paths,
             default_enabled=default_enabled,
             suppress_logging=False,
+            global_fast_model=config.fast_model if config else None,
         )
 
     @classmethod
