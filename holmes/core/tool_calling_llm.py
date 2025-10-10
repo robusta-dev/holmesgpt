@@ -447,7 +447,9 @@ class ToolCallingLLM:
                 compacted_messages = compact_conversation_history(
                     original_conversation_history=messages, llm=self.llm
                 )
-                compacted_tokens = self.llm.count_tokens(compacted_messages)
+                compacted_tokens = self.llm.count_tokens(
+                    compacted_messages, tools=tools
+                )
                 compacted_total_tokens = compacted_tokens.total_tokens
 
                 if compacted_total_tokens < initial_tokens.total_tokens:
@@ -948,7 +950,9 @@ class ToolCallingLLM:
                 compacted_messages = compact_conversation_history(
                     original_conversation_history=messages, llm=self.llm
                 )
-                compacted_tokens = self.llm.count_tokens(compacted_messages)
+                compacted_tokens = self.llm.count_tokens(
+                    compacted_messages, tools=tools
+                )
                 compacted_total_tokens = compacted_tokens.total_tokens
 
                 if compacted_total_tokens < initial_tokens.total_tokens:
