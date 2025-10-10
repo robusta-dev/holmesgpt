@@ -2,12 +2,25 @@ import json
 import os
 from pathlib import Path
 
+import pytest
 
 from holmes.core.llm import DefaultLLM
 from holmes.core.truncation.compaction import compact_conversation_history
 
 CONVERSATION_HISTORY_FILE_PATH = (
     Path(__file__).parent / "conversation_history_for_compaction.json"
+)
+
+# Skip tests if Azure credentials are not available
+pytestmark = pytest.mark.skipif(
+    not all(
+        [
+            os.environ.get("AZURE_API_BASE"),
+            os.environ.get("AZURE_API_VERSION"),
+            os.environ.get("AZURE_API_KEY"),
+        ]
+    ),
+    reason="Azure credentials (AZURE_API_BASE, AZURE_API_VERSION, AZURE_API_KEY) are not set",
 )
 
 
