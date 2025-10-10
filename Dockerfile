@@ -148,6 +148,7 @@ RUN git config --global core.symlinks false
 RUN rm -rf /usr/local/lib/python3.11/site-packages/setuptools-65.5.1.dist-info
 RUN rm -rf /usr/local/lib/python3.11/ensurepip/_bundled/setuptools-65.5.0-py3-none-any.whl
 
+COPY ./experimental/ag-ui/server-agui.py /app/experimental/ag-ui/server-agui.py
 COPY ./holmes /app/holmes
 COPY ./server.py /app/server.py
 COPY ./holmes_cli.py /app/holmes_cli.py
