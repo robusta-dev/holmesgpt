@@ -223,7 +223,7 @@ class TestOpenSearchQueryAssistToolset:
         assert "OpenSearch query assist with PPL queries" in self.toolset.description
         assert self.toolset.experimental is True
         assert self.toolset.enabled is False
-        assert self.toolset.is_default is True
+        assert self.toolset.is_default is False
         assert ToolsetTag.CORE in self.toolset.tags
 
         # Check that it has the correct tool
@@ -359,7 +359,7 @@ class TestIntegration:
         # Verify toolset properties
         assert toolset.experimental is True
         assert toolset.enabled is False
-        assert toolset.is_default is True
+        assert toolset.is_default is False
 
         # Verify it has exactly one tool
         assert len(toolset.tools) == 1
