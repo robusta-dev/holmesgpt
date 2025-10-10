@@ -21,6 +21,5 @@ test_type: server
 
 tags:
   - kubernetes
-  - easy
 
 setup_timeout: 600
