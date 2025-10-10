@@ -57,6 +57,7 @@ class TokenCountMetadata(BaseModel):
     system_tokens: int
     user_tokens: int
     tools_to_call_tokens: int
+    assistant_tokens: int
     other_tokens: int
 
 
@@ -286,6 +287,7 @@ class DefaultLLM(LLM):
         total_tokens = 0
         tools_tokens = 0
         system_tokens = 0
+        assistant_tokens = 0
         user_tokens = 0
         other_tokens = 0
         tools_to_call_tokens = 0
@@ -303,11 +305,14 @@ class DefaultLLM(LLM):
                 user_tokens += token_count
             elif role == "tool":
                 tools_tokens += token_count
+            elif role == "assistant":
+                assistant_tokens += token_count
             else:
                 # although this should not be needed,
                 # it is defensive code so that all tokens are accounted for
                 # and can potentially make debugging easier
                 other_tokens += token_count
+                print(json.dumps(message))
 
         messages_token_count_without_tools = litellm.token_counter(  # type: ignore
             model=self.model, messages=messages
@@ -327,6 +332,7 @@ class DefaultLLM(LLM):
             tools_tokens=tools_tokens,
             tools_to_call_tokens=tools_to_call_tokens,
             other_tokens=other_tokens,
+            assistant_tokens=assistant_tokens,
         )
 
     def get_litellm_corrected_name_for_robusta_ai(self) -> str:

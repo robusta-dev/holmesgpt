@@ -11,10 +11,14 @@ CONVERSATION_HISTORY_FILE_PATH = (
 )
 
 
-def test_conversation_history_compaction():
-    llm = DefaultLLM(model=os.environ.get("model", "gpt-4o"))
+def test_conversation_history_compaction_system_prompt_untouched():
+    llm = DefaultLLM(model=os.environ.get("model", "azure/gpt-4o"))
     with open(CONVERSATION_HISTORY_FILE_PATH) as file:
         conversation_history = json.load(file)
+
+        system_prompt = {"role": "system", "content": "this is a system prompt"}
+
+        conversation_history.insert(0, system_prompt)
 
         compacted_history = compact_conversation_history(
             original_conversation_history=conversation_history, llm=llm
@@ -24,11 +28,28 @@ def test_conversation_history_compaction():
             len(compacted_history) == 3
         )  # [0]=system prompt, [1]=compacted content, [2]=message to continue
 
-        original_tokens = llm.count_tokens_for_message(conversation_history)
-        compacted_tokens = llm.count_tokens_for_message(compacted_history)
-        expected_max_compacted_token_count = original_tokens * 0.2
-        print(f"original_tokens={original_tokens} compacted_tokens={compacted_tokens}")
-        assert (
-            llm.count_tokens_for_message(compacted_history)
-            < expected_max_compacted_token_count
+        assert compacted_history[0]["role"] == "system"
+        assert compacted_history[0]["content"] == system_prompt["content"]
+
+
+def test_conversation_history_compaction():
+    llm = DefaultLLM(model=os.environ.get("model", "azure/gpt-4o"))
+    with open(CONVERSATION_HISTORY_FILE_PATH) as file:
+        conversation_history = json.load(file)
+
+        compacted_history = compact_conversation_history(
+            original_conversation_history=conversation_history, llm=llm
         )
+        assert compacted_history
+        assert (
+            len(compacted_history) == 2
+        )  # [0]=compacted content, [2]=message to continue
+
+        original_tokens = llm.count_tokens(conversation_history)
+        compacted_tokens = llm.count_tokens(compacted_history)
+        expected_max_compacted_token_count = original_tokens.total_tokens * 0.2
+        print(
+            f"original_tokens={original_tokens.total_tokens} compacted_tokens={compacted_tokens.total_tokens}"
+        )
+        print(compacted_history[1]["content"])
+        assert compacted_tokens.total_tokens < expected_max_compacted_token_count

@@ -14,6 +14,7 @@ def simple_token_counter(messages) -> TokenCountMetadata:
         tools_to_call_tokens=0,
         tools_tokens=0,
         user_tokens=0,
+        assistant_tokens=0,
         other_tokens=0,
     )
 
@@ -208,6 +209,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 
@@ -246,6 +248,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 
@@ -291,6 +294,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 
