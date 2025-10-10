@@ -60,7 +60,6 @@ class OpenSearchQueryAssistToolset(Toolset):
             name="opensearch/query_assist",
             description="OpenSearch query assist with PPL queries.",
             experimental=True,
-            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-status/",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             tools=[PplQueryAssistTool(self)],
             tags=[ToolsetTag.CORE],
