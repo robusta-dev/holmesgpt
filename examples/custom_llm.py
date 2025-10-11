@@ -26,6 +26,7 @@ class MyCustomLLM(LLM):
             tools_tokens=0,
             user_tokens=700,
             other_tokens=0,
+            assistant_tokens=0,
         )
 
     def completion(  # type: ignore
