@@ -10,7 +10,6 @@ from holmes.core.tools import (
     ToolInvokeContext,
     YAMLTool,
     YAMLToolset,
-    ToolsetYamlFromConfig,
     StructuredToolResult,
     StructuredToolResultStatus,
 )
@@ -108,18 +107,6 @@ class TestToolsetTransformers:
             description="Test toolset with transformers",
             transformers=transformers,
             tools=[],
-        )
-
-        assert toolset.transformers == transformers
-
-    def test_toolset_yaml_from_config_with_transformers(self):
-        """Test that ToolsetYamlFromConfig accepts transformers."""
-        transformers = [
-            Transformer(name="llm_summarize", config={"input_threshold": 1200})
-        ]
-
-        toolset = ToolsetYamlFromConfig(
-            name="test_config_toolset", transformers=transformers
         )
 
         assert toolset.transformers == transformers

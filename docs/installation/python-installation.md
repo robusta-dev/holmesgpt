@@ -303,7 +303,7 @@ config = Config(
     max_steps=10,
 
     # Custom toolsets and runbooks
-    custom_toolsets=["/path/to/custom/toolset.yaml"],
+    custom_toolset_paths=["/path/to/custom/toolset.yaml"],
     custom_runbooks=["/path/to/custom/runbook.yaml"],
 )
 ```
@@ -319,7 +319,7 @@ Main configuration class for HolmesGPT.
 - `api_key` (str, optional) - LLM API key (can also use environment variables)
 - `model` (str, optional) - Model to use (default: "gpt-4.1")
 - `max_steps` (int, optional) - Maximum investigation steps (default: 10)
-- `custom_toolsets` (list, optional) - Custom toolset file paths
+- `custom_toolset_paths` (list, optional) - Custom toolset file paths
 - `custom_runbooks` (list, optional) - Custom runbook file paths
 
 **Class Methods:**

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from holmes.core.tools import (
     Tool,
@@ -25,8 +25,9 @@ class SampleToolset(Toolset):
     description: str = "A sample toolset for testing"
 
     def __init__(self, *args, **kwargs):
+        if "tools" not in kwargs:
+            kwargs["tools"] = [DummyTool()]
         super().__init__(*args, **kwargs)
-        self.tools: List[Tool] = [DummyTool()]
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from holmes.config import Config
+from holmes.core.toolset_manager import ToolsetManager
 
 
 class TestConfigFastModelFlow:
@@ -24,8 +25,9 @@ class TestConfigFastModelFlow:
         # Verify fast_model is set
         assert config.fast_model == "gpt-3.5-turbo"
 
+        toolset_manager = ToolsetManager.for_cli(config)
+
         # Verify ToolsetManager receives the fast_model
-        toolset_manager = config.toolset_manager
         assert toolset_manager.global_fast_model == "gpt-3.5-turbo"
 
     def test_config_no_fast_model_flows_to_toolset_manager(self):
@@ -37,7 +39,7 @@ class TestConfigFastModelFlow:
         assert config.fast_model is None
 
         # Verify ToolsetManager receives None
-        toolset_manager = config.toolset_manager
+        toolset_manager = ToolsetManager.for_cli(config)
         assert toolset_manager.global_fast_model is None
 
     def test_config_from_file_fast_model_flows_to_toolset_manager(self):
@@ -60,7 +62,7 @@ class TestConfigFastModelFlow:
             assert config.fast_model == "gpt-4o-mini"
 
             # Verify ToolsetManager receives the fast_model
-            toolset_manager = config.toolset_manager
+            toolset_manager = ToolsetManager.for_cli(config)
             assert toolset_manager.global_fast_model == "gpt-4o-mini"
 
         finally:
@@ -84,7 +86,7 @@ class TestConfigFastModelFlow:
         assert config.fast_model == "gpt-3.5-turbo"
 
         # Verify ToolsetManager receives the fast_model
-        toolset_manager = config.toolset_manager
+        toolset_manager = ToolsetManager.for_cli(config)
         assert toolset_manager.global_fast_model == "gpt-3.5-turbo"
 
     def test_config_cli_override_fast_model_flows_to_toolset_manager(self):
@@ -110,21 +112,8 @@ class TestConfigFastModelFlow:
             assert config.fast_model == "claude-3-sonnet"
 
             # Verify ToolsetManager receives the CLI fast_model
-            toolset_manager = config.toolset_manager
+            toolset_manager = ToolsetManager.for_cli(config)
             assert toolset_manager.global_fast_model == "claude-3-sonnet"
 
         finally:
             config_path.unlink()  # Clean up temp file
-
-    def test_config_toolset_manager_caching(self):
-        """Test that toolset_manager property is cached correctly."""
-        config = Config(fast_model="gpt-4o-mini")
-
-        # First access creates the toolset manager
-        toolset_manager1 = config.toolset_manager
-        assert toolset_manager1.global_fast_model == "gpt-4o-mini"
-
-        # Second access returns the same instance
-        toolset_manager2 = config.toolset_manager
-        assert toolset_manager2 is toolset_manager1
-        assert toolset_manager2.global_fast_model == "gpt-4o-mini"

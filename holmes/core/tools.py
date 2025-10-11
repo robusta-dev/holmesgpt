@@ -531,17 +531,24 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
     env: List[str] = []  # optional
 
 
-class Toolset(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    experimental: bool = False
+class ToolsetMetadata(BaseModel):
+    """Base class for toolset metadata fields shared across different toolset types."""
 
-    enabled: bool = False
     name: str
     description: str
+    enabled: bool = False
+    config: Optional[Any] = None
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
     installation_instructions: Optional[str] = None
     additional_instructions: Optional[str] = ""
+
+
+class Toolset(ToolsetMetadata):
+    """Full toolset with tools and runtime information."""
+
+    model_config = ConfigDict(extra="forbid")
+    experimental: bool = False
     prerequisites: List[
         Union[
             StaticPrerequisite,
@@ -554,7 +561,6 @@ class Toolset(BaseModel):
     tags: List[ToolsetTag] = Field(
         default_factory=lambda: [ToolsetTag.CORE],
     )
-    config: Optional[Any] = None
     is_default: bool = False
     llm_instructions: Optional[str] = None
     transformers: Optional[List[Transformer]] = None
@@ -568,20 +574,15 @@ class Toolset(BaseModel):
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
 
-    def override_with(self, override: "Toolset") -> None:
-        """
-        Overrides the current attributes with values from the Toolset loaded from custom config
-        if they are not None.
-        """
-        for field, value in override.model_dump(
-            exclude_unset=True,
-            exclude=("name"),  # type: ignore
-        ).items():
-            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
-                setattr(self, field, value)
-
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
+        # Get tools, defaulting to None if not present
+        tools_data = values.get("tools", None)
+        if not tools_data:
+            # If missing, None, or empty list, let Pydantic handle validation
+            return values
+
+        # Add additional_instructions to each tool
         additional_instructions = values.get("additional_instructions", "")
         transformers = values.get("transformers", None)
         tools_data = values.get("tools", [])
@@ -664,6 +665,12 @@ class Toolset(BaseModel):
                 )
             tools.append(tool)
         values["tools"] = tools
+        if additional_instructions:
+            for tool in tools_data:
+                if isinstance(tool, dict):
+                    tool["additional_instructions"] = additional_instructions
+                elif isinstance(tool, Tool):
+                    tool.additional_instructions = additional_instructions
 
         return values
 
@@ -680,7 +687,7 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, quiet: bool = False):
         self.status = ToolsetStatusEnum.ENABLED
 
         # Sort prerequisites by type to fail fast on missing env vars before
@@ -711,8 +718,10 @@ class Toolset(BaseModel):
                         shell=True,
                         check=True,
                         text=True,
+                        stdin=subprocess.DEVNULL,  # Prevent interactive prompts
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        timeout=10,  # 10 second timeout for prerequisite checks
                     )
                     if (
                         prereq.expected_output
@@ -720,6 +729,9 @@ class Toolset(BaseModel):
                     ):
                         self.status = ToolsetStatusEnum.FAILED
                         self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
+                except subprocess.TimeoutExpired:
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` timed out after 10 seconds"
                 except subprocess.CalledProcessError as e:
                     self.status = ToolsetStatusEnum.FAILED
                     self.error = f"`{prereq.command}` returned {e.returncode}"
@@ -737,7 +749,7 @@ class Toolset(BaseModel):
 
             elif isinstance(prereq, CallablePrerequisite):
                 try:
-                    (enabled, error_message) = prereq.callable(self.config)
+                    (enabled, error_message) = prereq.callable(self.config or {})
                     if not enabled:
                         self.status = ToolsetStatusEnum.FAILED
                     if error_message:
@@ -750,11 +762,13 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logger.info(f"❌ Toolset {self.name}: {self.error}")
+                if not quiet:
+                    logging.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        logger.info(f"✅ Toolset {self.name}")
+        if not quiet:
+            logging.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:
@@ -775,39 +789,6 @@ class YAMLToolset(Toolset):
         super().__init__(**kwargs)
         if self.llm_instructions:
             self._load_llm_instructions(self.llm_instructions)
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
-
-
-class ToolsetYamlFromConfig(Toolset):
-    """
-    ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
-    To override a build-in toolset fields, we don't have to explicitly set all required fields,
-    instead, we only put the fields we want to override in the YAML file.
-    ToolsetYamlFromConfig helps py-pass the pydantic validation of the required fields and together with
-    `override_with` method, a build-in toolset object with new configurations is created.
-    """
-
-    name: str
-    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
-    # Built-in toolsets are exception and should be disabled by default when loaded
-    enabled: bool = True
-    additional_instructions: Optional[str] = None
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-        ]
-    ] = []  # type: ignore
-    tools: Optional[List[YAMLTool]] = []  # type: ignore
-    description: Optional[str] = None  # type: ignore
-    docs_url: Optional[str] = None
-    icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-    config: Optional[Any] = None
-    url: Optional[str] = None  # MCP toolset
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

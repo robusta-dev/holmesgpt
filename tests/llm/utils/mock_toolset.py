@@ -10,6 +10,7 @@ import urllib
 import threading
 from pydantic import BaseModel
 import pytest
+import yaml
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -21,7 +22,7 @@ from holmes.core.tools import (
     YAMLTool,
     YAMLToolset,
 )
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+from holmes.plugins.toolsets import load_builtin_toolsets
 
 
 # Custom exceptions for better error handling
@@ -656,24 +657,35 @@ class MockToolsetManager:
         # Wrap tools for enabled toolsets based on mode
         self._wrap_enabled_toolsets()
 
-    def _load_custom_toolsets(self, config_path: str) -> List[Toolset]:
-        """Load custom toolsets from a YAML file."""
+    def _load_custom_toolsets(self, config_path: str) -> Dict[str, Dict]:
+        """Load toolset configurations from a YAML file.
+
+        Returns dict of toolset name -> config dict for test overrides.
+        This is different from production which creates full Toolset objects.
+        """
         if not os.path.isfile(config_path):
-            return []
-        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
+            return {}
+
+        with open(config_path) as file:
+            parsed_yaml = yaml.safe_load(file)
+            if parsed_yaml is None:
+                return {}
+
+        # Return raw config dict for test overrides
+        return parsed_yaml.get("toolsets", {})
 
     def _configure_toolsets(
-        self, builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
+        self, builtin_toolsets: List[Toolset], custom_configs: Dict[str, Dict]
     ) -> List[Toolset]:
-        """Configure builtin toolsets with custom definitions."""
+        """Configure builtin toolsets with custom configurations."""
         configured = []
 
         # First, validate that all custom definitions reference existing toolsets
         builtin_names = {ts.name for ts in builtin_toolsets}
-        for definition in custom_definitions:
-            if definition.name not in builtin_names:
+        for toolset_name in custom_configs.keys():
+            if toolset_name not in builtin_names:
                 raise RuntimeError(
-                    f"Toolset '{definition.name}' referenced in toolsets.yaml does not exist. "
+                    f"Toolset '{toolset_name}' referenced in toolsets.yaml does not exist. "
                     f"Available toolsets: {', '.join(sorted(builtin_names))}"
                 )
 
@@ -728,12 +740,13 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                 toolset.enabled = True
 
             # Apply custom configuration if available
-            definition = next(
-                (d for d in custom_definitions if d.name == toolset.name), None
-            )
-            if definition:
-                toolset.config = definition.config
-                toolset.enabled = definition.enabled
+            config_override = None
+            if toolset.name in custom_configs:
+                config_override = custom_configs[toolset.name]
+                if "config" in config_override:
+                    toolset.config = config_override["config"]
+                if "enabled" in config_override:
+                    toolset.enabled = config_override["enabled"]
 
             # Add all toolsets to configured list
             configured.append(toolset)
@@ -750,8 +763,8 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                         # If this toolset was explicitly enabled in the test config but failed prerequisites,
                         # the test should fail (unless allow_toolset_failures is True)
                         if (
-                            definition
-                            and definition.enabled
+                            config_override
+                            and config_override["enabled"]
                             and toolset.status != ToolsetStatusEnum.ENABLED
                             and not self.allow_toolset_failures
                         ):
@@ -761,7 +774,7 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                             )
                     except Exception as e:
                         # If this toolset was explicitly enabled in the test config, re-raise the error
-                        if definition and definition.enabled:
+                        if config_override and config_override["enabled"]:
                             raise RuntimeError(
                                 f"Toolset '{toolset.name}' was explicitly enabled in toolsets.yaml "
                                 f"but failed prerequisites check: {str(e)}"

@@ -65,8 +65,10 @@ def test_cli_fast_model_integration_with_kubernetes():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [kubernetes_toolset]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         # Find the Kubernetes toolset
         k8s_toolset = next(t for t in toolsets if t.name == "kubernetes/core")
@@ -126,8 +128,10 @@ def test_fast_model_injection_chain():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [toolset]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         test_toolset = toolsets[0]
 
@@ -195,8 +199,10 @@ def test_fast_model_injection_with_different_transformers():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [toolset]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         result_toolset = toolsets[0]
         result_tool = result_toolset.tools[0]
@@ -235,8 +241,10 @@ def test_backward_compatibility():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [simple_toolset]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         result_toolset = toolsets[0]
 
@@ -261,14 +269,15 @@ def test_no_global_configs_no_regression():
         tags=[ToolsetTag.CORE],
         description="Existing toolset",
         transformers=toolset_configs,
+        tools=[],
     )
 
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [toolset]
 
         # No global configs (normal case)
-        manager = ToolsetManager()
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(tags=[ToolsetTag.CORE])
+        toolsets = manager.load(include_disabled=True)
 
         result_toolset = toolsets[0]
 
@@ -314,8 +323,10 @@ def test_toolset_with_only_tool_level_transformers_gets_fast_model():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [toolset_without_toolset_transformers]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         result_toolset = toolsets[0]
 
@@ -379,8 +390,10 @@ def test_toolset_with_toolset_level_transformers_works():
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
         mock_load.return_value = [toolset_with_toolset_transformers]
 
-        manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        manager = ToolsetManager(
+            tags=[ToolsetTag.CORE], global_fast_model=global_fast_model
+        )
+        toolsets = manager.load(include_disabled=True)
 
         result_toolset = toolsets[0]
 

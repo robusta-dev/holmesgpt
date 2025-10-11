@@ -17,7 +17,7 @@ def test_no_logs_toolset():
 
 
 def test_kubernetes_yaml_toolset():
-    toolsets = load_toolsets_from_file(KUBERNETES_YAML_TOOLSET_PATH, strict_check=True)
+    toolsets = load_toolsets_from_file(KUBERNETES_YAML_TOOLSET_PATH)
     toolsets[0].enabled = True
     toolsets[0].status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
