@@ -81,7 +81,7 @@ fi
 
 # Export environment variables (same as workflow step)
 # Only set these if not already set
-export MODEL="${MODEL:-$MODELS}"
+export MODEL="${MODELS:-$MODEL}"
 export ITERATIONS="${ITERATIONS:-$ITERATIONS}"
 export RUN_LIVE="${RUN_LIVE:-true}"
 export CLASSIFIER_MODEL="${CLASSIFIER_MODEL:-gpt-4.1}"  # Always use OpenAI for classification (same as workflow)
