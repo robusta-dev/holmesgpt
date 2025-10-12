@@ -417,7 +417,7 @@ class SupabaseDal:
         try:
             res = (
                 self.client.table(RUNBOOKS_TABLE)
-                .select("runbook")
+                .select("*")
                 .eq("account_id", self.account_id)
                 .eq("subject_type", "RunbookCatalog")
                 .execute()
@@ -448,7 +448,7 @@ class SupabaseDal:
 
         res = (
             self.client.table(RUNBOOKS_TABLE)
-            .select("runbook")
+            .select("*")
             .eq("account_id", self.account_id)
             .eq("subject_type", "RunbookCatalog")
             .eq("runbook_id", runbook_id)
@@ -461,7 +461,14 @@ class SupabaseDal:
         id = row.get("runbook_id")
         symptom = row.get("symptoms")
         title = row.get("subject_name")
-        instruction = row.get("runbook").get("instructions")
+        raw_instruction = row.get("runbook").get("instructions")
+        try:
+            if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
+                instruction = raw_instruction[0]
+            else:
+                instruction = json.loads(raw_instruction)[0]
+        except Exception:
+            instruction = str(raw_instruction)
         return RobustaRunbookInstruction(
             id=id, symptom=symptom, instruction=instruction, title=title
         )

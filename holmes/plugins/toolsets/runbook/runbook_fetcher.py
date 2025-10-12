@@ -41,7 +41,7 @@ class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
     available_runbooks: List[str] = []
     additional_search_paths: Optional[List[str]] = None
-    dal: Optional[SupabaseDal] = None
+    _dal: Optional[SupabaseDal] = None
 
     def __init__(
         self,
@@ -53,7 +53,6 @@ class RunbookFetcher(Tool):
         available_runbooks = []
         if catalog:
             available_runbooks = catalog.list_available_runbooks()
-
         allowed_types = [t.value for t in RunbookType]
 
         if additional_search_paths:
@@ -87,6 +86,7 @@ class RunbookFetcher(Tool):
             available_runbooks=available_runbooks,  # type: ignore[call-arg]
             additional_search_paths=additional_search_paths,  # type: ignore[call-arg]
         )
+        self._dal = dal
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         link: str = params.get("link", "")
@@ -128,9 +128,9 @@ class RunbookFetcher(Tool):
                 error=err_msg,
                 params=params,
             )
-        if self.dal and self.dal.enabled:
+        if self._dal and self._dal.enabled:
             try:
-                runbook_content = self.dal.get_runbook_content(link)
+                runbook_content = self._dal.get_runbook_content(link)
                 if runbook_content:
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.SUCCESS,
