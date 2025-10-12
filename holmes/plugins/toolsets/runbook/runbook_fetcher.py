@@ -32,7 +32,6 @@ def is_uuid(value: str, version: int | None = None) -> bool:
 
 
 class RunbookType(str, Enum):
-    LINK = "link"
     MD_FILE = "md_file"
     ROBUSTA_RUNBOOK = "robusta_runbook"
 
@@ -62,7 +61,7 @@ class RunbookFetcher(Tool):
 
                 for file in os.listdir(search_path):
                     if file.endswith(".md") and file not in available_runbooks:
-                        available_runbooks.append(file)
+                        available_runbooks.append(f"md_file name={file}")
 
         runbook_list = ", ".join([f'"{rb}"' for rb in available_runbooks])
         allowed_types_str = ", ".join([f'"{t}"' for t in allowed_types])
@@ -71,8 +70,8 @@ class RunbookFetcher(Tool):
             name="fetch_runbook",
             description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
-                "link": ToolParameter(
-                    description=f"The link, a .md file, or a robusta UUID to the runbook (non-empty string required). Must be one of: {runbook_list}",
+                "runbook_id": ToolParameter(
+                    description=f"The runbook_id, a .md file, or a robusta UUID to the runbook (non-empty string required). Must be one of: {runbook_list}",
                     type="string",
                     required=True,
                 ),
@@ -89,11 +88,11 @@ class RunbookFetcher(Tool):
         self._dal = dal
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
-        link: str = params.get("link", "")
+        runbook_id: str = params.get("runbook_id", "")
         runbook_type: str = params.get("type", "")
 
         # Validate link is not empty
-        if not link or not link.strip():
+        if not runbook_id or not runbook_id.strip():
             err_msg = (
                 "Runbook link cannot be empty. Please provide a valid runbook path."
             )
@@ -105,11 +104,9 @@ class RunbookFetcher(Tool):
             )
 
         if runbook_type == RunbookType.ROBUSTA_RUNBOOK.value:
-            return self._get_robusta_runbook(link, params)
+            return self._get_robusta_runbook(runbook_id, params)
         elif runbook_type == RunbookType.MD_FILE.value:
-            return self._get_md_runbook(link, params)
-        elif runbook_type == RunbookType.LINK.value:
-            return self._get_link_runbook(link, params)
+            return self._get_md_runbook(runbook_id, params)
         else:
             err_msg = f"Invalid runbook type '{runbook_type}'."
             logging.error(err_msg)
@@ -276,24 +273,6 @@ class RunbookFetcher(Tool):
                 error=err_msg,
                 params=params,
             )
-
-    def _get_link_runbook(self, link: str, params: dict) -> StructuredToolResult:
-        # For "link" type, treat as a catalog entry (not robusta UUID, not .md file)
-        # Validate link is in the available runbooks list
-        if link not in self.available_runbooks:
-            err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks) if self.available_runbooks else 'No runbooks available'}"
-            logging.error(err_msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                error=err_msg,
-                params=params,
-            )
-        # For demo, just return the link as found
-        return StructuredToolResult(
-            status=StructuredToolResultStatus.SUCCESS,
-            data=f"Runbook link '{link}' found in catalog.",
-            params=params,
-        )
 
     def get_parameterized_one_liner(self, params) -> str:
         path: str = params.get("link", "")
