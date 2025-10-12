@@ -61,16 +61,18 @@ Older LLM models lack reasoning capability for complex problems.
 **Solution:**
 ```yaml
 config:
-  model: "gpt-4o"  # or anthropic/claude-3-5-sonnet-20241022
+  model: "gpt-4.1"  # or anthropic/claude-sonnet-4-20250514
   temperature: 0.1
   maxTokens: 2000
 ```
 
 **Recommended Models:**
 
-- `gpt-4o` - Best balance of speed/capability
-- `anthropic/claude-3-5-sonnet-20241022` - Superior reasoning
-- `gpt-4-turbo` - Fast analysis
+- `anthropic/claude-opus-4-1-20250805` - Most powerful for complex investigations (recommended)
+- `anthropic/claude-sonnet-4-20250514` - Superior reasoning with faster performance
+- `gpt-4.1` - Good balance of speed/capability
+
+See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
 
 ---
 

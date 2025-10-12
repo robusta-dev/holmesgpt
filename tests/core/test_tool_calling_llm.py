@@ -1,13 +1,21 @@
 import pytest
+from holmes.core.llm import TokenCountMetadata
 from holmes.core.tool_calling_llm import truncate_messages_to_fit_context
 
 
-def simple_token_counter(messages):
+def simple_token_counter(messages) -> TokenCountMetadata:
     """Simple token counter that counts characters for testing."""
     total = 0
     for message in messages:
         total += len(message.get("content", ""))
-    return total
+    return TokenCountMetadata(
+        total_tokens=total,
+        system_tokens=0,
+        tools_to_call_tokens=0,
+        tools_tokens=0,
+        user_tokens=0,
+        other_tokens=0,
+    )
 
 
 class TestTruncateMessagesToFitContext:
@@ -78,7 +86,8 @@ class TestTruncateMessagesToFitContext:
             maximum_output_token,
             simple_token_counter,
         )
-        verify_truncation_result(messages_case1, result1)
+        messages = result1.truncated_messages
+        verify_truncation_result(messages_case1, messages)
 
         # Test Case 2: One big tool and two small tools
         messages_case2 = create_test_messages(["X" * 8000, "Y" * 100, "Z" * 200])
@@ -88,7 +97,8 @@ class TestTruncateMessagesToFitContext:
             maximum_output_token,
             simple_token_counter,
         )
-        verify_truncation_result(messages_case2, result2)
+        messages = result2.truncated_messages
+        verify_truncation_result(messages_case2, messages)
 
     def test_no_truncation_when_messages_fit(self):
         """Test that messages are not truncated when they fit within context."""
@@ -126,7 +136,7 @@ class TestTruncateMessagesToFitContext:
         )
 
         # Messages should remain unchanged
-        assert result == original_messages
+        assert result.truncated_messages == original_messages
 
     def test_raises_exception_when_non_tool_messages_too_large(self):
         """Test that exception is raised when non-tool messages exceed context."""
@@ -168,7 +178,7 @@ class TestTruncateMessagesToFitContext:
         )
 
         # Should return unchanged when no tool messages
-        assert result == original_messages
+        assert result.truncated_messages == original_messages
 
 
 class TestTruncateMessagesToFitContextEdgeCases:
@@ -191,7 +201,15 @@ class TestTruncateMessagesToFitContextEdgeCases:
         max_context_size = len("sysusr") + len(truncation_notice) + maximum_output_token
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+                other_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),
@@ -199,7 +217,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        messages = result.truncated_messages
+        tool_msg = [m for m in messages if m["role"] == "tool"][0]
         assert tool_msg["content"] == truncation_notice
 
     def test_truncation_notice_larger_than_allocation(self):
@@ -220,7 +239,15 @@ class TestTruncateMessagesToFitContextEdgeCases:
         max_context_size = len("sysusr") + 5 + maximum_output_token
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+                other_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),
@@ -228,7 +255,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msg = [m for m in result if m["role"] == "tool"][0]
+        messages = result.truncated_messages
+        tool_msg = [m for m in messages if m["role"] == "tool"][0]
         # Should be the first 5 chars of the truncation notice
         assert tool_msg["content"] == truncation_notice[:5]
 
@@ -256,7 +284,15 @@ class TestTruncateMessagesToFitContextEdgeCases:
         maximum_output_token = 10
 
         def count_tokens_fn(msgs):
-            return sum(len(m.get("content", "")) for m in msgs)
+            total = sum(len(m.get("content", "")) for m in msgs)
+            return TokenCountMetadata(
+                total_tokens=total,
+                system_tokens=0,
+                tools_to_call_tokens=0,
+                tools_tokens=0,
+                user_tokens=0,
+                other_tokens=0,
+            )
 
         result = truncate_messages_to_fit_context(
             messages.copy(),
@@ -264,7 +300,8 @@ class TestTruncateMessagesToFitContextEdgeCases:
             maximum_output_token,
             count_tokens_fn,
         )
-        tool_msgs = [m for m in result if m["role"] == "tool"]
+        messages = result.truncated_messages
+        tool_msgs = [m for m in messages if m["role"] == "tool"]
         # Each tool should get 30 chars (60 // 2)
         for msg in tool_msgs:
             assert len(msg["content"]) == 30

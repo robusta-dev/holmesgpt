@@ -3,6 +3,42 @@
 ## Overview
 The HolmesGPT API provides endpoints for automated investigations, workload health checks, and conversational troubleshooting. This document describes each endpoint, its purpose, request fields, and example usage.
 
+## Model Parameter Behavior
+
+When using the API with a Helm deployment, the `model` parameter must reference a model name from your `modelList` configuration in your Helm values, **not** the direct model identifier.
+
+**Example Configuration:**
+```yaml
+# In your values.yaml
+modelList:
+  fast-model:
+    api_key: "{{ env.OPENAI_API_KEY }}"
+    model: openai/gpt-4.1
+    temperature: 0
+  accurate-model:
+    api_key: "{{ env.ANTHROPIC_API_KEY }}"
+    model: anthropic/claude-sonnet-4-20250514
+    temperature: 0
+```
+
+**Correct API Usage:**
+```bash
+# Use the modelList key name, not the actual model identifier
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"ask": "list pods", "model": "fast-model"}'
+```
+
+**Incorrect Usage:**
+```bash
+# This will fail - don't use the direct model identifier
+curl -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"ask": "list pods", "model": "openai/gpt-4.1"}'
+```
+
+For complete setup instructions with `modelList` configuration, see the [Kubernetes Installation Guide](../installation/kubernetes-installation.md).
+
 ---
 
 ## Endpoints
@@ -16,7 +52,7 @@ The HolmesGPT API provides endpoints for automated investigations, workload heal
 |-------------------------|----------|---------|-----------|--------------------------------------------------|
 | ask                     | Yes      |         | string    | User's question                                  |
 | conversation_history    | No       |         | list      | Conversation history (first message must be system)|
-| model                   | No       |         | string    | Model name to use                                |
+| model                   | No       |         | string    | Model name from your `modelList` configuration  |
 
 **Example**
 ```bash
@@ -63,7 +99,7 @@ curl -X POST http://<HOLMES-URL>/api/chat \
 | include_tool_call_results| No      | false                                      | boolean   | Include tool call results in response            |
 | prompt_template         | No       | "builtin://generic_investigation.jinja2"   | string    | Prompt template to use                           |
 | sections                | No       |                                            | object    | Structured output sections                       |
-| model                   | No       |                                            | string    | Model name to use                                |
+| model                   | No       |                                            | string    | Model name from your `modelList` configuration  |
 
 **Example**
 ```bash
@@ -76,7 +112,7 @@ curl -X POST http://<HOLMES-URL>/api/investigate \
     "subject": {"namespace": "default", "pod": "my-pod"},
     "context": {},
     "include_tool_calls": true,
-    "model": "gpt-4o"
+    "model": "gpt-4.1"
   }'
 ```
 
@@ -123,7 +159,7 @@ curl -N -X POST http://<HOLMES-URL>/api/stream/investigate \
     "subject": {"namespace": "default", "pod": "my-pod"},
     "context": {},
     "include_tool_calls": true,
-    "model": "gpt-4o"
+    "model": "gpt-4.1"
   }'
 ```
 
@@ -170,7 +206,7 @@ data: {"sections": {"Alert Explanation": ...}}
 | investigation_result    | Yes      |         | object    | Previous investigation result (see below)        |
 | issue_type              | Yes      |         | string    | Type of issue                                    |
 | conversation_history    | No       |         | list      | Conversation history (first message must be system)|
-| model                   | No       |         | string    | Model name to use                                |
+| model                   | No       |         | string    | Model name from your `modelList` configuration  |
 
 **investigation_result** object:
 - `result` (string, optional): Previous analysis
@@ -225,7 +261,7 @@ curl -X POST http://<HOLMES-URL>/api/issue_chat \
 | include_tool_calls      | No       | false                                      | boolean   | Include tool calls in response                   |
 | include_tool_call_results| No       | false                                      | boolean   | Include tool call results in response            |
 | prompt_template         | No       | "builtin://kubernetes_workload_ask.jinja2" | string    | Prompt template to use                           |
-| model                   | No       |                                            | string    | Model name to use                                |
+| model                   | No       |                                            | string    | Model name from your `modelList` configuration  |
 
 **Example**
 ```bash
@@ -268,7 +304,7 @@ curl -X POST http://<HOLMES-URL>/api/workload_health_check \
 | workload_health_result  | Yes      |         | object    | Previous health check result (see below)         |
 | resource                | Yes      |         | object    | Resource details                                 |
 | conversation_history    | No       |         | list      | Conversation history (first message must be system)|
-| model                   | No       |         | string    | Model name to use                                |
+| model                   | No       |         | string    | Model name from your `modelList` configuration  |
 
 **workload_health_result** object:
 - `analysis` (string, optional): Previous analysis
@@ -317,6 +353,6 @@ curl http://<HOLMES-URL>/api/model
 **Example** Response
 ```json
 {
-  "model_name": ["gpt-4o", "azure/gpt-4o", "robusta"]
+  "model_name": ["gpt-4.1", "azure/gpt-4.1", "robusta"]
 }
 ```

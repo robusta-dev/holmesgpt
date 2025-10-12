@@ -5,13 +5,14 @@ from typing import Any, Dict, Tuple, List
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
 )
 
 from pydantic import BaseModel, PrivateAttr
-from holmes.core.tools import StructuredToolResult, ToolResultStatus
+from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
@@ -36,7 +37,6 @@ class ServiceNowToolset(Toolset):
     def __init__(self):
         super().__init__(
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
-            experimental=True,
             tools=[
                 ReturnChangesInTimerange(toolset=self),
                 ReturnChange(toolset=self),
@@ -56,7 +56,7 @@ class ServiceNowToolset(Toolset):
             self.config: Dict = ServiceNowConfig(**config).model_dump()
             self._session.headers.update(
                 {
-                    "x-sn-apikey": self.config.get("api_key"),
+                    "x-sn-apikey": self.config.get("api_key"),  # type: ignore
                 }
             )
 
@@ -86,9 +86,9 @@ class ServiceNowBaseTool(Tool):
         response.raise_for_status()
         res = response.json()
         return StructuredToolResult(
-            status=ToolResultStatus.SUCCESS
+            status=StructuredToolResultStatus.SUCCESS
             if res.get(field, [])
-            else ToolResultStatus.NO_DATA,
+            else StructuredToolResultStatus.NO_DATA,
             data=res,
             params=params,
         )
@@ -115,7 +115,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
         start = params.get("start", "last hour")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Requests ({start})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         parsed_params = {}
         try:
             (start, _) = process_timestamps_to_rfc3339(
@@ -137,7 +137,7 @@ class ReturnChangesInTimerange(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -158,7 +158,7 @@ class ReturnChange(ServiceNowBaseTool):
         sys_id = params.get("sys_id", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Change Details ({sys_id})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             url = "https://{instance}.service-now.com/api/now/v2/table/change_request/{sys_id}".format(
                 instance=self.toolset.config.get("instance"),
@@ -169,7 +169,7 @@ class ReturnChange(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )
@@ -190,7 +190,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
         keyword = params.get("keyword", "")
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Search Changes ({keyword})"
 
-    def _invoke(self, params: Any) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         parsed_params = {}
         try:
             url = f"https://{self.toolset.config.get('instance')}.service-now.com/api/now/v2/table/change_request"
@@ -207,7 +207,7 @@ class ReturnChangesWithKeyword(ServiceNowBaseTool):
         except Exception as e:
             logging.exception(self.get_parameterized_one_liner(params))
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 data=f"Exception {self.name}: {str(e)}",
                 params=params,
             )

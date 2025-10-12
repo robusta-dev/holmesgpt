@@ -1,16 +1,17 @@
 import logging
 import os
 from typing import Any, Dict
-
 from uuid import uuid4
+
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    Tool,
+    ToolInvokeContext,
+    ToolParameter,
     Toolset,
     ToolsetTag,
-    ToolParameter,
-    Tool,
-    StructuredToolResult,
-    ToolResultStatus,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
@@ -28,7 +29,11 @@ class TodoWriteTool(Tool):
                 properties={
                     "id": ToolParameter(type="string", required=True),
                     "content": ToolParameter(type="string", required=True),
-                    "status": ToolParameter(type="string", required=True),
+                    "status": ToolParameter(
+                        type="string",
+                        required=True,
+                        enum=["pending", "in_progress", "completed"],
+                    ),
                 },
             ),
         ),
@@ -57,24 +62,22 @@ class TodoWriteTool(Tool):
         content_width = max(max_content_width, len("Content"))
         status_width = max(max_status_display_width, len("Status"))
 
-        # Build table
         separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"
         header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} |"
-
-        # Log the table
-        logging.info("Updated Investigation Tasks:")
-        logging.info(separator)
-        logging.info(header)
-        logging.info(separator)
+        tasks_to_display = []
 
         for task in tasks:
             status_display = f"{status_icons[task.status.value]} {task.status.value}"
             row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} |"
-            logging.info(row)
+            tasks_to_display.append(row)
 
-        logging.info(separator)
+        logging.info(
+            f"Task List:\n{separator}\n{header}\n{separator}\n"
+            + "\n".join(tasks_to_display)
+            + f"\n{separator}"
+        )
 
-    def _invoke(self, params: Dict) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 
@@ -89,7 +92,7 @@ class TodoWriteTool(Tool):
                     )
                     tasks.append(task)
 
-            logging.info(f"Tasks: {len(tasks)}")
+            logging.debug(f"Tasks: {len(tasks)}")
 
             self.print_tasks_table(tasks)
             formatted_tasks = format_tasks(tasks)
@@ -101,7 +104,7 @@ class TodoWriteTool(Tool):
                 response_data += "No tasks currently in the investigation plan."
 
             return StructuredToolResult(
-                status=ToolResultStatus.SUCCESS,
+                status=StructuredToolResultStatus.SUCCESS,
                 data=response_data,
                 params=params,
             )
@@ -109,14 +112,13 @@ class TodoWriteTool(Tool):
         except Exception as e:
             logging.exception("error using todowrite tool")
             return StructuredToolResult(
-                status=ToolResultStatus.ERROR,
+                status=StructuredToolResultStatus.ERROR,
                 error=f"Failed to process tasks: {str(e)}",
                 params=params,
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        todos = params.get("todos", [])
-        return f"Write {todos} investigation tasks"
+        return "Update investigation tasks"
 
 
 class CoreInvestigationToolset(Toolset):
@@ -131,7 +133,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

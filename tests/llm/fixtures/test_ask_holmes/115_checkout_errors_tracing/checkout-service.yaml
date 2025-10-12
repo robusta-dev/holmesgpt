@@ -18,7 +18,16 @@ stringData:
     from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
     # Configure OpenTelemetry
-    resource = Resource.create({"service.name": "checkout-service"})
+    # Build resource attributes including K8s metadata from environment
+    resource_attributes = {
+        "service.name": "checkout-service",
+        "k8s.namespace.name": os.environ.get("K8S_NAMESPACE", "unknown"),
+        "k8s.deployment.name": "checkout",
+        "k8s.pod.name": os.environ.get("K8S_POD_NAME", "unknown"),
+        "k8s.node.name": os.environ.get("K8S_NODE_NAME", "unknown"),
+        "k8s.container.name": "checkout"
+    }
+    resource = Resource.create(resource_attributes)
     provider = TracerProvider(resource=resource)
     trace.set_tracer_provider(provider)
 
@@ -134,14 +143,10 @@ spec:
     spec:
       containers:
       - name: checkout
-        image: python:3.11-slim
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          pip install flask opentelemetry-api opentelemetry-sdk \
-            opentelemetry-instrumentation-flask \
-            opentelemetry-exporter-otlp-proto-grpc && \
-          python /app/app.py
+        # see Dockerfile in tests/llm/fixtures/shared/python-flask-otel/Dockerfile
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.0
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
         volumeMounts:
         - name: app
           mountPath: /app
@@ -150,6 +155,22 @@ spec:
         env:
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        securityContext:
+          capabilities:
+            add:
+            - SYS_PTRACE
         startupProbe:
           httpGet:
             path: /health
@@ -158,14 +179,13 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           successThreshold: 1
-          failureThreshold: 24
+          failureThreshold: 46
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "50m"
+            memory: "256Mi"
+            cpu: "10m"
           limits:
             memory: "256Mi"
-            cpu: "200m"
       volumes:
       - name: app
         secret:
