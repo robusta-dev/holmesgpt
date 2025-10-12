@@ -254,21 +254,19 @@ class Config(RobustaBaseConfig):
         )
         return ToolExecutor(cli_toolsets)
 
-    def create_agui_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
+    def create_agui_tool_executor(
+        self, dal: Optional["SupabaseDal"] = None
+    ) -> ToolExecutor:
         """
         Creates ToolExecutor for the AG-UI server endpoints
         """
-
         if self._agui_tool_executor:
             return self._agui_tool_executor
 
         # Use same toolset as CLI for AG-UI front-end.
-        agui_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=True
-        )
-
+        agui_manager = ToolsetManager.for_cli(self, dal=dal)
+        agui_toolsets = agui_manager.load(use_cache=False)
         self._agui_tool_executor = ToolExecutor(agui_toolsets)
-
         return self._agui_tool_executor
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:

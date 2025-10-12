@@ -570,13 +570,22 @@ class ToolsetManager:
         )
 
     @classmethod
-    def for_cli(cls, config: Optional["Config"]):
+    def for_cli(cls, config: Optional["Config"], dal: Optional[SupabaseDal] = None):
         """Create CLI-configured manager from Config object"""
-        return cls._create_from_config(config, CLI_TOOL_TAGS, default_enabled=True)
+        return cls._create_from_config(
+            config, CLI_TOOL_TAGS, dal=dal, default_enabled=True
+        )
 
     @classmethod
     def for_server(cls, config: "Config", dal: SupabaseDal):
         """Create server-configured manager from Config object"""
+        return cls._create_from_config(
+            config, SERVER_TOOL_TAGS, dal=dal, default_enabled=False
+        )
+
+    @classmethod
+    def for_agui(cls, config: "Config", dal: SupabaseDal):
+        """Create AG-UI-configured manager from Config object"""
         return cls._create_from_config(
             config, SERVER_TOOL_TAGS, dal=dal, default_enabled=False
         )
