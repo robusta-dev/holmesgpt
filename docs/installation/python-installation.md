@@ -308,6 +308,10 @@ config = Config(
 )
 ```
 
+> **Note:**
+> `custom_toolset_paths` is deprecated. Prefer placing your custom toolset YAML files under the directory pointed to `CUSTOM_TOOLSET_DIR` (defaults to `~/.holmes/custom_toolsets`) or use the CLI `-t` flag to add temporary toolsets.
+
+
 ## API Reference
 
 ### Config
@@ -319,7 +323,7 @@ Main configuration class for HolmesGPT.
 - `api_key` (str, optional) - LLM API key (can also use environment variables)
 - `model` (str, optional) - Model to use (default: "gpt-4.1")
 - `max_steps` (int, optional) - Maximum investigation steps (default: 10)
-- `custom_toolset_paths` (list, optional) - Custom toolset file paths
+- `custom_toolset_paths` (list, optional) - Custom toolset file paths (deprecated; prefer placing files under `CUSTOM_TOOLSET_DIR` or using the CLI `-t` flag)
 - `custom_runbooks` (list, optional) - Custom runbook file paths
 
 **Class Methods:**

@@ -1,4 +1,3 @@
-from enum import Enum
 import logging
 import os
 import subprocess
@@ -43,7 +42,12 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
-from holmes.interactive.completers import ShowCommandCompleter, create_merged_completer
+from holmes.interactive.completers import (
+    ShowCommandCompleter,
+    SlashCommandCompleter,
+    create_merged_completer,
+)
+from holmes.interactive.slash_commands import SlashCommands
 from holmes.interactive.status_bar import MessageType, StatusBarManager
 from holmes.interactive.toolset_refresh import ToolsetRefreshManager
 from holmes.utils.colors import (
@@ -56,54 +60,6 @@ from holmes.utils.colors import (
 )
 from holmes.utils.console.consts import agent_name
 from holmes.version import check_version_async
-
-
-class SlashCommands(Enum):
-    EXIT = ("/exit", "Exit interactive mode")
-    HELP = ("/help", "Show help message with all commands")
-    CLEAR = ("/clear", "Clear screen and reset conversation context")
-    TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
-    TOGGLE_TOOL_OUTPUT = (
-        "/auto",
-        "Toggle auto-display of tool outputs after responses",
-    )
-    LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
-    RUN = ("/run", "Run a bash command and optionally share with LLM")
-    SHELL = (
-        "/shell",
-        "Drop into interactive shell, then optionally share session with LLM",
-    )
-    CONTEXT = ("/context", "Show conversation context size and token count")
-    SHOW = ("/show", "Show specific tool output in scrollable view")
-    FEEDBACK = ("/feedback", "Provide feedback on the agent's response")
-
-    def __init__(self, command, description):
-        self.command = command
-        self.description = description
-
-
-class SlashCommandCompleter(Completer):
-    def __init__(self, unsupported_commands: Optional[List[str]] = None):
-        # Build commands dictionary, excluding unsupported commands
-        all_commands = {cmd.command: cmd.description for cmd in SlashCommands}
-        if unsupported_commands:
-            self.commands = {
-                cmd: desc
-                for cmd, desc in all_commands.items()
-                if cmd not in unsupported_commands
-            }
-        else:
-            self.commands = all_commands
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor
-        if text.startswith("/"):
-            word = text
-            for cmd, description in self.commands.items():
-                if cmd.startswith(word):
-                    yield Completion(
-                        cmd, start_position=-len(word), display=f"{cmd} - {description}"
-                    )
 
 
 class SmartPathCompleter(Completer):

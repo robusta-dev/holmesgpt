@@ -36,7 +36,9 @@ class RefreshResult:
 class ToolsetRefreshManager:
     """Manages background toolset refresh operations."""
 
-    def __init__(self, ai, toolset_manager, status_bar=None, loaded_from_cache=False):
+    def __init__(
+        self, ai, toolset_manager, status_bar=None, loaded_from_cache=False
+    ) -> None:
         self.ai = ai
         self.toolset_manager = toolset_manager
         self.status_bar = status_bar

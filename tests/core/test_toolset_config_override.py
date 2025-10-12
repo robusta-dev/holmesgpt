@@ -209,7 +209,7 @@ class TestPrerequisiteChecksWithOverriddenConfig:
             tools=[],
             enabled=True,
             config={"region": "us-east-1"},
-            prerequisites=[ToolsetEnvironmentPrerequisite(var_name="CLOUD_API_KEY")],
+            prerequisites=[ToolsetEnvironmentPrerequisite(env=["CLOUD_API_KEY"])],
         )
         builtin.tags = []
         mock_load_builtin_toolsets.return_value = [builtin]

@@ -20,11 +20,8 @@ class SlashCommands(Enum):
     )
     CONTEXT = ("/context", "Show conversation context size and token count")
     SHOW = ("/show", "Show specific tool output in scrollable view")
+    FEEDBACK = ("/feedback", "Provide feedback on the agent's response")
 
     def __init__(self, command, description):
         self.command = command
         self.description = description
-
-
-SLASH_COMMANDS_REFERENCE = {cmd.command: cmd.description for cmd in SlashCommands}
-ALL_SLASH_COMMANDS = [cmd.command for cmd in SlashCommands]

@@ -210,7 +210,7 @@ class PrerequisiteChecker:
                     updated.status = toolset.status
                     updated.error = toolset.error
                 except Exception as e:
-                    updated.status = ToolsetStatusEnum.DISABLED
+                    updated.status = ToolsetStatusEnum.FAILED
                     updated.error = str(e)
 
                 result.append(updated)

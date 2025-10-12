@@ -1,5 +1,3 @@
-import os
-
 import pytest
 import yaml
 
@@ -72,7 +70,6 @@ env_vars = {
 
 def test_load_toolsets_from_config_env_var_substitution(monkeypatch):
     for key, value in env_vars.items():
-        os.environ[key] = value
         monkeypatch.setenv(key, value)
 
     toolsets_config = yaml.safe_load(toolsets_config_str)

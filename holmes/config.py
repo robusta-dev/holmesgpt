@@ -58,7 +58,7 @@ class Config(RobustaBaseConfig):
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
-    alertmanager_label: Optional[List[str]] = []
+    alertmanager_label: Optional[List[str]] = Field(default_factory=list)
     alertmanager_file: Optional[FilePath] = None
 
     jira_url: Optional[str] = None
@@ -83,7 +83,7 @@ class Config(RobustaBaseConfig):
     opsgenie_team_integration_key: Optional[SecretStr] = None
     opsgenie_query: Optional[str] = None
 
-    custom_runbooks: List[FilePath] = []
+    custom_runbooks: List[FilePath] = Field(default_factory=list)
 
     # Custom toolset paths from both config file and CLI
     custom_toolset_paths: List[FilePath] = Field(default_factory=list)
@@ -341,7 +341,7 @@ class Config(RobustaBaseConfig):
 
         runbook_manager = RunbookManager(all_runbooks)
         # Always refresh toolsets for investigations (non-interactive)
-        tool_executor = self.create_console_tool_executor(refresh_status=True)
+        tool_executor = self.create_console_tool_executor()
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(

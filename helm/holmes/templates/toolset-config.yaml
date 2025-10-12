@@ -1,4 +1,4 @@
-{{- if or .Values.custom_toolsets .Values.mcp_servers (not (empty .Values.toolsets)) }}
+{{- if or .Values.custom_toolsets .Values.mcp_servers .Values.modelList (not (empty .Values.toolsets)) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

@@ -1,22 +1,27 @@
 """Custom completers for interactive mode."""
 
-from typing import Any, List
+from typing import Any, List, Optional
 
 from prompt_toolkit.completion import Completer, Completion, merge_completers
 from prompt_toolkit.completion.filesystem import ExecutableCompleter, PathCompleter
 from prompt_toolkit.document import Document
 
-from holmes.core.tool_calling_llm import ToolCallResult
-from holmes.interactive.slash_commands import (
-    SLASH_COMMANDS_REFERENCE,
-)
+from holmes.core.models import ToolCallResult
+from holmes.interactive.slash_commands import SlashCommands
 
 
 class SlashCommandCompleter(Completer):
-    """Completer for slash commands."""
-
-    def __init__(self):
-        self.commands = SLASH_COMMANDS_REFERENCE
+    def __init__(self, unsupported_commands: Optional[List[str]] = None):
+        # Build commands dictionary, excluding unsupported commands
+        all_commands = {cmd.command: cmd.description for cmd in SlashCommands}
+        if unsupported_commands:
+            self.commands = {
+                cmd: desc
+                for cmd, desc in all_commands.items()
+                if cmd not in unsupported_commands
+            }
+        else:
+            self.commands = all_commands
 
     def get_completions(self, document, complete_event):
         text = document.text_before_cursor

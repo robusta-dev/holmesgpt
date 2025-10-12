@@ -4,7 +4,7 @@ import os.path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml  # type: ignore
-from pydantic import ValidationError
+from pydantic import AnyUrl, ValidationError
 
 import holmes.utils.env as env_utils
 from holmes.common.env_vars import (
@@ -60,7 +60,7 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 class MCPServerConfig(ToolsetMetadata):
     """Configuration for MCP servers from config files"""
 
-    url: str
+    url: AnyUrl
 
     # Override default for MCP servers
     enabled: bool = True
