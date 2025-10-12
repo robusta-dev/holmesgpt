@@ -35,7 +35,7 @@ from holmes.core.truncation.dal_truncation_utils import (
 )
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
-from holmes.utils.global_instructions import Instructions
+from holmes.utils.global_instructions import Instructions, RobustaRunbookInstruction
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
@@ -409,6 +409,62 @@ class SupabaseDal:
             issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
 
         return issue_data
+
+    def get_runbook_catalog(self) -> Optional[List[RobustaRunbookInstruction]]:
+        if not self.enabled:
+            return None
+
+        try:
+            res = (
+                self.client.table(RUNBOOKS_TABLE)
+                .select("runbook")
+                .eq("account_id", self.account_id)
+                .eq("subject_type", "RunbookCatalog")
+                .execute()
+            )
+            if not res.data:
+                return None
+
+            instructions = []
+            for row in res.data:
+                id = row.get("runbook_id")
+                symptom = row.get("symptoms")
+                title = row.get("subject_name")
+                if not id or not symptom:
+                    continue
+                instructions.append(
+                    RobustaRunbookInstruction(id=id, symptom=symptom, title=title)
+                )
+            return instructions
+        except Exception:
+            logging.exception("Failed to fetch RunbookCatalog", exc_info=True)
+            return None
+
+    def get_runbook_content(
+        self, runbook_id: str
+    ) -> Optional[RobustaRunbookInstruction]:
+        if not self.enabled:
+            return None
+
+        res = (
+            self.client.table(RUNBOOKS_TABLE)
+            .select("runbook")
+            .eq("account_id", self.account_id)
+            .eq("subject_type", "RunbookCatalog")
+            .eq("runbook_id", runbook_id)
+            .execute()
+        )
+        if not res.data or len(res.data) != 1:
+            return None
+
+        row = res.data[0]
+        id = row.get("runbook_id")
+        symptom = row.get("symptoms")
+        title = row.get("subject_name")
+        instruction = row.get("runbook").get("instructions")
+        return RobustaRunbookInstruction(
+            id=id, symptom=symptom, instruction=instruction, title=title
+        )
 
     def get_resource_instructions(
         self, type: str, name: Optional[str]

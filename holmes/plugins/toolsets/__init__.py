@@ -102,7 +102,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         GitToolset(),
         BashExecutorToolset(),
         MongoDBAtlasToolset(),
-        RunbookToolset(),
+        RunbookToolset(dal=dal),
         AzureSQLToolset(),
         ServiceNowToolset(),
     ]

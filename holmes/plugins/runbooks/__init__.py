@@ -8,7 +8,9 @@ from typing import List, Optional, Pattern, Union
 
 from pydantic import BaseModel, PrivateAttr
 
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
+from holmes.utils.global_instructions import RobustaRunbookInstruction
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_RUNBOOK_SEARCH_PATH = THIS_DIR
@@ -66,17 +68,24 @@ class RunbookCatalogEntry(BaseModel):
     description: str
     link: str
 
+    def to_list_string(self) -> str:
+        return f"runbook link={self.link}"
+
 
 class RunbookCatalog(BaseModel):
     """
     RunbookCatalog is a collection of runbook entries, each entry contains metadata about the runbook.
     The correct runbook can be selected from the list by comparing the description with the user question.
+    Supports both RunbookCatalogEntry and RobustaRunbookInstruction.
     """
 
-    catalog: List[RunbookCatalogEntry]
+    catalog: List[Union[RunbookCatalogEntry, RobustaRunbookInstruction]]
+
+    def list_available_runbooks(self) -> list[str]:
+        return [entry.to_list_string() for entry in self.catalog]
 
 
-def load_runbook_catalog() -> Optional[RunbookCatalog]:
+def load_runbook_catalog(dal: Optional[SupabaseDal] = None) -> Optional[RunbookCatalog]:
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     catalogPath = os.path.join(dir_path, CATALOG_FILE)
@@ -85,14 +94,26 @@ def load_runbook_catalog() -> Optional[RunbookCatalog]:
     try:
         with open(catalogPath) as file:
             catalog_dict = json.load(file)
-            return RunbookCatalog(**catalog_dict)
+            catalog = RunbookCatalog(**catalog_dict)
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding JSON from {catalogPath}: {e}")
+        return None
     except Exception as e:
         logging.error(
             f"Unexpected error while loading runbook catalog from {catalogPath}: {e}"
         )
-    return None
+        return None
+
+    # Append additional runbooks from SupabaseDal if provided
+    if dal and dal.enabled:
+        try:
+            supabase_entries = dal.get_runbook_catalog()
+            if supabase_entries:
+                catalog.catalog.extend(supabase_entries)
+        except Exception as e:
+            logging.error(f"Error loading runbooks from Supabase: {e}")
+
+    return catalog
 
 
 def get_runbook_by_path(

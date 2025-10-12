@@ -2,7 +2,8 @@ import logging
 import os
 import textwrap
 from typing import Any, Dict, List, Optional
-
+from uuid import UUID
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StructuredToolResult,
     Tool,
@@ -21,24 +22,33 @@ from holmes.plugins.runbooks import (
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
-# TODO(mainred): currently we support fetch runbooks hosted internally, in the future we may want to support fetching
-# runbooks from external sources as well.
+def is_uuid(value: str, version: int | None = None) -> bool:
+    try:
+        u = UUID(value)
+    except (ValueError, TypeError):
+        return False
+    return (version is None) or (u.version == version)
+
+
 class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
     available_runbooks: List[str] = []
     additional_search_paths: Optional[List[str]] = None
+    dal: Optional[SupabaseDal] = None
 
     def __init__(
         self,
         toolset: "RunbookToolset",
         additional_search_paths: Optional[List[str]] = None,
+        dal: Optional[SupabaseDal] = None,
     ):
-        catalog = load_runbook_catalog()
+        catalog = load_runbook_catalog(dal=dal)
         available_runbooks = []
         if catalog:
-            available_runbooks = [entry.link for entry in catalog.catalog]
+            available_runbooks = catalog.list_available_runbooks()
 
-        # If additional search paths are configured (e.g., for testing), also scan those for .md files
+        allowed_types = ["link", "md_file", "robusta_runbook"]
+
         if additional_search_paths:
             for search_path in additional_search_paths:
                 if not os.path.isdir(search_path):
@@ -48,15 +58,20 @@ class RunbookFetcher(Tool):
                     if file.endswith(".md") and file not in available_runbooks:
                         available_runbooks.append(file)
 
-        # Build description with available runbooks
         runbook_list = ", ".join([f'"{rb}"' for rb in available_runbooks])
+        allowed_types_str = ", ".join([f'"{t}"' for t in allowed_types])
 
         super().__init__(
             name="fetch_runbook",
             description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
                 "link": ToolParameter(
-                    description=f"The link to the runbook (non-empty string required). Must be one of: {runbook_list}",
+                    description=f"The link, a .md file, or a robusta UUID to the runbook (non-empty string required). Must be one of: {runbook_list}",
+                    type="string",
+                    required=True,
+                ),
+                "type": ToolParameter(
+                    description=f"Type of runbook identifier. Must be one of: {allowed_types_str}",
                     type="string",
                     required=True,
                 ),
@@ -80,6 +95,43 @@ class RunbookFetcher(Tool):
                 params=params,
             )
 
+        if is_uuid(link):
+            # If dal is available, try to fetch runbook content by UUID
+            if self.dal and self.dal.enabled:
+                try:
+                    runbook_content = self.dal.get_runbook_content(link)
+                    if runbook_content:
+                        return StructuredToolResult(
+                            status=StructuredToolResultStatus.SUCCESS,
+                            data=runbook_content.pretty(),
+                            params=params,
+                        )
+                    else:
+                        err_msg = (
+                            f"Runbook with UUID '{link}' not found in remote storage."
+                        )
+                        logging.error(err_msg)
+                        return StructuredToolResult(
+                            status=StructuredToolResultStatus.ERROR,
+                            error=err_msg,
+                            params=params,
+                        )
+                except Exception as e:
+                    err_msg = f"Failed to fetch runbook with UUID '{link}': {str(e)}"
+                    logging.error(err_msg)
+                    return StructuredToolResult(
+                        status=StructuredToolResultStatus.ERROR,
+                        error=err_msg,
+                        params=params,
+                    )
+            else:
+                err_msg = "Runbook link appears to be a UUID, but no remote data access layer (dal) is enabled."
+                logging.error(err_msg)
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.ERROR,
+                    error=err_msg,
+                    params=params,
+                )
         # Build list of allowed search paths
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
         if self.additional_search_paths:
@@ -195,7 +247,11 @@ class RunbookFetcher(Tool):
 
 
 class RunbookToolset(Toolset):
-    def __init__(self, additional_search_paths: Optional[List[str]] = None):
+    def __init__(
+        self,
+        dal: Optional[SupabaseDal],
+        additional_search_paths: Optional[List[str]] = None,
+    ):
         # Store additional search paths in config for RunbookFetcher to access
         config = {}
         if additional_search_paths:
@@ -206,7 +262,7 @@ class RunbookToolset(Toolset):
             description="Fetch runbooks",
             icon_url="https://platform.robusta.dev/demos/runbook.svg",
             tools=[
-                RunbookFetcher(self, additional_search_paths),
+                RunbookFetcher(self, additional_search_paths, dal),
             ],
             docs_url="https://holmesgpt.dev/data-sources/",
             tags=[
