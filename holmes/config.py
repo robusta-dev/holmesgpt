@@ -95,7 +95,6 @@ class Config(RobustaBaseConfig):
     _server_tool_executor: Optional[ToolExecutor] = None
 
     # TODO: Separate those fields to facade class, this shouldn't be part of the config.
-    _toolset_manager: Optional[ToolsetManager] = PrivateAttr(None)
     _llm_model_registry: Optional[LLMModelRegistry] = PrivateAttr(None)
     _dal: Optional[SupabaseDal] = PrivateAttr(None)
 
