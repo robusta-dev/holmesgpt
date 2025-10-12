@@ -3,6 +3,7 @@ import os
 import textwrap
 from typing import Any, Dict, List, Optional
 from uuid import UUID
+from enum import Enum
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StructuredToolResult,
@@ -30,6 +31,12 @@ def is_uuid(value: str, version: int | None = None) -> bool:
     return (version is None) or (u.version == version)
 
 
+class RunbookType(str, Enum):
+    LINK = "link"
+    MD_FILE = "md_file"
+    ROBUSTA_RUNBOOK = "robusta_runbook"
+
+
 class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
     available_runbooks: List[str] = []
@@ -47,7 +54,7 @@ class RunbookFetcher(Tool):
         if catalog:
             available_runbooks = catalog.list_available_runbooks()
 
-        allowed_types = ["link", "md_file", "robusta_runbook"]
+        allowed_types = [t.value for t in RunbookType]
 
         if additional_search_paths:
             for search_path in additional_search_paths:
@@ -83,6 +90,8 @@ class RunbookFetcher(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         link: str = params.get("link", "")
+        runbook_type: str = params.get("type", "")
+
         # Validate link is not empty
         if not link or not link.strip():
             err_msg = (
@@ -95,44 +104,74 @@ class RunbookFetcher(Tool):
                 params=params,
             )
 
-        if is_uuid(link):
-            # If dal is available, try to fetch runbook content by UUID
-            if self.dal and self.dal.enabled:
-                try:
-                    runbook_content = self.dal.get_runbook_content(link)
-                    if runbook_content:
-                        return StructuredToolResult(
-                            status=StructuredToolResultStatus.SUCCESS,
-                            data=runbook_content.pretty(),
-                            params=params,
-                        )
-                    else:
-                        err_msg = (
-                            f"Runbook with UUID '{link}' not found in remote storage."
-                        )
-                        logging.error(err_msg)
-                        return StructuredToolResult(
-                            status=StructuredToolResultStatus.ERROR,
-                            error=err_msg,
-                            params=params,
-                        )
-                except Exception as e:
-                    err_msg = f"Failed to fetch runbook with UUID '{link}': {str(e)}"
+        if runbook_type == RunbookType.ROBUSTA_RUNBOOK.value:
+            return self._get_robusta_runbook(link, params)
+        elif runbook_type == RunbookType.MD_FILE.value:
+            return self._get_md_runbook(link, params)
+        elif runbook_type == RunbookType.LINK.value:
+            return self._get_link_runbook(link, params)
+        else:
+            err_msg = f"Invalid runbook type '{runbook_type}'."
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
+
+    def _get_robusta_runbook(self, link: str, params: dict) -> StructuredToolResult:
+        if not is_uuid(link):
+            err_msg = "robusta_runbook type requires a valid UUID as link."
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
+        if self.dal and self.dal.enabled:
+            try:
+                runbook_content = self.dal.get_runbook_content(link)
+                if runbook_content:
+                    return StructuredToolResult(
+                        status=StructuredToolResultStatus.SUCCESS,
+                        data=runbook_content.pretty(),
+                        params=params,
+                    )
+                else:
+                    err_msg = f"Runbook with UUID '{link}' not found in remote storage."
                     logging.error(err_msg)
                     return StructuredToolResult(
                         status=StructuredToolResultStatus.ERROR,
                         error=err_msg,
                         params=params,
                     )
-            else:
-                err_msg = "Runbook link appears to be a UUID, but no remote data access layer (dal) is enabled."
+            except Exception as e:
+                err_msg = f"Failed to fetch runbook with UUID '{link}': {str(e)}"
                 logging.error(err_msg)
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.ERROR,
                     error=err_msg,
                     params=params,
                 )
-        # Build list of allowed search paths
+        else:
+            err_msg = "Runbook link appears to be a UUID, but no remote data access layer (dal) is enabled."
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
+
+    def _get_md_runbook(self, link: str, params: dict) -> StructuredToolResult:
+        # Only allow .md files
+        if not link.endswith(".md"):
+            err_msg = f"Invalid runbook link '{link}'. Must end with .md extension."
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
         if self.additional_search_paths:
             search_paths.extend(self.additional_search_paths)
@@ -177,7 +216,6 @@ class RunbookFetcher(Tool):
                 )
 
         runbook_path = get_runbook_by_path(link, search_paths)
-
         if runbook_path is None:
             err_msg = (
                 f"Runbook '{link}' not found in any of the search paths: {search_paths}"
@@ -188,8 +226,6 @@ class RunbookFetcher(Tool):
                 error=err_msg,
                 params=params,
             )
-
-        # Read and return the runbook content
         try:
             with open(runbook_path, "r") as file:
                 content = file.read()
@@ -240,6 +276,24 @@ class RunbookFetcher(Tool):
                 error=err_msg,
                 params=params,
             )
+
+    def _get_link_runbook(self, link: str, params: dict) -> StructuredToolResult:
+        # For "link" type, treat as a catalog entry (not robusta UUID, not .md file)
+        # Validate link is in the available runbooks list
+        if link not in self.available_runbooks:
+            err_msg = f"Invalid runbook link '{link}'. Must be one of: {', '.join(self.available_runbooks) if self.available_runbooks else 'No runbooks available'}"
+            logging.error(err_msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=err_msg,
+                params=params,
+            )
+        # For demo, just return the link as found
+        return StructuredToolResult(
+            status=StructuredToolResultStatus.SUCCESS,
+            data=f"Runbook link '{link}' found in catalog.",
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params) -> str:
         path: str = params.get("link", "")
