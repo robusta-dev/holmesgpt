@@ -1265,6 +1265,11 @@ def run_interactive_loop(
             logging.error("An error occurred during interactive mode:", exc_info=e)
             console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
 
+            # Print trace URL even on error for debugging
+            trace_url = tracer.get_trace_url()
+            if trace_url:
+                console.print(f"🔍 View trace: {trace_url}")
+
     console.print(
         f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
     )
