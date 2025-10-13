@@ -907,8 +907,7 @@ class ToolCallingLLM:
         if msgs and tool_decisions:
             logging.info(f"Processing {len(tool_decisions)} tool decisions")
             msgs, events = self.process_tool_decisions(msgs, tool_decisions)
-            for event in events:
-                yield event
+            yield from events
 
         messages: list[dict] = []
         if system_prompt:
