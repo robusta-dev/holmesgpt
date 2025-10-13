@@ -1,9 +1,5 @@
 from typing import Optional
 from pydantic import BaseModel
-from holmes.common.env_vars import (
-    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
-    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
-)
 from holmes.core.llm import LLM
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.core.models import ToolCallResult
@@ -24,32 +20,14 @@ def get_pct_token_count(percent_of_total_context_window: float, llm: LLM) -> int
         return context_window_size
 
 
-def get_max_token_count_for_single_tool(llm: LLM) -> int:
-    return min(
-        TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
-        get_pct_token_count(
-            percent_of_total_context_window=TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
-            llm=llm,
-        ),
-    )
-
-
 def is_tool_call_too_big(
     tool_call_result: ToolCallResult, llm: LLM
 ) -> tuple[bool, Optional[ToolCallSizeMetadata]]:
-    if (
-        tool_call_result.result.status == StructuredToolResultStatus.SUCCESS
-        and 0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
-        and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
-    ):
+    if tool_call_result.result.status == StructuredToolResultStatus.SUCCESS:
         message = tool_call_result.as_tool_call_message()
 
         tokens = llm.count_tokens(messages=[message])
-        context_window_size = llm.get_context_window_size()
-        max_tokens_allowed: int = int(
-            context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
-        )
-
+        max_tokens_allowed = llm.get_max_token_count_for_single_tool()
         return (
             tokens.total_tokens > max_tokens_allowed,
             ToolCallSizeMetadata(

@@ -1,13 +1,8 @@
 import logging
 from typing import Optional
-from holmes.common.env_vars import (
-    ENABLE_CONVERSATION_HISTORY_COMPACTION,
-)
 from holmes.core.llm import LLM
 from holmes.plugins.prompts import load_and_render_prompt
 from litellm.types.utils import ModelResponse
-
-TOKENS_RESERVED_FOR_SUMMARIZATION_PROMPT = 500
 
 
 def strip_system_prompt(
@@ -24,9 +19,6 @@ def strip_system_prompt(
 def compact_conversation_history(
     original_conversation_history: list[dict], llm: LLM
 ) -> list[dict]:
-    if not ENABLE_CONVERSATION_HISTORY_COMPACTION:
-        return original_conversation_history
-
     conversation_history, system_prompt_message = strip_system_prompt(
         original_conversation_history
     )

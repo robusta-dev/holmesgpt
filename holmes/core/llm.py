@@ -26,6 +26,8 @@ from holmes.common.env_vars import (
     ROBUSTA_API_ENDPOINT,
     THINKING,
     EXTRA_HEADERS,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -97,6 +99,19 @@ class LLM:
     @abstractmethod
     def get_maximum_output_token(self) -> int:
         pass
+
+    def get_max_token_count_for_single_tool(self) -> int:
+        if (
+            0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+            and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
+        ):
+            context_window_size = self.get_context_window_size()
+            calculated_max_tokens = int(
+                context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
+            )
+            return min(calculated_max_tokens, TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS)
+        else:
+            return TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS
 
     @abstractmethod
     def count_tokens(

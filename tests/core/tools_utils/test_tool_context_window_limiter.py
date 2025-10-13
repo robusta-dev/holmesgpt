@@ -41,57 +41,6 @@ class TestPreventOverlyBigToolResponse:
             result=result,
         )
 
-    def test_no_limit_configured(self, mock_llm, success_tool_call_result):
-        """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is 0."""
-        with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
-            0,
-        ):
-            original_status = success_tool_call_result.result.status
-            original_data = success_tool_call_result.result.data
-            original_error = success_tool_call_result.result.error
-
-            prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
-
-            # Should remain unchanged
-            assert success_tool_call_result.result.status == original_status
-            assert success_tool_call_result.result.data == original_data
-            assert success_tool_call_result.result.error == original_error
-
-    def test_negative_limit_configured(self, mock_llm, success_tool_call_result):
-        """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is negative."""
-        with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
-            -10,
-        ):
-            original_status = success_tool_call_result.result.status
-            original_data = success_tool_call_result.result.data
-            original_error = success_tool_call_result.result.error
-
-            prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
-
-            # Should remain unchanged
-            assert success_tool_call_result.result.status == original_status
-            assert success_tool_call_result.result.data == original_data
-            assert success_tool_call_result.result.error == original_error
-
-    def test_over_100_percent_limit(self, mock_llm, success_tool_call_result):
-        """Test that function does nothing when TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT is over 100."""
-        with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
-            150,
-        ):
-            original_status = success_tool_call_result.result.status
-            original_data = success_tool_call_result.result.data
-            original_error = success_tool_call_result.result.error
-
-            prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
-
-            # Should remain unchanged
-            assert success_tool_call_result.result.status == original_status
-            assert success_tool_call_result.result.data == original_data
-            assert success_tool_call_result.result.error == original_error
-
     def test_within_token_limit(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when tool result is within token limit."""
         with patch(

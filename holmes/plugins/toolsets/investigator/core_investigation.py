@@ -1,11 +1,9 @@
-import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from uuid import uuid4
 
-from litellm import ChatCompletionMessageToolCall
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
     StructuredToolResult,
@@ -34,24 +32,6 @@ def parse_tasks(todos_data: Any) -> list[Task]:
             tasks.append(task)
 
     return tasks
-
-
-def get_tasks_from_potential_openai_tool_call(
-    tool_to_call: ChatCompletionMessageToolCall,
-) -> Optional[list[Task]]:
-    if (
-        hasattr(tool_to_call, "function")
-        and tool_to_call.function.name == TODO_WRITE_TOOL_NAME
-    ):
-        try:
-            args = json.loads(tool_to_call.function.arguments)
-            return parse_tasks(args.get("todos"))
-        except Exception:
-            logging.info(
-                f"Failed to parse arguments for TodoWrite tool when extracting tasks status. args={tool_to_call.function.arguments}"
-            )
-
-    return None
 
 
 class TodoWriteTool(Tool):

@@ -1,6 +1,8 @@
 import pytest
 from holmes.core.llm import TokenCountMetadata
-from holmes.core.tool_calling_llm import truncate_messages_to_fit_context
+from holmes.core.truncation.input_context_window_limiter import (
+    truncate_messages_to_fit_context,
+)
 
 
 def simple_token_counter(messages) -> TokenCountMetadata:
