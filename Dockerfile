@@ -57,13 +57,21 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
 RUN chmod 777 argocd
 RUN ./argocd --help
 
-# Install Helm
-RUN curl https://baltocdn.com/helm/signing.asc | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" \
-    | tee /etc/apt/sources.list.d/helm-stable-debian.list \
-    && apt-get update \
-    && apt-get install -y helm \
-    && rm -rf /var/lib/apt/lists/*
+# Install Helm - using direct binary download for better reliability
+ARG HELM_VERSION=v3.16.3
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    HELM_ARCH="arm64"; \
+    elif [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+    HELM_ARCH="amd64"; \
+    else \
+    echo "Unsupported platform: $TARGETPLATFORM"; exit 1; \
+    fi && \
+    curl -fsSL -o helm.tar.gz "https://get.helm.sh/helm-${HELM_VERSION}-linux-${HELM_ARCH}.tar.gz" && \
+    tar -zxvf helm.tar.gz && \
+    mv linux-${HELM_ARCH}/helm /usr/bin/helm && \
+    chmod +x /usr/bin/helm && \
+    rm -rf helm.tar.gz linux-${HELM_ARCH} && \
+    helm version
 
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
