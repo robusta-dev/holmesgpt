@@ -4,13 +4,12 @@ from pathlib import Path
 from typing import Optional
 
 import pytest
-from pydantic import BaseModel
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 
 from holmes.config import Config
-from holmes.core.llm import DefaultLLM, TokenCountMetadata
+from holmes.core.llm import DefaultLLM
 from holmes.core.tracing import TracingFactory, SpanType
 from holmes.core.truncation.compaction import compact_conversation_history
 from tests.llm.utils.test_case_utils import (
@@ -74,7 +73,9 @@ def test_compaction(
             conversation_history = load_conversation_history(Path(test_case.folder))
 
             if not conversation_history:
-                pytest.fail(f"No conversation history found for test case {test_case.id}")
+                pytest.fail(
+                    f"No conversation history found for test case {test_case.id}"
+                )
 
             # Create LLM instance
             config = Config()
@@ -89,8 +90,6 @@ def test_compaction(
                     expand=False,
                 )
             )
-
-
 
             # Perform compaction
             with tracer.start_trace(
@@ -109,7 +108,9 @@ def test_compaction(
                     break
 
             if not summary_content:
-                pytest.fail("Compaction did not produce an assistant message with summary")
+                pytest.fail(
+                    "Compaction did not produce an assistant message with summary"
+                )
 
             compacted_tokens = llm.count_tokens(messages=compacted_history)
 
@@ -143,7 +144,11 @@ def test_compaction(
             ) as eval_llm_span:
                 # Use classifier to score the summary quality
                 # Convert expected to list format if it's a string
-                expected_elements = [expected_output] if isinstance(expected_output, str) else expected_output
+                expected_elements = (
+                    [expected_output]
+                    if isinstance(expected_output, str)
+                    else expected_output
+                )
 
                 correctness_eval = evaluate_correctness(
                     expected_elements=expected_elements,
@@ -153,7 +158,9 @@ def test_compaction(
                     evaluation_type="loose",
                 )
 
-                compression_ratio = (original_tokens.total_tokens - compacted_tokens.total_tokens) / original_tokens.total_tokens
+                compression_ratio = (
+                    original_tokens.total_tokens - compacted_tokens.total_tokens
+                ) / original_tokens.total_tokens
                 scores = {
                     "correctness": correctness_eval.score,
                     "compression_ratio": compression_ratio,

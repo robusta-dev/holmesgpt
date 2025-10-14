@@ -51,12 +51,16 @@ def format_conversation_as_markdown(conversation_history: list[dict[str, Any]]) 
         elif role == "tool":
             tool_name = msg.get("name", "unknown_tool")
             tool_call_id = msg.get("tool_call_id", "unknown_id")
-            markdown_lines.append(f"## 🔧 Message {i}/{message_count}: Tool Response (`{tool_name}`)\n")
+            markdown_lines.append(
+                f"## 🔧 Message {i}/{message_count}: Tool Response (`{tool_name}`)\n"
+            )
             markdown_lines.append(f"**Tool Call ID:** `{tool_call_id}`\n\n")
             markdown_lines.append(_format_tool_response(content))
 
         else:
-            markdown_lines.append(f"## ❓ Message {i}/{message_count}: {role.title()}\n")
+            markdown_lines.append(
+                f"## ❓ Message {i}/{message_count}: {role.title()}\n"
+            )
             markdown_lines.append(f"{content}\n")
 
     return "".join(markdown_lines)

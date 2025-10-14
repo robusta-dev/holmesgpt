@@ -24,13 +24,14 @@ if BRAINTRUST_API_KEY:
     braintrust_enabled = True
 
 
-
 class CompactionResult(BaseModel):
     """Result wrapper for compaction tests to use with log_to_braintrust."""
+
     result: str  # The summary content
     original_tokens: TokenCountMetadata
     compacted_tokens: TokenCountMetadata
     compression_ratio: float
+
 
 def find_dataset_row_by_test_case(dataset: Dataset, test_case: HolmesTestCase):
     for row in dataset:
@@ -209,7 +210,9 @@ def log_to_braintrust(
 
     # Determine output based on test type and error state
     if error:
-        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult or CompactionResult
+        if hasattr(
+            result, "result"
+        ):  # AskHolmesTestCase with LLMResult or CompactionResult
             output = result.result if result else str(error)
         elif hasattr(
             result, "analysis"
@@ -219,7 +222,9 @@ def log_to_braintrust(
             output = str(error)
         scores = scores or {}
     else:
-        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult or CompactionResult
+        if hasattr(
+            result, "result"
+        ):  # AskHolmesTestCase with LLMResult or CompactionResult
             output = result.result if result else ""
         elif hasattr(
             result, "analysis"
@@ -319,7 +324,10 @@ def log_to_braintrust(
         input_data = str(test_case.investigate_request)
         expected = str(test_case.expected_output)
     elif test_case.conversation_history:  # compaction test case
-        from tests.llm.utils.conversation_formatter import format_conversation_as_markdown
+        from tests.llm.utils.conversation_formatter import (
+            format_conversation_as_markdown,
+        )
+
         input_data = format_conversation_as_markdown(test_case.conversation_history)
         expected = (
             test_case.expected_output

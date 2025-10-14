@@ -311,9 +311,7 @@ class MockHelper:
                     config_dict["conversation_history"] = load_conversation_history(
                         test_case_folder
                     )
-                    test_case = TypeAdapter(HolmesTestCase).validate_python(
-                        config_dict
-                    )
+                    test_case = TypeAdapter(HolmesTestCase).validate_python(config_dict)
                 else:
                     # Skip test cases that don't match any known type
                     logging.debug(
