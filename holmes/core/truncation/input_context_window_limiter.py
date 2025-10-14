@@ -198,6 +198,9 @@ def limit_input_context_window(
         )
         metadata["truncations"] = [t.model_dump() for t in truncated_res.truncations]
         messages = truncated_res.truncated_messages
+
+        # recount after truncation
+        tokens = llm.count_tokens(messages=messages, tools=tools)  # type: ignore
     else:
         metadata["truncations"] = []
 
