@@ -318,6 +318,14 @@ def log_to_braintrust(
     elif isinstance(test_case, InvestigateTestCase):
         input_data = str(test_case.investigate_request)
         expected = str(test_case.expected_output)
+    elif test_case.conversation_history:  # compaction test case
+        from tests.llm.utils.conversation_formatter import format_conversation_as_markdown
+        input_data = format_conversation_as_markdown(test_case.conversation_history)
+        expected = (
+            test_case.expected_output
+            if isinstance(test_case.expected_output, str)
+            else str(test_case.expected_output)
+        )
     else:
         input_data = ""
         expected = ""
