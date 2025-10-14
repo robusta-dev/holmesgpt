@@ -69,7 +69,7 @@ def format_conversation_as_markdown(conversation_history: list[dict[str, Any]]) 
 def _format_system_message(content: str) -> str:
     """Format system message, truncating if very long."""
     if len(content) > 2000:
-        return f"```\n{content[:2000]}\n... [truncated, {len(content)} total characters]\n```\n"
+        return f"```\n{content[:2000]}\n... [TRUNCATED BY TEST FRAMEWORK FOR DISPLAY, {len(content)} total characters]\n```\n"
     return f"```\n{content}\n```\n"
 
 
@@ -143,5 +143,5 @@ def _format_tool_response(content: str) -> str:
     # Tool responses can be quite long, so we'll format them in a code block
     # and truncate if extremely long
     if len(content) > 5000:
-        return f"**Output:**\n```\n{content[:5000]}\n... [truncated, {len(content)} total characters]\n```\n"
+        return f"**Output:**\n```\n{content[:5000]}\n... [TRUNCATED BY TEST FRAMEWORK FOR DISPLAY, {len(content)} total characters]\n```\n"
     return f"**Output:**\n```\n{content}\n```\n"
