@@ -824,7 +824,7 @@ class ToolCallingLLM:
 
             # TODO RESTORE CUTOUT CONTEXT WINDOW SHORTNEING
             limit_result = limit_input_context_window(
-                ai=self, messages=messages, tools=tools
+                llm=self.llm, messages=messages, tools=tools
             )
             yield from limit_result.events
             messages = limit_result.messages

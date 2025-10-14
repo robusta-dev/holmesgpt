@@ -306,6 +306,14 @@ class MockHelper:
                     test_case = TypeAdapter(HealthCheckTestCase).validate_python(
                         config_dict
                     )
+                elif self._test_cases_folder.name == "compaction":
+                    # Compaction tests only need conversation_history and expected_output
+                    config_dict["conversation_history"] = load_conversation_history(
+                        test_case_folder
+                    )
+                    test_case = TypeAdapter(HolmesTestCase).validate_python(
+                        config_dict
+                    )
                 else:
                     # Skip test cases that don't match any known type
                     logging.debug(
@@ -456,13 +464,25 @@ def _parse_conversation_history_md_files(
 
 def load_conversation_history(test_case_folder: Path) -> Optional[list[dict[str, str]]]:
     """
-    Loads conversation history from .md files in a specified folder structure.
+    Loads conversation history from either .md files or a JSON file.
 
-    The folder structure is expected to be:
-    test_case_folder/
-        conversation_history/
-            <index>_<role>.md
-            ...
+    Supports two formats (checked in this order):
+    1. Directory with .md files:
+       test_case_folder/
+           conversation_history/
+               01_system.md
+               02_user.md
+               03_assistant.md
+               ...
+
+    2. Single JSON file:
+       test_case_folder/
+           conversation_history.json
+
+       Format: [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}, ...]
+
+    Returns:
+        List of message dicts with 'role' and 'content' keys, or None if not found.
     """
     conversation_history_dir = test_case_folder / "conversation_history"
     if conversation_history_dir.is_dir():

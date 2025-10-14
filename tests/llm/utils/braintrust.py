@@ -5,6 +5,9 @@ import logging
 import os
 from typing import Any, List, Optional, Union
 
+from pydantic import BaseModel
+
+from holmes.core.llm import TokenCountMetadata
 from tests.llm.utils.test_case_utils import HolmesTestCase  # type: ignore
 from holmes.core.tracing import (
     DummySpan,
@@ -20,6 +23,14 @@ braintrust_enabled = False
 if BRAINTRUST_API_KEY:
     braintrust_enabled = True
 
+
+
+class CompactionResult(BaseModel):
+    """Result wrapper for compaction tests to use with log_to_braintrust."""
+    result: str  # The summary content
+    original_tokens: TokenCountMetadata
+    compacted_tokens: TokenCountMetadata
+    compression_ratio: float
 
 def find_dataset_row_by_test_case(dataset: Dataset, test_case: HolmesTestCase):
     for row in dataset:
@@ -198,7 +209,7 @@ def log_to_braintrust(
 
     # Determine output based on test type and error state
     if error:
-        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult
+        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult or CompactionResult
             output = result.result if result else str(error)
         elif hasattr(
             result, "analysis"
@@ -208,7 +219,7 @@ def log_to_braintrust(
             output = str(error)
         scores = scores or {}
     else:
-        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult
+        if hasattr(result, "result"):  # AskHolmesTestCase with LLMResult or CompactionResult
             output = result.result if result else ""
         elif hasattr(
             result, "analysis"
@@ -264,6 +275,15 @@ def log_to_braintrust(
         metadata["tool_call_count"] = len(result.tool_calls)
         metadata["tools_used"] = list({tc.tool_name for tc in result.tool_calls})
         # Note: holmes_duration is logged separately directly to eval_span in ask_holmes()
+
+    # Add compaction-specific metrics if available
+    if isinstance(result, CompactionResult):
+        metadata["test_type"] = "compaction"
+        metadata["total_original_tokens"] = result.original_tokens.total_tokens
+        metadata["total_compacted_tokens"] = result.compacted_tokens.total_tokens
+        metadata["original_tokens"] = result.original_tokens.model_dump()
+        metadata["compacted_tokens"] = result.compacted_tokens.model_dump()
+        metadata["compression_ratio"] = result.compression_ratio
 
     # Add error information if present
     if error:

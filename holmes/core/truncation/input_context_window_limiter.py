@@ -7,11 +7,11 @@ from holmes.common.env_vars import (
     MAX_OUTPUT_TOKEN_RESERVATION,
 )
 from holmes.core.llm import (
+    LLM,
     TokenCountMetadata,
     get_context_window_compaction_threshold_pct,
 )
 from holmes.core.models import TruncationMetadata, TruncationResult
-from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.truncation.compaction import compact_conversation_history
 from holmes.utils import sentry_helper
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -143,20 +143,20 @@ class ContextWindowLimiterOutput(BaseModel):
 
 @sentry_sdk.trace
 def limit_input_context_window(
-    ai: ToolCallingLLM, messages: list[dict], tools: Optional[list[dict[str, Any]]]
+    llm: LLM, messages: list[dict], tools: Optional[list[dict[str, Any]]]
 ) -> ContextWindowLimiterOutput:
     events = []
     metadata = {}
-    initial_tokens = ai.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
-    max_context_size = ai.llm.get_context_window_size()
-    maximum_output_token = ai.llm.get_maximum_output_token()
+    initial_tokens = llm.count_tokens(messages=messages, tools=tools)  # type: ignore
+    max_context_size = llm.get_context_window_size()
+    maximum_output_token = llm.get_maximum_output_token()
     if ENABLE_CONVERSATION_HISTORY_COMPACTION and (
         initial_tokens.total_tokens + maximum_output_token
     ) > (max_context_size * get_context_window_compaction_threshold_pct() / 100):
         compacted_messages = compact_conversation_history(
-            original_conversation_history=messages, llm=ai.llm
+            original_conversation_history=messages, llm=llm
         )
-        compacted_tokens = ai.llm.count_tokens(compacted_messages, tools=tools)
+        compacted_tokens = llm.count_tokens(compacted_messages, tools=tools)
         compacted_total_tokens = compacted_tokens.total_tokens
 
         if compacted_total_tokens < initial_tokens.total_tokens:
@@ -187,14 +187,14 @@ def limit_input_context_window(
                 f"Failed to reduce token count when compacting conversation history. Original tokens:{initial_tokens.total_tokens}. Compacted tokens:{compacted_total_tokens}"
             )
 
-    tokens = ai.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
+    tokens = llm.count_tokens(messages=messages, tools=tools)  # type: ignore
     if (tokens.total_tokens + maximum_output_token) > max_context_size:
         # Compaction was not sufficient. Truncating messages.
         truncated_res = truncate_messages_to_fit_context(
             messages=messages,
             max_context_size=max_context_size,
             maximum_output_token=maximum_output_token,
-            count_tokens_fn=ai.llm.count_tokens,
+            count_tokens_fn=llm.count_tokens,
         )
         metadata["truncations"] = [t.model_dump() for t in truncated_res.truncations]
         messages = truncated_res.truncated_messages

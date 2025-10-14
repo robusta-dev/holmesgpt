@@ -327,7 +327,6 @@ class DefaultLLM(LLM):
                 # it is defensive code so that all tokens are accounted for
                 # and can potentially make debugging easier
                 other_tokens += token_count
-                print(json.dumps(message))
 
         messages_token_count_without_tools = litellm.token_counter(  # type: ignore
             model=self.model, messages=messages
