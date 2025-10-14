@@ -16,6 +16,9 @@ class TestPreventOverlyBigToolResponse:
         """Create a mock LLM instance."""
         llm = Mock(spec=LLM)
         llm.get_context_window_size.return_value = 4096
+        llm.get_max_token_count_for_single_tool.return_value = (
+            2048  # Default to 50% of context window
+        )
         llm.count_tokens.return_value = TokenCountMetadata(
             total_tokens=1000,
             system_tokens=0,
@@ -44,11 +47,12 @@ class TestPreventOverlyBigToolResponse:
     def test_within_token_limit(self, mock_llm, success_tool_call_result):
         """Test that function does nothing when tool result is within token limit."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             50,
         ):
             # Context window: 4096, 50% = 2048 tokens allowed
             # Token count: 1000 (within limit)
+            mock_llm.get_max_token_count_for_single_tool.return_value = 2048
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=1000,
                 system_tokens=0,
@@ -73,11 +77,12 @@ class TestPreventOverlyBigToolResponse:
     def test_exceeds_token_limit(self, mock_llm, success_tool_call_result):
         """Test that function modifies result when tool result exceeds token limit."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             50,
         ):
             # Context window: 4096, 50% = 2048 tokens allowed
             # Token count: 3000 (exceeds limit)
+            mock_llm.get_max_token_count_for_single_tool.return_value = 2048
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=3000,
                 system_tokens=0,
@@ -106,11 +111,13 @@ class TestPreventOverlyBigToolResponse:
     def test_token_calculation_accuracy(self, mock_llm, success_tool_call_result):
         """Test that token calculations are accurate."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             25,
         ):
             # Context window: 4096, 25% = 1024 tokens allowed
             # Token count: 2000 (exceeds limit)
+            mock_llm.get_context_window_size.return_value = 4096
+            mock_llm.get_max_token_count_for_single_tool.return_value = 1024
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=2000,
                 system_tokens=0,
@@ -120,7 +127,6 @@ class TestPreventOverlyBigToolResponse:
                 assistant_tokens=0,
                 other_tokens=0,
             )
-            mock_llm.get_context_window_size.return_value = 4096
 
             prevent_overly_big_tool_response(success_tool_call_result, mock_llm)
 
@@ -134,9 +140,10 @@ class TestPreventOverlyBigToolResponse:
     ):
         """Test that the function calls as_tool_call_message to get the message for token counting."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             50,
         ):
+            mock_llm.get_max_token_count_for_single_tool.return_value = 2048
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=1000,  # Within limit
                 system_tokens=0,
@@ -158,11 +165,14 @@ class TestPreventOverlyBigToolResponse:
     def test_different_context_window_sizes(self, mock_llm, success_tool_call_result):
         """Test with different context window sizes."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             40,
         ):
             # Test with smaller context window
             mock_llm.get_context_window_size.return_value = 2048
+            mock_llm.get_max_token_count_for_single_tool.return_value = (
+                819  # 40% of 2048
+            )
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=1000,  # 40% of 2048 = 819 tokens allowed, 1000 exceeds this
                 system_tokens=0,
@@ -185,10 +195,11 @@ class TestPreventOverlyBigToolResponse:
     def test_edge_case_exactly_at_limit(self, mock_llm, success_tool_call_result):
         """Test behavior when token count is exactly at the limit."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             50,
         ):
             mock_llm.get_context_window_size.return_value = 4096
+            mock_llm.get_max_token_count_for_single_tool.return_value = 2048
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=2048,  # Exactly 50% of 4096
                 system_tokens=0,
@@ -211,10 +222,13 @@ class TestPreventOverlyBigToolResponse:
     def test_error_message_format(self, mock_llm, success_tool_call_result):
         """Test that error message contains all expected components."""
         with patch(
-            "holmes.core.tools_utils.tool_context_window_limiter.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
+            "holmes.common.env_vars.TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT",
             20,
         ):
             mock_llm.get_context_window_size.return_value = 5000
+            mock_llm.get_max_token_count_for_single_tool.return_value = (
+                1000  # 20% of 5000
+            )
             mock_llm.count_tokens.return_value = TokenCountMetadata(
                 total_tokens=2000,  # 20% of 5000 = 1000 tokens allowed
                 system_tokens=0,
