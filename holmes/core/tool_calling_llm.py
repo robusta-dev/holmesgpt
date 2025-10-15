@@ -181,7 +181,7 @@ class ToolCallingLLM:
 
     def process_tool_decisions(
         self, messages: List[Dict[str, Any]], tool_decisions: List[ToolApprovalDecision]
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], list[StreamMessage]]:
         """
         Process tool approval decisions and execute approved tools.
 
@@ -192,8 +192,9 @@ class ToolCallingLLM:
         Returns:
             Updated messages list with tool execution results
         """
+        events: list[StreamMessage] = []
         if not tool_decisions:
-            return messages
+            return messages, events
 
         # Create decision lookup
         decisions_by_tool_call_id = {
@@ -228,35 +229,35 @@ class ToolCallingLLM:
             tool_call_message: dict
             tool_call = tool_call_with_decision.tool_call
             decision = tool_call_with_decision.decision
+            tool_result: Optional[ToolCallResult] = None
             if decision and decision.approved:
-                try:
-                    llm_tool_result = self._invoke_llm_tool_call(
-                        tool_to_call=tool_call,
-                        previous_tool_calls=[],
-                        trace_span=DummySpan(),  # TODO: replace with proper span
-                        tool_number=None,
-                        user_approved=True,
-                    )
-                    tool_call_message = llm_tool_result.as_tool_call_message()
-
-                except Exception as e:
-                    logging.error(
-                        f"Failed to execute approved tool {tool_call.id}: {e}"
-                    )
-                    tool_call_message = {
-                        "tool_call_id": tool_call.id,
-                        "role": "tool",
-                        "name": tool_call.function.name,
-                        "content": f"Tool execution failed: {str(e)}",
-                    }
+                tool_result = self._invoke_llm_tool_call(
+                    tool_to_call=tool_call,
+                    previous_tool_calls=[],
+                    trace_span=DummySpan(),  # TODO: replace with proper span
+                    tool_number=None,
+                    user_approved=True,
+                )
             else:
                 # Tool was rejected or no decision found, add rejection message
-                tool_call_message = {
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": tool_call.function.name,
-                    "content": "Tool execution was denied by the user.",
-                }
+                tool_result = ToolCallResult(
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_call.function.name,
+                    description=tool_call.function.name,
+                    result=StructuredToolResult(
+                        status=StructuredToolResultStatus.ERROR,
+                        error="Tool execution was denied by the user.",
+                    ),
+                )
+
+            events.append(
+                StreamMessage(
+                    event=StreamEvents.TOOL_RESULT,
+                    data=tool_result.as_streaming_tool_result_response(),
+                )
+            )
+
+            tool_call_message = tool_result.as_tool_call_message()
 
             # It is expected that the tool call result directly follows the tool call request from the LLM
             # The API call may contain a user ask which is appended to the messages so we can't just append
@@ -265,7 +266,7 @@ class ToolCallingLLM:
                 tool_call_with_decision.message_index + 1, tool_call_message
             )
 
-        return messages
+        return messages, events
 
     def prompt_call(
         self,
@@ -595,11 +596,13 @@ class ToolCallingLLM:
                 f"Failed to parse arguments for tool: {tool_name}. args: {tool_arguments}"
             )
 
-        tool_response = prevent_overly_repeated_tool_call(
-            tool_name=tool_name,
-            tool_params=tool_params,
-            tool_calls=previous_tool_calls,
-        )
+        tool_response = None
+        if not user_approved:
+            tool_response = prevent_overly_repeated_tool_call(
+                tool_name=tool_name,
+                tool_params=tool_params,
+                tool_calls=previous_tool_calls,
+            )
 
         if not tool_response:
             tool_response = self._directly_invoke_tool_call(
@@ -794,11 +797,19 @@ class ToolCallingLLM:
         sections: Optional[InputSectionsDataType] = None,
         msgs: Optional[list[dict]] = None,
         enable_tool_approval: bool = False,
+        tool_decisions: List[ToolApprovalDecision] | None = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
         This function streams holmes one iteration at a time instead of waiting for all iterations to complete.
         """
+
+        # Process tool decisions if provided
+        if msgs and tool_decisions:
+            logging.info(f"Processing {len(tool_decisions)} tool decisions")
+            msgs, events = self.process_tool_decisions(msgs, tool_decisions)
+            yield from events
+
         messages: list[dict] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
