@@ -10,4 +10,5 @@ def count_tool_response_tokens(
         "role": "tool",
         "content": format_tool_result_data(structured_tool_result),
     }
-    return llm.count_tokens_for_message([message])
+    tokens = llm.count_tokens([message])
+    return tokens.total_tokens

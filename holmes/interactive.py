@@ -480,10 +480,14 @@ def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> No
         return
 
     # Calculate context statistics
-    total_tokens = ai.llm.count_tokens_for_message(messages)
+    tokens_metadata = ai.llm.count_tokens(
+        messages
+    )  # TODO: pass tools to also count tokens used by input tools
     max_context_size = ai.llm.get_context_window_size()
     max_output_tokens = ai.llm.get_maximum_output_token()
-    available_tokens = max_context_size - total_tokens - max_output_tokens
+    available_tokens = (
+        max_context_size - tokens_metadata.total_tokens - max_output_tokens
+    )
 
     # Analyze token distribution by role and tool calls
     role_token_usage: DefaultDict[str, int] = defaultdict(int)
@@ -492,19 +496,21 @@ def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> No
 
     for msg in messages:
         role = msg.get("role", "unknown")
-        msg_tokens = ai.llm.count_tokens_for_message([msg])
-        role_token_usage[role] += msg_tokens
+        message_tokens = ai.llm.count_tokens(
+            [msg]
+        )  # TODO: pass tools to also count tokens used by input tools
+        role_token_usage[role] += message_tokens.total_tokens
 
         # Track individual tool usage
         if role == "tool":
             tool_name = msg.get("name", "unknown_tool")
-            tool_token_usage[tool_name] += msg_tokens
+            tool_token_usage[tool_name] += message_tokens.total_tokens
             tool_call_counts[tool_name] += 1
 
     # Display context information
     console.print(f"[bold {STATUS_COLOR}]Conversation Context:[/bold {STATUS_COLOR}]")
     console.print(
-        f"  Context used: {total_tokens:,} / {max_context_size:,} tokens ({(total_tokens / max_context_size) * 100:.1f}%)"
+        f"  Context used: {tokens_metadata.total_tokens:,} / {max_context_size:,} tokens ({(tokens_metadata.total_tokens / max_context_size) * 100:.1f}%)"
     )
     console.print(
         f"  Space remaining: {available_tokens:,} for input ({(available_tokens / max_context_size) * 100:.1f}%) + {max_output_tokens:,} reserved for output ({(max_output_tokens / max_context_size) * 100:.1f}%)"
@@ -515,7 +521,11 @@ def handle_context_command(messages, ai: ToolCallingLLM, console: Console) -> No
     for role in ["system", "user", "assistant", "tool"]:
         if role in role_token_usage:
             tokens = role_token_usage[role]
-            percentage = (tokens / total_tokens) * 100 if total_tokens > 0 else 0
+            percentage = (
+                (tokens / tokens_metadata.total_tokens) * 100
+                if tokens_metadata.total_tokens > 0
+                else 0
+            )
             role_name = {
                 "system": "system prompt",
                 "user": "user messages",

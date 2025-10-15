@@ -7,7 +7,7 @@ from server import app
 from holmes.core.models import StructuredToolResult, StructuredToolResultStatus
 from holmes.utils.stream import StreamEvents
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, TokenCountMetadata
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 
 
@@ -86,7 +86,14 @@ def test_streaming_chat_approval_workflow_requires_approval(
     ai = ToolCallingLLM(tool_executor=mock_tool_executor, max_steps=5, llm=mock_llm)
 
     # Mock LLM methods
-    mock_llm.count_tokens_for_message.return_value = 100
+    mock_llm.count_tokens.return_value = TokenCountMetadata(
+        total_tokens=100,
+        system_tokens=0,
+        tools_to_call_tokens=0,
+        tools_tokens=0,
+        user_tokens=0,
+        other_tokens=0,
+    )
     mock_llm.get_context_window_size.return_value = 128000
     mock_llm.get_maximum_output_token.return_value = 4096
     mock_llm.model = "gpt-4o"
@@ -211,7 +218,14 @@ def test_streaming_chat_approval_workflow_approve_and_execute(
     ai = ToolCallingLLM(tool_executor=mock_tool_executor, max_steps=5, llm=mock_llm)
 
     # Mock LLM methods - Return final answer after tool execution
-    mock_llm.count_tokens_for_message.return_value = 100
+    mock_llm.count_tokens.return_value = TokenCountMetadata(
+        total_tokens=100,
+        system_tokens=0,
+        tools_to_call_tokens=0,
+        tools_tokens=0,
+        user_tokens=0,
+        other_tokens=0,
+    )
     mock_llm.get_context_window_size.return_value = 128000
     mock_llm.get_maximum_output_token.return_value = 4096
     mock_llm.model = "gpt-4o"
@@ -347,7 +361,14 @@ def test_streaming_chat_approval_workflow_reject_command(
     ai = ToolCallingLLM(tool_executor=mock_tool_executor, max_steps=5, llm=mock_llm)
 
     # Mock LLM methods - Return final answer after tool rejection
-    mock_llm.count_tokens_for_message.return_value = 100
+    mock_llm.count_tokens.return_value = TokenCountMetadata(
+        total_tokens=100,
+        system_tokens=0,
+        tools_to_call_tokens=0,
+        tools_tokens=0,
+        user_tokens=0,
+        other_tokens=0,
+    )
     mock_llm.get_context_window_size.return_value = 128000
     mock_llm.get_maximum_output_token.return_value = 4096
     mock_llm.model = "gpt-4o"
