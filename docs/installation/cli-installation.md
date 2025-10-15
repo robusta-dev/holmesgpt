@@ -76,7 +76,11 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 
 ## Quick Start
 
-After installation, choose your AI provider and follow the steps below. See supported [AI Providers](../ai-providers/index.md) for more details.
+After installation, choose your AI provider.
+
+**We highly recommend using Sonnet 4.0 or Sonnet 4.5 as it gives the best results by far. [View Benchmarks.](../development/evaluations/index.md)**
+
+See supported [AI Providers](../ai-providers/index.md) for more details.
 
 === "OpenAI (Default)"
 
