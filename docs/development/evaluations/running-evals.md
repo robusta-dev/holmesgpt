@@ -137,7 +137,7 @@ RUN_LIVE=true poetry run pytest -m 'llm and easy' --no-cov
 
 Some evals support mock-data and don't need a live Kubernetes cluster to run. However, for the most accurate evaluation you should set `RUN_LIVE=true` which tests HolmesGPT with a live Kubernetes cluster not mock data.
 
-This is important because LLMs can take multiple paths to reach conclusions, and mock data only captures one path. See [Using Mock Data](../../using-mock-data.md) for rare cases when mocks are necessary.
+This is important because LLMs can take multiple paths to reach conclusions, and mock data only captures one path.
 
 ## Environment Variables
 
