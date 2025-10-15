@@ -139,6 +139,7 @@ class ContextWindowLimiterOutput(BaseModel):
     max_context_size: int
     maximum_output_token: int
     tokens: TokenCountMetadata
+    conversation_history_compacted: bool
 
 
 @sentry_sdk.trace
@@ -150,6 +151,7 @@ def limit_input_context_window(
     initial_tokens = llm.count_tokens(messages=messages, tools=tools)  # type: ignore
     max_context_size = llm.get_context_window_size()
     maximum_output_token = llm.get_maximum_output_token()
+    conversation_history_compacted = False
     if ENABLE_CONVERSATION_HISTORY_COMPACTION and (
         initial_tokens.total_tokens + maximum_output_token
     ) > (max_context_size * get_context_window_compaction_threshold_pct() / 100):
@@ -163,6 +165,7 @@ def limit_input_context_window(
             messages = compacted_messages
             compaction_message = f"The conversation history has been compacted from {initial_tokens.total_tokens} to {compacted_total_tokens} tokens"
             logging.info(compaction_message)
+            conversation_history_compacted = True
             events.append(
                 StreamMessage(
                     event=StreamEvents.CONVERSATION_HISTORY_COMPACTED,
@@ -211,4 +214,5 @@ def limit_input_context_window(
         max_context_size=max_context_size,
         maximum_output_token=maximum_output_token,
         tokens=tokens,
+        conversation_history_compacted=conversation_history_compacted,
     )

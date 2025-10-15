@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 
 from holmes.common.env_vars import (
+    RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION,
     TEMPERATURE,
     LOG_LLM_USAGE_RESPONSE,
 )
@@ -307,7 +308,10 @@ class ToolCallingLLM:
         trace_span=DummySpan(),
         tool_number_offset: int = 0,
     ) -> LLMResult:
-        tool_calls = []  # type: ignore
+        tool_calls: list[
+            dict
+        ] = []  # Used for preventing repeated tool calls. potentially reset after compaction
+        all_tool_calls = []  # type: ignore
         costs = LLMCosts()
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
@@ -327,6 +331,12 @@ class ToolCallingLLM:
             )
             messages = limit_result.messages
             metadata = metadata | limit_result.metadata
+
+            if (
+                limit_result.conversation_history_compacted
+                and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
+            ):
+                tool_calls = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
@@ -419,7 +429,7 @@ class ToolCallingLLM:
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
-                        tool_calls=tool_calls,
+                        tool_calls=all_tool_calls,
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                         **costs.model_dump(),  # Include all cost fields
@@ -428,7 +438,7 @@ class ToolCallingLLM:
 
                 return LLMResult(
                     result=text_response,
-                    tool_calls=tool_calls,
+                    tool_calls=all_tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                     **costs.model_dump(),  # Include all cost fields
@@ -482,7 +492,11 @@ class ToolCallingLLM:
                                 tool_span, tool_call_result
                             )
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    tool_result_response_dict = (
+                        tool_call_result.as_tool_result_response()
+                    )
+                    tool_calls.append(tool_result_response_dict)
+                    all_tool_calls.append(tool_result_response_dict)
                     messages.append(tool_call_result.as_tool_call_message())
                     tokens = self.llm.count_tokens(messages=messages, tools=tools)
 
@@ -792,6 +806,12 @@ class ToolCallingLLM:
             yield from limit_result.events
             messages = limit_result.messages
             metadata = metadata | limit_result.metadata
+
+            if (
+                limit_result.conversation_history_compacted
+                and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
+            ):
+                tool_calls = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
