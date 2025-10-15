@@ -15,6 +15,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
     DEFAULT_LOG_LIMIT,
+    MAX_LOG_LIMIT
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
@@ -84,6 +85,7 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
         )
 
         base_url = get_base_url(self.grafana_config)
+        max_limit = min(params.limit or DEFAULT_LOG_LIMIT, MAX_LOG_LIMIT)
         logs = query_loki_logs_by_label(
             base_url=base_url,
             api_key=self.grafana_config.api_key,
@@ -95,7 +97,7 @@ class GrafanaLokiToolset(BasePodLoggingToolset):
             label_value=params.pod_name,
             start=start,
             end=end,
-            limit=params.limit or DEFAULT_LOG_LIMIT,
+            limit=max_limit,
         )
         if logs:
             logs.sort(key=lambda x: x["timestamp"])
