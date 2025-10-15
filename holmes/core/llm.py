@@ -47,7 +47,7 @@ OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 
 def get_context_window_compaction_threshold_pct() -> int:
     """Get the compaction threshold percentage at runtime to support test overrides."""
-    return environ_get_safe_int("CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT", default="80")
+    return environ_get_safe_int("CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT", default="95")
 
 
 ROBUSTA_AI_MODEL_NAME = "Robusta"
