@@ -7,8 +7,8 @@ Provide a terse analysis of the following {{ issue.source_type }} alert/issue an
 ## 🎯 **CRITICAL: Alert Context-Based Instance Routing**
 
 ### **Alert Information:**
-- **Alert Name:** {{ issue.subject.name }}
-- **Namespace:** {{ issue.subject.namespace }}
+- **Alert Name:** {{ issue.raw.subject.name if issue.raw and issue.raw.subject else issue.name }}
+- **Namespace:** {{ issue.raw.subject.namespace if issue.raw and issue.raw.subject and issue.raw.subject.namespace else 'N/A' }}
 - **Description:** {{ issue.name }}
 
 ### **Instance Resolution from Alert Labels:**
@@ -40,7 +40,7 @@ Based on the alert labels above, you **MUST** extract the correct instance names
 {% if issue.raw.context.service_type == 'mongodb' and issue.raw.context.instance_name %}
 **For MongoDB alerts:** Use `mongodb_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
 {% elif issue.raw.context.service_type == 'kubernetes' and issue.raw.context.instance_name %}
-**For Kubernetes alerts:** Use `kubernetes_list_resources({"instance_name": "{{ issue.raw.context.instance_name }}", "kind": "deployments", "namespace": "{{ issue.subject.namespace }}"})`
+**For Kubernetes alerts:** Use `kubernetes_list_resources({"instance_name": "{{ issue.raw.context.instance_name }}", "kind": "deployments", "namespace": "{{ issue.raw.subject.namespace if issue.raw and issue.raw.subject and issue.raw.subject.namespace else 'default' }}"})`
 {% elif issue.raw.context.service_type == 'elasticsearch' and issue.raw.context.instance_name %}
 **For Elasticsearch alerts:** Use `elasticsearch_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
 {% elif issue.raw.context.service_type == 'kafka' and issue.raw.context.instance_name %}

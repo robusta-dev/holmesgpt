@@ -381,6 +381,9 @@ class SupabaseDal:
         return None
 
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
+        if not self.enabled or not hasattr(self, 'client'):
+            return None
+            
         try:
             res = (
                 self.client.table(RUNBOOKS_TABLE)
