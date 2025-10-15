@@ -19,7 +19,6 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 
 from holmes.common.env_vars import (
-    ENABLE_CONVERSATION_HISTORY_COMPACTION,
     TEMPERATURE,
     LOG_LLM_USAGE_RESPONSE,
 )
@@ -32,7 +31,7 @@ from holmes.core.investigation_structured_output import (
     is_response_an_incorrect_tool_call,
 )
 from holmes.core.issue import Issue
-from holmes.core.llm import LLM, get_context_window_compaction_threshold_pct
+from holmes.core.llm import LLM
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
@@ -44,12 +43,8 @@ from holmes.core.tools import (
 from holmes.core.tools_utils.tool_context_window_limiter import (
     prevent_overly_big_tool_response,
 )
-from holmes.core.truncation.compaction import (
-    compact_conversation_history,
-)
 from holmes.core.truncation.input_context_window_limiter import (
     limit_input_context_window,
-    truncate_messages_to_fit_context,
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils import sentry_helper
@@ -327,53 +322,11 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            initial_tokens = self.llm.count_tokens(messages=messages, tools=tools)
-
-            max_context_size = self.llm.get_context_window_size()
-            maximum_output_token = self.llm.get_maximum_output_token()
-            # Try conversation history compaction first if approaching context window limit
-            if ENABLE_CONVERSATION_HISTORY_COMPACTION and (
-                initial_tokens.total_tokens + maximum_output_token
-            ) > (
-                max_context_size * get_context_window_compaction_threshold_pct() / 100
-            ):
-                compacted_messages = compact_conversation_history(
-                    original_conversation_history=messages, llm=self.llm
-                )
-                compacted_tokens = self.llm.count_tokens(
-                    compacted_messages, tools=tools
-                )
-                compacted_total_tokens = compacted_tokens.total_tokens
-
-                if compacted_total_tokens < initial_tokens.total_tokens:
-                    messages = compacted_messages
-                    compaction_message = f"The conversation history has been compacted from {initial_tokens.total_tokens} to {compacted_total_tokens} tokens"
-                    logging.info(compaction_message)
-                    metadata["conversation_history_compacted"] = {
-                        "initial_tokens": initial_tokens.total_tokens,
-                        "compacted_tokens": compacted_total_tokens,
-                    }
-                else:
-                    logging.debug(
-                        f"Failed to reduce token count when compacting conversation history. Original tokens:{initial_tokens.total_tokens}. Compacted tokens:{compacted_total_tokens}"
-                    )
-
-            # After compaction attempt, check if truncation is still needed
-            tokens = self.llm.count_tokens(messages=messages, tools=tools)
-            if (tokens.total_tokens + maximum_output_token) > max_context_size:
-                # Compaction was not sufficient. Truncating messages.
-                truncated_res = truncate_messages_to_fit_context(
-                    messages=messages,
-                    max_context_size=max_context_size,
-                    maximum_output_token=maximum_output_token,
-                    count_tokens_fn=self.llm.count_tokens,
-                )
-                metadata["truncations"] = [
-                    t.model_dump() for t in truncated_res.truncations
-                ]
-                messages = truncated_res.truncated_messages
-            else:
-                metadata["truncations"] = []
+            limit_result = limit_input_context_window(
+                llm=self.llm, messages=messages, tools=tools
+            )
+            messages = limit_result.messages
+            metadata = metadata | limit_result.metadata
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
@@ -458,8 +411,8 @@ class ToolCallingLLM:
                     add_token_count_to_metadata(
                         tokens=tokens,
                         full_llm_response=full_response,
-                        max_context_size=max_context_size,
-                        maximum_output_token=maximum_output_token,
+                        max_context_size=limit_result.max_context_size,
+                        maximum_output_token=limit_result.maximum_output_token,
                         metadata=metadata,
                     )
 
@@ -833,7 +786,6 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            # TODO RESTORE CUTOUT CONTEXT WINDOW SHORTNEING
             limit_result = limit_input_context_window(
                 llm=self.llm, messages=messages, tools=tools
             )
