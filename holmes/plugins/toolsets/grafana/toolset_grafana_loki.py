@@ -15,7 +15,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
     DEFAULT_LOG_LIMIT,
-    MAX_LOG_LIMIT
+    MAX_LOG_LIMIT,
 )
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
