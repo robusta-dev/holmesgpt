@@ -10,7 +10,7 @@ tags:
   - kubernetes
   - hard
   - chain-of-causation
-#  - prometheus
+  - prometheus
 
 port_forwards:
   - namespace: app-124
