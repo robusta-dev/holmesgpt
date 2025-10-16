@@ -1,6 +1,6 @@
 user_prompt:
 # - "The energy bidding service in namespace app-160 is experiencing unusual bid patterns. Investigate why bid commitments have increased dramatically."
-- "Is there issues with the bidding rate in the bidding endpoint in namespace app-160? Note: Normal rate should be around 10%, and we are working with a very small resolution of seconds"
+- "Is there issues with the bidding rate in the bidding endpoint in namespace app-160? Check the recent metrics - note that the traffic test has already completed, so you'll see historical data that eventually drops to zero, which is expected."
 
 expected_output:
   - The answer must identify that NordPool exchange has an abnormally high bid acceptance rate (close to 100%) compared to other exchanges (~10%)
@@ -47,3 +47,6 @@ before_test: |
 
 after_test: |
   kubectl delete namespace app-160 || true
+
+include_files:
+  - bidding_system.md
