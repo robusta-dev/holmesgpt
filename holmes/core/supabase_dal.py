@@ -253,8 +253,10 @@ class SupabaseDal:
                 self.client.table(ISSUES_TABLE)
                 .select(
                     "id",
+                    "title",
                     "subject_name",
                     "subject_namespace",
+                    "subject_type",
                     "description",
                     "creation_date",
                 )
