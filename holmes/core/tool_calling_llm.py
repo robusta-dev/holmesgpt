@@ -7,8 +7,6 @@ from typing import Dict, List, Optional, Type, Union, Callable, Any
 from holmes.core.models import (
     ToolApprovalDecision,
     ToolCallResult,
-    TruncationResult,
-    TruncationMetadata,
     PendingToolApproval,
 )
 
@@ -21,8 +19,8 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 
 from holmes.common.env_vars import (
+    RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION,
     TEMPERATURE,
-    MAX_OUTPUT_TOKEN_RESERVATION,
     LOG_LLM_USAGE_RESPONSE,
 )
 
@@ -35,7 +33,6 @@ from holmes.core.investigation_structured_output import (
 )
 from holmes.core.issue import Issue
 from holmes.core.llm import LLM
-from holmes.core.performance_timing import PerformanceTiming
 from holmes.core.resource_instruction import ResourceInstructions
 from holmes.core.runbooks import RunbookManager
 from holmes.core.safeguards import prevent_overly_repeated_tool_call
@@ -45,8 +42,10 @@ from holmes.core.tools import (
     ToolInvokeContext,
 )
 from holmes.core.tools_utils.tool_context_window_limiter import (
-    get_max_token_count_for_single_tool,
     prevent_overly_big_tool_response,
+)
+from holmes.core.truncation.input_context_window_limiter import (
+    limit_input_context_window,
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.utils import sentry_helper
@@ -67,9 +66,6 @@ from holmes.utils.stream import (
 
 # Create a named logger for cost tracking
 cost_logger = logging.getLogger("holmes.costs")
-
-
-TRUNCATION_NOTICE = "\n\n[TRUNCATED]"
 
 
 class LLMCosts(BaseModel):
@@ -141,114 +137,6 @@ def _process_cost_info(
                 costs.total_cost += cost
     except Exception as e:
         logging.debug(f"Could not extract cost information: {e}")
-
-
-# TODO: I think there's a bug here because we don't account for the 'role' or json structure like '{...}' when counting tokens
-# However, in practice it works because we reserve enough space for the output tokens that the minor inconsistency does not matter
-# We should fix this in the future
-# TODO: we truncate using character counts not token counts - this means we're overly agressive with truncation - improve it by considering
-# token truncation and not character truncation
-def truncate_messages_to_fit_context(
-    messages: list, max_context_size: int, maximum_output_token: int, count_tokens_fn
-) -> TruncationResult:
-    """
-    Helper function to truncate tool messages to fit within context limits.
-
-    Args:
-        messages: List of message dictionaries with roles and content
-        max_context_size: Maximum context window size for the model
-        maximum_output_token: Maximum tokens reserved for model output
-        count_tokens_fn: Function to count tokens for a list of messages
-
-    Returns:
-        Modified list of messages with truncated tool responses
-
-    Raises:
-        Exception: If non-tool messages exceed available context space
-    """
-    messages_except_tools = [
-        message for message in messages if message["role"] != "tool"
-    ]
-    tokens = count_tokens_fn(messages_except_tools)
-    message_size_without_tools = tokens.total_tokens
-
-    tool_call_messages = [message for message in messages if message["role"] == "tool"]
-
-    reserved_for_output_tokens = min(maximum_output_token, MAX_OUTPUT_TOKEN_RESERVATION)
-    if message_size_without_tools >= (max_context_size - reserved_for_output_tokens):
-        logging.error(
-            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the model's context window for input."
-        )
-        raise Exception(
-            f"The combined size of system_prompt and user_prompt ({message_size_without_tools} tokens) exceeds the maximum context size of {max_context_size - reserved_for_output_tokens} tokens available for input."
-        )
-
-    if len(tool_call_messages) == 0:
-        return TruncationResult(truncated_messages=messages, truncations=[])
-
-    available_space = (
-        max_context_size - message_size_without_tools - reserved_for_output_tokens
-    )
-    remaining_space = available_space
-    tool_call_messages.sort(
-        key=lambda x: count_tokens_fn(
-            [{"role": "tool", "content": x["content"]}]
-        ).total_tokens
-    )
-
-    truncations = []
-
-    # Allocate space starting with small tools and going to larger tools, while maintaining fairness
-    # Small tools can often get exactly what they need, while larger tools may need to be truncated
-    # We ensure fairness (no tool gets more than others that need it) and also maximize utilization (we don't leave space unused)
-    for i, msg in enumerate(tool_call_messages):
-        remaining_tools = len(tool_call_messages) - i
-        max_allocation = remaining_space // remaining_tools
-        needed_space = count_tokens_fn(
-            [{"role": "tool", "content": msg["content"]}]
-        ).total_tokens
-        allocated_space = min(needed_space, max_allocation)
-
-        if needed_space > allocated_space:
-            truncation_metadata = _truncate_tool_message(
-                msg, allocated_space, needed_space
-            )
-            truncations.append(truncation_metadata)
-
-        remaining_space -= allocated_space
-    return TruncationResult(truncated_messages=messages, truncations=truncations)
-
-
-def _truncate_tool_message(
-    msg: dict, allocated_space: int, needed_space: int
-) -> TruncationMetadata:
-    msg_content = msg["content"]
-    tool_call_id = msg["tool_call_id"]
-    tool_name = msg["name"]
-
-    # Ensure the indicator fits in the allocated space
-    if allocated_space > len(TRUNCATION_NOTICE):
-        original = msg_content if isinstance(msg_content, str) else str(msg_content)
-        msg["content"] = (
-            original[: allocated_space - len(TRUNCATION_NOTICE)] + TRUNCATION_NOTICE
-        )
-        end_index = allocated_space - len(TRUNCATION_NOTICE)
-    else:
-        msg["content"] = TRUNCATION_NOTICE[:allocated_space]
-        end_index = allocated_space
-
-    msg.pop("token_count", None)  # Remove token_count if present
-    logging.info(
-        f"Truncating tool message '{tool_name}' from {needed_space} to {allocated_space} tokens"
-    )
-    truncation_metadata = TruncationMetadata(
-        tool_call_id=tool_call_id,
-        start_index=0,
-        end_index=end_index,
-        tool_name=tool_name,
-        original_token_count=needed_space,
-    )
-    return truncation_metadata
 
 
 class LLMResult(LLMCosts):
@@ -333,7 +221,6 @@ class ToolCallingLLM:
             error_message = f"Received {len(tool_decisions)} tool decisions but no pending approvals found"
             logging.error(error_message)
             raise Exception(error_message)
-
         for tool_call_with_decision in pending_tool_calls:
             tool_call_message: dict
             tool_call = tool_call_with_decision.tool_call
@@ -421,40 +308,35 @@ class ToolCallingLLM:
         trace_span=DummySpan(),
         tool_number_offset: int = 0,
     ) -> LLMResult:
-        perf_timing = PerformanceTiming("tool_calling_llm.call")
-        tool_calls = []  # type: ignore
+        tool_calls: list[
+            dict
+        ] = []  # Used for preventing repeated tool calls. potentially reset after compaction
+        all_tool_calls = []  # type: ignore
         costs = LLMCosts()
-
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
-        perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         i = 0
         metadata: Dict[Any, Any] = {}
         while i < max_steps:
             i += 1
-            perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
             # on the last step we don't allow tools - we want to force a reply, not a request to run another tool
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            tokens = self.llm.count_tokens(messages=messages, tools=tools)
-            max_context_size = self.llm.get_context_window_size()
-            maximum_output_token = self.llm.get_maximum_output_token()
-            perf_timing.measure("count tokens")
+            limit_result = limit_input_context_window(
+                llm=self.llm, messages=messages, tools=tools
+            )
+            messages = limit_result.messages
+            metadata = metadata | limit_result.metadata
 
-            if (tokens.total_tokens + maximum_output_token) > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
-                truncated_res = self.truncate_messages_to_fit_context(
-                    messages, max_context_size, maximum_output_token
-                )
-                metadata["truncations"] = [
-                    t.model_dump() for t in truncated_res.truncations
-                ]
-                messages = truncated_res.truncated_messages
-                perf_timing.measure("truncate_messages_to_fit_context")
+            if (
+                limit_result.conversation_history_compacted
+                and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
+            ):
+                tool_calls = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
@@ -472,7 +354,6 @@ class ToolCallingLLM:
                 # Extract and accumulate cost information
                 _process_cost_info(full_response, costs, "LLM call")
 
-                perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
@@ -540,26 +421,24 @@ class ToolCallingLLM:
                     add_token_count_to_metadata(
                         tokens=tokens,
                         full_llm_response=full_response,
-                        max_context_size=max_context_size,
-                        maximum_output_token=maximum_output_token,
+                        max_context_size=limit_result.max_context_size,
+                        maximum_output_token=limit_result.maximum_output_token,
                         metadata=metadata,
                     )
-                    perf_timing.end(f"- completed in {i} iterations -")
 
                     return LLMResult(
                         result=post_processed_response,
                         unprocessed_result=raw_response,
-                        tool_calls=tool_calls,
+                        tool_calls=all_tool_calls,
                         prompt=json.dumps(messages, indent=2),
                         messages=messages,
                         **costs.model_dump(),  # Include all cost fields
                         metadata=metadata,
                     )
 
-                perf_timing.end(f"- completed in {i} iterations -")
                 return LLMResult(
                     result=text_response,
-                    tool_calls=tool_calls,
+                    tool_calls=all_tool_calls,
                     prompt=json.dumps(messages, indent=2),
                     messages=messages,
                     **costs.model_dump(),  # Include all cost fields
@@ -571,7 +450,6 @@ class ToolCallingLLM:
             logging.info(
                 f"The AI requested [bold]{len(tools_to_call) if tools_to_call else 0}[/bold] tool call(s)."
             )
-            perf_timing.measure("pre-tool-calls")
             with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
                 futures = []
                 futures_tool_numbers: dict[
@@ -581,6 +459,7 @@ class ToolCallingLLM:
                 for tool_index, t in enumerate(tools_to_call, 1):
                     logging.debug(f"Tool to call: {t}")
                     tool_number = tool_number_offset + tool_index
+
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,
@@ -613,10 +492,13 @@ class ToolCallingLLM:
                                 tool_span, tool_call_result
                             )
 
-                    tool_calls.append(tool_call_result.as_tool_result_response())
+                    tool_result_response_dict = (
+                        tool_call_result.as_tool_result_response()
+                    )
+                    tool_calls.append(tool_result_response_dict)
+                    all_tool_calls.append(tool_result_response_dict)
                     messages.append(tool_call_result.as_tool_call_message())
-
-                    perf_timing.measure(f"tool completed {tool_call_result.tool_name}")
+                    tokens = self.llm.count_tokens(messages=messages, tools=tools)
 
                 # Update the tool number offset for the next iteration
                 tool_number_offset += len(tools_to_call)
@@ -650,7 +532,7 @@ class ToolCallingLLM:
                 tool_number=tool_number,
                 user_approved=user_approved,
                 llm=self.llm,
-                max_token_count=get_max_token_count_for_single_tool(self.llm),
+                max_token_count=self.llm.get_max_token_count_for_single_tool(),
             )
             tool_response = tool.invoke(tool_params, context=invoke_context)
         except Exception as e:
@@ -874,20 +756,6 @@ class ToolCallingLLM:
             logging.exception("Failed to run post processing", exc_info=True)
             return investigation, 0.0
 
-    @sentry_sdk.trace
-    def truncate_messages_to_fit_context(
-        self, messages: list, max_context_size: int, maximum_output_token: int
-    ) -> TruncationResult:
-        truncated_res = truncate_messages_to_fit_context(
-            messages,
-            max_context_size,
-            maximum_output_token,
-            self.llm.count_tokens,
-        )
-        if truncated_res.truncations:
-            sentry_helper.capture_tool_truncations(truncated_res.truncations)
-        return truncated_res
-
     def call_stream(
         self,
         system_prompt: str = "",
@@ -916,12 +784,10 @@ class ToolCallingLLM:
             messages.append({"role": "user", "content": user_prompt})
         if msgs:
             messages.extend(msgs)
-        perf_timing = PerformanceTiming("tool_calling_llm.call")
         tool_calls: list[dict] = []
         tools = self.tool_executor.get_all_tools_openai_format(
             target_model=self.llm.model
         )
-        perf_timing.measure("get_all_tools_openai_format")
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {}
         i = 0
@@ -929,29 +795,23 @@ class ToolCallingLLM:
 
         while i < max_steps:
             i += 1
-            perf_timing.measure(f"start iteration {i}")
             logging.debug(f"running iteration {i}")
 
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            tokens = self.llm.count_tokens(messages=messages, tools=tools)  # type: ignore
-            max_context_size = self.llm.get_context_window_size()
-            maximum_output_token = self.llm.get_maximum_output_token()
-            perf_timing.measure("count tokens")
+            limit_result = limit_input_context_window(
+                llm=self.llm, messages=messages, tools=tools
+            )
+            yield from limit_result.events
+            messages = limit_result.messages
+            metadata = metadata | limit_result.metadata
 
-            if (tokens.total_tokens + maximum_output_token) > max_context_size:
-                logging.warning("Token limit exceeded. Truncating tool responses.")
-                truncated_res = self.truncate_messages_to_fit_context(
-                    messages, max_context_size, maximum_output_token
-                )
-                metadata["truncations"] = [
-                    t.model_dump() for t in truncated_res.truncations
-                ]
-                messages = truncated_res.truncated_messages
-                perf_timing.measure("truncate_messages_to_fit_context")
-            else:
-                metadata["truncations"] = []
+            if (
+                limit_result.conversation_history_compacted
+                and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
+            ):
+                tool_calls = []
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
             try:
@@ -968,7 +828,6 @@ class ToolCallingLLM:
                 # Log cost information for this iteration (no accumulation in streaming)
                 _process_cost_info(full_response, log_prefix="LLM iteration")
 
-                perf_timing.measure("llm.completion")
             # catch a known error that occurs with Azure and replace the error message with something more obvious to the user
             except BadRequestError as e:
                 if "Unrecognized request arguments supplied: tool_choice, tools" in str(
@@ -1008,8 +867,8 @@ class ToolCallingLLM:
             add_token_count_to_metadata(
                 tokens=tokens,
                 full_llm_response=full_response,
-                max_context_size=max_context_size,
-                maximum_output_token=maximum_output_token,
+                max_context_size=limit_result.max_context_size,
+                maximum_output_token=limit_result.maximum_output_token,
                 metadata=metadata,
             )
             yield build_stream_event_token_count(metadata=metadata)
@@ -1038,8 +897,6 @@ class ToolCallingLLM:
                     },
                 )
 
-            perf_timing.measure("pre-tool-calls")
-
             # Check if any tools require approval first
             pending_approvals = []
             approval_required_tools = []
@@ -1048,6 +905,7 @@ class ToolCallingLLM:
                 futures = []
                 for tool_index, t in enumerate(tools_to_call, 1):  # type: ignore
                     tool_number = tool_number_offset + tool_index
+
                     future = executor.submit(
                         self._invoke_llm_tool_call,
                         tool_to_call=t,  # type: ignore
