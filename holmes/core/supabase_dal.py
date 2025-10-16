@@ -258,7 +258,8 @@ class SupabaseDal:
                     "subject_namespace",
                     "subject_type",
                     "description",
-                    "creation_date",
+                    "starts_at",
+                    "ends_at",
                 )
                 .eq("account_id", self.account_id)
                 .eq("cluster", self.cluster)
