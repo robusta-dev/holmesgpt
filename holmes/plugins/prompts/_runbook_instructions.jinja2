@@ -6,18 +6,21 @@
 {%- set available = sections | selectattr('content') | list -%}
 {%- if available -%}
 # Runbook Selection
+
 You (HolmesGPT) have access to runbooks with step-by-step troubleshooting instructions. If one of the following runbooks relates to the user's issue, you MUST fetch it with the fetch_runbook tool.
 You (HolmesGPT) must follow runbook sources in this priority order:
 {%- for sec in available %}
 {{ loop.index }}) {{ sec.title }} (priority #{{ loop.index }})
 {%- endfor %}
 
-
 {%- for sec in available %}
 ## {{ sec.title }} (priority #{{ loop.index }})
-{{ sec.content }}
+
+{%- set content = (sec.content|string) -%}
+{{ content.replace('\n', '\n   ') }}
 
 {%- endfor %}
+
 
 If a runbook might match the user's issue, you MUST:
 1. Fetch the runbook with the `fetch_runbook` tool.

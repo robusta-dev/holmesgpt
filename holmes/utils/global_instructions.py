@@ -12,13 +12,13 @@ class Instructions(BaseModel):
 
 
 def _format_instructions_block(
-    items: List[str], header: str = "My instructions to check"
+    items: List[str], header: str = "My instructions to check:"
 ) -> str:
     lines = [f"* {s}" for s in items if isinstance(s, str) and s.strip()]
     if not lines:
         return ""
     bullets = "\n".join(lines) + "\n"
-    return f'{header} \n"""{bullets}"""'
+    return f"{header}\n{bullets}"
 
 
 def _format_resource_instructions(
@@ -65,7 +65,7 @@ def add_runbooks_to_user_prompt(
     gi_list = getattr(global_instructions, "instructions", None) or []
     global_block = (
         _format_instructions_block(
-            [s for s in gi_list if isinstance(s, str)], header="Global instructions"
+            [s for s in gi_list if isinstance(s, str)], header=""
         )
         if gi_list
         else ""
