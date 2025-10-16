@@ -30,7 +30,7 @@ resources:
   limits:
     memory: 1024Mi
 
-# Enabled/disable/customize specific toolsets
+# Configure built-in toolsets (enable/disable, change config)
 toolsets:
   kubernetes/core:
     enabled: true
@@ -42,7 +42,20 @@ toolsets:
     enabled: true
   prometheus/metrics:
     enabled: true
-  ...
+  # Note: Only configuration of built-in toolsets is allowed here
+
+# Add custom toolsets (new toolsets with unique names)
+custom_toolsets: {}
+  # my-monitoring:
+  #   description: "Custom monitoring integration"
+  #   tools: []
+  #   enabled: true
+
+# MCP (Model Context Protocol) servers
+mcp_servers: {}
+  # my-mcp-server:
+  #   url: "http://localhost:8000/sse"
+  #   description: "Custom MCP server"
 ```
 
 ## Configuration Options
@@ -52,7 +65,9 @@ toolsets:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `additionalEnvVars` | Environment variables (API keys, etc.) | `[]` |
-| `toolsets` | Enable/disable specific toolsets | (see values.yaml) |
+| `toolsets` | Configure built-in toolsets (enable/disable, change config) | (see values.yaml) |
+| `custom_toolsets` | Add new custom toolsets with unique names | `{}` |
+| `mcp_servers` | Add Model Context Protocol servers | `{}` |
 | `modelList` | Configure multiple AI models for UI selection. See [Using Multiple Providers](../ai-providers/using-multiple-providers.md) | `{}` |
 | `openshift` | Enable OpenShift compatibility mode | `false` |
 | `image` | HolmesGPT image name | `holmes:0.0.0` |
@@ -80,20 +95,35 @@ additionalEnvVars:
 
 #### Toolset Configuration
 
-Control which capabilities HolmesGPT has access to:
+Configure built-in toolsets and add custom ones:
 
 ```yaml
+# Configure built-in toolsets
 toolsets:
   kubernetes/core:
     enabled: true      # Core Kubernetes functionality
   kubernetes/logs:
     enabled: true      # Kubernetes logs access
-  robusta:
-    enabled: true      # Robusta platform integration
-  internet:
-    enabled: true      # Internet access for documentation
   prometheus/metrics:
-    enabled: true      # Prometheus metrics access
+    enabled: true
+    config:
+      url: "http://prometheus.monitoring:9090"  # Override default URL
+
+# Add custom toolsets (must have unique names)
+custom_toolsets:
+  my-monitoring:
+    description: "Custom monitoring tools"
+    tools:
+      - name: check_status
+        description: "Check service status"
+        command: "curl http://my-service:8080/status"
+    enabled: true
+
+# Add MCP servers
+mcp_servers:
+  my-mcp:
+    url: "http://mcp-server:8000/sse"
+    description: "Custom MCP server"
 ```
 
 ### Service Account Configuration
@@ -126,23 +156,6 @@ resources:
     memory: 1024Mi
 ```
 
-### Toolset Configuration
-
-Enable or disable specific toolsets:
-
-```yaml
-toolsets:
-  kubernetes/core:
-    enabled: true      # Core Kubernetes functionality
-  kubernetes/logs:
-    enabled: true      # Kubernetes logs access
-  robusta:
-    enabled: true      # Robusta platform integration
-  internet:
-    enabled: true      # Internet access for documentation
-  prometheus/metrics:
-    enabled: true      # Prometheus metrics access
-```
 
 ### Advanced Configuration
 
@@ -188,6 +201,9 @@ postProcessingPrompt: "builtin://generic_post_processing.jinja2"
 
 # Account creation
 enableAccountsCreate: true
+
+# Custom toolsets (new toolsets with unique names)
+custom_toolsets: {}
 
 # MCP servers configuration
 mcp_servers: {}

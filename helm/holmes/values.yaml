@@ -42,6 +42,7 @@ serviceAccount:
   imagePullSecrets: []
   annotations: {}
 
+# Configuration for builtin toolsets (can only configure, not add new ones)
 toolsets:
   kubernetes/core:
     enabled: true
@@ -53,7 +54,23 @@ toolsets:
     enabled: true
   prometheus/metrics:
     enabled: true
+
+# Custom toolsets (these are NEW toolsets, not overrides of builtins)
+custom_toolsets: {}
+# Example:
+# custom_toolsets:
+#   my-monitoring-tool:
+#     description: "Custom monitoring integration"
+#     tools: []
+#     enabled: true
+
+# MCP (Model Context Protocol) servers
 mcp_servers: {}
+# Example:
+# mcp_servers:
+#   my-mcp-server:
+#     url: "http://localhost:8000/sse"
+#     description: "Custom MCP server"
 
 resources:
   requests:

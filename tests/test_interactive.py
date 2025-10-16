@@ -8,7 +8,7 @@ from rich.console import Console
 
 from holmes.core.feedback import FeedbackMetadata
 from holmes.core.tool_calling_llm import ToolCallingLLM
-from holmes.interactive import (
+from holmes.interactive_mode import (
     Feedback,
     SlashCommandCompleter,
     SlashCommands,
@@ -70,7 +70,7 @@ class TestSlashCommandCompleter(unittest.TestCase):
 
 
 class TestHandleFeedbackCommand(unittest.TestCase):
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_positive(self, mock_prompt_session_class):
         """Test feedback command with positive rating."""
         mock_prompt_session_class.return_value.prompt.side_effect = [
@@ -99,7 +99,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
             "[bold green]Thank you for your feedback! 🙏[/bold green]"
         )
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_negative(self, mock_prompt_session_class):
         """Test feedback command with negative rating."""
         mock_prompt_session_class.return_value.prompt.side_effect = [
@@ -128,7 +128,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
             "[bold green]Thank you for your feedback! 🙏[/bold green]"
         )
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_no_comment(self, mock_prompt_session_class):
         """Test feedback command without comment."""
         mock_prompt_session_class.return_value.prompt.side_effect = [
@@ -157,7 +157,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
             "[bold green]Thank you for your feedback! 🙏[/bold green]"
         )
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_invalid_then_valid_rating(
         self, mock_prompt_session_class
     ):
@@ -199,7 +199,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
             "[bold green]Thank you for your feedback! 🙏[/bold green]"
         )
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_confirmation_cancelled(
         self, mock_prompt_session_class
     ):
@@ -235,7 +235,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         ]
         self.assertEqual(len(thank_you_calls), 0)
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_keyboard_interrupt(
         self, mock_prompt_session_class
     ):
@@ -256,7 +256,7 @@ class TestHandleFeedbackCommand(unittest.TestCase):
         # Verify cancellation message was printed
         console.print.assert_any_call("[dim]Feedback cancelled.[/dim]")
 
-    @patch("holmes.interactive.PromptSession")
+    @patch("holmes.interactive_mode.PromptSession")
     def test_handle_feedback_command_with_comment_containing_markup(
         self, mock_prompt_session_class
     ):
@@ -320,13 +320,14 @@ class TestRunInteractiveLoop(unittest.TestCase):
 
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.interactive_mode.build_initial_ask_messages")
     @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+        "holmes.interactive_mode.config_path_dir",
+        new_callable=lambda: tempfile.gettempdir(),
     )
-    @patch("holmes.interactive.handle_feedback_command")
+    @patch("holmes.interactive_mode.handle_feedback_command")
     def test_run_interactive_loop_feedback_command_positive_with_callback(
         self,
         mock_handle_feedback,
@@ -401,13 +402,11 @@ class TestRunInteractiveLoop(unittest.TestCase):
         self.assertEqual(feedback_dict["metadata"]["llm"]["model"], "test-model")
         self.assertEqual(feedback_dict["metadata"]["llm"]["max_context_size"], 4096)
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
-    @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
-    )
-    @patch("holmes.interactive.handle_feedback_command")
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.core.prompt.build_initial_ask_messages")
+    @patch("holmes.config.config_path_dir", new_callable=lambda: tempfile.gettempdir())
+    @patch("holmes.interactive_mode.handle_feedback_command")
     def test_run_interactive_loop_feedback_command_negative_with_callback(
         self,
         mock_handle_feedback,
@@ -480,13 +479,11 @@ class TestRunInteractiveLoop(unittest.TestCase):
         self.assertEqual(feedback_dict["metadata"]["llm"]["max_context_size"], 4096)
         self.assertIsInstance(feedback_dict["metadata"]["llm_responses"], list)
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
-    @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
-    )
-    @patch("holmes.interactive.handle_feedback_command")
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.interactive_mode.build_initial_ask_messages")
+    @patch("holmes.config.config_path_dir", new_callable=lambda: tempfile.gettempdir())
+    @patch("holmes.interactive_mode.handle_feedback_command")
     def test_run_interactive_loop_feedback_with_conversation_history(
         self,
         mock_handle_feedback,
@@ -576,12 +573,10 @@ class TestRunInteractiveLoop(unittest.TestCase):
             self.assertIsInstance(first_response["user_ask"], str)
             self.assertIsInstance(first_response["response"], str)
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
-    @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
-    )
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.interactive_mode.build_initial_ask_messages")
+    @patch("holmes.config.config_path_dir", new_callable=lambda: tempfile.gettempdir())
     def test_run_interactive_loop_feedback_command_without_callback(
         self,
         mock_config_dir,
@@ -616,11 +611,12 @@ class TestRunInteractiveLoop(unittest.TestCase):
         ]
         self.assertTrue(len(unknown_calls) > 0)
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.interactive_mode.build_initial_ask_messages")
     @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+        "holmes.interactive_mode.config_path_dir",
+        new_callable=lambda: tempfile.gettempdir(),
     )
     def test_run_interactive_loop_feedback_help_filtering(
         self,
@@ -662,11 +658,12 @@ class TestRunInteractiveLoop(unittest.TestCase):
         self.assertTrue(has_exit_command)
         self.assertFalse(has_feedback_command)  # Should be filtered out
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.interactive_mode.build_initial_ask_messages")
     @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
+        "holmes.interactive_mode.config_path_dir",
+        new_callable=lambda: tempfile.gettempdir(),
     )
     def test_run_interactive_loop_feedback_help_not_filtering_with_callback(
         self,
@@ -704,12 +701,10 @@ class TestRunInteractiveLoop(unittest.TestCase):
         has_feedback_command = any("/feedback" in print_msg for print_msg in all_prints)
         self.assertTrue(has_feedback_command)  # Should be shown
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
-    @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
-    )
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.core.prompt.build_initial_ask_messages")
+    @patch("holmes.config.config_path_dir", new_callable=lambda: tempfile.gettempdir())
     def test_run_interactive_loop_with_initial_input(
         self,
         mock_config_dir,
@@ -759,12 +754,10 @@ class TestRunInteractiveLoop(unittest.TestCase):
         # Verify AI was called with initial input
         self.mock_ai.call.assert_called_once()
 
-    @patch("holmes.interactive.check_version_async")
-    @patch("holmes.interactive.PromptSession")
-    @patch("holmes.interactive.build_initial_ask_messages")
-    @patch(
-        "holmes.interactive.config_path_dir", new_callable=lambda: tempfile.gettempdir()
-    )
+    @patch("holmes.interactive_mode.check_version_async")
+    @patch("holmes.interactive_mode.PromptSession")
+    @patch("holmes.core.prompt.build_initial_ask_messages")
+    @patch("holmes.config.config_path_dir", new_callable=lambda: tempfile.gettempdir())
     def test_run_interactive_loop_exception_handling(
         self,
         mock_config_dir,
@@ -801,11 +794,11 @@ class TestRunInteractiveLoop(unittest.TestCase):
 
     def test_run_interactive_loop_unsupported_commands_without_callback(self):
         """Test that feedback command is not available when callback is None."""
-        with patch("holmes.interactive.check_version_async"), patch(
-            "holmes.interactive.PromptSession"
+        with patch("holmes.interactive_mode.check_version_async"), patch(
+            "holmes.interactive_mode.PromptSession"
         ) as mock_prompt_session_class, patch(
-            "holmes.interactive.build_initial_ask_messages"
-        ), patch("holmes.interactive.config_path_dir", new=tempfile.gettempdir()):
+            "holmes.core.prompt.build_initial_ask_messages"
+        ), patch("holmes.config.config_path_dir", new=tempfile.gettempdir()):
             mock_session = Mock()
             mock_prompt_session_class.return_value = mock_session
             mock_session.prompt.side_effect = ["/help", "/exit"]

@@ -1,10 +1,10 @@
 import logging
 import os
 import os.path
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml  # type: ignore
-from pydantic import ValidationError
+from pydantic import AnyUrl, ValidationError
 
 import holmes.utils.env as env_utils
 from holmes.common.env_vars import (
@@ -12,7 +12,8 @@ from holmes.common.env_vars import (
     DISABLE_PROMETHEUS_TOOLSET,
 )
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
+from holmes.core.tools import Toolset, ToolsetMetadata, ToolsetType, YAMLToolset
+
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
@@ -59,9 +60,16 @@ from holmes.plugins.toolsets.investigator.core_investigation import (
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
-def load_toolsets_from_file(
-    toolsets_path: str, strict_check: bool = True
-) -> List[Toolset]:
+class MCPServerConfig(ToolsetMetadata):
+    """Configuration for MCP servers from config files"""
+
+    url: AnyUrl
+
+    # Override default for MCP servers
+    enabled: bool = True
+
+
+def load_toolsets_from_file(toolsets_path: str) -> List[Toolset]:
     toolsets = []
     with open(toolsets_path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -71,13 +79,15 @@ def load_toolsets_from_file(
             )
         toolsets_dict = parsed_yaml.get("toolsets", {})
 
-        toolsets.extend(load_toolsets_from_config(toolsets_dict, strict_check))
+        # Note: strict_check parameter is no longer used, kept for backwards compatibility
+        toolsets.extend(load_toolsets_from_config(toolsets_dict))
 
     return toolsets
 
 
 def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     logging.debug("loading python toolsets")
+
     toolsets: list[Toolset] = [
         CoreInvestigationToolset(),  # Load first for higher priority
         InternetToolset(),
@@ -131,7 +141,7 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
             continue
 
         path = os.path.join(THIS_DIR, filename)
-        toolsets_from_file = load_toolsets_from_file(path, strict_check=True)
+        toolsets_from_file = load_toolsets_from_file(path)
         all_toolsets.extend(toolsets_from_file)
 
     all_toolsets.extend(load_python_toolsets(dal=dal))  # type: ignore
@@ -145,6 +155,58 @@ def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
     return all_toolsets  # type: ignore
 
 
+def load_mcp_servers(servers_config: Dict[str, Dict[str, Any]]) -> List[Toolset]:
+    """
+    Load MCP servers with proper URL handling at top level.
+
+    :param servers_config: Dictionary of MCP server configurations
+    :return: List of RemoteMCPToolset objects
+    """
+    if not servers_config:
+        return []
+
+    loaded_servers: List[Toolset] = []
+
+    for name, config in servers_config.items():
+        try:
+            # Apply environment variable substitution to entire config first
+            config = env_utils.replace_env_vars_values(config)
+
+            # Add name to config dict for parsing
+            config["name"] = name
+
+            # Parse and validate MCP server config
+            mcp_config = MCPServerConfig(**config)
+
+            # Create RemoteMCPToolset with url at top level
+            toolset = RemoteMCPToolset(
+                name=name,
+                url=mcp_config.url,  # type: ignore[arg-type]  # Pydantic handles str -> AnyUrl conversion
+                description=mcp_config.description,
+                enabled=mcp_config.enabled,
+                config=mcp_config.config,
+                icon_url=mcp_config.icon_url
+                or "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png",
+                docs_url=mcp_config.docs_url,
+                installation_instructions=mcp_config.installation_instructions,
+                additional_instructions=mcp_config.additional_instructions,
+            )
+
+            # Mark as MCP type
+            toolset.type = ToolsetType.MCP
+
+            loaded_servers.append(toolset)
+
+        except ValidationError as e:
+            logging.error(f"Invalid MCP server '{name}': {e}")
+            # Continue loading other servers
+        except Exception as e:
+            logging.error(f"Failed to load MCP server '{name}': {e}", exc_info=True)
+            # Continue loading other servers
+
+    return loaded_servers
+
+
 def is_old_toolset_config(
     toolsets: Union[dict[str, dict[str, Any]], List[dict[str, Any]]],
 ) -> bool:
@@ -156,12 +218,11 @@ def is_old_toolset_config(
 
 def load_toolsets_from_config(
     toolsets: dict[str, dict[str, Any]],
-    strict_check: bool = True,
 ) -> List[Toolset]:
     """
-    Load toolsets from a dictionary or list of dictionaries.
-    :param toolsets: Dictionary of toolsets or list of toolset configurations.
-    :param strict_check: If True, all required fields for a toolset must be present.
+    Load NEW custom toolsets from a dictionary configuration.
+    Only used for creating new toolsets, not for configuring existing ones.
+    :param toolsets: Dictionary of toolset configurations.
     :return: List of validated Toolset objects.
     """
 
@@ -176,30 +237,21 @@ def load_toolsets_from_config(
 
     for name, config in toolsets.items():
         try:
-            toolset_type = config.get("type", ToolsetType.BUILTIN.value)
+            # Note: MCP servers should now be loaded via load_mcp_servers()
+            # This function only handles YAML toolsets
+            validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
 
-            # Resolve env var placeholders before creating the Toolset.
-            # If done after, .override_with() will overwrite resolved values with placeholders
-            # because model_dump() returns the original, unprocessed config from YAML.
-            if config:
-                config = env_utils.replace_env_vars_values(config)
-
-            validated_toolset: Optional[Toolset] = None
-            # MCP server is not a built-in toolset, so we need to set the type explicitly
-            if toolset_type == ToolsetType.MCP.value:
-                validated_toolset = RemoteMCPToolset(**config, name=name)
-            elif strict_check:
-                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
-            else:
-                validated_toolset = ToolsetYamlFromConfig(  # type: ignore
-                    **config, name=name
+            if validated_toolset.config:
+                validated_toolset.config = env_utils.replace_env_vars_values(
+                    validated_toolset.config
                 )
-
             loaded_toolsets.append(validated_toolset)
         except ValidationError as e:
-            logging.warning(f"Toolset '{name}' is invalid: {e}")
+            logging.error(f"Toolset '{name}' is invalid: {e}")
+            # Continue loading other toolsets instead of failing completely
 
-        except Exception:
-            logging.warning("Failed to load toolset: %s", name, exc_info=True)
+        except Exception as e:
+            logging.error(f"Failed to load toolset '{name}': {e}", exc_info=True)
+            # Continue loading other toolsets instead of failing completely
 
     return loaded_toolsets
