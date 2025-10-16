@@ -4,18 +4,54 @@ import os
 import os.path
 from datetime import date
 from pathlib import Path
-from typing import List, Optional, Pattern, Union
-
+from typing import List, Optional, Pattern, Union, Tuple, TYPE_CHECKING
+import yaml
 from pydantic import BaseModel, PrivateAttr
 
-from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
-from holmes.utils.global_instructions import RobustaRunbookInstruction
+
+if TYPE_CHECKING:
+    from holmes.core.supabase_dal import SupabaseDal
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 DEFAULT_RUNBOOK_SEARCH_PATH = THIS_DIR
 
 CATALOG_FILE = "catalog.json"
+
+
+class RobustaRunbookInstruction(BaseModel):
+    id: str
+    symptom: str
+    title: str
+    instruction: Optional[str] = None
+
+    class _LiteralDumper(yaml.SafeDumper):
+        pass
+
+    @staticmethod
+    def _repr_str(dumper, s: str):
+        s = s.replace("\\n", "\n")
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:str", s, style="|" if "\n" in s else None
+        )
+
+    # register representer (PyYAML API)
+    _LiteralDumper.add_representer(str, _repr_str)  # type: ignore
+
+    def to_list_string(self) -> str:
+        return f"robusta runbook id='{self.id}'"
+
+    def to_string(self) -> str:
+        return f"id='{self.id}' | title='{self.title}' | symptom='{self.symptom}'"
+
+    def pretty(self) -> str:
+        try:
+            data = self.model_dump(exclude_none=True)  # pydantic v2
+        except AttributeError:
+            data = self.dict(exclude_none=True)  # pydantic v1
+        return yaml.dump(
+            data, Dumper=self._LiteralDumper, sort_keys=False, allow_unicode=True
+        )
 
 
 class IssueMatcher(RobustaBaseConfig):
@@ -69,23 +105,42 @@ class RunbookCatalogEntry(BaseModel):
     link: str
 
     def to_list_string(self) -> str:
-        return f"runbook link={self.link}"
+        return f"md_runbook link={self.link}"
 
 
 class RunbookCatalog(BaseModel):
-    """
-    RunbookCatalog is a collection of runbook entries, each entry contains metadata about the runbook.
-    The correct runbook can be selected from the list by comparing the description with the user question.
-    Supports both RunbookCatalogEntry and RobustaRunbookInstruction.
-    """
-
-    catalog: List[Union[RunbookCatalogEntry, RobustaRunbookInstruction]]
+    catalog: List[Union[RunbookCatalogEntry, "RobustaRunbookInstruction"]]  # type: ignore
 
     def list_available_runbooks(self) -> list[str]:
         return [entry.to_list_string() for entry in self.catalog]
 
+    def split_by_type(
+        self,
+    ) -> Tuple[List[RunbookCatalogEntry], List[RobustaRunbookInstruction]]:
+        md: List[RunbookCatalogEntry] = []
+        robusta: List[RobustaRunbookInstruction] = []  #
+        for e in self.catalog:
+            if isinstance(e, RunbookCatalogEntry):
+                md.append(e)
+            elif isinstance(e, RobustaRunbookInstruction):
+                robusta.append(e)
+        return md, robusta
 
-def load_runbook_catalog(dal: Optional[SupabaseDal] = None) -> Optional[RunbookCatalog]:
+    def to_prompt_string(self) -> str:
+        md, robusta = self.split_by_type()
+        parts: List[str] = []
+        if md:
+            parts.append("Here are MD runbooks:")
+            parts.extend(f"* {e.to_list_string()}" for e in md)
+        if robusta:
+            parts.append("Here are Robusta runbooks:")
+            parts.extend(f"* {e.to_string()}" for e in robusta)
+        return "\n".join(parts)
+
+
+def load_runbook_catalog(
+    dal: Optional["SupabaseDal"] = None, load_robusta_runbooks: bool = False
+) -> Optional[RunbookCatalog]:  # type: ignore
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
     catalogPath = os.path.join(dir_path, CATALOG_FILE)
@@ -105,7 +160,7 @@ def load_runbook_catalog(dal: Optional[SupabaseDal] = None) -> Optional[RunbookC
         return None
 
     # Append additional runbooks from SupabaseDal if provided
-    if dal and dal.enabled:
+    if dal and dal.enabled and load_robusta_runbooks:
         try:
             supabase_entries = dal.get_runbook_catalog()
             if supabase_entries:

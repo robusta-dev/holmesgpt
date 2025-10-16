@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional
 
 import sentry_sdk
-
+import logging
 from holmes.config import Config
 from holmes.core.models import (
     ToolCallConversationResult,
@@ -10,9 +10,10 @@ from holmes.core.models import (
 )
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
+from holmes.plugins.runbooks import RunbookCatalog
 from holmes.utils.global_instructions import (
     Instructions,
-    add_global_instructions_to_user_prompt,
+    add_runbooks_to_user_prompt,
 )
 
 DEFAULT_TOOL_SIZE = 10000
@@ -64,6 +65,7 @@ def build_issue_chat_messages(
     ai: ToolCallingLLM,
     config: Config,
     global_instructions: Optional[Instructions] = None,
+    runbooks: Optional[RunbookCatalog] = None,
 ):
     """
     This function generates a list of messages for issue conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -120,8 +122,10 @@ def build_issue_chat_messages(
     tools_for_investigation = issue_chat_request.investigation_result.tools
 
     if not conversation_history or len(conversation_history) == 0:
-        user_prompt = add_global_instructions_to_user_prompt(
-            user_prompt, global_instructions
+        user_prompt = add_runbooks_to_user_prompt(
+            user_prompt=user_prompt,
+            runbook_catalog=runbooks,
+            global_instructions=global_instructions,
         )
 
         number_of_tools_for_investigation = len(tools_for_investigation)  # type: ignore
@@ -134,6 +138,7 @@ def build_issue_chat_messages(
                     "issue": issue_chat_request.issue_type,
                     "toolsets": ai.tool_executor.toolsets,
                     "cluster_name": config.cluster_name,
+                    "runbooks_enabled": True if runbooks else False,
                 },
             )
             messages = [
@@ -154,6 +159,7 @@ def build_issue_chat_messages(
             "issue": issue_chat_request.issue_type,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "runbooks_enabled": True if runbooks else False,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -187,6 +193,7 @@ def build_issue_chat_messages(
             "issue": issue_chat_request.issue_type,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "runbooks_enabled": True if runbooks else False,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -202,8 +209,10 @@ def build_issue_chat_messages(
             },
         ]
 
-    user_prompt = add_global_instructions_to_user_prompt(
-        user_prompt, global_instructions
+    user_prompt = add_runbooks_to_user_prompt(
+        user_prompt=user_prompt,
+        runbook_catalog=runbooks,
+        global_instructions=global_instructions,
     )
 
     conversation_history.append(
@@ -228,6 +237,7 @@ def build_issue_chat_messages(
         "issue": issue_chat_request.issue_type,
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks_enabled": True if runbooks else False,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -251,6 +261,7 @@ def build_issue_chat_messages(
         "issue": issue_chat_request.issue_type,
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks_enabled": True if runbooks else False,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context
@@ -267,6 +278,7 @@ def add_or_update_system_prompt(
     ai: ToolCallingLLM,
     config: Config,
     additional_system_prompt: Optional[str] = None,
+    runbooks: Optional[RunbookCatalog] = None,
 ):
     """Either add the system prompt or replace an existing system prompt.
     As a 'defensive' measure, this code will only replace an existing system prompt if it is the
@@ -278,10 +290,11 @@ def add_or_update_system_prompt(
     context = {
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks_enabled": True if runbooks else False,
     }
 
     system_prompt = load_and_render_prompt(template_path, context)
-
+    logging.warning(f"Loaded system prompt: {system_prompt}")
     if additional_system_prompt:
         system_prompt = system_prompt + "\n" + additional_system_prompt
 
@@ -311,6 +324,7 @@ def build_chat_messages(
     config: Config,
     global_instructions: Optional[Instructions] = None,
     additional_system_prompt: Optional[str] = None,
+    runbooks: Optional[RunbookCatalog] = None,
 ) -> List[dict]:
     """
     This function generates a list of messages for general chat conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -370,9 +384,15 @@ def build_chat_messages(
         ai=ai,
         config=config,
         additional_system_prompt=additional_system_prompt,
+        runbooks=runbooks,
     )
 
-    ask = add_global_instructions_to_user_prompt(ask, global_instructions)
+    ask = add_runbooks_to_user_prompt(
+        user_prompt=ask,
+        runbook_catalog=runbooks,
+        global_instructions=global_instructions,
+    )
+
     conversation_history.append(  # type: ignore
         {
             "role": "user",
@@ -404,6 +424,7 @@ def build_workload_health_chat_messages(
     ai: ToolCallingLLM,
     config: Config,
     global_instructions: Optional[Instructions] = None,
+    runbooks: Optional[RunbookCatalog] = None,
 ):
     """
     This function generates a list of messages for workload health conversation and ensures that the message sequence adheres to the model's context window limitations
@@ -462,8 +483,10 @@ def build_workload_health_chat_messages(
     resource = workload_health_chat_request.resource
 
     if not conversation_history or len(conversation_history) == 0:
-        user_prompt = add_global_instructions_to_user_prompt(
-            user_prompt, global_instructions
+        user_prompt = add_runbooks_to_user_prompt(
+            user_prompt=user_prompt,
+            runbook_catalog=runbooks,
+            global_instructions=global_instructions,
         )
 
         number_of_tools_for_workload = len(tools_for_workload)  # type: ignore
@@ -476,6 +499,7 @@ def build_workload_health_chat_messages(
                     "resource": resource,
                     "toolsets": ai.tool_executor.toolsets,
                     "cluster_name": config.cluster_name,
+                    "runbooks_enabled": True if runbooks else False,
                 },
             )
             messages = [
@@ -496,6 +520,7 @@ def build_workload_health_chat_messages(
             "resource": resource,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "runbooks_enabled": True if runbooks else False,
         }
         system_prompt_without_tools = load_and_render_prompt(
             template_path, template_context_without_tools
@@ -529,6 +554,7 @@ def build_workload_health_chat_messages(
             "resource": resource,
             "toolsets": ai.tool_executor.toolsets,
             "cluster_name": config.cluster_name,
+            "runbooks_enabled": True if runbooks else False,
         }
         system_prompt_with_truncated_tools = load_and_render_prompt(
             template_path, truncated_template_context
@@ -544,8 +570,10 @@ def build_workload_health_chat_messages(
             },
         ]
 
-    user_prompt = add_global_instructions_to_user_prompt(
-        user_prompt, global_instructions
+    user_prompt = add_runbooks_to_user_prompt(
+        user_prompt=user_prompt,
+        runbook_catalog=runbooks,
+        global_instructions=global_instructions,
     )
 
     conversation_history.append(
@@ -570,6 +598,7 @@ def build_workload_health_chat_messages(
         "resource": resource,
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks_enabled": True if runbooks else False,
     }
     system_prompt_without_tools = load_and_render_prompt(
         template_path, template_context_without_tools
@@ -593,6 +622,7 @@ def build_workload_health_chat_messages(
         "resource": resource,
         "toolsets": ai.tool_executor.toolsets,
         "cluster_name": config.cluster_name,
+        "runbooks_enabled": True if runbooks else False,
     }
     system_prompt_with_truncated_tools = load_and_render_prompt(
         template_path, template_context

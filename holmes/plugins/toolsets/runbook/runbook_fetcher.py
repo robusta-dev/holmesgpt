@@ -2,7 +2,6 @@ import logging
 import os
 import textwrap
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 from enum import Enum
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
@@ -23,14 +22,6 @@ from holmes.plugins.runbooks import (
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
-def is_uuid(value: str, version: int | None = None) -> bool:
-    try:
-        u = UUID(value)
-    except (ValueError, TypeError):
-        return False
-    return (version is None) or (u.version == version)
-
-
 class RunbookType(str, Enum):
     MD_FILE = "md_file"
     ROBUSTA_RUNBOOK = "robusta_runbook"
@@ -48,7 +39,9 @@ class RunbookFetcher(Tool):
         additional_search_paths: Optional[List[str]] = None,
         dal: Optional[SupabaseDal] = None,
     ):
-        catalog = load_runbook_catalog(dal=dal)
+        catalog = load_runbook_catalog(
+            dal=dal, load_robusta_runbooks=dal.enabled if dal else False
+        )
         available_runbooks = []
         if catalog:
             available_runbooks = catalog.list_available_runbooks()
@@ -71,7 +64,7 @@ class RunbookFetcher(Tool):
             description="Get runbook content by runbook link. Use this to get troubleshooting steps for incidents",
             parameters={
                 "runbook_id": ToolParameter(
-                    description=f"The runbook_id, a .md file, or a robusta UUID to the runbook (non-empty string required). Must be one of: {runbook_list}",
+                    description=f"The runbook_id: either a UUID or a .md filename. Must be one of: {runbook_list}",
                     type="string",
                     required=True,
                 ),
@@ -117,14 +110,6 @@ class RunbookFetcher(Tool):
             )
 
     def _get_robusta_runbook(self, link: str, params: dict) -> StructuredToolResult:
-        if not is_uuid(link):
-            err_msg = "robusta_runbook type requires a valid UUID as link."
-            logging.error(err_msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                error=err_msg,
-                params=params,
-            )
         if self._dal and self._dal.enabled:
             try:
                 runbook_content = self._dal.get_runbook_content(link)
