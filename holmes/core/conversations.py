@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional
 
 import sentry_sdk
-import logging
 from holmes.config import Config
 from holmes.core.models import (
     ToolCallConversationResult,
@@ -294,7 +293,6 @@ def add_or_update_system_prompt(
     }
 
     system_prompt = load_and_render_prompt(template_path, context)
-    logging.warning(f"Loaded system prompt: {system_prompt}")
     if additional_system_prompt:
         system_prompt = system_prompt + "\n" + additional_system_prompt
 

@@ -1235,8 +1235,7 @@ class IssueInvestigator(ToolCallingLLM):
             issue_instructions=issue_runbooks,
             resource_instructions=instructions,
         )
-        user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
-        logging.warning(f"Loaded prompt: {user_prompt}")
+        user_prompt = f"{user_prompt}\n #This is context from the issue:\n{issue.raw}"
         logging.debug(
             "Rendered system prompt:\n%s", textwrap.indent(system_prompt, "    ")
         )

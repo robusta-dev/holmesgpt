@@ -249,7 +249,9 @@ class ToolsetManager:
         else:
             using_cached = True
 
-        cached_toolsets = self._read_cached_toolsets()
+        cached_toolsets: List[dict[str, Any]] = []
+        with open(self.toolset_status_location, "r") as f:
+            cached_toolsets = json.load(f)
 
         # load status from cached file and update the toolset details
         toolsets_status_by_name: dict[str, dict[str, Any]] = {
@@ -311,10 +313,6 @@ class ToolsetManager:
                 f"Using {num_available_toolsets} datasources (toolsets). To refresh: use flag `--refresh-toolsets`"
             )
         return all_toolsets_with_status
-
-    def _read_cached_toolsets(self) -> List[dict[str, Any]]:
-        with open(self.toolset_status_location, "r") as f:  # type: ignore
-            return json.load(f) or []
 
     def is_robusta_toolset_enabled(self) -> bool:
         all_toolsets = self._list_all_toolsets(check_prerequisites=False)

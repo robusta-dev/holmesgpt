@@ -151,8 +151,6 @@ def get_investigation_context(
         resource_instructions=resource_instructions,
     )
 
-    user_prompt = f"{user_prompt}\n This is context from the issue {issue.raw}"
+    user_prompt = f"{user_prompt}\n #This is context from the issue:\n{issue.raw}"
 
-    logging.warning(f"Loaded prompt: {user_prompt}")
-
-    return ai, system_prompt, user_prompt, response_format, sections, user_prompt
+    return ai, system_prompt, user_prompt, response_format, sections, issue_instructions
