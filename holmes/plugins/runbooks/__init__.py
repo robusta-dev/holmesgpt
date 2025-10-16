@@ -39,7 +39,7 @@ class RobustaRunbookInstruction(BaseModel):
     _LiteralDumper.add_representer(str, _repr_str)  # type: ignore
 
     def to_list_string(self) -> str:
-        return f"robusta runbook id='{self.id}'"
+        return f"{self.id}"
 
     def to_string(self) -> str:
         return f"id='{self.id}' | title='{self.title}' | symptom='{self.symptom}'"
@@ -105,7 +105,7 @@ class RunbookCatalogEntry(BaseModel):
     link: str
 
     def to_list_string(self) -> str:
-        return f"md_runbook link={self.link}"
+        return f"{self.link}"
 
 
 class RunbookCatalog(BaseModel):

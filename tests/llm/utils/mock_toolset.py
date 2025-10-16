@@ -686,7 +686,7 @@ class MockToolsetManager:
 
                 # Create new RunbookToolset with test folder as additional search path
                 new_runbook_toolset = RunbookToolset(
-                    additional_search_paths=[self.test_case_folder]
+                    dal=None, additional_search_paths=[self.test_case_folder]
                 )
                 new_runbook_toolset.enabled = toolset.enabled
                 new_runbook_toolset.status = toolset.status

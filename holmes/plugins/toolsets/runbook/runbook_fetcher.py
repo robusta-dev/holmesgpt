@@ -54,7 +54,7 @@ class RunbookFetcher(Tool):
 
                 for file in os.listdir(search_path):
                     if file.endswith(".md") and file not in available_runbooks:
-                        available_runbooks.append(f"md_file name={file}")
+                        available_runbooks.append(f"{file}")
 
         runbook_list = ", ".join([f'"{rb}"' for rb in available_runbooks])
         allowed_types_str = ", ".join([f'"{t}"' for t in allowed_types])

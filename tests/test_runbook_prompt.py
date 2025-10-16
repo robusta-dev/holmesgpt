@@ -4,13 +4,16 @@ from types import SimpleNamespace
 
 from holmes.utils.global_instructions import add_runbooks_to_user_prompt
 
+
 class DummyRunbookCatalog:
     def to_prompt_string(self):
         return "RUNBOOK CATALOG PROMPT"
 
+
 class DummyInstructions:
     def __init__(self, instructions):
         self.instructions = instructions
+
 
 @pytest.mark.parametrize(
     "user_prompt,runbook_catalog,issue_instructions,resource_instructions,global_instructions,expected_substrings",
@@ -35,7 +38,10 @@ class DummyInstructions:
             None,
             SimpleNamespace(
                 instructions=["do X", "do Y"],
-                documents=[SimpleNamespace(url="http://doc1"), SimpleNamespace(url="http://doc2")],
+                documents=[
+                    SimpleNamespace(url="http://doc1"),
+                    SimpleNamespace(url="http://doc2"),
+                ],
             ),
             None,
             [
@@ -62,7 +68,7 @@ class DummyInstructions:
             ["issue step"],
             SimpleNamespace(
                 instructions=["resource step"],
-                documents=[SimpleNamespace(url="http://doc")]
+                documents=[SimpleNamespace(url="http://doc")],
             ),
             DummyInstructions(["global step"]),
             [
