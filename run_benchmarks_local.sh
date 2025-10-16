@@ -5,7 +5,7 @@
 set -e  # Exit on error
 
 # Default values from workflow
-DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514,novita/deepseek/deepseek-v3.1-terminus"
+DEFAULT_MODELS="gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514,novita/deepseek/deepseek-v3.1-terminus,bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
 DEFAULT_MARKERS="easy or medium or hard"
 DEFAULT_ITERATIONS="1"
 
@@ -14,7 +14,7 @@ MODELS="${1:-$DEFAULT_MODELS}"
 TEST_MARKERS="${2:-$DEFAULT_MARKERS}"
 ITERATIONS="${3:-$DEFAULT_ITERATIONS}"
 K_FILTER="${4:-}"  # Optional -k filter
-PARALLEL="${5:-}"  # Optional -n parallelism
+PARALLEL="${5:-5}"  # Optional -n parallelism
 STRICT_SETUP="${6:-true}"  # Optional strict setup mode (default: true for benchmarks)
 
 # Display help if requested
