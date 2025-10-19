@@ -41,7 +41,7 @@ class RobustaRunbookInstruction(BaseModel):
     def to_list_string(self) -> str:
         return f"{self.id}"
 
-    def to_string(self) -> str:
+    def to_prompt_string(self) -> str:
         return f"id='{self.id}' | title='{self.title}' | symptom='{self.symptom}'"
 
     def pretty(self) -> str:
@@ -106,7 +106,9 @@ class RunbookCatalogEntry(BaseModel):
 
     def to_list_string(self) -> str:
         return f"{self.link}"
-
+    
+    def to_prompt_string(self) -> str:
+        return f"{self.link} | description: {self.description}"
 
 class RunbookCatalog(BaseModel):
     catalog: List[Union[RunbookCatalogEntry, "RobustaRunbookInstruction"]]  # type: ignore
@@ -128,13 +130,13 @@ class RunbookCatalog(BaseModel):
 
     def to_prompt_string(self) -> str:
         md, robusta = self.split_by_type()
-        parts: List[str] = []
+        parts: List[str] = [""]
         if md:
             parts.append("Here are MD runbooks:")
-            parts.extend(f"* {e.to_list_string()}" for e in md)
+            parts.extend(f"* {e.to_prompt_string()}" for e in md)
         if robusta:
             parts.append("Here are Robusta runbooks:")
-            parts.extend(f"* {e.to_string()}" for e in robusta)
+            parts.extend(f"* {e.to_prompt_string()}" for e in robusta)
         return "\n".join(parts)
 
 
