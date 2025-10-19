@@ -227,7 +227,7 @@ def ask_holmes(
         mock_dal = load_mock_dal(
             Path(test_case.folder), generate_mocks=False, initialize_base=False
         )
-        runbooks = load_runbook_catalog(mock_dal, load_robusta_runbooks=True)
+        runbooks = load_runbook_catalog(mock_dal)
         global_instructions = mock_dal.get_global_instructions_for_account()
 
         messages = build_chat_messages(

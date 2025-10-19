@@ -139,7 +139,7 @@ class RunbookCatalog(BaseModel):
 
 
 def load_runbook_catalog(
-    dal: Optional["SupabaseDal"] = None, load_robusta_runbooks: bool = False
+    dal: Optional["SupabaseDal"] = None,
 ) -> Optional[RunbookCatalog]:  # type: ignore
     dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -160,7 +160,7 @@ def load_runbook_catalog(
         return None
 
     # Append additional runbooks from SupabaseDal if provided
-    if dal and dal.enabled and load_robusta_runbooks:
+    if dal and dal.enabled:
         try:
             supabase_entries = dal.get_runbook_catalog()
             if supabase_entries:

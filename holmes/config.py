@@ -129,9 +129,6 @@ class Config(RobustaBaseConfig):
             self._llm_model_registry = LLMModelRegistry(self, dal=self.dal)
         return self._llm_model_registry
 
-    def is_robusta_toolset_enabled(self) -> bool:
-        return self.toolset_manager.is_robusta_toolset_enabled()
-
     def log_useful_info(self):
         if self.llm_model_registry.models:
             logging.info(
@@ -228,9 +225,7 @@ class Config(RobustaBaseConfig):
 
     def get_runbook_catalog(self) -> Optional[RunbookCatalog]:
         # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
-        runbook_catalog = load_runbook_catalog(
-            dal=self.dal, load_robusta_runbooks=self.is_robusta_toolset_enabled()
-        )
+        runbook_catalog = load_runbook_catalog(dal=self.dal)
         return runbook_catalog
 
     def create_console_tool_executor(

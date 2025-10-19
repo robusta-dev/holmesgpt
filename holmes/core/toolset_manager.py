@@ -314,13 +314,6 @@ class ToolsetManager:
             )
         return all_toolsets_with_status
 
-    def is_robusta_toolset_enabled(self) -> bool:
-        all_toolsets = self._list_all_toolsets(check_prerequisites=False)
-        for toolset in all_toolsets:
-            if toolset.name == "robusta" and toolset.enabled:
-                return True
-        return False
-
     def list_console_toolsets(
         self, dal: Optional[SupabaseDal] = None, refresh_status=False
     ) -> List[Toolset]:

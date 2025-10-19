@@ -39,9 +39,7 @@ class RunbookFetcher(Tool):
         additional_search_paths: Optional[List[str]] = None,
         dal: Optional[SupabaseDal] = None,
     ):
-        catalog = load_runbook_catalog(
-            dal=dal, load_robusta_runbooks=dal.enabled if dal else False
-        )
+        catalog = load_runbook_catalog(dal=dal)
         available_runbooks = []
         if catalog:
             available_runbooks = catalog.list_available_runbooks()

@@ -82,5 +82,4 @@ def add_runbooks_to_user_prompt(
 
     if user_prompt and not user_prompt.endswith("\n"):
         user_prompt += "\n"
-
     return f"{user_prompt}\n{rendered}"
