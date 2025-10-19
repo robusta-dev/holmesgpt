@@ -106,9 +106,10 @@ class RunbookCatalogEntry(BaseModel):
 
     def to_list_string(self) -> str:
         return f"{self.link}"
-    
+
     def to_prompt_string(self) -> str:
         return f"{self.link} | description: {self.description}"
+
 
 class RunbookCatalog(BaseModel):
     catalog: List[Union[RunbookCatalogEntry, "RobustaRunbookInstruction"]]  # type: ignore
