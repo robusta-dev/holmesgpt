@@ -20,11 +20,6 @@ before_test: |
   sleep 10
 
 after_test: |
-  # Clean up the scenario
-  kubectl delete -f app/signup-deployment.yaml
-  kubectl delete -f app/payments-deployment.yaml
-  kubectl delete -f app/secrets.yaml
-
   # Delete namespace
   kubectl delete namespace app-162
 

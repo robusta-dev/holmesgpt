@@ -1,8 +1,8 @@
 toolsets:
   kubernetes/logs:
-    enabled: false
+    enabled: true
   kubernetes/core:
-    enabled: false
+    enabled: true
   helm/core:
     enabled: false
   internet:
@@ -28,4 +28,4 @@ toolsets:
   kubernetes/krew-extras:
     enabled: false
   runbook:
-    enabled: trues
+    enabled: true
