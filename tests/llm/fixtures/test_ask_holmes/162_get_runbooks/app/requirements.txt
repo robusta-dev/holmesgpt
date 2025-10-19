@@ -1,9 +1,0 @@
-# No external dependencies - using only Python standard library
-# The applications use only built-in modules:
-# - http.server
-# - json
-# - logging
-# - urllib.request
-# - os
-# - sys
-# - time
