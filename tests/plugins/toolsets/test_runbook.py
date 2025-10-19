@@ -7,7 +7,7 @@ from tests.conftest import create_mock_tool_invoke_context
 
 
 def test_RunbookFetcher():
-    runbook_fetch_tool = RunbookFetcher(RunbookToolset())
+    runbook_fetch_tool = RunbookFetcher(RunbookToolset(dal=None))
     result = runbook_fetch_tool._invoke(
         {"link": "wrong_runbook_path"}, context=create_mock_tool_invoke_context()
     )
