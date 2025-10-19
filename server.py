@@ -341,12 +341,6 @@ def chat(chat_request: ChatRequest):
             runbooks=runbooks,
         )
 
-        # Process tool decisions if provided
-        if chat_request.tool_decisions:
-            logging.info(
-                f"Processing {len(chat_request.tool_decisions)} tool decisions"
-            )
-            messages = ai.process_tool_decisions(messages, chat_request.tool_decisions)
         follow_up_actions = []
         if not already_answered(chat_request.conversation_history):
             follow_up_actions = [
@@ -376,6 +370,7 @@ def chat(chat_request: ChatRequest):
                     ai.call_stream(
                         msgs=messages,
                         enable_tool_approval=chat_request.enable_tool_approval or False,
+                        tool_decisions=chat_request.tool_decisions,
                     ),
                     [f.model_dump() for f in follow_up_actions],
                 ),

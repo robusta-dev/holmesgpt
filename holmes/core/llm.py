@@ -26,6 +26,8 @@ from holmes.common.env_vars import (
     ROBUSTA_API_ENDPOINT,
     THINKING,
     EXTRA_HEADERS,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
+    TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
 )
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.env import environ_get_safe_int, replace_env_vars_values
@@ -41,6 +43,13 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
+
+
+def get_context_window_compaction_threshold_pct() -> int:
+    """Get the compaction threshold percentage at runtime to support test overrides."""
+    return environ_get_safe_int("CONTEXT_WINDOW_COMPACTION_THRESHOLD_PCT", default="95")
+
+
 ROBUSTA_AI_MODEL_NAME = "Robusta"
 
 
@@ -50,6 +59,7 @@ class TokenCountMetadata(BaseModel):
     system_tokens: int
     user_tokens: int
     tools_to_call_tokens: int
+    assistant_tokens: int
     other_tokens: int
 
 
@@ -89,6 +99,19 @@ class LLM:
     @abstractmethod
     def get_maximum_output_token(self) -> int:
         pass
+
+    def get_max_token_count_for_single_tool(self) -> int:
+        if (
+            0 < TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+            and TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT <= 100
+        ):
+            context_window_size = self.get_context_window_size()
+            calculated_max_tokens = int(
+                context_window_size * TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT // 100
+            )
+            return min(calculated_max_tokens, TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS)
+        else:
+            return TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS
 
     @abstractmethod
     def count_tokens(
@@ -279,6 +302,7 @@ class DefaultLLM(LLM):
         total_tokens = 0
         tools_tokens = 0
         system_tokens = 0
+        assistant_tokens = 0
         user_tokens = 0
         other_tokens = 0
         tools_to_call_tokens = 0
@@ -296,6 +320,8 @@ class DefaultLLM(LLM):
                 user_tokens += token_count
             elif role == "tool":
                 tools_tokens += token_count
+            elif role == "assistant":
+                assistant_tokens += token_count
             else:
                 # although this should not be needed,
                 # it is defensive code so that all tokens are accounted for
@@ -320,6 +346,7 @@ class DefaultLLM(LLM):
             tools_tokens=tools_tokens,
             tools_to_call_tokens=tools_to_call_tokens,
             other_tokens=other_tokens,
+            assistant_tokens=assistant_tokens,
         )
 
     def get_litellm_corrected_name_for_robusta_ai(self) -> str:
@@ -544,6 +571,7 @@ class LLMModelRegistry:
                 return
 
             account_id, token = self.dal.get_ai_credentials()
+
             robusta_models: RobustaModelsResponse | None = fetch_robusta_models(
                 account_id, token
             )

@@ -1,6 +1,8 @@
 import pytest
 from holmes.core.llm import TokenCountMetadata
-from holmes.core.tool_calling_llm import truncate_messages_to_fit_context
+from holmes.core.truncation.input_context_window_limiter import (
+    truncate_messages_to_fit_context,
+)
 
 
 def simple_token_counter(messages) -> TokenCountMetadata:
@@ -14,6 +16,7 @@ def simple_token_counter(messages) -> TokenCountMetadata:
         tools_to_call_tokens=0,
         tools_tokens=0,
         user_tokens=0,
+        assistant_tokens=0,
         other_tokens=0,
     )
 
@@ -208,6 +211,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 
@@ -246,6 +250,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 
@@ -291,6 +296,7 @@ class TestTruncateMessagesToFitContextEdgeCases:
                 tools_to_call_tokens=0,
                 tools_tokens=0,
                 user_tokens=0,
+                assistant_tokens=0,
                 other_tokens=0,
             )
 

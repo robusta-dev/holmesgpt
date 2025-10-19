@@ -34,6 +34,7 @@ class MockLLM(LLM):
             tools_to_call_tokens=0,
             tools_tokens=0,
             user_tokens=0,
+            assistant_tokens=0,
             other_tokens=0,
         )
 
