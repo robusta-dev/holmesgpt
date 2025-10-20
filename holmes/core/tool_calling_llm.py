@@ -397,8 +397,8 @@ class ToolCallingLLM:
                 hasattr(response_message, "reasoning_content")
                 and response_message.reasoning_content
             ):
-                logging.debug(
-                    f"[bold {AI_COLOR}]AI (reasoning) 🤔:[/bold {AI_COLOR}] {response_message.reasoning_content}\n"
+                logging.info(
+                    f"[italic dim]AI reasoning:\n\n{response_message.reasoning_content}[/italic dim]\n"
                 )
 
             if not tools_to_call:
