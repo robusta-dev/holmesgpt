@@ -10,6 +10,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetTag,
     ToolInvokeContext,
+    ToolsetEnvironmentPrerequisite,
 )
 
 
@@ -59,14 +60,14 @@ class OpenSearchQueryAssistToolset(Toolset):
             name="opensearch/query_assist",
             description="OpenSearch query assist with PPL queries.",
             experimental=True,
-            enabled=True,
+            icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",
             tools=[PplQueryAssistTool(self)],
             tags=[ToolsetTag.CORE],
-            is_default=True,
+            prerequisites=[ToolsetEnvironmentPrerequisite(env=["OPENSEARCH_URL"])],
         )
 
     def get_example_config(self) -> Dict[str, Any]:
-        return {}
+        return {"opensearch_url": "http://localhost:9200"}
 
     def _reload_instructions(self):
         template_file_path = os.path.abspath(
