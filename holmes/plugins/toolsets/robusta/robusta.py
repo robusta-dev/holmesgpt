@@ -155,8 +155,12 @@ class FetchConfigurationChangesMetadataBase(Tool):
         dal: Optional[SupabaseDal],
         name: str,
         description: str,
-        include_cluster_params: bool = True,
+        add_cluster_filter: bool = True,
     ):
+        """
+        We need seperate tools for external and cluster configuration changes due to the different cluster parameters that are not on "external" changes like 'workload' and 'namespace'.
+        add_cluster_filter: adds the namespace and workload parameters for configuration changes tool.
+        """
         parameters = {
             START_TIME: ToolParameter(
                 description="The starting time boundary for the search period. String in RFC3339 format.",
@@ -175,7 +179,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
             ),
         }
 
-        if include_cluster_params:
+        if add_cluster_filter:
             parameters.update(
                 {
                     "namespace": ToolParameter(
@@ -257,6 +261,11 @@ class FetchConfigurationChangesMetadata(FetchConfigurationChangesMetadataBase):
 
 
 class FetchExternalConfigurationChangesMetadata(FetchConfigurationChangesMetadataBase):
+    """
+    Fetch configuration changes from external sources, e.g., LaunchDarkly changes.
+    It needs to be a seperate tool due to the different cluster parameter used in the DAL method like workload and namespace.
+    """
+
     def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
             dal=dal,
@@ -266,7 +275,7 @@ class FetchExternalConfigurationChangesMetadata(FetchConfigurationChangesMetadat
                 "Fetches configuration changes from external sources. "
                 "Use fetch_finding_by_id to get detailed change of one specific configuration change."
             ),
-            include_cluster_params=False,
+            add_cluster_filter=False,
         )
 
     def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
