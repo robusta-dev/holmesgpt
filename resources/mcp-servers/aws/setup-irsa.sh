@@ -2,7 +2,7 @@
 
 # IRSA Setup Script for Holmes AWS MCP Server on EKS
 # This script creates the necessary IAM role and service account for IRSA
-# Usage: ./setup-irsa-new.sh --cluster-name <name> --region <region> --namespace <namespace>
+# Usage: ./setup-irsa.sh --cluster-name <name> --region <region> --namespace <namespace>
 
 set -e
 

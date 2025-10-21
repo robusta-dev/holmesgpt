@@ -1,34 +1,3 @@
-{{- define "holmes.awsMcp.fullname" -}}
-{{- printf "%s-aws-mcp-server" .Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- end -}}
-
-{{- define "holmes.awsMcp.labels" -}}
-app: {{ include "holmes.awsMcp.fullname" . }}
-app.kubernetes.io/name: aws-mcp-server
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/component: mcp-server
-app.kubernetes.io/part-of: holmes
-{{- end -}}
-
-{{- define "holmes.awsMcp.selectorLabels" -}}
-app: {{ include "holmes.awsMcp.fullname" . }}
-app.kubernetes.io/name: aws-mcp-server
-app.kubernetes.io/instance: {{ .Release.Name }}
-{{- end -}}
-
-{{- define "holmes.awsMcp.serviceUrl" -}}
-{{- $namespace := .Values.mcpAddons.aws.config.namespace | default .Release.Namespace -}}
-{{- printf "http://%s.%s.svc.cluster.local:8000" (include "holmes.awsMcp.fullname" .) $namespace -}}
-{{- end -}}
-
-{{- define "holmes.awsMcp.serviceAccountName" -}}
-{{- if .Values.mcpAddons.aws.serviceAccount.create -}}
-    {{- default (printf "%s-aws-mcp-sa" .Release.Name) .Values.mcpAddons.aws.serviceAccount.name -}}
-{{- else -}}
-    {{- default "default" .Values.mcpAddons.aws.serviceAccount.name -}}
-{{- end -}}
-{{- end -}}
-
 {{/*
 Define the LLM instructions for AWS MCP
 */}}
