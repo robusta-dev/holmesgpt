@@ -184,9 +184,9 @@ For extra privacy, [bring an API key](https://holmesgpt.dev/ai-providers/) for y
 
 Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](https://holmesgpt.dev/development/evals/) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
 
-- [Introduction to HolmesGPT's evals](https://holmesgpt.dev/development/evals/).
-- [Write your own evals](https://holmesgpt.dev/development/evals/adding-new-eval/).
-- [Use Braintrust to view analyze results (optional)](https://holmesgpt.dev/development/evals/reporting/).
+- [Introduction to HolmesGPT's evals](https://holmesgpt.dev/development/evaluations/).
+- [Write your own evals](https://holmesgpt.dev/development/evaluations/adding-evals/).
+- [Use Braintrust to view analyze results (optional)](https://holmesgpt.dev/development/evaluations/reporting/).
 
 
 ## License
