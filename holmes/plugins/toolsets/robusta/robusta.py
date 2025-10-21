@@ -3,7 +3,7 @@ import os
 import logging
 
 from typing import Optional, Dict, Any, List
-from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.supabase_dal import SupabaseDal, FindingType
 from holmes.core.tools import (
     StaticPrerequisite,
     Tool,
@@ -187,7 +187,7 @@ class FetchConfigurationChangesMetadata(Tool):
 
     def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
-            return self._dal.get_configuration_changes_metadata(
+            return self._dal.get_issues_metadata(
                 start_datetime=params["start_datetime"],
                 end_datetime=params["end_datetime"],
                 limit=min(
@@ -196,6 +196,7 @@ class FetchConfigurationChangesMetadata(Tool):
                 ),
                 ns=params.get("namespace"),
                 workload=params.get("workload"),
+                finding_type=FindingType.CONFIGURATION_CHANGE,
             )
         return None
 
@@ -227,6 +228,90 @@ class FetchConfigurationChangesMetadata(Tool):
         return f"Robusta: Search Change History {params}"
 
 
+class FetchResourceIssuesMetadata(Tool):
+    _dal: Optional[SupabaseDal]
+
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            name="fetch_resource_issues_metadata",
+            description=(
+                "Fetch issues and alert metadata in a given time range. "
+                "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job etc.."
+                "Use fetch_finding_by_id to get further information on a specific issue or alert."
+            ),
+            parameters={
+                START_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    type="string",
+                    required=True,
+                ),
+                END_TIME: ToolParameter(
+                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    type="string",
+                    required=True,
+                ),
+                "namespace": ToolParameter(
+                    description="The Kubernetes namespace name for filtering issues.",
+                    type="string",
+                    required=True,
+                ),
+                "resource": ToolParameter(
+                    description="The kubernetes resource name (e.g., pod, deployment, job) for filtering issues. Use full kubernetes names and don't omit suffixes and hashes.",
+                    type="string",
+                    required=True,
+                ),
+                "limit": ToolParameter(
+                    description=f"Maximum number of rows to return. Default is {DEFAULT_LIMIT_CHANGE_ROWS} and the maximum is 200",
+                    type="integer",
+                    required=False,
+                ),
+            },
+        )
+        self._dal = dal
+
+    def _fetch_res_issues(self, params: Dict) -> Optional[List[Dict]]:
+        if self._dal and self._dal.enabled:
+            return self._dal.get_issues_metadata(
+                start_datetime=params["start_datetime"],
+                end_datetime=params["end_datetime"],
+                limit=min(
+                    params.get("limit") or DEFAULT_LIMIT_CHANGE_ROWS,
+                    MAX_LIMIT_CHANGE_ROWS,
+                ),
+                ns=params.get("namespace"),
+                workload=params.get("resource"),
+                finding_type=FindingType.ISSUE,
+            )
+        return None
+
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
+        try:
+            changes = self._fetch_res_issues(params)
+            if changes:
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.SUCCESS,
+                    data=changes,
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.NO_DATA,
+                    data=f"Could not find issues for {params}",
+                    params=params,
+                )
+        except Exception as e:
+            msg = f"There was an internal error while fetching issues for {params}. {str(e)}"
+            logging.exception(msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                data=msg,
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Robusta: fetch resource issues metadata {params}"
+
+
 class RobustaToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
@@ -247,6 +332,7 @@ class RobustaToolset(Toolset):
             tools=[
                 FetchRobustaFinding(dal),
                 FetchConfigurationChangesMetadata(dal),
+                FetchResourceIssuesMetadata(dal),
                 FetchResourceRecommendation(dal),
             ],
             tags=[
