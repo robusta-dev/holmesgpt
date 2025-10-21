@@ -11,6 +11,7 @@ stringData:
     import time
     import random
     import logging
+    import os
 
     app = Flask(__name__)
 
@@ -22,17 +23,22 @@ stringData:
     # Version info
     VERSION = "v2.0"
 
-    # Prometheus metrics
+    # Get metadata from environment
+    NAMESPACE = os.environ.get('NAMESPACE', 'app-161')
+    POD_NAME = os.environ.get('POD_NAME', os.environ.get('HOSTNAME', 'unknown'))
+    SERVICE = os.environ.get('SERVICE_NAME', 'bidder')
+
+    # Prometheus metrics with standard k8s labels
     bid_requests = Counter(
         'bid_requests_total',
         'Total bid requests processed',
-        ['exchange', 'decision', 'version']
+        ['namespace', 'pod', 'service', 'exchange', 'decision']
     )
 
     request_duration = Histogram(
         'bid_request_duration_seconds',
         'Bid request processing duration',
-        ['exchange', 'version'],
+        ['namespace', 'pod', 'service', 'exchange'],
         buckets=[0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0]
     )
 
@@ -55,8 +61,19 @@ stringData:
         # 10% bid rate (realistic for energy markets)
         decision = 'bid' if random.random() < 0.1 else 'no_bid'
 
-        bid_requests.labels(exchange=exchange, decision=decision, version=VERSION).inc()
-        request_duration.labels(exchange=exchange, version=VERSION).observe(processing_time)
+        bid_requests.labels(
+            namespace=NAMESPACE,
+            pod=POD_NAME,
+            service=SERVICE,
+            exchange=exchange,
+            decision=decision
+        ).inc()
+        request_duration.labels(
+            namespace=NAMESPACE,
+            pod=POD_NAME,
+            service=SERVICE,
+            exchange=exchange
+        ).observe(processing_time)
 
         return jsonify({
             'decision': decision,
@@ -110,6 +127,19 @@ spec:
         ports:
         - containerPort: 8080
           name: http
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: SERVICE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.labels['app']
         volumeMounts:
         - name: app-code
           mountPath: /app

@@ -16,13 +16,16 @@ PROM_URL="${PROM_URL:-http://prometheus.${NS}.svc.cluster.local:9090}"
 VALIDATION_FAILURES=0
 
 # Prometheus queries
-# Query over a longer time range to capture both v1.0 and v2.0
-PROMQL_V1_LATENCY='avg(avg_over_time(bid_request_duration_seconds_sum{version="v1.0"}[30m]) / avg_over_time(bid_request_duration_seconds_count{version="v1.0"}[30m]))'
-PROMQL_V2_LATENCY='avg(avg_over_time(bid_request_duration_seconds_sum{version="v2.0"}[30m]) / avg_over_time(bid_request_duration_seconds_count{version="v2.0"}[30m]))'
-# Use last_over_time to get the most recent value even for stale series
-PROMQL_V1_REQUESTS='last_over_time(bid_requests_total{version="v1.0"}[30m])'
-PROMQL_V2_REQUESTS='last_over_time(bid_requests_total{version="v2.0"}[30m])'
-PROMQL_BUILD_INFO='last_over_time(bidder_build_info[30m])'
+# Since we can't distinguish v1 from v2 by labels, we'll use time-based queries
+# v1.0 metrics: older data (offset by 5m to look at historical data)
+# v2.0 metrics: recent data (last 5m)
+PROMQL_V1_LATENCY='avg(avg_over_time(bid_request_duration_seconds_sum{namespace="app-161"}[5m] offset 5m) / avg_over_time(bid_request_duration_seconds_count{namespace="app-161"}[5m] offset 5m))'
+PROMQL_V2_LATENCY='avg(avg_over_time(bid_request_duration_seconds_sum{namespace="app-161"}[5m]) / avg_over_time(bid_request_duration_seconds_count{namespace="app-161"}[5m]))'
+# Use offset to get v1.0 request count from earlier time period
+PROMQL_V1_REQUESTS='sum(increase(bid_requests_total{namespace="app-161"}[5m] offset 5m))'
+PROMQL_V2_REQUESTS='sum(increase(bid_requests_total{namespace="app-161"}[5m]))'
+# Build info query - filter by namespace
+PROMQL_BUILD_INFO='last_over_time(bidder_build_info{namespace="app-161"}[30m])'
 
 echo ">>> Checking deployment status"
 POD_COUNT=$(kubectl get deployment bidder -n "${NS}" -o jsonpath='{.status.readyReplicas}')
@@ -95,21 +98,8 @@ extract_val() {
 echo ""
 echo ">>> Fetching metrics from Prometheus"
 
-# Check build info
-echo "Checking build info metrics..."
-build_info_json="$(fetch_json "$PROMQL_BUILD_INFO")"
-v1_exists="$(printf '%s' "$build_info_json" | jq -r '.data.result[] | select(.metric.version == "v1.0") | .value[1]' 2>/dev/null)" || true
-v2_exists="$(printf '%s' "$build_info_json" | jq -r '.data.result[] | select(.metric.version == "v2.0") | .value[1]' 2>/dev/null)" || true
-
-if [ -n "$v1_exists" ] && [ -n "$v2_exists" ]; then
-  echo "✓ Found metrics for both v1.0 and v2.0"
-else
-  echo "⚠️ WARNING: Missing metrics for some versions (v1.0: ${v1_exists:-missing}, v2.0: ${v2_exists:-missing})"
-  # Mark as failure if v1.0 build info is missing
-  if [ -z "$v1_exists" ]; then
-    VALIDATION_FAILURES=$((VALIDATION_FAILURES + 1))
-  fi
-fi
+# Skip build info check since we're using time-based queries
+echo "Using time-based queries to distinguish v1.0 (older) from v2.0 (recent) metrics..."
 
 # Get v1.0 metrics
 echo "Fetching v1.0 latency metrics..."

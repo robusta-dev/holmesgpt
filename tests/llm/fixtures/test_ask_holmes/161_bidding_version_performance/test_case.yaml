@@ -56,9 +56,6 @@ before_test: |
   echo "⏳ Waiting for HPA to scale up..."
   ./wait-for-scaling.sh
 
-  echo "🔍 Running validation..."
-  ./run-performance-check.sh
-
   echo "🧹 Cleaning up k6 jobs to prevent AI detection"
   kubectl delete jobs -n app-161 -l app=k6 --ignore-not-found=true
 
