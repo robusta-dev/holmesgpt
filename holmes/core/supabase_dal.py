@@ -237,70 +237,63 @@ class SupabaseDal:
             logging.exception("Supabase error while retrieving efficiency data")
             return None
 
-    def get_configuration_changes(
-        self, start_datetime: str, end_datetime: str
+    def get_configuration_changes_metadata(
+        self,
+        start_datetime: str,
+        end_datetime: str,
+        limit: int = 100,
+        workload: Optional[str] = None,
+        ns: Optional[str] = None,
+        cluster: Optional[str] = None,
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
-
+        if not cluster:
+            cluster = self.cluster
         try:
-            changes_response = (
+            query = (
                 self.client.table(ISSUES_TABLE)
-                .select("id", "subject_name", "subject_namespace", "description")
+                .select(
+                    "id",
+                    "title",
+                    "subject_name",
+                    "subject_namespace",
+                    "subject_type",
+                    "description",
+                    "starts_at",
+                    "ends_at",
+                )
                 .eq("account_id", self.account_id)
-                .eq("cluster", self.cluster)
+                .eq("cluster", cluster)
                 .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
-                .execute()
+                .limit(limit)
             )
-            if not len(changes_response.data):
+
+            if workload:
+                query.eq("subject_name", workload)
+            if ns:
+                query.eq("subject_namespace", ns)
+
+            res = query.execute()
+            if not res.data:
                 return None
 
         except Exception:
             logging.exception("Supabase error while retrieving change data")
             return None
 
-        changes_ids = [change["id"] for change in changes_response.data]
-        try:
-            change_data_response = (
-                self.client.table(EVIDENCE_TABLE)
-                .select("*")
-                .eq("account_id", self.account_id)
-                .in_("issue_id", changes_ids)
-                .not_.in_("enrichment_type", ENRICHMENT_BLACKLIST)
-                .execute()
-            )
-            if not len(change_data_response.data):
-                return None
-
-            truncate_evidences_entities_if_necessary(change_data_response.data)
-
-        except Exception:
-            logging.exception("Supabase error while retrieving change content")
-            return None
-
-        changes_data = []
-        change_data_map = {
-            change["issue_id"]: change for change in change_data_response.data
-        }
-
-        for change in changes_response.data:
-            change_content = change_data_map.get(change["id"])
-            if change_content:
-                changes_data.append(
-                    {
-                        "change": change_content["data"],
-                        "evidence_id": change_content["id"],
-                        **change,
-                    }
-                )
-
         logging.debug(
-            "Change history for %s-%s: %s", start_datetime, end_datetime, changes_data
+            "Change history metadata for %s-%s workload %s in ns %s: %s",
+            start_datetime,
+            end_datetime,
+            workload,
+            ns,
+            res.data,
         )
 
-        return changes_data
+        return res.data
 
     def unzip_evidence_file(self, data):
         try:

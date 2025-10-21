@@ -92,6 +92,7 @@ def test_streaming_chat_approval_workflow_requires_approval(
         tools_to_call_tokens=0,
         tools_tokens=0,
         user_tokens=0,
+        assistant_tokens=0,
         other_tokens=0,
     )
     mock_llm.get_context_window_size.return_value = 128000
@@ -224,6 +225,7 @@ def test_streaming_chat_approval_workflow_approve_and_execute(
         tools_to_call_tokens=0,
         tools_tokens=0,
         user_tokens=0,
+        assistant_tokens=0,
         other_tokens=0,
     )
     mock_llm.get_context_window_size.return_value = 128000
@@ -370,6 +372,7 @@ def test_streaming_chat_approval_workflow_reject_command(
         tools_to_call_tokens=0,
         tools_tokens=0,
         user_tokens=0,
+        assistant_tokens=0,
         other_tokens=0,
     )
     mock_llm.get_context_window_size.return_value = 128000
