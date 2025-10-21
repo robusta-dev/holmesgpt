@@ -25,6 +25,7 @@ from holmes.common.env_vars import (
     STORE_EMAIL,
     STORE_PASSWORD,
     STORE_URL,
+    load_bool,
 )
 from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
@@ -38,7 +39,7 @@ from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
-
+PULL_EXTERNAL_FINDINGS = load_bool("PULL_EXTERNAL_FINDINGS", False)
 ISSUES_TABLE = "Issues"
 GROUPED_ISSUES_TABLE = "GroupedIssues"
 EVIDENCE_TABLE = "Evidence"
@@ -237,17 +238,15 @@ class SupabaseDal:
             logging.exception("Supabase error while retrieving efficiency data")
             return None
 
-    def get_configuration_changes_metadata(
+    def _get_configuration_changes_metadata_for_cluster(
         self,
+        cluster: str,
         start_datetime: str,
         end_datetime: str,
         limit: int = 100,
         workload: Optional[str] = None,
         ns: Optional[str] = None,
     ) -> Optional[List[Dict]]:
-        if not self.enabled:
-            return []
-
         try:
             query = (
                 self.client.table(ISSUES_TABLE)
@@ -262,7 +261,7 @@ class SupabaseDal:
                     "ends_at",
                 )
                 .eq("account_id", self.account_id)
-                .eq("cluster", self.cluster)
+                .eq("cluster", cluster)
                 .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
@@ -275,23 +274,57 @@ class SupabaseDal:
                 query.eq("subject_namespace", ns)
 
             res = query.execute()
-            if not res.data:
-                return None
+            return res.data if res.data else []
 
         except Exception:
-            logging.exception("Supabase error while retrieving change data")
+            logging.exception(
+                f"Supabase error while retrieving change data for cluster {cluster}"
+            )
+            return []
+
+    def get_configuration_changes_metadata(
+        self,
+        start_datetime: str,
+        end_datetime: str,
+        limit: int = 100,
+        workload: Optional[str] = None,
+        ns: Optional[str] = None,
+    ) -> Optional[List[Dict]]:
+        if not self.enabled:
+            return []
+
+        # Query clusters separately to maintain database index performance due to index constraints
+        clusters_to_query = [self.cluster]
+        if PULL_EXTERNAL_FINDINGS:
+            clusters_to_query.append("external")
+
+        all_results = []
+        for cluster in clusters_to_query:
+            cluster_results = self._get_configuration_changes_metadata_for_cluster(
+                cluster=cluster,
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+                limit=limit,
+                workload=workload,
+                ns=ns,
+            )
+            if cluster_results:
+                all_results.extend(cluster_results)
+
+        if not all_results:
             return None
 
         logging.debug(
-            "Change history metadata for %s-%s workload %s in ns %s: %s",
+            "Change history metadata for %s-%s workload %s in ns %s clusters %s: %s",
             start_datetime,
             end_datetime,
             workload,
             ns,
-            res.data,
+            clusters_to_query,
+            all_results,
         )
 
-        return res.data
+        return all_results
 
     def unzip_evidence_file(self, data):
         try:
