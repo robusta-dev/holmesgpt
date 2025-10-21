@@ -2,18 +2,20 @@ import logging
 import os
 import subprocess
 import tempfile
-import threading
 from collections import defaultdict
-from enum import Enum
 from pathlib import Path
 from typing import DefaultDict, List, Optional
 
+from prompt_toolkit.completion import (
+    Completer,
+    Completion,
+    ExecutableCompleter,
+    PathCompleter,
+)
+from prompt_toolkit.document import Document
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.application import Application
-from prompt_toolkit.completion import Completer, Completion, merge_completers
-from prompt_toolkit.completion.filesystem import ExecutableCompleter, PathCompleter
-from prompt_toolkit.document import Document
 from prompt_toolkit.history import FileHistory, InMemoryHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import Layout
@@ -40,6 +42,14 @@ from holmes.core.prompt import build_initial_ask_messages
 from holmes.core.tool_calling_llm import ToolCallingLLM, ToolCallResult
 from holmes.core.tools import StructuredToolResult, pretty_print_toolset_status
 from holmes.core.tracing import DummyTracer
+from holmes.interactive.completers import (
+    ShowCommandCompleter,
+    SlashCommandCompleter,
+    create_merged_completer,
+)
+from holmes.interactive.slash_commands import SlashCommands
+from holmes.interactive.status_bar import MessageType, StatusBarManager
+from holmes.interactive.toolset_refresh import ToolsetRefreshManager
 from holmes.utils.colors import (
     AI_COLOR,
     ERROR_COLOR,
@@ -50,54 +60,6 @@ from holmes.utils.colors import (
 )
 from holmes.utils.console.consts import agent_name
 from holmes.version import check_version_async
-
-
-class SlashCommands(Enum):
-    EXIT = ("/exit", "Exit interactive mode")
-    HELP = ("/help", "Show help message with all commands")
-    CLEAR = ("/clear", "Clear screen and reset conversation context")
-    TOOLS_CONFIG = ("/tools", "Show available toolsets and their status")
-    TOGGLE_TOOL_OUTPUT = (
-        "/auto",
-        "Toggle auto-display of tool outputs after responses",
-    )
-    LAST_OUTPUT = ("/last", "Show all tool outputs from last response")
-    RUN = ("/run", "Run a bash command and optionally share with LLM")
-    SHELL = (
-        "/shell",
-        "Drop into interactive shell, then optionally share session with LLM",
-    )
-    CONTEXT = ("/context", "Show conversation context size and token count")
-    SHOW = ("/show", "Show specific tool output in scrollable view")
-    FEEDBACK = ("/feedback", "Provide feedback on the agent's response")
-
-    def __init__(self, command, description):
-        self.command = command
-        self.description = description
-
-
-class SlashCommandCompleter(Completer):
-    def __init__(self, unsupported_commands: Optional[List[str]] = None):
-        # Build commands dictionary, excluding unsupported commands
-        all_commands = {cmd.command: cmd.description for cmd in SlashCommands}
-        if unsupported_commands:
-            self.commands = {
-                cmd: desc
-                for cmd, desc in all_commands.items()
-                if cmd not in unsupported_commands
-            }
-        else:
-            self.commands = all_commands
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor
-        if text.startswith("/"):
-            word = text
-            for cmd, description in self.commands.items():
-                if cmd.startswith(word):
-                    yield Completion(
-                        cmd, start_position=-len(word), display=f"{cmd} - {description}"
-                    )
 
 
 class SmartPathCompleter(Completer):
@@ -162,48 +124,6 @@ class ConditionalExecutableCompleter(Completer):
                             - len(command_part),
                             display=completion.display,
                             display_meta=completion.display_meta,
-                        )
-
-
-class ShowCommandCompleter(Completer):
-    """Completer that provides suggestions for /show command based on tool call history"""
-
-    def __init__(self):
-        self.tool_calls_history = []
-
-    def update_history(self, tool_calls_history: List[ToolCallResult]):
-        """Update the tool calls history for completion suggestions"""
-        self.tool_calls_history = tool_calls_history
-
-    def get_completions(self, document, complete_event):
-        text = document.text_before_cursor
-
-        # Only provide completion if the line starts with /show
-        if text.startswith("/show "):
-            # Extract the argument part after "/show "
-            show_part = text[6:]  # Remove "/show "
-
-            # Don't complete if there are already multiple words
-            words = show_part.split()
-            if len(words) > 1:
-                return
-
-            # Provide completions based on available tool calls
-            if self.tool_calls_history:
-                for i, tool_call in enumerate(self.tool_calls_history):
-                    tool_index = str(i + 1)  # 1-based index
-                    tool_description = tool_call.description
-
-                    # Complete tool index numbers (show all if empty, or filter by what user typed)
-                    if (
-                        not show_part
-                        or tool_index.startswith(show_part)
-                        or show_part.lower() in tool_description.lower()
-                    ):
-                        yield Completion(
-                            tool_index,
-                            start_position=-len(show_part),
-                            display=f"{tool_index} - {tool_description}",
                         )
 
 
@@ -955,10 +875,23 @@ def run_interactive_loop(
     system_prompt_additions: Optional[str] = None,
     check_version: bool = True,
     feedback_callback: Optional[FeedbackCallback] = None,
+    config=None,
+    refresh_toolsets: bool = False,
+    loaded_from_cache: bool = False,
 ) -> None:
     # Initialize tracer - use DummyTracer if no tracer provided
     if tracer is None:
         tracer = DummyTracer()
+
+    # Initialize managers
+    status_bar_manager = StatusBarManager()
+    # Create toolset manager for refresh operations
+    from holmes.core.toolset_manager import ToolsetManager
+
+    toolset_manager = ToolsetManager.for_cli(config)
+    toolset_refresh_manager = ToolsetRefreshManager(
+        ai, toolset_manager, status_bar_manager, loaded_from_cache
+    )
 
     style = Style.from_dict(
         {
@@ -988,13 +921,10 @@ def run_interactive_loop(
     if feedback_callback is None:
         unsupported_commands.append(SlashCommands.FEEDBACK.command)
     slash_completer = SlashCommandCompleter(unsupported_commands)
-    executable_completer = ConditionalExecutableCompleter()
-    show_completer = ShowCommandCompleter()
-    path_completer = SmartPathCompleter()
 
-    command_completer = merge_completers(
-        [slash_completer, executable_completer, show_completer, path_completer]
-    )
+    # Create completers
+    show_completer = ShowCommandCompleter()
+    command_completer = create_merged_completer(show_completer)
 
     # Use file-based history
     history_file = os.path.join(config_path_dir, "history")
@@ -1009,60 +939,41 @@ def run_interactive_loop(
 
     # Create custom key bindings for Ctrl+C behavior
     bindings = KeyBindings()
-    status_message = ""
-    version_message = ""
-
-    def clear_version_message():
-        nonlocal version_message
-        version_message = ""
-        session.app.invalidate()
 
     def on_version_check_complete(result):
         """Callback when background version check completes"""
-        nonlocal version_message
         if not result.is_latest and result.update_message:
-            version_message = result.update_message
-            session.app.invalidate()
+            status_bar_manager.set_message(
+                MessageType.VERSION, result.update_message, duration=10
+            )
 
-            # Auto-clear after 10 seconds
-            timer = threading.Timer(10, clear_version_message)
-            timer.start()
+    def start_background_toolset_refresh():
+        """Start background toolset refresh if cache exists"""
+        # Simply delegate to the refresh manager with the status bar
+        toolset_refresh_manager.start_background_refresh(status_bar_manager)
 
     @bindings.add("c-c")
     def _(event):
         """Handle Ctrl+C: clear input if text exists, otherwise quit."""
         buffer = event.app.current_buffer
         if buffer.text:
-            nonlocal status_message
-            status_message = f"Input cleared. Use {SlashCommands.EXIT.command} or Ctrl+C again to quit."
+            status_bar_manager.set_message(
+                MessageType.STATUS,
+                f"Input cleared. Use {SlashCommands.EXIT.command} or Ctrl+C again to quit.",
+                duration=3,
+            )
             buffer.reset()
-
-            # call timer to clear status message after 3 seconds
-            def clear_status():
-                nonlocal status_message
-                status_message = ""
-                event.app.invalidate()
-
-            timer = threading.Timer(3, clear_status)
-            timer.start()
         else:
+            # Stop any active spinner before quitting
+            status_bar_manager.stop_spinner()
+            status_bar_manager.cleanup()
             # Quit if no text
             raise KeyboardInterrupt()
 
     def get_bottom_toolbar():
-        messages = []
-
-        # Ctrl-c status message (red background)
-        if status_message:
-            messages.append(("bg:#ff0000 fg:#000000", status_message))
-
-        # Version message (yellow background)
-        if version_message:
-            if messages:
-                messages.append(("", " | "))
-            messages.append(("bg:#ffff00 fg:#000000", version_message))
-
-        return messages if messages else None
+        # Get terminal width from session app
+        terminal_width = session.app.output.get_size().columns if session.app else 80
+        return status_bar_manager.get_bottom_toolbar(terminal_width)
 
     session = PromptSession(
         completer=command_completer,
@@ -1072,6 +983,9 @@ def run_interactive_loop(
         key_bindings=bindings,
         bottom_toolbar=get_bottom_toolbar,
     )  # type: ignore
+
+    # Set session app in status bar manager for invalidation
+    status_bar_manager.set_session_app(session.app)
 
     # Start background version check
     if check_version:
@@ -1087,6 +1001,19 @@ def run_interactive_loop(
             + f", '{SlashCommands.FEEDBACK.command}' to share your thoughts."
         )
     console.print(welcome_banner)
+    console.print(WELCOME_BANNER)
+
+    # Show toolset loading info after welcome banner
+    cache_info = toolset_refresh_manager.get_cache_info()
+    if cache_info:
+        if cache_info["num_disabled"] > 0:
+            console.print(
+                f"Using {cache_info['num_enabled']} datasources from cache ({cache_info['num_disabled']} disabled). Last checked: {cache_info['cache_age']}"
+            )
+        else:
+            console.print(
+                f"Using {cache_info['num_enabled']} datasources from cache. Last checked: {cache_info['cache_age']}"
+            )
 
     if initial_user_input:
         console.print(
@@ -1098,8 +1025,19 @@ def run_interactive_loop(
         ToolCallResult
     ] = []  # Track all tool calls throughout conversation
 
+    # Flag to track if we've started background refresh
+    background_refresh_started = False
+
     while True:
         try:
+            # Start background refresh after first prompt is shown
+            # Only if we didn't just refresh (either via flag or because cache was missing)
+            if not background_refresh_started and not refresh_toolsets:
+                background_refresh_started = True
+                if toolset_refresh_manager.should_refresh():
+                    # Start background refresh immediately
+                    start_background_toolset_refresh()
+
             if initial_user_input:
                 user_input = initial_user_input
                 initial_user_input = None
@@ -1261,10 +1199,19 @@ def run_interactive_loop(
             break
         except EOFError:  # Handle Ctrl+D
             break
+        except KeyboardInterrupt:  # Handle Ctrl+C
+            break
         except Exception as e:
             logging.error("An error occurred during interactive mode:", exc_info=e)
             console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
 
+    # Clean shutdown
+    status_bar_manager.cleanup()
     console.print(
         f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
     )
+
+    # Force immediate exit
+    import sys
+
+    sys.exit(0)

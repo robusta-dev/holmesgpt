@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, List, Optional, Union
 
 import sentry_sdk
 import yaml  # type: ignore
-from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
+from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr, Field
 
 from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
@@ -58,7 +58,7 @@ class Config(RobustaBaseConfig):
     alertmanager_username: Optional[str] = None
     alertmanager_password: Optional[str] = None
     alertmanager_alertname: Optional[str] = None
-    alertmanager_label: Optional[List[str]] = []
+    alertmanager_label: Optional[List[str]] = Field(default_factory=list)
     alertmanager_file: Optional[FilePath] = None
 
     jira_url: Optional[str] = None
@@ -83,16 +83,11 @@ class Config(RobustaBaseConfig):
     opsgenie_team_integration_key: Optional[SecretStr] = None
     opsgenie_query: Optional[str] = None
 
-    custom_runbooks: List[FilePath] = []
+    custom_runbooks: List[FilePath] = Field(default_factory=list)
 
-    # custom_toolsets is passed from config file, and be used to override built-in toolsets, provides 'stable' customized toolset.
-    # The status of custom toolsets can be cached.
-    custom_toolsets: Optional[List[FilePath]] = None
-    # custom_toolsets_from_cli is passed from CLI option `--custom-toolsets` as 'experimental' custom toolsets.
-    # The status of toolset here won't be cached, so the toolset from cli will always be loaded when specified in the CLI.
-    custom_toolsets_from_cli: Optional[List[FilePath]] = None
-    # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
-    should_try_robusta_ai: bool = False
+    # Custom toolset paths from both config file and CLI
+    custom_toolset_paths: List[FilePath] = Field(default_factory=list)
+    should_try_robusta_ai: bool = False  # if True, we will try to load the Robusta AI model, in cli we aren't trying to load it.
 
     toolsets: Optional[dict[str, dict[str, Any]]] = None
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
@@ -101,21 +96,8 @@ class Config(RobustaBaseConfig):
     _agui_tool_executor: Optional[ToolExecutor] = None
 
     # TODO: Separate those fields to facade class, this shouldn't be part of the config.
-    _toolset_manager: Optional[ToolsetManager] = PrivateAttr(None)
     _llm_model_registry: Optional[LLMModelRegistry] = PrivateAttr(None)
     _dal: Optional[SupabaseDal] = PrivateAttr(None)
-
-    @property
-    def toolset_manager(self) -> ToolsetManager:
-        if not self._toolset_manager:
-            self._toolset_manager = ToolsetManager(
-                toolsets=self.toolsets,
-                mcp_servers=self.mcp_servers,
-                custom_toolsets=self.custom_toolsets,
-                custom_toolsets_from_cli=self.custom_toolsets_from_cli,
-                global_fast_model=self.fast_model,
-            )
-        return self._toolset_manager
 
     @property
     def dal(self) -> SupabaseDal:
@@ -155,13 +137,24 @@ class Config(RobustaBaseConfig):
             logging.debug(f"Loading config from {config_file}")
             config_from_file = load_model_from_file(cls, config_file)
 
-        cli_options = {k: v for k, v in kwargs.items() if v is not None and v != []}
+        # Extract CLI options
+        cli_options = {}
+        for k, v in kwargs.items():
+            if v is not None and v != []:
+                cli_options[k] = v
 
         if config_from_file is None:
             result = cls(**cli_options)
         else:
             logging.debug(f"Overriding config from cli options {cli_options}")
             merged_config = config_from_file.dict()
+
+            # Special handling for custom_toolset_paths - append, don't replace
+            if "custom_toolset_paths" in cli_options:
+                existing_paths = merged_config.get("custom_toolset_paths", [])
+                cli_paths = cli_options.pop("custom_toolset_paths")
+                merged_config["custom_toolset_paths"] = existing_paths + cli_paths
+
             merged_config.update(cli_options)
             result = cls(**merged_config)
 
@@ -171,6 +164,17 @@ class Config(RobustaBaseConfig):
     @classmethod
     def load_from_env(cls):
         kwargs = {}
+
+        # Load builtin toolsets config from environment if present (used by Helm)
+        builtin_toolsets_json = os.environ.get("HOLMES_BUILTIN_TOOLSETS_CONFIG")
+        if builtin_toolsets_json:
+            try:
+                import json
+
+                kwargs["toolsets"] = json.loads(builtin_toolsets_json)
+            except json.JSONDecodeError:
+                logging.error("Failed to parse HOLMES_BUILTIN_TOOLSETS_CONFIG JSON")
+
         for field_name in [
             "model",
             "fast_model",
@@ -230,7 +234,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self, refresh_status: bool = False, skip_prerequisite_check: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -241,26 +245,28 @@ class Config(RobustaBaseConfig):
         2. toolsets from config file will override and be merged into built-in toolsets with the same name.
         3. Custom toolsets from config files which can not override built-in toolsets
         """
-        cli_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=refresh_status
+        # Create CLI-specific manager
+        cli_manager = ToolsetManager.for_cli(self)
+
+        # Load toolsets with appropriate options
+        cli_toolsets = cli_manager.load(
+            use_cache=not refresh_status, include_disabled=skip_prerequisite_check
         )
         return ToolExecutor(cli_toolsets)
 
-    def create_agui_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
+    def create_agui_tool_executor(
+        self, dal: Optional["SupabaseDal"] = None
+    ) -> ToolExecutor:
         """
         Creates ToolExecutor for the AG-UI server endpoints
         """
-
         if self._agui_tool_executor:
             return self._agui_tool_executor
 
         # Use same toolset as CLI for AG-UI front-end.
-        agui_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=True
-        )
-
+        agui_manager = ToolsetManager.for_cli(self, dal=dal)
+        agui_toolsets = agui_manager.load(use_cache=False)
         self._agui_tool_executor = ToolExecutor(agui_toolsets)
-
         return self._agui_tool_executor
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
@@ -271,7 +277,13 @@ class Config(RobustaBaseConfig):
         if self._server_tool_executor:
             return self._server_tool_executor
 
-        toolsets = self.toolset_manager.list_server_toolsets(dal=dal)
+        # Create server-specific manager
+        if dal is None:
+            raise ValueError("Database access layer (dal) is required for server mode")
+        server_manager = ToolsetManager.for_server(self, dal)
+
+        # Server typically always refreshes
+        toolsets = server_manager.load(use_cache=False)
 
         self._server_tool_executor = ToolExecutor(toolsets)
 
@@ -283,11 +295,13 @@ class Config(RobustaBaseConfig):
 
     def create_console_toolcalling_llm(
         self,
-        dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
+        skip_prerequisite_check: bool = False,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(
+            refresh_toolsets, skip_prerequisite_check
+        )
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
@@ -354,7 +368,8 @@ class Config(RobustaBaseConfig):
         from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(dal=dal)
+        # Always refresh toolsets for investigations (non-interactive)
+        tool_executor = self.create_console_tool_executor()
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(
@@ -482,14 +497,15 @@ class Config(RobustaBaseConfig):
 
         is_robusta_model = model_params.pop("is_robusta_model", False)
         sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
+        api_key: Optional[str] = None
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             account_id, token = self.dal.get_ai_credentials()
             api_key = f"{account_id} {token}"
         else:
-            api_key = model_params.pop("api_key", None)
-            if api_key is not None:
-                api_key = api_key.get_secret_value()
+            api_key_secret: Optional[SecretStr] = model_params.pop("api_key", None)
+            if api_key_secret is not None:
+                api_key = api_key_secret.get_secret_value()
 
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.

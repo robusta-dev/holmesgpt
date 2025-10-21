@@ -1,7 +1,7 @@
 # type: ignore
 import os
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import Mock, call, patch
 
 from holmes.core.tools import (
@@ -40,8 +40,10 @@ class SampleToolset(Toolset):
     description: str = "A sample toolset for testing"
 
     def __init__(self, *args, **kwargs):
+        # Ensure tools is provided before calling super().__init__
+        if "tools" not in kwargs:
+            kwargs["tools"] = [DummyTool()]
         super().__init__(*args, **kwargs)
-        self.tools: List[Tool] = [DummyTool()]
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
@@ -86,8 +88,10 @@ def test_check_prerequisites_command_success(mock_subprocess_run):
         shell=True,
         check=True,
         text=True,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        timeout=10,
     )
 
 
@@ -185,8 +189,10 @@ def test_check_prerequisites_command_uses_interpolate_command(mock_subprocess_ru
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         )
     assert toolset.status == ToolsetStatusEnum.ENABLED
 
@@ -221,24 +227,30 @@ def test_check_prerequisites_multiple_all_types_success(mock_subprocess_run):
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
         call(
             "cmd2",
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
         call(
             "cmd3",
             shell=True,
             check=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            timeout=10,
         ),
     ]
     mock_subprocess_run.assert_has_calls(expected_subprocess_calls, any_order=False)
