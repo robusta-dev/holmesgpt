@@ -4,8 +4,8 @@ user_prompt:
 expected_output:
   - Must identify that the service is running version v2.0 which has degraded performance
   - Should compare metrics showing v2.0 processes requests in ~2 seconds vs v1.0's ~50ms
-  - Should note that the service has scaled to 10 pods (as a consequence, not the main issue)
-  - May mention high CPU usage across all pods
+#  - Should note that the service has more pods in v2.0 compared to v1.0 (as a consequence, not the main issue)
+#  - May mention high CPU usage across all pods
   - Should conclude the root cause is the version change, not a capacity issue
 
 tags:

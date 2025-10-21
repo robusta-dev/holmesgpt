@@ -80,8 +80,8 @@ metadata:
   labels:
     app: bidder
     version: v2.0
-  annotations:
-    kubernetes.io/change-cause: "Updated to v2.0 with enhanced bid processing algorithm"
+#  annotations:
+#    kubernetes.io/change-cause: "Updated to v2.0 with enhanced bid processing algorithm"
 spec:
   replicas: 2  # Start with same replica count
   selector:
