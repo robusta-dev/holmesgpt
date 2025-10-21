@@ -6,7 +6,7 @@ from typing import Dict, Optional, List
 
 from pydantic import TypeAdapter
 
-from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.supabase_dal import SupabaseDal, FindingType
 from holmes.core.tool_calling_llm import Instructions, ResourceInstructions
 from tests.llm.utils.test_case_utils import read_file
 
@@ -73,6 +73,65 @@ class MockSupabaseDal(SupabaseDal):
 
     def get_workload_issues(self, *args) -> list:
         return []
+
+    def get_issues_metadata(
+        self,
+        start_datetime: str,
+        end_datetime: str,
+        limit: int = 100,
+        workload: Optional[str] = None,
+        ns: Optional[str] = None,
+        finding_type: FindingType = FindingType.ALL,
+    ) -> Optional[List[Dict]]:
+        if self._issues_metadata is not None:
+            filtered_data = []
+            for item in self._issues_metadata:
+                starts_at = item.get("starts_at", "")
+                if starts_at < start_datetime or starts_at > end_datetime:
+                    continue
+                if finding_type != FindingType.ALL:
+                    if item.get("finding_type") != finding_type.value:
+                        continue
+                if workload:
+                    if item.get("subject_name") != workload:
+                        continue
+                if ns:
+                    if item.get("subject_namespace") != ns:
+                        continue
+
+                filtered_item = {
+                    "id": item.get("id"),
+                    "title": item.get("title"),
+                    "subject_name": item.get("subject_name"),
+                    "subject_namespace": item.get("subject_namespace"),
+                    "subject_type": item.get("subject_type"),
+                    "description": item.get("description"),
+                    "starts_at": item.get("starts_at"),
+                    "ends_at": item.get("ends_at"),
+                }
+                filtered_data.append(filtered_item)
+            filtered_data = filtered_data[:limit]
+
+            return filtered_data if filtered_data else None
+        else:
+            data = super().get_issues_metadata(
+                start_datetime, end_datetime, limit, workload, ns, finding_type
+            )
+            if self._generate_mocks:
+                file_path = self._get_mock_file_path("issues_metadata")
+
+                with open(file_path, "w") as f:
+                    f.write(json.dumps(data or {}, indent=2))
+                    f.close()
+
+                logging.warning(
+                    f"A mock file was generated for you at {file_path} "
+                    f"with the content of dal.get_issues_metadata("
+                    f"{start_datetime}, {end_datetime}, {limit}, "
+                    f"{workload}, {ns}, {finding_type})"
+                )
+
+            return data
 
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
