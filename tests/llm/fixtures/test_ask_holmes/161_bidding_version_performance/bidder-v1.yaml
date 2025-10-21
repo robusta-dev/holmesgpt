@@ -99,10 +99,9 @@ spec:
     spec:
       containers:
       - name: bidder
-        image: python:3.11-slim
-        command: ["/bin/sh", "-c"]
-        args:
-          - pip install flask prometheus_client && python /app/app.py
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.2
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/app.py"]
         ports:
         - containerPort: 8080
           name: http
@@ -116,17 +115,24 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "500m"
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 30  # 5 + 5*30 = 155 seconds max startup time
         readinessProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 10
+          initialDelaySeconds: 5
           periodSeconds: 5
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8080
-          initialDelaySeconds: 15
+          initialDelaySeconds: 5
           periodSeconds: 10
       volumes:
       - name: app-code
