@@ -6,6 +6,7 @@ import logging
 import os
 import threading
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
@@ -51,6 +52,12 @@ SCANS_RESULTS_TABLE = "ScansResults"
 
 ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
 ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
+
+
+class FindingType(str, Enum):
+    ALL = "all"
+    ISSUE = "issue"
+    CONFIGURATION_CHANGE = "configuration_change"
 
 
 class RobustaToken(BaseModel):
@@ -237,13 +244,14 @@ class SupabaseDal:
             logging.exception("Supabase error while retrieving efficiency data")
             return None
 
-    def get_configuration_changes_metadata(
+    def get_issues_metadata(
         self,
         start_datetime: str,
         end_datetime: str,
         limit: int = 100,
         workload: Optional[str] = None,
         ns: Optional[str] = None,
+        finding_type: FindingType = FindingType.ALL,
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
@@ -263,12 +271,13 @@ class SupabaseDal:
                 )
                 .eq("account_id", self.account_id)
                 .eq("cluster", self.cluster)
-                .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
                 .limit(limit)
             )
 
+            if finding_type != FindingType.ALL:
+                query = query.eq("finding_type", finding_type.value)
             if workload:
                 query.eq("subject_name", workload)
             if ns:
