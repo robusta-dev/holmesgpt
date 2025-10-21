@@ -81,7 +81,7 @@ fi
 
 # Export environment variables (same as workflow step)
 # Only set these if not already set
-export MODEL="${MODEL:-$MODELS}"
+export MODEL="${MODELS:-$MODEL}"
 export ITERATIONS="${ITERATIONS:-$ITERATIONS}"
 export RUN_LIVE="${RUN_LIVE:-true}"
 export CLASSIFIER_MODEL="${CLASSIFIER_MODEL:-gpt-4.1}"  # Always use OpenAI for classification (same as workflow)
@@ -147,11 +147,22 @@ echo "================================"
 echo ""
 echo "Generating benchmark report..."
 if [ -f "scripts/generate_eval_report.py" ]; then
+    # Generate latest results
     poetry run python scripts/generate_eval_report.py \
         --json-file eval_results.json \
         --output-file docs/development/evaluations/latest-results.md \
         --models "$MODELS"
     echo "✅ Report generated: docs/development/evaluations/latest-results.md"
+
+    # Also generate timestamped version for history (always in weekly/)
+    mkdir -p docs/development/evaluations/history/weekly
+    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+    HISTORY_FILE="docs/development/evaluations/history/weekly/results_${TIMESTAMP}.md"
+    poetry run python scripts/generate_eval_report.py \
+        --json-file eval_results.json \
+        --output-file "$HISTORY_FILE" \
+        --models "$MODELS"
+    echo "📁 Saved historical copy: $HISTORY_FILE"
 else
     echo "⚠️  Report generation script not found: scripts/generate_eval_report.py"
 fi
@@ -162,16 +173,7 @@ echo "Generated files:"
 [ -f "eval_results.json" ] && echo "  ✓ eval_results.json ($(wc -l < eval_results.json) lines)"
 [ -f "evals_report.md" ] && echo "  ✓ evals_report.md ($(wc -l < evals_report.md) lines)"
 [ -f "docs/development/evaluations/latest-results.md" ] && echo "  ✓ docs/development/evaluations/latest-results.md ($(wc -l < docs/development/evaluations/latest-results.md) lines)"
-
-# Save historical copy
-if [ -f "docs/development/evaluations/latest-results.md" ]; then
-    mkdir -p docs/development/evaluations/history
-    TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    HISTORY_FILE="docs/development/evaluations/history/results_${TIMESTAMP}.md"
-    cp docs/development/evaluations/latest-results.md "$HISTORY_FILE"
-    echo ""
-    echo "📁 Saved historical copy: $HISTORY_FILE"
-fi
+[ -f "$HISTORY_FILE" ] && echo "  ✓ $HISTORY_FILE ($(wc -l < "$HISTORY_FILE") lines)"
 
 echo ""
 echo "=============================================="

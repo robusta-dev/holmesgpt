@@ -53,6 +53,8 @@ postgrest = "0.16.8"
 requests-aws4auth = "^1.3.1"
 prometrix = "0.2.5"
 httpx = {version = "<0.28", extras = ["socks"]}
+ag-ui-protocol = "^0.1.9"
+google-cloud-aiplatform = ">=1.38"
 
 [tool.poetry.group.dev]
 optional = true
@@ -121,6 +123,7 @@ markers = [
     "prometheus: Tests involving Prometheus metrics",
     "newrelic: New Relic toolset",
     "no-cicd: Tests to skip in the GitHub action because we're missing prerequisites in the KIND cluster like a Prometheus instance",
+    "compaction: Tests for conversation history compaction functionality",
 ]
 
 addopts = [
