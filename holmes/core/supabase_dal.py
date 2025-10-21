@@ -244,10 +244,12 @@ class SupabaseDal:
         limit: int = 100,
         workload: Optional[str] = None,
         ns: Optional[str] = None,
+        cluster: Optional[str] = None,
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
-
+        if not cluster:
+            cluster = self.cluster
         try:
             query = (
                 self.client.table(ISSUES_TABLE)
@@ -262,7 +264,7 @@ class SupabaseDal:
                     "ends_at",
                 )
                 .eq("account_id", self.account_id)
-                .eq("cluster", self.cluster)
+                .eq("cluster", cluster)
                 .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
