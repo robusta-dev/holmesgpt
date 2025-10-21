@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 from holmes.core.supabase_dal import SupabaseDal, FindingType
 from holmes.core.tool_calling_llm import Instructions, ResourceInstructions
 from tests.llm.utils.test_case_utils import read_file
+from datetime import datetime, timezone
 
 
 class MockSupabaseDal(SupabaseDal):
@@ -86,8 +87,13 @@ class MockSupabaseDal(SupabaseDal):
         if self._issues_metadata is not None:
             filtered_data = []
             for item in self._issues_metadata:
-                starts_at = item.get("starts_at", "")
-                if starts_at < start_datetime or starts_at > end_datetime:
+                creation_date, start, end = [
+                    datetime.fromisoformat(dt.replace("Z", "+00:00")).astimezone(
+                        timezone.utc
+                    )
+                    for dt in (item["creation_date"], start_datetime, end_datetime)
+                ]
+                if not (start <= creation_date <= end):
                     continue
                 if finding_type != FindingType.ALL:
                     if item.get("finding_type") != finding_type.value:
