@@ -162,7 +162,7 @@ class FetchConfigurationChangesMetadata(Tool):
                     required=True,
                 ),
                 END_TIME: ToolParameter(
-                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    description="The ending time boundary for the search period. String in RFC3339 format.",
                     type="string",
                     required=True,
                 ),
@@ -236,7 +236,7 @@ class FetchResourceIssuesMetadata(Tool):
             name="fetch_resource_issues_metadata",
             description=(
                 "Fetch issues and alert metadata in a given time range. "
-                "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job etc.."
+                "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job, etc."
                 "Use fetch_finding_by_id to get further information on a specific issue or alert."
             ),
             parameters={
@@ -246,7 +246,7 @@ class FetchResourceIssuesMetadata(Tool):
                     required=True,
                 ),
                 END_TIME: ToolParameter(
-                    description="The starting time boundary for the search period. String in RFC3339 format.",
+                    description="The ending time boundary for the search period. String in RFC3339 format.",
                     type="string",
                     required=True,
                 ),
