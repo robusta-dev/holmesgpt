@@ -68,3 +68,44 @@ additionalVolumeMounts: []
 priorityClassName: ""
 
 modelList: {}
+
+# MCP (Model Context Protocol) Add-ons
+# These are optional MCP servers that can be deployed alongside Holmes
+mcpAddons:
+  aws:
+    enabled: false
+
+    # Service account configuration for IRSA (IAM Roles for Service Accounts)
+    serviceAccount:
+      create: true
+      name: "aws-api-mcp-sa"
+      annotations: {}  # Add EKS IRSA annotations here, e.g., eks.amazonaws.com/role-arn
+
+    image: "aws-api-mcp-server:1.0.0"
+    registry: "us-central1-docker.pkg.dev/genuine-flight-317411/devel"
+
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+    config:
+      region: "us-east-1"
+      readOnlyMode: true   # Set to false to allow write operations (use with caution)
+      namespace: ""        # Kubernetes namespace (defaults to release namespace if empty)
+
+    # Network policy to restrict access to MCP server
+    networkPolicy:
+      enabled: true  # Enable network isolation (recommended)
+
+    # Custom LLM instructions (optional)
+    # Leave empty to use default comprehensive instructions
+    # Set to override the default investigation patterns and guidelines
+    llmInstructions: ""
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
