@@ -55,7 +55,6 @@ ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
 
 
 class FindingType(str, Enum):
-    ALL = "all"
     ISSUE = "issue"
     CONFIGURATION_CHANGE = "configuration_change"
 
@@ -252,7 +251,7 @@ class SupabaseDal:
         workload: Optional[str] = None,
         ns: Optional[str] = None,
         cluster: Optional[str] = None,
-        finding_type: FindingType = FindingType.ALL,
+        finding_type: FindingType = FindingType.CONFIGURATION_CHANGE,
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
@@ -278,8 +277,7 @@ class SupabaseDal:
                 .limit(limit)
             )
 
-            if finding_type != FindingType.ALL:
-                query = query.eq("finding_type", finding_type.value)
+            query = query.eq("finding_type", finding_type.value)
             if workload:
                 query.eq("subject_name", workload)
             if ns:
