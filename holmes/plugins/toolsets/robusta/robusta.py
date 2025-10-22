@@ -188,7 +188,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
                         required=False,
                     ),
                     "workload": ToolParameter(
-                        description="The kubernetes workload name for filtering configuration changes. Deployment name or Pod name for example.",
+                        description="Kubernetes resource name to filter configuration changes (e.g., Pod, Deployment, Job, etc.). Must be the full name. For Pods, include the exact generated suffix.",
                         type="string",
                         required=False,
                     ),
@@ -235,7 +235,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
             else:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.NO_DATA,
-                    data=f"Could not find changes for {params}",
+                    data=f"{self.name} found no data. {params}",
                     params=params,
                 )
         except Exception as e:
@@ -258,7 +258,7 @@ class FetchConfigurationChangesMetadata(FetchConfigurationChangesMetadataBase):
             name="fetch_configuration_changes_metadata",
             description=(
                 "Fetch configuration changes metadata in a given time range. "
-                "By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload. "
+                "By default, fetch all cluster changes. Can be filtered on a given namespace or a specific kubernetes resource. "
                 "Use fetch_finding_by_id to get detailed change of one specific configuration change."
             ),
         )
@@ -303,9 +303,7 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
         )
 
     def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
-        return super()._fetch_change_history(
-            params, cluster="external", finding_type=FindingType.ISSUE
-        )
+        return super()._fetch_change_history(params, finding_type=FindingType.ISSUE)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Robusta: fetch resource issues metadata {params}"
