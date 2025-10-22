@@ -302,7 +302,7 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
             add_cluster_filter=True,
         )
 
-    def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
+    def _fetch_resource_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
         return super()._fetch_change_history(params, finding_type=FindingType.ISSUE)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
