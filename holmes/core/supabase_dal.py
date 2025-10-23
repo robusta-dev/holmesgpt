@@ -424,7 +424,8 @@ class SupabaseDal:
                 id = row.get("runbook_id")
                 symptom = row.get("symptoms")
                 title = row.get("subject_name")
-                if not id or not symptom:
+                if not symptom:
+                    logging.warning("Skipping runbook with empty symptom: %s", id)
                     continue
                 instructions.append(
                     RobustaRunbookInstruction(id=id, symptom=symptom, title=title)
@@ -456,13 +457,12 @@ class SupabaseDal:
         symptom = row.get("symptoms")
         title = row.get("subject_name")
         raw_instruction = row.get("runbook").get("instructions")
-        try:
-            if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
-                instruction = raw_instruction[0]
-            else:
-                instruction = json.loads(raw_instruction)[0]
-        except Exception:
+        if isinstance(raw_instruction, list) and len(raw_instruction) >= 0:
+            instruction = raw_instruction[0]
+        else:
+            # in case the format is unexpected, convert to string
             instruction = str(raw_instruction)
+
         return RobustaRunbookInstruction(
             id=id, symptom=symptom, instruction=instruction, title=title
         )

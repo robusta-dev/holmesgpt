@@ -2,7 +2,6 @@ import logging
 import os
 import textwrap
 from typing import Any, Dict, List, Optional
-from enum import Enum
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
     StructuredToolResult,
@@ -22,11 +21,6 @@ from holmes.plugins.runbooks import (
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
-class RunbookType(str, Enum):
-    MD_FILE = "md_file"
-    ROBUSTA_RUNBOOK = "robusta_runbook"
-
-
 class RunbookFetcher(Tool):
     toolset: "RunbookToolset"
     available_runbooks: List[str] = []
@@ -43,7 +37,6 @@ class RunbookFetcher(Tool):
         available_runbooks = []
         if catalog:
             available_runbooks = catalog.list_available_runbooks()
-        allowed_types = [t.value for t in RunbookType]
 
         if additional_search_paths:
             for search_path in additional_search_paths:
@@ -55,7 +48,6 @@ class RunbookFetcher(Tool):
                         available_runbooks.append(f"{file}")
 
         runbook_list = ", ".join([f'"{rb}"' for rb in available_runbooks])
-        allowed_types_str = ", ".join([f'"{t}"' for t in allowed_types])
 
         super().__init__(
             name="fetch_runbook",
@@ -63,11 +55,6 @@ class RunbookFetcher(Tool):
             parameters={
                 "runbook_id": ToolParameter(
                     description=f"The runbook_id: either a UUID or a .md filename. Must be one of: {runbook_list}",
-                    type="string",
-                    required=True,
-                ),
-                "type": ToolParameter(
-                    description=f"Type of runbook identifier. Must be one of: {allowed_types_str}",
                     type="string",
                     required=True,
                 ),
@@ -80,7 +67,7 @@ class RunbookFetcher(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         runbook_id: str = params.get("runbook_id", "")
-        runbook_type: str = params.get("type", "")
+        is_md_file: bool = True if runbook_id.endswith(".md") else False
 
         # Validate link is not empty
         if not runbook_id or not runbook_id.strip():
@@ -94,18 +81,10 @@ class RunbookFetcher(Tool):
                 params=params,
             )
 
-        if runbook_type == RunbookType.ROBUSTA_RUNBOOK.value:
-            return self._get_robusta_runbook(runbook_id, params)
-        elif runbook_type == RunbookType.MD_FILE.value:
+        if is_md_file:
             return self._get_md_runbook(runbook_id, params)
         else:
-            err_msg = f"Invalid runbook type '{runbook_type}'."
-            logging.error(err_msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                error=err_msg,
-                params=params,
-            )
+            return self._get_robusta_runbook(runbook_id, params)
 
     def _get_robusta_runbook(self, link: str, params: dict) -> StructuredToolResult:
         if self._dal and self._dal.enabled:
@@ -143,31 +122,11 @@ class RunbookFetcher(Tool):
             )
 
     def _get_md_runbook(self, link: str, params: dict) -> StructuredToolResult:
-        # Only allow .md files
-        if not link.endswith(".md"):
-            err_msg = f"Invalid runbook link '{link}'. Must end with .md extension."
-            logging.error(err_msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                error=err_msg,
-                params=params,
-            )
         search_paths = [DEFAULT_RUNBOOK_SEARCH_PATH]
         if self.additional_search_paths:
             search_paths.extend(self.additional_search_paths)
-
         # Validate link is in the available runbooks list OR is a valid path within allowed directories
         if link not in self.available_runbooks:
-            # For links not in the catalog, perform strict path validation
-            if not link.endswith(".md"):
-                err_msg = f"Invalid runbook link '{link}'. Must end with .md extension."
-                logging.error(err_msg)
-                return StructuredToolResult(
-                    status=StructuredToolResultStatus.ERROR,
-                    error=err_msg,
-                    params=params,
-                )
-
             # Check if the link would resolve to a valid path within allowed directories
             # This prevents path traversal attacks like ../../secret.md
             is_valid_path = False
