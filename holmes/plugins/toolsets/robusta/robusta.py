@@ -299,7 +299,21 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
                 "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job, etc."
                 "Use fetch_finding_by_id to get further information on a specific issue or alert."
             ),
-            add_cluster_filter=True,
+            add_cluster_filter=False,
+        )
+        self.parameters.update(
+            {
+                "namespace": ToolParameter(
+                    description="The Kubernetes namespace name for filtering configuration changes",
+                    type="string",
+                    required=True,
+                ),
+                "workload": ToolParameter(
+                    description="Kubernetes resource name to filter configuration changes (e.g., Pod, Deployment, Job, etc.). Must be the full name. For Pods, include the exact generated suffix.",
+                    type="string",
+                    required=True,
+                ),
+            }
         )
 
     def _fetch_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
