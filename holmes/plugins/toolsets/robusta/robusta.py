@@ -202,7 +202,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
         )
         self._dal = dal
 
-    def _fetch_change_history(
+    def _fetch_issues(
         self,
         params: Dict,
         cluster: Optional[str] = None,
@@ -225,7 +225,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
-            changes = self._fetch_change_history(params)
+            changes = self._fetch_issues(params)
             if changes:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -282,8 +282,8 @@ class FetchExternalConfigurationChangesMetadata(FetchConfigurationChangesMetadat
             add_cluster_filter=False,
         )
 
-    def _fetch_change_history(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
-        return super()._fetch_change_history(params, cluster="external")
+    def _fetch_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
+        return super()._fetch_issues(params, cluster="external")
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Robusta: Search External Change History {params}"
@@ -302,8 +302,8 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
             add_cluster_filter=True,
         )
 
-    def _fetch_resource_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
-        return super()._fetch_change_history(params, finding_type=FindingType.ISSUE)
+    def _fetch_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
+        return super()._fetch_issues(params, finding_type=FindingType.ISSUE)
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Robusta: fetch resource issues metadata {params}"
