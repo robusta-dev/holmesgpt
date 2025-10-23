@@ -2,7 +2,7 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from pydantic import TypeAdapter
 
@@ -16,12 +16,14 @@ class MockSupabaseDal(SupabaseDal):
         self,
         test_case_folder: Path,
         issue_data: Optional[Dict],
+        issues_metadata: Optional[List[Dict]],
         resource_instructions: Optional[ResourceInstructions],
         generate_mocks: bool,
     ):
         super().__init__(cluster="test")
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
+        self._issues_metadata = issues_metadata
         self._test_case_folder = test_case_folder
         self._generate_mocks = generate_mocks
 
@@ -82,6 +84,11 @@ def load_mock_dal(test_case_folder: Path, generate_mocks: bool):
     if issue_data_mock_path.exists():
         issue_data = json.loads(read_file(issue_data_mock_path))
 
+    issues_metadata_path = test_case_folder.joinpath(Path("issues_metadata.json"))
+    issues_metadata = None
+    if issues_metadata_path.exists():
+        issues_metadata = json.loads(read_file(issues_metadata_path))
+
     resource_instructions_mock_path = test_case_folder.joinpath(
         Path("resource_instructions.json")
     )
@@ -95,5 +102,6 @@ def load_mock_dal(test_case_folder: Path, generate_mocks: bool):
         test_case_folder=test_case_folder,
         issue_data=issue_data,
         resource_instructions=resource_instructions,
+        issues_metadata=issues_metadata,
         generate_mocks=generate_mocks,
     )
