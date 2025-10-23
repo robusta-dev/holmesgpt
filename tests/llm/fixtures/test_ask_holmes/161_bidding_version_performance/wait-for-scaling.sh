@@ -3,7 +3,7 @@
 set -euo pipefail
 
 NS="${NS:-app-161}"
-TARGET_REPLICAS=3  # We expect at least 8 replicas after scaling
+TARGET_REPLICAS=3  # We expect at least 3 replicas after scaling
 MAX_WAIT=120  # Maximum 2 minutes to wait for scaling
 
 echo ">>> Waiting for HPA to scale up the deployment..."
