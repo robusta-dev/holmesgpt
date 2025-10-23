@@ -10,6 +10,8 @@ import urllib
 import threading
 from pydantic import BaseModel
 import pytest
+from tests.llm.utils.mock_dal import load_mock_dal
+from pathlib import Path
 
 from holmes.core.tools import (
     StructuredToolResult,
@@ -677,6 +679,11 @@ class MockToolsetManager:
                     f"Available toolsets: {', '.join(sorted(builtin_names))}"
                 )
 
+        mock_dal = load_mock_dal(
+            test_case_folder=Path(self.test_case_folder),
+            generate_mocks=self.mock_generation_config.generate_mocks,
+            initialize_base=False,
+        )
         for toolset in builtin_toolsets:
             # Replace RunbookToolset with one that has test folder search path
             if toolset.name == "runbook":
@@ -686,7 +693,7 @@ class MockToolsetManager:
 
                 # Create new RunbookToolset with test folder as additional search path
                 new_runbook_toolset = RunbookToolset(
-                    additional_search_paths=[self.test_case_folder]
+                    dal=mock_dal, additional_search_paths=[self.test_case_folder]
                 )
                 new_runbook_toolset.enabled = toolset.enabled
                 new_runbook_toolset.status = toolset.status
