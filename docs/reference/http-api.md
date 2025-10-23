@@ -510,10 +510,7 @@ Emitted when the AI has a text message or reasoning to share (typically before t
 {
   "content": "I need to check the pod logs to understand the issue.",
   "reasoning": "The pod is crashing, so examining logs will reveal the root cause.",
-  "metadata": {
-    "usage": {...},
-    "tokens": {...}
-  }
+  "metadata": {...}
 }
 ```
 
@@ -732,8 +729,8 @@ Emitted when an error occurs during processing.
 5. tool_calling_result (approval required with status: "approval_required")
 6. approval_required
 [Client sends approval decisions]
-7. tool_calling_result (approved tool executed)
-8. ai_answer_end
+1. tool_calling_result (approved tool executed)
+[investigation resumes]
 ```
 
 ### Chat with History Compaction
