@@ -3,6 +3,8 @@
 * If a change seems important to the investigation, Use fetch_finding_by_id with the configuration change ID to get full details of the change.
 * You must ALWAYS call fetch_configuration_changes_metadata when investigating an alert
 * Never respond without calling fetch_configuration_changes_metadata
+* When investigating a resource (pod, deployment, or job), if no relevant information is available from the live cluster at the time of investigation, call the fetch_resource_issues_metadata function to retrieve its historical alert data.
+* You can use fetch_resource_issues_metadata to get issues context for a specific kubernetes resource. Start with a 4 hours window and try to expand to 24 hours windows if nothing comes up.
 * When investigating an alert, look at historical configuration changes that happen 4 hours before the alert started
 * If you found a change that caused the alert, you MUST write: 'The issue was introduced by ...' with a short description of the change, and the date of it.
 For example:
