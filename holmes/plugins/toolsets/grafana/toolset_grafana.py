@@ -1,3 +1,4 @@
+import os
 from typing import ClassVar, Dict, Optional, Type, cast
 from urllib.parse import urljoin
 from abc import ABC
@@ -36,6 +37,10 @@ class GrafanaToolset(BaseGrafanaToolset):
                 GetHomeDashboard(self),
                 GetDashboardTags(self),
             ],
+        )
+
+        self._load_llm_instructions_from_file(
+            os.path.dirname(__file__), "toolset_grafana_dashboard.jinja2"
         )
 
     @property
