@@ -296,7 +296,7 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
             name="fetch_resource_issues_metadata",
             description=(
                 "Fetch issues and alert metadata in a given time range. "
-                "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job, etc."
+                "Must be filtered on a given namespace and specific kubernetes resource, such as pod, deployment, job, etc. "
                 "Use fetch_finding_by_id to get further information on a specific issue or alert."
             ),
             add_cluster_filter=False,
@@ -304,12 +304,12 @@ class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
         self.parameters.update(
             {
                 "namespace": ToolParameter(
-                    description="The Kubernetes namespace name for filtering configuration changes",
+                    description="The Kubernetes namespace name for filtering issues and alerts",
                     type="string",
                     required=True,
                 ),
                 "workload": ToolParameter(
-                    description="Kubernetes resource name to filter configuration changes (e.g., Pod, Deployment, Job, etc.). Must be the full name. For Pods, include the exact generated suffix.",
+                    description="Kubernetes resource name to filter issues and alerts (e.g., Pod, Deployment, Job, etc.). Must be the full name. For Pods, include the exact generated suffix.",
                     type="string",
                     required=True,
                 ),
