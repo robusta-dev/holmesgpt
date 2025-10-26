@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import ClassVar, Dict, Optional, Type, cast
 from urllib.parse import urljoin
 from abc import ABC
 from holmes.core.tools import (
@@ -11,13 +11,42 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 import requests  # type: ignore
 
+from holmes.plugins.toolsets.grafana.common import get_base_url, GrafanaConfig
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+
+
+class GrafanaDashboardConfig(GrafanaConfig):
+    """Configuration specific to Grafana Dashboard toolset with api/health as default healthcheck"""
+
+    healthcheck: Optional[str] = "api/health"
+
+
+class GrafanaToolset(BaseGrafanaToolset):
+    config_class: ClassVar[Type[GrafanaDashboardConfig]] = GrafanaDashboardConfig
+
+    def __init__(self):
+        super().__init__(
+            name="grafana/dashboards",
+            description="Provides tools for interacting with Grafana dashboards",
+            icon_url="https://w7.pngwing.com/pngs/434/923/png-transparent-grafana-hd-logo-thumbnail.png",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanadashboards/",
+            tools=[
+                SearchDashboards(self),
+                GetDashboardByUID(self),
+                GetHomeDashboard(self),
+                GetDashboardTags(self),
+            ],
+        )
+
+    @property
+    def grafana_config(self) -> GrafanaDashboardConfig:
+        return cast(GrafanaDashboardConfig, self._grafana_config)
 
 
 class BaseGrafanaTool(Tool, ABC):
     """Base class for Grafana tools with common HTTP request functionality."""
 
-    def __init__(self, toolset: BaseGrafanaToolset, *args, **kwargs):
+    def __init__(self, toolset: GrafanaToolset, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._toolset = toolset
 
@@ -34,8 +63,8 @@ class BaseGrafanaTool(Tool, ABC):
         Returns:
             StructuredToolResult with the API response data
         """
-        url = urljoin(self._toolset._grafana_config.url, endpoint)
-        headers = {"Authorization": f"Bearer {self._toolset._grafana_config.api_key}"}
+        url = urljoin(get_base_url(self._toolset.grafana_config), endpoint)
+        headers = {"Authorization": f"Bearer {self._toolset.grafana_config.api_key}"}
 
         response = requests.get(url, headers=headers, params=query_params)
         response.raise_for_status()
@@ -50,7 +79,7 @@ class BaseGrafanaTool(Tool, ABC):
 
 
 class SearchDashboards(BaseGrafanaTool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: GrafanaToolset):
         super().__init__(
             toolset=toolset,
             name="grafana_search_dashboards",
@@ -146,7 +175,7 @@ class SearchDashboards(BaseGrafanaTool):
 
 
 class GetDashboardByUID(BaseGrafanaTool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: GrafanaToolset):
         super().__init__(
             toolset=toolset,
             name="grafana_get_dashboard_by_uid",
@@ -169,7 +198,7 @@ class GetDashboardByUID(BaseGrafanaTool):
 
 
 class GetHomeDashboard(BaseGrafanaTool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: GrafanaToolset):
         super().__init__(
             toolset=toolset,
             name="grafana_get_home_dashboard",
@@ -185,7 +214,7 @@ class GetHomeDashboard(BaseGrafanaTool):
 
 
 class GetDashboardTags(BaseGrafanaTool):
-    def __init__(self, toolset: BaseGrafanaToolset):
+    def __init__(self, toolset: GrafanaToolset):
         super().__init__(
             toolset=toolset,
             name="grafana_get_dashboard_tags",
@@ -198,19 +227,3 @@ class GetDashboardTags(BaseGrafanaTool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"{toolset_name_for_one_liner(self._toolset.name)}: Get Dashboard Tags"
-
-
-class GrafanaToolset(BaseGrafanaToolset):
-    def __init__(self):
-        super().__init__(
-            name="grafana/dashboards",
-            description="Provides tools for interacting with Grafana dashboards",
-            icon_url="https://w7.pngwing.com/pngs/434/923/png-transparent-grafana-hd-logo-thumbnail.png",
-            docs_url="",
-            tools=[
-                SearchDashboards(self),
-                GetDashboardByUID(self),
-                GetHomeDashboard(self),
-                GetDashboardTags(self),
-            ],
-        )
