@@ -25,6 +25,19 @@ class RobustaRunbookInstruction(BaseModel):
     title: str
     instruction: Optional[str] = None
 
+    """
+    Custom YAML dumper to represent multi-line strings in literal block style due to instructions often being multi-line.
+    for example:
+    instructions: |
+      Step 1: Do this
+      Step 2: Do that
+
+    instead of:
+    instructions: "Step 1: Do this
+    Step 2: Do that"
+
+    """
+
     class _LiteralDumper(yaml.SafeDumper):
         pass
 
@@ -35,7 +48,6 @@ class RobustaRunbookInstruction(BaseModel):
             "tag:yaml.org,2002:str", s, style="|" if "\n" in s else None
         )
 
-    # register representer (PyYAML API)
     _LiteralDumper.add_representer(str, _repr_str)  # type: ignore
 
     def to_list_string(self) -> str:
