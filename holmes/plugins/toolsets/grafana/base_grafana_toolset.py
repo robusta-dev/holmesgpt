@@ -29,7 +29,6 @@ class BaseGrafanaToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            enabled=False,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:

@@ -12,6 +12,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetCommandPrerequisite,
     ToolsetEnvironmentPrerequisite,
+    ToolsetSettings,
     ToolsetStatusEnum,
     ToolsetTag,
     YAMLTool,
@@ -36,21 +37,23 @@ def mock_config():
 
 
 class SampleToolset(Toolset):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("name", "test-toolset")
+        kwargs.setdefault("description", "Test toolset")
+        kwargs.setdefault(
+            "tools",
+            [YAMLTool(name="test-tool", description="Test tool", command="echo test")],
+        )
+        kwargs.setdefault("tags", [ToolsetTag.CORE])
+        super().__init__(**kwargs)
+
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
 
 @pytest.fixture
 def sample_toolset():
-    return SampleToolset(
-        name="test-toolset",
-        description="Test toolset",
-        enabled=True,
-        tools=[
-            YAMLTool(name="test-tool", description="Test tool", command="echo test")
-        ],
-        tags=[ToolsetTag.CORE],
-    )
+    return SampleToolset().init_toolset(ToolsetSettings(enabled=True, config={}))
 
 
 def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
@@ -68,7 +71,7 @@ def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
     assert toolset_data["cluster_id"] == "test-cluster"
     assert toolset_data["account_id"] == "test-account"
     assert toolset_data["description"] == "Test toolset"
-    assert toolset_data["status"] == ToolsetStatusEnum.DISABLED
+    assert toolset_data["status"] == ToolsetStatusEnum.ENABLED
     assert isinstance(toolset_data["updated_at"], str)
 
 
@@ -108,7 +111,6 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     toolset1 = SampleToolset(
         name="toolset1",
         description="First toolset",
-        enabled=True,
         tools=[YAMLTool(name="tool1", description="Tool 1", command="echo 1")],
         tags=[ToolsetTag.CORE],
     )
@@ -117,7 +119,6 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     toolset2 = SampleToolset(
         name="toolset2",
         description="Second toolset",
-        enabled=False,
         tools=[YAMLTool(name="tool2", description="Tool 2", command="echo 2")],
         tags=[ToolsetTag.CLI],
         prerequisites=[
@@ -151,7 +152,6 @@ def test_sync_toolsets_with_prerequisites_check(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -182,7 +182,6 @@ def test_sync_toolsets_with_failed_prerequisites(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -211,7 +210,6 @@ def test_sync_toolsets_with_successful_prerequisites(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -240,7 +238,6 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -272,7 +269,6 @@ def test_sync_toolsets_with_command_output_mismatch(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -302,7 +298,6 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     toolset_with_failing_callable = SampleToolset(
         name="failing-callable-sync-toolset",
         description="Toolset with a callable prerequisite that raises an unhandled exception",
-        enabled=True,
         tools=[
             YAMLTool(
                 name="test-tool-fail", description="Test tool", command="echo test"
@@ -312,31 +307,26 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
         prerequisites=[
             CallablePrerequisite(callable=failing_callable_for_test)
         ],  # Using the imported callable
-        config={},
     )
 
     successful_toolset_1 = SampleToolset(
         name="successful-toolset-1",
         description="A perfectly fine toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool-ok-1", description="Test tool", command="echo ok1")
         ],
         tags=[ToolsetTag.CLUSTER],
         prerequisites=[],
-        config={},
     )
 
     successful_toolset_2 = SampleToolset(
         name="successful-toolset-2",
         description="Another fine toolset with a passing callable",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool-ok-2", description="Test tool", command="echo ok2")
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[CallablePrerequisite(callable=callable_success)],
-        config={},
     )
 
     all_toolsets = [

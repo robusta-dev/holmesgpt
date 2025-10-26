@@ -27,12 +27,15 @@ class MockToolset(Toolset):
     def __init__(self, config: dict):
         if not config.get("description"):
             config["description"] = config.get("name")
-        if config.get("enabled") is None:
-            config["enabled"] = True
+        # if config.get("enabled") is None:
+        #     config["enabled"] = True
+        is_enabled = config.pop("enabled", True)
         config["tools"] = [DummyTool()]
 
         super().__init__(**config)
-        if self.enabled:
+        # TODO: change to the new method of initialization
+        if is_enabled:
+            self.enabled = True
             self.check_prerequisites()
 
     def get_example_config(self):

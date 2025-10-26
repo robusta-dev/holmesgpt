@@ -109,9 +109,10 @@ class Config(RobustaBaseConfig):
     def toolset_manager(self) -> ToolsetManager:
         if not self._toolset_manager:
             self._toolset_manager = ToolsetManager(
-                toolsets=self.toolsets,
+                dal=self.dal,
+                toolset_settings=self.toolsets,
                 mcp_servers=self.mcp_servers,
-                custom_toolsets=self.custom_toolsets,
+                custom_toolset_file_paths=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
                 global_fast_model=self.fast_model,
             )
@@ -229,7 +230,7 @@ class Config(RobustaBaseConfig):
         return runbook_catalog
 
     def create_console_tool_executor(
-        self, dal: Optional["SupabaseDal"], refresh_status: bool = False
+        self, refresh_status: bool = False
     ) -> ToolExecutor:
         """
         Creates a ToolExecutor instance configured for CLI usage. This executor manages the available tools
@@ -241,11 +242,11 @@ class Config(RobustaBaseConfig):
         3. Custom toolsets from config files which can not override built-in toolsets
         """
         cli_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=refresh_status
+            refresh_status=refresh_status
         )
         return ToolExecutor(cli_toolsets)
 
-    def create_agui_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
+    def create_agui_tool_executor(self) -> ToolExecutor:
         """
         Creates ToolExecutor for the AG-UI server endpoints
         """
@@ -254,9 +255,7 @@ class Config(RobustaBaseConfig):
             return self._agui_tool_executor
 
         # Use same toolset as CLI for AG-UI front-end.
-        agui_toolsets = self.toolset_manager.list_console_toolsets(
-            dal=dal, refresh_status=True
-        )
+        agui_toolsets = self.toolset_manager.list_console_toolsets(refresh_status=True)
 
         self._agui_tool_executor = ToolExecutor(agui_toolsets)
 
@@ -282,11 +281,10 @@ class Config(RobustaBaseConfig):
 
     def create_console_toolcalling_llm(
         self,
-        dal: Optional["SupabaseDal"] = None,
         refresh_toolsets: bool = False,
         tracer=None,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_console_tool_executor(dal, refresh_toolsets)
+        tool_executor = self.create_console_tool_executor(refresh_toolsets)
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
@@ -295,11 +293,10 @@ class Config(RobustaBaseConfig):
 
     def create_agui_toolcalling_llm(
         self,
-        dal: Optional["SupabaseDal"] = None,
         model: Optional[str] = None,
         tracer=None,
     ) -> "ToolCallingLLM":
-        tool_executor = self.create_agui_tool_executor(dal)
+        tool_executor = self.create_agui_tool_executor()
         from holmes.core.tool_calling_llm import ToolCallingLLM
 
         return ToolCallingLLM(
@@ -343,9 +340,7 @@ class Config(RobustaBaseConfig):
             cluster_name=self.cluster_name,
         )
 
-    def create_console_issue_investigator(
-        self, dal: Optional["SupabaseDal"] = None
-    ) -> "IssueInvestigator":
+    def create_console_issue_investigator(self) -> "IssueInvestigator":
         all_runbooks = load_builtin_runbooks()
         for runbook_path in self.custom_runbooks:
             all_runbooks.extend(load_runbooks_from_file(runbook_path))
@@ -353,7 +348,7 @@ class Config(RobustaBaseConfig):
         from holmes.core.runbooks import RunbookManager
 
         runbook_manager = RunbookManager(all_runbooks)
-        tool_executor = self.create_console_tool_executor(dal=dal)
+        tool_executor = self.create_console_tool_executor()
         from holmes.core.tool_calling_llm import IssueInvestigator
 
         return IssueInvestigator(
@@ -472,7 +467,9 @@ class Config(RobustaBaseConfig):
         return SlackDestination(self.slack_token.get_secret_value(), self.slack_channel)
 
     # TODO: move this to the llm model registry
-    def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
+    def _get_llm(
+        self, model_key: Optional[str] = None, tracer: Optional[Any] = None
+    ) -> "DefaultLLM":
         sentry_sdk.set_tag("requested_model", model_key)
         model_entry = self.llm_model_registry.get_model_params(model_key)
         model_params = model_entry.model_dump(exclude_none=True)
@@ -481,14 +478,15 @@ class Config(RobustaBaseConfig):
 
         is_robusta_model = model_params.pop("is_robusta_model", False)
         sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
+        api_key = None
         if is_robusta_model:
             # we set here the api_key since it is being refresh when exprided and not as part of the model loading.
             account_id, token = self.dal.get_ai_credentials()
             api_key = f"{account_id} {token}"
         else:
-            api_key = model_params.pop("api_key", None)
-            if api_key is not None:
-                api_key = api_key.get_secret_value()
+            api_key_secret = model_params.pop("api_key", None)
+            if api_key_secret is not None:
+                api_key = api_key_secret.get_secret_value()
 
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.

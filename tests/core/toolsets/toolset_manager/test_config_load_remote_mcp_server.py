@@ -2,10 +2,11 @@ import os
 
 import yaml
 
-from holmes.plugins.toolsets import load_toolsets_from_config
+from holmes.config import Config
 
 toolsets_config_str = """
   mcp_test:
+    type: "mcp"
     url: "http://0.0.0.0:3005"
     icon_url: "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
     description: "Roi test mcp that calculates BMI"
@@ -21,6 +22,7 @@ env_vars = {
 
 
 def test_load_mcp_toolsets_definition():
+    # TODO: don't mock env var that way.
     original_env = os.environ.copy()
 
     try:
@@ -29,14 +31,16 @@ def test_load_mcp_toolsets_definition():
 
         toolsets_config = yaml.safe_load(toolsets_config_str)
         assert isinstance(toolsets_config, dict)
-        definitions = load_toolsets_from_config(
-            toolsets=toolsets_config, strict_check=False
+        config = Config(mcp_servers=toolsets_config)
+        mcp_servers = config.toolset_manager._mcp_servers
+        assert len(mcp_servers) == 1
+
+        toolsets = config.toolset_manager._load_toolsets_definitions()
+        mcp_test = config.toolset_manager._toolset_definitions_by_name["mcp_test"]
+        assert mcp_test.config
+        assert (
+            mcp_test.config.get("headers", {}).get("api_key") == "glsa_sdj1q2o3prujpqfd"
         )
-        assert len(definitions) == 1
-        mcp_test = definitions[0]
-        config = mcp_test.config
-        assert config
-        assert config.get("headers", {}).get("api_key") == "glsa_sdj1q2o3prujpqfd"
 
     finally:
         os.environ.clear()

@@ -1,11 +1,11 @@
 from holmes.core.tools import (
     ToolInvokeContext,
-    Toolset,
     Tool,
     ToolParameter,
     StructuredToolResult,
     StructuredToolResultStatus,
     CallablePrerequisite,
+    Toolset,
 )
 
 from typing import Dict, Any, List, Optional
@@ -92,8 +92,14 @@ class RemoteMCPToolset(Toolset):
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
 
-    def model_post_init(self, __context: Any) -> None:
-        self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
+    def __init__(self, **kwargs):
+        # MCP config is supported.
+        mcp_config = kwargs.pop("config", None)
+        kwargs["prerequisites"] = [
+            CallablePrerequisite(callable=self.init_server_tools)
+        ]
+        super().__init__(**kwargs)
+        self.config = mcp_config
 
     def get_headers(self) -> Optional[Dict[str, str]]:
         return self.config and self.config.get("headers")
@@ -104,7 +110,6 @@ class RemoteMCPToolset(Toolset):
             v = v.rstrip("/") + "/sse"
         return v
 
-    # used as a CallablePrerequisite, config added for that case.
     def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
         try:
             tools_result = asyncio.run(self._get_server_tools())

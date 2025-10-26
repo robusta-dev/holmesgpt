@@ -2,13 +2,13 @@ from holmes.plugins.toolsets.investigator.core_investigation import (
     CoreInvestigationToolset,
     TodoWriteTool,
 )
-from holmes.core.tools import ToolsetStatusEnum, ToolsetTag
+from holmes.core.tools import ToolsetSettings, ToolsetStatusEnum, ToolsetTag
 
 
 class TestCoreInvestigationToolset:
     def test_toolset_creation(self):
         """Test that CoreInvestigationToolset is created correctly."""
-        toolset = CoreInvestigationToolset()
+        toolset = CoreInvestigationToolset().init_toolset(ToolsetSettings(enabled=True))
 
         assert toolset.name == "core_investigation"
         assert "investigation tools" in toolset.description

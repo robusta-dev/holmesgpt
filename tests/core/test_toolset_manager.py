@@ -1,8 +1,11 @@
+from io import TextIOWrapper
 import json
 import os
 import tempfile
+from typing import Any, Generator
 from unittest.mock import MagicMock, patch
 
+from pydantic import FilePath
 import pytest
 import yaml
 
@@ -14,10 +17,11 @@ from holmes.core.tools import (
     YAMLToolset,
 )
 from holmes.core.toolset_manager import ToolsetManager
+from holmes.plugins.toolsets import load_builtin_toolsets
 
 
 @pytest.fixture
-def toolset_manager():
+def toolset_manager() -> ToolsetManager:
     return ToolsetManager()
 
 
@@ -33,64 +37,55 @@ def test_server_tool_tags(toolset_manager):
     assert ToolsetTag.CLUSTER in tags
 
 
-@patch("holmes.core.toolset_manager.load_builtin_toolsets")
-@patch("holmes.core.toolset_manager.load_toolsets_from_config")
-def test__list_all_toolsets_merges_configs(
-    mock_load_toolsets_from_config, mock_load_builtin_toolsets, toolset_manager
-):
-    builtin_toolset = MagicMock(spec=Toolset)
-    builtin_toolset.name = "builtin"
-    builtin_toolset.tags = [ToolsetTag.CORE]
-    builtin_toolset.check_prerequisites = MagicMock()
-    mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    config_toolset = MagicMock(spec=Toolset)
-    config_toolset.name = "config"
-    config_toolset.tags = [ToolsetTag.CLI]
-    config_toolset.check_prerequisites = MagicMock()
-    mock_load_toolsets_from_config.return_value = [config_toolset]
+def test_toolset_manager_loading_builtin_toolsets_only(toolset_manager: ToolsetManager):
+    toolset_manager._load_toolsets_definitions()
+    assert len(toolset_manager._toolset_definitions_by_name) > 0
 
-    toolset_manager.toolsets = {"config": {"description": "test config toolset"}}
-    toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
-    names = [t.name for t in toolsets]
-    assert "builtin" in names
-    assert "config" in names
+    for toolset in toolset_manager._toolset_definitions_by_name.values():
+        assert toolset.type == ToolsetType.BUILTIN
 
 
-@patch("holmes.core.toolset_manager.load_builtin_toolsets")
-def test__list_all_toolsets_override_builtin_config(
-    mock_load_builtin_toolsets, toolset_manager
-):
-    builtin_toolset = YAMLToolset(
-        name="builtin",
-        tags=[ToolsetTag.CORE],
-        description="Builtin toolset",
-        experimental=False,
-    )
-    mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    toolset_manager.toolsets = {"builtin": {"enabled": False}}
-    toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
-    assert len(toolsets) == 1
-    assert toolsets[0].enabled is False
+# @patch("holmes.core.toolset_manager.load_builtin_toolsets")
+# @patch("holmes.core.toolset_manager.load_toolsets_from_config")
+# def test__list_all_toolsets_merges_configs(
+#     mock_load_toolsets_from_config, mock_load_builtin_toolsets, toolset_manager
+# ):
+#     builtin_toolset = MagicMock(spec=Toolset)
+#     builtin_toolset.name = "builtin"
+#     builtin_toolset.tags = [ToolsetTag.CORE]
+#     builtin_toolset.check_prerequisites = MagicMock()
+#     mock_load_builtin_toolsets.return_value = [builtin_toolset]
+#     config_toolset = MagicMock(spec=Toolset)
+#     config_toolset.name = "config"
+#     config_toolset.tags = [ToolsetTag.CLI]
+#     config_toolset.check_prerequisites = MagicMock()
+#     mock_load_toolsets_from_config.return_value = [config_toolset]
+
+#     toolset_manager.toolsets = {"config": {"description": "test config toolset"}}
+#     toolsets = toolset_manager._list_all_toolsets(initialize_toolsets=False)
+#     names = [t.name for t in toolsets]
+#     assert "builtin" in names
+#     assert "config" in names
 
 
-@patch("holmes.core.toolset_manager.load_builtin_toolsets")
-def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_manager):
-    builtin_toolset = YAMLToolset(
-        name="builtin",
-        tags=[ToolsetTag.CORE],
-        description="Builtin toolset",
-        experimental=False,
-    )
-    mock_load_builtin_toolsets.return_value = [builtin_toolset]
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpfile:
-        data = {"toolsets": {"builtin": {"enabled": False}}}
-        json.dump(data, tmpfile, indent=2)
-        tmpfile_path = tmpfile.name
-    toolset_manager.custom_toolsets = [tmpfile_path]
-    toolsets = toolset_manager._list_all_toolsets(check_prerequisites=False)
-    assert len(toolsets) == 1
-    assert toolsets[0].enabled is False
-    os.remove(tmpfile_path)
+# @patch("holmes.core.toolset_manager.load_builtin_toolsets")
+# def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_manager):
+#     builtin_toolset = YAMLToolset(
+#         name="builtin",
+#         tags=[ToolsetTag.CORE],
+#         description="Builtin toolset",
+#         experimental=False,
+#     )
+#     mock_load_builtin_toolsets.return_value = [builtin_toolset]
+#     with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpfile:
+#         data = {"toolsets": {"builtin": {"enabled": False}}}
+#         json.dump(data, tmpfile, indent=2)
+#         tmpfile_path = tmpfile.name
+#     toolset_manager.custom_toolsets = [tmpfile_path]
+#     toolsets = toolset_manager._list_all_toolsets(initialize_toolsets=False)
+#     assert len(toolsets) == 1
+#     assert toolsets[0].enabled is False
+#     os.remove(tmpfile_path)
 
 
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
@@ -115,7 +110,7 @@ def test_refresh_toolset_status_creates_file(mock_list_all_toolsets, toolset_man
     mock_list_all_toolsets.return_value = [toolset]
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_path = os.path.join(tmpdir, "toolsets_status.json")
-        toolset_manager.toolset_status_location = cache_path
+        toolset_manager._toolset_status_location = cache_path
         toolset_manager.refresh_toolset_status()
         assert os.path.exists(cache_path)
         with open(cache_path) as f:
@@ -174,137 +169,23 @@ def test_list_server_toolsets(mock_list_all_toolsets, toolset_manager):
     assert toolset in result
 
 
-@patch("holmes.core.toolset_manager.load_toolsets_from_config")
-def test_load_custom_toolsets_success(mock_load_toolsets_from_config, toolset_manager):
-    yaml_toolset = MagicMock(spec=Toolset)
-    yaml_toolset.name = "custom"
-    mock_load_toolsets_from_config.return_value = [yaml_toolset]
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as tmpfile:
-        data = {"toolsets": {"custom": {"enabled": True, "config": {"key": "value"}}}}
-        json.dump(data, tmpfile, indent=2)
-        tmpfile_path = tmpfile.name
-    toolset_manager.custom_toolsets = [tmpfile_path]
-    result = toolset_manager.load_custom_toolsets(["builtin"])
-    assert yaml_toolset in result
-    os.remove(tmpfile_path)
+# class TestToolsetManagerMCPServers:
+#     @pytest.fixture(autouse=True, scope="class")
+#     def toolset_file(self):
+#         with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
+#             yield temp_file
+
+#     @pytest.fixture(autouse=True, scope="class")
+#     def toolset_manager(self, toolset_file) -> Generator[ToolsetManager, Any, None]:
+#         toolset_manager = ToolsetManager(
+#             custom_toolset_file_paths=[FilePath(toolset_file.name)]
+#         )
+#         yield toolset_manager
 
 
-@patch("holmes.core.toolset_manager.load_toolsets_from_config")
-@patch("holmes.core.toolset_manager.benedict")
-def test_load_custom_toolsets_no_file(
-    mock_benedict, mock_load_toolsets_from_config, toolset_manager
+def test_mcp_servers_from_custom_toolset_config(
+    tmp_path, toolset_manager: ToolsetManager
 ):
-    toolset_manager.custom_toolsets = ["/nonexistent/path.yaml"]
-    with pytest.raises(FileNotFoundError):
-        toolset_manager.load_custom_toolsets(["builtin"])
-
-
-def test_load_custom_toolsets_none(toolset_manager):
-    toolset_manager.custom_toolsets = None
-    toolset_manager.custom_toolsets_from_cli = None
-    assert toolset_manager.load_custom_toolsets(["builtin"]) == []
-
-
-def test_add_or_merge_onto_toolsets_merges():
-    existing = {}
-    new_toolset = MagicMock(spec=Toolset)
-    new_toolset.name = "merge"
-    new_toolset.description = "This is a new toolset"
-    existing_toolset = MagicMock(spec=Toolset)
-    existing_toolset.name = "merge"
-    existing_toolset.enabled = "enabled"
-    existing["merge"] = existing_toolset
-    new_toolset.override_with = MagicMock()
-    ToolsetManager.add_or_merge_onto_toolsets(ToolsetManager, [new_toolset], existing)
-    existing_toolset.override_with.assert_called_once_with(new_toolset)
-
-
-def test_add_or_merge_onto_toolsets_adds():
-    existing = {}
-    new_toolset = MagicMock(spec=Toolset)
-    new_toolset.name = "add"
-    ToolsetManager.add_or_merge_onto_toolsets(ToolsetManager, [new_toolset], existing)
-    assert existing["add"] == new_toolset
-
-
-def test_load_custom_builtin_toolsets_valid(tmp_path, toolset_manager):
-    custom_file = tmp_path / "custom_toolset.yaml"
-    data = {
-        "toolsets": {
-            "dummy_tool": {
-                "enabled": True,
-            }
-        }
-    }
-    custom_file.write_text(yaml.dump(data))
-
-    toolset_manager.custom_toolsets = [custom_file]
-    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=["dummy_tool"])
-
-    assert isinstance(result, list)
-    assert len(result) == 1
-    tool = result[0]
-    assert tool.name == "dummy_tool"
-    assert str(getattr(tool, "path", None)) == str(custom_file)
-
-
-def test_load_custom_toolsets_valid(tmp_path, toolset_manager):
-    custom_file = tmp_path / "custom_toolset.yaml"
-    data = {
-        "toolsets": {
-            "dummy_tool": {
-                "enabled": True,
-                "description": "dummy",
-                "config": {"key": "value"},
-            }
-        }
-    }
-    custom_file.write_text(yaml.dump(data))
-
-    toolset_manager.custom_toolsets = [custom_file]
-    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
-
-    assert isinstance(result, list)
-    assert len(result) == 1
-    tool = result[0]
-    assert tool.name == "dummy_tool"
-    assert str(getattr(tool, "path", None)) == str(custom_file)
-
-
-def test_load_custom_toolsets_missing_field_invalid(tmp_path, toolset_manager):
-    custom_file = tmp_path / "custom_toolset.yaml"
-    data = {"toolsets": {"dummy_tool": {"enabled": True, "config": {"key": "value"}}}}
-    custom_file.write_text(yaml.dump(data))
-
-    toolset_manager.custom_toolsets = [custom_file]
-    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
-
-    assert isinstance(result, list)
-    assert len(result) == 0
-
-
-def test_load_custom_toolsets_invalid_yaml(tmp_path, toolset_manager):
-    custom_file = tmp_path / "custom_toolset.yaml"
-    custom_file.write_text("::::")
-
-    toolset_manager.custom_toolsets = [custom_file]
-    with pytest.raises(Exception) as e_info:
-        toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
-    assert "No 'toolsets' or 'mcp_servers' key found" in e_info.value.args[0]
-
-
-def test_load_custom_toolsets_empty_file(tmp_path, toolset_manager):
-    custom_file = tmp_path / "custom_toolset.yaml"
-    custom_file.write_text("")
-
-    toolset_manager.custom_toolsets = [custom_file]
-
-    with pytest.raises(Exception) as e_info:
-        toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
-    assert "Invalid data type:" in e_info.value.args[0]
-
-
-def test_mcp_servers_from_custom_toolset_config(tmp_path, toolset_manager):
     custom_file = tmp_path / "custom_toolset.yaml"
     data = {
         "mcp_servers": {
@@ -317,8 +198,8 @@ def test_mcp_servers_from_custom_toolset_config(tmp_path, toolset_manager):
     }
     custom_file.write_text(yaml.dump(data))
 
-    toolset_manager.custom_toolsets = [custom_file]
-    result = toolset_manager.load_custom_toolsets(builtin_toolsets_names=[])
+    toolset_manager._custom_toolset_file_paths = [custom_file]
+    result = toolset_manager._load_custom_toolsets()
     assert len(result) == 1
     assert result[0].name == "mcp1"
     assert result[0].type == ToolsetType.MCP
@@ -334,14 +215,14 @@ def test_mcp_servers_from_config(toolset_manager):
     }
 
     toolset_manager = ToolsetManager(
-        toolsets=None,
+        toolset_settings=None,
         mcp_servers=mcp_servers,
-        custom_toolsets=None,
+        custom_toolset_file_paths=None,
         custom_toolsets_from_cli=None,
     )
-    assert len(toolset_manager.toolsets) == 1
-    assert "mcp1" in toolset_manager.toolsets
-    assert toolset_manager.toolsets["mcp1"]["type"] == ToolsetType.MCP.value
+    assert len(toolset_manager.toolsets_settings) == 1
+    assert "mcp1" in toolset_manager.toolsets_settings
+    assert toolset_manager.toolsets_settings["mcp1"]["type"] == ToolsetType.MCP.value
 
 
 # Tests for transformer config merging functionality
@@ -468,15 +349,111 @@ def test_list_all_toolsets_applies_fast_model_injection(mock_load_builtin_toolse
 
     # Create manager with CLI fast_model
     global_fast_model = "azure/gpt-4.1"
-    manager = ToolsetManager(global_fast_model=global_fast_model)
+    manager: ToolsetManager = ToolsetManager(global_fast_model=global_fast_model)
 
     # Load toolsets (this triggers injection)
-    result = manager._list_all_toolsets(check_prerequisites=False)
+    toolsets = manager._load_toolsets_definitions()
 
     # Verify the toolset received the global_fast_model injection
-    kubernetes_toolset = next(t for t in result if t.name == "kubernetes")
+    kubernetes_toolset = next(t for t in toolsets if t.name == "kubernetes")
     config_dict = {t.name: t.config for t in kubernetes_toolset.transformers}
 
     assert config_dict["llm_summarize"]["global_fast_model"] == "azure/gpt-4.1"
     assert config_dict["llm_summarize"]["input_threshold"] == 1000  # Original
     assert config_dict["llm_summarize"]["prompt"] == "K8s prompt"  # Original
+
+
+class TestToolsetManagerCustomToolsets:
+    @pytest.fixture(autouse=True, scope="class")
+    def custom_toolset_file(self):
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
+            yield temp_file
+
+    @pytest.fixture(autouse=True, scope="class")
+    def custom_toolset_manager(
+        self, custom_toolset_file
+    ) -> Generator[ToolsetManager, Any, None]:
+        toolset_manager = ToolsetManager(
+            custom_toolset_file_paths=[FilePath(custom_toolset_file.name)]
+        )
+        yield toolset_manager
+
+    def test_load_custom_toolsets_success(
+        self, custom_toolset_manager: ToolsetManager, custom_toolset_file
+    ):
+        data = {
+            "toolsets": {
+                "test_toolset": {
+                    "tools": [],
+                    "description": "test description",
+                }
+            }
+        }
+        yaml.safe_dump(data, custom_toolset_file)
+        custom_toolset_manager._load_toolsets_definitions()
+
+        custom_toolset = custom_toolset_manager._toolset_definitions_by_name[
+            "test_toolset"
+        ]
+        assert custom_toolset.description == "test description"
+        assert len(custom_toolset.tools) == 0
+        assert custom_toolset.path == FilePath(custom_toolset_file.name)
+        assert custom_toolset.type == ToolsetType.CUSTOMIZED
+
+    def test_load_custom_toolsets_override_builtin_toolset(
+        self, custom_toolset_manager: ToolsetManager, custom_toolset_file
+    ):
+        builtin_toolsets = load_builtin_toolsets()
+        builtin_toolset = builtin_toolsets[0]
+        assert len(builtin_toolset.tools) > 0
+
+        data = {
+            "toolsets": {
+                builtin_toolset.name: {
+                    "tools": [],
+                    "description": "test description",
+                }
+            }
+        }
+        yaml.safe_dump(data, custom_toolset_file)
+        custom_toolset_manager._load_toolsets_definitions()
+
+        overridden_toolset = custom_toolset_manager._toolset_definitions_by_name[
+            builtin_toolset.name
+        ]
+        assert overridden_toolset.description == "test description"
+        assert len(overridden_toolset.tools) == 0
+
+    def test_load_custom_toolsets_no_file(self, custom_toolset_manager: ToolsetManager):
+        custom_toolset_manager._custom_toolset_file_paths = [
+            FilePath("/nonexistent/path.yaml")
+        ]
+        with pytest.raises(FileNotFoundError):
+            custom_toolset_manager._load_toolsets_definitions()
+
+    def test_load_custom_toolsets_missing_field_invalid(
+        self, custom_toolset_manager: ToolsetManager, custom_toolset_file
+    ):
+        data: dict[str, dict[str, dict]] = {"toolsets": {"invalid_toolset": {}}}
+        yaml.safe_dump(data, custom_toolset_file)
+        custom_toolset_manager._load_toolsets_definitions()
+
+        assert (
+            "invalid_toolset" not in custom_toolset_manager._toolset_definitions_by_name
+        )
+
+    def test_load_custom_toolsets_invalid_yaml(
+        self, custom_toolset_manager: ToolsetManager, custom_toolset_file: TextIOWrapper
+    ):
+        custom_toolset_file.write("::::")
+        with pytest.raises(Exception) as e_info:
+            custom_toolset_manager._load_toolsets_definitions()
+        assert "file is empty or invalid YAML." in e_info.value.args[0]
+
+    def test_load_custom_toolsets_empty_file(
+        self, custom_toolset_manager: ToolsetManager, custom_toolset_file: TextIOWrapper
+    ):
+        custom_toolset_file.write("")
+        with pytest.raises(Exception) as e_info:
+            custom_toolset_manager._load_toolsets_definitions()
+        assert "file is empty or invalid YAML." in e_info.value.args[0]

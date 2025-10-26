@@ -26,7 +26,7 @@ class TestConfigFastModelFlow:
 
         # Verify ToolsetManager receives the fast_model
         toolset_manager = config.toolset_manager
-        assert toolset_manager.global_fast_model == "gpt-3.5-turbo"
+        assert toolset_manager._global_fast_model == "gpt-3.5-turbo"
 
     def test_config_no_fast_model_flows_to_toolset_manager(self):
         """Test that Config without fast_model passes None to ToolsetManager."""
@@ -38,7 +38,7 @@ class TestConfigFastModelFlow:
 
         # Verify ToolsetManager receives None
         toolset_manager = config.toolset_manager
-        assert toolset_manager.global_fast_model is None
+        assert toolset_manager._global_fast_model is None
 
     def test_config_from_file_fast_model_flows_to_toolset_manager(self):
         """Test that Config loaded from file passes fast_model to ToolsetManager."""
@@ -61,7 +61,7 @@ class TestConfigFastModelFlow:
 
             # Verify ToolsetManager receives the fast_model
             toolset_manager = config.toolset_manager
-            assert toolset_manager.global_fast_model == "gpt-4o-mini"
+            assert toolset_manager._global_fast_model == "gpt-4o-mini"
 
         finally:
             config_path.unlink()  # Clean up temp file
@@ -85,7 +85,7 @@ class TestConfigFastModelFlow:
 
         # Verify ToolsetManager receives the fast_model
         toolset_manager = config.toolset_manager
-        assert toolset_manager.global_fast_model == "gpt-3.5-turbo"
+        assert toolset_manager._global_fast_model == "gpt-3.5-turbo"
 
     def test_config_cli_override_fast_model_flows_to_toolset_manager(self):
         """Test that CLI override of fast_model flows to ToolsetManager."""
@@ -111,7 +111,7 @@ class TestConfigFastModelFlow:
 
             # Verify ToolsetManager receives the CLI fast_model
             toolset_manager = config.toolset_manager
-            assert toolset_manager.global_fast_model == "claude-3-sonnet"
+            assert toolset_manager._global_fast_model == "claude-3-sonnet"
 
         finally:
             config_path.unlink()  # Clean up temp file
@@ -122,9 +122,9 @@ class TestConfigFastModelFlow:
 
         # First access creates the toolset manager
         toolset_manager1 = config.toolset_manager
-        assert toolset_manager1.global_fast_model == "gpt-4o-mini"
+        assert toolset_manager1._global_fast_model == "gpt-4o-mini"
 
         # Second access returns the same instance
         toolset_manager2 = config.toolset_manager
         assert toolset_manager2 is toolset_manager1
-        assert toolset_manager2.global_fast_model == "gpt-4o-mini"
+        assert toolset_manager2._global_fast_model == "gpt-4o-mini"

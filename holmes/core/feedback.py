@@ -112,7 +112,7 @@ class UserFeedback(FeedbackInfoBase):
 class Feedback(FeedbackInfoBase):
     """Class to store overall feedback data used to evaluate the AI response."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.metadata = FeedbackMetadata()
         self.user_feedback: Optional[UserFeedback] = None
 

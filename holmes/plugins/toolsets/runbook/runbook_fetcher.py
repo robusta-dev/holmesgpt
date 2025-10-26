@@ -244,7 +244,7 @@ class RunbookToolset(Toolset):
                 ToolsetTag.CORE,
             ],
             is_default=True,
-            config=config,
+            # config=config,
         )
 
     def get_example_config(self) -> Dict[str, Any]:

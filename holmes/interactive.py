@@ -1241,7 +1241,7 @@ def run_interactive_loop(
 
             messages = response.messages  # type: ignore
             last_response = response
-            feedback.metadata.add_llm_response(user_input, response.result)
+            feedback.metadata.add_llm_response(user_input, response.result)  # type: ignore
 
             if response.tool_calls:
                 all_tool_calls_history.extend(response.tool_calls)

@@ -335,7 +335,7 @@ class TestFeedback:
 class TestFeedbackCallback:
     """Test suite for FeedbackCallback type."""
 
-    def test_callback_signature(self):
+    def test_callback_signature(self) -> None:
         """Test that FeedbackCallback can be used as a type hint."""
 
         def sample_callback(feedback: Feedback) -> None:

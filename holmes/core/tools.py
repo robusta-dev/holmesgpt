@@ -17,6 +17,7 @@ from typing import (
     Optional,
     OrderedDict,
     Tuple,
+    TypeAlias,
     Union,
 )
 
@@ -195,6 +196,7 @@ class Tool(ABC, BaseModel):
             f"Tool '{self.name}' model_post_init: creating transformer instances"
         )
 
+        valid_transformers: List[Transformer] = []
         if self.transformers:
             logger.debug(
                 f"Tool '{self.name}' has {len(self.transformers)} transformers to initialize"
@@ -211,6 +213,7 @@ class Tool(ABC, BaseModel):
                     transformer_instance = registry.create_transformer(
                         transformer.name, transformer.config
                     )
+                    valid_transformers.append(transformer)
                     self._transformer_instances.append(transformer_instance)
                     logger.debug(
                         f"Initialized transformer '{transformer.name}' for tool '{self.name}'"
@@ -224,6 +227,7 @@ class Tool(ABC, BaseModel):
         else:
             logger.debug(f"Tool '{self.name}' has no transformers")
             self._transformer_instances = None
+        self.transformers = valid_transformers
 
     def get_openai_format(self, target_model: str):
         return format_tool_to_open_ai_standard(
@@ -531,54 +535,100 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
     env: List[str] = []  # optional
 
 
-class Toolset(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    experimental: bool = False
+PrerequisiteCheck: TypeAlias = Union[
+    StaticPrerequisite,
+    ToolsetCommandPrerequisite,
+    ToolsetEnvironmentPrerequisite,
+    CallablePrerequisite,
+]
 
-    enabled: bool = False
+
+class ToolsetDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str
+    type: Optional[ToolsetType] = None
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-    additional_instructions: Optional[str] = ""
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-            CallablePrerequisite,
-        ]
-    ] = []
-    tools: List[Tool]
-    tags: List[ToolsetTag] = Field(
-        default_factory=lambda: [ToolsetTag.CORE],
-    )
-    config: Optional[Any] = None
+    tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE])
     is_default: bool = False
-    llm_instructions: Optional[str] = None
+    experimental: bool = False
+    installation_instructions: Optional[str] = None
+    llm_instructions: Optional[str] = Field(
+        default=None, description="Instructions for the LLM added to the toolset prompt"
+    )
     transformers: Optional[List[Transformer]] = None
+    prerequisites: List[PrerequisiteCheck] = Field(default_factory=list)
+    tools: List[Tool | YAMLTool]
 
-    # warning! private attributes are not copied, which can lead to subtle bugs.
-    # e.g. l.extend([some_tool]) will reset these private attribute to None
-
-    # status fields that be cached
-    type: Optional[ToolsetType] = None
     path: Optional[FilePath] = None
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+
+class ToolsetSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    additional_instructions: Optional[str] = (
+        ""  # TODO: check if still needed or we can deprecate
+    )
+    config: Optional[Any] = None  # TODO: change to dict?
+
+
+class Toolset(ToolsetDefinition, ToolsetSettings):
+    model_config = ConfigDict(extra="forbid")
+
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
 
-    def override_with(self, override: "Toolset") -> None:
-        """
-        Overrides the current attributes with values from the Toolset loaded from custom config
-        if they are not None.
-        """
-        for field, value in override.model_dump(
-            exclude_unset=True,
-            exclude=("name"),  # type: ignore
-        ).items():
-            if field in self.__class__.model_fields and value not in (None, [], {}, ""):
-                setattr(self, field, value)
+    is_loaded_from_cache: bool = Field(
+        default=False, description="Whether the toolset is loaded from cache"
+    )
+
+    def __init__(self, **kwargs):
+        for field in (
+            "config",
+            "additional_instructions",
+            "enabled",
+            "status",
+            "error",
+        ):
+            if field in kwargs:
+                toolset_name = kwargs.get("name", "unknown")
+                raise ValueError(
+                    f"{toolset_name} - {field} is not allowed to be set in the constructor"
+                )
+
+        super().__init__(**kwargs)
+
+    def init_toolset(
+        self,
+        toolset_settings: ToolsetSettings,
+        toolset_cache: Optional["ToolsetCacheEntry"] = None,
+    ) -> "Toolset":
+        self.config = toolset_settings.config
+        self.additional_instructions = toolset_settings.additional_instructions
+        self.enabled = toolset_settings.enabled
+
+        if self.enabled:
+            if toolset_cache:
+                self.status = toolset_cache.status
+                self.error = toolset_cache.error
+                self.is_loaded_from_cache = True
+            else:
+                self.check_prerequisites()
+                self.is_loaded_from_cache = False
+
+        return self
+
+    def _load_llm_instructions(self, jinja_template: str):
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=jinja_template,
+            context={"tool_names": tool_names, "config": self.config},
+        )
 
     @model_validator(mode="before")
     def preprocess_tools(cls, values):
@@ -612,6 +662,8 @@ class Toolset(BaseModel):
                     # Already a Transformer object
                     converted_transformers.append(t)
             transformers = converted_transformers if converted_transformers else None
+            logging.info(f"Transformers: {transformers}")
+            values["transformers"] = transformers
 
         tools = []
         for tool in tools_data:
@@ -680,7 +732,7 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, quiet: bool = False):
         self.status = ToolsetStatusEnum.ENABLED
 
         # Sort prerequisites by type to fail fast on missing env vars before
@@ -713,6 +765,8 @@ class Toolset(BaseModel):
                         text=True,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
+                        stdin=subprocess.DEVNULL,  # Prevent interactive
+                        timeout=10,  # 10 seconds timeout
                     )
                     if (
                         prereq.expected_output
@@ -720,6 +774,9 @@ class Toolset(BaseModel):
                     ):
                         self.status = ToolsetStatusEnum.FAILED
                         self.error = f"`{prereq.command}` did not include `{prereq.expected_output}`"
+                except subprocess.TimeoutExpired:
+                    self.status = ToolsetStatusEnum.FAILED
+                    self.error = f"`{prereq.command}` timed out after 10 seconds"
                 except subprocess.CalledProcessError as e:
                     self.status = ToolsetStatusEnum.FAILED
                     self.error = f"`{prereq.command}` returned {e.returncode}"
@@ -750,22 +807,13 @@ class Toolset(BaseModel):
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
-                logger.info(f"❌ Toolset {self.name}: {self.error}")
+                if not quiet:
+                    logger.info(f"❌ Toolset {self.name}: {self.error}")
                 # no point checking further prerequisites if one failed
                 return
 
-        logger.info(f"✅ Toolset {self.name}")
-
-    @abstractmethod
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
-
-    def _load_llm_instructions(self, jinja_template: str):
-        tool_names = [t.name for t in self.tools]
-        self.llm_instructions = load_and_render_prompt(
-            prompt=jinja_template,
-            context={"tool_names": tool_names, "config": self.config},
-        )
+        if not quiet:
+            logger.info(f"✅ Toolset {self.name}")
 
     def _load_llm_instructions_from_file(self, file_dir: str, filename: str) -> None:
         """Helper method to load LLM instructions from a jinja2 template file.
@@ -779,48 +827,11 @@ class Toolset(BaseModel):
 
 
 class YAMLToolset(Toolset):
-    tools: List[YAMLTool]  # type: ignore
-
     def __init__(self, **kwargs):
+        tools = kwargs.pop("tools", [])
+        tools = [YAMLTool(**tool) if isinstance(tool, dict) else tool for tool in tools]
+        kwargs["tools"] = tools
         super().__init__(**kwargs)
-        if self.llm_instructions:
-            self._load_llm_instructions(self.llm_instructions)
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
-
-
-class ToolsetYamlFromConfig(Toolset):
-    """
-    ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.
-    To override a build-in toolset fields, we don't have to explicitly set all required fields,
-    instead, we only put the fields we want to override in the YAML file.
-    ToolsetYamlFromConfig helps py-pass the pydantic validation of the required fields and together with
-    `override_with` method, a build-in toolset object with new configurations is created.
-    """
-
-    name: str
-    # YamlToolset is loaded from a YAML file specified by the user and should be enabled by default
-    # Built-in toolsets are exception and should be disabled by default when loaded
-    enabled: bool = True
-    additional_instructions: Optional[str] = None
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-        ]
-    ] = []  # type: ignore
-    tools: Optional[List[YAMLTool]] = []  # type: ignore
-    description: Optional[str] = None  # type: ignore
-    docs_url: Optional[str] = None
-    icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-    config: Optional[Any] = None
-    url: Optional[str] = None  # MCP toolset
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
 
 
 class ToolsetDBModel(BaseModel):
@@ -836,6 +847,48 @@ class ToolsetDBModel(BaseModel):
     updated_at: str = Field(default_factory=datetime.now().isoformat)
 
 
+class ToolsetCacheEntry(BaseModel):
+    name: str
+    status: ToolsetStatusEnum
+    enabled: bool
+    type: Optional[ToolsetType]
+    path: Optional[FilePath]
+    error: Optional[str]
+
+    @classmethod
+    def from_toolset(self, toolset: Toolset) -> "ToolsetCacheEntry":
+        return ToolsetCacheEntry(
+            name=toolset.name,
+            status=toolset.status,
+            enabled=toolset.enabled,
+            type=toolset.type,
+            path=toolset.path,
+            error=toolset.error,
+        )
+
+
+class ToolsetCache(BaseModel):
+    toolsets: dict[str, ToolsetCacheEntry]
+    created_at: datetime = Field(default_factory=datetime.now)
+
+    @classmethod
+    def from_toolsets(self, toolsets: List[Toolset]) -> "ToolsetCache":
+        relevant_toolsets = filter(
+            lambda toolset: toolset.enabled and toolset.type != ToolsetType.MCP,
+            toolsets,
+        )
+        return ToolsetCache(
+            toolsets={
+                toolset.name: ToolsetCacheEntry.from_toolset(toolset)
+                for toolset in relevant_toolsets
+            }
+        )
+
+    def get(self, toolset_name: str) -> Optional[ToolsetCacheEntry]:
+        return self.toolsets.get(toolset_name)
+
+
+# TODO: move to presentation layer file.
 def pretty_print_toolset_status(toolsets: list[Toolset], console: Console) -> None:
     status_fields = ["name", "enabled", "status", "type", "path", "error"]
     toolsets_status = []

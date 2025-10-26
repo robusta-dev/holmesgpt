@@ -60,7 +60,7 @@ def test_server_config_get_llm_with_robusta_model_returns_updated_api_key(
     assert llm.api_key == "mock_account_id new_session_token"
 
 
-def test_cli_config_get_llm_loads_default_gpt_4o(monkeypatch):
+def test_cli_config_get_llm_loads_default_gpt_4o(monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "openai_api_key")
     cli_config = get_cli_config()
     llm: DefaultLLM = cli_config._get_llm()

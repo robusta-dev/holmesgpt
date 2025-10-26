@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools import ToolsetSettings, ToolsetStatusEnum
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 
 
@@ -46,8 +46,7 @@ class TestAzureSQLToolset:
                 mock_api_client_class.return_value = mock_api_client
 
                 # Set config and call check_prerequisites
-                toolset.config = config
-                toolset.check_prerequisites()
+                toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
                 # Verify credential was created with correct parameters
                 mock_credential_class.assert_called_once_with(
@@ -114,8 +113,7 @@ class TestAzureSQLToolset:
             mock_credential_class.return_value = mock_credential
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify credential was created
             mock_credential_class.assert_called_once_with(
@@ -192,8 +190,7 @@ class TestAzureSQLToolset:
                 mock_api_client_class.return_value = mock_api_client
 
                 # Set config and call check_prerequisites
-                toolset.config = config
-                toolset.check_prerequisites()
+                toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
                 # Verify DefaultAzureCredential was used
                 mock_default_credential_class.assert_called_once_with()
@@ -240,8 +237,7 @@ class TestAzureSQLToolset:
             mock_credential_class.return_value = mock_credential
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify both token acquisitions were attempted
             assert mock_credential.get_token.call_count == 2

@@ -14,7 +14,7 @@ class TransformerRegistry:
     and create instances based on configuration.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._transformers: Dict[str, Type[BaseTransformer]] = {}
 
     def register(self, transformer_class: Type[BaseTransformer]) -> None:

@@ -5,7 +5,7 @@ metadata:
   name: custom-toolsets-configmap
   namespace: {{ .Release.Namespace }}
 data:
-  custom_toolset.yaml: |-
+  toolsets.yaml: |-
     toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
     {{- if .Values.mcpAddons.aws.enabled }}
     {{- $awsMcpServers := dict "aws_api" (dict
@@ -21,5 +21,6 @@ data:
     {{- end }}
   model_list.yaml: |-
     {{ .Values.modelList | toYaml | nindent 4 }}
-
+  custom_toolsets.yaml: |-
+    {{ .Values.customToolsets | toYaml | nindent 4 }}
 {{- end }}

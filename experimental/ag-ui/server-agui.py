@@ -109,7 +109,7 @@ def agui_chat(input_data: RunAgentInput, request: Request):
             "Bad request. Chat message cannot be empty", status_code=400
         )
 
-    ai = config.create_agui_toolcalling_llm(dal=dal, model=chat_request.model)
+    ai = config.create_agui_toolcalling_llm(model=chat_request.model)
     global_instructions = dal.get_global_instructions_for_account()
     messages = build_chat_messages(
         chat_request.ask,

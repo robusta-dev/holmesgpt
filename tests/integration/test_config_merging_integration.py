@@ -66,7 +66,7 @@ def test_cli_fast_model_integration_with_kubernetes():
         mock_load.return_value = [kubernetes_toolset]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         # Find the Kubernetes toolset
         k8s_toolset = next(t for t in toolsets if t.name == "kubernetes/core")
@@ -127,7 +127,7 @@ def test_fast_model_injection_chain():
         mock_load.return_value = [toolset]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         test_toolset = toolsets[0]
 
@@ -196,7 +196,7 @@ def test_fast_model_injection_with_different_transformers():
         mock_load.return_value = [toolset]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         result_toolset = toolsets[0]
         result_tool = result_toolset.tools[0]
@@ -236,7 +236,7 @@ def test_backward_compatibility():
         mock_load.return_value = [simple_toolset]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         result_toolset = toolsets[0]
 
@@ -268,7 +268,7 @@ def test_no_global_configs_no_regression():
 
         # No global configs (normal case)
         manager = ToolsetManager()
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         result_toolset = toolsets[0]
 
@@ -315,7 +315,7 @@ def test_toolset_with_only_tool_level_transformers_gets_fast_model():
         mock_load.return_value = [toolset_without_toolset_transformers]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         result_toolset = toolsets[0]
 
@@ -380,7 +380,7 @@ def test_toolset_with_toolset_level_transformers_works():
         mock_load.return_value = [toolset_with_toolset_transformers]
 
         manager = ToolsetManager(global_fast_model=global_fast_model)
-        toolsets = manager._list_all_toolsets(check_prerequisites=False)
+        toolsets = manager._load_toolsets_definitions()
 
         result_toolset = toolsets[0]
 

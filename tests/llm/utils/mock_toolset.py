@@ -22,8 +22,10 @@ from holmes.core.tools import (
     ToolsetStatusEnum,
     YAMLTool,
     YAMLToolset,
+    ToolsetSettings,
 )
-from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
+from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets.loaders import load_toolset_settings_from_file
 
 
 # Custom exceptions for better error handling
@@ -655,32 +657,27 @@ class MockToolsetManager:
 
         # Load custom toolsets from YAML if present
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
-        custom_definitions = self._load_custom_toolsets(config_path)
-
+        custom_settings = load_toolset_settings_from_file(config_path) or {}
         # Configure builtin toolsets with custom definitions
-        self.toolsets = self._configure_toolsets(builtin_toolsets, custom_definitions)
+        self.toolsets = self._configure_toolsets(builtin_toolsets, custom_settings)
 
         # Wrap tools for enabled toolsets based on mode
         self._wrap_enabled_toolsets()
 
-    def _load_custom_toolsets(self, config_path: str) -> List[Toolset]:
-        """Load custom toolsets from a YAML file."""
-        if not os.path.isfile(config_path):
-            return []
-        return load_toolsets_from_file(toolsets_path=config_path, strict_check=False)
-
     def _configure_toolsets(
-        self, builtin_toolsets: List[Toolset], custom_definitions: List[Toolset]
+        self,
+        builtin_toolsets: List[Toolset],
+        custom_settings: dict[str, ToolsetSettings],
     ) -> List[Toolset]:
         """Configure builtin toolsets with custom definitions."""
         configured = []
 
         # First, validate that all custom definitions reference existing toolsets
         builtin_names = {ts.name for ts in builtin_toolsets}
-        for definition in custom_definitions:
-            if definition.name not in builtin_names:
+        for name in custom_settings.keys():
+            if name not in builtin_names:
                 raise RuntimeError(
-                    f"Toolset '{definition.name}' referenced in toolsets.yaml does not exist. "
+                    f"Toolset '{name}' referenced in toolsets.yaml does not exist. "
                     f"Available toolsets: {', '.join(sorted(builtin_names))}"
                 )
 
@@ -692,6 +689,7 @@ class MockToolsetManager:
         for toolset in builtin_toolsets:
             # Replace RunbookToolset with one that has test folder search path
             if toolset.name == "runbook":
+                # FIXME: We currently doing it since after the toolset loaded we cannot update additional_search_paths easily.
                 from holmes.plugins.toolsets.runbook.runbook_fetcher import (
                     RunbookToolset,
                 )
@@ -740,12 +738,14 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                 toolset.enabled = True
 
             # Apply custom configuration if available
-            definition = next(
-                (d for d in custom_definitions if d.name == toolset.name), None
-            )
-            if definition:
-                toolset.config = definition.config
-                toolset.enabled = definition.enabled
+            if toolset.name in custom_settings:
+                print(
+                    f"Applying custom settings for toolset {toolset.name}: {custom_settings[toolset.name]}"
+                )
+                tool_settings = custom_settings[toolset.name]
+                toolset.config = tool_settings.config
+                toolset.enabled = tool_settings.enabled
+                print(f"Toolset {toolset.name} - {toolset.config}")
 
             # Add all toolsets to configured list
             configured.append(toolset)
@@ -756,6 +756,7 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                 toolset_mode = self._get_toolset_mode(toolset.name)
                 if toolset_mode == MockMode.LIVE or toolset_mode == MockMode.GENERATE:
                     try:
+                        definition = custom_settings.get(toolset.name)
                         # TODO: add timeout
                         toolset.check_prerequisites()
 
@@ -829,9 +830,9 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                     tools=wrapped_tools,
                     description=toolset.description,
                     llm_instructions=toolset.llm_instructions,
-                    config=toolset.config,
                     original_toolset_type=type(toolset),
                 )
+                mock_toolset.config = toolset.config
                 mock_toolset.status = ToolsetStatusEnum.ENABLED
                 self.toolsets[i] = mock_toolset
 

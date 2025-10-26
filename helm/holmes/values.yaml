@@ -54,6 +54,7 @@ toolsets:
   prometheus/metrics:
     enabled: true
 mcp_servers: {}
+customToolsets: {}
 
 resources:
   requests:

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools import ToolsetSettings, ToolsetStatusEnum
 from holmes.plugins.toolsets.opensearch.opensearch import (
     OpenSearchToolset,
 )
@@ -55,8 +55,7 @@ class TestOpenSearchToolset:
             mock_opensearch_class.return_value = mock_client
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify OpenSearch client was created with correct parameters
             mock_opensearch_class.assert_called_once()
@@ -117,8 +116,7 @@ class TestOpenSearchToolset:
             mock_opensearch_class.return_value = mock_client
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify OpenSearch client was created
             mock_opensearch_class.assert_called_once()
@@ -141,8 +139,7 @@ class TestOpenSearchToolset:
         toolset = OpenSearchToolset()
 
         # Set empty config and call check_prerequisites
-        toolset.config = {}
-        toolset.check_prerequisites()
+        toolset.init_toolset(ToolsetSettings(config={}, enabled=True))
 
         # Verify toolset status indicates failure
         assert toolset.status == ToolsetStatusEnum.FAILED
@@ -179,8 +176,7 @@ class TestOpenSearchToolset:
             mock_opensearch_class.return_value = mock_client
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify OpenSearch client was created with correct parameters
             mock_opensearch_class.assert_called_once()
@@ -243,8 +239,7 @@ class TestOpenSearchToolset:
             mock_opensearch_class.side_effect = side_effect
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify all three clients were attempted
             assert mock_opensearch_class.call_count == 3
@@ -288,8 +283,7 @@ class TestOpenSearchToolset:
             mock_opensearch_class.return_value = mock_client
 
             # Set config and call check_prerequisites
-            toolset.config = config
-            toolset.check_prerequisites()
+            toolset.init_toolset(ToolsetSettings(config=config, enabled=True))
 
             # Verify both clients were attempted
             assert mock_opensearch_class.call_count == 2
