@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 from pydantic import BaseModel
 import requests  # type: ignore
 
-from holmes.core.tools import Toolset
+from holmes.core.tools import ToolsetDefinition
 
 
 class OpenSearchLoggingLabelsConfig(BaseModel):
@@ -145,7 +145,7 @@ def build_query(
     return query
 
 
-class BaseOpenSearchToolset(Toolset):
+class BaseOpenSearchToolset(ToolsetDefinition):
     def get_example_config(self) -> dict[str, Any]:
         example_config = BaseOpenSearchConfig(
             opensearch_url="YOUR OPENSEARCH URL",

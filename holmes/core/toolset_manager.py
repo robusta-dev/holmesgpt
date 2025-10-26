@@ -9,7 +9,14 @@ from pydantic import FilePath
 
 from holmes.core.config import config_path_dir
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import (
+    Toolset,
+    ToolsetDefinition,
+    ToolsetSettings,
+    ToolsetStatusEnum,
+    ToolsetTag,
+    ToolsetType,
+)
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
 
@@ -28,19 +35,26 @@ class ToolsetManager:
 
     def __init__(
         self,
-        toolsets: Optional[dict[str, dict[str, Any]]] = None,
+        dal: Optional[SupabaseDal] = None,
+        toolsets_from_config: Optional[
+            dict[str, dict[str, Any]]
+        ] = None,  # TODO: change to ToolsetSettings
         mcp_servers: Optional[dict[str, dict[str, Any]]] = None,
         custom_toolsets: Optional[List[FilePath]] = None,
         custom_toolsets_from_cli: Optional[List[FilePath]] = None,
         toolset_status_location: Optional[FilePath] = None,
         global_fast_model: Optional[str] = None,
-    ):
-        self.toolsets = toolsets
-        self.toolsets = toolsets or {}
+    ) -> None:
+        self.toolset_definitions = {
+            toolset_definition.name: toolset_definition
+            for toolset_definition in self._load_toolset_definitions(dal=dal)
+        }
+        self.toolsets_from_config: dict[str, dict] = toolsets_from_config or {}
+
         if mcp_servers is not None:
             for _, mcp_server in mcp_servers.items():
                 mcp_server["type"] = ToolsetType.MCP.value
-        self.toolsets.update(mcp_servers or {})
+        self.toolsets_from_config.update(mcp_servers or {})
         self.custom_toolsets = custom_toolsets
         self.global_fast_model = global_fast_model
 
@@ -48,6 +62,7 @@ class ToolsetManager:
             toolset_status_location = FilePath(DEFAULT_TOOLSET_STATUS_LOCATION)
 
         # holmes container uses CUSTOM_TOOLSET_LOCATION to load custom toolsets
+        # TODO: add depection message and load from custom toolset directory if CUSTOM_TOOLSET_LOCATION is not set
         if os.path.isfile(CUSTOM_TOOLSET_LOCATION):
             if self.custom_toolsets is None:
                 self.custom_toolsets = []
@@ -55,6 +70,27 @@ class ToolsetManager:
 
         self.custom_toolsets_from_cli = custom_toolsets_from_cli
         self.toolset_status_location = toolset_status_location
+
+    # def _load_custom_toolsets_definitions(self) -> List[ToolsetDefinition]:
+    #     if not self.custom_toolsets and not self.custom_toolsets_from_cli:
+    #         logging.debug(
+    #             "No custom toolsets configured, skipping loading custom toolsets"
+    #         )
+    #         return []
+
+    #     loaded_custom_toolsets: List[ToolsetDefinition] = []
+    #     custom_toolsets = self._load_toolsets_from_paths(
+    #         self.custom_toolsets, builtin_toolsets_names
+    #     )
+    #     loaded_custom_toolsets.extend(custom_toolsets)
+    #     return loaded_custom_toolsets
+
+    def _load_toolset_definitions(
+        self, dal: Optional[SupabaseDal] = None
+    ) -> List[ToolsetDefinition]:
+        builtin_toolsets: List[ToolsetDefinition] = load_builtin_toolsets(dal)
+        # TODO: load custom toolsets from custom toolset directory and custom toolsets from CLI
+        return builtin_toolsets
 
     @property
     def cli_tool_tags(self) -> List[ToolsetTag]:
@@ -72,7 +108,6 @@ class ToolsetManager:
 
     def _list_all_toolsets(
         self,
-        dal: Optional[SupabaseDal] = None,
         check_prerequisites=True,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
@@ -85,61 +120,75 @@ class ToolsetManager:
         2. Toolsets defined in self.toolsets can override both built-in and add new custom toolsets
         3. custom toolset from config can override both built-in and add new custom toolsets # for backward compatibility
         """
-        # Load built-in toolsets
-        builtin_toolsets = load_builtin_toolsets(dal)
-        toolsets_by_name: dict[str, Toolset] = {
-            toolset.name: toolset for toolset in builtin_toolsets
-        }
-        builtin_toolsets_names = list(toolsets_by_name.keys())
+        self.toolset_settings: dict[str, ToolsetSettings] = {}
 
-        if enable_all_toolsets:
-            for toolset in toolsets_by_name.values():
-                toolset.enabled = True
+        for toolset_name, toolset_settings in self.toolsets_from_config.items():
+            if toolset_name not in self.toolset_definitions:
+                # TODO: think about the ux we want here.
+                logging.error(
+                    f"Toolset {toolset_name} is not defined in the toolset definitions"
+                )
+                continue
 
-        # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
-        if self.toolsets is not None:
-            toolsets_from_config = self._load_toolsets_from_config(
-                self.toolsets, builtin_toolsets_names, dal
+            self.toolset_settings[toolset_name] = ToolsetSettings.model_validate(
+                toolset_settings
             )
 
-            if toolsets_from_config:
-                self.add_or_merge_onto_toolsets(
-                    toolsets_from_config,
-                    toolsets_by_name,
-                )
+        for toolset_name, toolset_definition in self.toolset_definitions.items():
+            if toolset_name in self.toolset_settings:
+                # TODO if setting provided should we override enable by is_default?
+                continue
+
+            should_be_enabled = enable_all_toolsets or toolset_definition.is_default
+            self.toolset_settings[toolset_name] = ToolsetSettings(
+                enabled=should_be_enabled
+            )
+
+        self.toolsets: dict[str, Toolset] = {
+            toolset_name: Toolset.from_definition(
+                toolset_definition, self.toolset_settings[toolset_name]
+            )
+            for toolset_name in self.toolset_definitions
+        }
+
+        # # build-in toolset is enabled when it's explicitly enabled in the toolset or custom toolset config
+        # if self.toolsets_from_config is not None:
+        #     toolsets_from_config = self._load_toolsets_from_config(
+        #         self.toolsets_from_config, builtin_toolsets_names, dal
+        #     )
+
+        #     if toolsets_from_config:
+        #         self.add_or_merge_onto_toolsets(
+        #             toolsets_from_config,
+        #             toolsets_by_name,
+        #         )
 
         # custom toolset should not override built-in toolsets
         # to test the new change of built-in toolset, we should make code change and re-compile the program
-        custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
-        self.add_or_merge_onto_toolsets(
-            custom_toolsets,
-            toolsets_by_name,
-        )
+        # custom_toolsets = self.load_custom_toolsets(builtin_toolsets_names)
+        # self.add_or_merge_onto_toolsets(
+        #     custom_toolsets,
+        #     toolsets_by_name,
+        # )
 
         if toolset_tags is not None:
-            toolsets_by_name = {
+            self.toolsets = {
                 name: toolset
-                for name, toolset in toolsets_by_name.items()
+                for name, toolset in self.toolsets.items()
                 if any(tag in toolset_tags for tag in toolset.tags)
             }
-
-        # Inject global fast_model into all toolsets
-        final_toolsets = list(toolsets_by_name.values())
-        self._inject_fast_model_into_transformers(final_toolsets)
-
+        self._inject_fast_model_into_transformers(self.toolsets.values())
         # check_prerequisites against each enabled toolset
         if not check_prerequisites:
-            return final_toolsets
+            return list(self.toolsets.values())
 
         enabled_toolsets: List[Toolset] = []
-        for _, toolset in toolsets_by_name.items():
+        for toolset in self.toolsets.values():
             if toolset.enabled:
                 enabled_toolsets.append(toolset)
-            else:
-                toolset.status = ToolsetStatusEnum.DISABLED
-        self.check_toolset_prerequisites(enabled_toolsets)
 
-        return final_toolsets
+        self.check_toolset_prerequisites(enabled_toolsets)
+        return enabled_toolsets
 
     @classmethod
     def check_toolset_prerequisites(cls, toolsets: list[Toolset]):

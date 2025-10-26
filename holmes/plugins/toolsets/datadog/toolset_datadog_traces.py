@@ -11,7 +11,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolsetTag,
@@ -41,7 +41,7 @@ class DatadogTracesConfig(DatadogBaseConfig):
     indexes: list[str] = ["*"]
 
 
-class DatadogTracesToolset(Toolset):
+class DatadogTracesToolset(ToolsetDefinition):
     """Toolset for working with Datadog traces/APM data."""
 
     dd_config: Optional[DatadogTracesConfig] = None

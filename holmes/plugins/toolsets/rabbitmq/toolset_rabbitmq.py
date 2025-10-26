@@ -10,8 +10,8 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
     ToolsetTag,
+    ToolsetDefinition,
 )
 from requests import RequestException  # type: ignore
 from urllib.parse import urljoin
@@ -128,7 +128,7 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Get Cluster Status"
 
 
-class RabbitMQToolset(Toolset):
+class RabbitMQToolset(ToolsetDefinition):
     def __init__(self):
         super().__init__(
             name="rabbitmq/core",

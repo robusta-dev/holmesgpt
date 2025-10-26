@@ -1,11 +1,11 @@
 from holmes.core.tools import (
     ToolInvokeContext,
-    Toolset,
     Tool,
     ToolParameter,
     StructuredToolResult,
     StructuredToolResultStatus,
     CallablePrerequisite,
+    ToolsetDefinition,
 )
 
 from typing import Dict, Any, List, Optional
@@ -87,7 +87,7 @@ class RemoteMCPTool(Tool):
         return f"Call MCP Server ({self.url} - {self.name})"
 
 
-class RemoteMCPToolset(Toolset):
+class RemoteMCPToolset(ToolsetDefinition):
     url: AnyUrl
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"

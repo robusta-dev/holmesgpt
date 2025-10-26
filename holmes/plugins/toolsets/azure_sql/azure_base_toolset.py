@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict
 
-from holmes.core.tools import Tool, Toolset
+from holmes.core.tools import Tool, ToolsetDefinition
 from holmes.plugins.toolsets.azure_sql.apis.azure_sql_api import AzureSQLAPIClient
 
 
@@ -20,7 +20,7 @@ class AzureSQLConfig(BaseModel):
     client_secret: Optional[str]
 
 
-class BaseAzureSQLToolset(Toolset):
+class BaseAzureSQLToolset(ToolsetDefinition):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     _api_client: Optional[AzureSQLAPIClient] = None
     _database_config: Optional[AzureSQLDatabaseConfig] = None

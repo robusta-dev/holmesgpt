@@ -9,9 +9,10 @@ from holmes.config import Config
 from holmes.core.tools import (
     CallablePrerequisite,
     StaticPrerequisite,
-    Toolset,
     ToolsetCommandPrerequisite,
+    ToolsetDefinition,
     ToolsetEnvironmentPrerequisite,
+    ToolsetSettings,
     ToolsetStatusEnum,
     ToolsetTag,
     YAMLTool,
@@ -35,22 +36,24 @@ def mock_config():
     return config
 
 
-class SampleToolset(Toolset):
+class SampleToolset(ToolsetDefinition):
+    def __init__(self, **kwargs):
+        kwargs.setdefault("name", "test-toolset")
+        kwargs.setdefault("description", "Test toolset")
+        kwargs.setdefault(
+            "tools",
+            [YAMLTool(name="test-tool", description="Test tool", command="echo test")],
+        )
+        kwargs.setdefault("tags", [ToolsetTag.CORE])
+        super().__init__(**kwargs)
+
     def get_example_config(self) -> Dict[str, Any]:
         return {}
 
 
 @pytest.fixture
 def sample_toolset():
-    return SampleToolset(
-        name="test-toolset",
-        description="Test toolset",
-        enabled=True,
-        tools=[
-            YAMLTool(name="test-tool", description="Test tool", command="echo test")
-        ],
-        tags=[ToolsetTag.CORE],
-    )
+    return SampleToolset().to_toolset(ToolsetSettings(enabled=True))
 
 
 def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
@@ -108,22 +111,20 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     toolset1 = SampleToolset(
         name="toolset1",
         description="First toolset",
-        enabled=True,
         tools=[YAMLTool(name="tool1", description="Tool 1", command="echo 1")],
         tags=[ToolsetTag.CORE],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset1.check_prerequisites()
 
     toolset2 = SampleToolset(
         name="toolset2",
         description="Second toolset",
-        enabled=False,
         tools=[YAMLTool(name="tool2", description="Tool 2", command="echo 2")],
         tags=[ToolsetTag.CLI],
         prerequisites=[
             StaticPrerequisite(enabled=False, disabled_reason="Feature flag disabled")
         ],
-    )
+    ).to_toolset(ToolsetSettings(enabled=False))
     toolset2.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset1, toolset2])
@@ -151,13 +152,12 @@ def test_sync_toolsets_with_prerequisites_check(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
@@ -182,13 +182,12 @@ def test_sync_toolsets_with_failed_prerequisites(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[ToolsetCommandPrerequisite(command="some-failing-command")],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
@@ -211,7 +210,6 @@ def test_sync_toolsets_with_successful_prerequisites(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -221,7 +219,7 @@ def test_sync_toolsets_with_successful_prerequisites(
                 command="echo success", expected_output="success"
             )
         ],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
@@ -240,13 +238,12 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[ToolsetEnvironmentPrerequisite(env=["NONEXISTENT_ENV_VAR"])],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
@@ -272,7 +269,6 @@ def test_sync_toolsets_with_command_output_mismatch(
     toolset = SampleToolset(
         name="test-toolset",
         description="Test toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool", description="Test tool", command="echo test")
         ],
@@ -282,7 +278,7 @@ def test_sync_toolsets_with_command_output_mismatch(
                 command="some-command", expected_output="expected output"
             )
         ],
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
     toolset.check_prerequisites()
 
     mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
@@ -302,7 +298,6 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     toolset_with_failing_callable = SampleToolset(
         name="failing-callable-sync-toolset",
         description="Toolset with a callable prerequisite that raises an unhandled exception",
-        enabled=True,
         tools=[
             YAMLTool(
                 name="test-tool-fail", description="Test tool", command="echo test"
@@ -313,31 +308,29 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
             CallablePrerequisite(callable=failing_callable_for_test)
         ],  # Using the imported callable
         config={},
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
 
     successful_toolset_1 = SampleToolset(
         name="successful-toolset-1",
         description="A perfectly fine toolset",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool-ok-1", description="Test tool", command="echo ok1")
         ],
         tags=[ToolsetTag.CLUSTER],
         prerequisites=[],
         config={},
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
 
     successful_toolset_2 = SampleToolset(
         name="successful-toolset-2",
         description="Another fine toolset with a passing callable",
-        enabled=True,
         tools=[
             YAMLTool(name="test-tool-ok-2", description="Test tool", command="echo ok2")
         ],
         tags=[ToolsetTag.CORE],
         prerequisites=[CallablePrerequisite(callable=callable_success)],
         config={},
-    )
+    ).to_toolset(ToolsetSettings(enabled=True))
 
     all_toolsets = [
         toolset_with_failing_callable,

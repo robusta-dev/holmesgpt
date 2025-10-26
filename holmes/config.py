@@ -109,11 +109,12 @@ class Config(RobustaBaseConfig):
     def toolset_manager(self) -> ToolsetManager:
         if not self._toolset_manager:
             self._toolset_manager = ToolsetManager(
-                toolsets=self.toolsets,
+                toolsets_from_config=self.toolsets,
                 mcp_servers=self.mcp_servers,
                 custom_toolsets=self.custom_toolsets,
                 custom_toolsets_from_cli=self.custom_toolsets_from_cli,
                 global_fast_model=self.fast_model,
+                dal=self.dal,
             )
         return self._toolset_manager
 

@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools import ToolsetSettings, ToolsetStatusEnum
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 
 
@@ -27,7 +27,7 @@ class TestAzureSQLToolset:
         mock_token.token = "test-token"
 
         # Create toolset instance
-        toolset = AzureSQLToolset()
+        toolset = AzureSQLToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock Azure credential and token acquisition
         with patch(
@@ -100,7 +100,7 @@ class TestAzureSQLToolset:
         }
 
         # Create toolset instance
-        toolset = AzureSQLToolset()
+        toolset = AzureSQLToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock Azure credential to fail token acquisition
         with patch(
@@ -142,7 +142,7 @@ class TestAzureSQLToolset:
     def test_missing_config_fails(self):
         """Test that toolset fails when no configuration is provided."""
         # Create toolset instance
-        toolset = AzureSQLToolset()
+        toolset = AzureSQLToolset().to_toolset(ToolsetSettings())
 
         # Set empty config and call check_prerequisites
         toolset.config = {}
@@ -173,7 +173,7 @@ class TestAzureSQLToolset:
         mock_token.token = "test-token"
 
         # Create toolset instance
-        toolset = AzureSQLToolset()
+        toolset = AzureSQLToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock DefaultAzureCredential
         with patch(
@@ -225,7 +225,7 @@ class TestAzureSQLToolset:
         mock_mgmt_token.token = "test-mgmt-token"
 
         # Create toolset instance
-        toolset = AzureSQLToolset()
+        toolset = AzureSQLToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock Azure credential
         with patch(

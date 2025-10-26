@@ -3,7 +3,7 @@ from dateutil import parser  # type: ignore
 from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetStatusEnum,
 )
 from holmes.core.tools_utils.toolset_utils import filter_out_default_logging_toolset
@@ -146,7 +146,7 @@ def test_to_unix_ms(date_time_str, expected_timestamp):
     assert to_unix_ms(date_time_str) == expected_timestamp
 
 
-class DummyNonLoggingToolset(Toolset):
+class DummyNonLoggingToolset(ToolsetDefinition):
     def __init__(self):
         super().__init__(
             name="non_logging_toolset", description="Dummy toolset", tools=[]

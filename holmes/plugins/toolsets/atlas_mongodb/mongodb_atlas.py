@@ -6,7 +6,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 
@@ -29,7 +29,7 @@ class MongoDBConfig(BaseModel):
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/
-class MongoDBAtlasToolset(Toolset):
+class MongoDBAtlasToolset(ToolsetDefinition):
     name: str = "MongoDBAtlas"
     description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow queries and various metrics to understand the state of Mongodb projects."
     docs_url: str = (

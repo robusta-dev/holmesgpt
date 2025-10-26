@@ -7,7 +7,7 @@ from holmes.core.tools import (
     StructuredToolResultStatus,
     Tool,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
     ToolInvokeContext,
     ToolsetEnvironmentPrerequisite,
@@ -52,7 +52,7 @@ class PplQueryAssistTool(Tool):
         return f"OpenSearchQueryToolset: Query ({query})"
 
 
-class OpenSearchQueryAssistToolset(Toolset):
+class OpenSearchQueryAssistToolset(ToolsetDefinition):
     """OpenSearch query assist with PPL queries"""
 
     def __init__(self):

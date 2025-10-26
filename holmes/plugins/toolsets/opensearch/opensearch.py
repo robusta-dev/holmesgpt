@@ -11,7 +11,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
@@ -189,14 +189,13 @@ class ListOpenSearchHosts(BaseOpenSearchTool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: List OpenSearch Hosts"
 
 
-class OpenSearchToolset(Toolset):
+class OpenSearchToolset(ToolsetDefinition):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     clients: List[OpenSearchClient] = []
 
     def __init__(self):
         super().__init__(
             name="opensearch/status",
-            enabled=False,
             description="Provide cluster metadata information like health, shards, settings.",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/opensearch-status/",
             icon_url="https://opensearch.org/assets/brand/PNG/Mark/opensearch_mark_default.png",

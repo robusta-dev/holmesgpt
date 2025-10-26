@@ -18,6 +18,7 @@ def test_no_logs_toolset():
 
 def test_kubernetes_yaml_toolset():
     toolsets = load_toolsets_from_file(KUBERNETES_YAML_TOOLSET_PATH, strict_check=True)
+    toolsets[0] = toolsets[0].to_toolset()
     toolsets[0].enabled = True
     toolsets[0].status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
@@ -28,7 +29,7 @@ def test_kubernetes_yaml_toolset():
 
 
 def test_kubernetes_python_toolset():
-    toolset = KubernetesLogsToolset()
+    toolset = KubernetesLogsToolset().to_toolset()
     toolset.enabled = True
     toolset.status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(
@@ -39,7 +40,7 @@ def test_kubernetes_python_toolset():
 
 
 def test_opensearch_toolset():
-    toolset = OpenSearchLogsToolset()
+    toolset = OpenSearchLogsToolset().to_toolset()
     toolset.enabled = True
     toolset.status = ToolsetStatusEnum.ENABLED
     prompt = load_and_render_prompt(

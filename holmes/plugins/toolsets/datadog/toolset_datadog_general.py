@@ -12,7 +12,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolsetTag,
@@ -201,7 +201,7 @@ class DatadogGeneralConfig(DatadogBaseConfig):
     )
 
 
-class DatadogGeneralToolset(Toolset):
+class DatadogGeneralToolset(ToolsetDefinition):
     """General-purpose Datadog API toolset for read-only operations not covered by specialized toolsets."""
 
     dd_config: Optional[DatadogGeneralConfig] = None

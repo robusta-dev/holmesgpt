@@ -12,7 +12,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import (
@@ -657,7 +657,7 @@ class GetTopWorstPerformingRDSInstances(BaseDatadogRDSTool):
         return f"Getting top {top_n} worst performing RDS instances sorted by {sort_by}"
 
 
-class DatadogRDSToolset(Toolset):
+class DatadogRDSToolset(ToolsetDefinition):
     dd_config: Optional[DatadogRDSConfig] = None
 
     def __init__(self):

@@ -7,7 +7,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 
@@ -28,7 +28,7 @@ class ServiceNowConfig(BaseModel):
     instance: str
 
 
-class ServiceNowToolset(Toolset):
+class ServiceNowToolset(ToolsetDefinition):
     name: str = "ServiceNow"
     description: str = "Database containing changes information related to keys, workloads or any service."
     tags: List[ToolsetTag] = [ToolsetTag.CORE]

@@ -114,6 +114,7 @@ class ListAndBuildGrafanaDashboardURLs(Tool):
 
 
 class GrafanaToolset(BaseGrafanaToolset):
+
     def __init__(self):
         super().__init__(
             name="grafana/grafana",

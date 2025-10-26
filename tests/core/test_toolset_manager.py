@@ -11,7 +11,7 @@ from holmes.core.tools import (
     ToolsetStatusEnum,
     ToolsetTag,
     ToolsetType,
-    YAMLToolset,
+    YAMLToolsetDefinition,
 )
 from holmes.core.toolset_manager import ToolsetManager
 
@@ -60,7 +60,7 @@ def test__list_all_toolsets_merges_configs(
 def test__list_all_toolsets_override_builtin_config(
     mock_load_builtin_toolsets, toolset_manager
 ):
-    builtin_toolset = YAMLToolset(
+    builtin_toolset = YAMLToolsetDefinition(
         name="builtin",
         tags=[ToolsetTag.CORE],
         description="Builtin toolset",
@@ -75,7 +75,7 @@ def test__list_all_toolsets_override_builtin_config(
 
 @patch("holmes.core.toolset_manager.load_builtin_toolsets")
 def test__list_all_toolsets_custom_toolset(mock_load_builtin_toolsets, toolset_manager):
-    builtin_toolset = YAMLToolset(
+    builtin_toolset = YAMLToolsetDefinition(
         name="builtin",
         tags=[ToolsetTag.CORE],
         description="Builtin toolset",
@@ -334,14 +334,14 @@ def test_mcp_servers_from_config(toolset_manager):
     }
 
     toolset_manager = ToolsetManager(
-        toolsets=None,
+        toolsets_from_config=None,
         mcp_servers=mcp_servers,
         custom_toolsets=None,
         custom_toolsets_from_cli=None,
     )
-    assert len(toolset_manager.toolsets) == 1
-    assert "mcp1" in toolset_manager.toolsets
-    assert toolset_manager.toolsets["mcp1"]["type"] == ToolsetType.MCP.value
+    assert len(toolset_manager.toolsets_from_config) == 1
+    assert "mcp1" in toolset_manager.toolsets_from_config
+    assert toolset_manager.toolsets_from_config["mcp1"]["type"] == ToolsetType.MCP.value
 
 
 # Tests for transformer config merging functionality
@@ -354,7 +354,7 @@ def test_inject_fast_model_with_existing_transformers():
     global_fast_model = "gpt-4o-mini"
 
     # Create toolset with existing transformers (should get injection)
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="test_toolset",
         tags=[ToolsetTag.CORE],
         description="Test toolset",
@@ -385,7 +385,7 @@ def test_no_injection_when_no_transformers():
     global_fast_model = "gpt-4o-mini"
 
     # Create toolset without transformers
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="test_toolset", tags=[ToolsetTag.CORE], description="Test toolset"
     )
 
@@ -400,7 +400,7 @@ def test_no_injection_when_no_global_fast_model():
     """Test that nothing happens when no global fast model is provided."""
     from holmes.core.transformers import Transformer
 
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="test_toolset",
         tags=[ToolsetTag.CORE],
         description="Test toolset",
@@ -424,7 +424,7 @@ def test_injection_only_affects_llm_summarize_transformers():
 
     global_fast_model = "gpt-4o-mini"
 
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="test_toolset",
         tags=[ToolsetTag.CORE],
         description="Test toolset",
@@ -453,7 +453,7 @@ def test_list_all_toolsets_applies_fast_model_injection(mock_load_builtin_toolse
     from holmes.core.transformers import Transformer
 
     # Create toolset with transformers
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="kubernetes",
         tags=[ToolsetTag.CORE],
         description="Kubernetes toolset",

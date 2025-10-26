@@ -19,7 +19,7 @@ from holmes.core.tools import (
     Toolset,
     ToolsetStatusEnum,
     YAMLTool,
-    YAMLToolset,
+    YAMLToolsetDefinition,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_file
 
@@ -680,6 +680,7 @@ class MockToolsetManager:
         for toolset in builtin_toolsets:
             # Replace RunbookToolset with one that has test folder search path
             if toolset.name == "runbook":
+                # FIXME: We currently doing it since after the toolset loaded we cannot update additional_search_paths easily.
                 from holmes.plugins.toolsets.runbook.runbook_fetcher import (
                     RunbookToolset,
                 )
@@ -695,11 +696,11 @@ class MockToolsetManager:
                     new_runbook_toolset.config.update(toolset.config)
                 toolset = new_runbook_toolset
             elif toolset.name == "kubernetes/core":
-                if not isinstance(toolset, YAMLToolset):
+                if not isinstance(toolset, YAMLToolsetDefinition):
                     raise ValueError(
                         f"Expected kubernetes/core to be YAMLToolset, got {type(toolset)}"
                     )
-                yaml_toolset: YAMLToolset = toolset
+                yaml_toolset: YAMLToolsetDefinition = toolset
 
                 # Block secret access to prevent LLM from reading code hints in secrets
                 security_check = """# Security check (automatically added by test framework - can be ignored)
@@ -724,7 +725,7 @@ if [ "{{ kind }}" = "secret" ] || [ "{{ kind }}" = "secrets" ]; then echo "Not a
                         )
 
             # Enable default toolsets
-            if toolset.is_default or isinstance(toolset, YAMLToolset):
+            if toolset.is_default or isinstance(toolset, YAMLToolsetDefinition):
                 toolset.enabled = True
 
             # Apply custom configuration if available

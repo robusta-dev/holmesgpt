@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import (
@@ -622,7 +622,7 @@ class ListMetricTags(BaseDatadogMetricsTool):
         return f"List available tags for Datadog metric: {metric_name}"
 
 
-class DatadogMetricsToolset(Toolset):
+class DatadogMetricsToolset(ToolsetDefinition):
     dd_config: Optional[DatadogMetricsConfig] = None
 
     def __init__(self):

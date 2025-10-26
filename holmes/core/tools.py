@@ -17,6 +17,7 @@ from typing import (
     Optional,
     OrderedDict,
     Tuple,
+    TypeAlias,
     Union,
 )
 
@@ -531,42 +532,92 @@ class ToolsetEnvironmentPrerequisite(BaseModel):
     env: List[str] = []  # optional
 
 
-class Toolset(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    experimental: bool = False
+PrerequisiteCheck: TypeAlias = Union[
+    StaticPrerequisite,
+    ToolsetCommandPrerequisite,
+    ToolsetEnvironmentPrerequisite,
+    CallablePrerequisite,
+]
 
-    enabled: bool = False
+
+class ToolsetDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str
+    type: Optional[ToolsetType] = None
     docs_url: Optional[str] = None
     icon_url: Optional[str] = None
-    installation_instructions: Optional[str] = None
-    additional_instructions: Optional[str] = ""
-    prerequisites: List[
-        Union[
-            StaticPrerequisite,
-            ToolsetCommandPrerequisite,
-            ToolsetEnvironmentPrerequisite,
-            CallablePrerequisite,
-        ]
-    ] = []
-    tools: List[Tool]
-    tags: List[ToolsetTag] = Field(
-        default_factory=lambda: [ToolsetTag.CORE],
-    )
-    config: Optional[Any] = None
+    tags: List[ToolsetTag] = Field(default_factory=lambda: [ToolsetTag.CORE])
     is_default: bool = False
-    llm_instructions: Optional[str] = None
+    experimental: bool = False
+    installation_instructions: Optional[str] = None
+    llm_instructions: Optional[str] = Field(
+        default=None, description="Instructions for the LLM added to the toolset prompt"
+    )
     transformers: Optional[List[Transformer]] = None
 
-    # warning! private attributes are not copied, which can lead to subtle bugs.
-    # e.g. l.extend([some_tool]) will reset these private attribute to None
+    prerequisites: List[PrerequisiteCheck] = Field(default_factory=list)
+    tools: List[Tool | YAMLTool]
+
+    path: Optional[FilePath] = None
+
+    def _load_llm_instructions(self, jinja_template: str):
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=jinja_template,
+            context={"tool_names": tool_names, "config": self.config},
+        )
+
+    def get_example_config(self) -> Dict[str, Any]:
+        return {}
+
+    def to_toolset(
+        self, toolset_settings: Optional["ToolsetSettings"] = None
+    ) -> "Toolset":
+        return Toolset.from_definition(self, toolset_settings)
+
+
+class ToolsetSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = False
+    additional_instructions: Optional[str] = (
+        ""  # TODO: check if still needed or we can deprecate
+    )
+    config: Optional[Any] = None  # TODO: change to dict?
+
+
+class Toolset(ToolsetDefinition, ToolsetSettings):
+    model_config = ConfigDict(extra="forbid")
 
     # status fields that be cached
-    type: Optional[ToolsetType] = None
-    path: Optional[FilePath] = None
     status: ToolsetStatusEnum = ToolsetStatusEnum.DISABLED
     error: Optional[str] = None
+
+    _toolset_definition: Optional[ToolsetDefinition] = None
+    _toolset_settings: Optional[ToolsetSettings] = None
+
+    def __getattribute__(self, name: str, /) -> Any:
+        return super().__getattribute__(name)
+
+    @staticmethod
+    def from_definition(
+        toolset_definition: ToolsetDefinition,
+        toolset_settings: Optional[ToolsetSettings] = None,
+    ) -> "Toolset":
+        toolset_class = type(
+            toolset_definition.__class__.__name__,
+            (type(toolset_definition), Toolset, ToolsetSettings),
+            {},
+        )
+        if toolset_settings is None:
+            toolset_settings = ToolsetSettings()
+
+        toolset = toolset_class()
+        for field, value in toolset_settings.__dict__.items():
+            setattr(toolset, field, value)
+
+        return toolset
 
     def override_with(self, override: "Toolset") -> None:
         """
@@ -756,30 +807,16 @@ class Toolset(BaseModel):
 
         logger.info(f"✅ Toolset {self.name}")
 
-    @abstractmethod
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
 
-    def _load_llm_instructions(self, jinja_template: str):
-        tool_names = [t.name for t in self.tools]
-        self.llm_instructions = load_and_render_prompt(
-            prompt=jinja_template,
-            context={"tool_names": tool_names, "config": self.config},
-        )
-
-
-class YAMLToolset(Toolset):
-    tools: List[YAMLTool]  # type: ignore
-
+class YAMLToolsetDefinition(ToolsetDefinition):
     def __init__(self, **kwargs):
+        tools = kwargs.pop("tools", [])
+        tools = [YAMLTool(**tool) if isinstance(tool, dict) else tool for tool in tools]
+        kwargs["tools"] = tools
         super().__init__(**kwargs)
-        if self.llm_instructions:
-            self._load_llm_instructions(self.llm_instructions)
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
 
 
+# TODO: check if this is needed
 class ToolsetYamlFromConfig(Toolset):
     """
     ToolsetYamlFromConfig represents a toolset loaded from a YAML configuration file.

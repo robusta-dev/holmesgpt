@@ -215,7 +215,7 @@ class TestOpenSearchQueryAssistToolset:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.toolset = OpenSearchQueryAssistToolset()
+        self.toolset = OpenSearchQueryAssistToolset().to_toolset()
 
     def test_toolset_initialization(self):
         """Test that the toolset initializes with correct properties."""
@@ -354,7 +354,7 @@ class TestIntegration:
 
     def test_toolset_configuration_consistency(self):
         """Test that toolset configuration is consistent."""
-        toolset = OpenSearchQueryAssistToolset()
+        toolset = OpenSearchQueryAssistToolset().to_toolset()
 
         # Verify toolset properties
         assert toolset.experimental is True

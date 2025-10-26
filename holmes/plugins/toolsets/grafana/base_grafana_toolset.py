@@ -1,14 +1,14 @@
 import logging
 from typing import Any, ClassVar, Tuple, Type
 
-from holmes.core.tools import CallablePrerequisite, Tool, Toolset, ToolsetTag
+from holmes.core.tools import CallablePrerequisite, Tool, ToolsetDefinition, ToolsetTag
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 
 
-class BaseGrafanaToolset(Toolset):
+class BaseGrafanaToolset(ToolsetDefinition):
     config_class: ClassVar[Type[GrafanaConfig]] = GrafanaConfig
 
     def __init__(
@@ -29,7 +29,6 @@ class BaseGrafanaToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
-            enabled=False,
         )
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:

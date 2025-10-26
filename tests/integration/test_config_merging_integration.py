@@ -5,7 +5,7 @@ Tests the complete CLI --fast-model workflow with real-world toolset configurati
 
 from unittest.mock import patch
 
-from holmes.core.tools import YAMLTool, YAMLToolset, ToolsetTag
+from holmes.core.tools import Toolset, YAMLTool, YAMLToolsetDefinition, ToolsetTag
 from holmes.core.transformers import Transformer
 from holmes.core.toolset_manager import ToolsetManager
 
@@ -44,7 +44,7 @@ def create_kubernetes_toolset():
     )
 
     # Create toolset without fast_model (like real YAML configs)
-    return YAMLToolset(
+    return YAMLToolsetDefinition(
         name="kubernetes/core",
         tags=[ToolsetTag.CORE],
         description="Kubernetes toolset",
@@ -110,17 +110,19 @@ def test_fast_model_injection_chain():
     )
 
     # Toolset with transformers (should get injection)
-    toolset = YAMLToolset(
-        name="test_toolset",
-        tags=[ToolsetTag.CORE],
-        description="Test toolset",
-        transformers=[
-            Transformer(
-                name="llm_summarize",
-                config={"input_threshold": 1000, "prompt": "Toolset prompt"},
-            )
-        ],
-        tools=[tool_with_transformer, tool_without_transformer],
+    toolset = Toolset.from_definition(
+        YAMLToolsetDefinition(
+            name="test_toolset",
+            tags=[ToolsetTag.CORE],
+            description="Test toolset",
+            transformers=[
+                Transformer(
+                    name="llm_summarize",
+                    config={"input_threshold": 1000, "prompt": "Toolset prompt"},
+                )
+            ],
+            tools=[tool_with_transformer, tool_without_transformer],
+        )
     )
 
     with patch("holmes.core.toolset_manager.load_builtin_toolsets") as mock_load:
@@ -184,7 +186,7 @@ def test_fast_model_injection_with_different_transformers():
         transformers=tool_configs,
     )
 
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="multi_transformer_toolset",
         tags=[ToolsetTag.CORE],
         description="Multi transformer toolset",
@@ -225,7 +227,7 @@ def test_backward_compatibility():
     global_fast_model = "gpt-4o-mini"
 
     # Toolset without transformers (like some existing toolsets)
-    simple_toolset = YAMLToolset(
+    simple_toolset = YAMLToolsetDefinition(
         name="simple_toolset",
         tags=[ToolsetTag.CORE],
         description="Simple toolset without transformers",
@@ -256,7 +258,7 @@ def test_no_global_configs_no_regression():
         Transformer(name="llm_summarize", config={"input_threshold": 1000})
     ]
 
-    toolset = YAMLToolset(
+    toolset = YAMLToolsetDefinition(
         name="existing_toolset",
         tags=[ToolsetTag.CORE],
         description="Existing toolset",
@@ -303,7 +305,7 @@ def test_toolset_with_only_tool_level_transformers_gets_fast_model():
     )
 
     # Create toolset WITHOUT toolset-level transformers (like many real toolsets)
-    toolset_without_toolset_transformers = YAMLToolset(
+    toolset_without_toolset_transformers = YAMLToolsetDefinition(
         name="kubernetes/core",
         tags=[ToolsetTag.CORE],
         description="Kubernetes toolset with only tool-level transformers",
@@ -362,7 +364,7 @@ def test_toolset_with_toolset_level_transformers_works():
     )
 
     # Create toolset WITH toolset-level transformers
-    toolset_with_toolset_transformers = YAMLToolset(
+    toolset_with_toolset_transformers = YAMLToolsetDefinition(
         name="kubernetes/core",
         tags=[ToolsetTag.CORE],
         description="Kubernetes toolset with toolset-level transformers",

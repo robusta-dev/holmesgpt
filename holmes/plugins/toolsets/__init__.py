@@ -12,7 +12,13 @@ from holmes.common.env_vars import (
     DISABLE_PROMETHEUS_TOOLSET,
 )
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
+from holmes.core.tools import (
+    Toolset,
+    ToolsetDefinition,
+    ToolsetType,
+    ToolsetYamlFromConfig,
+    YAMLToolsetDefinition,
+)
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
 from holmes.plugins.toolsets.azure_sql.azure_sql_toolset import AzureSQLToolset
 from holmes.plugins.toolsets.bash.bash_toolset import BashExecutorToolset
@@ -61,7 +67,7 @@ THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 
 def load_toolsets_from_file(
     toolsets_path: str, strict_check: bool = True
-) -> List[Toolset]:
+) -> List[ToolsetDefinition]:
     toolsets = []
     with open(toolsets_path) as file:
         parsed_yaml = yaml.safe_load(file)
@@ -76,9 +82,9 @@ def load_toolsets_from_file(
     return toolsets
 
 
-def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
+def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[ToolsetDefinition]:
     logging.debug("loading python toolsets")
-    toolsets: list[Toolset] = [
+    toolsets: list[ToolsetDefinition] = [
         CoreInvestigationToolset(),  # Load first for higher priority
         InternetToolset(),
         RobustaToolset(dal),
@@ -118,8 +124,8 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
     return toolsets
 
 
-def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[Toolset]:
-    all_toolsets: List[Toolset] = []
+def load_builtin_toolsets(dal: Optional[SupabaseDal] = None) -> List[ToolsetDefinition]:
+    all_toolsets: List[ToolsetDefinition] = []
     logging.debug(f"loading toolsets from {THIS_DIR}")
 
     # Handle YAML toolsets
@@ -189,7 +195,7 @@ def load_toolsets_from_config(
             if toolset_type == ToolsetType.MCP.value:
                 validated_toolset = RemoteMCPToolset(**config, name=name)
             elif strict_check:
-                validated_toolset = YAMLToolset(**config, name=name)  # type: ignore
+                validated_toolset = YAMLToolsetDefinition(**config, name=name)  # type: ignore
             else:
                 validated_toolset = ToolsetYamlFromConfig(  # type: ignore
                     **config, name=name

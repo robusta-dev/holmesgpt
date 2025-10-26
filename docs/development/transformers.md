@@ -65,7 +65,7 @@ Tools can declare transformers in their definitions:
 ```python
 from holmes.core.transformers import Transformer
 
-class PrometheusToolset(Toolset):
+class PrometheusToolset(ToolsetDefinition):
     def __init__(self):
         super().__init__(
             name="prometheus/metrics",

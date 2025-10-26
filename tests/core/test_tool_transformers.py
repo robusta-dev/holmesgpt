@@ -8,8 +8,10 @@ from unittest.mock import Mock, patch
 from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
+    Toolset,
+    ToolsetSettings,
     YAMLTool,
-    YAMLToolset,
+    YAMLToolsetDefinition,
     ToolsetYamlFromConfig,
     StructuredToolResult,
     StructuredToolResultStatus,
@@ -103,7 +105,7 @@ class TestToolsetTransformers:
             Transformer(name="llm_summarize", config={"input_threshold": 800})
         ]
 
-        toolset = YAMLToolset(
+        toolset = YAMLToolsetDefinition(
             name="test_toolset",
             description="Test toolset with transformers",
             transformers=transformers,
@@ -154,7 +156,9 @@ class TestToolsetTransformers:
             ],
         }
 
-        toolset = YAMLToolset(**toolset_data)
+        toolset = Toolset.from_definition(
+            YAMLToolsetDefinition(**toolset_data), ToolsetSettings()
+        )
 
         # Tool without transforms should inherit from toolset
         assert toolset.tools[0].transformers == toolset_transformers
@@ -270,7 +274,7 @@ class TestBackwardCompatibility:
 
     def test_existing_toolset_compatibility(self):
         """Test that existing toolsets work without transformers."""
-        toolset = YAMLToolset(
+        toolset = YAMLToolsetDefinition(
             name="legacy_toolset", description="Legacy toolset", tools=[]
         )
 
@@ -297,7 +301,7 @@ class TestBackwardCompatibility:
             ],
         }
 
-        toolset = YAMLToolset(**toolset_data)
+        toolset = YAMLToolsetDefinition(**toolset_data)
 
         assert toolset.tools[0].transformers is None
         assert toolset.tools[1].transformers == [

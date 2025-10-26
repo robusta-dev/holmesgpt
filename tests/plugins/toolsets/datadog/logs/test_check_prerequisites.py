@@ -12,7 +12,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_missing_config(self):
         """Test check_prerequisites with no config provided"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = None
         toolset.check_prerequisites()
 
@@ -24,7 +24,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_empty_config(self):
         """Test check_prerequisites with empty config"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {}
         toolset.check_prerequisites()
 
@@ -36,7 +36,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_missing_required_fields(self):
         """Test check_prerequisites with missing required fields"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             # Missing dd_app_key and site_api_url
@@ -49,7 +49,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_invalid_config_format(self):
         """Test check_prerequisites with invalid config format"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -71,7 +71,7 @@ class TestDatadogToolsetCheckPrerequisites:
         mock_result.error = None
         mock_fetch_pod_logs.return_value = mock_result
 
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -107,7 +107,7 @@ class TestDatadogToolsetCheckPrerequisites:
         mock_result.error = "Authentication failed"
         mock_fetch_pod_logs.return_value = mock_result
 
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "invalid-api-key",
             "dd_app_key": "invalid-app-key",
@@ -127,7 +127,7 @@ class TestDatadogToolsetCheckPrerequisites:
         mock_result.error = None
         mock_fetch_pod_logs.return_value = mock_result
 
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -147,7 +147,7 @@ class TestDatadogToolsetCheckPrerequisites:
         # Mock healthcheck exception
         mock_fetch_pod_logs.side_effect = Exception("Network error")
 
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -167,7 +167,7 @@ class TestDatadogToolsetCheckPrerequisites:
         mock_result.error = None
         mock_fetch_pod_logs.return_value = mock_result
 
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -201,7 +201,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_with_empty_storage_tiers(self):
         """Test check_prerequisites with empty storage_tiers should fail validation"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -218,7 +218,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_exception_during_config_parsing(self):
         """Test check_prerequisites with exception during config parsing"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
         toolset.config = {
             "dd_api_key": "test-api-key",
             "dd_app_key": "test-app-key",
@@ -233,7 +233,7 @@ class TestDatadogToolsetCheckPrerequisites:
 
     def test_check_prerequisites_integration(self):
         """Integration test to ensure check_prerequisites is called via CallablePrerequisite"""
-        toolset = DatadogLogsToolset()
+        toolset = DatadogLogsToolset().to_toolset()
 
         # Verify the toolset has a CallablePrerequisite that calls prerequisites_callable
         assert len(toolset.prerequisites) == 1

@@ -6,7 +6,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from pydantic import BaseModel
@@ -163,7 +163,7 @@ class NewrelicConfig(BaseModel):
     format_results: Optional[bool] = False
 
 
-class NewRelicToolset(Toolset):
+class NewRelicToolset(ToolsetDefinition):
     nr_api_key: Optional[str] = None
     nr_account_id: Optional[str] = None
     is_eu_datacenter: bool = False

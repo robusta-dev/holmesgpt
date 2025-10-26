@@ -11,7 +11,7 @@ from holmes.core.tools import (
 )
 
 from holmes.core.tools import (
-    Toolset,
+    ToolsetDefinition,
     Tool,
     ToolParameter,
     ToolsetTag,
@@ -26,7 +26,7 @@ class GitHubConfig(BaseModel):
     git_branch: str = "main"
 
 
-class GitToolset(Toolset):
+class GitToolset(ToolsetDefinition):
     git_repo: Optional[str] = None
     git_credentials: Optional[str] = None
     git_branch: Optional[str] = None

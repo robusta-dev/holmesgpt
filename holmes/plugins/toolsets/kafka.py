@@ -30,7 +30,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.consts import TOOLSET_CONFIG_MISSING_ERROR
@@ -562,7 +562,7 @@ class ListKafkaClusters(BaseKafkaTool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: List Kafka Clusters"
 
 
-class KafkaToolset(Toolset):
+class KafkaToolset(ToolsetDefinition):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     clients: Dict[str, AdminClient] = {}
     kafka_config: Optional[KafkaConfig] = None

@@ -9,7 +9,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 
@@ -194,7 +194,7 @@ class RunbookFetcher(Tool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Runbook {path}"
 
 
-class RunbookToolset(Toolset):
+class RunbookToolset(ToolsetDefinition):
     def __init__(self, additional_search_paths: Optional[List[str]] = None):
         # Store additional search paths in config for RunbookFetcher to access
         config = {}

@@ -19,7 +19,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.bash.common.bash import execute_bash_command
@@ -30,7 +30,7 @@ from holmes.plugins.toolsets.bash.parse_command import make_command_safe
 from holmes.plugins.toolsets.utils import get_param_or_raise
 
 
-class BaseBashExecutorToolset(Toolset):
+class BaseBashExecutorToolset(ToolsetDefinition):
     config: Optional[BashExecutorConfig] = None
 
     def get_example_config(self):
@@ -219,7 +219,6 @@ class BashExecutorToolset(BaseBashExecutorToolset):
     def __init__(self):
         super().__init__(
             name="bash",
-            enabled=False,
             description=(
                 "Toolset for executing arbitrary bash commands on the system where Holmes is running. "
                 "WARNING: This toolset provides powerful capabilities and should be "

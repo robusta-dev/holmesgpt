@@ -18,7 +18,7 @@ from holmes.core.tools import (
     ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.core.tools_utils.token_counting import count_tool_response_tokens
@@ -1483,7 +1483,7 @@ class ExecuteRangeQuery(BasePrometheusTool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Query ({description})"
 
 
-class PrometheusToolset(Toolset):
+class PrometheusToolset(ToolsetDefinition):
     config: Optional[Union[PrometheusConfig, AMPConfig]] = None
 
     def __init__(self):

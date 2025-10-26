@@ -11,7 +11,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
@@ -130,14 +130,13 @@ class TodoWriteTool(Tool):
         return "Update investigation tasks"
 
 
-class CoreInvestigationToolset(Toolset):
+class CoreInvestigationToolset(ToolsetDefinition):
     """Core toolset for investigation management and task planning."""
 
     def __init__(self):
         super().__init__(
             name="core_investigation",
             description="Core investigation tools for task management and planning",
-            enabled=True,
             tools=[TodoWriteTool()],
             tags=[ToolsetTag.CORE],
             is_default=True,

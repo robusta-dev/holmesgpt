@@ -10,7 +10,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
 )
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
@@ -285,7 +285,7 @@ class FetchExternalConfigurationChangesMetadata(FetchConfigurationChangesMetadat
         return f"Robusta: Search External Change History {params}"
 
 
-class RobustaToolset(Toolset):
+class RobustaToolset(ToolsetDefinition):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
             enabled=True if dal else False,

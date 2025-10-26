@@ -8,7 +8,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
     ToolsetTag,
     CallablePrerequisite,
 )
@@ -220,7 +220,7 @@ class FetchWebpage(Tool):
         return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Webpage {url}"
 
 
-class InternetBaseToolset(Toolset):
+class InternetBaseToolset(ToolsetDefinition):
     additional_headers: Dict[str, str] = {}
 
     def __init__(

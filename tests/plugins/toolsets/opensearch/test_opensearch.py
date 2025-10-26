@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from holmes.core.tools import ToolsetStatusEnum
+from holmes.core.tools import ToolsetSettings, ToolsetStatusEnum
 from holmes.plugins.toolsets.opensearch.opensearch import (
     OpenSearchToolset,
 )
@@ -26,7 +26,7 @@ class TestOpenSearchToolset:
         }
 
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock OpenSearch client and health check
         with patch(
@@ -103,7 +103,7 @@ class TestOpenSearchToolset:
         }
 
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock OpenSearch client to fail health check
         with patch(
@@ -138,7 +138,7 @@ class TestOpenSearchToolset:
     def test_missing_config_fails(self):
         """Test that toolset fails when no configuration is provided."""
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset()
 
         # Set empty config and call check_prerequisites
         toolset.config = {}
@@ -167,7 +167,7 @@ class TestOpenSearchToolset:
         }
 
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock OpenSearch client
         with patch(
@@ -215,7 +215,7 @@ class TestOpenSearchToolset:
         }
 
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock OpenSearch client with different behaviors
         with patch(
@@ -276,7 +276,7 @@ class TestOpenSearchToolset:
         }
 
         # Create toolset instance
-        toolset = OpenSearchToolset()
+        toolset = OpenSearchToolset().to_toolset(ToolsetSettings(config=config))
 
         # Mock OpenSearch client to always fail
         with patch(

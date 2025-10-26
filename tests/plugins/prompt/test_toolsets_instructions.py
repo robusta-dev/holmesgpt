@@ -6,7 +6,7 @@ from holmes.core.tools import (
     Tool,
     StructuredToolResultStatus,
     ToolInvokeContext,
-    Toolset,
+    ToolsetDefinition,
 )
 
 template = "builtin://_toolsets_instructions.jinja2"
@@ -23,7 +23,7 @@ class DummyTool(Tool):
         return ""
 
 
-class MockToolset(Toolset):
+class MockToolset(ToolsetDefinition):
     def __init__(self, config: dict):
         if not config.get("description"):
             config["description"] = config.get("name")

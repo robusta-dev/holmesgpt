@@ -13,7 +13,7 @@ from holmes.core.tools import (
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
+    ToolsetDefinition,
 )
 from holmes.core.tools_utils.token_counting import count_tool_response_tokens
 from holmes.plugins.toolsets.utils import get_param_or_raise
@@ -66,7 +66,7 @@ class FetchPodLogsParams(BaseModel):
         return v
 
 
-class BasePodLoggingToolset(Toolset, ABC):
+class BasePodLoggingToolset(ToolsetDefinition, ABC):
     """Base class for all logging toolsets"""
 
     @property
