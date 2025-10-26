@@ -21,6 +21,7 @@ EXPECTED_LINES = [
     [
         ("holmes/main.py", "main.py"),
         ("server.py", "server.py"),
+        ("experimental/ag-ui/server-agui.py", "server-agui.py"),
     ],
 )
 def test_app_files_have_correct_initial_lines(file_path, file_name):
