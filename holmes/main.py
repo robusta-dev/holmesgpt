@@ -1,9 +1,6 @@
 # ruff: noqa: E402
 import os
-import sys
-
 from holmes.utils.cert_utils import add_custom_certificate
-from holmes.utils.colors import USER_COLOR
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
 if add_custom_certificate(ADDITIONAL_CERTIFICATE):
@@ -11,8 +8,8 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-
-
+import sys
+from holmes.utils.colors import USER_COLOR
 import json
 import logging
 import socket

@@ -1,11 +1,5 @@
 # ruff: noqa: E402
-import json
 import os
-from typing import List, Optional
-
-import litellm
-import sentry_sdk
-from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -14,6 +8,13 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+import json
+from typing import List, Optional
+
+import litellm
+import sentry_sdk
+from holmes import get_version, is_official_release
+
 from holmes.core import investigation
 from holmes.utils.holmes_status import update_holmes_status_in_db
 import logging
