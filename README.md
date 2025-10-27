@@ -7,6 +7,8 @@ HolmesGPT is an AI agent for investigating problems in your cloud, finding the r
 
 Find more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
 
+📚 **[Read the full documentation at holmesgpt.dev](https://holmesgpt.dev/)** for installation guides, tutorials, API reference, and more.
+
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
     <a href="#installation"><strong>Installation</strong></a> |

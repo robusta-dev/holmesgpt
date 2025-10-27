@@ -4,7 +4,7 @@ import logging
 
 from typing import Optional, Dict, Any, List
 from holmes.common.env_vars import load_bool
-from holmes.core.supabase_dal import SupabaseDal
+from holmes.core.supabase_dal import SupabaseDal, FindingType
 from holmes.core.tools import (
     StaticPrerequisite,
     Tool,
@@ -168,7 +168,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
                 required=True,
             ),
             END_TIME: ToolParameter(
-                description="The starting time boundary for the search period. String in RFC3339 format.",
+                description="The ending time boundary for the search period. String in RFC3339 format.",
                 type="string",
                 required=True,
             ),
@@ -188,7 +188,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
                         required=False,
                     ),
                     "workload": ToolParameter(
-                        description="The kubernetes workload name for filtering configuration changes. Deployment name or Pod name for example.",
+                        description="Kubernetes resource name to filter configuration changes (e.g., Pod, Deployment, Job, etc.). Must be the full name. For Pods, include the exact generated suffix.",
                         type="string",
                         required=False,
                     ),
@@ -203,10 +203,13 @@ class FetchConfigurationChangesMetadataBase(Tool):
         self._dal = dal
 
     def _fetch_change_history(
-        self, params: Dict, cluster: Optional[str] = None
+        self,
+        params: Dict,
+        cluster: Optional[str] = None,
+        finding_type: FindingType = FindingType.CONFIGURATION_CHANGE,
     ) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
-            return self._dal.get_configuration_changes_metadata(
+            return self._dal.get_issues_metadata(
                 start_datetime=params["start_datetime"],
                 end_datetime=params["end_datetime"],
                 limit=min(
@@ -216,6 +219,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
                 ns=params.get("namespace"),
                 workload=params.get("workload"),
                 cluster=cluster,
+                finding_type=finding_type,
             )
         return None
 
@@ -231,7 +235,7 @@ class FetchConfigurationChangesMetadataBase(Tool):
             else:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.NO_DATA,
-                    data=f"Could not find changes for {params}",
+                    data=f"{self.name} found no data. {params}",
                     params=params,
                 )
         except Exception as e:
@@ -254,7 +258,7 @@ class FetchConfigurationChangesMetadata(FetchConfigurationChangesMetadataBase):
             name="fetch_configuration_changes_metadata",
             description=(
                 "Fetch configuration changes metadata in a given time range. "
-                "By default, fetch all cluster changes. Can be filtered on a given namespace or a specific workload. "
+                "By default, fetch all cluster changes. Can be filtered on a given namespace or a specific kubernetes resource. "
                 "Use fetch_finding_by_id to get detailed change of one specific configuration change."
             ),
         )
@@ -285,6 +289,26 @@ class FetchExternalConfigurationChangesMetadata(FetchConfigurationChangesMetadat
         return f"Robusta: Search External Change History {params}"
 
 
+class FetchResourceIssuesMetadata(FetchConfigurationChangesMetadataBase):
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            dal=dal,
+            name="fetch_resource_issues_metadata",
+            description=(
+                "Fetch issues and alert metadata in a given time range. "
+                "Must be filtered on a given namespace and specific kubernetes resource such as pod, deployment, job, etc."
+                "Use fetch_finding_by_id to get further information on a specific issue or alert."
+            ),
+            add_cluster_filter=True,
+        )
+
+    def _fetch_resource_issues(self, params: Dict) -> Optional[List[Dict]]:  # type: ignore
+        return super()._fetch_change_history(params, finding_type=FindingType.ISSUE)
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        return f"Robusta: fetch resource issues metadata {params}"
+
+
 class RobustaToolset(Toolset):
     def __init__(self, dal: Optional[SupabaseDal]):
         dal_prereq = StaticPrerequisite(
@@ -300,6 +324,7 @@ class RobustaToolset(Toolset):
             FetchRobustaFinding(dal),
             FetchConfigurationChangesMetadata(dal),
             FetchResourceRecommendation(dal),
+            FetchResourceIssuesMetadata(dal),
         ]
 
         if PULL_EXTERNAL_FINDINGS:

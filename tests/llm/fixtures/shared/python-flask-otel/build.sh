@@ -6,7 +6,7 @@ set -e
 
 REGISTRY="me-west1-docker.pkg.dev/robusta-development/development"
 IMAGE_NAME="python-flask-otel"
-IMAGE_TAG="2.1"
+IMAGE_TAG="2.2"
 FULL_IMAGE="${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
 LOCAL_IMAGE="holmes-test/${IMAGE_NAME}:${IMAGE_TAG}"
 
@@ -33,3 +33,4 @@ echo "  - OpenTelemetry API & SDK 1.37.0"
 echo "  - OpenTelemetry Flask instrumentation 0.58b0"
 echo "  - OpenTelemetry OTLP gRPC exporter 1.37.0"
 echo "  - Requests 2.32.3"
+echo "  - Prometheus Client 0.21.1"
