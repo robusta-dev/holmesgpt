@@ -1,11 +1,6 @@
 # ruff: noqa: E402
-import json
 import os
-from typing import List, Optional
 
-import litellm
-import sentry_sdk
-from holmes import get_version, is_official_release
 from holmes.utils.cert_utils import add_custom_certificate
 
 ADDITIONAL_CERTIFICATE: str = os.environ.get("CERTIFICATE", "")
@@ -20,7 +15,12 @@ import logging
 import uvicorn
 import colorlog
 import time
+import json
+from typing import List, Optional
 
+import litellm
+import sentry_sdk
+from holmes import get_version, is_official_release
 from litellm.exceptions import AuthenticationError
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
