@@ -24,9 +24,12 @@ class MockSupabaseDal(SupabaseDal):
         try:
             super().__init__(cluster="test")
         except Exception:
+            self.enabled = True
+            self.cluster = "test"
             logging.warning(
                 "Mocksupabase dal could not connect to db. Running in pure mock mode. real db calls and --generate-mock will fail."
             )
+
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
         self._issues_metadata = issues_metadata
