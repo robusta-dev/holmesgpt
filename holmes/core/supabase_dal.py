@@ -457,11 +457,15 @@ class SupabaseDal:
         symptom = row.get("symptoms")
         title = row.get("subject_name")
         raw_instruction = row.get("runbook").get("instructions")
+        # TODO: remove in the future when we migrate the table data
         if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
             instruction = raw_instruction[0]
+        elif isinstance(raw_instruction, str):
+            # not supported by the current UI, but will be supported in the future
+            instruction = raw_instruction
         else:
             # in case the format is unexpected, convert to string
-            logging.warning(
+            logging.error(
                 f"Unexpected runbook instruction format for runbook_id={runbook_id}: {raw_instruction}"
             )
             instruction = str(raw_instruction)
