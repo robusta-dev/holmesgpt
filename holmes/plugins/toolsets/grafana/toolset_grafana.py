@@ -12,7 +12,11 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 import requests  # type: ignore
 
-from holmes.plugins.toolsets.grafana.common import get_base_url, GrafanaConfig
+from holmes.plugins.toolsets.grafana.common import (
+    get_base_url,
+    GrafanaConfig,
+    build_headers,
+)
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 
 
@@ -69,7 +73,10 @@ class BaseGrafanaTool(Tool, ABC):
             StructuredToolResult with the API response data
         """
         url = urljoin(get_base_url(self._toolset.grafana_config), endpoint)
-        headers = {"Authorization": f"Bearer {self._toolset.grafana_config.api_key}"}
+        headers = build_headers(
+            api_key=self._toolset.grafana_config.api_key,
+            additional_headers=self._toolset.grafana_config.headers,
+        )
 
         response = requests.get(url, headers=headers, params=query_params)
         response.raise_for_status()

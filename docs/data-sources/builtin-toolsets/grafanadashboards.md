@@ -23,6 +23,9 @@ A [Grafana service account token](https://grafana.com/docs/grafana/latest/admini
           url: <your grafana url>  # e.g. https://acme-corp.grafana.net or http://localhost:3000
           # Optional: Custom health check endpoint (defaults to api/health)
           # healthcheck: api/health
+          # Optional: Additional headers for all requests
+          # headers:
+          #   X-Custom-Header: "custom-value"
     ```
 
     --8<-- "snippets/toolset_refresh_warning.md"
@@ -43,6 +46,9 @@ A [Grafana service account token](https://grafana.com/docs/grafana/latest/admini
           config:
             api_key: <your grafana API key>
             url: <your grafana url>  # e.g. https://acme-corp.grafana.net
+            # Optional: Additional headers for all requests
+            # headers:
+            #   X-Custom-Header: "custom-value"
     ```
 
 ## Capabilities
