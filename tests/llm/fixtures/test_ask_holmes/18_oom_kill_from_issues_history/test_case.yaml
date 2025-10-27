@@ -13,5 +13,5 @@ after_test:
 test_type: "server"
 
 tags:
-  - medium
+  - easy
   - kubernetes
