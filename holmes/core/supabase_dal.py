@@ -467,6 +467,8 @@ class SupabaseDal:
         # TODO: remove in the future when we migrate the table data
         if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
             instruction = raw_instruction[0]
+        if isinstance(raw_instruction, list) and len(raw_instruction) > 1:
+            instruction = "\n".join(raw_instruction)
         elif isinstance(raw_instruction, str):
             # not supported by the current UI, but will be supported in the future
             instruction = raw_instruction
