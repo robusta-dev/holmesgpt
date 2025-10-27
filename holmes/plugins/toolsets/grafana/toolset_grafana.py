@@ -60,7 +60,11 @@ class BaseGrafanaTool(Tool, ABC):
         self._toolset = toolset
 
     def _make_grafana_request(
-        self, endpoint: str, params: dict, query_params: Optional[Dict] = None
+        self,
+        endpoint: str,
+        params: dict,
+        query_params: Optional[Dict] = None,
+        timeout: int = 30,
     ) -> StructuredToolResult:
         """Make a GET request to Grafana API and return structured result.
 
@@ -78,7 +82,9 @@ class BaseGrafanaTool(Tool, ABC):
             additional_headers=self._toolset.grafana_config.headers,
         )
 
-        response = requests.get(url, headers=headers, params=query_params)
+        response = requests.get(
+            url, headers=headers, params=query_params, timeout=timeout
+        )
         response.raise_for_status()
         data = response.json()
 
