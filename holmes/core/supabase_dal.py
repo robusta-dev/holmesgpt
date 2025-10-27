@@ -457,10 +457,13 @@ class SupabaseDal:
         symptom = row.get("symptoms")
         title = row.get("subject_name")
         raw_instruction = row.get("runbook").get("instructions")
-        if isinstance(raw_instruction, list) and len(raw_instruction) >= 0:
+        if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
             instruction = raw_instruction[0]
         else:
             # in case the format is unexpected, convert to string
+            logging.warning(
+                f"Unexpected runbook instruction format for runbook_id={runbook_id}: {raw_instruction}"
+            )
             instruction = str(raw_instruction)
 
         return RobustaRunbookInstruction(
