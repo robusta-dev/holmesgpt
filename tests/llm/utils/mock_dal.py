@@ -2,12 +2,14 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from pydantic import TypeAdapter
 
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tool_calling_llm import Instructions, ResourceInstructions
+from holmes.core.tool_calling_llm import ResourceInstructions
+from holmes.plugins.runbooks import RobustaRunbookInstruction
+from holmes.utils.global_instructions import Instructions
 from tests.llm.utils.test_case_utils import read_file
 
 
@@ -18,8 +20,17 @@ class MockSupabaseDal(SupabaseDal):
         issue_data: Optional[Dict],
         resource_instructions: Optional[ResourceInstructions],
         generate_mocks: bool,
+        initialize_base: bool = True,
     ):
-        super().__init__(cluster="test")
+        if initialize_base:
+            super().__init__(cluster="test")
+        else:
+            # For only using mock data without initializing the base class
+            # Don't call super().__init__ to avoid initializing Supabase connection
+            # Set necessary attributes that would normally be set by SupabaseDal.__init__
+            self.enabled = True
+            self.cluster = "test"
+
         self._issue_data = issue_data
         self._resource_instructions = resource_instructions
         self._test_case_folder = test_case_folder
@@ -63,10 +74,48 @@ class MockSupabaseDal(SupabaseDal):
 
                 return data
 
+    def get_runbook_catalog(self) -> Optional[List[RobustaRunbookInstruction]]:
+        # Try to read from mock file first
+        mock_file_path = self._get_mock_file_path("runbook_catalog")
+        if mock_file_path.exists():
+            try:
+                with open(mock_file_path, "r") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return [RobustaRunbookInstruction(**item) for item in data]
+                    return None
+            except Exception as e:
+                logging.warning(f"Failed to read runbook catalog mock file: {e}")
+        return None
+
+    def get_runbook_content(
+        self, runbook_id: str
+    ) -> Optional[RobustaRunbookInstruction]:
+        # Try to read from mock file first
+        mock_file_path = self._get_mock_file_path(f"runbook_content_{runbook_id}")
+        if mock_file_path.exists():
+            try:
+                with open(mock_file_path, "r") as f:
+                    data = json.load(f)
+                    return RobustaRunbookInstruction(**data)
+            except Exception as e:
+                logging.warning(f"Failed to read runbook content mock file: {e}")
+        return None
+
     def _get_mock_file_path(self, entity_type: str) -> Path:
         return self._test_case_folder / f"{entity_type}.json"
 
     def get_global_instructions_for_account(self) -> Optional[Instructions]:
+        # Try to read from mock file first
+        mock_file_path = self._get_mock_file_path("global_instructions")
+        if mock_file_path.exists():
+            try:
+                with open(mock_file_path, "r") as f:
+                    data = json.load(f)
+                    return Instructions(**data)
+            except Exception as e:
+                logging.warning(f"Failed to read global instructions mock file: {e}")
+
         return None
 
     def get_workload_issues(self, *args) -> list:
@@ -74,9 +123,12 @@ class MockSupabaseDal(SupabaseDal):
 
 
 pydantic_resource_instructions = TypeAdapter(ResourceInstructions)
+pydantic_instructions = TypeAdapter(Instructions)
 
 
-def load_mock_dal(test_case_folder: Path, generate_mocks: bool):
+def load_mock_dal(
+    test_case_folder: Path, generate_mocks: bool, initialize_base: bool = True
+):
     issue_data_mock_path = test_case_folder.joinpath(Path("issue_data.json"))
     issue_data = None
     if issue_data_mock_path.exists():
@@ -96,4 +148,5 @@ def load_mock_dal(test_case_folder: Path, generate_mocks: bool):
         issue_data=issue_data,
         resource_instructions=resource_instructions,
         generate_mocks=generate_mocks,
+        initialize_base=initialize_base,
     )
