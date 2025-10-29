@@ -1,9 +1,8 @@
-# Today is Thursday, ask for logs since last week mentioning specific day
 user_prompt: "Show me the logs for the pod `robusta-holmes-7bfb7f85b7-2w9ck` since last Thursday"
 tags:
   - logs
   - datetime
-  - medium  # Holmes fetches data excluding Thurday and starting Friday in 5% of cases
+  - medium
 expected_output:
   - 2025-06-12 The database at my.postgresql.com has become unavailable
   - 2025-06-13 The application temporarily suffered from memory pressure
