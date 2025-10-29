@@ -1,0 +1,75 @@
+## Loki Logs Tools Usage Guide
+
+Before running logs queries:
+
+** You are often (but not always) running in a kubernetes environment. So users might ask you questions about kubernetes workloads without explicitly stating their type.
+** When getting ambiguous questions, use kubectl_find_resource to find the resource you are being asked about!
+** Find the involved resource name and kind
+** If you can't figure out what is the type of the resource, ask the user for more information and don't guess
+
+### General guideline
+- This toolset is used to read pod logs from Loki, a log aggregation system
+- Assume the pod should have logs. If logs not found, try to adjust the query
+- Loki stores historical logs, so you can query logs for pods that no longer exist
+
+### CRITICAL: Pod Name Resolution Workflow
+
+**IMPORTANT WILDCARD USAGE:**
+- **ALWAYS use wildcards** when searching for pods unless you have the COMPLETE pod name with all suffixes
+- Kubernetes pod names include deployment hash + replica ID (e.g., `nginx-ingress-7b9899-x2km9`, `frontend-5f4d3b2a1-abc123`)
+- When user says "nginx pod" or "frontend pod", search for `nginx-*` or `frontend-*` NOT just `nginx` or `frontend`
+- Loki supports wildcards: `*` matches any characters (e.g., `nginx-*`, `*ingress*`, `*-x2km9`)
+- For partial matches, use wildcards on both sides: `*keyword*` to find logs from any pod containing "keyword"
+
+**When user provides what looks like a complete pod name** (e.g., `my-workload-5f9d8b7c4d-x2km9`):
+- Query Loki directly with that exact pod name
+- Do NOT try to verify if the pod exists in Kubernetes first
+- This allows querying historical pods that have been deleted/replaced
+
+**When user provides a simple/generic name** (e.g., "nginx", "redis", "payment-service", "auth"):
+- **DEFAULT ACTION: Use wildcards** - Query with `pod-name-*` pattern
+- For historical queries (yesterday, last week): ALWAYS use wildcards directly in Loki
+- For current issues: Optionally use `kubectl_find_resource` to find exact pod names, but wildcards often work better
+- Examples:
+  - User says "nginx pod" → Query Loki with `nginx-*`
+  - User says "redis instance" → Query Loki with `redis-*`
+  - User says "payment service" → Query Loki with `payment-*`
+
+**Why wildcards are critical:**
+- Pod names in Loki are the actual Kubernetes pod names (with random suffixes)
+- Users typically refer to pods by their deployment/service name without suffixes
+- Without wildcards, queries for "nginx" will find NOTHING when actual pods are named "nginx-7b9899-x2km9"
+- Historical pods that no longer exist can only be found via Loki with proper wildcard usage
+
+### Time Parameters
+- Use RFC3339 format: `2023-03-01T10:30:00Z`
+- Or relative seconds: `-3600` for 1 hour ago
+- Defaults to 7 days window if not specified
+
+### Filter Usage
+- The `filter` parameter performs substring matching on log content
+- Use it to search for specific error messages, keywords, or patterns
+- Example: filter="error" will return only logs containing the word "error"
+
+### Common Investigation Patterns
+
+**For Current Pod Issues:**
+1. User asks: "Show logs for payment service"
+2. Query Loki with pod_name="payment-*" to get all pods matching that pattern
+3. Apply time ranges and filters as needed
+
+**For Historical Pod Issues:**
+1. User asks: "What happened to the payment-api pod yesterday at 2pm?"
+2. Query Loki directly with pod_name="payment-*" and appropriate time range
+3. No need to verify pod existence - Loki has the historical data
+
+**For Debugging Deleted/Restarted Pods:**
+1. Pod may no longer exist in cluster
+2. Use wildcards to find all historical logs for that workload
+3. Loki retains logs even after pods are gone
+
+### Important Notes
+- Always inform the user about the actual time period fetched
+- If a limit was applied, tell the user how many logs were shown
+- If filters were applied, mention them explicitly
+- If no logs are found, suggest broader wildcards or time ranges
