@@ -23,8 +23,6 @@ ENV VIRTUAL_ENV=/app/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Needed for kubectl
-ENV VERIFY_CHECKSUM=true \
-    VERIFY_SIGNATURES=true
 RUN curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.32/deb/Release.key -o Release.key
 
 # Set the architecture-specific kube lineage URLs
@@ -59,8 +57,13 @@ RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
 RUN chmod 777 argocd
 RUN ./argocd --help
 
-# Install Helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# Install Helm - https://github.com/helm/helm-www/pull/1750/files
+RUN curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor -o /usr/share/keyrings/helm.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" \
+    | tee /etc/apt/sources.list.d/helm-stable-debian.list \
+    && apt-get update \
+    && apt-get install -y helm \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set up poetry
 ARG PRIVATE_PACKAGE_REGISTRY="none"
@@ -132,7 +135,7 @@ COPY --from=builder /app/argocd /usr/local/bin/argocd
 RUN argocd --help
 
 # Set up Helm
-COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
+COPY --from=builder /usr/bin/helm /usr/local/bin/helm
 RUN chmod 555 /usr/local/bin/helm
 RUN helm version
 
