@@ -82,14 +82,20 @@ dal = config.dal
 
 
 def sync_before_server_start():
-    try:
-        update_holmes_status_in_db(dal, config)
-    except Exception:
-        logging.error("Failed to update holmes status", exc_info=True)
-    try:
-        holmes_sync_toolsets_status(dal, config)
-    except Exception:
-        logging.error("Failed to synchronise holmes toolsets", exc_info=True)
+    # Only sync with Robusta platform if we have a token and cluster name configured
+    if dal.enabled and config.cluster_name:
+        try:
+            update_holmes_status_in_db(dal, config)
+        except Exception:
+            logging.error("Failed to update holmes status", exc_info=True)
+        try:
+            holmes_sync_toolsets_status(dal, config)
+        except Exception:
+            logging.error("Failed to synchronise holmes toolsets", exc_info=True)
+    else:
+        logging.debug(
+            "Skipping Robusta platform sync - no token or cluster name configured"
+        )
 
 
 if ENABLE_TELEMETRY and SENTRY_DSN:
@@ -107,7 +113,7 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
         )
         sentry_sdk.set_tags(
             {
-                "account_id": dal.account_id,
+                "account_id": dal.account_id if dal.enabled else None,
                 "cluster_name": config.cluster_name,
                 "version": get_version(),
                 "environment": environment,
