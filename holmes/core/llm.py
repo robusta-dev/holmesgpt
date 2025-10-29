@@ -4,7 +4,7 @@ import os
 from abc import abstractmethod
 from math import floor
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
-
+import httpx
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ModelResponse, TextCompletionResponse
@@ -402,7 +402,7 @@ class DefaultLLM(LLM):
 
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-
+        litellm.client_session = httpx.Client(verify=False)
         litellm_model_name = self.get_litellm_corrected_name_for_robusta_ai()
         result = litellm_to_use.completion(
             model=litellm_model_name,
