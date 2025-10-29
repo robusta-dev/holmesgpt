@@ -645,8 +645,13 @@ class MockToolsetManager:
 
     def _initialize_toolsets(self):
         """Initialize and configure toolsets."""
+
+        mock_dal = load_mock_dal(
+            test_case_folder=Path(self.test_case_folder),
+            generate_mocks=self.mock_generation_config.generate_mocks,
+        )
         # Load builtin toolsets
-        builtin_toolsets = load_builtin_toolsets()
+        builtin_toolsets = load_builtin_toolsets(mock_dal)
 
         # Load custom toolsets from YAML if present
         config_path = os.path.join(self.test_case_folder, "toolsets.yaml")
