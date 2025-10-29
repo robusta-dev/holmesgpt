@@ -402,7 +402,9 @@ class DefaultLLM(LLM):
 
         # Get the litellm module to use (wrapped or unwrapped)
         litellm_to_use = self.tracer.wrap_llm(litellm) if self.tracer else litellm
-        litellm.client_session = httpx.Client(verify=False)
+
+        if "ssl_verify" in self.args and self.args["ssl_verify"] is False:
+            litellm.client_session = httpx.Client(verify=False)
         litellm_model_name = self.get_litellm_corrected_name_for_robusta_ai()
         result = litellm_to_use.completion(
             model=litellm_model_name,
