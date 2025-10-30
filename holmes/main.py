@@ -29,6 +29,9 @@ from holmes.config import (
     SupportedTicketSources,
 )
 from holmes.core.prompt import build_initial_ask_messages
+from holmes.utils.global_instructions import (
+    generate_user_prompt,
+)
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.core.tracing import SpanType, TracingFactory
@@ -314,6 +317,9 @@ def ask(
         config.get_runbook_catalog(),
         system_prompt_additions,
     )
+
+
+    # user prompt templating is handled inside build_initial_ask_messages
 
     with tracer.start_trace(
         f'holmes ask "{prompt}"', span_type=SpanType.TASK
@@ -667,7 +673,8 @@ def ticket(
         + f" for issue '{issue_to_investigate.name}' with description:'{issue_to_investigate.description}'"
     )
 
-    result = ai.prompt_call(system_prompt, prompt, post_processing_prompt)
+    ticket_user_prompt = generate_user_prompt(prompt, context={})
+    result = ai.prompt_call(system_prompt, ticket_user_prompt, post_processing_prompt)
 
     console.print(Rule())
     console.print(
