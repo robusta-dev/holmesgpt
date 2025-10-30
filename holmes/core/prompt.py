@@ -3,6 +3,10 @@ from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.runbooks import RunbookCatalog
+from holmes.utils.global_instructions import (
+    generate_user_prompt,
+    generate_runbooks_args,
+)
 
 
 def append_file_to_user_prompt(user_prompt: str, file_path: Path) -> str:
@@ -70,6 +74,15 @@ def build_initial_ask_messages(
     )
 
     user_prompt_with_files += get_tasks_management_system_reminder()
+
+    runbooks_ctx = generate_runbooks_args(
+        runbook_catalog=runbooks,  # type: ignore
+    )
+    user_prompt_with_files = generate_user_prompt(
+        user_prompt_with_files,
+        runbooks_ctx,
+    )
+    
     messages = [
         {"role": "system", "content": system_prompt_rendered},
         {"role": "user", "content": user_prompt_with_files},
