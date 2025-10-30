@@ -1,4 +1,4 @@
-from typing import Optional, List, TYPE_CHECKING
+from typing import Optional, List, TYPE_CHECKING, Dict
 from pydantic import BaseModel
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.runbooks import RunbookCatalog
@@ -34,24 +34,14 @@ def _format_resource_instructions(
     return items
 
 
-def add_runbooks_to_user_prompt(
-    user_prompt: str,
+def generate_runbooks_args(
     runbook_catalog: Optional[RunbookCatalog],
     global_instructions: Optional[Instructions] = None,
     issue_instructions: Optional[List[str]] = None,
     resource_instructions: Optional["ResourceInstructions"] = None,  # type: ignore
-) -> str:
-    if (
-        not runbook_catalog
-        and not issue_instructions
-        and not resource_instructions
-        and not global_instructions
-    ):
-        return user_prompt
-
+) -> Dict[str, str]:
     catalog_str = runbook_catalog.to_prompt_string() if runbook_catalog else ""
 
-    # Combine and format all instructions
     combined_instructions = []
     if issue_instructions:
         combined_instructions.extend(issue_instructions)
@@ -71,15 +61,41 @@ def add_runbooks_to_user_prompt(
         else ""
     )
 
-    rendered = load_and_render_prompt(
-        "builtin://_runbook_instructions.jinja2",
-        context={
-            "runbook_catalog": catalog_str,
-            "custom_instructions": issue_block,
-            "global_instructions": global_block,
-        },
+    return {
+        "runbook_catalog": catalog_str,
+        "custom_instructions": issue_block,
+        "global_instructions": global_block,
+    }
+
+
+def _has_content(value: Optional[str]) -> bool:
+    """
+    Check if the value is a non-empty string and not None.
+    """
+    return bool(value and isinstance(value, str) and value.strip())
+
+
+def _should_enable_runbooks(context: Dict[str, str]) -> bool:
+    return any(
+        (
+            _has_content(context.get("runbook_catalog")),
+            _has_content(context.get("custom_instructions")),
+            _has_content(context.get("global_instructions")),
+        )
     )
 
-    if user_prompt and not user_prompt.endswith("\n"):
-        user_prompt += "\n"
-    return f"{user_prompt}\n{rendered}"
+
+def generate_user_prompt(
+    user_prompt: str,
+    context: Dict[str, str],
+) -> str:
+    runbooks_enabled = _should_enable_runbooks(context)
+
+    return load_and_render_prompt(
+        "builtin://base_user_prompt.jinja2",
+        context={
+            "user_prompt": user_prompt,
+            "runbooks_enabled": runbooks_enabled,
+            **context,
+        },
+    )
