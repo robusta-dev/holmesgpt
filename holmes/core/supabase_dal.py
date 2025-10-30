@@ -69,7 +69,14 @@ class RobustaToken(BaseModel):
 
 
 class SupabaseDnsException(Exception):
-    pass
+    def __init__(self, error: Exception, url: str):
+        message = (
+            f"\n{error.__class__.__name__}: {error}\n"
+            f"Error connecting to <{url}>\n"
+            "This is often due to DNS issues or firewall policies - to troubleshoot run in your cluster:\n"
+            f"curl -I {url}\n"
+        )
+        super().__init__(message)
 
 
 class SupabaseDal:
@@ -223,13 +230,7 @@ class SupabaseDal:
                     "nodename nor servname provided",
                 ]
             ):
-                message = (
-                    f"\n{e.__class__.__name__}: {e}\nCannot connect to Robusta SaaS <{self.url}>. "
-                    f"\nThis is often due to DNS issues or Firewall policies. "
-                    f"\nPlease run the following command in your cluster and verify it does not print 'Could not resolve host': "
-                    f"\ncurl -I {self.url}\n"
-                )
-                raise SupabaseDnsException(message) from e
+                raise SupabaseDnsException(e, self.url) from e
             raise
 
     def get_resource_recommendation(
