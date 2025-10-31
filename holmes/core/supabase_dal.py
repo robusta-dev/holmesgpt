@@ -34,6 +34,7 @@ from holmes.core.resource_instruction import (
 from holmes.core.truncation.dal_truncation_utils import (
     truncate_evidences_entities_if_necessary,
 )
+from holmes.plugins.runbooks import RobustaRunbookInstruction
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
@@ -409,6 +410,79 @@ class SupabaseDal:
             issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
 
         return issue_data
+
+    def get_runbook_catalog(self) -> Optional[List[RobustaRunbookInstruction]]:
+        if not self.enabled:
+            return None
+
+        try:
+            res = (
+                self.client.table(RUNBOOKS_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("subject_type", "RunbookCatalog")
+                .execute()
+            )
+            if not res.data:
+                return None
+
+            instructions = []
+            for row in res.data:
+                id = row.get("runbook_id")
+                symptom = row.get("symptoms")
+                title = row.get("subject_name")
+                if not symptom:
+                    logging.warning("Skipping runbook with empty symptom: %s", id)
+                    continue
+                instructions.append(
+                    RobustaRunbookInstruction(id=id, symptom=symptom, title=title)
+                )
+            return instructions
+        except Exception:
+            logging.exception("Failed to fetch RunbookCatalog", exc_info=True)
+            return None
+
+    def get_runbook_content(
+        self, runbook_id: str
+    ) -> Optional[RobustaRunbookInstruction]:
+        if not self.enabled:
+            return None
+
+        res = (
+            self.client.table(RUNBOOKS_TABLE)
+            .select("*")
+            .eq("account_id", self.account_id)
+            .eq("subject_type", "RunbookCatalog")
+            .eq("runbook_id", runbook_id)
+            .execute()
+        )
+        if not res.data or len(res.data) != 1:
+            return None
+
+        row = res.data[0]
+        id = row.get("runbook_id")
+        symptom = row.get("symptoms")
+        title = row.get("subject_name")
+        raw_instruction = row.get("runbook").get("instructions")
+        # TODO: remove in the future when we migrate the table data
+        if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
+            instruction = raw_instruction[0]
+        elif isinstance(raw_instruction, list) and len(raw_instruction) > 1:
+            # not currently used, but will be used in the future
+            instruction = "\n - ".join(raw_instruction)
+        elif isinstance(raw_instruction, str):
+            # not supported by the current UI, but will be supported in the future
+            instruction = raw_instruction
+        else:
+            # in case the format is unexpected, convert to string
+            logging.error(
+                f"Unexpected runbook instruction format for runbook_id={runbook_id}: {raw_instruction}"
+            )
+            instruction = str(raw_instruction)
+
+        return RobustaRunbookInstruction(
+            id=id, symptom=symptom, instruction=instruction, title=title
+        )
 
     def get_resource_instructions(
         self, type: str, name: Optional[str]
