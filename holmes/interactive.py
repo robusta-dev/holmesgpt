@@ -1253,9 +1253,6 @@ def run_interactive_loop(
                 )
             )
 
-            if trace_url:
-                console.print(f"🔍 View trace: {trace_url}")
-
             console.print("")
         except typer.Abort:
             break
@@ -1264,6 +1261,11 @@ def run_interactive_loop(
         except Exception as e:
             logging.error("An error occurred during interactive mode:", exc_info=e)
             console.print(f"[bold {ERROR_COLOR}]Error: {e}[/bold {ERROR_COLOR}]")
+        finally:
+            # Print trace URL for debugging (works for both success and error cases)
+            trace_url = tracer.get_trace_url()
+            if trace_url:
+                console.print(f"🔍 View trace: {trace_url}")
 
     console.print(
         f"[bold {STATUS_COLOR}]Exiting interactive mode.[/bold {STATUS_COLOR}]"
