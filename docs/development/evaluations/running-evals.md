@@ -267,4 +267,3 @@ export BRAINTRUST_ORG=your-org
 # Then run any evaluation command - results will be tracked automatically
 RUN_LIVE=true MODEL=gpt-4o,anthropic/claude-sonnet-4-20250514 pytest -m 'llm and easy'
 ```
-
