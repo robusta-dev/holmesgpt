@@ -207,7 +207,7 @@ class ShowCommandCompleter(Completer):
                         )
 
 
-WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to {agent_name}:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, '{SlashCommands.HELP.command}' for commands."
+WELCOME_BANNER = f"[bold {HELP_COLOR}]Welcome to {agent_name}:[/bold {HELP_COLOR}] Type '{SlashCommands.EXIT.command}' to exit, Type '{SlashCommands.TOOLS_CONFIG.command}' for tools, '{SlashCommands.HELP.command}' for commands."
 
 
 def format_tool_call_output(

@@ -26,25 +26,24 @@ from pydantic import (
     ConfigDict,
     Field,
     FilePath,
-    model_validator,
     PrivateAttr,
+    model_validator,
 )
 from rich.console import Console
 
 from holmes.core.llm import LLM
 from holmes.core.openai_formatting import format_tool_to_open_ai_standard
+from holmes.core.transformers import Transformer, TransformerError, registry
 from holmes.plugins.prompts import load_and_render_prompt
-from holmes.core.transformers import (
-    registry,
-    TransformerError,
-    Transformer,
-)
 
 if TYPE_CHECKING:
     from holmes.core.transformers import BaseTransformer
-from holmes.utils.config_utils import merge_transformers
+
 import time
+
 from rich.table import Table
+
+from holmes.utils.config_utils import merge_transformers
 
 logger = logging.getLogger(__name__)
 
@@ -680,7 +679,11 @@ class Toolset(BaseModel):
 
         return interpolated_command
 
-    def check_prerequisites(self):
+    def check_prerequisites(self, mute_log_status=False):
+        """Check the prerequisites for the toolset.
+        Args:
+            mute_log_status: If True, do not log the status of the toolset. Friendly for Console.
+        """
         self.status = ToolsetStatusEnum.ENABLED
 
         # Sort prerequisites by type to fail fast on missing env vars before
@@ -746,7 +749,7 @@ class Toolset(BaseModel):
                     self.status = ToolsetStatusEnum.FAILED
                     self.error = f"Prerequisite call failed unexpectedly: {str(e)}"
 
-            if (
+            if not mute_log_status and (
                 self.status == ToolsetStatusEnum.DISABLED
                 or self.status == ToolsetStatusEnum.FAILED
             ):
@@ -754,7 +757,8 @@ class Toolset(BaseModel):
                 # no point checking further prerequisites if one failed
                 return
 
-        logger.info(f"✅ Toolset {self.name}")
+        if not mute_log_status:
+            logger.info(f"✅ Toolset {self.name}")
 
     @abstractmethod
     def get_example_config(self) -> Dict[str, Any]:

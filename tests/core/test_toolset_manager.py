@@ -124,7 +124,9 @@ def test_refresh_toolset_status_creates_file(mock_list_all_toolsets, toolset_man
 
 
 @patch("holmes.core.toolset_manager.ToolsetManager._list_all_toolsets")
-def test_load_toolset_with_status_reads_cache(mock_list_all_toolsets, toolset_manager):
+def test_load_console_toolset_with_status_reads_cache(
+    mock_list_all_toolsets, toolset_manager
+):
     toolset = MagicMock(spec=Toolset)
     toolset.name = "test"
     toolset.tags = [ToolsetTag.CORE]
@@ -149,17 +151,17 @@ def test_load_toolset_with_status_reads_cache(mock_list_all_toolsets, toolset_ma
         with open(cache_path, "w") as f:
             json.dump(cache_data, f)
         toolset_manager.toolset_status_location = cache_path
-        result = toolset_manager.load_toolset_with_status()
+        result = toolset_manager.load_console_toolset_with_status()
         assert result[0].name == "test"
         assert result[0].enabled is True
 
 
-@patch("holmes.core.toolset_manager.ToolsetManager.load_toolset_with_status")
-def test_list_console_toolsets(mock_load_toolset_with_status, toolset_manager):
+@patch("holmes.core.toolset_manager.ToolsetManager.load_console_toolset_with_status")
+def test_list_console_toolsets(mock_load_console_toolset_with_status, toolset_manager):
     toolset = MagicMock(spec=Toolset)
     toolset.tags = [ToolsetTag.CORE, ToolsetTag.CLI]
     toolset.enabled = True
-    mock_load_toolset_with_status.return_value = [toolset]
+    mock_load_console_toolset_with_status.return_value = [toolset]
     result = toolset_manager.list_console_toolsets()
     assert toolset in result
 
