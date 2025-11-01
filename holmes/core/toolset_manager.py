@@ -2,7 +2,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional
 
 from benedict import benedict
 from pydantic import FilePath
@@ -76,6 +76,7 @@ class ToolsetManager:
         check_prerequisites=True,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        mute_log_status: bool = False,
     ) -> List[Toolset]:
         """
         List all built-in and custom toolsets.
@@ -137,16 +138,24 @@ class ToolsetManager:
                 enabled_toolsets.append(toolset)
             else:
                 toolset.status = ToolsetStatusEnum.DISABLED
-        self.check_toolset_prerequisites(enabled_toolsets)
+        self.check_toolset_prerequisites(
+            enabled_toolsets, mute_log_status=mute_log_status
+        )
 
         return final_toolsets
 
     @classmethod
-    def check_toolset_prerequisites(cls, toolsets: list[Toolset]):
+    def check_toolset_prerequisites(
+        cls, toolsets: list[Toolset], mute_log_status=False
+    ):
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = []
             for toolset in toolsets:
-                futures.append(executor.submit(toolset.check_prerequisites))
+                futures.append(
+                    executor.submit(
+                        toolset.check_prerequisites, mute_log_status=mute_log_status
+                    )
+                )
 
             for _ in concurrent.futures.as_completed(futures):
                 pass
@@ -193,6 +202,7 @@ class ToolsetManager:
         dal: Optional[SupabaseDal] = None,
         enable_all_toolsets=False,
         toolset_tags: Optional[List[ToolsetTag]] = None,
+        mute_log_status=True,
     ):
         """
         Refresh the status of all toolsets and cache the status to a file.
@@ -208,6 +218,7 @@ class ToolsetManager:
             check_prerequisites=True,
             enable_all_toolsets=enable_all_toolsets,
             toolset_tags=toolset_tags,
+            mute_log_status=True,
         )
 
         if self.toolset_status_location and not os.path.exists(
@@ -226,7 +237,7 @@ class ToolsetManager:
             json.dump(toolset_status, f, indent=2)
         logging.info(f"Toolset statuses are cached to {self.toolset_status_location}")
 
-    def load_toolset_with_status(
+    def load_console_toolset_with_status(
         self,
         dal: Optional[SupabaseDal] = None,
         refresh_status: bool = False,
@@ -234,20 +245,20 @@ class ToolsetManager:
         toolset_tags: Optional[List[ToolsetTag]] = None,
     ) -> List[Toolset]:
         """
-        Load the toolset with status from the cache file.
+        Load the toolset with status from the cache file for console.
         1. load the built-in toolsets
         2. load the custom toolsets from config, and override the built-in toolsets
         3. load the custom toolsets from CLI, and raise error if the custom toolset from CLI conflicts with existing toolsets
         """
-
+        logging.info("Loading toolsets...")
         if not os.path.exists(self.toolset_status_location) or refresh_status:
             logging.info("Refreshing available datasources (toolsets)")
             self.refresh_toolset_status(
-                dal, enable_all_toolsets=enable_all_toolsets, toolset_tags=toolset_tags
+                dal,
+                enable_all_toolsets=enable_all_toolsets,
+                toolset_tags=toolset_tags,
+                mute_log_status=True,
             )
-            using_cached = False
-        else:
-            using_cached = True
 
         cached_toolsets: List[dict[str, Any]] = []
         with open(self.toolset_status_location, "r") as f:
@@ -281,7 +292,9 @@ class ToolsetManager:
             ):
                 # MCP servers need to reload their tools even if previously failed, so rerun prerequisites
                 enabled_toolsets_from_cache.append(toolset)
-        self.check_toolset_prerequisites(enabled_toolsets_from_cache)
+        self.check_toolset_prerequisites(
+            enabled_toolsets_from_cache, mute_log_status=True
+        )
 
         # CLI custom toolsets status are not cached, and their prerequisites are always checked whenever the CLI runs.
         custom_toolsets_from_cli = self._load_toolsets_from_paths(
@@ -302,16 +315,17 @@ class ToolsetManager:
                 )
             enabled_toolsets_from_cli.append(custom_toolset_from_cli)
         # status of custom toolsets from cli is not cached, and we need to check prerequisites every time the cli runs.
-        self.check_toolset_prerequisites(enabled_toolsets_from_cli)
+        self.check_toolset_prerequisites(
+            enabled_toolsets_from_cli, mute_log_status=True
+        )
 
         all_toolsets_with_status.extend(custom_toolsets_from_cli)
-        if using_cached:
-            num_available_toolsets = len(
-                [toolset for toolset in all_toolsets_with_status if toolset.enabled]
-            )
-            logging.info(
-                f"Using {num_available_toolsets} datasources (toolsets). To refresh: use flag `--refresh-toolsets`"
-            )
+        num_available_toolsets = len(
+            [toolset for toolset in all_toolsets_with_status if toolset.enabled]
+        )
+        logging.info(
+            f"Using {num_available_toolsets} datasources (toolsets). To view all available toolsets: run '/tools'. To refresh: use flag `--refresh-toolsets`"
+        )
         return all_toolsets_with_status
 
     def list_console_toolsets(
@@ -323,7 +337,7 @@ class ToolsetManager:
         listing console toolset does not refresh toolset status by default, and expects the status to be
         refreshed specifically and cached locally.
         """
-        toolsets_with_status = self.load_toolset_with_status(
+        toolsets_with_status = self.load_console_toolset_with_status(
             dal,
             refresh_status=refresh_status,
             enable_all_toolsets=True,
@@ -464,6 +478,7 @@ class ToolsetManager:
         IMPORTANT: This also forces recreation of transformer instances since they may already be created.
         """
         import logging
+
         from holmes.core.transformers import registry
 
         logger = logging.getLogger(__name__)
