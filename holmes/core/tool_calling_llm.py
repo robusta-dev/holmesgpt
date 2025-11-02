@@ -9,7 +9,8 @@ from holmes.core.models import (
     ToolCallResult,
     PendingToolApproval,
 )
-
+from holmes.utils.global_instructions import generate_runbooks_args
+from holmes.core.prompt import generate_user_prompt
 import sentry_sdk
 from openai import BadRequestError
 from openai.types.chat.chat_completion_message_tool_call import (
@@ -1096,9 +1097,6 @@ class IssueInvestigator(ToolCallingLLM):
 
         base_user = ""
         base_user = f"{base_user}\n #This is context from the issue:\n{issue.raw}"
-
-        from holmes.utils.global_instructions import generate_runbooks_args
-        from holmes.core.prompt import generate_user_prompt
 
         runbooks_ctx = generate_runbooks_args(
             runbook_catalog=runbooks,
