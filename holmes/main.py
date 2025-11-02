@@ -28,10 +28,7 @@ from holmes.config import (
     SourceFactory,
     SupportedTicketSources,
 )
-from holmes.core.prompt import build_initial_ask_messages
-from holmes.utils.global_instructions import (
-    generate_user_prompt,
-)
+from holmes.core.prompt import build_initial_ask_messages, generate_user_prompt
 from holmes.core.resource_instruction import ResourceInstructionDocument
 from holmes.core.tools import pretty_print_toolset_status
 from holmes.core.tracing import SpanType, TracingFactory

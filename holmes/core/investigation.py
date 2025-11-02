@@ -10,10 +10,8 @@ from holmes.core.models import InvestigateRequest, InvestigationResult
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tracing import DummySpan, SpanType
 from holmes.plugins.runbooks import RunbookCatalog
-from holmes.utils.global_instructions import (
-    generate_runbooks_args,
-    generate_user_prompt,
-)
+from holmes.utils.global_instructions import generate_runbooks_args
+from holmes.core.prompt import generate_user_prompt
 
 from holmes.core.investigation_structured_output import (
     DEFAULT_SECTIONS,

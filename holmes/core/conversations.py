@@ -13,8 +13,8 @@ from holmes.plugins.runbooks import RunbookCatalog
 from holmes.utils.global_instructions import (
     Instructions,
     generate_runbooks_args,
-    generate_user_prompt,
 )
+from holmes.core.prompt import generate_user_prompt
 
 DEFAULT_TOOL_SIZE = 10000
 

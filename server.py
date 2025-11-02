@@ -214,10 +214,8 @@ def workload_health_check(request: WorkloadHealthRequest):
             )
 
         global_instructions = dal.get_global_instructions_for_account()
-        from holmes.utils.global_instructions import (
-            generate_runbooks_args,
-            generate_user_prompt,
-        )
+        from holmes.utils.global_instructions import generate_runbooks_args
+        from holmes.core.prompt import generate_user_prompt
 
         runbooks_ctx = generate_runbooks_args(
             runbook_catalog=runbooks,

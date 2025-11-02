@@ -1097,10 +1097,8 @@ class IssueInvestigator(ToolCallingLLM):
         base_user = ""
         base_user = f"{base_user}\n #This is context from the issue:\n{issue.raw}"
 
-        from holmes.utils.global_instructions import (
-            generate_runbooks_args,
-            generate_user_prompt,
-        )
+        from holmes.utils.global_instructions import generate_runbooks_args
+        from holmes.core.prompt import generate_user_prompt
 
         runbooks_ctx = generate_runbooks_args(
             runbook_catalog=runbooks,

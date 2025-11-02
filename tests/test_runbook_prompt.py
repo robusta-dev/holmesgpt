@@ -2,10 +2,8 @@ import pytest
 
 from types import SimpleNamespace
 
-from holmes.utils.global_instructions import (
-    generate_runbooks_args,
-    generate_user_prompt,
-)
+from holmes.utils.global_instructions import generate_runbooks_args
+from holmes.core.prompt import generate_user_prompt
 
 
 class DummyRunbookCatalog:

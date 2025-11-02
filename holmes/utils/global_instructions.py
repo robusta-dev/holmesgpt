@@ -1,6 +1,5 @@
 from typing import Optional, List, TYPE_CHECKING, Dict
 from pydantic import BaseModel
-from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.runbooks import RunbookCatalog
 
 if TYPE_CHECKING:
@@ -66,36 +65,3 @@ def generate_runbooks_args(
         "custom_instructions": issue_block,
         "global_instructions": global_block,
     }
-
-
-def _has_content(value: Optional[str]) -> bool:
-    """
-    Check if the value is a non-empty string and not None.
-    """
-    return bool(value and isinstance(value, str) and value.strip())
-
-
-def _should_enable_runbooks(context: Dict[str, str]) -> bool:
-    return any(
-        (
-            _has_content(context.get("runbook_catalog")),
-            _has_content(context.get("custom_instructions")),
-            _has_content(context.get("global_instructions")),
-        )
-    )
-
-
-def generate_user_prompt(
-    user_prompt: str,
-    context: Dict[str, str],
-) -> str:
-    runbooks_enabled = _should_enable_runbooks(context)
-
-    return load_and_render_prompt(
-        "builtin://base_user_prompt.jinja2",
-        context={
-            "user_prompt": user_prompt,
-            "runbooks_enabled": runbooks_enabled,
-            **context,
-        },
-    )
