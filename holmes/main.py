@@ -318,7 +318,6 @@ def ask(
         system_prompt_additions,
     )
 
-
     # user prompt templating is handled inside build_initial_ask_messages
 
     with tracer.start_trace(

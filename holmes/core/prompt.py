@@ -82,7 +82,7 @@ def build_initial_ask_messages(
         user_prompt_with_files,
         runbooks_ctx,
     )
-    
+
     messages = [
         {"role": "system", "content": system_prompt_rendered},
         {"role": "user", "content": user_prompt_with_files},
