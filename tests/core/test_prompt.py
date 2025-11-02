@@ -33,6 +33,7 @@ from holmes.utils.global_instructions import generate_runbooks_args
 
 class DummyRunbookCatalog:
     """Mock runbook catalog for testing."""
+
     def to_prompt_string(self):
         return "RUNBOOK CATALOG PROMPT"
 
@@ -88,43 +89,43 @@ def mock_dal():
 
 def get_user_message_from_messages(messages: list, get_last: bool = False) -> str:
     """Extract user message content from messages list.
-    
+
     Args:
         messages: List of message dictionaries with 'role' and 'content' keys
         get_last: If True, return the last user message (for conversation history).
                   If False, assert exactly one user message exists.
-        
+
     Returns:
         Content of the user message
-        
+
     Raises:
         AssertionError: If no user message found, or if get_last=False and multiple user messages found
     """
     user_messages = [m for m in messages if m.get("role") == "user"]
     assert len(user_messages) > 0, "No user messages found in messages list"
-    
+
     if get_last:
         return user_messages[-1]["content"]
     else:
-        assert len(user_messages) == 1, (
-            f"Expected exactly one user message, found {len(user_messages)}"
-        )
+        assert (
+            len(user_messages) == 1
+        ), f"Expected exactly one user message, found {len(user_messages)}"
         return user_messages[0]["content"]
 
 
 def create_test_files(file_paths: list, tmp_path: Path) -> Optional[list]:
     """Create test files in temporary directory.
-    
+
     Args:
         file_paths: List of file names to create
         tmp_path: Temporary directory path
-        
+
     Returns:
         List of Path objects for created files, or None if no files to create
     """
     if not file_paths:
         return None
-    
+
     test_files = []
     for file_name in file_paths:
         test_file = tmp_path / file_name
@@ -167,7 +168,7 @@ def create_workload_health_chat_request(user_ask: str, resource: Optional[dict] 
     """Create a WorkloadHealthChatRequest for testing."""
     if resource is None:
         resource = {"kind": "Deployment", "name": "my-app"}
-    
+
     return WorkloadHealthChatRequest(
         ask=user_ask,
         conversation_history=None,
@@ -189,9 +190,9 @@ def assert_user_prompt_contains_timestamp(user_prompt: str):
         f"User prompt content:\n{user_prompt}"
     )
     timestamp_value = int(match.group(1))
-    assert 946684800 <= timestamp_value <= 32503680000, (
-        f"Timestamp value {timestamp_value} is outside reasonable range"
-    )
+    assert (
+        946684800 <= timestamp_value <= 32503680000
+    ), f"Timestamp value {timestamp_value} is outside reasonable range"
     return timestamp_value
 
 
@@ -204,23 +205,33 @@ def validate_user_prompt(
     expected_resource_instructions: Optional[list] = None,
 ):
     """Validate user prompt contains expected components."""
-    assert original_prompt in user_content, f"Original prompt '{original_prompt}' not found in user content"
+    assert (
+        original_prompt in user_content
+    ), f"Original prompt '{original_prompt}' not found in user content"
     assert_user_prompt_contains_timestamp(user_content)
-    
+
     if expected_runbooks:
-        assert "RUNBOOK CATALOG PROMPT" in user_content, "Runbook catalog not found when expected"
-    
+        assert (
+            "RUNBOOK CATALOG PROMPT" in user_content
+        ), "Runbook catalog not found when expected"
+
     if expected_global_instructions:
         for instruction in expected_global_instructions:
-            assert instruction in user_content, f"Global instruction '{instruction}' not found"
-    
+            assert (
+                instruction in user_content
+            ), f"Global instruction '{instruction}' not found"
+
     if expected_issue_instructions:
         for instruction in expected_issue_instructions:
-            assert f"* {instruction}" in user_content, f"Issue instruction '{instruction}' not found"
-    
+            assert (
+                f"* {instruction}" in user_content
+            ), f"Issue instruction '{instruction}' not found"
+
     if expected_resource_instructions:
         for instruction in expected_resource_instructions:
-            assert f"* {instruction}" in user_content, f"Resource instruction '{instruction}' not found"
+            assert (
+                f"* {instruction}" in user_content
+            ), f"Resource instruction '{instruction}' not found"
 
 
 class TestBuildInitialAskMessages:
@@ -246,7 +257,7 @@ class TestBuildInitialAskMessages:
     ):
         """Test user prompt in ask command flow with various configurations."""
         test_files = create_test_files(file_paths, tmp_path)
-        
+
         messages = build_initial_ask_messages(
             console,
             user_prompt,
@@ -255,20 +266,20 @@ class TestBuildInitialAskMessages:
             runbooks,
             None,
         )
-        
+
         assert len(messages) == 2
         assert messages[0]["role"] == "system"
-        
+
         user_content = get_user_message_from_messages(messages)
-        
+
         validate_user_prompt(
             user_content,
             user_prompt,
             expected_runbooks=runbooks is not None,
         )
-        
+
         assert get_tasks_management_system_reminder() in user_content
-        
+
         if test_files:
             for test_file in test_files:
                 assert test_file.read_text() in user_content
@@ -354,11 +365,11 @@ class TestServerFlows:
             additional_system_prompt=None,
             runbooks=runbooks,
         )
-        
+
         user_content = get_user_message_from_messages(
             messages, get_last=True if conversation_history else False
         )
-        
+
         validate_user_prompt(
             user_content,
             user_ask,
@@ -382,7 +393,7 @@ class TestServerFlows:
     ):
         """Test user prompt in /api/issue_chat flow."""
         issue_chat_request = create_issue_chat_request(user_ask)
-        
+
         messages = build_issue_chat_messages(
             issue_chat_request=issue_chat_request,
             ai=mock_ai,
@@ -390,7 +401,7 @@ class TestServerFlows:
             global_instructions=global_instructions,
             runbooks=None,
         )
-        
+
         user_content = get_user_message_from_messages(messages)
         validate_user_prompt(
             user_content,
@@ -402,7 +413,7 @@ class TestServerFlows:
         """Test user prompt in /api/workload_health_chat flow."""
         user_ask = "Why is my pod unhealthy?"
         workload_health_chat_request = create_workload_health_chat_request(user_ask)
-        
+
         messages = build_workload_health_chat_messages(
             workload_health_chat_request=workload_health_chat_request,
             ai=mock_ai,
@@ -410,7 +421,7 @@ class TestServerFlows:
             global_instructions=None,
             runbooks=None,
         )
-        
+
         user_content = get_user_message_from_messages(messages)
         validate_user_prompt(user_content, user_ask)
 
@@ -437,9 +448,9 @@ class TestServerFlows:
             global_instructions=global_instructions,
             issue_instructions=issue_instructions,
         )
-        
+
         final_prompt = generate_user_prompt(user_ask, runbooks_ctx)
-        
+
         validate_user_prompt(
             final_prompt,
             user_ask,
@@ -455,7 +466,7 @@ class TestInvestigationFlow:
         """Test user prompt in /api/investigate flow."""
         mock_investigator = create_mock_investigator()
         mock_config.create_issue_investigator = Mock(return_value=mock_investigator)
-        
+
         investigate_request = InvestigateRequest(
             title="Test Alert",
             description="Test description",
@@ -464,11 +475,11 @@ class TestInvestigationFlow:
             context={"robusta_issue_id": "test-123"},
             prompt_template="builtin://generic_investigation.jinja2",
         )
-        
+
         _, _, user_prompt, _, _, _ = get_investigation_context(
             investigate_request, mock_dal, mock_config
         )
-        
+
         assert user_prompt is not None
         assert isinstance(user_prompt, str)
         assert "context from the issue" in user_prompt.lower()
@@ -509,13 +520,13 @@ class TestUserPromptComponents:
             issue_instructions=issue_instructions,
             resource_instructions=resource_instructions,
         )
-        
+
         final_prompt = generate_user_prompt(user_prompt, ctx)
-        
+
         expected_resource_instructions = (
             resource_instructions.instructions if resource_instructions else None
         )
-        
+
         validate_user_prompt(
             final_prompt,
             user_prompt,
