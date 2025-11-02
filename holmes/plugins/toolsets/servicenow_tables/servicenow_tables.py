@@ -247,7 +247,7 @@ class GetRecords(BaseServiceNowTool):
                     required=False,
                 ),
                 "sysparm_fields": ToolParameter(
-                    description="Comma-separated list of fields to return in the response. Invalid fields are ignored.",
+                    description="Comma-separated list of fields to return in the response. If not provided, all fields will be returned. Invalid fields are ignored.",
                     type="string",
                     required=False,
                 ),
@@ -373,7 +373,7 @@ class GetRecord(BaseServiceNowTool):
                     required=True,
                 ),
                 "sys_id": ToolParameter(
-                    description="The value of the sys_id field of the record to retrieve. Every ServiceNow record has a unique sys_id field that serves as its primary identifier.",
+                    description="The EXACT sys_id value from a real ServiceNow record. WARNING: You MUST NOT fabricate, guess, or create sys_id values. This value MUST come from: 1) The user providing it explicitly, or 2) A previous servicenow_get_records API response. If you don't have a real sys_id, use servicenow_get_records first to search for records.",
                     type="string",
                     required=True,
                 ),
@@ -388,7 +388,7 @@ class GetRecord(BaseServiceNowTool):
                     required=False,
                 ),
                 "sysparm_fields": ToolParameter(
-                    description="Comma-separated list of fields to return in the response. Invalid fields are ignored.",
+                    description="Comma-separated list of fields to return in the response. If not provided, all fields will be returned. Invalid fields are ignored.",
                     type="string",
                     required=False,
                 ),
