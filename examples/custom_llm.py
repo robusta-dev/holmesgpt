@@ -7,7 +7,7 @@ from holmes.plugins.toolsets import load_builtin_toolsets
 from pydantic import BaseModel
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.utils.global_instructions import generate_user_prompt
+from holmes.core.prompt import generate_user_prompt
 
 
 class MyCustomLLM(LLM):
