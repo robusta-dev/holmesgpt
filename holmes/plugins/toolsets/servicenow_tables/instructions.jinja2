@@ -1,0 +1,52 @@
+## ServiceNow Tables Toolset
+
+This toolset provides access to ServiceNow tables for retrieving records and data.
+
+### Available Tools
+
+1. **servicenow_get_records**: Retrieve multiple records from a ServiceNow table with filtering capabilities
+2. **servicenow_get_record**: Retrieve a single record by its sys_id
+
+### Query Syntax
+
+The `sysparm_query` parameter supports a powerful query language:
+- Use `^` for AND conditions
+- Use `^OR` for OR conditions
+- Common operators:
+  - `=` (equals)
+  - `!=` (not equals)
+  - `LIKE` (contains)
+  - `STARTSWITH`
+  - `ENDSWITH`
+  - `CONTAINS`
+  - `ISNOTEMPTY`
+  - `ISEMPTY`
+  - `<`, `<=`, `>`, `>=` (comparisons)
+  - `BETWEEN` (for date ranges)
+
+Example: `active=true^priority=1^short_descriptionLIKEerror`
+
+### Useful Tables
+
+{# List of useful tables - to be filled in by user #}
+
+### Discovering Tables
+
+To discover available tables in ServiceNow, you can query the system table catalog:
+
+```
+table_name: sys_db_object
+sysparm_fields: name,label,description
+sysparm_query: nameSTARTSWITHincident
+```
+
+This will return tables with names starting with "incident". You can modify the query to search for other table patterns.
+
+**Note**: ServiceNow contains many tables, so it's recommended to filter your search using `STARTSWITH`, `CONTAINS`, or `LIKE` operators to find relevant tables efficiently.
+
+### Tips for Usage
+
+1. Use `sysparm_view=mobile` to get a concise set of fields when exploring data
+2. Use `sysparm_fields` to specify exactly which fields you need to reduce response size
+3. The default limit is 100 records; increase it if you need more data
+4. Display values are returned by default (human-readable format)
