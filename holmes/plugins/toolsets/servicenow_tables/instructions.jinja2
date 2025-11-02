@@ -35,6 +35,12 @@ Example: `active=true^priority=1^short_descriptionLIKEerror`
 - ✅ Correct: `cmdb_ci=b0ccabf1c0a80009001f14fd151d8df0`
 - ❌ Wrong: `cmdb_ciLIKE827b692d0ad337021abb72d3737ff401`
 
+**Date Queries - Best Practice**:
+Use `>=` and `<=` operators for date ranges. When using date-only format (YYYY-MM-DD), ServiceNow includes the entire day.
+- ✅ Recommended: `sys_created_on>=2024-01-01^sys_created_on<=2024-01-31` (includes all of Jan 31)
+- With time: `sys_created_on>=2024-01-01 00:00:00^sys_created_on<=2024-01-31 23:59:59`
+- Avoid BETWEEN operator as date handling can be inconsistent
+
 ### Understanding Field Types
 
 In ServiceNow, fields can be of different types:

@@ -224,9 +224,9 @@ class GetRecords(BaseServiceNowTool):
                         "Use ^ for AND, ^OR for OR. "
                         "Common operators: = (equals), != (not equals), LIKE (contains), "
                         "STARTSWITH, ENDSWITH, CONTAINS, ISNOTEMPTY, ISEMPTY, "
-                        "< (less than), <= (less than or equal), > (greater than), >= (greater than or equal), "
-                        "BETWEEN (for date ranges). "
-                        "Example: active=true^priority=1^short_descriptionLIKEerror"
+                        "< (less than), <= (less than or equal), > (greater than), >= (greater than or equal). "
+                        "Date queries: Use >= and <= operators. Date-only format (YYYY-MM-DD) includes entire day. "
+                        "Examples: sys_created_on>=2024-01-01^sys_created_on<=2024-01-31 or with time: sys_created_on>=2024-01-01 00:00:00"
                     ),
                     type="string",
                     required=False,
