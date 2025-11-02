@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from postgrest.base_request_builder import QueryArgs
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
@@ -38,6 +39,7 @@ from holmes.plugins.runbooks import RobustaRunbookInstruction
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
+from postgrest._sync import request_builder as supabase_request_builder
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
@@ -53,6 +55,21 @@ SCANS_RESULTS_TABLE = "ScansResults"
 
 ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
 ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
+
+
+logging.info("Patching supabase_request_builder.pre_select")
+original_pre_select = supabase_request_builder.pre_select
+
+
+def pre_select_patched(*args, **kwargs):
+    args: QueryArgs = original_pre_select(*args, **kwargs)
+    if not args.json:
+        args = QueryArgs(args.method, args.params, args.headers, None)
+
+    return args
+
+
+supabase_request_builder.pre_select = pre_select_patched
 
 
 class FindingType(str, Enum):
