@@ -39,14 +39,13 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         #       key: openai-api-key
 
         modelList:
-          gpt-4o:
+          gpt-4.1:
             api_key: "{{ env.OPENAI_API_KEY }}"
-            model: openai/gpt-4o
+            model: openai/gpt-4.1
             temperature: 0
-          gpt-4o-mini:
+          gpt-5:
             api_key: "{{ env.OPENAI_API_KEY }}"
-            model: openai/gpt-4o-mini
-            temperature: 0
+            model: openai/gpt-5
         ```
 
     === "Anthropic"
@@ -111,18 +110,17 @@ Deploy HolmesGPT as a service in your Kubernetes cluster with an HTTP API.
         # Or load from secrets (recommended)
 
         modelList:
-          gpt-4o:
+          gpt-4.1:
             api_key: "{{ env.OPENAI_API_KEY }}"
-            model: openai/gpt-4o
+            model: openai/gpt-4.1
             temperature: 0
           claude-sonnet:
             api_key: "{{ env.ANTHROPIC_API_KEY }}"
             model: anthropic/claude-3-5-sonnet-20241022
             temperature: 0
-          gpt-4o-mini:
+          gpt-5:
             api_key: "{{ env.OPENAI_API_KEY }}"
-            model: openai/gpt-4o-mini
-            temperature: 0
+            model: openai/gpt-5
         ```
 
         > **Configuration Guide:** Each AI provider requires different environment variables. See the [AI Providers documentation](../ai-providers/index.md) for the specific environment variables needed for your chosen provider, then add them to the `additionalEnvVars` section as shown above. For a complete list of all environment variables, see the [Environment Variables Reference](../reference/environment-variables.md). For advanced multiple provider setup, see [Using Multiple Providers](../ai-providers/using-multiple-providers.md).
