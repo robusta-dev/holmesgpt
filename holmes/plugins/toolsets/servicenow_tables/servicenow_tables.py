@@ -373,7 +373,7 @@ class GetRecord(BaseServiceNowTool):
                     required=True,
                 ),
                 "sys_id": ToolParameter(
-                    description="The unique system ID of the record to retrieve",
+                    description="The value of the sys_id field of the record to retrieve. Every ServiceNow record has a unique sys_id field that serves as its primary identifier.",
                     type="string",
                     required=True,
                 ),
