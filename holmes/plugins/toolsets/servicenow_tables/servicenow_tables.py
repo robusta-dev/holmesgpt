@@ -83,7 +83,7 @@ class ServiceNowTablesToolset(Toolset):
         """Perform a health check by making a minimal API call."""
         try:
             # Query sys_db_object table with minimal data
-            self._make_api_request(
+            data, headers = self._make_api_request(
                 endpoint="api/now/v2/table/sys_db_object",
                 query_params={"sysparm_limit": 1, "sysparm_fields": "sys_id"},
                 timeout=10,
@@ -133,8 +133,8 @@ class ServiceNowTablesToolset(Toolset):
         endpoint: str,
         query_params: Optional[Dict] = None,
         timeout: int = 30,
-    ) -> Dict[str, Any]:
-        """Make a GET request to ServiceNow API and return JSON data.
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Make a GET request to ServiceNow API and return JSON data and headers.
 
         Args:
             endpoint: API endpoint path (e.g., "api/now/v2/table/incident")
@@ -142,7 +142,7 @@ class ServiceNowTablesToolset(Toolset):
             timeout: Request timeout in seconds
 
         Returns:
-            Parsed JSON response data
+            Tuple of (parsed JSON response data, response headers dict)
 
         Raises:
             requests.exceptions.HTTPError: For HTTP error responses (4xx, 5xx)
@@ -164,7 +164,7 @@ class ServiceNowTablesToolset(Toolset):
             url, headers=headers, params=query_params, timeout=timeout
         )
         response.raise_for_status()
-        return response.json()
+        return response.json(), dict(response.headers)
 
 
 class BaseServiceNowTool(Tool, ABC):
@@ -195,7 +195,7 @@ class BaseServiceNowTool(Tool, ABC):
         # TODO: Add URL to the result for better debugging and error messages
 
         # Use the toolset's shared API request method
-        data = self._toolset._make_api_request(
+        data, headers = self._toolset._make_api_request(
             endpoint=endpoint, query_params=query_params, timeout=timeout
         )
 
@@ -211,7 +211,7 @@ class GetRecords(BaseServiceNowTool):
         super().__init__(
             toolset=toolset,
             name="servicenow_get_records",
-            description="Retrieves multiple records for the specified table using GET /api/now/v2/table/{tableName}",
+            description="Retrieves multiple records for the specified table using GET /api/now/v2/table/{tableName}. Returns the records data along with response headers including 'Link' (for pagination) and 'X-Total-Count' (total number of records) if provided by the API.",
             parameters={
                 "table_name": ToolParameter(
                     description="The name of the ServiceNow table to query",
@@ -257,6 +257,14 @@ class GetRecords(BaseServiceNowTool):
                         "For requests that exceed this number of records, use the sysparm_offset parameter to paginate record retrieval. "
                         "This limit is applied before ACL evaluation. If no records return, including records you have access to, "
                         "rearrange the record order so records you have access to return first."
+                    ),
+                    type="integer",
+                    required=False,
+                ),
+                "sysparm_offset": ToolParameter(
+                    description=(
+                        "Starting record index for pagination. Use this with sysparm_limit to paginate through large result sets. "
+                        "For example, to get records 101-200, use sysparm_offset=100 with sysparm_limit=100."
                     ),
                     type="integer",
                     required=False,
@@ -314,11 +322,38 @@ class GetRecords(BaseServiceNowTool):
         else:
             query_params["sysparm_limit"] = 100
 
+        # Handle sysparm_offset for pagination
+        if params.get("sysparm_offset") is not None:
+            query_params["sysparm_offset"] = params["sysparm_offset"]
+
         if params.get("sysparm_view"):
             query_params["sysparm_view"] = params["sysparm_view"]
 
         endpoint = f"/api/now/v2/table/{table_name}"
-        return self._make_servicenow_request(endpoint, params, query_params)
+
+        # Get data and headers from the API request
+        data, headers = self._toolset._make_api_request(
+            endpoint=endpoint, query_params=query_params, timeout=30
+        )
+
+        # Create the response with records and relevant headers
+        response_data = {
+            "result": data.get("result", []),
+        }
+
+        # Include Link header if present
+        if "Link" in headers:
+            response_data["Link"] = headers["Link"]
+
+        # Include X-Total-Count header if present
+        if "X-Total-Count" in headers:
+            response_data["X-Total-Count"] = headers["X-Total-Count"]
+
+        return StructuredToolResult(
+            status=StructuredToolResultStatus.SUCCESS,
+            data=response_data,
+            params=params,
+        )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         table_name = params.get("table_name", "unknown")
