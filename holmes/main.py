@@ -315,8 +315,6 @@ def ask(
         system_prompt_additions,
     )
 
-    # user prompt templating is handled inside build_initial_ask_messages
-
     with tracer.start_trace(
         f'holmes ask "{prompt}"', span_type=SpanType.TASK
     ) as trace_span:
