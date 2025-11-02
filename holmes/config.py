@@ -481,7 +481,6 @@ class Config(RobustaBaseConfig):
         model_params = model_entry.model_dump(exclude_none=True)
         api_base = self.api_base
         api_version = self.api_version
-        print(f"model_entry {model_entry}")
         is_robusta_model = model_params.pop("is_robusta_model", False)
         sentry_sdk.set_tag("is_robusta_model", is_robusta_model)
         if is_robusta_model:
