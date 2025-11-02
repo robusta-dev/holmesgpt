@@ -7,15 +7,20 @@ This toolset provides access to ServiceNow tables for retrieving records and dat
 1. **servicenow_get_records**: Retrieve multiple records from a ServiceNow table with filtering capabilities
 2. **servicenow_get_record**: Retrieve a single record by its sys_id
 
+**IMPORTANT**: For servicenow_get_record, you MUST have a valid sys_id value that was either:
+- Provided by the user
+- Obtained from a previous servicenow_get_records call
+- Never guess or make up sys_id values - they are unique identifiers that must come from a legitimate source
+
 ### Query Syntax
 
 The `sysparm_query` parameter supports a powerful query language:
 - Use `^` for AND conditions
 - Use `^OR` for OR conditions
 - Common operators:
-  - `=` (equals)
+  - `=` (equals) - Use for exact matches, REQUIRED for reference fields
   - `!=` (not equals)
-  - `LIKE` (contains)
+  - `LIKE` (contains) - Use for partial string matches on text fields only
   - `STARTSWITH`
   - `ENDSWITH`
   - `CONTAINS`
@@ -26,9 +31,29 @@ The `sysparm_query` parameter supports a powerful query language:
 
 Example: `active=true^priority=1^short_descriptionLIKEerror`
 
+**CRITICAL**: Reference fields (fields that link to other records) MUST use the `=` operator with the exact sys_id value. Never use `LIKE` with reference fields.
+- ✅ Correct: `cmdb_ci=b0ccabf1c0a80009001f14fd151d8df0`
+- ❌ Wrong: `cmdb_ciLIKE827b692d0ad337021abb72d3737ff401`
+
+### Understanding Field Types
+
+In ServiceNow, fields can be of different types:
+- **Text fields**: Store plain text (use LIKE, CONTAINS, STARTSWITH for partial matches)
+- **Reference fields**: Store links to other records via sys_id (MUST use = for exact match)
+- **Boolean fields**: Store true/false values
+- **Date/Time fields**: Store timestamps (use comparison operators)
+
+How to identify reference fields:
+- When `sysparm_display_value=all`, reference fields return an object with {display_value, link, value}
+- The 'value' property contains the sys_id
+- Common reference fields: cmdb_ci, assigned_to, caller_id, company, location
+
 ### Useful Tables
 
-{# List of useful tables - to be filled in by user #}
+- **cmdb_ci** - Configuration items (applications, servers, infrastructure). Search by name to get sys_id.
+- **change_request** - Links to CIs via cmdb_ci field. Use CI's sys_id to find who requested changes, when, and completion status.
+
+{# Additional tables can be added by user #}
 
 ### Discovering Tables
 
