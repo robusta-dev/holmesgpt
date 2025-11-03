@@ -1,6 +1,5 @@
 # Build stage
-FROM python:3.11-slim-bookworm as builder
-ENV PATH="/root/.local/bin/:$PATH"
+FROM us-central1-docker.pkg.dev/genuine-flight-317411/devel/holmes:0.16.0
 
 RUN apt-get update \
     && apt-get install -y \
