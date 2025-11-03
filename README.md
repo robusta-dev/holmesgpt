@@ -192,7 +192,7 @@ Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluati
 
 
 ## License
-Distributed under the Apache 2.0 License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
+Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE) for more information.
 <!-- Change License -->
 
 ## Community
