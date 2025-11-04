@@ -6,9 +6,11 @@ import logging
 import os
 import threading
 from datetime import datetime, timedelta
+from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from postgrest.base_request_builder import QueryArgs
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
@@ -33,9 +35,11 @@ from holmes.core.resource_instruction import (
 from holmes.core.truncation.dal_truncation_utils import (
     truncate_evidences_entities_if_necessary,
 )
+from holmes.plugins.runbooks import RobustaRunbookInstruction
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
+from postgrest._sync import request_builder as supabase_request_builder
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
@@ -51,6 +55,28 @@ SCANS_RESULTS_TABLE = "ScansResults"
 
 ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
 ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
+
+
+logging.info("Patching supabase_request_builder.pre_select")
+original_pre_select = supabase_request_builder.pre_select
+
+
+def pre_select_patched(*args, **kwargs):
+    query_args: QueryArgs = original_pre_select(*args, **kwargs)
+    if not query_args.json:
+        query_args = QueryArgs(
+            query_args.method, query_args.params, query_args.headers, None
+        )
+
+    return query_args
+
+
+supabase_request_builder.pre_select = pre_select_patched
+
+
+class FindingType(str, Enum):
+    ISSUE = "issue"
+    CONFIGURATION_CHANGE = "configuration_change"
 
 
 class RobustaToken(BaseModel):
@@ -237,7 +263,7 @@ class SupabaseDal:
             logging.exception("Supabase error while retrieving efficiency data")
             return None
 
-    def get_configuration_changes_metadata(
+    def get_issues_metadata(
         self,
         start_datetime: str,
         end_datetime: str,
@@ -245,6 +271,7 @@ class SupabaseDal:
         workload: Optional[str] = None,
         ns: Optional[str] = None,
         cluster: Optional[str] = None,
+        finding_type: FindingType = FindingType.CONFIGURATION_CHANGE,
     ) -> Optional[List[Dict]]:
         if not self.enabled:
             return []
@@ -265,12 +292,12 @@ class SupabaseDal:
                 )
                 .eq("account_id", self.account_id)
                 .eq("cluster", cluster)
-                .eq("finding_type", "configuration_change")
                 .gte("creation_date", start_datetime)
                 .lte("creation_date", end_datetime)
                 .limit(limit)
             )
 
+            query = query.eq("finding_type", finding_type.value)
             if workload:
                 query.eq("subject_name", workload)
             if ns:
@@ -402,6 +429,79 @@ class SupabaseDal:
             issue_data["end_timestamp_millis"] = int(end_timestamp.timestamp() * 1000)
 
         return issue_data
+
+    def get_runbook_catalog(self) -> Optional[List[RobustaRunbookInstruction]]:
+        if not self.enabled:
+            return None
+
+        try:
+            res = (
+                self.client.table(RUNBOOKS_TABLE)
+                .select("*")
+                .eq("account_id", self.account_id)
+                .eq("subject_type", "RunbookCatalog")
+                .execute()
+            )
+            if not res.data:
+                return None
+
+            instructions = []
+            for row in res.data:
+                id = row.get("runbook_id")
+                symptom = row.get("symptoms")
+                title = row.get("subject_name")
+                if not symptom:
+                    logging.warning("Skipping runbook with empty symptom: %s", id)
+                    continue
+                instructions.append(
+                    RobustaRunbookInstruction(id=id, symptom=symptom, title=title)
+                )
+            return instructions
+        except Exception:
+            logging.exception("Failed to fetch RunbookCatalog", exc_info=True)
+            return None
+
+    def get_runbook_content(
+        self, runbook_id: str
+    ) -> Optional[RobustaRunbookInstruction]:
+        if not self.enabled:
+            return None
+
+        res = (
+            self.client.table(RUNBOOKS_TABLE)
+            .select("*")
+            .eq("account_id", self.account_id)
+            .eq("subject_type", "RunbookCatalog")
+            .eq("runbook_id", runbook_id)
+            .execute()
+        )
+        if not res.data or len(res.data) != 1:
+            return None
+
+        row = res.data[0]
+        id = row.get("runbook_id")
+        symptom = row.get("symptoms")
+        title = row.get("subject_name")
+        raw_instruction = row.get("runbook").get("instructions")
+        # TODO: remove in the future when we migrate the table data
+        if isinstance(raw_instruction, list) and len(raw_instruction) == 1:
+            instruction = raw_instruction[0]
+        elif isinstance(raw_instruction, list) and len(raw_instruction) > 1:
+            # not currently used, but will be used in the future
+            instruction = "\n - ".join(raw_instruction)
+        elif isinstance(raw_instruction, str):
+            # not supported by the current UI, but will be supported in the future
+            instruction = raw_instruction
+        else:
+            # in case the format is unexpected, convert to string
+            logging.error(
+                f"Unexpected runbook instruction format for runbook_id={runbook_id}: {raw_instruction}"
+            )
+            instruction = str(raw_instruction)
+
+        return RobustaRunbookInstruction(
+            id=id, symptom=symptom, instruction=instruction, title=title
+        )
 
     def get_resource_instructions(
         self, type: str, name: Optional[str]
