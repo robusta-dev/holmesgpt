@@ -40,8 +40,8 @@ class ServiceNowTablesToolset(Toolset):
         super().__init__(
             name="servicenow/tables",
             description="Tools for retrieving records from ServiceNow tables",
-            icon_url=None,  # Add icon URL if available
-            docs_url=None,  # Add docs URL if available
+            icon_url="https://www.servicenow.com/content/dam/servicenow-assets/public/en-us/images/og-images/favicon.ico",
+            docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/servicenow/",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 GetRecords(self),
