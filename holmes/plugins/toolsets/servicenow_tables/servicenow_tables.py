@@ -56,25 +56,11 @@ class ServiceNowTablesToolset(Toolset):
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         """Check if the ServiceNow configuration is valid and complete."""
         try:
-            if not config:
-                return (
-                    False,
-                    "ServiceNow configuration is missing. Please provide api_key and instance_url.",
-                )
-
-            # Validate the config using Pydantic
+            # Validate the config using Pydantic - this will raise if required fields are missing
             self.config = ServiceNowTablesConfig(**config)
 
-            # Check required fields
-            if not self.config.api_key:
-                return False, "ServiceNow api_key is required but not provided."
-
-            if not self.config.instance_url:
-                return False, "ServiceNow instance_url is required but not provided."
-
             # Perform health check
-            health_ok, health_message = self._perform_health_check()
-            return health_ok, health_message
+            return self._perform_health_check()
 
         except Exception as e:
             return False, f"Failed to validate ServiceNow configuration: {str(e)}"
