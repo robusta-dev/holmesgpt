@@ -90,7 +90,7 @@ class LokiQuery(Tool):
                 base_url=get_base_url(config),
                 api_key=config.api_key,
                 headers=config.headers,
-                query=params.get("query"),
+                query=params.get("query", '{query="no_query_fallback"}'),
                 start=start,
                 end=end,
                 limit=params.get("limit") or DEFAULT_LOG_LIMIT,
