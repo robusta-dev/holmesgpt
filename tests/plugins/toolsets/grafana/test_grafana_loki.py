@@ -4,9 +4,9 @@ from holmes.core.tools import StructuredToolResultStatus, ToolsetStatusEnum
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
 import pytest
 
-from holmes.plugins.toolsets.grafana.toolset_grafana_loki import GrafanaLokiConfig
+from holmes.plugins.toolsets.grafana.loki.toolset_grafana_loki import GrafanaLokiConfig
 from holmes.plugins.toolsets.logging_utils.logging_api import FetchPodLogsParams
-from holmes.plugins.toolsets.grafana.toolset_grafana_loki import (
+from holmes.plugins.toolsets.grafana.loki.toolset_grafana_loki import (
     GrafanaLokiToolset,
 )
 from tests.plugins.toolsets.grafana.conftest import check_grafana_connectivity
