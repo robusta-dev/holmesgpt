@@ -194,7 +194,7 @@ def test_sse_list_authorizations():
 
     mock_client_context = AsyncMock()
     mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream, None)
+        return_value=(mock_read_stream, mock_write_stream)
     )
     mock_client_context.__aexit__ = AsyncMock(return_value=None)
 
@@ -203,7 +203,7 @@ def test_sse_list_authorizations():
     mock_session_context.__aexit__ = AsyncMock(return_value=None)
 
     with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
+        "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
         return_value=mock_client_context,
     ):
         with patch(
@@ -330,7 +330,7 @@ def test_sse_authorize_payment():
 
     mock_client_context = AsyncMock()
     mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream, None)
+        return_value=(mock_read_stream, mock_write_stream)
     )
     mock_client_context.__aexit__ = AsyncMock(return_value=None)
 
@@ -346,7 +346,7 @@ def test_sse_authorize_payment():
     }
 
     with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
+        "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
         return_value=mock_client_context,
     ):
         with patch(

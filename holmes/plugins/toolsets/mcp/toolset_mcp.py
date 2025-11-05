@@ -10,10 +10,10 @@ from holmes.core.tools import (
 
 from typing import Dict, Any, List, Optional
 from mcp.client.session import ClientSession
+from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 
 from mcp.types import Tool as MCP_Tool
-from mcp.types import CallToolResult
 
 import asyncio
 from pydantic import Field, AnyUrl, model_validator
@@ -65,29 +65,42 @@ class RemoteMCPTool(Tool):
                 invocation=f"MCPtool {self.name} with params {params}",
             )
 
-    async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with streamablehttp_client(self.url, headers=self.headers) as (
-            read_stream,
-            write_stream,
-            _,
-        ):
-            async with ClientSession(read_stream, write_stream) as session:
-                _ = await session.initialize()
-                tool_result: CallToolResult = await session.call_tool(self.name, params)
+    async def _call_tool_with_session(self, read_stream, write_stream, params):
+        async with ClientSession(read_stream, write_stream) as session:
+            _ = await session.initialize()
+            return await session.call_tool(self.name, params)
 
-                merged_text = " ".join(
-                    c.text for c in tool_result.content if c.type == "text"
+    async def _invoke_async(self, params: Dict) -> StructuredToolResult:
+        tool_result = None
+        if self.mode == MCPMode.SSE:
+            async with sse_client(self.url, self.headers) as (
+                read_stream,
+                write_stream,
+            ):
+                tool_result = await self._call_tool_with_session(
+                    read_stream, write_stream, params
                 )
-                return StructuredToolResult(
-                    status=(
-                        StructuredToolResultStatus.ERROR
-                        if tool_result.isError
-                        else StructuredToolResultStatus.SUCCESS
-                    ),
-                    data=merged_text,
-                    params=params,
-                    invocation=f"MCPtool {self.name} with params {params}",
+        else:
+            async with streamablehttp_client(self.url, headers=self.headers) as (
+                read_stream,
+                write_stream,
+                _,
+            ):
+                tool_result = await self._call_tool_with_session(
+                    read_stream, write_stream, params
                 )
+
+        merged_text = " ".join(c.text for c in tool_result.content if c.type == "text")
+        return StructuredToolResult(
+            status=(
+                StructuredToolResultStatus.ERROR
+                if tool_result.isError
+                else StructuredToolResultStatus.SUCCESS
+            ),
+            data=merged_text,
+            params=params,
+            invocation=f"MCPtool {self.name} with params {params}",
+        )
 
     @classmethod
     def create(
@@ -178,15 +191,23 @@ class RemoteMCPToolset(Toolset):
                 f"Failed to load mcp server {self.name} {self.url} {str(e.args)}",
             )
 
+    async def _list_tools_with_session(self, read_stream, write_stream):
+        async with ClientSession(read_stream, write_stream) as session:
+            _ = await session.initialize()
+            return await session.list_tools()
+
     async def _get_server_tools(self):
-        async with streamablehttp_client(str(self.url), headers=self.get_headers()) as (
-            read_stream,
-            write_stream,
-            _,
-        ):
-            async with ClientSession(read_stream, write_stream) as session:
-                _ = await session.initialize()
-                return await session.list_tools()
+        if self.mode == MCPMode.SSE:
+            async with sse_client(str(self.url), headers=self.get_headers()) as (
+                read_stream,
+                write_stream,
+            ):
+                return await self._list_tools_with_session(read_stream, write_stream)
+        else:
+            async with streamablehttp_client(
+                str(self.url), headers=self.get_headers()
+            ) as (read_stream, write_stream, _):
+                return await self._list_tools_with_session(read_stream, write_stream)
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
