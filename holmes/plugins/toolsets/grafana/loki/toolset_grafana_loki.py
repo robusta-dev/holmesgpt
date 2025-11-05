@@ -1,20 +1,17 @@
-from typing import Any, cast, Dict
-from pydantic import BaseModel
+from typing import Dict
 import os
 import json
 from holmes.core.tools import (
-    CallablePrerequisite,
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    Toolset,
 )
 from holmes.plugins.toolsets.consts import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
 )
 
-from holmes.plugins.toolsets.grafana.common import GrafanaConfig, get_base_url
-from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
+from holmes.plugins.toolsets.grafana.common import get_base_url
+from holmes.plugins.toolsets.grafana.toolset_grafana import BaseGrafanaToolset
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_rfc3339,
     standard_start_datetime_tool_param_description,
@@ -31,23 +28,13 @@ from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 
 
-class GrafanaLokiLabelsConfig(BaseModel):
-    pod: str = "pod"
-    namespace: str = "namespace"
-
-
-class GrafanaLokiConfig(GrafanaConfig):
-    labels: GrafanaLokiLabelsConfig = GrafanaLokiLabelsConfig()
-
-
-class GrafanaLokiToolset(Toolset):
+class GrafanaLokiToolset(BaseGrafanaToolset):
     def __init__(self):
         super().__init__(
             name="grafana/loki",
             description="Runs loki log queries using Grafana Loki or Loki directly.",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanaloki/",
-            prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[],
         )
 
@@ -56,25 +43,6 @@ class GrafanaLokiToolset(Toolset):
             os.path.join(os.path.dirname(__file__), "instructions.jinja2")
         )
         self._load_llm_instructions(jinja_template=f"file://{instructions_filepath}")
-
-    def prerequisites_callable(self, config: dict[str, Any]) -> tuple[bool, str]:
-        if not config:
-            return False, "Missing Loki configuration. Check your config."
-
-        self.config = GrafanaLokiConfig(**config)
-        return grafana_health_check(self.config)
-
-    def get_example_config(self):
-        example_config = GrafanaLokiConfig(
-            api_key="YOUR API KEY",
-            url="YOUR GRAFANA URL",
-            grafana_datasource_uid="<UID of the loki datasource to use>",
-        )
-        return example_config.model_dump()
-
-    @property
-    def grafana_config(self) -> GrafanaLokiConfig:
-        return cast(GrafanaLokiConfig, self.config)
 
 
 class LokiQuery(Tool):
@@ -116,7 +84,7 @@ class LokiQuery(Tool):
             default_time_span_seconds=DEFAULT_TIME_SPAN_SECONDS,
         )
 
-        config = self.toolset.grafana_config
+        config = self.toolset._grafana_config
         try:
             data = execute_loki_query(
                 base_url=get_base_url(config),
