@@ -1,6 +1,7 @@
 from holmes.core.tools import StructuredToolResultStatus
 from holmes.plugins.toolsets.investigator.core_investigation import TodoWriteTool
 from holmes.plugins.toolsets.investigator.model import TaskStatus
+from tests.conftest import create_mock_tool_invoke_context
 
 
 class TestTodoWriteTool:
@@ -14,7 +15,7 @@ class TestTodoWriteTool:
     def test_todo_write_tool_empty_params(self):
         """Test TodoWriteTool with empty parameters."""
         tool = TodoWriteTool()
-        result = tool._invoke({})
+        result = tool._invoke({}, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
@@ -41,7 +42,7 @@ class TestTodoWriteTool:
             ]
         }
 
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
@@ -56,7 +57,7 @@ class TestTodoWriteTool:
         tool = TodoWriteTool()
         params = {"todos": [{"content": "Test task"}]}
 
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         assert result.status == StructuredToolResultStatus.SUCCESS
         assert isinstance(result.data, str)
@@ -78,7 +79,7 @@ class TestTodoWriteTool:
             ]
         }
 
-        result = tool._invoke(params)
+        result = tool._invoke(params, context=create_mock_tool_invoke_context())
 
         # Should handle gracefully and return error
         assert result.status == StructuredToolResultStatus.ERROR
@@ -90,11 +91,11 @@ class TestTodoWriteTool:
 
         params = {"todos": [{"content": "task1"}, {"content": "task2"}]}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert f"{params.get('todos')} investigation tasks" in one_liner
+        assert one_liner == "Update investigation tasks"
 
         params = {"todos": []}
         one_liner = tool.get_parameterized_one_liner(params)
-        assert f"{params.get('todos')} investigation tasks" in one_liner
+        assert one_liner == "Update investigation tasks"
 
     def test_task_status_enum(self):
         """Test TaskStatus enum values."""

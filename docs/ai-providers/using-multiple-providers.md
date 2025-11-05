@@ -65,9 +65,9 @@ additionalEnvVars:
 # Configure the model list using the environment variables
 modelList:
   # Standard OpenAI
-  openai-4o:
+  openai-4.1:
     api_key: "{{ env.OPENAI_API_KEY }}"
-    model: openai/gpt-4o
+    model: openai/gpt-4.1
     temperature: 0
 
   # Azure OpenAI Models
@@ -94,12 +94,17 @@ modelList:
       budget_tokens: 10000
       type: enabled
 
+  claude-opus-4-1:
+    api_key: "{{ env.ANTHROPIC_API_KEY }}"
+    model: claude-opus-4-1-20250805
+    temperature: 0
+
   # AWS Bedrock
   bedrock-claude:
     aws_access_key_id: "{{ env.AWS_ACCESS_KEY_ID }}"
-    aws_region_name: eu-south-2
+    aws_region_name: us-east-1
     aws_secret_access_key: "{{ env.AWS_SECRET_ACCESS_KEY }}"
-    model: bedrock/eu.anthropic.claude-sonnet-4-20250514-v1:0
+    model: bedrock/anthropic.claude-sonnet-4-20250514-v1:0
     temperature: 1
     thinking:
       budget_tokens: 10000
@@ -152,8 +157,8 @@ If you're a Robusta SaaS customer, you can also use [Robusta AI](robusta-ai.md) 
 
 ## Best Practices
 
-1. **Use descriptive names**: Name models clearly (e.g., `fast-gpt4`, `accurate-claude`, `budget-mini`)
-2. **Secure API keys**: Always use Kubernetes secrets for API keys
+1. **Secure API keys**: Always use Kubernetes secrets for API keys
+2. **Model recommendations**: For best results, consider using Anthropic's Claude Opus 4.1 or Claude Sonnet 4 models. GPT-4.1 provides a good balance of speed and capability as an alternative. See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
 
 ## Limitations
 

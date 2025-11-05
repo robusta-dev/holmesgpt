@@ -1,4 +1,4 @@
-{{- if .Values.toolsets | not | empty }}
+{{- if or (.Values.toolsets | not | empty) .Values.mcpAddons.aws.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -7,7 +7,18 @@ metadata:
 data:
   custom_toolset.yaml: |-
     toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
+    {{- if .Values.mcpAddons.aws.enabled }}
+    {{- $awsMcpServers := dict "aws_api" (dict
+        "description" "AWS API MCP Server - comprehensive AWS service access. Allow executing any AWS CLI commands."
+        "url" (printf "http://%s-aws-mcp-server.%s.svc.cluster.local:8000" .Release.Name (.Values.mcpAddons.aws.config.namespace | default .Release.Namespace))
+        "llm_instructions" (include "holmes.awsMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mergedMcpServers := merge .Values.mcp_servers $awsMcpServers }}
+    mcp_servers: {{ toYaml $mergedMcpServers | nindent 6 }}
+    {{- else }}
     mcp_servers: {{ toYaml .Values.mcp_servers | nindent 6 }}
+    {{- end }}
   model_list.yaml: |-
     {{ .Values.modelList | toYaml | nindent 4 }}
 

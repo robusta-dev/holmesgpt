@@ -16,7 +16,7 @@ Configuration[Â¶](#configuration)
 ---------------------------------
 
 This toolset requires an `ARGOCD_AUTH_TOKEN` environment variable. Generate such auth token by following
-[these steps](https://argo-cd.readthedocs.io/en/latest/user-guide/commands/argocd_account_generate-token/).
+[these steps](https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_account_generate-token/).
 You can consult the [available environment variables](https://argo-cd.readthedocs.io/en/latest/user-guide/environment-variables/)
 on argocd's official documentation for the CLI.
 

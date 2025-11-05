@@ -68,8 +68,11 @@ config:
 
 **Recommended Models:**
 
-- `gpt-4.1` - Best balance of speed/capability
-- `anthropic/claude-sonnet-4-20250514` - Superior reasoning
+- `anthropic/claude-opus-4-1-20250805` - Most powerful for complex investigations (recommended)
+- `anthropic/claude-sonnet-4-20250514` - Superior reasoning with faster performance
+- `gpt-4.1` - Good balance of speed/capability
+
+See [benchmark results](../development/evaluations/latest-results.md) for detailed model performance comparisons.
 
 ---
 

@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional, Type, Union
-from holmes.core.llm import LLM
+from holmes.core.llm import LLM, TokenCountMetadata
 from litellm.types.utils import ModelResponse
 from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.tools import Tool
@@ -16,8 +16,18 @@ class MyCustomLLM(LLM):
     def get_maximum_output_token(self) -> int:
         return 4096
 
-    def count_tokens_for_message(self, messages: list[dict]) -> int:
-        return 1
+    def count_tokens(
+        self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
+    ) -> TokenCountMetadata:
+        return TokenCountMetadata(
+            total_tokens=1000,
+            tools_to_call_tokens=100,
+            system_tokens=200,
+            tools_tokens=0,
+            user_tokens=700,
+            other_tokens=0,
+            assistant_tokens=0,
+        )
 
     def completion(  # type: ignore
         self,

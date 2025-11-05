@@ -3,7 +3,11 @@
 
 HolmesGPT is an AI agent for investigating problems in your cloud, finding the root cause, and suggesting remediations. It has dozens of built-in integrations for cloud providers, observability tools, and on-call systems.
 
-HolmesGPT has been submitted to the CNCF as a sandbox project ([view status](https://github.com/cncf/sandbox/issues/392)). You can learn more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
+>🎉 **HolmesGPT is now a CNCF Sandbox Project!** We're thrilled to be part of the Cloud Native Computing Foundation. [Learn more about our journey](https://github.com/cncf/sandbox/issues/392#issuecomment-3380007501).
+
+Find more about HolmesGPT's maintainers and adopters [here](./ADOPTERS.md).
+
+📚 **[Read the full documentation at holmesgpt.dev](https://holmesgpt.dev/)** for installation guides, tutorials, API reference, and more.
 
   <p align="center">
     <a href="#how-it-works"><strong>How it Works</strong></a> |
@@ -182,25 +186,22 @@ For extra privacy, [bring an API key](https://holmesgpt.dev/ai-providers/) for y
 
 Because HolmesGPT relies on LLMs, it relies on [a suite of pytest based evaluations](https://holmesgpt.dev/development/evals/) to ensure the prompt and HolmesGPT's default set of tools work as expected with LLMs.
 
-- [Introduction to HolmesGPT's evals](https://holmesgpt.dev/development/evals/).
-- [Write your own evals](https://holmesgpt.dev/development/evals/adding-new-eval/).
-- [Use Braintrust to view analyze results (optional)](https://holmesgpt.dev/development/evals/reporting/).
+- [Introduction to HolmesGPT's evals](https://holmesgpt.dev/development/evaluations/).
+- [Write your own evals](https://holmesgpt.dev/development/evaluations/adding-evals/).
+- [Use Braintrust to view analyze results (optional)](https://holmesgpt.dev/development/evaluations/reporting/).
 
 
 ## License
-Distributed under the MIT License. See [LICENSE.txt](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE.txt) for more information.
+Distributed under the Apache 2.0 License. See [LICENSE](https://github.com/robusta-dev/holmesgpt/blob/master/LICENSE) for more information.
 <!-- Change License -->
 
 ## Community
 
-Join our community meetings to discuss the HolmesGPT roadmap and share feedback:
+Join our community to discuss the HolmesGPT roadmap and share feedback:
 
-📅 **First Community Meeting:** Thursday, August 21, 2025
-- **Time:** 8:00-9:00 AM PT / 11:00 AM-12:00 PM ET / 8:30-9:30 PM IST
-- **Where:** [Google Meet](https://meet.google.com/jxc-ujyf-xwy)
-- **Agenda:** [Roadmap discussion](https://github.com/orgs/robusta-dev/projects/2), community feedback, and Q&A
-
-[📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Full Details](https://holmesgpt.dev/community/)
+📹 **First Community Meetup Recording:** [Watch on YouTube](https://youtu.be/slQRc6nlFQU)
+- **Topics:** Roadmap discussion, community feedback, and Q&A
+- **Resources:** [📝 Meeting Notes](https://docs.google.com/document/d/1sIHCcTivyzrF5XNvos7ZT_UcxEOqgwfawsTbb9wMJe4/edit?tab=t.0) | [📋 Community Page](https://holmesgpt.dev/community/)
 
 ## Support
 
@@ -212,4 +213,5 @@ Please read our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and instructio
 
 For help, contact us on [Slack](https://bit.ly/robusta-slack) or ask [DeepWiki AI](https://deepwiki.com/robusta-dev/holmesgpt) your questions.
 
+Please make sure to follow the CNCF code of conduct - [details here](https://github.com/robusta-dev/holmesgpt/blob/master/CODE_OF_CONDUCT.md).
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/robusta-dev/holmesgpt)

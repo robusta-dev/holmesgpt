@@ -3,20 +3,39 @@ import os
 from typing import Any, Dict
 
 from uuid import uuid4
+
 from holmes.core.todo_tasks_formatter import format_tasks
 from holmes.core.tools import (
-    Toolset,
-    ToolsetTag,
-    ToolParameter,
-    Tool,
     StructuredToolResult,
     StructuredToolResultStatus,
+    Tool,
+    ToolInvokeContext,
+    ToolParameter,
+    Toolset,
+    ToolsetTag,
 )
 from holmes.plugins.toolsets.investigator.model import Task, TaskStatus
 
+TODO_WRITE_TOOL_NAME = "TodoWrite"
+
+
+def parse_tasks(todos_data: Any) -> list[Task]:
+    tasks = []
+
+    for todo_item in todos_data:
+        if isinstance(todo_item, dict):
+            task = Task(
+                id=todo_item.get("id", str(uuid4())),
+                content=todo_item.get("content", ""),
+                status=TaskStatus(todo_item.get("status", "pending")),
+            )
+            tasks.append(task)
+
+    return tasks
+
 
 class TodoWriteTool(Tool):
-    name: str = "TodoWrite"
+    name: str = TODO_WRITE_TOOL_NAME
     description: str = "Save investigation tasks to break down complex problems into manageable sub-tasks. ALWAYS provide the COMPLETE list of all tasks, not just the ones being updated."
     parameters: Dict[str, ToolParameter] = {
         "todos": ToolParameter(
@@ -28,7 +47,11 @@ class TodoWriteTool(Tool):
                 properties={
                     "id": ToolParameter(type="string", required=True),
                     "content": ToolParameter(type="string", required=True),
-                    "status": ToolParameter(type="string", required=True),
+                    "status": ToolParameter(
+                        type="string",
+                        required=True,
+                        enum=["pending", "in_progress", "completed"],
+                    ),
                 },
             ),
         ),
@@ -57,41 +80,28 @@ class TodoWriteTool(Tool):
         content_width = max(max_content_width, len("Content"))
         status_width = max(max_status_display_width, len("Status"))
 
-        # Build table
         separator = f"+{'-' * (id_width + 2)}+{'-' * (content_width + 2)}+{'-' * (status_width + 2)}+"
         header = f"| {'ID':<{id_width}} | {'Content':<{content_width}} | {'Status':<{status_width}} |"
-
-        # Log the table
-        logging.info("Updated Investigation Tasks:")
-        logging.info(separator)
-        logging.info(header)
-        logging.info(separator)
+        tasks_to_display = []
 
         for task in tasks:
             status_display = f"{status_icons[task.status.value]} {task.status.value}"
             row = f"| {task.id:<{id_width}} | {task.content:<{content_width}} | {status_display:<{status_width}} |"
-            logging.info(row)
+            tasks_to_display.append(row)
 
-        logging.info(separator)
+        logging.info(
+            f"Task List:\n{separator}\n{header}\n{separator}\n"
+            + "\n".join(tasks_to_display)
+            + f"\n{separator}"
+        )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             todos_data = params.get("todos", [])
 
-            tasks = []
+            tasks = parse_tasks(todos_data=todos_data)
 
-            for todo_item in todos_data:
-                if isinstance(todo_item, dict):
-                    task = Task(
-                        id=todo_item.get("id", str(uuid4())),
-                        content=todo_item.get("content", ""),
-                        status=TaskStatus(todo_item.get("status", "pending")),
-                    )
-                    tasks.append(task)
-
-            logging.info(f"Tasks: {len(tasks)}")
+            logging.debug(f"Tasks: {len(tasks)}")
 
             self.print_tasks_table(tasks)
             formatted_tasks = format_tasks(tasks)
@@ -117,8 +127,7 @@ class TodoWriteTool(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        todos = params.get("todos", [])
-        return f"Write {todos} investigation tasks"
+        return "Update investigation tasks"
 
 
 class CoreInvestigationToolset(Toolset):
@@ -133,7 +142,6 @@ class CoreInvestigationToolset(Toolset):
             tags=[ToolsetTag.CORE],
             is_default=True,
         )
-        logging.info("Core investigation toolset loaded")
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}

@@ -9,11 +9,8 @@ import sentry_sdk
 import yaml  # type: ignore
 from pydantic import BaseModel, ConfigDict, FilePath, PrivateAttr, SecretStr
 
-
+from holmes.common.env_vars import ROBUSTA_CONFIG_PATH
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
-from holmes.common.env_vars import (
-    ROBUSTA_CONFIG_PATH,
-)
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.plugins.runbooks import (
@@ -33,8 +30,8 @@ if TYPE_CHECKING:
     from holmes.plugins.sources.pagerduty import PagerDutySource
     from holmes.plugins.sources.prometheus.plugin import AlertManagerSource
 
-from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.config import config_path_dir
+from holmes.core.supabase_dal import SupabaseDal
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.pydantic_utils import RobustaBaseConfig, load_model_from_file
 
@@ -48,6 +45,9 @@ class SupportedTicketSources(str, Enum):
 
 class Config(RobustaBaseConfig):
     model: Optional[str] = None
+    api_key: Optional[SecretStr] = (
+        None  # if None, read from OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT env var
+    )
     api_base: Optional[str] = None
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
@@ -98,6 +98,7 @@ class Config(RobustaBaseConfig):
     mcp_servers: Optional[dict[str, dict[str, Any]]] = None
 
     _server_tool_executor: Optional[ToolExecutor] = None
+    _agui_tool_executor: Optional[ToolExecutor] = None
 
     # TODO: Separate those fields to facade class, this shouldn't be part of the config.
     _toolset_manager: Optional[ToolsetManager] = PrivateAttr(None)
@@ -129,7 +130,7 @@ class Config(RobustaBaseConfig):
         return self._llm_model_registry
 
     def log_useful_info(self):
-        if self.llm_model_registry and self.llm_model_registry.models:
+        if self.llm_model_registry.models:
             logging.info(
                 f"Loaded models: {list(self.llm_model_registry.models.keys())}"
             )
@@ -222,10 +223,9 @@ class Config(RobustaBaseConfig):
 
         return None
 
-    @staticmethod
-    def get_runbook_catalog() -> Optional[RunbookCatalog]:
+    def get_runbook_catalog(self) -> Optional[RunbookCatalog]:
         # TODO(mainred): besides the built-in runbooks, we need to allow the user to bring their own runbooks
-        runbook_catalog = load_runbook_catalog()
+        runbook_catalog = load_runbook_catalog(dal=self.dal)
         return runbook_catalog
 
     def create_console_tool_executor(
@@ -244,6 +244,23 @@ class Config(RobustaBaseConfig):
             dal=dal, refresh_status=refresh_status
         )
         return ToolExecutor(cli_toolsets)
+
+    def create_agui_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
+        """
+        Creates ToolExecutor for the AG-UI server endpoints
+        """
+
+        if self._agui_tool_executor:
+            return self._agui_tool_executor
+
+        # Use same toolset as CLI for AG-UI front-end.
+        agui_toolsets = self.toolset_manager.list_console_toolsets(
+            dal=dal, refresh_status=True
+        )
+
+        self._agui_tool_executor = ToolExecutor(agui_toolsets)
+
+        return self._agui_tool_executor
 
     def create_tool_executor(self, dal: Optional["SupabaseDal"]) -> ToolExecutor:
         """
@@ -274,6 +291,19 @@ class Config(RobustaBaseConfig):
 
         return ToolCallingLLM(
             tool_executor, self.max_steps, self._get_llm(tracer=tracer)
+        )
+
+    def create_agui_toolcalling_llm(
+        self,
+        dal: Optional["SupabaseDal"] = None,
+        model: Optional[str] = None,
+        tracer=None,
+    ) -> "ToolCallingLLM":
+        tool_executor = self.create_agui_tool_executor(dal)
+        from holmes.core.tool_calling_llm import ToolCallingLLM
+
+        return ToolCallingLLM(
+            tool_executor, self.max_steps, self._get_llm(model, tracer)
         )
 
     def create_toolcalling_llm(
@@ -444,7 +474,8 @@ class Config(RobustaBaseConfig):
     # TODO: move this to the llm model registry
     def _get_llm(self, model_key: Optional[str] = None, tracer=None) -> "DefaultLLM":
         sentry_sdk.set_tag("requested_model", model_key)
-        model_params = self.llm_model_registry.get_model_params(model_key)
+        model_entry = self.llm_model_registry.get_model_params(model_key)
+        model_params = model_entry.model_dump(exclude_none=True)
         api_base = self.api_base
         api_version = self.api_version
 
@@ -456,6 +487,8 @@ class Config(RobustaBaseConfig):
             api_key = f"{account_id} {token}"
         else:
             api_key = model_params.pop("api_key", None)
+            if api_key is not None:
+                api_key = api_key.get_secret_value()
 
         model = model_params.pop("model")
         # It's ok if the model does not have api base and api version, which are defaults to None.
@@ -466,10 +499,20 @@ class Config(RobustaBaseConfig):
         api_version = model_params.pop("api_version", api_version)
         model_name = model_params.pop("name", None) or model_key or model
         sentry_sdk.set_tag("model_name", model_name)
-        logging.info(f"Creating LLM with model: {model_name}")
-        return DefaultLLM(
-            model, api_key, api_base, api_version, model_params, tracer, model_name
+        llm = DefaultLLM(
+            model=model,
+            api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
+            args=model_params,
+            tracer=tracer,
+            name=model_name,
+            is_robusta_model=is_robusta_model,
         )  # type: ignore
+        logging.info(
+            f"Using model: {model_name} ({llm.get_context_window_size():,} total tokens, {llm.get_maximum_output_token():,} output tokens)"
+        )
+        return llm
 
     def get_models_list(self) -> List[str]:
         if self.llm_model_registry and self.llm_model_registry.models:

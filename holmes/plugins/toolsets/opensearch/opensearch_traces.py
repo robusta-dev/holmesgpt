@@ -7,6 +7,7 @@ from cachetools import TTLCache  # type: ignore
 from holmes.core.tools import (
     CallablePrerequisite,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     ToolsetTag,
 )
@@ -34,9 +35,7 @@ class GetTracesFields(Tool):
         self._toolset = toolset
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             if not self._cache and self._toolset.opensearch_config.fields_ttl_seconds:
                 self._cache = TTLCache(
@@ -129,9 +128,7 @@ class TracesSearchQuery(Tool):
         self._toolset = toolset
         self._cache = None
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         err_msg = ""
         try:
             body = json.loads(get_param_or_raise(params, "query"))

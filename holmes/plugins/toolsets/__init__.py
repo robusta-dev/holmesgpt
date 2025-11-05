@@ -7,7 +7,10 @@ import yaml  # type: ignore
 from pydantic import ValidationError
 
 import holmes.utils.env as env_utils
-from holmes.common.env_vars import USE_LEGACY_KUBERNETES_LOGS
+from holmes.common.env_vars import (
+    USE_LEGACY_KUBERNETES_LOGS,
+    DISABLE_PROMETHEUS_TOOLSET,
+)
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import Toolset, ToolsetType, ToolsetYamlFromConfig, YAMLToolset
 from holmes.plugins.toolsets.atlas_mongodb.mongodb_atlas import MongoDBAtlasToolset
@@ -41,8 +44,10 @@ from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.plugins.toolsets.newrelic.newrelic import NewRelicToolset
 from holmes.plugins.toolsets.opensearch.opensearch import OpenSearchToolset
 from holmes.plugins.toolsets.opensearch.opensearch_logs import OpenSearchLogsToolset
+from holmes.plugins.toolsets.opensearch.opensearch_query_assist import (
+    OpenSearchQueryAssistToolset,
+)
 from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTracesToolset
-from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
@@ -89,18 +94,24 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         DatadogMetricsToolset(),
         DatadogTracesToolset(),
         DatadogRDSToolset(),
-        PrometheusToolset(),
         OpenSearchLogsToolset(),
         OpenSearchTracesToolset(),
+        OpenSearchQueryAssistToolset(),
         CoralogixLogsToolset(),
         RabbitMQToolset(),
         GitToolset(),
         BashExecutorToolset(),
         MongoDBAtlasToolset(),
-        RunbookToolset(),
+        RunbookToolset(dal=dal),
         AzureSQLToolset(),
         ServiceNowToolset(),
     ]
+
+    if not DISABLE_PROMETHEUS_TOOLSET:
+        from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
+
+        toolsets.append(PrometheusToolset())
+
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
 

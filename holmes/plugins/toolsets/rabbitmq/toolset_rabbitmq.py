@@ -7,6 +7,7 @@ from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
     StructuredToolResultStatus,
     Toolset,
@@ -63,9 +64,7 @@ class ListConfiguredClusters(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config:
             raise ValueError("RabbitMQ is not configured.")
 
@@ -103,9 +102,7 @@ class GetRabbitMQClusterStatus(BaseRabbitMQTool):
             toolset=toolset,
         )
 
-    def _invoke(
-        self, params: dict, user_approved: bool = False
-    ) -> StructuredToolResult:
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
             # Fetch node details which include partition info
             cluster_config = self._get_cluster_config(
