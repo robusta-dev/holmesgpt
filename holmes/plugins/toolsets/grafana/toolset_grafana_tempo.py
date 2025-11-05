@@ -299,7 +299,14 @@ Examples:
                     return None
 
                 try:
-                    trace_data = api.query_trace_by_id_v2(trace_id=trace_id)
+                    start_nano = trace_summary.get("startTimeUnixNano")
+                    trace_start = (
+                        int(int(start_nano) / 1_000_000_000) if start_nano else None
+                    )
+
+                    trace_data = api.query_trace_by_id_v2(
+                        trace_id=trace_id, start=trace_start
+                    )
                     return {
                         "traceID": trace_id,
                         "durationMs": trace_summary.get("durationMs", 0),
