@@ -249,11 +249,11 @@ def build_modal_title(tool_call: ToolCallResult, wrap_status: str) -> str:
 
 def strip_ansi_codes(text: str) -> str:
     ansi_escape_pattern = re.compile(
-        r'\x1b\[[0-9;]*[a-zA-Z]|'
-        r'\033\[[0-9;]*[a-zA-Z]|'
-        r'\^\[\[[0-9;]*[a-zA-Z]'
+        r"\x1b\[[0-9;]*[a-zA-Z]|\033\[[0-9;]*[a-zA-Z]|\^\[\[[0-9;]*[a-zA-Z]"
     )
-    return ansi_escape_pattern.sub('', text)
+    return ansi_escape_pattern.sub("", text)
+
+
 def detect_lexer(content: str) -> Optional[PygmentsLexer]:
     """
     Detect appropriate lexer for content using Pygments' built-in detection.
