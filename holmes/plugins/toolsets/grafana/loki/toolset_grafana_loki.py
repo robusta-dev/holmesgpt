@@ -44,7 +44,7 @@ class GrafanaLokiToolset(Toolset):
     def __init__(self):
         super().__init__(
             name="grafana/loki",
-            description="Runs loki log quereis using Grafana Loki or Loki directly.",
+            description="Runs loki log queries using Grafana Loki or Loki directly.",
             icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanaloki/",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
