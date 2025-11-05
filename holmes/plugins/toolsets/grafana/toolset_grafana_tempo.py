@@ -326,7 +326,6 @@ Examples:
             # Fetch the selected traces
             result = {
                 "statistics": stats,
-                "all_trace_durations_ms": durations,  # All durations for distribution analysis
                 "fastest_traces": [
                     fetch_full_trace(sorted_traces[i]) for i in fastest_indices
                 ],
