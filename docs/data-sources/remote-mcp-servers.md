@@ -3,6 +3,9 @@
 !!! warning
     Remote MCP servers are in **Tech Preview** stage.
 
+!!! note "Configuration Change"
+    **The MCP server configuration format has been updated.** The `url` field must now be specified inside the `config` section instead of at the top level. The old format (with `url` at the top level) is still supported for backward compatibility but will log a migration warning. Please update your configurations to use the new format.
+
 !!! warning "SSE Mode Deprecation"
     The SSE (Server-Sent Events) transport mode for MCP is being deprecated across the MCP ecosystem.
     **We strongly recommend using `streamable-http` mode** for new MCP server integrations.
@@ -21,14 +24,14 @@ HolmesGPT supports two MCP transport modes:
 
 ### Configuring Transport Mode
 
-The transport mode is specified in the `config` section of your MCP server configuration:
+The transport mode and URL are specified in the `config` section of your MCP server configuration:
 
 ```yaml
 mcp_servers:
   my_server:
     description: "My MCP server"
-    url: "http://example.com:8000/mcp/messages"  # Path depends on your server (could be /mcp, /mcp/messages, etc.)
     config:
+      url: "http://example.com:8000/mcp/messages"  # Path depends on your server (could be /mcp, /mcp/messages, etc.)
       mode: streamable-http  # Explicitly set the mode
       headers:
         Authorization: "Bearer token123"
@@ -62,8 +65,8 @@ mcp_servers:
   mcp_server_1:
     # human-readable description of the mcp server (this is not seen by the AI model - its just for users)
     description: "Remote mcp server using streamable-http"
-    url: "http://example.com:8000/mcp/messages"  # Path may vary: /mcp, /mcp/messages, or custom path
     config:
+      url: "http://example.com:8000/mcp/messages"  # Path may vary: /mcp, /mcp/messages, or custom path
       mode: streamable-http  # Explicitly set the preferred mode
       headers:
         Authorization: "Bearer {{ env.my_mcp_server_key }}"  # You can use holmes environment variables as headers
@@ -76,15 +79,15 @@ mcp_servers:
 mcp_servers:
   mcp_server_legacy:
     description: "Legacy MCP server using SSE (deprecated)"
-    url: "http://example.com:8000/sse"  # Must end with /sse
     config:
+      url: "http://example.com:8000/sse"  # Must end with /sse
       mode: sse  # Explicitly set, though this is deprecated
     llm_instructions: "Legacy server using deprecated SSE transport."
 
   mcp_server_2:
     description: "MCP server that runs in my cluster"
-    url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>/sse"  # SSE endpoint must end with /sse
     config:
+      url: "http://<service-name>.<namespace>.svc.cluster.local:<service-port>/sse"  # SSE endpoint must end with /sse
       mode: sse  # Explicitly set SSE mode (deprecated)
       headers:
         key: "{{ env.my_mcp_server_key }}"  # You can use holmes environment variables as headers for the MCP server requests.
@@ -217,7 +220,8 @@ Use this config according to your use case.
     mcp_servers:
       mcp_server_1:
         description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
-        url: "http://localhost:8003/sse"
+        config:
+          url: "http://localhost:8003/sse"
         llm_instructions: "Use Dynatrace to analyze application performance, infrastructure monitoring, and real-time observability data. Query metrics, traces, and logs to identify performance bottlenecks, errors, and system health issues in your applications and infrastructure."
     ```
 
@@ -237,7 +241,8 @@ Use this config according to your use case.
 mcp_servers:
   mcp_server_1:
     description: "Dynatrace observability platform. Bring real-time observability data directly into your development workflow."
-    url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
+    config:
+      url: "http://dynatrace-mcp.default.svc.cluster.local:8003"
     llm_instructions: "Use Dynatrace to analyze application performance, infrastructure monitoring, and real-time observability data. Query metrics, traces, and logs to identify performance bottlenecks, errors, and system health issues in your applications and infrastructure."
 ```
 
