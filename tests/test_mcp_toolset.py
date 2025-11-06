@@ -1,6 +1,6 @@
 import asyncio
+import pytest
 from unittest.mock import AsyncMock, patch
-
 from holmes.core.tools import (
     ToolParameter,
     StructuredToolResultStatus,
@@ -14,356 +14,394 @@ from holmes.plugins.toolsets.mcp.toolset_mcp import (
 from mcp.types import ListToolsResult, Tool, CallToolResult, TextContent
 
 
-def test_parse_mcp_tool():
-    mcp_tool = Tool(
-        name="b",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string"},
-                "qty": {"type": "integer", "description": "example for description"},
-                "side": {
-                    "type": "string",
-                    "enum": ["buy", "sell"],
-                },
-                "limit_price": {"type": "number"},
-            },
-            "required": ["symbol", "qty", "side"],
-        },
-        description="desc",
-        annotations=None,
-    )
-
-    expected_schema = {
-        "symbol": ToolParameter(type="string", required=True),
-        "qty": ToolParameter(
-            type="integer", required=True, description="example for description"
-        ),
-        "side": ToolParameter(type="string", required=True),
-        "limit_price": ToolParameter(type="number", required=False),
-    }
-
-    tool = RemoteMCPTool.create("url", mcp_tool)
-    assert tool.parameters == expected_schema
-    assert tool.description == "desc"
-
-
-def test_mcpserver_unreachable():
-    mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0:3009",
-        name="test_mcp",
-        description="",
-    )
-
-    result = mcp_toolset.init_server_tools(config=None)
-    assert result[0] is False
-    assert "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse" in result[1]
-
-
-def test_mcpserver_1tool(monkeypatch):
-    mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
-        name="test_mcp",
-        description="demo mcp with 2 simple functions",
-    )
-
-    async def mock_get_server_tools():
-        return ListToolsResult(
-            tools=[
-                Tool(
-                    name="b",
-                    inputSchema={
-                        "type": "object",
-                        "properties": {
-                            "symbol": {"type": "string"},
-                        },
-                        "required": [],
+class TestMCPGeneral:
+    def test_parsed_tool_schema_matches_expected(self):
+        mcp_tool = Tool(
+            name="b",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string"},
+                    "qty": {
+                        "type": "integer",
+                        "description": "example for description",
                     },
-                ),
-            ]
+                    "side": {
+                        "type": "string",
+                        "enum": ["buy", "sell"],
+                    },
+                    "limit_price": {"type": "number"},
+                },
+                "required": ["symbol", "qty", "side"],
+            },
+            description="desc",
+            annotations=None,
         )
 
-    monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
-    mcp_toolset.init_server_tools(config=None)
-    assert len(list(mcp_toolset.tools)) == 1
+        expected_schema = {
+            "symbol": ToolParameter(type="string", required=True),
+            "qty": ToolParameter(
+                type="integer", required=True, description="example for description"
+            ),
+            "side": ToolParameter(type="string", required=True),
+            "limit_price": ToolParameter(type="number", required=False),
+        }
 
+        mock_toolset = RemoteMCPToolset(
+            url="http://localhost:1234",
+            name="test_toolset",
+            description="Test toolset",
+        )
+        tool = RemoteMCPTool.create(mcp_tool, mock_toolset)
+        assert tool.parameters == expected_schema
+        assert tool.description == "desc"
 
-def test_mcpserver_headers(monkeypatch):
-    mcp_toolset = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
-        name="test_mcp",
-        description="demo mcp with 2 simple functions",
-        config={"headers": {"header1": "test1", "header2": "test2"}},
-    )
+    def test_unreachable_server_returns_error(self):
+        mcp_toolset = RemoteMCPToolset(
+            url="http://0.0.0.0:3009",
+            name="test_mcp",
+            description="",
+        )
 
-    assert mcp_toolset.get_headers().get("header1") == "test1"
+        result = mcp_toolset.init_server_tools(config=None)
+        assert result[0] is False
+        assert "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse" in result[1]
 
+    def test_server_with_one_tool_initializes_correctly(self, monkeypatch):
+        mcp_toolset = RemoteMCPToolset(
+            url="http://0.0.0.0/3005",
+            name="test_mcp",
+            description="demo mcp with 2 simple functions",
+        )
 
-def test_mcpserver_no_headers():
-    mcp_toolset1 = RemoteMCPToolset(
-        url="http://0.0.0.0/3005",
-        name="test_mcp",
-        description="demo mcp with 2 simple functions",
-    )
-
-    assert mcp_toolset1.get_headers() is None
-
-
-def test_streamable_http_list_authorizations():
-    streamable_http_response = {
-        "jsonrpc": "2.0",
-        "id": "1",
-        "result": {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '{\n  "ok": true,\n  "authorizations": [\n    {\n      "authorization_id": "auth_default_001",\n      "status": "authorized",\n      "amount": 150.0,\n      "currency": "USD",\n      "merchant_id": "merchant_001",\n      "card_last4": "4242"\n    }\n  ],\n  "count": 1,\n  "authorization_ids": ["auth_default_001"]\n}',
-                }
-            ]
-        },
-    }
-
-    tool = Tool(
-        name="list_authorizations",
-        inputSchema={"type": "object", "properties": {}, "required": []},
-        description="List all available authorization IDs",
-    )
-
-    mcp_tool = RemoteMCPTool.create(
-        "http://localhost:1234/mcp/messages", tool, mode=MCPMode.STREAMABLE_HTTP
-    )
-
-    mock_read_stream = AsyncMock()
-    mock_write_stream = AsyncMock()
-    mock_session = AsyncMock()
-    mock_session.initialize = AsyncMock(return_value=None)
-
-    call_tool_result = CallToolResult(
-        content=[
-            TextContent(
-                type="text",
-                text=streamable_http_response["result"]["content"][0]["text"],
+        async def mock_get_server_tools():
+            return ListToolsResult(
+                tools=[
+                    Tool(
+                        name="b",
+                        inputSchema={
+                            "type": "object",
+                            "properties": {
+                                "symbol": {"type": "string"},
+                            },
+                            "required": [],
+                        },
+                    ),
+                ]
             )
-        ],
-        isError=False,
-    )
-    mock_session.call_tool = AsyncMock(return_value=call_tool_result)
 
-    mock_client_context = AsyncMock()
-    mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream, None)
-    )
-    mock_client_context.__aexit__ = AsyncMock(return_value=None)
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
+        mcp_toolset.init_server_tools(config=None)
+        assert len(list(mcp_toolset.tools)) == 1
 
-    mock_session_context = AsyncMock()
-    mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session_context.__aexit__ = AsyncMock(return_value=None)
+    def test_toolset_returns_configured_headers(self, monkeypatch):
+        mcp_toolset = RemoteMCPToolset(
+            url="http://0.0.0.0/3005",
+            name="test_mcp",
+            description="demo mcp with 2 simple functions",
+            config={"headers": {"header1": "test1", "header2": "test2"}},
+        )
 
-    with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
-        return_value=mock_client_context,
-    ):
-        with patch(
+        assert mcp_toolset.get_headers().get("header1") == "test1"
+
+    def test_toolset_without_headers_returns_none(self):
+        mcp_toolset = RemoteMCPToolset(
+            url="http://0.0.0.0/3005",
+            name="test_mcp",
+            description="demo mcp with 2 simple functions",
+        )
+
+        assert mcp_toolset.get_headers() is None
+
+
+class TestStreamableHttp:
+    def _setup_mocks(self, mock_session):
+        mock_read_stream = AsyncMock()
+        mock_write_stream = AsyncMock()
+
+        mock_client_context = AsyncMock()
+        mock_client_context.__aenter__ = AsyncMock(
+            return_value=(mock_read_stream, mock_write_stream, None)
+        )
+        mock_client_context.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_context.__aexit__ = AsyncMock(return_value=None)
+
+        return mock_client_context, mock_session_context
+
+    def _patch_clients(self, mock_client_context, mock_session_context):
+        return patch(
+            "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
+            return_value=mock_client_context,
+        ), patch(
             "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
             return_value=mock_session_context,
-        ):
-            result = asyncio.run(mcp_tool._invoke_async({}))
+        )
 
-    assert result.status == StructuredToolResultStatus.SUCCESS
-    assert streamable_http_response["result"]["content"][0]["text"] in result.data
-
-
-def test_sse_list_authorizations():
-    sse_response_text = '{\n  "ok": true,\n  "authorizations": [\n    {\n      "authorization_id": "auth_default_001",\n      "status": "authorized",\n      "amount": 150.0,\n      "currency": "USD",\n      "merchant_id": "merchant_001",\n      "card_last4": "4242"\n    }\n  ],\n  "count": 1,\n  "authorization_ids": ["auth_default_001"]\n}'
-
-    tool = Tool(
-        name="list_authorizations",
-        inputSchema={"type": "object", "properties": {}, "required": []},
-        description="List all available authorization IDs",
-    )
-
-    mcp_tool = RemoteMCPTool.create("http://localhost:1234/sse", tool, mode=MCPMode.SSE)
-
-    mock_read_stream = AsyncMock()
-    mock_write_stream = AsyncMock()
-    mock_session = AsyncMock()
-    mock_session.initialize = AsyncMock(return_value=None)
-
-    call_tool_result = CallToolResult(
-        content=[TextContent(type="text", text=sse_response_text)], isError=False
-    )
-    mock_session.call_tool = AsyncMock(return_value=call_tool_result)
-
-    mock_client_context = AsyncMock()
-    mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream)
-    )
-    mock_client_context.__aexit__ = AsyncMock(return_value=None)
-
-    mock_session_context = AsyncMock()
-    mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session_context.__aexit__ = AsyncMock(return_value=None)
-
-    with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
-        return_value=mock_client_context,
-    ):
-        with patch(
-            "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
-            return_value=mock_session_context,
-        ):
-            result = asyncio.run(mcp_tool._invoke_async({}))
-
-    assert result.status == StructuredToolResultStatus.SUCCESS
-    assert sse_response_text in result.data
-
-
-def test_streamable_http_authorize_payment():
-    streamable_http_response = {
-        "jsonrpc": "2.0",
-        "id": "2",
-        "result": {
-            "content": [
+    @pytest.mark.parametrize(
+        "tool_name,tool_schema,params,response_text,expected_in_response",
+        [
+            (
+                "list_authorizations",
+                {"type": "object", "properties": {}, "required": []},
+                {},
+                '{"ok": true, "authorizations": [{"authorization_id": "auth_default_001", "status": "authorized", "amount": 150.0, "currency": "USD", "merchant_id": "merchant_001", "card_last4": "4242"}], "count": 1, "authorization_ids": ["auth_default_001"]}',
+                ["auth_default_001"],
+            ),
+            (
+                "authorize_payment",
                 {
-                    "type": "text",
-                    "text": '{\n  "ok": true,\n  "authorization_id": "auth_test_123",\n  "status": "authorized"\n}',
-                }
-            ]
-        },
-    }
-
-    tool = Tool(
-        name="authorize_payment",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "amount": {"type": "number"},
-                "currency": {"type": "string"},
-                "card_last4": {"type": "string"},
-                "merchant_id": {"type": "string"},
-            },
-            "required": ["amount", "currency", "card_last4", "merchant_id"],
-        },
-        description="Reserve funds",
-    )
-
-    mcp_tool = RemoteMCPTool.create(
-        "http://localhost:1234/mcp/messages", tool, mode=MCPMode.STREAMABLE_HTTP
-    )
-
-    mock_read_stream = AsyncMock()
-    mock_write_stream = AsyncMock()
-    mock_session = AsyncMock()
-    mock_session.initialize = AsyncMock(return_value=None)
-
-    call_tool_result = CallToolResult(
-        content=[
-            TextContent(
-                type="text",
-                text=streamable_http_response["result"]["content"][0]["text"],
-            )
+                    "type": "object",
+                    "properties": {
+                        "amount": {"type": "number"},
+                        "currency": {"type": "string"},
+                        "card_last4": {"type": "string"},
+                        "merchant_id": {"type": "string"},
+                    },
+                    "required": ["amount", "currency", "card_last4", "merchant_id"],
+                },
+                {
+                    "amount": 100.0,
+                    "currency": "USD",
+                    "card_last4": "1234",
+                    "merchant_id": "test-merchant",
+                },
+                '{"ok": true, "authorization_id": "auth_test_123", "status": "authorized"}',
+                ["auth_test_123", "authorized"],
+            ),
         ],
-        isError=False,
     )
-    mock_session.call_tool = AsyncMock(return_value=call_tool_result)
-
-    mock_client_context = AsyncMock()
-    mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream, None)
-    )
-    mock_client_context.__aexit__ = AsyncMock(return_value=None)
-
-    mock_session_context = AsyncMock()
-    mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session_context.__aexit__ = AsyncMock(return_value=None)
-
-    params = {
-        "amount": 100.0,
-        "currency": "USD",
-        "card_last4": "1234",
-        "merchant_id": "test-merchant",
-    }
-
-    with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
-        return_value=mock_client_context,
+    def test_run_tool(
+        self, tool_name, tool_schema, params, response_text, expected_in_response
     ):
-        with patch(
-            "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
-            return_value=mock_session_context,
-        ):
+        tool = Tool(
+            name=tool_name,
+            inputSchema=tool_schema,
+            description="Test tool",
+        )
+
+        mock_toolset = RemoteMCPToolset(
+            url="http://localhost:1234/mcp/messages",
+            name="test_toolset",
+            description="Test toolset",
+            mode=MCPMode.STREAMABLE_HTTP,
+        )
+
+        mcp_tool = RemoteMCPTool.create(tool, mock_toolset)
+
+        mock_session = AsyncMock()
+        mock_session.initialize = AsyncMock(return_value=None)
+        call_tool_result = CallToolResult(
+            content=[TextContent(type="text", text=response_text)],
+            isError=False,
+        )
+        mock_session.call_tool = AsyncMock(return_value=call_tool_result)
+
+        mock_client_context, mock_session_context = self._setup_mocks(mock_session)
+        client_patch, session_patch = self._patch_clients(
+            mock_client_context, mock_session_context
+        )
+
+        with client_patch, session_patch:
             result = asyncio.run(mcp_tool._invoke_async(params))
 
-    assert result.status == StructuredToolResultStatus.SUCCESS
-    assert streamable_http_response["result"]["content"][0]["text"] in result.data
-    assert "auth_test_123" in result.data
-    assert "authorized" in result.data
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        assert response_text in result.data
+        for expected in expected_in_response:
+            assert expected in result.data
+
+    def test_list_tools(self):
+        mock_session = AsyncMock()
+        mock_session.initialize = AsyncMock(return_value=None)
+
+        tool1 = Tool(
+            name="tool1",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+            description="First tool",
+        )
+        tool2 = Tool(
+            name="tool2",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+            description="Second tool",
+        )
+        list_tools_result = ListToolsResult(tools=[tool1, tool2])
+        mock_session.list_tools = AsyncMock(return_value=list_tools_result)
+
+        mock_client_context, mock_session_context = self._setup_mocks(mock_session)
+        client_patch, session_patch = self._patch_clients(
+            mock_client_context, mock_session_context
+        )
+
+        mock_toolset = RemoteMCPToolset(
+            url="http://localhost:1234/mcp/messages",
+            name="test_toolset",
+            description="Test toolset",
+            mode=MCPMode.STREAMABLE_HTTP,
+        )
+
+        with client_patch, session_patch:
+
+            async def run_test():
+                async with mock_toolset.get_initialized_session() as session:
+                    return await session.list_tools()
+
+            result = asyncio.run(run_test())
+
+        assert result == list_tools_result
+        assert len(result.tools) == 2
+        assert result.tools[0].name == "tool1"
+        assert result.tools[1].name == "tool2"
 
 
-def test_sse_authorize_payment():
-    sse_response_text = '{\n  "ok": true,\n  "authorization_id": "auth_test_456",\n  "status": "authorized"\n}'
+class TestSSE:
+    def _setup_mocks(self, mock_session):
+        mock_read_stream = AsyncMock()
+        mock_write_stream = AsyncMock()
 
-    tool = Tool(
-        name="authorize_payment",
-        inputSchema={
-            "type": "object",
-            "properties": {
-                "amount": {"type": "number"},
-                "currency": {"type": "string"},
-                "card_last4": {"type": "string"},
-                "merchant_id": {"type": "string"},
-            },
-            "required": ["amount", "currency", "card_last4", "merchant_id"],
-        },
-        description="Reserve funds",
-    )
+        mock_client_context = AsyncMock()
+        mock_client_context.__aenter__ = AsyncMock(
+            return_value=(mock_read_stream, mock_write_stream)
+        )
+        mock_client_context.__aexit__ = AsyncMock(return_value=None)
 
-    mcp_tool = RemoteMCPTool.create("http://localhost:1234/sse", tool, mode=MCPMode.SSE)
+        mock_session_context = AsyncMock()
+        mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session_context.__aexit__ = AsyncMock(return_value=None)
 
-    mock_read_stream = AsyncMock()
-    mock_write_stream = AsyncMock()
-    mock_session = AsyncMock()
-    mock_session.initialize = AsyncMock(return_value=None)
+        return mock_client_context, mock_session_context
 
-    call_tool_result = CallToolResult(
-        content=[TextContent(type="text", text=sse_response_text)], isError=False
-    )
-    mock_session.call_tool = AsyncMock(return_value=call_tool_result)
-
-    mock_client_context = AsyncMock()
-    mock_client_context.__aenter__ = AsyncMock(
-        return_value=(mock_read_stream, mock_write_stream)
-    )
-    mock_client_context.__aexit__ = AsyncMock(return_value=None)
-
-    mock_session_context = AsyncMock()
-    mock_session_context.__aenter__ = AsyncMock(return_value=mock_session)
-    mock_session_context.__aexit__ = AsyncMock(return_value=None)
-
-    params = {
-        "amount": 100.0,
-        "currency": "USD",
-        "card_last4": "1234",
-        "merchant_id": "test-merchant",
-    }
-
-    with patch(
-        "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
-        return_value=mock_client_context,
-    ):
-        with patch(
+    def _patch_clients(self, mock_client_context, mock_session_context):
+        return patch(
+            "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
+            return_value=mock_client_context,
+        ), patch(
             "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
             return_value=mock_session_context,
-        ):
+        )
+
+    @pytest.mark.parametrize(
+        "tool_name,tool_schema,params,response_text,expected_in_response",
+        [
+            (
+                "list_authorizations",
+                {"type": "object", "properties": {}, "required": []},
+                {},
+                '{"ok": true, "authorizations": [{"authorization_id": "auth_default_001", "status": "authorized", "amount": 150.0, "currency": "USD", "merchant_id": "merchant_001", "card_last4": "4242"}], "count": 1, "authorization_ids": ["auth_default_001"]}',
+                ["auth_default_001"],
+            ),
+            (
+                "authorize_payment",
+                {
+                    "type": "object",
+                    "properties": {
+                        "amount": {"type": "number"},
+                        "currency": {"type": "string"},
+                        "card_last4": {"type": "string"},
+                        "merchant_id": {"type": "string"},
+                    },
+                    "required": ["amount", "currency", "card_last4", "merchant_id"],
+                },
+                {
+                    "amount": 100.0,
+                    "currency": "USD",
+                    "card_last4": "1234",
+                    "merchant_id": "test-merchant",
+                },
+                '{"ok": true, "authorization_id": "auth_test_456", "status": "authorized"}',
+                ["auth_test_456", "authorized"],
+            ),
+        ],
+    )
+    def test_run_tool(
+        self, tool_name, tool_schema, params, response_text, expected_in_response
+    ):
+        tool = Tool(
+            name=tool_name,
+            inputSchema=tool_schema,
+            description="Test tool",
+        )
+
+        mock_toolset = RemoteMCPToolset(
+            url="http://localhost:1234/sse",
+            name="test_toolset",
+            description="Test toolset",
+            mode=MCPMode.SSE,
+        )
+
+        mcp_tool = RemoteMCPTool.create(tool, mock_toolset)
+
+        mock_session = AsyncMock()
+        mock_session.initialize = AsyncMock(return_value=None)
+        call_tool_result = CallToolResult(
+            content=[TextContent(type="text", text=response_text)],
+            isError=False,
+        )
+        mock_session.call_tool = AsyncMock(return_value=call_tool_result)
+
+        mock_client_context, mock_session_context = self._setup_mocks(mock_session)
+        client_patch, session_patch = self._patch_clients(
+            mock_client_context, mock_session_context
+        )
+
+        with client_patch, session_patch:
             result = asyncio.run(mcp_tool._invoke_async(params))
 
-    assert result.status == StructuredToolResultStatus.SUCCESS
-    assert sse_response_text in result.data
-    assert "auth_test_456" in result.data
-    assert "authorized" in result.data
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        assert response_text in result.data
+        for expected in expected_in_response:
+            assert expected in result.data
+
+    def test_list_tools(self):
+        mock_session = AsyncMock()
+        mock_session.initialize = AsyncMock(return_value=None)
+
+        tool1 = Tool(
+            name="tool1",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+            description="First tool",
+        )
+        tool2 = Tool(
+            name="tool2",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+            description="Second tool",
+        )
+        list_tools_result = ListToolsResult(tools=[tool1, tool2])
+        mock_session.list_tools = AsyncMock(return_value=list_tools_result)
+
+        mock_client_context, mock_session_context = self._setup_mocks(mock_session)
+        client_patch, session_patch = self._patch_clients(
+            mock_client_context, mock_session_context
+        )
+
+        mock_toolset = RemoteMCPToolset(
+            url="http://localhost:1234/sse",
+            name="test_toolset",
+            description="Test toolset",
+            mode=MCPMode.SSE,
+        )
+
+        with client_patch, session_patch:
+
+            async def run_test():
+                async with mock_toolset.get_initialized_session() as session:
+                    return await session.list_tools()
+
+            result = asyncio.run(run_test())
+
+        assert result == list_tools_result
+        assert len(result.tools) == 2
+        assert result.tools[0].name == "tool1"
+        assert result.tools[1].name == "tool2"
 
 
 class TestContextManagerCleanup:
+    """
+    Test that the context manager closes the client and session correctly since we are using async context managers.
+    This is important to avoid resource leaks and ensure that the client and session are properly closed.
+    """
+
     def _create_mock_session(self, call_tool_result=None, call_tool_side_effect=None):
         mock_session = AsyncMock()
         mock_session.initialize = AsyncMock(return_value=None)
@@ -402,7 +440,9 @@ class TestContextManagerCleanup:
         assert session_args[1] is None
         assert session_args[2] is None
 
-    def _verify_exit_called_with_exception(self, client_exit, session_exit, exc_type, exc_val):
+    def _verify_exit_called_with_exception(
+        self, client_exit, session_exit, exc_type, exc_val
+    ):
         client_exit.assert_called_once()
         session_exit.assert_called_once()
 
@@ -417,7 +457,7 @@ class TestContextManagerCleanup:
         assert session_args[1] == exc_val
         assert session_args[2] is not None
 
-    def test_sse_context_managers_closed_on_success(self):
+    def test_sse_session_closes_on_success(self):
         mock_read_stream = AsyncMock()
         mock_write_stream = AsyncMock()
         mock_session = self._create_mock_session(
@@ -429,7 +469,9 @@ class TestContextManagerCleanup:
         mock_sse_context, mock_sse_exit = self._create_mock_client_context(
             (mock_read_stream, mock_write_stream)
         )
-        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+        mock_session_context, mock_session_exit = self._create_mock_session_context(
+            mock_session
+        )
 
         with patch(
             "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
@@ -439,6 +481,7 @@ class TestContextManagerCleanup:
                 "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
                 return_value=mock_session_context,
             ):
+
                 async def run_test():
                     async with get_initialized_mcp_session(
                         "http://localhost:1234/sse", None, MCPMode.SSE
@@ -449,16 +492,20 @@ class TestContextManagerCleanup:
 
         self._verify_exit_called_with_no_exception(mock_sse_exit, mock_session_exit)
 
-    def test_streamable_http_context_managers_closed_on_success(self):
+    def test_streamable_http_session_closes_on_success(self):
         mock_read_stream = AsyncMock()
         mock_write_stream = AsyncMock()
         mock_session = self._create_mock_session()
         mock_session.list_tools = AsyncMock(return_value=ListToolsResult(tools=[]))
 
-        mock_streamable_context, mock_streamable_exit = self._create_mock_client_context(
-            (mock_read_stream, mock_write_stream, None)
+        mock_streamable_context, mock_streamable_exit = (
+            self._create_mock_client_context(
+                (mock_read_stream, mock_write_stream, None)
+            )
         )
-        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+        mock_session_context, mock_session_exit = self._create_mock_session_context(
+            mock_session
+        )
 
         with patch(
             "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
@@ -468,17 +515,22 @@ class TestContextManagerCleanup:
                 "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
                 return_value=mock_session_context,
             ):
+
                 async def run_test():
                     async with get_initialized_mcp_session(
-                        "http://localhost:1234/mcp/messages", None, MCPMode.STREAMABLE_HTTP
+                        "http://localhost:1234/mcp/messages",
+                        None,
+                        MCPMode.STREAMABLE_HTTP,
                     ) as session:
                         await session.list_tools()
 
                 asyncio.run(run_test())
 
-        self._verify_exit_called_with_no_exception(mock_streamable_exit, mock_session_exit)
+        self._verify_exit_called_with_no_exception(
+            mock_streamable_exit, mock_session_exit
+        )
 
-    def test_context_managers_closed_on_exception(self):
+    def test_sse_session_closes_on_exception(self):
         test_error = RuntimeError("Test error")
         mock_read_stream = AsyncMock()
         mock_write_stream = AsyncMock()
@@ -487,7 +539,9 @@ class TestContextManagerCleanup:
         mock_sse_context, mock_sse_exit = self._create_mock_client_context(
             (mock_read_stream, mock_write_stream)
         )
-        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+        mock_session_context, mock_session_exit = self._create_mock_session_context(
+            mock_session
+        )
 
         with patch(
             "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
@@ -497,6 +551,7 @@ class TestContextManagerCleanup:
                 "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
                 return_value=mock_session_context,
             ):
+
                 async def run_test():
                     try:
                         async with get_initialized_mcp_session(

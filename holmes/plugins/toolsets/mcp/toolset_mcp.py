@@ -64,9 +64,7 @@ async def get_initialized_mcp_session(
 
 
 class RemoteMCPTool(Tool):
-    url: str
-    headers: Optional[Dict[str, str]] = None
-    mode: MCPMode = MCPMode.SSE
+    toolset: "RemoteMCPToolset"
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
@@ -80,9 +78,7 @@ class RemoteMCPTool(Tool):
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with get_initialized_mcp_session(
-            self.url, self.headers, self.mode
-        ) as session:
+        async with self.toolset.get_initialized_session() as session:
             tool_result = await session.call_tool(self.name, params)
 
         merged_text = " ".join(c.text for c in tool_result.content if c.type == "text")
@@ -100,19 +96,15 @@ class RemoteMCPTool(Tool):
     @classmethod
     def create(
         cls,
-        url: str,
         tool: MCP_Tool,
-        headers: Optional[Dict[str, str]] = None,
-        mode: MCPMode = MCPMode.SSE,
+        toolset: "RemoteMCPToolset",
     ):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
-            url=url,
             name=tool.name,
             description=tool.description or "",
             parameters=parameters,
-            headers=headers,
-            mode=mode,
+            toolset=toolset,
         )
 
     @classmethod
@@ -132,7 +124,7 @@ class RemoteMCPTool(Tool):
         return parameters
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Call MCP Server ({self.url} - {self.name})"
+        return f"Call MCP Server ({self.toolset.url} - {self.name})"
 
 
 class RemoteMCPToolset(Toolset):
@@ -165,8 +157,7 @@ class RemoteMCPToolset(Toolset):
             tools_result = asyncio.run(self._get_server_tools())
 
             self.tools = [
-                RemoteMCPTool.create(str(self.url), tool, self.get_headers(), self.mode)
-                for tool in tools_result.tools
+                RemoteMCPTool.create(tool, self) for tool in tools_result.tools
             ]
 
             if not self.tools:
@@ -181,10 +172,12 @@ class RemoteMCPToolset(Toolset):
             )
 
     async def _get_server_tools(self):
-        async with get_initialized_mcp_session(
-            str(self.url), self.get_headers(), self.mode
-        ) as session:
+        async with self.get_initialized_session() as session:
             return await session.list_tools()
+
+    def get_initialized_session(self):
+        """Creates and returns an initialized MCP session context manager."""
+        return get_initialized_mcp_session(str(self.url), self.get_headers(), self.mode)
 
     def get_example_config(self) -> Dict[str, Any]:
         return {}
