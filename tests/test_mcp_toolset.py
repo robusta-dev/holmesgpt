@@ -1,15 +1,17 @@
+import asyncio
+from unittest.mock import AsyncMock, patch
+
 from holmes.core.tools import (
     ToolParameter,
     StructuredToolResultStatus,
 )
-from mcp.types import ListToolsResult, Tool, CallToolResult, TextContent
 from holmes.plugins.toolsets.mcp.toolset_mcp import (
     RemoteMCPToolset,
     RemoteMCPTool,
     MCPMode,
+    get_initialized_mcp_session,
 )
-from unittest.mock import AsyncMock, patch
-import asyncio
+from mcp.types import ListToolsResult, Tool, CallToolResult, TextContent
 
 
 def test_parse_mcp_tool():
@@ -359,3 +361,153 @@ def test_sse_authorize_payment():
     assert sse_response_text in result.data
     assert "auth_test_456" in result.data
     assert "authorized" in result.data
+
+
+class TestContextManagerCleanup:
+    def _create_mock_session(self, call_tool_result=None, call_tool_side_effect=None):
+        mock_session = AsyncMock()
+        mock_session.initialize = AsyncMock(return_value=None)
+        if call_tool_side_effect:
+            mock_session.call_tool = AsyncMock(side_effect=call_tool_side_effect)
+        elif call_tool_result:
+            mock_session.call_tool = AsyncMock(return_value=call_tool_result)
+        return mock_session
+
+    def _create_mock_client_context(self, return_value):
+        mock_context = AsyncMock()
+        mock_context.__aenter__ = AsyncMock(return_value=return_value)
+        mock_exit = AsyncMock(return_value=None)
+        mock_context.__aexit__ = mock_exit
+        return mock_context, mock_exit
+
+    def _create_mock_session_context(self, session):
+        mock_context = AsyncMock()
+        mock_context.__aenter__ = AsyncMock(return_value=session)
+        mock_exit = AsyncMock(return_value=None)
+        mock_context.__aexit__ = mock_exit
+        return mock_context, mock_exit
+
+    def _verify_exit_called_with_no_exception(self, client_exit, session_exit):
+        client_exit.assert_called_once()
+        session_exit.assert_called_once()
+
+        client_args = client_exit.call_args[0]
+        session_args = session_exit.call_args[0]
+
+        assert client_args[0] is None
+        assert client_args[1] is None
+        assert client_args[2] is None
+
+        assert session_args[0] is None
+        assert session_args[1] is None
+        assert session_args[2] is None
+
+    def _verify_exit_called_with_exception(self, client_exit, session_exit, exc_type, exc_val):
+        client_exit.assert_called_once()
+        session_exit.assert_called_once()
+
+        client_args = client_exit.call_args[0]
+        session_args = session_exit.call_args[0]
+
+        assert client_args[0] == exc_type
+        assert client_args[1] == exc_val
+        assert client_args[2] is not None
+
+        assert session_args[0] == exc_type
+        assert session_args[1] == exc_val
+        assert session_args[2] is not None
+
+    def test_sse_context_managers_closed_on_success(self):
+        mock_read_stream = AsyncMock()
+        mock_write_stream = AsyncMock()
+        mock_session = self._create_mock_session(
+            call_tool_result=CallToolResult(
+                content=[TextContent(type="text", text="test")], isError=False
+            )
+        )
+
+        mock_sse_context, mock_sse_exit = self._create_mock_client_context(
+            (mock_read_stream, mock_write_stream)
+        )
+        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+
+        with patch(
+            "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
+            return_value=mock_sse_context,
+        ):
+            with patch(
+                "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
+                return_value=mock_session_context,
+            ):
+                async def run_test():
+                    async with get_initialized_mcp_session(
+                        "http://localhost:1234/sse", None, MCPMode.SSE
+                    ) as session:
+                        await session.call_tool("test", {})
+
+                asyncio.run(run_test())
+
+        self._verify_exit_called_with_no_exception(mock_sse_exit, mock_session_exit)
+
+    def test_streamable_http_context_managers_closed_on_success(self):
+        mock_read_stream = AsyncMock()
+        mock_write_stream = AsyncMock()
+        mock_session = self._create_mock_session()
+        mock_session.list_tools = AsyncMock(return_value=ListToolsResult(tools=[]))
+
+        mock_streamable_context, mock_streamable_exit = self._create_mock_client_context(
+            (mock_read_stream, mock_write_stream, None)
+        )
+        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+
+        with patch(
+            "holmes.plugins.toolsets.mcp.toolset_mcp.streamablehttp_client",
+            return_value=mock_streamable_context,
+        ):
+            with patch(
+                "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
+                return_value=mock_session_context,
+            ):
+                async def run_test():
+                    async with get_initialized_mcp_session(
+                        "http://localhost:1234/mcp/messages", None, MCPMode.STREAMABLE_HTTP
+                    ) as session:
+                        await session.list_tools()
+
+                asyncio.run(run_test())
+
+        self._verify_exit_called_with_no_exception(mock_streamable_exit, mock_session_exit)
+
+    def test_context_managers_closed_on_exception(self):
+        test_error = RuntimeError("Test error")
+        mock_read_stream = AsyncMock()
+        mock_write_stream = AsyncMock()
+        mock_session = self._create_mock_session(call_tool_side_effect=test_error)
+
+        mock_sse_context, mock_sse_exit = self._create_mock_client_context(
+            (mock_read_stream, mock_write_stream)
+        )
+        mock_session_context, mock_session_exit = self._create_mock_session_context(mock_session)
+
+        with patch(
+            "holmes.plugins.toolsets.mcp.toolset_mcp.sse_client",
+            return_value=mock_sse_context,
+        ):
+            with patch(
+                "holmes.plugins.toolsets.mcp.toolset_mcp.ClientSession",
+                return_value=mock_session_context,
+            ):
+                async def run_test():
+                    try:
+                        async with get_initialized_mcp_session(
+                            "http://localhost:1234/sse", None, MCPMode.SSE
+                        ) as session:
+                            await session.call_tool("test", {})
+                    except RuntimeError:
+                        pass
+
+                asyncio.run(run_test())
+
+        self._verify_exit_called_with_exception(
+            mock_sse_exit, mock_session_exit, RuntimeError, test_error
+        )
