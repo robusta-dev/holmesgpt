@@ -51,7 +51,9 @@ from holmes.plugins.toolsets.opensearch.opensearch_traces import OpenSearchTrace
 from holmes.plugins.toolsets.rabbitmq.toolset_rabbitmq import RabbitMQToolset
 from holmes.plugins.toolsets.robusta.robusta import RobustaToolset
 from holmes.plugins.toolsets.runbook.runbook_fetcher import RunbookToolset
-from holmes.plugins.toolsets.servicenow.servicenow import ServiceNowToolset
+from holmes.plugins.toolsets.servicenow_tables.servicenow_tables import (
+    ServiceNowTablesToolset,
+)
 from holmes.plugins.toolsets.investigator.core_investigation import (
     CoreInvestigationToolset,
 )
@@ -104,7 +106,7 @@ def load_python_toolsets(dal: Optional[SupabaseDal]) -> List[Toolset]:
         MongoDBAtlasToolset(),
         RunbookToolset(dal=dal),
         AzureSQLToolset(),
-        ServiceNowToolset(),
+        ServiceNowTablesToolset(),
     ]
 
     if not DISABLE_PROMETHEUS_TOOLSET:
