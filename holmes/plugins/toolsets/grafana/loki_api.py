@@ -59,7 +59,15 @@ def execute_loki_query(
         return []
 
     except requests.exceptions.RequestException as e:
-        raise Exception(f"Failed to query Loki logs: {str(e)}")
+        error_details = (
+            f"Failed to query Loki logs:\n"
+            f"  URL: {url}\n"
+            f"  Query: {query}\n"
+            f"  Time range: {start} to {end}\n"
+            f"  Limit: {limit}\n"
+            f"  Error: {str(e)}"
+        )
+        raise Exception(error_details)
 
 
 def query_loki_logs_by_label(
@@ -75,7 +83,18 @@ def query_loki_logs_by_label(
     namespace_search_key: str = "namespace",
     limit: int = 200,
 ) -> List[Dict]:
-    query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+    # Handle wildcards: if label_value is "*" or contains wildcards, use regex matching
+    if label_value == "*":
+        # Match any value for this label
+        query = f'{{{namespace_search_key}="{namespace}", {label}=~".+"}}'
+    elif "*" in label_value:
+        # Convert wildcard to regex pattern (e.g., "payment-*" -> "payment-.*")
+        regex_pattern = label_value.replace("*", ".*")
+        query = f'{{{namespace_search_key}="{namespace}", {label}=~"{regex_pattern}"}}'
+    else:
+        # Exact match for the label value
+        query = f'{{{namespace_search_key}="{namespace}", {label}="{label_value}"}}'
+
     if filter:
         query += f' |= "{filter}"'
     return execute_loki_query(

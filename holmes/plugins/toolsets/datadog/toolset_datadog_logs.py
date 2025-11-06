@@ -28,6 +28,7 @@ from holmes.plugins.toolsets.logging_utils.logging_api import (
     LoggingCapability,
     PodLoggingTool,
 )
+from holmes.core.tools import ToolParameter
 from holmes.plugins.toolsets.utils import process_timestamps_to_rfc3339
 
 
@@ -68,6 +69,31 @@ def calculate_page_size(
     return min(dd_config.page_size, max(0, max_logs_count - logs_count))
 
 
+def build_datadog_query(
+    params: FetchPodLogsParams,
+    dd_config: DatadogLogsConfig,
+) -> str:
+    """Build Datadog query string from parameters, handling wildcards properly."""
+    query_parts = []
+
+    # Only add namespace filter if not empty or single wildcard
+    if params.namespace and params.namespace != "*":
+        query_parts.append(f"{dd_config.labels.namespace}:{params.namespace}")
+
+    # Only add pod filter if not empty or single wildcard
+    if params.pod_name and params.pod_name != "*":
+        query_parts.append(f"{dd_config.labels.pod}:{params.pod_name}")
+
+    # Start with base query or use "*" if no specific filters
+    query = " ".join(query_parts) if query_parts else "*"
+
+    if params.filter:
+        filter = params.filter.replace('"', '\\"')
+        query += f' "{filter}"'
+
+    return query
+
+
 def fetch_paginated_logs(
     params: FetchPodLogsParams,
     dd_config: DatadogLogsConfig,
@@ -84,11 +110,8 @@ def fetch_paginated_logs(
     url = f"{dd_config.site_api_url}/api/v2/logs/events/search"
     headers = get_headers(dd_config)
 
-    query = f"{dd_config.labels.namespace}:{params.namespace}"
-    query += f" {dd_config.labels.pod}:{params.pod_name}"
-    if params.filter:
-        filter = params.filter.replace('"', '\\"')
-        query += f' "{filter}"'
+    # Build query using helper function
+    query = build_datadog_query(params, dd_config)
 
     payload: Dict[str, Any] = {
         "filter": {
@@ -169,12 +192,8 @@ def generate_datadog_logs_url(
     # Convert API URL to app URL using the shared helper
     base_url = convert_api_url_to_app_url(dd_config.site_api_url)
 
-    # Build the query string
-    query = f"{dd_config.labels.namespace}:{params.namespace}"
-    query += f" {dd_config.labels.pod}:{params.pod_name}"
-    if params.filter:
-        filter = params.filter.replace('"', '\\"')
-        query += f' "{filter}"'
+    # Build query using helper function
+    query = build_datadog_query(params, dd_config)
 
     # Process timestamps - get Unix timestamps in seconds
     (from_time_seconds, to_time_seconds) = process_timestamps_to_int(
@@ -204,6 +223,24 @@ def generate_datadog_logs_url(
     return f"{base_url}/logs?{urlencode(url_params)}"
 
 
+class DatadogPodLoggingTool(PodLoggingTool):
+    """Custom pod logging tool for Datadog with wildcard support"""
+
+    def _get_tool_parameters(self, toolset: BasePodLoggingToolset) -> dict:
+        """Override to add wildcard support to pod_name parameter"""
+        # Get base parameters from parent
+        params = super()._get_tool_parameters(toolset)
+
+        # Override pod_name description to indicate wildcard support
+        params["pod_name"] = ToolParameter(
+            description="The kubernetes pod name. Use '*' to fetch logs from all pods in the namespace, or use wildcards like 'payment-*' to match multiple pods",
+            type="string",
+            required=True,
+        )
+
+        return params
+
+
 class DatadogLogsToolset(BasePodLoggingToolset):
     dd_config: Optional[DatadogLogsConfig] = None
 
@@ -225,7 +262,8 @@ class DatadogLogsToolset(BasePodLoggingToolset):
             tags=[ToolsetTag.CORE],
         )
         # Now that parent is initialized and self.name exists, create the tool
-        self.tools = [PodLoggingTool(self)]
+        # Use our custom DatadogPodLoggingTool with wildcard support
+        self.tools = [DatadogPodLoggingTool(self)]
         self._reload_instructions()
 
     def logger_name(self) -> str:
@@ -397,6 +435,8 @@ class DatadogLogsToolset(BasePodLoggingToolset):
         """
         try:
             logging.debug("Performing Datadog configuration healthcheck...")
+            # Use wildcards which are now properly handled by the query builder
+            # The query builder will detect "*" and create a broad search query
             healthcheck_params = FetchPodLogsParams(
                 namespace="*",
                 pod_name="*",
@@ -404,16 +444,45 @@ class DatadogLogsToolset(BasePodLoggingToolset):
                 start_time="-172800",  # 48 hours in seconds
             )
 
+            # Calculate actual timestamps for debugging
+            from holmes.plugins.toolsets.utils import process_timestamps_to_int
+            from datetime import datetime
+
+            (from_time, to_time) = process_timestamps_to_int(
+                start=healthcheck_params.start_time,
+                end=healthcheck_params.end_time,
+                default_time_span_seconds=86400,
+            )
+            from_dt = datetime.fromtimestamp(from_time)
+            to_dt = datetime.fromtimestamp(to_time)
+
+            logging.info(
+                f"DEBUG: Running Datadog healthcheck with params: namespace={healthcheck_params.namespace}, pod_name={healthcheck_params.pod_name}, start_time={healthcheck_params.start_time}"
+            )
+            logging.info(
+                f"DEBUG: Healthcheck time range: from {from_dt.isoformat()} to {to_dt.isoformat()}"
+            )
+            if self.dd_config:
+                logging.info(
+                    f"DEBUG: Healthcheck query will be sent to: {self.dd_config.site_api_url}"
+                )
+
             result = self.fetch_pod_logs(healthcheck_params)
+            logging.info(
+                f"DEBUG: Healthcheck result status: {result.status}, error: {result.error}, data length: {len(result.data or '')}"
+            )
 
             if result.status == StructuredToolResultStatus.ERROR:
                 error_msg = result.error or "Unknown error during healthcheck"
                 logging.error(f"Datadog healthcheck failed: {error_msg}")
                 return False, f"Datadog healthcheck failed: {error_msg}"
             elif result.status == StructuredToolResultStatus.NO_DATA:
-                error_msg = "No logs were found in the last 48 hours using wildcards for pod and namespace. Is the configuration correct?"
-                logging.error(f"Datadog healthcheck failed: {error_msg}")
-                return False, f"Datadog healthcheck failed: {error_msg}"
+                # NO_DATA is acceptable for healthcheck - it just means no logs exist yet
+                # The important thing is that the API call succeeded
+                logging.info(
+                    "Datadog healthcheck completed successfully (no data found, but API is accessible)"
+                )
+                return True, ""
 
             logging.info("Datadog healthcheck completed successfully")
             return True, ""
