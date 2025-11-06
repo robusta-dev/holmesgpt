@@ -17,7 +17,7 @@ from mcp.types import Tool as MCP_Tool
 
 import asyncio
 from contextlib import asynccontextmanager
-from pydantic import BaseModel, Field, AnyUrl
+from pydantic import BaseModel, Field, AnyUrl, model_validator
 from typing import Tuple
 import logging
 from enum import Enum
@@ -118,11 +118,13 @@ class RemoteMCPTool(Tool):
         return parameters
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Call MCP Server ({self.toolset.url} - {self.name})"
+        url = (
+            str(self.toolset._mcp_config.url) if self.toolset._mcp_config else "unknown"
+        )
+        return f"Call MCP Server ({url} - {self.name})"
 
 
 class RemoteMCPToolset(Toolset):
-    url: Optional[AnyUrl] = None
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
     _mcp_config: Optional[MCPConfig] = None
@@ -132,30 +134,41 @@ class RemoteMCPToolset(Toolset):
             CallablePrerequisite(callable=self.prerequisites_callable)
         ]
 
-    def _migrate_old_config(self, config) -> dict[str, Any] | None:
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_url_to_config(cls, values: dict[str, Any]) -> dict[str, Any]:
         """
-        Migrates old config format where url was stored as a class field instead of in the config dict.
-        Moves url from self.url to config dict and logs a warning.
+        Migrates url from field parameter to config object.
+        If url is passed as a parameter, it's moved to config (or config is created if it doesn't exist).
         """
+        if not isinstance(values, dict) or "url" not in values:
+            return values
 
-        if not config:
-            if self.url is None:
-                return None
+        url_value = values.pop("url")
+        if url_value is None:
+            return values
+
+        config = values.get("config")
+        if config is None:
             config = {}
+            values["config"] = config
 
-        if self.url and not config.get("url"):
+        toolset_name = values.get("name", "unknown")
+        if "url" in config:
             logging.warning(
-                f"Toolset {self.name}: 'url' field has been migrated to config. "
-                "Please move 'url' to the config section."
+                f"Toolset {toolset_name}: has two urls defined, remove the 'url' field from the toolset configuration and keep the 'url' in the config section."
             )
-            config["url"] = self.url
+            return values
 
-        return config
+        logging.warning(
+            f"Toolset {toolset_name}: 'url' field has been migrated to config. "
+            "Please move 'url' to the config section."
+        )
+        config["url"] = url_value
+        return values
 
     def prerequisites_callable(self, config) -> Tuple[bool, str]:
         try:
-            config = self._migrate_old_config(config)
-
             if not config:
                 return (False, f"Config is required for {self.name}")
 
