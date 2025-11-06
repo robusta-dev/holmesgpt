@@ -55,6 +55,7 @@ prometrix = "0.2.5"
 httpx = {version = "<0.28", extras = ["socks"]}
 ag-ui-protocol = "^0.1.9"
 google-cloud-aiplatform = ">=1.38"
+authlib = "^1.3.2"
 
 [tool.poetry.group.dev]
 optional = true

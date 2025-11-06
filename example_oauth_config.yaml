@@ -1,0 +1,29 @@
+# Example configuration for MCP server authentication options
+
+mcp_servers:
+  # Option 1: OAuth with auto-discovery (for servers that support it)
+  my_oauth_server:
+    url: https://api.example.com
+    config:
+      auth_type: oauth  # Will discover OAuth endpoints automatically
+
+  # Option 2: Bearer token authentication (recommended for Atlassian MCP)
+  atlassian_mcp:
+    url: https://mcp.atlassian.com/v1/sse
+    config:
+      auth_type: bearer
+      token: "your-bearer-token-here"  # Or use token_env_var
+      # token_env_var: "ATLASSIAN_MCP_TOKEN"  # Will read from env var
+
+  # Option 3: No authentication
+  my_public_server:
+    url: https://public.example.com
+    # No config needed for no authentication
+
+  # Option 4: Static headers (backward compatibility)
+  my_header_auth_server:
+    url: https://secure.example.com
+    config:
+      headers:
+        Authorization: "Bearer my-static-token"
+        X-API-Key: "another-header"
