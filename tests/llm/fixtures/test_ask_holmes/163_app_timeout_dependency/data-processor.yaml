@@ -1,0 +1,35 @@
+---
+# Client service (App A) - deployed as data-processor
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-processor
+  template:
+    metadata:
+      labels:
+        app: data-processor
+    spec:
+      containers:
+      - name: main
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.2
+        imagePullPolicy: IfNotPresent
+        command: ["python", "/app/client-app.py"]
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: app-code
+        secret:
+          secretName: data-processor-script

@@ -1,0 +1,25 @@
+user_prompt: "The data-processor pod in namespace app-163 is having issues. What's wrong?"
+
+expected_output:
+  - The data-processor is experiencing timeouts when trying to connect to the metrics-collector service
+  - The metrics-collector service appears to be stuck or unresponsive
+  - Recommendation to restart the metrics-collector pod/deployment as it's a known issue where the service gets stuck after processing many requests
+
+tags:
+  - kubernetes
+  - logs
+  - chain-of-causation
+  - medium
+
+description: |
+  This test creates two services where one depends on the other:
+  - data-processor (App A) makes rapid requests to metrics-collector
+  - metrics-collector (App B) gets stuck after 100-200 requests
+  - Holmes should identify the dependency and suggest restarting the stuck service
+
+before_test: |
+  ./setup_and_verify.sh
+
+after_test: |
+  kubectl delete namespace app-163 || true
+  kubectl delete namespace production-telemetry || true

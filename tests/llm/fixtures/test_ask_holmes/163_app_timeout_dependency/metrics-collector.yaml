@@ -1,0 +1,57 @@
+# Backend service (App B) - deployed as metrics-collector
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+    spec:
+      containers:
+      - name: main
+        image: me-west1-docker.pkg.dev/robusta-development/development/python-flask-otel:2.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        command: ["python", "/app/backend-service.py"]
+        volumeMounts:
+        - name: app-code
+          mountPath: /app
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 2
+          periodSeconds: 1
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 10
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: app-code
+        secret:
+          secretName: metrics-collector-script
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-collector
+spec:
+  selector:
+    app: metrics-collector
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
