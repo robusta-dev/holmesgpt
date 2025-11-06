@@ -42,7 +42,7 @@ mcp_servers:
 
     The streamable-http client automatically handles the protocol regardless of the path. Consult your MCP server's documentation to determine the correct endpoint URL.
 
-If no mode is specified, the system defaults to `sse` for backward compatibility. However, **you should explicitly set `mode: streamable-http`** for new servers.
+If no mode is specified, the system defaults to `sse` for backward compatibility. However, **this default will be deprecated in the future**, and **you should explicitly set `mode: streamable-http` or `mode: sse`** for new and old servers.
 
 ### URL Format
 
