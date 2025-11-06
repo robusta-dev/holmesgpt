@@ -37,11 +37,32 @@ kubectl wait --for=condition=ready pod -l app=data-processor -n app-163 --timeou
 # Wait for the issue to manifest (metrics-collector gets stuck after 100-200 requests)
 echo "⏳ Waiting for issue to manifest..."
 
-# Check for timeout errors in data-processor logs
+# First, verify we get successful requests
+SUCCESS_FOUND=false
+for i in {1..20}; do
+  if kubectl logs -l app=data-processor -n app-163 --tail=50 2>/dev/null | grep -q "Processed .* items in"; then
+    echo "✅ Confirmed - data-processor is successfully processing requests"
+    SUCCESS_FOUND=true
+    break
+  fi
+  echo "Waiting for successful requests... ($i/20)"
+  sleep 0.5
+done
+
+if [ "$SUCCESS_FOUND" = false ]; then
+  echo "❌ No successful requests found - debugging info:"
+  echo "Data processor logs:"
+  kubectl logs -l app=data-processor -n app-163 --tail=20
+  echo "Metrics collector logs:"
+  kubectl logs -l app=metrics-collector -n production-telemetry --tail=20
+  exit 1
+fi
+
+# Now wait for timeout errors to appear (indicating metrics-collector is stuck)
 ISSUE_FOUND=false
 for i in {1..30}; do
   if kubectl logs -l app=data-processor -n app-163 --tail=50 2>/dev/null | grep -q -i -E "(timeout|timed out)"; then
-    echo "✅ Issue confirmed - data-processor is experiencing timeouts"
+    echo "✅ Issue confirmed - data-processor is now experiencing timeouts"
     ISSUE_FOUND=true
     break
   fi
@@ -50,7 +71,7 @@ for i in {1..30}; do
 done
 
 if [ "$ISSUE_FOUND" = false ]; then
-  echo "❌ Issue not found after 30 seconds - debugging info:"
+  echo "❌ Timeout issue not found after 30 seconds - debugging info:"
   echo "Data processor logs:"
   kubectl logs -l app=data-processor -n app-163 --tail=20
   echo "Metrics collector logs:"

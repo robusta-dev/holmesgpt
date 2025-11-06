@@ -44,6 +44,9 @@ def process_data():
     # Simulate some processing time
     time.sleep(random.uniform(0.01, 0.05))
 
+    # Log each request
+    logger.info("processed request")
+
     return jsonify(response_data)
 
 
@@ -55,4 +58,6 @@ def health_check():
 
 if __name__ == "__main__":
     logger.info("Starting service on port 8080")
-    app.run(host="0.0.0.0", port=8080)
+    # Run with threaded=False to ensure single-threaded execution
+    # This ensures the global request_count works correctly
+    app.run(host="0.0.0.0", port=8080, threaded=False)
