@@ -87,6 +87,17 @@ class RobustaToken(BaseModel):
     password: str
 
 
+class SupabaseDnsException(Exception):
+    def __init__(self, error: Exception, url: str):
+        message = (
+            f"\n{error.__class__.__name__}: {error}\n"
+            f"Error connecting to <{url}>\n"
+            "This is often due to DNS issues or firewall policies - to troubleshoot run in your cluster:\n"
+            f"curl -I {url}\n"
+        )
+        super().__init__(message)
+
+
 class SupabaseDal:
     def __init__(self, cluster: str):
         self.enabled = self.__init_config()
@@ -212,19 +223,34 @@ class SupabaseDal:
         return all([self.account_id, self.url, self.api_key, self.email, self.password])
 
     def sign_in(self) -> str:
-        logging.info("Supabase DAL login")
-        res = self.client.auth.sign_in_with_password(
-            {"email": self.email, "password": self.password}
-        )
-        if not res.session:
-            raise ValueError("Authentication failed: no session returned")
-        if not res.user:
-            raise ValueError("Authentication failed: no user returned")
-        self.client.auth.set_session(
-            res.session.access_token, res.session.refresh_token
-        )
-        self.client.postgrest.auth(res.session.access_token)
-        return res.user.id
+        logging.info("Supabase dal login")
+        try:
+            res = self.client.auth.sign_in_with_password(
+                {"email": self.email, "password": self.password}
+            )
+            if not res.session:
+                raise ValueError("Authentication failed: no session returned")
+            if not res.user:
+                raise ValueError("Authentication failed: no user returned")
+            self.client.auth.set_session(
+                res.session.access_token, res.session.refresh_token
+            )
+            self.client.postgrest.auth(res.session.access_token)
+            return res.user.id
+        except Exception as e:
+            error_msg = str(e).lower()
+            if any(
+                dns_indicator in error_msg
+                for dns_indicator in [
+                    "temporary failure in name resolution",
+                    "name resolution",
+                    "dns",
+                    "name or service not known",
+                    "nodename nor servname provided",
+                ]
+            ):
+                raise SupabaseDnsException(e, self.url) from e
+            raise
 
     def get_resource_recommendation(
         self, name: str, namespace: str, kind
