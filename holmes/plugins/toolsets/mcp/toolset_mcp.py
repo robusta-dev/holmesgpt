@@ -17,7 +17,7 @@ from mcp.types import Tool as MCP_Tool
 
 import asyncio
 from contextlib import asynccontextmanager
-from pydantic import Field, AnyUrl
+from pydantic import BaseModel, Field, AnyUrl
 from typing import Tuple
 import logging
 from enum import Enum
@@ -28,22 +28,16 @@ class MCPMode(str, Enum):
     STREAMABLE_HTTP = "streamable-http"
 
 
-def get_mode_from_config(config: dict[str, Any] | None) -> Optional[MCPMode]:
-    if config is None:
-        return MCPMode.SSE
-    mode_value = config.get("mode") or "sse"
-    try:
-        return MCPMode(mode_value)
-    except ValueError:
-        logging.error(f'Mode "{mode_value}" is not supported')
-        return None
+class MCPConfig(BaseModel):
+    url: AnyUrl
+    mode: MCPMode = MCPMode.SSE
+    headers: Optional[Dict[str, str]] = None
 
 
 @asynccontextmanager
 async def get_initialized_mcp_session(
     url: str, headers: Optional[Dict[str, str]], mode: MCPMode
 ):
-    """Creates a client connection, initializes a session, and returns it as a context manager."""
     if mode == MCPMode.SSE:
         async with sse_client(url, headers) as (
             read_stream,
@@ -128,31 +122,60 @@ class RemoteMCPTool(Tool):
 
 
 class RemoteMCPToolset(Toolset):
-    url: AnyUrl
+    url: Optional[AnyUrl] = None
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
     icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
-    mode: Optional[MCPMode] = MCPMode.SSE
+    _mcp_config: Optional[MCPConfig] = None
 
     def model_post_init(self, __context: Any) -> None:
-        self.prerequisites = [CallablePrerequisite(callable=self.init_server_tools)]
+        self.prerequisites = [
+            CallablePrerequisite(callable=self.prerequisites_callable)
+        ]
 
-    def get_headers(self) -> Optional[Dict[str, str]]:
-        return self.config and self.config.get("headers")
+    def _migrate_old_config(self, config) -> dict[str, Any] | None:
+        """
+        Migrates old config format where url was stored as a class field instead of in the config dict.
+        Moves url from self.url to config dict and logs a warning.
+        """
 
-    # used as a CallablePrerequisite, config added for that case.
-    def init_server_tools(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        if not config:
+            if self.url is None:
+                return None
+            config = {}
+
+        if self.url and not config.get("url"):
+            logging.warning(
+                f"Toolset {self.name}: 'url' field has been migrated to config. "
+                "Please move 'url' to the config section."
+            )
+            config["url"] = self.url
+
+        return config
+
+    def prerequisites_callable(self, config) -> Tuple[bool, str]:
         try:
-            self.mode = get_mode_from_config(config)
-            if not self.mode:
-                mode = config.get("mode")
-                return (
-                    False,
-                    f"Invalid mode {mode} in {self.name} defined, only 'sse' or 'streamable-http' supported",
-                )
+            config = self._migrate_old_config(config)
 
-            clean_url_str = str(self.url).rstrip("/")
-            if self.mode == MCPMode.SSE and not clean_url_str.endswith("/sse"):
-                self.url = AnyUrl(clean_url_str + "/sse")
+            if not config:
+                return (False, f"Config is required for {self.name}")
+
+            if "mode" in config:
+                mode_value = config.get("mode")
+                allowed_modes = [e.value for e in MCPMode]
+                if mode_value not in allowed_modes:
+                    return (
+                        False,
+                        f'Invalid mode "{mode_value}", allowed modes are {", ".join(allowed_modes)}',
+                    )
+
+            self._mcp_config = MCPConfig(**config)
+
+            clean_url_str = str(self._mcp_config.url).rstrip("/")
+
+            if self._mcp_config.mode == MCPMode.SSE and not clean_url_str.endswith(
+                "/sse"
+            ):
+                self._mcp_config.url = AnyUrl(clean_url_str + "/sse")
 
             tools_result = asyncio.run(self._get_server_tools())
 
@@ -165,10 +188,9 @@ class RemoteMCPToolset(Toolset):
 
             return (True, "")
         except Exception as e:
-            # using e.args, the asyncio wrapper could stack another exception this helps printing them all.
             return (
                 False,
-                f"Failed to load mcp server {self.name} {self.url} {str(e.args)}",
+                f"Failed to load mcp server {self.name} {self._mcp_config.url if self._mcp_config else 'unknown'}: {str(e)}",
             )
 
     async def _get_server_tools(self):
@@ -176,8 +198,14 @@ class RemoteMCPToolset(Toolset):
             return await session.list_tools()
 
     def get_initialized_session(self):
-        """Creates and returns an initialized MCP session context manager."""
-        return get_initialized_mcp_session(str(self.url), self.get_headers(), self.mode)
+        return get_initialized_mcp_session(
+            str(self._mcp_config.url), self._mcp_config.headers, self._mcp_config.mode
+        )
 
     def get_example_config(self) -> Dict[str, Any]:
-        return {}
+        example_config = MCPConfig(
+            url=AnyUrl("http://example.com:8000/mcp/messages"),
+            mode=MCPMode.STREAMABLE_HTTP,
+            headers={"Authorization": "Bearer YOUR_TOKEN"},
+        )
+        return example_config.model_dump()

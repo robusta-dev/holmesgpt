@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+import logging
 from unittest.mock import AsyncMock, patch
 from holmes.core.tools import (
     ToolParameter,
@@ -14,8 +15,17 @@ from holmes.plugins.toolsets.mcp.toolset_mcp import (
 from mcp.types import ListToolsResult, Tool, CallToolResult, TextContent
 
 
+@pytest.fixture
+def suppress_migration_warnings():
+    logger = logging.getLogger()
+    original_level = logger.level
+    logger.setLevel(logging.ERROR)
+    yield
+    logger.setLevel(original_level)
+
+
 class TestMCPGeneral:
-    def test_parsed_tool_schema_matches_expected(self):
+    def test_parsed_tool_schema_matches_expected(self, suppress_migration_warnings):
         mcp_tool = Tool(
             name="b",
             inputSchema={
@@ -56,18 +66,20 @@ class TestMCPGeneral:
         assert tool.parameters == expected_schema
         assert tool.description == "desc"
 
-    def test_unreachable_server_returns_error(self):
+    def test_unreachable_server_returns_error(self, suppress_migration_warnings):
         mcp_toolset = RemoteMCPToolset(
             url="http://0.0.0.0:3009",
             name="test_mcp",
             description="",
         )
 
-        result = mcp_toolset.init_server_tools(config=None)
+        result = mcp_toolset.prerequisites_callable(config=None)
         assert result[0] is False
         assert "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse" in result[1]
 
-    def test_server_with_one_tool_initializes_correctly(self, monkeypatch):
+    def test_server_with_one_tool_initializes_correctly(
+        self, monkeypatch, suppress_migration_warnings
+    ):
         mcp_toolset = RemoteMCPToolset(
             url="http://0.0.0.0/3005",
             name="test_mcp",
@@ -91,10 +103,12 @@ class TestMCPGeneral:
             )
 
         monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
-        mcp_toolset.init_server_tools(config=None)
+        mcp_toolset.prerequisites_callable(config=None)
         assert len(list(mcp_toolset.tools)) == 1
 
-    def test_toolset_returns_configured_headers(self, monkeypatch):
+    def test_toolset_returns_configured_headers(
+        self, monkeypatch, suppress_migration_warnings
+    ):
         mcp_toolset = RemoteMCPToolset(
             url="http://0.0.0.0/3005",
             name="test_mcp",
@@ -102,16 +116,123 @@ class TestMCPGeneral:
             config={"headers": {"header1": "test1", "header2": "test2"}},
         )
 
-        assert mcp_toolset.get_headers().get("header1") == "test1"
+        mcp_toolset.prerequisites_callable(
+            config={"headers": {"header1": "test1", "header2": "test2"}}
+        )
+        assert mcp_toolset._mcp_config.headers.get("header1") == "test1"
 
-    def test_toolset_without_headers_returns_none(self):
+    def test_toolset_without_headers_returns_none(self, suppress_migration_warnings):
         mcp_toolset = RemoteMCPToolset(
             url="http://0.0.0.0/3005",
             name="test_mcp",
             description="demo mcp with 2 simple functions",
         )
 
-        assert mcp_toolset.get_headers() is None
+        mcp_toolset.prerequisites_callable(config=None)
+        assert mcp_toolset._mcp_config.headers is None
+
+    def test_old_config_format_with_url_field_returns_true(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        mcp_toolset = RemoteMCPToolset(
+            url="http://localhost:1234",
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
+        result = mcp_toolset.prerequisites_callable(config=None)
+        assert result[0] is True
+        assert str(mcp_toolset._mcp_config.url) == "http://localhost:1234/sse"
+        assert mcp_toolset._mcp_config.mode == MCPMode.SSE
+
+    def test_new_config_format_with_url_in_config_returns_true(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
+        result = mcp_toolset.prerequisites_callable(
+            config={"url": "http://localhost:1234"}
+        )
+        assert result[0] is True
+        assert str(mcp_toolset._mcp_config.url) == "http://localhost:1234/sse"
+        assert mcp_toolset._mcp_config.mode == MCPMode.SSE
+
+    def test_no_url_returns_false(self):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        result = mcp_toolset.prerequisites_callable(config=None)
+        assert result[0] is False
+        assert "Config is required" in result[1]
+
+    def test_no_url_in_config_returns_false(self):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        result = mcp_toolset.prerequisites_callable(config={})
+        assert result[0] is False
+        assert "Config is required" in result[1]
+
+    def test_no_mode_configured_defaults_to_sse(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
+        result = mcp_toolset.prerequisites_callable(
+            config={"url": "http://localhost:1234"}
+        )
+        assert result[0] is True
+        assert mcp_toolset._mcp_config.mode == MCPMode.SSE
+
+    def test_invalid_mode_returns_false(self):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        result = mcp_toolset.prerequisites_callable(
+            config={"url": "http://localhost:1234", "mode": "invalid-mode"}
+        )
+        assert result[0] is False
+        assert 'Invalid mode "invalid-mode", allowed modes are' in result[1]
+
+    def test_streamable_http_mode_works(self, monkeypatch, suppress_migration_warnings):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            description="Test toolset",
+        )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
+        result = mcp_toolset.prerequisites_callable(
+            config={"url": "http://localhost:1234", "mode": "streamable-http"}
+        )
+        assert result[0] is True
+        assert mcp_toolset._mcp_config.mode == MCPMode.STREAMABLE_HTTP
 
 
 class TestStreamableHttp:
@@ -174,7 +295,14 @@ class TestStreamableHttp:
         ],
     )
     def test_run_tool(
-        self, tool_name, tool_schema, params, response_text, expected_in_response
+        self,
+        tool_name,
+        tool_schema,
+        params,
+        response_text,
+        expected_in_response,
+        monkeypatch,
+        suppress_migration_warnings,
     ):
         tool = Tool(
             name=tool_name,
@@ -186,8 +314,14 @@ class TestStreamableHttp:
             url="http://localhost:1234/mcp/messages",
             name="test_toolset",
             description="Test toolset",
-            mode=MCPMode.STREAMABLE_HTTP,
+            config={"mode": "streamable-http"},
         )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mock_toolset, "_get_server_tools", mock_get_server_tools)
+        mock_toolset.prerequisites_callable(config={"mode": "streamable-http"})
 
         mcp_tool = RemoteMCPTool.create(tool, mock_toolset)
 
@@ -212,7 +346,7 @@ class TestStreamableHttp:
         for expected in expected_in_response:
             assert expected in result.data
 
-    def test_list_tools(self):
+    def test_list_tools(self, monkeypatch, suppress_migration_warnings):
         mock_session = AsyncMock()
         mock_session.initialize = AsyncMock(return_value=None)
 
@@ -238,10 +372,16 @@ class TestStreamableHttp:
             url="http://localhost:1234/mcp/messages",
             name="test_toolset",
             description="Test toolset",
-            mode=MCPMode.STREAMABLE_HTTP,
+            config={"mode": "streamable-http"},
         )
 
+        async def mock_get_server_tools():
+            return list_tools_result
+
+        monkeypatch.setattr(mock_toolset, "_get_server_tools", mock_get_server_tools)
+
         with client_patch, session_patch:
+            mock_toolset.prerequisites_callable(config={"mode": "streamable-http"})
 
             async def run_test():
                 async with mock_toolset.get_initialized_session() as session:
@@ -315,7 +455,14 @@ class TestSSE:
         ],
     )
     def test_run_tool(
-        self, tool_name, tool_schema, params, response_text, expected_in_response
+        self,
+        tool_name,
+        tool_schema,
+        params,
+        response_text,
+        expected_in_response,
+        monkeypatch,
+        suppress_migration_warnings,
     ):
         tool = Tool(
             name=tool_name,
@@ -327,8 +474,14 @@ class TestSSE:
             url="http://localhost:1234/sse",
             name="test_toolset",
             description="Test toolset",
-            mode=MCPMode.SSE,
+            config={"mode": "sse"},
         )
+
+        async def mock_get_server_tools():
+            return ListToolsResult(tools=[])
+
+        monkeypatch.setattr(mock_toolset, "_get_server_tools", mock_get_server_tools)
+        mock_toolset.prerequisites_callable(config={"mode": "sse"})
 
         mcp_tool = RemoteMCPTool.create(tool, mock_toolset)
 
@@ -353,7 +506,7 @@ class TestSSE:
         for expected in expected_in_response:
             assert expected in result.data
 
-    def test_list_tools(self):
+    def test_list_tools(self, monkeypatch, suppress_migration_warnings):
         mock_session = AsyncMock()
         mock_session.initialize = AsyncMock(return_value=None)
 
@@ -379,10 +532,16 @@ class TestSSE:
             url="http://localhost:1234/sse",
             name="test_toolset",
             description="Test toolset",
-            mode=MCPMode.SSE,
+            config={"mode": "sse"},
         )
 
+        async def mock_get_server_tools():
+            return list_tools_result
+
+        monkeypatch.setattr(mock_toolset, "_get_server_tools", mock_get_server_tools)
+
         with client_patch, session_patch:
+            mock_toolset.prerequisites_callable(config={"mode": "sse"})
 
             async def run_test():
                 async with mock_toolset.get_initialized_session() as session:
