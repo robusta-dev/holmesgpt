@@ -15,8 +15,9 @@ default
 Selector labels
 */}}
 {{- define "holmes.selectorLabels" -}}
-app: holmes
+app.kubernetes.io/name: holmes
 app.kubernetes.io/instance: {{ .Release.Name }}
+app: holmes
 {{- end -}}
 
 {{/*
@@ -24,7 +25,6 @@ Common labels for all resources
 */}}
 {{- define "holmes.labels" -}}
 {{- include "holmes.selectorLabels" . }}
-app.kubernetes.io/name: holmes
 {{- with .Values.commonLabels }}
 {{ toYaml . }}
 {{- end }}
