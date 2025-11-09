@@ -633,9 +633,17 @@ class LLMModelRegistry:
 
         if model_key:
             model_params = self._llms.get(model_key)
-            if model_params is not None:
+            if model_params:
                 logging.info(f"Using selected model: {model_key}")
-                return model_params.copy()
+                return model_params.model_copy()
+
+            if model_key.startswith("Robusta/"):
+                logging.warning("attempting to sync robusta models.")
+                self.configure_robusta_ai_model()
+                model_params = self._llms.get(model_key)
+                if model_params:
+                    logging.info(f"Using selected model: {model_key}")
+                    return model_params.model_copy()
 
             logging.error(f"Couldn't find model: {model_key} in model list")
 
