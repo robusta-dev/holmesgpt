@@ -50,6 +50,10 @@ spec:
             value: {{ .Values.enableTelemetry | quote }}
           - name: SENTRY_DSN
             value: {{ .Values.sentryDSN }}
+          {{ if .Values.clusterName -}}
+          - name: CLUSTER_NAME
+            value: {{ .Values.clusterName }}
+          {{- end }}
           {{ if .Values.certificate -}}
           - name: CERTIFICATE
             value: {{ .Values.certificate }}
