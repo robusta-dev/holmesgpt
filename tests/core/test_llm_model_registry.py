@@ -1,12 +1,11 @@
 import tempfile
 from unittest.mock import MagicMock, patch
 
-import pytest
 import yaml
 from pydantic import SecretStr
 
 from holmes.config import Config
-from holmes.core.llm import LLMModelRegistry, ModelEntry
+from holmes.core.llm import LLMModelRegistry
 from holmes.core.supabase_dal import SupabaseDal
 
 
@@ -21,7 +20,7 @@ class TestLLMModelRegistry:
 
     def create_temp_model_file(self, model_data: dict) -> str:
         """Create a temporary model list file for testing."""
-        temp_file = tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False)
+        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
         yaml.dump(model_data, temp_file)
         temp_file.flush()
         return temp_file.name
@@ -34,20 +33,20 @@ class TestLLMModelRegistry:
                 "model": "gpt-4",
                 "api_key": "original-key",
                 "api_base": "https://original.api.com",
-                "api_version": "2023-01-01"
+                "api_version": "2023-01-01",
             }
         }
         temp_file = self.create_temp_model_file(model_data)
 
-        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), \
-                patch.object(LLMModelRegistry, "_should_load_robusta_ai", return_value=False):
-
+        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), patch.object(
+            LLMModelRegistry, "_should_load_robusta_ai", return_value=False
+        ):
             # Create config with api_key set - this should trigger overwrite
             config = Config(
                 model="test-model",
                 api_key="new-key",
                 api_base="https://new.api.com",
-                api_version="2024-01-01"
+                api_version="2024-01-01",
             )
 
             registry = LLMModelRegistry(config, self.mock_dal)
@@ -70,20 +69,20 @@ class TestLLMModelRegistry:
                 "api_key": "original-key",
                 "api_base": "https://original.api.com",
                 "api_version": "2023-01-01",
-                "is_robusta_model": True
+                "is_robusta_model": True,
             }
         }
         temp_file = self.create_temp_model_file(model_data)
 
-        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), \
-                patch.object(LLMModelRegistry, "_should_load_robusta_ai", return_value=False):
-
+        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), patch.object(
+            LLMModelRegistry, "_should_load_robusta_ai", return_value=False
+        ):
             # Create config without api_key - this should preserve existing model
             config = Config(
                 model="test-model",
                 api_key=None,  # No API key set
                 api_base="https://new.api.com",  # These won't be used
-                api_version="2024-01-01"  # These won't be used
+                api_version="2024-01-01",  # These won't be used
             )
 
             registry = LLMModelRegistry(config, self.mock_dal)
@@ -99,23 +98,18 @@ class TestLLMModelRegistry:
     def test_init_models_nonexistent_model_creates_new_entry(self):
         """Test that new model entry is created when model doesn't exist in file."""
         # Create a model file without the target model
-        model_data = {
-            "other-model": {
-                "model": "gpt-3.5",
-                "api_key": "other-key"
-            }
-        }
+        model_data = {"other-model": {"model": "gpt-3.5", "api_key": "other-key"}}
         temp_file = self.create_temp_model_file(model_data)
 
-        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), \
-                patch.object(LLMModelRegistry, "_should_load_robusta_ai", return_value=False):
-
+        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), patch.object(
+            LLMModelRegistry, "_should_load_robusta_ai", return_value=False
+        ):
             # Create config for a model that doesn't exist in file
             config = Config(
                 model="new-model",
                 api_base="https://new.api.com",
                 api_key="new-key",
-                api_version="2024-01-01"
+                api_version="2024-01-01",
             )
 
             registry = LLMModelRegistry(config, self.mock_dal)
@@ -135,23 +129,18 @@ class TestLLMModelRegistry:
     def test_init_models_nonexistent_model_without_api_key_still_creates(self):
         """Test that new model entry is created even without api_key when model doesn't exist."""
         # Create a model file without the target model
-        model_data = {
-            "other-model": {
-                "model": "gpt-3.5",
-                "api_key": "other-key"
-            }
-        }
+        model_data = {"other-model": {"model": "gpt-3.5", "api_key": "other-key"}}
         temp_file = self.create_temp_model_file(model_data)
 
-        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), \
-                patch.object(LLMModelRegistry, "_should_load_robusta_ai", return_value=False):
-
+        with patch("holmes.core.llm.MODEL_LIST_FILE_LOCATION", temp_file), patch.object(
+            LLMModelRegistry, "_should_load_robusta_ai", return_value=False
+        ):
             # Create config for nonexistent model without api_key
             config = Config(
                 model="new-model",
                 api_base="https://new.api.com",
                 api_key=None,  # No API key
-                api_version="2024-01-01"
+                api_version="2024-01-01",
             )
 
             registry = LLMModelRegistry(config, self.mock_dal)
