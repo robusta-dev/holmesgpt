@@ -6,9 +6,9 @@ from math import floor
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
 
 import litellm
+import sentry_sdk
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from litellm.types.utils import ModelResponse, TextCompletionResponse
-import sentry_sdk
 from pydantic import BaseModel, ConfigDict, SecretStr
 from typing_extensions import Self
 
@@ -17,15 +17,14 @@ from holmes.clients.robusta_client import (
     RobustaModelsResponse,
     fetch_robusta_models,
 )
-
 from holmes.common.env_vars import (
+    EXTRA_HEADERS,
     FALLBACK_CONTEXT_WINDOW_SIZE,
     LOAD_ALL_ROBUSTA_MODELS,
     REASONING_EFFORT,
     ROBUSTA_AI,
     ROBUSTA_API_ENDPOINT,
     THINKING,
-    EXTRA_HEADERS,
     TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT,
     TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS,
 )
@@ -538,14 +537,25 @@ class LLMModelRegistry:
             self.configure_robusta_ai_model()
 
         if self._should_load_config_model():
-            self._llms[self.config.model] = self._create_model_entry(
-                model=self.config.model,
-                model_name=self.config.model,
-                base_url=self.config.api_base,
-                is_robusta_model=False,
-                api_key=self.config.api_key,
-                api_version=self.config.api_version,
-            )
+            # Chances are that for the cli, the user configres model_list and specify which model to use in the flag,
+            # so we don't override existing model entry from the model list file.
+            existing_model = self._llms.get(self.config.model)
+            # When self.config.api_key and self.config.model are both set, we assume the user wants to override the
+            # model entry from the model list file.
+            if not existing_model or self.config.api_key:
+                logging.info(
+                    f"Loaded model from config: {self.config.model} (is_robusta_model=False)"
+                )
+                # it's ok to assign api_base to base_url for azure openai service, since base_url will be assigned back
+                # to api_base in Config._get_llm() when api_base is not set.
+                self._llms[self.config.model] = self._create_model_entry(
+                    model=self.config.model,
+                    model_name=self.config.model,
+                    base_url=self.config.api_base,
+                    is_robusta_model=False,
+                    api_key=self.config.api_key,
+                    api_version=self.config.api_version,
+                )
 
     def _should_load_config_model(self) -> bool:
         if self.config.model is not None:
