@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import yaml
@@ -18,7 +19,7 @@ class TestLLMModelRegistry:
         self.mock_dal = MagicMock(spec=SupabaseDal)
         self.mock_dal.enabled = True
         self.mock_dal.account_id = "test-account"
-        self.temp_files = []  # Track temp files for cleanup
+        self.temp_files: List[str] = []  # Track temp files for cleanup
 
     def teardown_method(self) -> None:
         """Clean up temporary files."""
