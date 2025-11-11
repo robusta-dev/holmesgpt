@@ -537,7 +537,7 @@ class LLMModelRegistry:
             self.configure_robusta_ai_model()
 
         if self._should_load_config_model():
-            # Chances are that for the cli, the user configres model_list and specify which model to use in the flag,
+            # Chances are that for the cli, the user configures model_list and specify which model to use in the flag,
             # so we don't override existing model entry from the model list file.
             existing_model = self._llms.get(self.config.model)
             # When self.config.api_key and self.config.model are both set, we assume the user wants to override the

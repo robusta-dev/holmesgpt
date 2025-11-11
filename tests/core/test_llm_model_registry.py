@@ -1,3 +1,4 @@
+import os
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -12,18 +13,32 @@ from holmes.core.supabase_dal import SupabaseDal
 class TestLLMModelRegistry:
     """Test cases for LLMModelRegistry class focusing on _init_models method."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_dal = MagicMock(spec=SupabaseDal)
         self.mock_dal.enabled = True
         self.mock_dal.account_id = "test-account"
+        self.temp_files = []  # Track temp files for cleanup
+
+    def teardown_method(self) -> None:
+        """Clean up temporary files."""
+        for temp_file in self.temp_files:
+            try:
+                os.unlink(temp_file)
+            except (OSError, FileNotFoundError):
+                pass  # File might already be deleted
+        self.temp_files = []
 
     def create_temp_model_file(self, model_data: dict) -> str:
         """Create a temporary model list file for testing."""
         temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False)
-        yaml.dump(model_data, temp_file)
-        temp_file.flush()
-        return temp_file.name
+        try:
+            yaml.dump(model_data, temp_file)
+            temp_file.flush()
+            self.temp_files.append(temp_file.name)  # Track for cleanup
+            return temp_file.name
+        finally:
+            temp_file.close()
 
     def test_init_models_existing_model_with_api_key_overwrites(self):
         """Test that existing model entry is overwritten when config.api_key is set."""
