@@ -44,15 +44,15 @@ def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
             logging.debug(
                 f"Failed to fetch grafana health status at {url}", exc_info=True
             )
-            error_msg += f"Failed to fetch grafana health status at {url}. {str(e)}"
+            error_msg += f"Failed to fetch grafana health status at {url}. {str(e)}\n"
 
-            # Add helpful hint if this looks like a common misconfiguration
-            if config.grafana_datasource_uid and ":3100" in config.url:
-                error_msg += (
-                    "\n\nPossible configuration issue: grafana_datasource_uid is set but URL contains port 3100 "
-                    "(typically used for direct Loki connections). Please verify:\n"
-                    "- If connecting directly to Loki: remove grafana_datasource_uid from config\n"
-                    "- If connecting via Grafana proxy: ensure URL points to Grafana (usually port 3000)"
-                )
+    # Add helpful hint if this looks like a common misconfiguration
+    if config.grafana_datasource_uid and ":3100" in config.url:
+        error_msg += (
+            "\n\nPossible configuration issue: grafana_datasource_uid is set but URL contains port 3100 "
+            "(typically used for direct Loki connections). Please verify:\n"
+            "- If connecting directly to Loki: remove grafana_datasource_uid from config\n"
+            "- If connecting via Grafana proxy: ensure URL points to Grafana (usually port 3000)"
+        )
 
     return False, error_msg

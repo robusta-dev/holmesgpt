@@ -62,15 +62,18 @@ class TestGrafanaHealthCheck:
 
         mock_requests_get.side_effect = [
             requests.exceptions.ConnectionError("Connection failed"),
+            requests.exceptions.ConnectionError("Connection failed"),
             requests.exceptions.Timeout("Timeout"),
-            requests.exceptions.HTTPError("HTTP Error"),
+            requests.exceptions.Timeout("Timeout"),
+            requests.exceptions.ConnectionError("Connection failed"),
+            requests.exceptions.ConnectionError("Connection failed"),
         ]
 
         success, error = grafana_health_check(config)
 
         assert success is False
         assert "Failed to fetch grafana health status" in error
-        assert mock_requests_get.call_count == 4
+        assert mock_requests_get.call_count == 6
 
     def test_http_500_error_retried(self, mock_requests_get):
         """Test that 5xx errors are retried by backoff decorator"""
@@ -83,7 +86,7 @@ class TestGrafanaHealthCheck:
 
         mock_requests_get.side_effect = http_error
 
-        success, error = grafana_health_check(config)
+        success, _ = grafana_health_check(config)
 
         assert success is False
         assert mock_requests_get.call_count == 2
@@ -99,7 +102,7 @@ class TestGrafanaHealthCheck:
 
         mock_requests_get.side_effect = http_error
 
-        success, error = grafana_health_check(config)
+        success, _ = grafana_health_check(config)
 
         assert success is False
         # Should only try once due to giveup condition
