@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock, patch
-import requests
+import requests  # type: ignore
 
 from holmes.plugins.toolsets.grafana.common import GrafanaConfig
 from holmes.plugins.toolsets.grafana.grafana_api import grafana_health_check
