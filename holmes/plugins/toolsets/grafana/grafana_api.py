@@ -31,7 +31,7 @@ def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
     else:
         health_urls.append(f"{config.url}/{config.healthcheck}")
         health_urls.append(config.url)  # loki cloud uses no suffix.
-    g_headers = build_headers(api_key=config.api_key, additional_headers=None)
+    g_headers = build_headers(api_key=config.api_key, additional_headers=config.headers)
 
     error_msg = ""
     for url in health_urls:
