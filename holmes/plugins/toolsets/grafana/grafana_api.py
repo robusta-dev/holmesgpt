@@ -6,7 +6,6 @@ import backoff
 from holmes.plugins.toolsets.grafana.common import (
     GrafanaConfig,
     build_headers,
-    get_base_url,
 )
 
 
@@ -24,15 +23,14 @@ def _try_health_url(url: str, headers: dict) -> None:
 
 def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
     health_urls = []
-    if config.healthcheck_url:
-        health_urls.append(config.healthcheck_url)
     if config.grafana_datasource_uid:
         # https://grafana.com/docs/grafana/latest/developers/http_api/data_source/#check-data-source-health
         health_urls.append(
             f"{config.url}/api/datasources/uid/{config.grafana_datasource_uid}/health"
         )
-
-    health_urls.append(f"{get_base_url(config)}/{config.healthcheck}")
+    else:
+        health_urls.append(f"{config.url}/{config.healthcheck}")
+        health_urls.append(config.url)  # loki cloud uses no suffix.
     g_headers = build_headers(api_key=config.api_key, additional_headers=None)
 
     error_msg = ""
