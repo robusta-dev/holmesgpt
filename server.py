@@ -82,6 +82,11 @@ dal = config.dal
 
 
 def sync_before_server_start():
+    if not dal.enabled:
+        logging.info(
+            "Skipping holmes status and toolsets synchronization - not connected to Robusta platform"
+        )
+        return
     try:
         update_holmes_status_in_db(dal, config)
     except Exception:
