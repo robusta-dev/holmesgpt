@@ -549,6 +549,9 @@ class LLMModelRegistry:
 
     def _should_load_config_model(self) -> bool:
         if self.config.model is not None:
+            if self._llms and self.config.model in self._llms:
+                # model already loaded from file
+                return False
             return True
 
         # backward compatibility - in the past config.model was set by default to gpt-4o.

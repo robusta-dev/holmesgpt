@@ -261,6 +261,7 @@ def ask(
         dal=None,  # type: ignore
         refresh_toolsets=refresh_toolsets,  # flag to refresh the toolset status
         tracer=tracer,
+        model_name=model,
     )
 
     if prompt_file and prompt:
@@ -413,7 +414,7 @@ def alertmanager(
         custom_runbooks=custom_runbooks,
     )
 
-    ai = config.create_console_issue_investigator()  # type: ignore
+    ai = config.create_console_issue_investigator(model_name=model)  # type: ignore
 
     source = config.create_alertmanager_source()
 
@@ -542,7 +543,7 @@ def jira(
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator()  # type: ignore
+    ai = config.create_console_issue_investigator(model_name=model)  # type: ignore
     source = config.create_jira_source()
     try:
         issues = source.fetch_issues()
@@ -618,6 +619,7 @@ def ticket(
         "builtin://generic_ticket.jinja2", help=system_prompt_help
     ),
     post_processing_prompt: Optional[str] = opt_post_processing_prompt,
+    model: Optional[str] = opt_model,
 ):
     """
     Fetch and print a Jira ticket from the specified source.
@@ -658,7 +660,7 @@ def ticket(
         },
     )
 
-    ai = ticket_source.config.create_console_issue_investigator()
+    ai = ticket_source.config.create_console_issue_investigator(model_name=model)
     console.print(
         f"[bold yellow]Analyzing ticket: {issue_to_investigate.name}...[/bold yellow]"
     )
@@ -733,7 +735,7 @@ def github(
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator()
+    ai = config.create_console_issue_investigator(model_name=model)
     source = config.create_github_source()
     try:
         issues = source.fetch_issues()
@@ -817,7 +819,7 @@ def pagerduty(
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator()
+    ai = config.create_console_issue_investigator(model_name=model)
     source = config.create_pagerduty_source()
     try:
         issues = source.fetch_issues()
@@ -903,7 +905,7 @@ def opsgenie(
         custom_toolsets_from_cli=custom_toolsets,
         custom_runbooks=custom_runbooks,
     )
-    ai = config.create_console_issue_investigator()
+    ai = config.create_console_issue_investigator(model_name=model)
     source = config.create_opsgenie_source()
     try:
         issues = source.fetch_issues()
