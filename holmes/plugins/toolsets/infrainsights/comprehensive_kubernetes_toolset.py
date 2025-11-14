@@ -1056,15 +1056,11 @@ class KubernetesLogsTool(Tool):
                 pod_info = core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
                 logger.info(f"🔍 Pod status: {pod_info.status.phase}")
                 
-                # Check if pod is ready for logs
-                if pod_info.status.phase not in ['Running', 'Succeeded', 'Failed']:
-                    return f"Pod '{pod_name}' is in '{pod_info.status.phase}' state. Logs may not be available yet."
-                
-                # Check container status
+                # Log container statuses for debugging, but don't block log retrieval
+                # Even crashed/not-ready containers have logs that are crucial for troubleshooting
                 if pod_info.status.container_statuses:
-                    ready_containers = [cs for cs in pod_info.status.container_statuses if cs.ready]
-                    if not ready_containers:
-                        return f"Pod '{pod_name}' exists but no containers are ready. Container statuses: {[cs.state for cs in pod_info.status.container_statuses]}"
+                    for cs in pod_info.status.container_statuses:
+                        logger.info(f"🔍 Container '{cs.name}': ready={cs.ready}, state={cs.state}")
                 
             except ApiException as pod_e:
                 if pod_e.status == 404:
