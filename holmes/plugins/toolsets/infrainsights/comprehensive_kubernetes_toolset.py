@@ -328,11 +328,8 @@ class KubernetesHealthCheckTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -463,19 +460,32 @@ class KubernetesListResourcesTool(Tool):
     def _list_resources(self, instance: ServiceInstance, kind: str, namespace: str, output_format: str) -> Dict[str, Any]:
         """List resources using Kubernetes Python client"""
         try:
+            # Normalize kind to plural form (accept both singular and plural)
+            kind_mapping = {
+                "pod": "pods",
+                "pods": "pods",
+                "service": "services",
+                "services": "services",
+                "svc": "services",
+                "deployment": "deployments",
+                "deployments": "deployments",
+                "deploy": "deployments"
+            }
+            normalized_kind = kind_mapping.get(kind.lower(), kind.lower())
+            
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             apps_api = client.AppsV1Api(k8s_client)
             
             resources = {
                 "instance_name": instance.name,
-                "kind": kind,
+                "kind": normalized_kind,
                 "namespace": namespace,
                 "output_format": output_format,
                 "items": []
             }
             
-            if kind == "pods":
+            if normalized_kind == "pods":
                 if namespace == "all":
                     response = core_api.list_pod_for_all_namespaces()
                 else:
@@ -492,7 +502,7 @@ class KubernetesListResourcesTool(Tool):
                     }
                     resources["items"].append(pod_info)
             
-            elif kind == "services":
+            elif normalized_kind == "services":
                 if namespace == "all":
                     response = core_api.list_service_for_all_namespaces()
                 else:
@@ -509,7 +519,7 @@ class KubernetesListResourcesTool(Tool):
                     }
                     resources["items"].append(svc_info)
             
-            elif kind == "deployments":
+            elif normalized_kind == "deployments":
                 if namespace == "all":
                     response = apps_api.list_deployment_for_all_namespaces()
                 else:
@@ -528,7 +538,7 @@ class KubernetesListResourcesTool(Tool):
             
             else:
                 return {
-                    "error": f"Unsupported resource kind: {kind}. Supported kinds: pods, services, deployments"
+                    "error": f"Unsupported resource kind: {kind}. Supported kinds: pod/pods, service/services/svc, deployment/deployments/deploy"
                 }
             
             resources["total_count"] = len(resources["items"])
@@ -553,11 +563,8 @@ class KubernetesListResourcesTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -690,19 +697,32 @@ class KubernetesDescribeResourceTool(Tool):
     def _describe_resource(self, instance: ServiceInstance, kind: str, name: str, namespace: str) -> Dict[str, Any]:
         """Describe resource using Kubernetes Python client"""
         try:
+            # Normalize kind to singular form (accept both singular and plural)
+            kind_mapping = {
+                "pods": "pod",
+                "pod": "pod",
+                "services": "service",
+                "service": "service",
+                "svc": "service",
+                "deployments": "deployment",
+                "deployment": "deployment",
+                "deploy": "deployment"
+            }
+            normalized_kind = kind_mapping.get(kind.lower(), kind.lower())
+            
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             apps_api = client.AppsV1Api(k8s_client)
             
             resource_info = {
                 "instance_name": instance.name,
-                "kind": kind,
+                "kind": normalized_kind,
                 "name": name,
                 "namespace": namespace,
                 "details": {}
             }
             
-            if kind == "pod":
+            if normalized_kind == "pod":
                 try:
                     pod = core_api.read_namespaced_pod(name=name, namespace=namespace)
                     resource_info["details"] = {
@@ -739,7 +759,7 @@ class KubernetesDescribeResourceTool(Tool):
                     else:
                         resource_info["details"] = {"error": f"API error: {e.reason}"}
             
-            elif kind == "service":
+            elif normalized_kind == "service":
                 try:
                     svc = core_api.read_namespaced_service(name=name, namespace=namespace)
                     resource_info["details"] = {
@@ -766,7 +786,7 @@ class KubernetesDescribeResourceTool(Tool):
                     else:
                         resource_info["details"] = {"error": f"API error: {e.reason}"}
             
-            elif kind == "deployment":
+            elif normalized_kind == "deployment":
                 try:
                     deploy = apps_api.read_namespaced_deployment(name=name, namespace=namespace)
                     resource_info["details"] = {
@@ -796,7 +816,7 @@ class KubernetesDescribeResourceTool(Tool):
                         resource_info["details"] = {"error": f"API error: {e.reason}"}
             
             else:
-                resource_info["details"] = {"error": f"Unsupported resource kind: {kind}. Supported kinds: pod, service, deployment"}
+                resource_info["details"] = {"error": f"Unsupported resource kind: {kind}. Supported kinds: pod/pods, service/services/svc, deployment/deployments/deploy"}
             
             return resource_info
             
@@ -819,11 +839,8 @@ class KubernetesDescribeResourceTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -1261,11 +1278,8 @@ class KubernetesLogsTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -1526,11 +1540,8 @@ class KubernetesEventsTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -1816,11 +1827,8 @@ class KubernetesLogsSearchTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -2031,11 +2039,8 @@ class KubernetesMetricsTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -2360,11 +2365,8 @@ class KubernetesTroubleshootingTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
@@ -2638,11 +2640,8 @@ class KubernetesResourceAnalysisTool(Tool):
                 temp_file_path = temp_file.name
             
             try:
-                # Load kubeconfig
-                config.load_kube_config(config_file=temp_file_path)
-                
-                # Create API client
-                api_client = client.ApiClient()
+                # Create API client from kubeconfig
+                api_client = config.new_client_from_config(config_file=temp_file_path)
                 return api_client
                 
             finally:
