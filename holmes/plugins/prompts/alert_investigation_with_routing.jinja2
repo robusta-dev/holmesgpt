@@ -37,16 +37,18 @@ Provide a terse analysis of the following {{ issue.source_type }} alert/issue an
 
 Based on the alert labels above, you **MUST** extract the correct instance names and pass them as tool parameters:
 
-{% if issue.raw.context.service_type == 'mongodb' and issue.raw.context.instance_name %}
-**For MongoDB alerts:** Use `mongodb_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
-{% elif issue.raw.context.service_type == 'kubernetes' and issue.raw.context.instance_name %}
-**For Kubernetes alerts:** Use `kubernetes_list_resources({"instance_name": "{{ issue.raw.context.instance_name }}", "kind": "deployments", "namespace": "{{ issue.raw.subject.namespace if issue.raw and issue.raw.subject and issue.raw.subject.namespace else 'default' }}"})`
-{% elif issue.raw.context.service_type == 'elasticsearch' and issue.raw.context.instance_name %}
-**For Elasticsearch alerts:** Use `elasticsearch_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
-{% elif issue.raw.context.service_type == 'kafka' and issue.raw.context.instance_name %}
-**For Kafka alerts:** Use `kafka_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
-{% elif issue.raw.context.service_type == 'redis' and issue.raw.context.instance_name %}
-**For Redis alerts:** Use `redis_health_check({"instance_name": "{{ issue.raw.context.instance_name }}"})`
+**IMPORTANT:** If `instance_name` looks like an IP address or port number (e.g., "192.168.1.1:8080" or "8080"), and `cluster_name` is available, pass both parameters. The tool will automatically prefer `cluster_name` in this case.
+
+{% if issue.raw.context.service_type == 'mongodb' and (issue.raw.context.instance_name or issue.raw.context.cluster_name) %}
+**For MongoDB alerts:** Use `mongodb_health_check({% if issue.raw.context.instance_name %}"instance_name": "{{ issue.raw.context.instance_name }}"{% if issue.raw.context.cluster_name %}, "cluster_name": "{{ issue.raw.context.cluster_name }}"{% endif %}{% elif issue.raw.context.cluster_name %}"instance_name": "{{ issue.raw.context.cluster_name }}"{% endif %})`
+{% elif issue.raw.context.service_type == 'kubernetes' and (issue.raw.context.instance_name or issue.raw.context.cluster_name) %}
+**For Kubernetes alerts:** Use `kubernetes_list_resources({% if issue.raw.context.instance_name %}"instance_name": "{{ issue.raw.context.instance_name }}"{% if issue.raw.context.cluster_name %}, "cluster_name": "{{ issue.raw.context.cluster_name }}"{% endif %}{% elif issue.raw.context.cluster_name %}"instance_name": "{{ issue.raw.context.cluster_name }}"{% endif %}, "kind": "deployments", "namespace": "{{ issue.raw.subject.namespace if issue.raw and issue.raw.subject and issue.raw.subject.namespace else 'default' }}"})`
+{% elif issue.raw.context.service_type == 'elasticsearch' and (issue.raw.context.instance_name or issue.raw.context.cluster_name) %}
+**For Elasticsearch alerts:** Use `elasticsearch_health_check({% if issue.raw.context.instance_name %}"instance_name": "{{ issue.raw.context.instance_name }}"{% if issue.raw.context.cluster_name %}, "cluster_name": "{{ issue.raw.context.cluster_name }}"{% endif %}{% elif issue.raw.context.cluster_name %}"instance_name": "{{ issue.raw.context.cluster_name }}"{% endif %})`
+{% elif issue.raw.context.service_type == 'kafka' and (issue.raw.context.instance_name or issue.raw.context.cluster_name) %}
+**For Kafka alerts:** Use `kafka_health_check({% if issue.raw.context.instance_name %}"instance_name": "{{ issue.raw.context.instance_name }}"{% if issue.raw.context.cluster_name %}, "cluster_name": "{{ issue.raw.context.cluster_name }}"{% endif %}{% elif issue.raw.context.cluster_name %}"instance_name": "{{ issue.raw.context.cluster_name }}"{% endif %})`
+{% elif issue.raw.context.service_type == 'redis' and (issue.raw.context.instance_name or issue.raw.context.cluster_name) %}
+**For Redis alerts:** Use `redis_health_check({% if issue.raw.context.instance_name %}"instance_name": "{{ issue.raw.context.instance_name }}"{% if issue.raw.context.cluster_name %}, "cluster_name": "{{ issue.raw.context.cluster_name }}"{% endif %}{% elif issue.raw.context.cluster_name %}"instance_name": "{{ issue.raw.context.cluster_name }}"{% endif %})`
 {% endif %}
 
 ### **⚠️ NEVER Call Tools with Empty Parameters:**

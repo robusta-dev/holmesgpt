@@ -1,4 +1,5 @@
 import logging
+import re
 from abc import abstractmethod
 from typing import Dict, Any, Tuple, Optional, TYPE_CHECKING, List
 from pydantic import Field, ConfigDict
@@ -43,6 +44,27 @@ class BaseInfraInsightsToolV2(Tool):
         except Exception as e:
             return False, f"Failed to connect to InfraInsights API: {str(e)}"
             
+    @staticmethod
+    def _looks_like_ip_address(value: str) -> bool:
+        """Check if a value looks like an IP address (with optional port)"""
+        if not value or not isinstance(value, str):
+            return False
+        
+        # Pattern for IP address (IPv4) with optional port
+        # Matches: 192.168.1.1, 10.0.0.1:8080, 172.16.0.1:3000, etc.
+        ip_pattern = r'^(\d{1,3}\.){3}\d{1,3}(:\d+)?$'
+        
+        # Also check if it's just numbers (integer-like)
+        # This catches cases like "8080", "3000", etc.
+        if value.isdigit():
+            return True
+        
+        # Check if it matches IP pattern
+        if re.match(ip_pattern, value):
+            return True
+        
+        return False
+
     def get_instance_from_params(self, params: Dict[str, Any]) -> ServiceInstance:
         """Get service instance from parameters or user context with enhanced resolution"""
         service_type = self.toolset.get_service_type()
@@ -66,6 +88,12 @@ class BaseInfraInsightsToolV2(Tool):
                     return instance
             except Exception as e:
                 logger.warning(f"Failed to get instance by ID {instance_id}: {str(e)}")
+        
+        # Pre-check: If instance_name looks like IP address/port and cluster_name exists, prefer cluster_name
+        if instance_name and cluster_name and self._looks_like_ip_address(instance_name):
+            logger.info(f"🔍 Instance name '{instance_name}' looks like IP address/port, preferring cluster_name '{cluster_name}'")
+            # Use cluster_name instead of instance_name
+            instance_name = None  # Clear instance_name so we use cluster_name in Strategy 3
         
         # Strategy 2: Instance name
         if instance_name:
