@@ -1420,32 +1420,39 @@ class KubernetesEventsTool(Tool):
             )
 
     def _fetch_events(self, instance: ServiceInstance, resource_type: Optional[str], resource_name: Optional[str], namespace: Optional[str], output_format: str) -> str:
-        """Fetch events using Kubernetes Python client with raw API calls to handle None event_time values"""
+        """Fetch events using Kubernetes Python client"""
         try:
             logger.info(f"🔍 Starting to fetch events for resource_type={resource_type}, resource_name={resource_name}, namespace={namespace}")
             
             k8s_client = self._create_kubernetes_client(instance)
+            core_api = client.CoreV1Api(k8s_client)
             
-            logger.info(f"🔍 Created Kubernetes client, fetching events using raw API...")
+            logger.info(f"🔍 Created Kubernetes client, fetching events...")
             
-            # Use raw API call to bypass model validation issues with None event_time values
+            # Use CoreV1Api for proper authentication handling
             if namespace:
-                api_response = k8s_client.call_api(
-                    '/api/v1/namespaces/{namespace}/events',
-                    'GET',
-                    path_params={'namespace': namespace},
-                    query_params=[('watch', False)]
-                )
+                event_list = core_api.list_namespaced_event(namespace=namespace, watch=False)
             else:
-                api_response = k8s_client.call_api(
-                    '/api/v1/events',
-                    'GET',
-                    query_params=[('watch', False)]
-                )
+                event_list = core_api.list_event_for_all_namespaces(watch=False)
             
-            # Manually process the raw response
-            raw_events = api_response[0].get('items', [])
-            logger.info(f"🔍 Retrieved {len(raw_events)} events from raw API")
+            logger.info(f"🔍 Retrieved {len(event_list.items)} events from API")
+            
+            # Convert event objects to our format
+            raw_events = []
+            for event in event_list.items:
+                raw_events.append({
+                    'type': event.type,
+                    'reason': event.reason,
+                    'message': event.message,
+                    'count': event.count if event.count else 1,
+                    'firstTimestamp': event.first_timestamp.isoformat() if event.first_timestamp else 'Unknown',
+                    'lastTimestamp': event.last_timestamp.isoformat() if event.last_timestamp else 'Unknown',
+                    'involvedObject': {
+                        'kind': event.involved_object.kind,
+                        'name': event.involved_object.name,
+                        'namespace': event.involved_object.namespace
+                    }
+                })
             
             # Convert raw events to our format
             events_list = []
