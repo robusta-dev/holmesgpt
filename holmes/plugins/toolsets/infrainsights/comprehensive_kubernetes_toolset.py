@@ -1234,6 +1234,58 @@ class KubernetesLogsTool(Tool):
                     logger.info(f"🔍 Extracted container name from prompt: {extracted_container}")
                     container = extracted_container
             
+            # If still no container specified, check if pod has multiple containers
+            if container is None:
+                try:
+                    pod_containers = EnhancedContainerHandler.get_pod_containers(core_api, pod_name, namespace)
+                    # get_pod_containers already returns only regular containers (not init containers)
+                    
+                    if len(pod_containers) > 1:
+                        logger.info(f"🔍 Pod has {len(pod_containers)} containers and no container specified - fetching from all containers")
+                        
+                        # Build kwargs for log fetching
+                        kwargs = {}
+                        if previous:
+                            kwargs['previous'] = True
+                        if tail:
+                            kwargs['tail_lines'] = tail
+                        if since:
+                            since_seconds = self._parse_since_seconds(since)
+                            if since_seconds:
+                                kwargs['since_seconds'] = since_seconds
+                        
+                        # Fetch logs from all containers
+                        all_logs = EnhancedContainerHandler.fetch_logs_all_containers(
+                            core_api, pod_name, namespace, **kwargs
+                        )
+                        
+                        # Format the result
+                        result = f"=== LOGS FROM ALL CONTAINERS IN POD '{pod_name}' ===\n\n"
+                        for container_name, log_data in all_logs.items():
+                            result += f"🔶 CONTAINER: {container_name}\n"
+                            result += f"   Image: {log_data['container_info']['image']}\n"
+                            result += f"   Ready: {log_data['container_info']['ready']}\n"
+                            result += f"   Restart Count: {log_data['container_info']['restart_count']}\n"
+                            result += f"   State: {log_data['container_info']['state']}\n"
+                            result += f"--- LOGS ---\n{log_data['logs']}\n"
+                            result += f"{'='*80}\n\n"
+                        
+                        # Return structured data for multi-container logs
+                        return {
+                            'all_containers': True,
+                            'container_count': len(all_logs),
+                            'logs': result
+                        }
+                    elif len(pod_containers) == 1:
+                        # Single container pod - use that container
+                        container = pod_containers[0]['name']
+                        logger.info(f"🔍 Pod has single container '{container}' - using it automatically")
+                    else:
+                        logger.warning(f"🔍 Pod has no containers found")
+                        
+                except Exception as e:
+                    logger.warning(f"🔍 Could not determine pod containers: {e}")
+            
             # Use original single container logic
             return self._fetch_logs(instance, pod_name, namespace, container, previous, tail, since)
             
