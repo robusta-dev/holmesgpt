@@ -54,7 +54,7 @@ class EnhancedContainerHandler:
         
         for pattern in all_container_patterns:
             if re.search(pattern, prompt, re.IGNORECASE):
-                logger.info(f"🔍 Detected 'all containers' request with pattern: {pattern}")
+                logger.debug(f"🔍 Detected 'all containers' request with pattern: {pattern}")
                 return True
         return False
     
@@ -78,7 +78,7 @@ class EnhancedContainerHandler:
             if match:
                 extracted = match.group(1)
                 if extracted.lower() not in ['container', 'in', 'from']:
-                    logger.info(f"🔍 Extracted container name from prompt: {extracted}")
+                    logger.debug(f"🔍 Extracted container name from prompt: {extracted}")
                     return extracted
         return None
 
@@ -105,7 +105,7 @@ class EnhancedContainerHandler:
                     'state': str(container_status.state) if container_status else 'Unknown'
                 })
             
-            logger.info(f"🔍 Found {len(containers)} containers in pod {pod_name}: {[c['name'] for c in containers]}")
+            logger.debug(f"🔍 Found {len(containers)} containers in pod {pod_name}: {[c['name'] for c in containers]}")
             return containers
         except Exception as e:
             logger.error(f"Failed to get pod containers: {e}")
@@ -133,7 +133,7 @@ class EnhancedContainerHandler:
                     'container_info': container
                 }
                 
-                logger.info(f"🔍 Successfully fetched logs for container: {container['name']}")
+                logger.debug(f"🔍 Successfully fetched logs for container: {container['name']}")
                 
             except Exception as e:
                 logger.error(f"Failed to fetch logs for container {container['name']}: {e}")
@@ -1046,7 +1046,7 @@ class KubernetesLogsTool(Tool):
     def _fetch_logs(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], previous: bool, tail: Optional[int], since: Optional[str]) -> str:
         """Fetch logs using Kubernetes Python client"""
         try:
-            logger.info(f"🔍 Starting to fetch logs for pod={pod_name}, namespace={namespace}, container={container}, previous={previous}")
+            logger.debug(f"🔍 Starting to fetch logs for pod={pod_name}, namespace={namespace}, container={container}, previous={previous}")
             
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
@@ -1054,13 +1054,13 @@ class KubernetesLogsTool(Tool):
             # First check if the pod exists and get its status
             try:
                 pod_info = core_api.read_namespaced_pod(name=pod_name, namespace=namespace)
-                logger.info(f"🔍 Pod status: {pod_info.status.phase}")
+                logger.debug(f"🔍 Pod status: {pod_info.status.phase}")
                 
                 # Log container statuses for debugging, but don't block log retrieval
                 # Even crashed/not-ready containers have logs that are crucial for troubleshooting
                 if pod_info.status.container_statuses:
                     for cs in pod_info.status.container_statuses:
-                        logger.info(f"🔍 Container '{cs.name}': ready={cs.ready}, state={cs.state}")
+                        logger.debug(f"🔍 Container '{cs.name}': ready={cs.ready}, state={cs.state}")
                 
             except ApiException as pod_e:
                 if pod_e.status == 404:
@@ -1087,7 +1087,7 @@ class KubernetesLogsTool(Tool):
                 if since_seconds:
                     kwargs['since_seconds'] = since_seconds
             
-            logger.info(f"🔍 API parameters: {kwargs}")
+            logger.debug(f"🔍 API parameters: {kwargs}")
             
             # Execute API call
             try:
@@ -1097,7 +1097,7 @@ class KubernetesLogsTool(Tool):
                     **kwargs
                 )
                 
-                logger.info(f"🔍 Successfully retrieved logs (length: {len(result) if result else 0})")
+                logger.debug(f"🔍 Successfully retrieved logs (length: {len(result) if result else 0})")
                 return result if result else "No logs available"
                 
             except ApiException as log_e:
@@ -1105,7 +1105,7 @@ class KubernetesLogsTool(Tool):
                     logger.warning(f"🔍 Previous logs not available, trying current logs")
                     # Remove previous parameter and try again
                     kwargs.pop('previous', None)
-                    logger.info(f"🔍 Retrying with API parameters: {kwargs}")
+                    logger.debug(f"🔍 Retrying with API parameters: {kwargs}")
                     
                     try:
                         result = core_api.read_namespaced_pod_log(
@@ -1114,7 +1114,7 @@ class KubernetesLogsTool(Tool):
                             **kwargs
                         )
                         
-                        logger.info(f"🔍 Successfully retrieved current logs (length: {len(result) if result else 0})")
+                        logger.debug(f"🔍 Successfully retrieved current logs (length: {len(result) if result else 0})")
                         return f"Previous logs not available. Current logs:\n\n{result if result else 'No logs available'}"
                         
                     except ApiException as retry_e:
@@ -1181,7 +1181,7 @@ class KubernetesLogsTool(Tool):
     def _fetch_logs_enhanced(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], previous: bool, tail: Optional[int], since: Optional[str], user_prompt: str) -> Any:
         """Enhanced fetch logs with intelligent container handling"""
         try:
-            logger.info(f"🔍 Enhanced log fetching for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
+            logger.debug(f"🔍 Enhanced log fetching for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
             
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
@@ -1191,7 +1191,7 @@ class KubernetesLogsTool(Tool):
             
             # If no container specified but user wants all containers
             if container is None and check_all:
-                logger.info("🔍 User requested all containers - fetching from all containers in pod")
+                logger.debug("🔍 User requested all containers - fetching from all containers in pod")
                 
                 # Build kwargs for log fetching
                 kwargs = {}
@@ -1231,7 +1231,7 @@ class KubernetesLogsTool(Tool):
             elif container is None:
                 extracted_container = EnhancedContainerHandler.extract_container_name(user_prompt)
                 if extracted_container:
-                    logger.info(f"🔍 Extracted container name from prompt: {extracted_container}")
+                    logger.debug(f"🔍 Extracted container name from prompt: {extracted_container}")
                     container = extracted_container
             
             # If still no container specified, check if pod has multiple containers
@@ -1241,7 +1241,7 @@ class KubernetesLogsTool(Tool):
                     # get_pod_containers already returns only regular containers (not init containers)
                     
                     if len(pod_containers) > 1:
-                        logger.info(f"🔍 Pod has {len(pod_containers)} containers and no container specified - fetching from all containers")
+                        logger.debug(f"🔍 Pod has {len(pod_containers)} containers and no container specified - fetching from all containers")
                         
                         # Build kwargs for log fetching
                         kwargs = {}
@@ -1279,7 +1279,7 @@ class KubernetesLogsTool(Tool):
                     elif len(pod_containers) == 1:
                         # Single container pod - use that container
                         container = pod_containers[0]['name']
-                        logger.info(f"🔍 Pod has single container '{container}' - using it automatically")
+                        logger.debug(f"🔍 Pod has single container '{container}' - using it automatically")
                     else:
                         logger.warning(f"🔍 Pod has no containers found")
                         
@@ -1474,12 +1474,12 @@ class KubernetesEventsTool(Tool):
     def _fetch_events(self, instance: ServiceInstance, resource_type: Optional[str], resource_name: Optional[str], namespace: Optional[str], output_format: str) -> str:
         """Fetch events using Kubernetes Python client"""
         try:
-            logger.info(f"🔍 Starting to fetch events for resource_type={resource_type}, resource_name={resource_name}, namespace={namespace}")
+            logger.debug(f"🔍 Starting to fetch events for resource_type={resource_type}, resource_name={resource_name}, namespace={namespace}")
             
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
             
-            logger.info(f"🔍 Created Kubernetes client, fetching events...")
+            logger.debug(f"🔍 Created Kubernetes client, fetching events...")
             
             # Use CoreV1Api for proper authentication handling
             if namespace:
@@ -1487,7 +1487,7 @@ class KubernetesEventsTool(Tool):
             else:
                 event_list = core_api.list_event_for_all_namespaces(watch=False)
             
-            logger.info(f"🔍 Retrieved {len(event_list.items)} events from API")
+            logger.debug(f"🔍 Retrieved {len(event_list.items)} events from API")
             
             # Convert event objects to our format
             raw_events = []
@@ -1533,7 +1533,7 @@ class KubernetesEventsTool(Tool):
                         "involved_object": None
                     })
             
-            logger.info(f"🔍 Successfully processed {len(events_list)} events")
+            logger.debug(f"🔍 Successfully processed {len(events_list)} events")
             
             # Filter events if resource_type and resource_name are specified
             if resource_type and resource_name:
@@ -1545,7 +1545,7 @@ class KubernetesEventsTool(Tool):
                         involved_obj.get("name", "") == resource_name):
                         filtered_events.append(event)
                 events_list = filtered_events
-                logger.info(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
+                logger.debug(f"🔍 Filtered to {len(events_list)} events for {resource_type}/{resource_name}")
             
             # Format output
             if output_format == 'json':
@@ -1808,7 +1808,7 @@ class KubernetesLogsSearchTool(Tool):
     def _fetch_logs_for_search_enhanced(self, instance: ServiceInstance, pod_name: str, namespace: str, container: Optional[str], user_prompt: str) -> str:
         """Enhanced fetch logs for search with intelligent container handling"""
         try:
-            logger.info(f"🔍 Enhanced log search for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
+            logger.debug(f"🔍 Enhanced log search for pod={pod_name}, namespace={namespace}, container={container}, user_prompt='{user_prompt[:100]}...'")
             
             k8s_client = self._create_kubernetes_client(instance)
             core_api = client.CoreV1Api(k8s_client)
@@ -1818,7 +1818,7 @@ class KubernetesLogsSearchTool(Tool):
             
             # If no container specified but user wants all containers
             if container is None and check_all:
-                logger.info("🔍 User requested all containers for search - fetching from all containers in pod")
+                logger.debug("🔍 User requested all containers for search - fetching from all containers in pod")
                 
                 # Fetch logs from all containers without specific parameters (for search)
                 all_logs = EnhancedContainerHandler.fetch_logs_all_containers(
@@ -1838,7 +1838,7 @@ class KubernetesLogsSearchTool(Tool):
             elif container is None:
                 extracted_container = EnhancedContainerHandler.extract_container_name(user_prompt)
                 if extracted_container:
-                    logger.info(f"🔍 Extracted container name from prompt for search: {extracted_container}")
+                    logger.debug(f"🔍 Extracted container name from prompt for search: {extracted_container}")
                     container = extracted_container
             
             # Use original single container logic
@@ -2742,7 +2742,7 @@ class InfraInsightsKubernetesToolset(Toolset):
         )
         
         logger.info("🚀🚀🚀 CREATING INFRAINSIGHTS KUBERNETES TOOLSET 🚀🚀🚀")
-        logger.info("✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CREATED SUCCESSFULLY ✅✅✅")
+        logger.debug("✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CREATED SUCCESSFULLY ✅✅✅")
 
     def configure(self, config: Dict[str, Any]) -> None:
         """Configure the toolset with InfraInsights connection details"""
@@ -2774,7 +2774,7 @@ class InfraInsightsKubernetesToolset(Toolset):
             object.__setattr__(self, 'infrainsights_config', infrainsights_config)
             object.__setattr__(self, 'infrainsights_client', infrainsights_client)
             
-            logger.info(f"✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CONFIGURED WITH URL: {infrainsights_url} ✅✅✅")
+            logger.debug(f"✅✅✅ INFRAINSIGHTS KUBERNETES TOOLSET CONFIGURED WITH URL: {infrainsights_url} ✅✅✅")
             
             # Enable the toolset after successful configuration
             self.enabled = True
@@ -2783,9 +2783,9 @@ class InfraInsightsKubernetesToolset(Toolset):
             self.prerequisites = [CallablePrerequisite(callable=self._check_prerequisites)]
             
             # Test prerequisites check
-            logger.info("🔍🔍🔍 TESTING PREREQUISITES CHECK AFTER CONFIGURATION 🔍🔍🔍")
+            logger.debug("🔍🔍🔍 TESTING PREREQUISITES CHECK AFTER CONFIGURATION 🔍🔍🔍")
             prereq_result, prereq_message = self._check_prerequisites({})
-            logger.info(f"🔍 Prerequisites check result: {prereq_result}, message: {prereq_message}")
+            logger.debug(f"🔍 Prerequisites check result: {prereq_result}, message: {prereq_message}")
             
         except Exception as e:
             logger.error(f"Failed to configure InfraInsights Kubernetes toolset: {e}")
@@ -2794,20 +2794,20 @@ class InfraInsightsKubernetesToolset(Toolset):
     def _check_prerequisites(self, context: Dict[str, Any]) -> tuple[bool, str]:
         """Check if prerequisites are met"""
         try:
-            logger.info("🔍🔍🔍 CHECKING PREREQUISITES FOR INFRAINSIGHTS KUBERNETES TOOLSET 🔍🔍🔍")
-            logger.info(f"🔍 Context received: {context}")
+            logger.debug("🔍🔍🔍 CHECKING PREREQUISITES FOR INFRAINSIGHTS KUBERNETES TOOLSET 🔍🔍🔍")
+            logger.debug(f"🔍 Context received: {context}")
             
             infrainsights_client = getattr(self, 'infrainsights_client', None)
             if not infrainsights_client:
                 logger.warning("🔍 InfraInsights client not configured")
                 return True, f"InfraInsights client not configured (toolset still enabled)"
             
-            logger.info("🔍 InfraInsights client configured, checking API accessibility")
+            logger.debug("🔍 InfraInsights client configured, checking API accessibility")
             
             # Check if InfraInsights API is accessible
             try:
                 health_result = infrainsights_client.health_check()
-                logger.info(f"🔍 Health check result: {health_result}")
+                logger.debug(f"🔍 Health check result: {health_result}")
                 if not health_result:
                     logger.warning("🔍 InfraInsights API is not accessible")
                     return True, f"InfraInsights API at {self.infrainsights_config.base_url} is not accessible (toolset still enabled)"
@@ -2815,13 +2815,13 @@ class InfraInsightsKubernetesToolset(Toolset):
                 logger.warning(f"🔍 InfraInsights API health check failed: {e}")
                 return True, f"InfraInsights API health check failed: {str(e)} (toolset still enabled)"
             
-            logger.info("🔍 InfraInsights API is accessible, checking Kubernetes Python client availability")
+            logger.debug("🔍 InfraInsights API is accessible, checking Kubernetes Python client availability")
             
             # Check if kubernetes Python client is available
             try:
                 import kubernetes
-                logger.info(f"🔍 Kubernetes Python client version: {kubernetes.__version__}")
-                logger.info("🔍 Kubernetes Python client is available and working")
+                logger.debug(f"🔍 Kubernetes Python client version: {kubernetes.__version__}")
+                logger.debug("🔍 Kubernetes Python client is available and working")
             except ImportError:
                 logger.warning("🔍 Kubernetes Python client not installed")
                 return False, "kubernetes Python client is not installed"
@@ -2829,7 +2829,7 @@ class InfraInsightsKubernetesToolset(Toolset):
                 logger.warning(f"🔍 Kubernetes Python client check failed with error: {e}")
                 return False, f"Kubernetes Python client check failed: {e}"
             
-            logger.info("✅✅✅ ALL PREREQUISITES CHECK PASSED FOR INFRAINSIGHTS KUBERNETES TOOLSET ✅✅✅")
+            logger.debug("✅✅✅ ALL PREREQUISITES CHECK PASSED FOR INFRAINSIGHTS KUBERNETES TOOLSET ✅✅✅")
             return True, ""
             
         except Exception as e:
