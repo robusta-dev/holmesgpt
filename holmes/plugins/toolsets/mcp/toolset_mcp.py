@@ -1,3 +1,4 @@
+from holmes.common.env_vars import SSE_READ_TIMEOUT
 from holmes.core.tools import (
     ToolInvokeContext,
     Toolset,
@@ -19,6 +20,19 @@ import asyncio
 from pydantic import Field, AnyUrl, field_validator
 from typing import Tuple
 import logging
+import threading
+
+# Lock per MCP server URL to serialize calls to the same server
+_server_locks: Dict[str, threading.Lock] = {}
+_locks_lock = threading.Lock()
+
+
+def get_server_lock(url: str) -> threading.Lock:
+    """Get or create a lock for a specific MCP server URL."""
+    with _locks_lock:
+        if url not in _server_locks:
+            _server_locks[url] = threading.Lock()
+        return _server_locks[url]
 
 
 class RemoteMCPTool(Tool):
@@ -27,7 +41,11 @@ class RemoteMCPTool(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
-            return asyncio.run(self._invoke_async(params))
+            # Serialize calls to the same MCP server to prevent SSE conflicts
+            # Different servers can still run in parallel
+            lock = get_server_lock(self.url)
+            with lock:
+                return asyncio.run(self._invoke_async(params))
         except Exception as e:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -37,7 +55,9 @@ class RemoteMCPTool(Tool):
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with sse_client(self.url, self.headers) as (read_stream, write_stream):
+        async with sse_client(
+            self.url, headers=self.headers, sse_read_timeout=SSE_READ_TIMEOUT
+        ) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 _ = await session.initialize()
                 tool_result: CallToolResult = await session.call_tool(self.name, params)
@@ -84,6 +104,9 @@ class RemoteMCPTool(Tool):
         return parameters
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
+        if params:
+            if params.get("cli_command"):  # Return AWS MCP cli command, if available
+                return f"{params.get('cli_command')}"
         return f"Call MCP Server ({self.url} - {self.name})"
 
 
@@ -124,7 +147,9 @@ class RemoteMCPToolset(Toolset):
             )
 
     async def _get_server_tools(self):
-        async with sse_client(str(self.url), headers=self.get_headers()) as (
+        async with sse_client(
+            str(self.url), headers=self.get_headers(), sse_read_timeout=SSE_READ_TIMEOUT
+        ) as (
             read_stream,
             write_stream,
         ):
