@@ -666,10 +666,6 @@ class LLMModelRegistry:
             logging.debug(f"Using first available model: {model_key}")
             return first_model_params.model_copy()
 
-    def get_llm(self, name: str) -> LLM:  # TODO: fix logic
-        with self._lock:
-            return self._llms[name]  # type: ignore
-
     @property
     def models(self) -> dict[str, ModelEntry]:
         with self._lock:
