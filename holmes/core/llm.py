@@ -638,7 +638,7 @@ class LLMModelRegistry:
                 model_params = self._llms.get(model_key)
                 if model_params:
                     logging.info(f"Using selected model: {model_key}")
-                    return model_params.copy()
+                    return model_params.model_copy()
 
                 if model_key.startswith("Robusta/"):
                     logging.warning("Resyncing Robusta models.")
@@ -646,7 +646,7 @@ class LLMModelRegistry:
                     model_params = self._llms.get(model_key)
                     if model_params:
                         logging.info(f"Using selected model: {model_key}")
-                        return model_params.copy()
+                        return model_params.model_copy()
 
                 logging.error(f"Couldn't find model: {model_key} in model list")
 
@@ -656,7 +656,7 @@ class LLMModelRegistry:
                     logging.info(
                         f"Using default Robusta AI model: {self._default_robusta_model}"
                     )
-                    return model_params.copy()
+                    return model_params.model_copy()
 
                 logging.error(
                     f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
@@ -664,7 +664,7 @@ class LLMModelRegistry:
 
             model_key, first_model_params = next(iter(self._llms.items()))
             logging.debug(f"Using first available model: {model_key}")
-            return first_model_params.copy()
+            return first_model_params.model_copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
         with self._lock:
