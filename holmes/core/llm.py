@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import threading
 from abc import abstractmethod
 from math import floor
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
@@ -524,6 +525,7 @@ class LLMModelRegistry:
         self._llms: dict[str, ModelEntry] = {}
         self._default_robusta_model = None
         self.dal = dal
+        self._lock = threading.RLock()
 
         self._init_models()
 
@@ -664,11 +666,13 @@ class LLMModelRegistry:
         return first_model_params.copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
-        return self._llms[name]  # type: ignore
+        with self._lock:
+            return self._llms[name]  # type: ignore
 
     @property
     def models(self) -> dict[str, ModelEntry]:
-        return self._llms
+        with self._lock:
+            return self._llms
 
     def _parse_models_file(self, path: str) -> dict[str, ModelEntry]:
         models = load_yaml_file(path, raise_error=False, warn_not_found=False)
