@@ -581,17 +581,14 @@ class LLMModelRegistry:
                 self._load_default_robusta_config()
                 return
 
-            new_models: dict[str, ModelEntry] = {}
             default_model = None
             for model_name, model_data in robusta_models.models.items():
                 logging.info(f"Loading Robusta AI model: {model_name}")
-                new_models[model_name] = self._create_robusta_model_entry(
+                self._llms[model_name] = self._create_robusta_model_entry(
                     model_name=model_name, model_data=model_data
                 )
                 if model_data.is_default:
                     default_model = model_name
-
-            self._llms = new_models
 
             if default_model:
                 logging.info(f"Setting default Robusta AI model to: {default_model}")
