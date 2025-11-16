@@ -642,7 +642,7 @@ class LLMModelRegistry:
 
                 if model_key.startswith("Robusta/"):
                     logging.warning("Resyncing Robusta models.")
-                    self.configure_robusta_ai_model()
+                    self._init_models()
                     model_params = self._llms.get(model_key)
                     if model_params:
                         logging.info(f"Using selected model: {model_key}")
