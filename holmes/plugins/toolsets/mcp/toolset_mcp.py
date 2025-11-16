@@ -1,3 +1,4 @@
+from holmes.common.env_vars import SSE_READ_TIMEOUT
 from holmes.core.tools import (
     ToolInvokeContext,
     Toolset,
@@ -21,6 +22,19 @@ from pydantic import BaseModel, Field, AnyUrl, model_validator
 from typing import Tuple
 import logging
 from enum import Enum
+import threading
+
+# Lock per MCP server URL to serialize calls to the same server
+_server_locks: Dict[str, threading.Lock] = {}
+_locks_lock = threading.Lock()
+
+
+def get_server_lock(url: str) -> threading.Lock:
+    """Get or create a lock for a specific MCP server URL."""
+    with _locks_lock:
+        if url not in _server_locks:
+            _server_locks[url] = threading.Lock()
+        return _server_locks[url]
 
 
 class MCPMode(str, Enum):
@@ -39,7 +53,7 @@ async def get_initialized_mcp_session(
     url: str, headers: Optional[Dict[str, str]], mode: MCPMode
 ):
     if mode == MCPMode.SSE:
-        async with sse_client(url, headers) as (
+        async with sse_client(url, headers, sse_read_timeout=SSE_READ_TIMEOUT) as (
             read_stream,
             write_stream,
         ):
@@ -47,7 +61,7 @@ async def get_initialized_mcp_session(
                 _ = await session.initialize()
                 yield session
     else:
-        async with streamablehttp_client(url, headers=headers) as (
+        async with streamablehttp_client(url, headers=headers, sse_read_timeout=SSE_READ_TIMEOUT) as (
             read_stream,
             write_stream,
             _,
@@ -62,7 +76,11 @@ class RemoteMCPTool(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
-            return asyncio.run(self._invoke_async(params))
+            # Serialize calls to the same MCP server to prevent SSE conflicts
+            # Different servers can still run in parallel
+            lock = get_server_lock(self.url)
+            with lock:
+                return asyncio.run(self._invoke_async(params))
         except Exception as e:
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
@@ -118,6 +136,10 @@ class RemoteMCPTool(Tool):
         return parameters
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
+        if params:
+            if params.get("cli_command"):  # Return AWS MCP cli command, if available
+                return f"{params.get('cli_command')}"
+
         url = (
             str(self.toolset._mcp_config.url) if self.toolset._mcp_config else "unknown"
         )
