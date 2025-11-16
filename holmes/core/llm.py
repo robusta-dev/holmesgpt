@@ -630,40 +630,41 @@ class LLMModelRegistry:
         return True
 
     def get_model_params(self, model_key: Optional[str] = None) -> ModelEntry:
-        if not self._llms:
-            raise Exception("No llm models were loaded")
+        with self._lock:
+            if not self._llms:
+                raise Exception("No llm models were loaded")
 
-        if model_key:
-            model_params = self._llms.get(model_key)
-            if model_params:
-                logging.info(f"Using selected model: {model_key}")
-                return model_params.model_copy()
-
-            if model_key.startswith("Robusta/"):
-                logging.warning("attempting to sync robusta models.")
-                self.configure_robusta_ai_model()
+            if model_key:
                 model_params = self._llms.get(model_key)
                 if model_params:
                     logging.info(f"Using selected model: {model_key}")
-                    return model_params.model_copy()
+                    return model_params.copy()
 
-            logging.error(f"Couldn't find model: {model_key} in model list")
+                if model_key.startswith("Robusta/"):
+                    logging.warning("Resyncing Robusta models.")
+                    self.configure_robusta_ai_model()
+                    model_params = self._llms.get(model_key)
+                    if model_params:
+                        logging.info(f"Using selected model: {model_key}")
+                        return model_params.copy()
 
-        if self._default_robusta_model:
-            model_params = self._llms.get(self._default_robusta_model)
-            if model_params is not None:
-                logging.info(
-                    f"Using default Robusta AI model: {self._default_robusta_model}"
+                logging.error(f"Couldn't find model: {model_key} in model list")
+
+            if self._default_robusta_model:
+                model_params = self._llms.get(self._default_robusta_model)
+                if model_params is not None:
+                    logging.info(
+                        f"Using default Robusta AI model: {self._default_robusta_model}"
+                    )
+                    return model_params.copy()
+
+                logging.error(
+                    f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
                 )
-                return model_params.copy()
 
-            logging.error(
-                f"Couldn't find default Robusta AI model: {self._default_robusta_model} in model list"
-            )
-
-        model_key, first_model_params = next(iter(self._llms.items()))
-        logging.debug(f"Using first available model: {model_key}")
-        return first_model_params.copy()
+            model_key, first_model_params = next(iter(self._llms.items()))
+            logging.debug(f"Using first available model: {model_key}")
+            return first_model_params.copy()
 
     def get_llm(self, name: str) -> LLM:  # TODO: fix logic
         with self._lock:
