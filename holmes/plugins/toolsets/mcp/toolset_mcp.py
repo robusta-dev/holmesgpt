@@ -72,7 +72,7 @@ async def get_initialized_mcp_session(
 
 
 class RemoteMCPTool(Tool):
-    toolset: "RemoteMCPToolset"
+    toolset: "RemoteMCPToolset" = Field(exclude=True)
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
