@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 from typing import Any, Dict
@@ -397,7 +398,11 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
 
 
 def test_toolsets_dumpable(mock_dal, mock_config):
-    """Test that all toolsets can be serialized via holmes_sync_toolsets_status."""
+    """Test that all toolsets can be serialized via holmes_sync_toolsets_status.
+
+    Validates production path: holmes_sync_toolsets_status line 53 (toolset.model_dump())
+    -> ToolsetDBModel -> dal.sync_toolsets() for sending to database.
+    """
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
 
@@ -445,8 +450,17 @@ def _create_bad_toolset():
     return toolset
 
 
-def test_toolsets_dumpable_with_bad_tool_test(mock_dal, mock_config):
-    """Test RemoteMCPToolset serialization - fails without Field(exclude=True), passes with it."""
+def test_toolsets_dumpable_with_bad_toolset_fails(mock_dal, mock_config):
+    """Test that BadToolset fails serialization due to circular reference.
+
+    If this test fails unexpectedly (function succeeds when it should fail), it may indicate that:
+    1. The code has changed and circular references are now handled differently
+    2. The test is no longer valid for the current implementation
+    3. The test should be updated or removed
+
+    Validates production path: holmes_sync_toolsets_status line 53 (toolset.model_dump())
+    should fail with circular reference error when Field(exclude=True) is missing.
+    """
     original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
 
     bad_toolset = _create_bad_toolset()
@@ -456,14 +470,33 @@ def test_toolsets_dumpable_with_bad_tool_test(mock_dal, mock_config):
 
     try:
         holmes_sync_toolsets_status(mock_dal, mock_config)
+        logging.error(
+            "test_toolsets_dumpable_with_bad_toolset_fails: holmes_sync_toolsets_status "
+            "completed successfully but should have failed with circular reference error. "
+            "This may indicate the code has changed and circular references are now handled differently. "
+            "The test may need to be updated or removed."
+        )
         pytest.fail(
-            "This test isn't functioning properly - BadToolset should fail with circular reference error"
+            "BadToolset should fail with circular reference error, but holmes_sync_toolsets_status succeeded. "
+            "This may indicate the code has changed and the test needs to be updated."
         )
     except ValueError as e:
         if "Circular reference detected" not in str(e):
-            pytest.fail(
-                f"This test isn't functioning properly - expected circular reference error, got: {e}"
+            logging.error(
+                f"test_toolsets_dumpable_with_bad_toolset_fails: Got ValueError but not circular reference: {e}. "
+                f"This may indicate the code has changed and the test needs to be updated."
             )
+            raise
+
+
+def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
+    """Test that RemoteMCPToolset passes serialization with Field(exclude=True).
+
+    Validates production path: holmes_sync_toolsets_status line 53 (toolset.model_dump())
+    -> ToolsetDBModel -> dal.sync_toolsets() for sending to database.
+    RemoteMCPToolset is not in builtin toolsets, it's loaded from config.
+    """
+    original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
 
     mcp_toolset_good = _create_mcp_toolset_with_tools(RemoteMCPToolset)
     all_toolsets_good = list(original_toolsets)
