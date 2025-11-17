@@ -1,4 +1,3 @@
-import logging
 import os
 import subprocess
 from typing import Any, Dict
@@ -468,16 +467,8 @@ def test_toolsets_dumpable_with_bad_toolset_fails(mock_dal, mock_config):
     all_toolsets_bad.append(bad_toolset)
     mock_config.create_tool_executor.return_value.toolsets = all_toolsets_bad
 
-    try:
-        with pytest.raises(ValueError, match="Circular reference detected"):
-            holmes_sync_toolsets_status(mock_dal, mock_config)
-    except pytest.raises.Exception as e:
-        logging.error(
-            f"test_toolsets_dumpable_with_bad_toolset_fails: Expected ValueError with "
-            f"'Circular reference detected' but test assertion failed: {e}. "
-            f"This may indicate the code has changed and the test needs to be updated or removed."
-        )
-        raise
+    with pytest.raises(ValueError, match="Circular reference detected"):
+        holmes_sync_toolsets_status(mock_dal, mock_config)
 
 
 def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
