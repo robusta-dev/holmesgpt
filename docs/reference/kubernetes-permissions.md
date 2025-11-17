@@ -38,14 +38,6 @@ The default permissions created by the Helm chart follow this recommendation and
 
 If you want to adjust the permissions, you can do so by:
 
-### Modifying the Default Permissions
-
-Edit the Helm chart's ServiceAccount template or modify the ClusterRole after deployment:
-
-```bash
-kubectl edit clusterrole <release-name>-holmes-cluster-role
-```
-
 ### Using Custom RBAC Rules
 
 You can extend the default permissions by adding custom rules to your Helm `values.yaml`:
