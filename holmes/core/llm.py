@@ -641,7 +641,7 @@ class LLMModelRegistry:
                     return model_params.model_copy()
 
                 if model_key.startswith("Robusta/"):
-                    logging.warning("Resyncing Robusta models.")
+                    logging.warning("Resyncing Registry and Robusta models.")
                     self._init_models()
                     model_params = self._llms.get(model_key)
                     if model_params:
