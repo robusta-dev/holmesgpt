@@ -16,7 +16,11 @@ from holmes.core.tools import (
     ToolsetTag,
     YAMLTool,
 )
+from holmes.plugins.toolsets import load_builtin_toolsets
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
+from mcp.types import Tool as MCP_Tool
+from tests.utils.bad_toolset_example import BadTool, BadToolset
 from tests.utils.toolsets import callable_success, failing_callable_for_test
 
 
@@ -32,6 +36,8 @@ def mock_dal():
 def mock_config():
     config = Mock(spec=Config)
     config.cluster_name = "test-cluster"
+    all_toolsets = load_builtin_toolsets(dal=None)
+    config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
     return config
 
 
@@ -388,3 +394,80 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     assert success2_data is not None
     assert success2_data["status"] == ToolsetStatusEnum.ENABLED
     assert success2_data["error"] is None
+
+
+def test_toolsets_dumpable(mock_dal, mock_config):
+    """Test that all toolsets can be serialized via holmes_sync_toolsets_status."""
+    holmes_sync_toolsets_status(mock_dal, mock_config)
+
+
+def _mock_get_server_tools(mock_tools_result):
+    async def mock_get_server_tools():
+        return mock_tools_result
+
+    return mock_get_server_tools
+
+
+def _create_mcp_toolset_with_tools(toolset_class):
+    mcp_toolset = toolset_class(
+        name="test-mcp-circular",
+        description="Test MCP toolset",
+        config={"url": "http://example.com/mcp", "mode": "sse"},
+    )
+
+    mock_tools_result = Mock()
+    mock_tools_result.tools = [
+        MCP_Tool(
+            name="test_tool",
+            description="Test tool",
+            inputSchema={"type": "object", "properties": {}, "required": []},
+        )
+    ]
+
+    mcp_toolset._get_server_tools = _mock_get_server_tools(mock_tools_result)
+    success, error = mcp_toolset.prerequisites_callable(
+        {"url": "http://example.com/mcp", "mode": "sse"}
+    )
+
+    assert success is True
+    assert len(mcp_toolset.tools) > 0
+    return mcp_toolset
+
+
+def _create_bad_toolset():
+    toolset = BadToolset(name="test-bad-toolset", description="Test bad toolset")
+    mock_tool = MCP_Tool(
+        name="test_tool",
+        description="Test tool",
+        inputSchema={"type": "object", "properties": {}, "required": []},
+    )
+    toolset.tools = [BadTool.create(mock_tool, toolset)]
+    return toolset
+
+
+def test_toolsets_dumpable_with_bad_tool_test(mock_dal, mock_config):
+    """Test RemoteMCPToolset serialization - fails without Field(exclude=True), passes with it."""
+    original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
+
+    bad_toolset = _create_bad_toolset()
+    all_toolsets_bad = list(original_toolsets)
+    all_toolsets_bad.append(bad_toolset)
+    mock_config.create_tool_executor.return_value.toolsets = all_toolsets_bad
+
+    try:
+        holmes_sync_toolsets_status(mock_dal, mock_config)
+        pytest.fail(
+            "This test isn't functioning properly - BadToolset should fail with circular reference error"
+        )
+    except ValueError as e:
+        if "Circular reference detected" not in str(e):
+            pytest.fail(
+                f"This test isn't functioning properly - expected circular reference error, got: {e}"
+            )
+
+    mcp_toolset_good = _create_mcp_toolset_with_tools(RemoteMCPToolset)
+    all_toolsets_good = list(original_toolsets)
+    all_toolsets_good.append(mcp_toolset_good)
+    mock_config.create_tool_executor.return_value.toolsets = all_toolsets_good
+
+    holmes_sync_toolsets_status(mock_dal, mock_config)
