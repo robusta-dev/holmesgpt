@@ -469,24 +469,15 @@ def test_toolsets_dumpable_with_bad_toolset_fails(mock_dal, mock_config):
     mock_config.create_tool_executor.return_value.toolsets = all_toolsets_bad
 
     try:
-        holmes_sync_toolsets_status(mock_dal, mock_config)
+        with pytest.raises(ValueError, match="Circular reference detected"):
+            holmes_sync_toolsets_status(mock_dal, mock_config)
+    except pytest.raises.Exception as e:
         logging.error(
-            "test_toolsets_dumpable_with_bad_toolset_fails: holmes_sync_toolsets_status "
-            "completed successfully but should have failed with circular reference error. "
-            "This may indicate the code has changed and circular references are now handled differently. "
-            "The test may need to be updated or removed."
+            f"test_toolsets_dumpable_with_bad_toolset_fails: Expected ValueError with "
+            f"'Circular reference detected' but test assertion failed: {e}. "
+            f"This may indicate the code has changed and the test needs to be updated or removed."
         )
-        pytest.fail(
-            "BadToolset should fail with circular reference error, but holmes_sync_toolsets_status succeeded. "
-            "This may indicate the code has changed and the test needs to be updated."
-        )
-    except ValueError as e:
-        if "Circular reference detected" not in str(e):
-            logging.error(
-                f"test_toolsets_dumpable_with_bad_toolset_fails: Got ValueError but not circular reference: {e}. "
-                f"This may indicate the code has changed and the test needs to be updated."
-            )
-            raise
+        raise
 
 
 def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
