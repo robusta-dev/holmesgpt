@@ -2,7 +2,14 @@
 
 Run HolmesGPT from your terminal as a standalone CLI tool.
 
-![type:video](https://www.youtube.com/embed/CqOQWDFxhpU)
+<div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+  <iframe src="https://www.youtube.com/embed/tH-KyjoNs5U" 
+          style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;" 
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen>
+  </iframe>
+</div>
 
 ## Installation Options
 
@@ -245,9 +252,9 @@ You’ll usually see details like:
 -   Whether it’s missing a **node selector or image**
 -   Or if it’s hitting a **resource limit or scheduling issue**
 
-![image](docs/assets/cli-installation/cli-in-progress.png)
+![image](../assets/cli-installation/cli-in-progress.png)
 
-![image](docs/assets/cli-installation/cli-analysis-result.png)
+![image](../assets/cli-installation/cli-analysis-result.png)
 
 ## Next Steps
 
