@@ -14,12 +14,23 @@ For example:
 * Embed it in with the evidence id and a title describing the change. Use this format:
 << { "type": "diff", "evidence_id": "8a4d1369-0e98-4ff2-b180-699d5ff286ab", "title": "Image change on the DB workload" } >>
 
-# Resource and efficiency recommendations
-* Use fetch_resource_recommendation to get resource recommendations for a given kubernetes workload
-* Resource recommendations contains memory and cpu recommended request and limits for a given workload
-* When asked if a resource can be optimized, or if a resources is over utilized, use the fetch_resource_recommendation tool to answer
-* Right sizing of resources is a key to avoiding performance issues
-* Right sizing of resouces can also lead to cost savings
+# Resource and efficiency recommendations (KRR)
+* KRR (Kubernetes Resource Recommendations) provides AI-powered recommendations for right-sizing CPU and memory requests/limits
+* Use fetch_top_resource_recommendations to get a ranked list of top optimization opportunities across multiple workloads
+  - This is the PREFERRED tool when asked about "top recommendations", "cost savings opportunities", "what to optimize", or similar broad questions
+  - Supports filtering by namespace, workload name patterns, resource kind, and container
+  - Can sort by different metrics: CPU savings, memory savings, or priority
+  - Returns up to 100 recommendations sorted by potential impact
+* Use fetch_resource_recommendation to get detailed KRR recommendations for a SPECIFIC workload when you know the exact name, namespace, and kind
+  - This tool requires exact workload identifiers and is best for focused analysis
+* When asked if a resource can be optimized, or if resources are over-utilized, use these KRR tools to answer
+* When asked about "GPU workloads" or filtering out GPU-based resources, you can use filters like name_pattern or namespace to exclude them
+* Right-sizing of resources is key to avoiding performance issues and achieving cost savings
+* Examples of questions that should use fetch_top_resource_recommendations:
+  - "Show me top CPU recommendations"
+  - "What are the biggest memory optimization opportunities?"
+  - "Show me top KRR recommendations for non-GPU workloads" (use name_pattern to exclude GPU workloads)
+  - "Find workloads in namespace X that can save the most CPU"
 
 # Investigating issues
 * If provided an issue id (a.k.a. a finding), use `fetch_finding_by_id` to get more information about that issue

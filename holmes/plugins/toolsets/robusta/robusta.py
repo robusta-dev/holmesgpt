@@ -89,7 +89,12 @@ class FetchResourceRecommendation(Tool):
     def __init__(self, dal: Optional[SupabaseDal]):
         super().__init__(
             name="fetch_resource_recommendation",
-            description="Fetch workload recommendations for resources requests and limits. Returns the current configured resources, as well as recommendation based on actual historical usage.",
+            description=(
+                "Fetch KRR (Kubernetes Resource Recommendations) for a specific workload's CPU and memory requests and limits. "
+                "KRR provides AI-powered recommendations based on actual historical usage patterns. "
+                "Returns the current configured resources alongside recommended values for right-sizing. "
+                "Use this when you need detailed recommendations for a specific workload."
+            ),
             parameters={
                 "name": ToolParameter(
                     description="The name of the kubernetes workload.",
@@ -145,6 +150,117 @@ class FetchResourceRecommendation(Tool):
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"Robusta: Check Historical Resource Utilization: ({str(params)})"
+
+
+class FetchTopResourceRecommendations(Tool):
+    _dal: Optional[SupabaseDal]
+
+    def __init__(self, dal: Optional[SupabaseDal]):
+        super().__init__(
+            name="fetch_top_resource_recommendations",
+            description=(
+                "Fetch top N KRR (Kubernetes Resource Recommendations) for CPU and memory optimization. "
+                "KRR provides AI-powered recommendations for right-sizing Kubernetes workloads to optimize resource usage and reduce costs. "
+                "Returns a ranked list of workloads with the highest potential savings, with options to filter by namespace, workload name, kind, and container. "
+                "Use this tool when asked about top resource recommendations, cost optimization opportunities, or identifying workloads to right-size."
+            ),
+            parameters={
+                "limit": ToolParameter(
+                    description="Maximum number of recommendations to return (default: 10, max: 100).",
+                    type="integer",
+                    required=False,
+                ),
+                "sort_by": ToolParameter(
+                    description=(
+                        "Field to sort recommendations by potential savings. Options: "
+                        "'cpu_total' (default) - Total CPU savings (requests + limits), "
+                        "'memory_total' - Total memory savings (requests + limits), "
+                        "'cpu_requests' - CPU requests savings, "
+                        "'memory_requests' - Memory requests savings, "
+                        "'cpu_limits' - CPU limits savings, "
+                        "'memory_limits' - Memory limits savings, "
+                        "'priority' - Use scan priority field."
+                    ),
+                    type="string",
+                    required=False,
+                ),
+                "namespace": ToolParameter(
+                    description="Filter by Kubernetes namespace (exact match). Leave empty to search all namespaces.",
+                    type="string",
+                    required=False,
+                ),
+                "name_pattern": ToolParameter(
+                    description=(
+                        "Filter by workload name pattern. Supports SQL LIKE patterns: "
+                        "Use '%' as wildcard (e.g., '%app%' matches any name containing 'app', "
+                        "'prod-%' matches names starting with 'prod-'). "
+                        "Leave empty to match all names."
+                    ),
+                    type="string",
+                    required=False,
+                ),
+                "kind": ToolParameter(
+                    description=(
+                        "Filter by Kubernetes resource kind. "
+                        "Must be one of: Deployment, StatefulSet, DaemonSet, Job. "
+                        "Leave empty to include all kinds."
+                    ),
+                    type="string",
+                    required=False,
+                ),
+                "container": ToolParameter(
+                    description="Filter by container name (exact match). Leave empty to include all containers.",
+                    type="string",
+                    required=False,
+                ),
+            },
+        )
+        self._dal = dal
+
+    def _fetch_top_recommendations(self, params: Dict) -> Optional[List[Dict]]:
+        if self._dal and self._dal.enabled:
+            # Set default values
+            limit = min(params.get("limit", 10) or 10, 100)
+            sort_by = params.get("sort_by") or "cpu_total"
+
+            return self._dal.get_top_resource_recommendations(
+                limit=limit,
+                sort_by=sort_by,
+                namespace=params.get("namespace"),
+                name_pattern=params.get("name_pattern"),
+                kind=params.get("kind"),
+                container=params.get("container"),
+            )
+        return None
+
+    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
+        try:
+            recommendations = self._fetch_top_recommendations(params)
+            if recommendations:
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.SUCCESS,
+                    data=recommendations,
+                    params=params,
+                )
+            else:
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.NO_DATA,
+                    data=f"Could not find top recommendations with filters: {params}",
+                    params=params,
+                )
+        except Exception as e:
+            msg = f"There was an internal error while fetching top recommendations for {params}. {str(e)}"
+            logging.exception(msg)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                data=msg,
+                params=params,
+            )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        sort_by = params.get("sort_by", "cpu_total")
+        limit = params.get("limit", 10)
+        return f"Robusta: Fetch Top {limit} KRR Recommendations (sorted by {sort_by})"
 
 
 class FetchConfigurationChangesMetadataBase(Tool):
@@ -338,6 +454,7 @@ class RobustaToolset(Toolset):
             FetchRobustaFinding(dal),
             FetchConfigurationChangesMetadata(dal),
             FetchResourceRecommendation(dal),
+            FetchTopResourceRecommendations(dal),
             FetchResourceIssuesMetadata(dal),
         ]
 
