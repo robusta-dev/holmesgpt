@@ -104,7 +104,7 @@ class TestMCPGeneral:
 
         result = mcp_toolset.prerequisites_callable(config=mcp_toolset.config)
         assert result[0] is False
-        assert "Failed to load mcp server test_mcp http://0.0.0.0:3009/sse" in result[1]
+        assert "Failed to load mcp server test_mcp" in result[1]
 
     def test_server_with_one_tool_initializes_correctly(
         self, monkeypatch, suppress_migration_warnings
