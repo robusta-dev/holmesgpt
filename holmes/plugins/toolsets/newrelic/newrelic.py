@@ -208,4 +208,8 @@ class NewRelicToolset(Toolset):
             return False, str(e)
 
     def get_example_config(self) -> Dict[str, Any]:
-        return {}
+        return {
+            "nr_api_key": "NRAK-XXXXXXXXXXXXXXXXXXXXXXXXXX",
+            "nr_account_id": "1234567",
+            "is_eu_datacenter": False,
+        }
