@@ -90,79 +90,12 @@ class FetchResourceRecommendation(Tool):
         super().__init__(
             name="fetch_resource_recommendation",
             description=(
-                "Fetch KRR (Kubernetes Resource Recommendations) for a specific workload's CPU and memory requests and limits. "
-                "KRR provides AI-powered recommendations based on actual historical usage patterns. "
-                "Returns the current configured resources alongside recommended values for right-sizing. "
-                "Use this when you need detailed recommendations for a specific workload."
-            ),
-            parameters={
-                "name": ToolParameter(
-                    description="The name of the kubernetes workload.",
-                    type="string",
-                    required=True,
-                ),
-                "namespace": ToolParameter(
-                    description="The namespace of the kubernetes resource.",
-                    type="string",
-                    required=True,
-                ),
-                "kind": ToolParameter(
-                    description="The kind of the kubernetes resource. Must be one of: [Deployment, StatefulSet, DaemonSet, Job].",
-                    type="string",
-                    required=True,
-                ),
-            },
-        )
-        self._dal = dal
-
-    def _resource_recommendation(self, params: Dict) -> Optional[List[Dict]]:
-        if self._dal and self._dal.enabled:
-            return self._dal.get_resource_recommendation(
-                name=params["name"],
-                namespace=params["namespace"],
-                kind=params["kind"],
-            )
-        return None
-
-    def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
-        try:
-            recommendations = self._resource_recommendation(params)
-            if recommendations:
-                return StructuredToolResult(
-                    status=StructuredToolResultStatus.SUCCESS,
-                    data=recommendations,
-                    params=params,
-                )
-            else:
-                return StructuredToolResult(
-                    status=StructuredToolResultStatus.NO_DATA,
-                    data=f"Could not find recommendations for {params}",
-                    params=params,
-                )
-        except Exception as e:
-            msg = f"There was an internal error while fetching recommendations for {params}. {str(e)}"
-            logging.exception(msg)
-            return StructuredToolResult(
-                status=StructuredToolResultStatus.ERROR,
-                data=msg,
-                params=params,
-            )
-
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        return f"Robusta: Check Historical Resource Utilization: ({str(params)})"
-
-
-class FetchTopResourceRecommendations(Tool):
-    _dal: Optional[SupabaseDal]
-
-    def __init__(self, dal: Optional[SupabaseDal]):
-        super().__init__(
-            name="fetch_top_resource_recommendations",
-            description=(
-                "Fetch top N KRR (Kubernetes Resource Recommendations) for CPU and memory optimization. "
-                "KRR provides AI-powered recommendations for right-sizing Kubernetes workloads to optimize resource usage and reduce costs. "
-                "Returns a ranked list of workloads with the highest potential savings, with options to filter by namespace, workload name, kind, and container. "
-                "Use this tool when asked about top resource recommendations, cost optimization opportunities, or identifying workloads to right-size."
+                "Fetch KRR (Kubernetes Resource Recommendations) for CPU and memory optimization. "
+                "KRR provides AI-powered recommendations based on actual historical usage patterns for right-sizing workloads. "
+                "Supports two usage modes: "
+                "(1) Specific workload lookup - Use name_pattern with an exact name, namespace, and kind to get recommendations for a single workload. "
+                "(2) Discovery mode - Use limit and sort_by to get a ranked list of top optimization opportunities. Optionally filter by namespace, name_pattern (wildcards supported), kind, or container. "
+                "Returns current configured resources alongside recommended values. In discovery mode, results are sorted by potential savings."
             ),
             parameters={
                 "limit": ToolParameter(
@@ -217,13 +150,13 @@ class FetchTopResourceRecommendations(Tool):
         )
         self._dal = dal
 
-    def _fetch_top_recommendations(self, params: Dict) -> Optional[List[Dict]]:
+    def _fetch_recommendations(self, params: Dict) -> Optional[List[Dict]]:
         if self._dal and self._dal.enabled:
             # Set default values
             limit = min(params.get("limit", 10) or 10, 100)
             sort_by = params.get("sort_by") or "cpu_total"
 
-            return self._dal.get_top_resource_recommendations(
+            return self._dal.get_resource_recommendation(
                 limit=limit,
                 sort_by=sort_by,
                 namespace=params.get("namespace"),
@@ -235,7 +168,7 @@ class FetchTopResourceRecommendations(Tool):
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
-            recommendations = self._fetch_top_recommendations(params)
+            recommendations = self._fetch_recommendations(params)
             if recommendations:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.SUCCESS,
@@ -258,9 +191,7 @@ class FetchTopResourceRecommendations(Tool):
             )
 
     def get_parameterized_one_liner(self, params: Dict) -> str:
-        sort_by = params.get("sort_by", "cpu_total")
-        limit = params.get("limit", 10)
-        return f"Robusta: Fetch Top {limit} KRR Recommendations (sorted by {sort_by})"
+        return f"Robusta: Fetch KRR Recommendations ({str(params)})"
 
 
 class FetchConfigurationChangesMetadataBase(Tool):
@@ -454,7 +385,6 @@ class RobustaToolset(Toolset):
             FetchRobustaFinding(dal),
             FetchConfigurationChangesMetadata(dal),
             FetchResourceRecommendation(dal),
-            FetchTopResourceRecommendations(dal),
             FetchResourceIssuesMetadata(dal),
         ]
 
