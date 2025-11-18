@@ -2,6 +2,8 @@
 
 Run HolmesGPT from your terminal as a standalone CLI tool.
 
+![type:video](https://www.youtube.com/embed/CqOQWDFxhpU)
+
 ## Installation Options
 
 === "Homebrew (Mac/Linux)"
@@ -79,7 +81,7 @@ Run HolmesGPT from your terminal as a standalone CLI tool.
 Choose your AI provider (see [all providers](../ai-providers/index.md) for more options).
 
 !!! tip "Which Model to Use"
-    We highly recommend using Sonnet 4.0 or Sonnet 4.5 as it gives the best results by far. These models are available from Anthropic, AWS Bedrock, and Google Vertex. [View Benchmarks.](../development/evaluations/index.md)
+We highly recommend using Sonnet 4.0 or Sonnet 4.5 as it gives the best results by far. These models are available from Anthropic, AWS Bedrock, and Google Vertex. [View Benchmarks.](../development/evaluations/index.md)
 
 === "Anthropic Claude"
 
@@ -235,13 +237,25 @@ Choose your AI provider (see [all providers](../ai-providers/index.md) for more 
 
     > **Warning:** Ollama can be tricky to configure correctly. We recommend trying HolmesGPT with a hosted model first (like Claude or OpenAI) to ensure everything works before switching to Ollama.
 
+HolmesGPT will automatically look into the cluster, inspect the pod, and return an explanation in plain English.
+
+You’ll usually see details like:
+
+-   Why a pod is **pending or crashing**
+-   Whether it’s missing a **node selector or image**
+-   Or if it’s hitting a **resource limit or scheduling issue**
+
+![image](docs/assets/cli-installation/cli-in-progress.png)
+
+![image](docs/assets/cli-installation/cli-analysis-result.png)
+
 ## Next Steps
 
-- **[Add Data Sources](../data-sources/index.md)** - Use built-in toolsets to connect with ArgoCD, Confluence, and monitoring tools
-- **[Connect Remote MCP Servers](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers
+-   **[Add Data Sources](../data-sources/index.md)** - We encourage you to use built-in toolsets to connect with AWS, Prometheus, Loki, NewRelic, DataDog, ArgoCD, Confluence, and other monitoring tools.
+-   **[Connect Remote MCP Servers](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers.
 
 ## Need Help?
 
-- **[Join our Slack](https://bit.ly/robusta-slack){:target="_blank"}** - Get help from the community
-- **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="_blank"}** - Suggest improvements or report bugs
-- **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions
+-   **[Join our Slack](https://bit.ly/robusta-slack){:target="\_blank"}** - Get help from the community
+-   **[Request features on GitHub](https://github.com/robusta-dev/holmesgpt/issues){:target="\_blank"}** - Suggest improvements or report bugs.
+-   **[Troubleshooting guide](../reference/troubleshooting.md)** - Common issues and solutions.
