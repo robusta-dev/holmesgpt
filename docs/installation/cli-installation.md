@@ -244,21 +244,15 @@ We highly recommend using Sonnet 4.0 or Sonnet 4.5 as it gives the best results 
 
     > **Warning:** Ollama can be tricky to configure correctly. We recommend trying HolmesGPT with a hosted model first (like Claude or OpenAI) to ensure everything works before switching to Ollama.
 
-HolmesGPT will automatically look into the cluster, inspect the pod, and return an explanation in plain English.
-
-You’ll usually see details like:
-
--   Why a pod is **pending or crashing**
--   Whether it’s missing a **node selector or image**
--   Or if it’s hitting a **resource limit or scheduling issue**
-
+_After running the command, HolmesGPT begins its automated investigation, as shown below._
 ![image](../assets/cli-installation/cli-in-progress.png)
 
+_Once the analysis completes, HolmesGPT provides a clear root-cause summary and fix suggestions._
 ![image](../assets/cli-installation/cli-analysis-result.png)
 
 ## Next Steps
 
--   **[Add Data Sources](../data-sources/index.md)** - We encourage you to use built-in toolsets to connect with AWS, Prometheus, Loki, NewRelic, DataDog, ArgoCD, Confluence, and other monitoring tools.
+-   **[Add Data Sources](../data-sources/index.md)** - We encourage you to use built-in toolsets to connect with [AWS](https://holmesgpt.dev/data-sources/builtin-toolsets/aws/), [Prometheus](https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/), [Loki](https://holmesgpt.dev/data-sources/builtin-toolsets/grafanaloki/), [NewRelic](https://holmesgpt.dev/data-sources/builtin-toolsets/newrelic/), [DataDog](https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/), [ArgoCD](https://holmesgpt.dev/data-sources/builtin-toolsets/argocd/), [Confluence](https://holmesgpt.dev/data-sources/builtin-toolsets/confluence/), and other monitoring tools.
 -   **[Connect Remote MCP Servers](../data-sources/remote-mcp-servers.md)** - Extend capabilities with external MCP servers.
 
 ## Need Help?
