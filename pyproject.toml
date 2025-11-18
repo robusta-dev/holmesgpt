@@ -93,16 +93,6 @@ exclude = [
     "site/.*",
 ]
 
-[[tool.mypy.overrides]]
-module = [
-    "requests.*",
-    "holmes.plugins.toolsets.newrelic.new_relic_api",
-    "holmes.clients.robusta_client",
-    "holmes.version",
-    "holmes.plugins.toolsets.rabbitmq.api",
-]
-ignore_missing_imports = true
-
 [tool.pytest.ini_options]
 markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
