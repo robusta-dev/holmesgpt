@@ -960,7 +960,10 @@ class TestStdio:
 
         result = mcp_toolset.prerequisites_callable(config={"mode": "stdio"})
         assert result[0] is False
-        assert "command is required for stdio mode" in result[1]
+        assert (
+            "validation error for StdioMCPConfig\ncommand\n  Field required"
+            in result[1]
+        )
 
     def test_stdio_mode_works(self, monkeypatch, suppress_migration_warnings):
         mcp_toolset = RemoteMCPToolset(

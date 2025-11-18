@@ -111,25 +111,9 @@ mcp_servers:
     llm_instructions: "This is a cluster-local MCP server that provides internal cluster data and operations. Use it for accessing cluster-specific information, internal services, or custom tooling deployed within the Kubernetes environment."
 ```
 
-### Stdio (Direct Process Communication)
+### Stdio
 
 Stdio mode allows HolmesGPT to run MCP servers directly as subprocesses, communicating via standard input/output. This is useful when you want to run MCP servers within the same container or pod as HolmesGPT.
-
-**Configuration:**
-
-```yaml-helm-values
-mcp_servers:
-  stdio_example:
-    description: "Example stdio MCP server with greeting and math tools"
-    config:
-      mode: stdio
-      command: "python3"
-      args:
-        - "/etc/holmes/mcp-servers/stdio_server.py"
-      env:
-        CUSTOM_VAR: "value"
-    llm_instructions: "Use this server for greeting users and performing basic math operations."
-```
 
 **Key Configuration Fields:**
 
@@ -138,70 +122,121 @@ mcp_servers:
 - `args`: (Optional) List of arguments to pass to the command
 - `env`: (Optional) Dictionary of environment variables to set for the process
 
-**Example: Adding a Stdio MCP Server via Helm**
+**Configuration Examples:**
 
-This example shows how to add the `stdio_server.py` file to Holmes via Helm and configure it as a stdio MCP server:
+=== "Holmes CLI"
 
-1. **Create a ConfigMap with the stdio server script:**
+    Use a config file, and pass it when running CLI commands.
 
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: stdio-mcp-server
-data:
-  stdio_server.py: |
-    # stdio_server.py
+    **custom_toolset.yaml:**
 
-    from mcp.server.fastmcp import FastMCP
+    ```yaml
+    mcp_servers:
+      stdio_example:
+        description: "Custom stdio MCP server running as a subprocess"
+        config:
+          mode: stdio
+          command: "python3"
+          args:
+            - "./stdio_server.py"
+          env:
+            CUSTOM_VAR: "value"
+        llm_instructions: "Use this MCP server to access custom tools and capabilities provided by the stdio server process. Refer to the available tools from this server when needed."
+    ```
 
-    # Create the MCP server
-    mcp = FastMCP("STDIO Example Server")
+    **Note:** Ensure that the required Python packages (like `mcp` and `fastmcp`) are installed in your Python environment.
 
+    You can now use Holmes via the CLI with your configured stdio MCP server. For example:
 
-    @mcp.tool()
-    def greet(name: str) -> str:
-        """Greet a user by name"""
-        return f"Hello, {name}! Welcome to the STDIO server."
+    ```bash
+    holmes ask -t custom_toolset.yaml "Run my mcp-server tools"
+    ```
 
+=== "Holmes Helm Chart"
 
-    @mcp.tool()
-    def add(a: int, b: int) -> str:
-        """Add two numbers and return the result"""
-        return f"The sum of {a} and {b} is {a + b}."
+    !!! warning "Stdio Limitations in Helm Deployments"
+        **Stdio mode is not recommended for Helm deployments** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail. Consider using `streamable-http` mode instead, or ensure all required dependencies are included in a custom Holmes image.
 
+    Configure the stdio MCP server in your Helm values:
 
-    if __name__ == "__main__":
-        print("Starting MCP server with STDIO transport...", file=__import__("sys").stderr)
-        # The run() method uses stdio by default
-        mcp.run()
-```
+    ```yaml
+    # Configure the stdio MCP server
+    mcp_servers:
+      stdio_example:
+        description: "Custom stdio MCP server running as a subprocess"
+        config:
+          mode: stdio
+          command: "python3"
+          args:
+            - "/path/to/your/stdio_server.py"
+        llm_instructions: "Use this MCP server to access custom tools and capabilities provided by the stdio server process. Refer to the available tools from this server when needed."
+    ```
 
-2. **Configure Helm values to mount the ConfigMap and configure the MCP server:**
+    If you want to mount a specific file to use as an stdio server, you can mount it with:
 
-```yaml-helm-values
-# Mount the stdio server script as a volume
-additionalVolumes:
-  - name: stdio-mcp-server
-    configMap:
-      name: stdio-mcp-server
+    ```yaml
+    # Mount the stdio server script as a volume
+    # additionalVolumes:
+    #   - name: stdio-mcp-server
+    #     configMap:
+    #       name: stdio-mcp-server
 
-additionalVolumeMounts:
-  - name: stdio-mcp-server
-    mountPath: /etc/holmes/mcp-servers
-    readOnly: true
+    # additionalVolumeMounts:
+    #   - name: stdio-mcp-server
+    #     mountPath: /etc/holmes/mcp-servers
+    #     readOnly: true
+    ```
 
-# Configure the stdio MCP server
-mcp_servers:
-  stdio_example:
-    description: "Example stdio MCP server with greeting and math tools"
-    config:
-      mode: stdio
-      command: "python3"
-      args:
-        - "/etc/holmes/mcp-servers/stdio_server.py"
-    llm_instructions: "Use this server for greeting users and performing basic math operations. The greet tool can welcome users by name, and the add tool can perform addition."
-```
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes holmes/holmes --values=values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    !!! warning "Stdio Limitations in Helm Deployments"
+        **Stdio mode is not recommended for Helm deployments** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail. Consider using `streamable-http` mode instead, or ensure all required dependencies are included in a custom Holmes image.
+
+    Configure the stdio MCP server in your Helm values:
+
+    ```yaml
+    enableHolmesGPT: true
+    holmes:
+      # Configure the stdio MCP server
+      mcp_servers:
+        stdio_example:
+          description: "Custom stdio MCP server running as a subprocess"
+          config:
+            mode: stdio
+            command: "python3"
+            args:
+              - "/path/to/your/stdio_server.py"
+          llm_instructions: "Use this MCP server to access custom tools and capabilities provided by the stdio server process. Refer to the available tools from this server when needed."
+    ```
+
+    If you want to mount a specific file to use as an stdio server, you can mount it with:
+
+    ```yaml
+    enableHolmesGPT: true
+    holmes:
+      # Mount the stdio server script as a volume
+      # additionalVolumes:
+      #   - name: stdio-mcp-server
+      #     configMap:
+      #       name: stdio-mcp-server
+
+      # additionalVolumeMounts:
+      #   - name: stdio-mcp-server
+      #     mountPath: /etc/holmes/mcp-servers
+      #     readOnly: true
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta --values=generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
 
 ## Example: Working with Stdio MCP servers via Supergateway
 
