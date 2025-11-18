@@ -286,71 +286,59 @@ class SupabaseDal:
         if not self.enabled:
             return []
 
-        try:
-            # First, get the latest scan metadata
-            scans_meta_response = (
-                self.client.table(SCANS_META_TABLE)
-                .select("*")
-                .eq("account_id", self.account_id)
-                .eq("cluster_id", self.cluster)
-                .eq("latest", True)
-                .execute()
-            )
-            if not len(scans_meta_response.data):
-                logging.warning("No scan metadata found for latest krr scan")
-                return None
-
-            scan_id = scans_meta_response.data[0]["scan_id"]
-
-            # Build the query with filters
-            query = (
-                self.client.table(SCANS_RESULTS_TABLE)
-                .select("*")
-                .eq("account_id", self.account_id)
-                .eq("cluster_id", self.cluster)
-                .eq("scan_id", scan_id)
-            )
-
-            # Apply optional filters
-            if namespace:
-                query = query.eq("namespace", namespace)
-            if name_pattern:
-                query = query.like("name", name_pattern)
-            if kind:
-                query = query.eq("kind", kind)
-            if container:
-                query = query.eq("container", container)
-
-            # For priority sorting, we can use the database's order
-            if sort_by == "priority":
-                query = query.order("priority", desc=True)
-
-            # Fetch all matching results (we'll sort by calculated savings in Python if needed)
-            scans_results_response = query.execute()
-
-            if not len(scans_results_response.data):
-                return None
-
-            results = scans_results_response.data
-
-            # If sorting by priority, we already ordered in the query
-            if sort_by == "priority":
-                return results[:limit]
-
-            # Sort by calculated savings (descending)
-            results_with_savings = [
-                (result, calculate_krr_savings(result, sort_by)) for result in results
-            ]
-            results_with_savings.sort(key=lambda x: x[1], reverse=True)
-
-            # Return top N results
-            return [result for result, _ in results_with_savings[:limit]]
-
-        except Exception:
-            logging.exception(
-                "Supabase error while retrieving top resource recommendations"
-            )
+        scans_meta_response = (
+            self.client.table(SCANS_META_TABLE)
+            .select("*")
+            .eq("account_id", self.account_id)
+            .eq("cluster_id", self.cluster)
+            .eq("latest", True)
+            .execute()
+        )
+        if not len(scans_meta_response.data):
+            logging.warning("No scan metadata found for latest krr scan")
             return None
+
+        scan_id = scans_meta_response.data[0]["scan_id"]
+
+        query = (
+            self.client.table(SCANS_RESULTS_TABLE)
+            .select("*")
+            .eq("account_id", self.account_id)
+            .eq("cluster_id", self.cluster)
+            .eq("scan_id", scan_id)
+        )
+
+        if namespace:
+            query = query.eq("namespace", namespace)
+        if name_pattern:
+            query = query.like("name", name_pattern)
+        if kind:
+            query = query.eq("kind", kind)
+        if container:
+            query = query.eq("container", container)
+
+        # For priority sorting, we can use the database's order
+        if sort_by == "priority":
+            query = query.order("priority", desc=True)
+
+        scans_results_response = query.execute()
+
+        if not len(scans_results_response.data):
+            return None
+
+        results = scans_results_response.data
+
+        # If sorting by priority, we already ordered in the query
+        if sort_by == "priority":
+            return results[:limit]
+
+        # Sort by calculated savings (descending)
+        results_with_savings = [
+            (result, calculate_krr_savings(result, sort_by)) for result in results
+        ]
+        results_with_savings.sort(key=lambda x: x[1], reverse=True)
+
+        return [result for result, _ in results_with_savings[:limit]]
 
     def get_issues_metadata(
         self,

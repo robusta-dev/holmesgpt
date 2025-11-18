@@ -178,15 +178,15 @@ class FetchResourceRecommendation(Tool):
             else:
                 return StructuredToolResult(
                     status=StructuredToolResultStatus.NO_DATA,
-                    data=f"Could not find top recommendations with filters: {params}",
+                    data=f"Could not find any recommendations with filters: {params}",
                     params=params,
                 )
         except Exception as e:
-            msg = f"There was an internal error while fetching top recommendations for {params}. {str(e)}"
+            msg = f"There was an error while fetching top recommendations for {params}. {str(e)}"
             logging.exception(msg)
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
-                data=msg,
+                error=msg,
                 params=params,
             )
 

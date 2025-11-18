@@ -447,16 +447,6 @@ class TestGetResourceRecommendation:
 
         assert results == []
 
-    def test_exception_handling(self, mock_dal):
-        """Test exception handling returns None."""
-        # Mock to raise an exception
-        mock_dal.client.table.side_effect = Exception("Database error")
-
-        # Call method
-        results = mock_dal.get_resource_recommendation()
-
-        assert results is None
-
     def test_multiple_filters_combined(self, mock_dal):
         """Test combining multiple filters."""
         scan_meta_data = [{"scan_id": "scan-123"}]
