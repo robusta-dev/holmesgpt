@@ -281,7 +281,7 @@ class SupabaseDal:
             container: Filter by container name (exact match)
 
         Returns:
-            List of recommendations sorted by the specified metric, or None if error
+            List of recommendations sorted by the specified metric
         """
         if not self.enabled:
             return []

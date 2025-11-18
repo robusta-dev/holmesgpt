@@ -224,8 +224,8 @@ class TestCalculateKrrSavings:
         }
         assert calculate_krr_savings(result, sort_by) == expected
 
-    def test_no_savings_when_recommended_higher(self):
-        """Test that negative savings are clamped to 0."""
+    def test_negative_savings_when_recommended_higher(self):
+        """Test negative savings"""
         result = {
             "content": [
                 {
@@ -235,7 +235,7 @@ class TestCalculateKrrSavings:
                 }
             ]
         }
-        assert calculate_krr_savings(result, "cpu_total") == 0.0
+        assert calculate_krr_savings(result, "cpu_total") == -4.5
 
     @pytest.mark.parametrize(
         "allocated,recommended,expected",

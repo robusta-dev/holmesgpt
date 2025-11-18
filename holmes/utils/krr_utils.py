@@ -21,11 +21,9 @@ def parse_cpu(cpu_value: Any) -> float:
     if cpu_value is None or cpu_value == "" or cpu_value == "?":
         return 0.0
     try:
-        # If already numeric, return as-is (already in cores)
         if isinstance(cpu_value, (int, float)):
             return float(cpu_value)
 
-        # Handle string values
         cpu_str = str(cpu_value).strip()
         if cpu_str.endswith("m"):
             return float(cpu_str[:-1]) / 1000.0
@@ -51,11 +49,9 @@ def parse_memory(memory_value: Any) -> float:
     if memory_value is None or memory_value == "" or memory_value == "?":
         return 0.0
     try:
-        # If already numeric, return as-is (already in bytes)
         if isinstance(memory_value, (int, float)):
             return float(memory_value)
 
-        # Handle string values
         memory_str = str(memory_value).strip()
         units = {
             "Ki": 1024,
@@ -113,7 +109,6 @@ def calculate_krr_savings(result: Dict, sort_by: str) -> float:
         if not content_list or not isinstance(content_list, list):
             return 0.0
 
-        # Parse CPU and memory data from content list
         cpu_data = None
         memory_data = None
         for item in content_list:
