@@ -37,6 +37,7 @@ class MCPConfig(BaseModel):
 
 
 class StdioMCPConfig(BaseModel):
+    mode: MCPMode = MCPMode.STDIO
     command: str
     args: Optional[List[str]] = None
     env: Optional[Dict[str, str]] = None
@@ -96,7 +97,7 @@ class RemoteMCPTool(Tool):
             )
 
     async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with self.toolset.get_initialized_session() as session:
+        async with get_initialized_mcp_session(self.toolset) as session:
             tool_result = await session.call_tool(self.name, params)
 
         merged_text = " ".join(c.text for c in tool_result.content if c.type == "text")
@@ -208,12 +209,8 @@ class RemoteMCPToolset(Toolset):
                 )
 
             if mode_value == MCPMode.STDIO.value:
-                if "command" not in config:
-                    return (False, "command is required for stdio mode")
                 self._mcp_config = StdioMCPConfig(**config)
             else:
-                if "url" not in config:
-                    return (False, "url is required for non-stdio modes")
                 self._mcp_config = MCPConfig(**config)
                 clean_url_str = str(self._mcp_config.url).rstrip("/")
 
@@ -239,11 +236,8 @@ class RemoteMCPToolset(Toolset):
             )
 
     async def _get_server_tools(self):
-        async with self.get_initialized_session() as session:
+        async with get_initialized_mcp_session(self) as session:
             return await session.list_tools()
-
-    def get_initialized_session(self):
-        return get_initialized_mcp_session(self)
 
     def get_example_config(self) -> Dict[str, Any]:
         example_config = MCPConfig(

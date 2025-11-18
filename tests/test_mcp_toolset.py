@@ -419,7 +419,7 @@ class TestStreamableHttp:
             mock_toolset.prerequisites_callable(config=mock_toolset.config)
 
             async def run_test():
-                async with mock_toolset.get_initialized_session() as session:
+                async with get_initialized_mcp_session(mock_toolset) as session:
                     return await session.list_tools()
 
             result = asyncio.run(run_test())
@@ -577,7 +577,7 @@ class TestSSE:
             mock_toolset.prerequisites_callable(config=mock_toolset.config)
 
             async def run_test():
-                async with mock_toolset.get_initialized_session() as session:
+                async with get_initialized_mcp_session(mock_toolset) as session:
                     return await session.list_tools()
 
             result = asyncio.run(run_test())
@@ -942,7 +942,7 @@ class TestStdio:
             mock_toolset.prerequisites_callable(config=mock_toolset.config)
 
             async def run_test():
-                async with mock_toolset.get_initialized_session() as session:
+                async with get_initialized_mcp_session(mock_toolset) as session:
                     return await session.list_tools()
 
             result = asyncio.run(run_test())
@@ -1107,7 +1107,7 @@ class TestStdio:
 
         # Actually list tools from the real server with timeout
         async def run_test():
-            async with toolset.get_initialized_session() as session:
+            async with get_initialized_mcp_session(toolset) as session:
                 return await asyncio.wait_for(session.list_tools(), timeout=30.0)
 
         list_result = asyncio.run(run_test())
