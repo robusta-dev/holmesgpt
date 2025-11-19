@@ -22,6 +22,14 @@ def _try_health_url(url: str, headers: dict) -> None:
 
 
 def grafana_health_check(config: GrafanaConfig) -> Tuple[bool, str]:
+    """
+    Tests a healthcheck url for grafna loki.
+    1. When using grafana as proxy, grafana_datasource_uid is provided, use the data source health url (docs are added).
+    2. When using loki directly there are two cases.
+        a. Using loki cloud, health check is provided on the base url.
+        b. Using local loki, uses url/healthcheck default is url/ready
+        c. This function tries both direct loki cases for the user.
+    """
     health_urls = []
     if config.grafana_datasource_uid:
         # https://grafana.com/docs/grafana/latest/developers/http_api/data_source/#check-data-source-health
