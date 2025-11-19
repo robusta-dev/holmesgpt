@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from postgrest.base_request_builder import QueryArgs
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from postgrest._sync.request_builder import SyncQueryRequestBuilder
@@ -38,6 +39,7 @@ from holmes.plugins.runbooks import RobustaRunbookInstruction
 from holmes.utils.definitions import RobustaConfig
 from holmes.utils.env import get_env_replacement
 from holmes.utils.global_instructions import Instructions
+from postgrest._sync import request_builder as supabase_request_builder
 
 SUPABASE_TIMEOUT_SECONDS = int(os.getenv("SUPABASE_TIMEOUT_SECONDS", 3600))
 
@@ -55,6 +57,23 @@ ENRICHMENT_BLACKLIST = ["text_file", "graph", "ai_analysis", "holmes"]
 ENRICHMENT_BLACKLIST_SET = set(ENRICHMENT_BLACKLIST)
 
 
+logging.info("Patching supabase_request_builder.pre_select")
+original_pre_select = supabase_request_builder.pre_select
+
+
+def pre_select_patched(*args, **kwargs):
+    query_args: QueryArgs = original_pre_select(*args, **kwargs)
+    if not query_args.json:
+        query_args = QueryArgs(
+            query_args.method, query_args.params, query_args.headers, None
+        )
+
+    return query_args
+
+
+supabase_request_builder.pre_select = pre_select_patched
+
+
 class FindingType(str, Enum):
     ISSUE = "issue"
     CONFIGURATION_CHANGE = "configuration_change"
@@ -66,6 +85,17 @@ class RobustaToken(BaseModel):
     account_id: str
     email: str
     password: str
+
+
+class SupabaseDnsException(Exception):
+    def __init__(self, error: Exception, url: str):
+        message = (
+            f"\n{error.__class__.__name__}: {error}\n"
+            f"Error connecting to <{url}>\n"
+            "This is often due to DNS issues or firewall policies - to troubleshoot run in your cluster:\n"
+            f"curl -I {url}\n"
+        )
+        super().__init__(message)
 
 
 class SupabaseDal:
@@ -193,19 +223,34 @@ class SupabaseDal:
         return all([self.account_id, self.url, self.api_key, self.email, self.password])
 
     def sign_in(self) -> str:
-        logging.info("Supabase DAL login")
-        res = self.client.auth.sign_in_with_password(
-            {"email": self.email, "password": self.password}
-        )
-        if not res.session:
-            raise ValueError("Authentication failed: no session returned")
-        if not res.user:
-            raise ValueError("Authentication failed: no user returned")
-        self.client.auth.set_session(
-            res.session.access_token, res.session.refresh_token
-        )
-        self.client.postgrest.auth(res.session.access_token)
-        return res.user.id
+        logging.info("Supabase dal login")
+        try:
+            res = self.client.auth.sign_in_with_password(
+                {"email": self.email, "password": self.password}
+            )
+            if not res.session:
+                raise ValueError("Authentication failed: no session returned")
+            if not res.user:
+                raise ValueError("Authentication failed: no user returned")
+            self.client.auth.set_session(
+                res.session.access_token, res.session.refresh_token
+            )
+            self.client.postgrest.auth(res.session.access_token)
+            return res.user.id
+        except Exception as e:
+            error_msg = str(e).lower()
+            if any(
+                dns_indicator in error_msg
+                for dns_indicator in [
+                    "temporary failure in name resolution",
+                    "name resolution",
+                    "dns",
+                    "name or service not known",
+                    "nodename nor servname provided",
+                ]
+            ):
+                raise SupabaseDnsException(e, self.url) from e
+            raise
 
     def get_resource_recommendation(
         self, name: str, namespace: str, kind
