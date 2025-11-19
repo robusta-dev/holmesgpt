@@ -155,36 +155,87 @@ Stdio mode allows HolmesGPT to run MCP servers directly as subprocesses, communi
 === "Holmes Helm Chart"
 
     !!! warning "Stdio Limitations in Helm Deployments"
-        **Stdio mode is not recommended for Helm deployments** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail. Consider using `streamable-http` mode instead, or ensure all required dependencies are included in a custom Holmes image.
+        **Stdio mode is not recommended for running MCP servers directly in the Holmes container** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail.
 
-    Configure the stdio MCP server in your Helm values:
+    **Recommended Approach: Run stdio MCP servers as a SSE MCP server pod**
 
-    ```yaml
-    # Configure the stdio MCP server
-    mcp_servers:
-      stdio_example:
-        description: "Custom stdio MCP server running as a subprocess"
-        config:
-          mode: stdio
-          command: "python3"
-          args:
-            - "/path/to/your/stdio_server.py"
-        llm_instructions: "Use this MCP server to access custom tools and capabilities provided by the stdio server process. Refer to the available tools from this server when needed."
+    For in-cluster deployments, run your stdio MCP server in its own container using Supergateway to convert it to SSE, then connect Holmes to it.
+
+    **First, create a custom Docker image** that contains your stdio MCP server and all its required dependencies. Use the Supergateway base image pattern:
+
+    ```dockerfile
+    FROM supercorp/supergateway:latest
+
+    USER root
+    # Add needed files and dependencies here
+    # Example: RUN apk add --no-cache python3 py3-pip
+    # Example: RUN pip3 install --no-cache-dir --break-system-packages your-mcp-server-package
+    USER node
+
+    EXPOSE 8000
+    # Replace "YOUR MCP SERVER COMMAND HERE" with your actual MCP server command
+    # Examples:
+    #   CMD ["--port", "8000", "--stdio", "python3", "-m", "your_mcp_server_module"]
+    #   CMD ["--port", "8000", "--stdio", "python3", "/app/stdio_server.py"]
+    #   CMD ["--port", "8000", "--stdio", "npx", "-y", "@your-org/your-mcp-server@latest"]
+    CMD ["--port", "8000", "--stdio", "YOUR MCP SERVER COMMAND HERE"]
     ```
 
-    If you want to mount a specific file to use as an stdio server, you can mount it with:
+    Build and push your image.
+
+    **Deploy the MCP server in your cluster:**
 
     ```yaml
-    # Mount the stdio server script as a volume
-    # additionalVolumes:
-    #   - name: stdio-mcp-server
-    #     configMap:
-    #       name: stdio-mcp-server
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: my-mcp-server
+      labels:
+        app: my-mcp-server
+    spec:
+      containers:
+        - name: supergateway
+          image: your-registry/your-mcp-server:latest
+          ports:
+            - containerPort: 8000
+          args:
+            - "--stdio"
+            # Replace "YOUR MCP SERVER COMMAND HERE" with your actual MCP server command
+            # Examples: "python3 -m your_mcp_server_module", "python3 /app/stdio_server.py", "npx -y @your-org/your-mcp-server@latest"
+            - "YOUR MCP SERVER COMMAND HERE"
+            - "--port"
+            - "8000"
+            - "--logLevel"
+            - "debug"
+          stdin: true
+          tty: true
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: my-mcp-server
+    spec:
+      selector:
+        app: my-mcp-server
+      ports:
+        - protocol: TCP
+          port: 8000
+          targetPort: 8000
+      type: ClusterIP
+    ```
 
-    # additionalVolumeMounts:
-    #   - name: stdio-mcp-server
-    #     mountPath: /etc/holmes/mcp-servers
-    #     readOnly: true
+    **Connect Holmes to the MCP server:**
+
+    After deploying the MCP server, configure Holmes to connect to it via SSE:
+
+    ```yaml
+    mcp_servers:
+      my_mcp_server:
+        description: "My custom MCP server running in-cluster"
+        config:
+          url: "http://my-mcp-server.default.svc.cluster.local:8000/sse"
+          mode: sse
+        llm_instructions: "Use this MCP server to access custom tools and capabilities. Refer to the available tools from this server when needed."
     ```
 
     Apply the configuration:
@@ -196,40 +247,73 @@ Stdio mode allows HolmesGPT to run MCP servers directly as subprocesses, communi
 === "Robusta Helm Chart"
 
     !!! warning "Stdio Limitations in Helm Deployments"
-        **Stdio mode is not recommended for Helm deployments** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail. Consider using `streamable-http` mode instead, or ensure all required dependencies are included in a custom Holmes image.
+        **Stdio mode is not recommended for running MCP servers directly in the Holmes container** due to limitations of the Holmes container image. Your stdio MCP server may have dependencies (Python packages, system libraries, etc.) that are not available in the Holmes image, which will cause the server to fail.
 
-    Configure the stdio MCP server in your Helm values:
+    **Recommended Approach: Run stdio MCP servers as a SSE MCP server pod**
 
-    ```yaml
-    enableHolmesGPT: true
-    holmes:
-      # Configure the stdio MCP server
-      mcp_servers:
-        stdio_example:
-          description: "Custom stdio MCP server running as a subprocess"
-          config:
-            mode: stdio
-            command: "python3"
-            args:
-              - "/path/to/your/stdio_server.py"
-          llm_instructions: "Use this MCP server to access custom tools and capabilities provided by the stdio server process. Refer to the available tools from this server when needed."
+    For in-cluster deployments, run your stdio MCP server in its own container using Supergateway to convert it to SSE, then connect Holmes to it.
+
+    **First, create a custom Docker image** that contains your stdio MCP server and all its required dependencies. Use the Supergateway base image pattern:
+
+    ```dockerfile
+    FROM supercorp/supergateway:latest
+
+    USER root
+    # Add needed files and dependencies here
+    # Example: RUN apk add --no-cache python3 py3-pip
+    # Example: RUN pip3 install --no-cache-dir --break-system-packages your-mcp-server-package
+    USER node
+
+    EXPOSE 8000
+    # Replace "YOUR MCP SERVER COMMAND HERE" with your actual MCP server command
+    # Examples:
+    #   CMD ["--port", "8000", "--stdio", "python3", "-m", "your_mcp_server_module"]
+    #   CMD ["--port", "8000", "--stdio", "python3", "/app/stdio_server.py"]
+    #   CMD ["--port", "8000", "--stdio", "npx", "-y", "@your-org/your-mcp-server@latest"]
+    CMD ["--port", "8000", "--stdio", "YOUR MCP SERVER COMMAND HERE"]
     ```
 
-    If you want to mount a specific file to use as an stdio server, you can mount it with:
+    Build and push your image.
+
+    **Deploy the MCP server in your cluster:**
 
     ```yaml
-    enableHolmesGPT: true
-    holmes:
-      # Mount the stdio server script as a volume
-      # additionalVolumes:
-      #   - name: stdio-mcp-server
-      #     configMap:
-      #       name: stdio-mcp-server
-
-      # additionalVolumeMounts:
-      #   - name: stdio-mcp-server
-      #     mountPath: /etc/holmes/mcp-servers
-      #     readOnly: true
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: my-mcp-server
+      labels:
+        app: my-mcp-server
+    spec:
+      containers:
+        - name: supergateway
+          image: your-registry/your-mcp-server:latest
+          ports:
+            - containerPort: 8000
+          args:
+            - "--stdio"
+            # Replace "YOUR MCP SERVER COMMAND HERE" with your actual MCP server command
+            # Examples: "python3 -m your_mcp_server_module", "python3 /app/stdio_server.py", "npx -y @your-org/your-mcp-server@latest"
+            - "YOUR MCP SERVER COMMAND HERE"
+            - "--port"
+            - "8000"
+            - "--logLevel"
+            - "debug"
+          stdin: true
+          tty: true
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: my-mcp-server
+    spec:
+      selector:
+        app: my-mcp-server
+      ports:
+        - protocol: TCP
+          port: 8000
+          targetPort: 8000
+      type: ClusterIP
     ```
 
     Apply the configuration:
