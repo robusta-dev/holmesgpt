@@ -1,0 +1,13 @@
+user_prompt: "What are the KRR recommendations for the data-processor deployment in the app-163 namespace?"
+expected_output:
+  - CPU requests can be reduced
+  - memory requests can be reduced
+  - over-provisioned
+before_test: |
+  bash before_test.sh
+after_test: kubectl delete namespace app-163 --ignore-not-found=true
+tags:
+  - kubernetes
+  - question-answer
+  - medium
+  - no-cicd

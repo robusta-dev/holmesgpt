@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor
+  namespace: app-163
+  labels:
+    app: data-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-processor
+  template:
+    metadata:
+      labels:
+        app: data-processor
+    spec:
+      containers:
+      - name: processor
+        image: nginx:1.25-alpine
+        # Heavily over-provisioned resources
+        resources:
+          requests:
+            cpu: "2000m"
+            memory: "2Gi"
+          limits:
+            cpu: "4000m"
+            memory: "4Gi"
+        # Simple workload that uses minimal resources
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            while true; do
+              echo "Processing data batch at $(date)"
+              sleep 30
+            done

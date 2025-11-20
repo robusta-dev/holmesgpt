@@ -1,0 +1,83 @@
+{"toolset_name":"robusta","tool_name":"fetch_resource_recommendation","match_params":{"kind":"Deployment","name_pattern":"data-processor","namespace":"app-163"}}
+{"schema_version": "robusta:v1.0.0", "status": "success", "error": null, "return_code": 0, "data": null, "url": null, "invocation": "fetch_resource_recommendation", "params": {"kind":"Deployment","name_pattern":"data-processor","namespace":"app-163"}}
+[
+  {
+    "account_id": "16ecba1a-7993-4dd1-a98c-d201462ccba7",
+    "cluster_id": "nicolas-demo-prod-double-node",
+    "scan_id": "794d103e-9819-4700-b0a4-65d5ac5b5b0a",
+    "scan_type": "krr",
+    "namespace": "app-163",
+    "name": "data-processor",
+    "kind": "Deployment",
+    "container": "processor",
+    "priority": 4,
+    "content": [
+      {
+        "info": null,
+        "metric": {},
+        "priority": {
+          "limit": 3,
+          "request": 4
+        },
+        "resource": "cpu",
+        "strategy": {
+          "name": "simple",
+          "settings": {
+            "allow_hpa": false,
+            "cpu_percentile": 95.0,
+            "points_required": 100,
+            "history_duration": 336.0,
+            "use_oomkill_data": false,
+            "timeframe_duration": 1.25,
+            "memory_buffer_percentage": 15.0,
+            "oom_memory_buffer_percentage": 25.0
+          }
+        },
+        "warnings": [],
+        "allocated": {
+          "limit": 4.0,
+          "request": 2.0
+        },
+        "description": "[b]Simple Strategy[/b]\n\nCPU request: 95.0% percentile, limit: unset\nMemory request: max + 15.0%, limit: max + 15.0%\nHistory: 336.0 hours\nStep: 1.25 minutes\n\nAll parameters can be customized. For example: `krr simple --cpu_percentile=90 --memory_buffer_percentage=15 --history_duration=24 --timeframe_duration=0.5`\n\nThis strategy does not work with objects with HPA defined (Horizontal Pod Autoscaler).\nIf HPA is defined for CPU or Memory, the strategy will return \"?\" for that resource.\nYou can override this behaviour by passing the --allow-hpa flag\n\nLearn more: [underline]https://github.com/robusta-dev/krr#algorithm[/underline]",
+        "recommended": {
+          "limit": null,
+          "request": 0.01
+        },
+        "current_pod_count": 1
+      },
+      {
+        "info": null,
+        "metric": {},
+        "priority": {
+          "limit": 4,
+          "request": 4
+        },
+        "resource": "memory",
+        "strategy": {
+          "name": "simple",
+          "settings": {
+            "allow_hpa": false,
+            "cpu_percentile": 95.0,
+            "points_required": 100,
+            "history_duration": 336.0,
+            "use_oomkill_data": false,
+            "timeframe_duration": 1.25,
+            "memory_buffer_percentage": 15.0,
+            "oom_memory_buffer_percentage": 25.0
+          }
+        },
+        "warnings": [],
+        "allocated": {
+          "limit": 4294967296.0,
+          "request": 2147483648.0
+        },
+        "description": "[b]Simple Strategy[/b]\n\nCPU request: 95.0% percentile, limit: unset\nMemory request: max + 15.0%, limit: max + 15.0%\nHistory: 336.0 hours\nStep: 1.25 minutes\n\nAll parameters can be customized. For example: `krr simple --cpu_percentile=90 --memory_buffer_percentage=15 --history_duration=24 --timeframe_duration=0.5`\n\nThis strategy does not work with objects with HPA defined (Horizontal Pod Autoscaler).\nIf HPA is defined for CPU or Memory, the strategy will return \"?\" for that resource.\nYou can override this behaviour by passing the --allow-hpa flag\n\nLearn more: [underline]https://github.com/robusta-dev/krr#algorithm[/underline]",
+        "recommended": {
+          "limit": 104857600.0,
+          "request": 104857600.0
+        },
+        "current_pod_count": 1
+      }
+    ]
+  }
+]
