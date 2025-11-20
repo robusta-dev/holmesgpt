@@ -55,7 +55,9 @@ async def get_initialized_mcp_session(
     url: str, headers: Optional[Dict[str, str]], mode: MCPMode
 ):
     if mode == MCPMode.SSE:
-        async with sse_client(url, headers=headers, sse_read_timeout=SSE_READ_TIMEOUT) as (
+        async with sse_client(
+            url, headers=headers, sse_read_timeout=SSE_READ_TIMEOUT
+        ) as (
             read_stream,
             write_stream,
         ):
@@ -63,7 +65,9 @@ async def get_initialized_mcp_session(
                 _ = await session.initialize()
                 yield session
     else:
-        async with streamablehttp_client(url, headers=headers, sse_read_timeout=SSE_READ_TIMEOUT) as (
+        async with streamablehttp_client(
+            url, headers=headers, sse_read_timeout=SSE_READ_TIMEOUT
+        ) as (
             read_stream,
             write_stream,
             _,
@@ -80,6 +84,8 @@ class RemoteMCPTool(Tool):
         try:
             # Serialize calls to the same MCP server to prevent SSE conflicts
             # Different servers can still run in parallel
+            if not self.toolset._mcp_config:
+                raise ValueError("MCP config not initialized")
             lock = get_server_lock(str(self.toolset._mcp_config.url))
             with lock:
                 return asyncio.run(self._invoke_async(params))
@@ -90,9 +96,10 @@ class RemoteMCPTool(Tool):
                 params=params,
                 invocation=f"MCPtool {self.name} with params {params}",
             )
+
     @staticmethod
     def _is_content_error(content: str) -> bool:
-        try:   # aws mcp sometimes returns an error in content - status code != 200
+        try:  # aws mcp sometimes returns an error in content - status code != 200
             json_content: dict = json.loads(content)
             status_code = json_content.get("response", {}).get("status_code", 200)
             return status_code >= 300
