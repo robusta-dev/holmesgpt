@@ -319,7 +319,7 @@ class SupabaseDal:
 
         # For priority sorting, we can use the database's order
         if sort_by == "priority":
-            query = query.order("priority", desc=True)
+            query = query.order("priority", desc=True).limit(limit)
 
         scans_results_response = query.execute()
 
@@ -328,9 +328,12 @@ class SupabaseDal:
 
         results = scans_results_response.data
 
-        # If sorting by priority, we already ordered in the query
+        if len(results) <= 1:
+            return results
+
+        # If sorting by priority, we already ordered and limited in the query
         if sort_by == "priority":
-            return results[:limit]
+            return results
 
         # Sort by calculated savings (descending)
         results_with_savings = [
