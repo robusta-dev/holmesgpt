@@ -107,6 +107,7 @@ class TestGetResourceRecommendation:
         results_eq3.eq.return_value = results_eq3
         results_eq3.like.return_value = results_eq3
         results_eq3.order.return_value = results_eq3
+        results_eq3.limit.return_value = results_eq3
         results_eq3.execute.return_value = results_execute_result
 
         # Mock table() to return appropriate mock based on table name
