@@ -1,0 +1,249 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: app-47
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-scripts
+  namespace: app-47
+type: Opaque
+stringData:
+  main.py: |
+    import time
+    import random
+    import json
+    import sys
+    from datetime import datetime
+
+    def log_message(level, message, **kwargs):
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "level": level,
+            "message": message,
+            "component": "main-app",
+            **kwargs
+        }
+        print(json.dumps(log_entry), flush=True)
+
+    log_message("INFO", "Starting main application", version="2.3.1")
+    log_message("INFO", "Loading configuration from environment")
+    log_message("INFO", "Initializing request processor", threads=10, queue_size=100)
+
+    iteration = 0
+    while True:
+        iteration += 1
+
+        # Normal operation logs
+        if iteration % 5 == 0:
+            log_message("INFO", "Processing batch", batch_id=f"batch-{iteration}", items=random.randint(50, 200))
+
+        if iteration % 10 == 0:
+            log_message("INFO", "Health check passed", latency_ms=random.randint(5, 50))
+
+        if iteration % 15 == 0:
+            # Occasional warnings that are normal
+            log_message("WARN", "Retry on transient failure",
+                       service="payment-gateway",
+                       attempts=random.randint(1, 3),
+                       reason="connection_timeout")
+
+        if iteration % 20 == 0:
+            log_message("INFO", "Cache refreshed", entries=random.randint(1000, 5000))
+
+        if iteration % 30 == 0:
+            # Red herring errors that look important but aren't
+            log_message("ERROR", "Failed to fetch optional feature flags",
+                       error="ConnectionRefusedError",
+                       fallback="using_defaults")
+
+        # Verbose debug logs
+        if iteration % 3 == 0:
+            log_message("DEBUG", "Request processed",
+                       request_id=f"req-{random.randint(100000, 999999)}",
+                       duration_ms=random.randint(10, 100),
+                       status_code=200)
+
+        time.sleep(0.1)
+
+  sidecar.py: |
+    import time
+    import random
+    import sys
+    from datetime import datetime
+
+    def log(level, msg):
+        print(f"[{datetime.now().isoformat()}] [{level}] [connection-pool] {msg}", flush=True)
+
+    log("INFO", "Sidecar connection manager starting")
+    log("INFO", "Initializing database connection pool")
+    log("INFO", "Pool configuration: min=5, max=10, timeout=30s")
+
+    # Initial successful connections
+    for i in range(5):
+        log("DEBUG", f"Connection {i+1} established successfully")
+        time.sleep(0.1)
+
+    iteration = 0
+    connections_in_use = 5
+    max_connections = 10
+
+    while True:
+        iteration += 1
+
+        # Gradually increase connection usage
+        if iteration < 50:
+            connections_in_use = min(connections_in_use + random.randint(0, 2), max_connections)
+        else:
+            connections_in_use = max_connections  # All connections exhausted
+
+        # Normal operation logs
+        if iteration % 10 == 0:
+            log("DEBUG", f"Active connections: {connections_in_use}/{max_connections}")
+
+        if iteration % 15 == 0:
+            log("DEBUG", f"Connection pool stats: idle={max_connections - connections_in_use}, active={connections_in_use}, waiting=0")
+
+        # Start showing the real problem after iteration 60
+        if iteration > 60 and connections_in_use >= max_connections:
+            if iteration == 61:
+                # This is the critical error - appears only once
+                log("ERROR", "Database connection pool exhausted: All 10 connections in use, new requests being rejected")
+                log("ERROR", "CRITICAL: Application cannot acquire database connections - MaxConnectionsReached")
+
+            # After the critical error, show symptoms but not the root cause
+            if iteration % 5 == 0:
+                log("WARN", f"Connection request queued, wait time: {random.randint(1000, 5000)}ms")
+
+            if iteration % 8 == 0:
+                log("INFO", "Attempting to recycle stale connections")
+
+        # Occasional metrics
+        if iteration % 20 == 0:
+            log("INFO", f"Pool metrics: total_created={iteration}, total_recycled={iteration//10}, failed_acquisitions={(iteration - 60) if iteration > 60 else 0}")
+
+        time.sleep(0.15)
+
+  monitor.py: |
+    import time
+    import random
+    import json
+    from datetime import datetime
+
+    def emit_log(component, level, message, **metadata):
+        log = {
+            "ts": datetime.now().isoformat(),
+            "component": f"monitoring/{component}",
+            "level": level,
+            "msg": message,
+            **metadata
+        }
+        print(json.dumps(log), flush=True)
+
+    emit_log("collector", "INFO", "Starting metrics collection service")
+    emit_log("collector", "INFO", "Prometheus endpoint configured on :9090/metrics")
+
+    iteration = 0
+    while True:
+        iteration += 1
+
+        # Lots of verbose monitoring logs
+        if iteration % 2 == 0:
+            emit_log("collector", "DEBUG", "Collected metrics",
+                    metrics_count=random.randint(100, 500),
+                    duration_ms=random.randint(1, 10))
+
+        if iteration % 5 == 0:
+            emit_log("exporter", "INFO", "Metrics exported",
+                    endpoint="prometheus",
+                    series=random.randint(50, 150))
+
+        if iteration % 10 == 0:
+            emit_log("scraper", "INFO", "Service discovery update",
+                    services_found=random.randint(5, 15),
+                    endpoints_total=random.randint(20, 50))
+
+        if iteration % 15 == 0:
+            # Network errors that are recoverable
+            emit_log("scraper", "WARN", "Scrape failed, will retry",
+                    target=f"service-{random.randint(1, 10)}",
+                    error="dial tcp: connection refused")
+
+        if iteration % 20 == 0:
+            emit_log("aggregator", "INFO", "Aggregation cycle complete",
+                    rules_evaluated=random.randint(20, 100),
+                    alerts_pending=0)
+
+        # Even more verbose debug logs to fill space
+        if iteration % 3 == 0:
+            emit_log("trace", "DEBUG", "Span collected",
+                    trace_id=f"{random.randint(1000000, 9999999):x}",
+                    span_id=f"{random.randint(100000, 999999):x}",
+                    duration_us=random.randint(100, 10000))
+
+        time.sleep(0.08)
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-processor
+  namespace: app-47
+  labels:
+    app: data-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-processor
+  template:
+    metadata:
+      labels:
+        app: data-processor
+    spec:
+      containers:
+      - name: main
+        image: python:3.11-slim
+        command: ["python", "-u", "/scripts/main.py"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      - name: connection-manager
+        image: python:3.11-slim
+        command: ["python", "-u", "/scripts/sidecar.py"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+      - name: metrics-monitor
+        image: python:3.11-slim
+        command: ["python", "-u", "/scripts/monitor.py"]
+        volumeMounts:
+        - name: scripts
+          mountPath: /scripts
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+      volumes:
+      - name: scripts
+        secret:
+          secretName: app-scripts
+      restartPolicy: Always

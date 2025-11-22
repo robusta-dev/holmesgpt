@@ -17,5 +17,3 @@ after_test: |
   kubectl delete -f ./manifest.yaml
   kubectl delete secret backend-service-logs-script -n namespace-71 --ignore-not-found
   kubectl delete namespace namespace-71 --ignore-not-found
-evaluation:
-  correctness: 1

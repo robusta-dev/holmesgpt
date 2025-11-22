@@ -1,3 +1,4 @@
+
 user_prompt: "The payment-api pod in namespace app-100a had issues on August 2, 2025 around 13:45 UTC. What happened?"
 
 expected_output:
@@ -11,6 +12,7 @@ tags:
   - logs
   - kubernetes
   - medium
+  - loki
 
 setup_timeout: 600  # Increased to handle Datadog init containers
 

@@ -9,6 +9,9 @@ expected_output:
 tags:
   - prometheus
   - kubernetes
+  - embeds
+  - metrics
+  - medium
 
 # Port forward configuration for Prometheus
 port_forwards:

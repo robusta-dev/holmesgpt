@@ -1,0 +1,14 @@
+user_prompt: "Why is the inventory-service in namespace app-35 experiencing database errors?"
+tags:
+  - logs
+  - context_window
+  - database
+  - hard
+
+expected_output:
+  - Database migration v3.2.0_add_warehouse_tracking failed because the locations table doesn't exist, leaving the schema in an inconsistent state
+
+before_test: kubectl apply -f ./manifest.yaml
+after_test: kubectl delete -f ./manifest.yaml
+
+description: "Tests if LLM can find the root cause (migration failure) among thousands of subsequent schema errors"

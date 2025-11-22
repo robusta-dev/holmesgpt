@@ -1,0 +1,12 @@
+user_prompt: "Why is the data-processor application in namespace app-47 experiencing issues?"
+tags:
+  - logs
+  - context_window
+  - kubernetes
+
+expected_output:
+  - The connection-manager sidecar container has exhausted its database connection pool with all 10 connections in use
+before_test: kubectl apply -f ./manifest.yaml
+after_test: kubectl delete -f ./manifest.yaml
+
+description: "Tests if LLM can find critical error in sidecar container logs among verbose multi-container output"
