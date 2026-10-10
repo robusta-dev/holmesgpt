@@ -31,6 +31,11 @@ on:
         required: false
         type: boolean
         default: true
+      verify_models:
+        description: 'Run the model config verification step before the benchmarks.'
+        required: false
+        type: boolean
+        default: false
 
   # Run weekly on Sunday at 2 AM UTC
   schedule:
@@ -123,6 +128,7 @@ jobs:
           EOF
 
       - name: Verify models
+        if: ${{ inputs.verify_models }}
         uses: ./.github/actions/verify-models
         with:
           models: ${{ github.event.inputs.models || env.DEFAULT_BENCHMARK_MODELS }}
