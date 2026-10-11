@@ -6,7 +6,7 @@ Twice, revokes the refresh tokens of Holmes' account user and of the relay
 user (the customer's state after a refresh got a 400) and waits past JWT
 expiry; the first call after each expiry is a different path:
 
-  round 1: an RPC through Holmes' DAL -> a definitive answer, not None
+  round 1: an RPC through Holmes' DAL -> succeeds
   round 2: reloading the robusta_platform_mcp toolset (a HOLMES session-token
            insert through Holmes' DAL, then tools/list on platform-mcp)
            -> enabled, with tools
@@ -89,6 +89,19 @@ def jwt_expiry() -> int:
     )
 
 
+def literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def rpc(dal: SupabaseDal) -> str:
+    """Call an RPC straight through the patched execute; any error fails the
+    check, unlike is_realtime_enabled() which maps a missing function to False."""
+    try:
+        return f"ok: {dal.client.rpc('is_realtime_enabled', {}).execute().data}"
+    except Exception as e:
+        return f"error: {e}"
+
+
 def load(toolset) -> dict:
     toolset.check_prerequisites(silent=True)
     return {
@@ -103,12 +116,12 @@ def main() -> int:
     assert dal.enabled, "SupabaseDal not enabled; check ROBUSTA_UI_TOKEN"
     toolset = make_robusta_platform_mcp_toolset(dal)
     evidence: dict = {"jwt_expiry": jwt_expiry(), "before_expiry": load(toolset)}
-    evidence["before_expiry"]["is_realtime_enabled"] = dal.is_realtime_enabled()
+    evidence["before_expiry"]["rpc"] = rpc(dal)
 
     def expire():
         revoked = sql(
             "delete from auth.sessions where user_id in (select id from auth.users "
-            f"where email in ('{dal.email}', '{RELAY_EMAIL}')) returning id"
+            f"where email in ({literal(dal.email)}, {literal(RELAY_EMAIL)})) returning id"
         )
         wait = evidence["jwt_expiry"] + POSTGREST_JWT_LEEWAY_SECONDS + 15
         logging.info(
@@ -117,7 +130,7 @@ def main() -> int:
         time.sleep(wait)
 
     expire()
-    evidence["rpc_first_after_expiry"] = dal.is_realtime_enabled()
+    evidence["rpc_first_after_expiry"] = rpc(dal)
 
     expire()
     dal.token_cache.clear()
@@ -127,7 +140,8 @@ def main() -> int:
 
     after = evidence["toolset_first_after_expiry"]
     checks = {
-        "rpc answers after expiry": evidence["rpc_first_after_expiry"] is not None,
+        "rpc works before expiry": evidence["before_expiry"]["rpc"].startswith("ok"),
+        "rpc answers after expiry": evidence["rpc_first_after_expiry"].startswith("ok"),
         "toolset loads after expiry": after["status"] == ToolsetStatusEnum.ENABLED.value
         and after["tools"] > 0,
     }

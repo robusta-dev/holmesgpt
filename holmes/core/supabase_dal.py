@@ -164,6 +164,11 @@ def _is_missing_rpc_error(exc: Exception) -> bool:
     return code == "PGRST202" or "could not find the function" in message
 
 
+def _is_jwt_error(exc: PGAPIError) -> bool:
+    message = (exc.message or "").lower()
+    return exc.code in ("PGRST301", "PGRST303") or "jwt expired" in message
+
+
 # How long the per-account executor sizes read from AccountSettings are
 # cached; a UI change takes at most this long to reach the executors.
 EXECUTOR_SIZES_CACHE_TTL_SEC = 60
@@ -371,8 +376,11 @@ class SupabaseDal:
             try:
                 return original_execute(_self)
             except PGAPIError as exc:
-                message = exc.message or ""
-                if exc.code != "PGRST301" and "expired" not in message.lower():
+                if not _is_jwt_error(exc):
+                    raise
+                # Every SupabaseDal patches the same class, so a request may
+                # belong to another instance with other credentials.
+                if _self.request.session is not self.options.httpx_client:
                     raise
                 # The request keeps the headers it was built with.
                 headers = _self.request.headers

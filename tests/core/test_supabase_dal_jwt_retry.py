@@ -49,6 +49,7 @@ class FakeSupabase:
         self.issue_valid_tokens = True
         self.rest_error = None
         self.rest_calls: list = []
+        self.token_owner: dict = {}
 
     def expire_all(self):
         with self.lock:
@@ -72,6 +73,7 @@ class FakeSupabase:
             if path == "/auth/v1/token":
                 self.password_grants += 1
                 access = _jwt()
+                self.token_owner[access] = json.loads(request.content)["email"]
                 if self.issue_valid_tokens:
                     self.valid_tokens.add(access)
                 return httpx.Response(
@@ -120,17 +122,7 @@ def relay_key():
 
 
 @pytest.fixture
-def dal(fake, relay_key, monkeypatch):
-    bundle = {
-        "store_url": STORE_URL,
-        "api_key": ANON_KEY,
-        "account_id": "acc-1",
-        "email": "svc@example.com",
-        "password": "pw",
-    }
-    monkeypatch.setenv(
-        "ROBUSTA_UI_TOKEN", base64.b64encode(json.dumps(bundle).encode()).decode()
-    )
+def make_dal(fake, relay_key, monkeypatch):
     monkeypatch.setattr(
         supabase_dal,
         "SupabaseRetryTransport",
@@ -143,11 +135,31 @@ def dal(fake, relay_key, monkeypatch):
     # Start from postgrest's own execute even if another test patched it.
     for builder in (SyncQueryRequestBuilder, SyncSingleRequestBuilder):
         monkeypatch.setattr(builder, "execute", inspect.unwrap(builder.execute))
-    d = SupabaseDal(cluster="test-cluster")
-    yield d
-    timer = d.client.auth._refresh_token_timer
-    if timer:
-        timer.cancel()
+    created = []
+
+    def make(email="svc@example.com"):
+        bundle = {
+            "store_url": STORE_URL,
+            "api_key": ANON_KEY,
+            "account_id": "acc-1",
+            "email": email,
+            "password": "pw",
+        }
+        token = base64.b64encode(json.dumps(bundle).encode()).decode()
+        monkeypatch.setenv("ROBUSTA_UI_TOKEN", token)
+        created.append(SupabaseDal(cluster="test-cluster"))
+        return created[-1]
+
+    yield make
+    for d in created:
+        timer = d.client.auth._refresh_token_timer
+        if timer:
+            timer.cancel()
+
+
+@pytest.fixture
+def dal(make_dal):
+    return make_dal()
 
 
 def _bearer(dal) -> str:
@@ -219,6 +231,36 @@ def test_non_jwt_errors_do_not_sign_in(dal, fake):
 
     assert exc.value.code == "42P01"
     assert fake.password_grants == 1
+
+
+def test_expired_in_a_non_jwt_error_does_not_sign_in(dal, fake):
+    fake.rest_error = {
+        "code": "P0001",
+        "message": "invitation expired",
+        "details": None,
+        "hint": None,
+    }
+
+    with pytest.raises(APIError) as exc:
+        dal.client.rpc("accept_invitation", {}).execute()
+
+    assert exc.value.code == "P0001"
+    assert fake.password_grants == 1
+
+
+def test_each_dal_retries_only_its_own_requests(make_dal, fake):
+    """Every SupabaseDal patches the same class; B's request must never be
+    retried with A's credentials, nor A's with B's."""
+    dal_a = make_dal("a@example.com")
+    dal_b = make_dal("b@example.com")
+    fake.expire_all()
+
+    dal_a.client.table("Issues").select("*").execute()
+    dal_b.client.table("Issues").select("*").execute()
+
+    owners = [fake.token_owner[t] for t, _ in fake.rest_calls]
+    assert owners == ["a@example.com"] * 2 + ["b@example.com"] * 2
+    assert fake.password_grants == 4
 
 
 def test_concurrent_expired_requests_sign_in_once(dal, fake):
