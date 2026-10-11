@@ -656,6 +656,10 @@ def chat(chat_request: ChatRequest, http_request: Request):
         storage = tool_result_storage()
         tool_results_dir = storage.__enter__()
 
+        # No conversation_id: here it is caller-supplied (a ChatHistory id, a
+        # Teams activity id, or anything), and relay grants admin-only models by
+        # the owner of the chat it names. Only the conversations worker, whose
+        # id comes from the claimed Conversations row, may send it.
         ai = config.create_toolcalling_llm(
             dal=dal,
             toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
@@ -665,7 +669,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
             model=chat_request.model,
             tracer=server_tracer,
             tool_results_dir=tool_results_dir,
-            conversation_id=chat_request.conversation_id,
         )
 
         global_instructions = dal.get_global_instructions_for_account()
