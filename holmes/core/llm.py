@@ -54,8 +54,10 @@ MODEL_LIST_FILE_LOCATION = os.environ.get(
 OVERRIDE_MAX_OUTPUT_TOKEN = environ_get_safe_int("OVERRIDE_MAX_OUTPUT_TOKEN")
 OVERRIDE_MAX_CONTENT_SIZE = environ_get_safe_int("OVERRIDE_MAX_CONTENT_SIZE")
 
-#: Names the chat a Robusta-hosted completion belongs to. Relay reads the
-#: chat's owner from it to gate admin-only models; it never trusts a user ID.
+#: Names the conversation a Robusta-hosted completion belongs to. Relay serves
+#: an admin-only model only when that conversation's owner is an account
+#: admin, so only an id from a claimed Conversations row (the conversations
+#: worker) may be sent, never a caller-supplied one.
 ROBUSTA_CONVERSATION_ID_HEADER = "X-Robusta-Conversation-Id"
 
 _warned_missing_model_lookups: set[tuple[str, str]] = set()

@@ -100,9 +100,8 @@ def test_api_chat_never_names_the_chat_to_relay(
     mock_create_toolcalling_llm,
     client,
 ):
-    """/api/chat's conversation_id is caller-supplied, and relay grants
-    admin-only models by the owner of the chat it names. Only the conversations
-    worker may send it (ROB-1290)."""
+    """/api/chat's conversation_id is caller-supplied, so it never reaches the
+    LLM; see ROBUSTA_CONVERSATION_ID_HEADER."""
     mock_get_global_instructions.return_value = []
     mock_ai = MagicMock()
     mock_ai.call.return_value = MagicMock(

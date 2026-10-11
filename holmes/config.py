@@ -684,9 +684,8 @@ class Config(RobustaBaseConfig):
         prerequisite_cache, reuse_executor) are forwarded to
         :meth:`create_tool_executor`.
 
-        ``conversation_id`` names the chat this turn belongs to. A Robusta-hosted
-        model sends it to relay on every completion of the turn; see
-        :meth:`_get_llm`.
+        ``conversation_id``: sent to relay on Robusta-hosted models; see
+        ``ROBUSTA_CONVERSATION_ID_HEADER``.
 
         Migration from removed helpers
         ------------------------------
@@ -869,9 +868,8 @@ class Config(RobustaBaseConfig):
     ) -> "DefaultLLM":
         """Build a fresh DefaultLLM for ``model_key``.
 
-        ``conversation_id`` is sent as ``X-Robusta-Conversation-Id`` on a
-        Robusta-hosted model's completions, so relay can gate admin-only models
-        by the chat's owner. A customer-defined model never receives it.
+        ``conversation_id``: sent to relay on Robusta-hosted models; see
+        ``ROBUSTA_CONVERSATION_ID_HEADER``.
         """
         sentry_sdk.set_tag("requested_model", model_key)
         model_entry = self.llm_model_registry.get_model_params(model_key)

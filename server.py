@@ -657,9 +657,7 @@ def chat(chat_request: ChatRequest, http_request: Request):
         tool_results_dir = storage.__enter__()
 
         # No conversation_id: here it is caller-supplied (a ChatHistory id, a
-        # Teams activity id, or anything), and relay grants admin-only models by
-        # the owner of the chat it names. Only the conversations worker, whose
-        # id comes from the claimed Conversations row, may send it.
+        # Teams activity id, or anything); see ROBUSTA_CONVERSATION_ID_HEADER.
         ai = config.create_toolcalling_llm(
             dal=dal,
             toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],

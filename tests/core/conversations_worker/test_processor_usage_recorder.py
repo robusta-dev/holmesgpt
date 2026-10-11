@@ -174,9 +174,8 @@ def test_recorder_state_uses_workers_dal_and_streaming_flag():
 
 
 def test_llm_names_the_claimed_conversations_row():
-    """Relay grants admin-only models by the owner of the chat named in
-    X-Robusta-Conversation-Id. The worker names the row it claimed, never the
-    request's conversation_id (ROB-1290)."""
+    """The worker names the row it claimed, never the request's
+    conversation_id."""
     worker, ai = _bare_worker()
     task = ConversationTask(
         conversation_id="row-1",
