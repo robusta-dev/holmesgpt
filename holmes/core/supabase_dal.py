@@ -1,5 +1,6 @@
 import base64
 import binascii
+import functools
 import gzip
 import json
 import logging
@@ -18,7 +19,10 @@ import sentry_sdk
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from postgrest._sync import request_builder as supabase_request_builder
-from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest._sync.request_builder import (
+    SyncQueryRequestBuilder,
+    SyncSingleRequestBuilder,
+)
 from postgrest.base_request_builder import QueryArgs
 from postgrest.exceptions import APIError as PGAPIError
 from postgrest.types import ReturnMethod
@@ -249,6 +253,8 @@ KEY_CACHE: TTLCache = TTLCache(maxsize=64, ttl=24 * 60 * 60)
 
 
 class SupabaseDal:
+    _reauth_lock = threading.Lock()
+
     def __init__(self, cluster: str):
         self.enabled = self.__init_config()
         self.cluster = cluster
@@ -351,27 +357,42 @@ class SupabaseDal:
 
     def patch_postgrest_execute(self):
         logging.info("Patching postgres execute")
+        self._original_execute = SyncQueryRequestBuilder.execute
+        SyncQueryRequestBuilder.execute = self._with_jwt_retry(self._original_execute)
+        self._original_rpc_execute = SyncSingleRequestBuilder.execute
+        SyncSingleRequestBuilder.execute = self._with_jwt_retry(
+            self._original_rpc_execute
+        )
 
+    def _with_jwt_retry(self, original_execute):
         # This is somewhat hacky.
+        @functools.wraps(original_execute)
         def execute_with_retry(_self):
             try:
-                return self._original_execute(_self)
+                return original_execute(_self)
             except PGAPIError as exc:
                 message = exc.message or ""
-                if exc.code == "PGRST301" or "expired" in message.lower():
-                    # JWT expired. Sign in again and retry the query
-                    logging.error(
-                        "JWT token expired/invalid, signing in to Supabase again"
-                    )
-                    self.__connect(self.options)
-                    # update the session to the new one, after re-sign in
-                    _self.session = self.client.postgrest.session
-                    return self._original_execute(_self)
-                else:
+                if exc.code != "PGRST301" and "expired" not in message.lower():
                     raise
+                # The request keeps the headers it was built with.
+                headers = _self.request.headers
+                headers.update(self._reauthorize(headers.get("Authorization")))
+                return original_execute(_self)
 
-        self._original_execute = SyncQueryRequestBuilder.execute
-        SyncQueryRequestBuilder.execute = execute_with_retry
+        return execute_with_retry
+
+    def _reauthorize(self, rejected_authorization: Optional[str]) -> Dict[str, str]:
+        with self._reauth_lock:
+            # Another thread may already have replaced the rejected token.
+            headers = self.client.options.headers
+            if headers.get("Authorization") == rejected_authorization:
+                logging.error("JWT token expired/invalid, signing in to Supabase again")
+                self.__connect(self.options)
+                headers = self.client.options.headers
+            return {
+                "Authorization": headers["Authorization"],
+                "apikey": headers["apiKey"],
+            }
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
