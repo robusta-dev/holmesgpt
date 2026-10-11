@@ -3118,6 +3118,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#per-user-auth-with-dex-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-User Auth with Dex (OIDC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-User Auth with Dex (OIDC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-register-holmes-as-a-dex-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Register Holmes as a Dex client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-store-the-client-secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Store the client secret
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Deploy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dex-behind-a-private-ca" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: Dex behind a private CA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-use-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5882,6 +5943,67 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#per-user-auth-with-dex-oidc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-User Auth with Dex (OIDC)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Per-User Auth with Dex (OIDC)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#step-1-register-holmes-as-a-dex-client" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 1: Register Holmes as a Dex client
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-2-store-the-client-secret" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 2: Store the client secret
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#step-3-deploy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Step 3: Deploy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#optional-dex-behind-a-private-ca" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional: Dex behind a private CA
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#common-use-cases" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6030,6 +6152,12 @@
 <td>One cluster, per-user identity</td>
 <td>Each user's own SSO token (Microsoft Entra ID)</td>
 <td>Enterprise SSO with per-user RBAC enforced on the API server</td>
+</tr>
+<tr>
+<td><strong><a href="#per-user-auth-with-dex-oidc">Per-User Auth with Dex</a></strong></td>
+<td>One cluster, per-user identity</td>
+<td>Each user's own token issued by Dex</td>
+<td>Clusters whose API server trusts Dex, federating LDAP, GitHub, Google, SAML or another IdP</td>
 </tr>
 </tbody>
 </table>
@@ -6421,7 +6549,7 @@
 </ul>
 <p>Your "Hub" holmes instance now have access to multiple clusters.</p>
 <h2 id="per-user-auth-oauth-or-oidc">Per-User Auth (OAuth or OIDC)<a class="headerlink" href="#per-user-auth-oauth-or-oidc" title="Permanent link">&para;</a></h2>
-<p>Use OAuth/OIDC when cluster access is managed through Microsoft Entra ID (Azure AD) — for example, enterprise environments with centralized SSO.</p>
+<p>Use OAuth/OIDC when cluster access is managed through Microsoft Entra ID (Azure AD) — for example, enterprise environments with centralized SSO. If your API server trusts Dex instead, see <a href="#per-user-auth-with-dex-oidc">Per-User Auth with Dex</a>.</p>
 <p>In this mode the MCP server validates OAuth tokens and passes them through to the Kubernetes API server, so each user's calls hit the API with their own identity. The ServiceAccount ClusterRoleBinding is not needed — permissions come from the OAuth token.</p>
 <p>Two pieces of config drive the flow:</p>
 <ul>
@@ -6437,13 +6565,13 @@
 <li>
 <p>Under <strong>Authentication &gt; Platform configurations</strong>, add a <strong>Web</strong> platform with the redirect URI matching your Robusta region:</p>
 <div class="tabbed-set" data-tabs="1:3">
-<input checked="checked" id="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_1" name="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d" type="radio">
-<input id="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_2" name="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d" type="radio">
-<input id="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_3" name="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d" type="radio">
+<input checked="checked" id="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_1" name="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1" type="radio">
+<input id="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_2" name="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1" type="radio">
+<input id="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_3" name="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1" type="radio">
 <div class="tabbed-labels">
-<label for="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_1">US</label>
-<label for="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_2">EU</label>
-<label for="__tabbed_a30b7471_5e05_49f5_b36a_c111724b235d_3">AP</label>
+<label for="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_1">US</label>
+<label for="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_2">EU</label>
+<label for="__tabbed_634af6ab_f58d_4389_8511_2001bf81d0f1_3">AP</label>
 </div>
 <div class="tabbed-content">
 <div class="tabbed-block"><pre><code>https://platform.robusta.dev/oauth/callback.html</code></pre></div>
@@ -6571,14 +6699,261 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-n<span class="w"> </span>YOUR_NAMESPACE<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/name<span class="o">=</span>k8s-mcp-server
 </span></code></pre></div>
 <p>When you ask Holmes a Kubernetes question for the first time, the Robusta UI will open a Microsoft login window. After signing in, Holmes uses your Azure-issued token for every <code>kubernetes_*</code> call — RBAC is enforced per user on the API server.</p>
+<h2 id="per-user-auth-with-dex-oidc">Per-User Auth with Dex (OIDC)<a class="headerlink" href="#per-user-auth-with-dex-oidc" title="Permanent link">&para;</a></h2>
+<p>Use <a href="https://dexidp.io/">Dex</a> when your Kubernetes API server already trusts Dex as its OIDC issuer and your users and groups already have RBAC bindings. Each user signs in to Dex through the Robusta UI, and the MCP server passes the user's token through to the API server, so every call runs with that user's permissions.</p>
+<h3 id="step-1-register-holmes-as-a-dex-client">Step 1: Register Holmes as a Dex client<a class="headerlink" href="#step-1-register-holmes-as-a-dex-client" title="Permanent link">&para;</a></h3>
+<p>Add a static client to your Dex config. With the upstream Dex Helm chart, this is the <code>config.staticClients</code> section of its values file. Generate the secret with <code>openssl rand -base64 32</code>, and use the redirect URI for your Robusta region:</p>
+<div class="tabbed-set" data-tabs="1:3">
+<input checked="checked" id="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_1" name="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc" type="radio">
+<input id="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_2" name="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc" type="radio">
+<input id="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_3" name="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc" type="radio">
+<div class="tabbed-labels">
+<label for="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_1">US</label>
+<label for="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_2">EU</label>
+<label for="__tabbed_3aa27964_6ac0_4a74_a8b4_b7183512dbcc_3">AP</label>
+</div>
+<div class="tabbed-content">
+<div class="tabbed-block"><pre><code class="language-yaml">staticClients:
+  - id: mcp-k8s
+    name: &quot;Holmes / k8s-mcp-server&quot;
+    secret: &quot;&lt;CLIENT_SECRET&gt;&quot;
+    redirectURIs:
+      - &quot;https://platform.robusta.dev/oauth/callback.html&quot;</code></pre></div>
+<div class="tabbed-block"><pre><code class="language-yaml">staticClients:
+  - id: mcp-k8s
+    name: &quot;Holmes / k8s-mcp-server&quot;
+    secret: &quot;&lt;CLIENT_SECRET&gt;&quot;
+    redirectURIs:
+      - &quot;https://platform.eu.robusta.dev/oauth/callback.html&quot;</code></pre></div>
+<div class="tabbed-block"><pre><code class="language-yaml">staticClients:
+  - id: mcp-k8s
+    name: &quot;Holmes / k8s-mcp-server&quot;
+    secret: &quot;&lt;CLIENT_SECRET&gt;&quot;
+    redirectURIs:
+      - &quot;https://platform.ap.robusta.dev/oauth/callback.html&quot;</code></pre></div>
+</div>
+</div>
+<p>Restart Dex:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;dex-namespace&gt;<span class="w"> </span>rollout<span class="w"> </span>restart<span class="w"> </span>deployment/dex
+</span><span id="__span-20-2"><a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>kubectl<span class="w"> </span>-n<span class="w"> </span>&lt;dex-namespace&gt;<span class="w"> </span>rollout<span class="w"> </span>status<span class="w"> </span>deployment/dex
+</span></code></pre></div>
+<details class="info">
+<summary>API server uses a different Dex client ID (for example, Dex is already used for <code>kubectl</code> login)?</summary>
+<p>The API server only accepts Dex tokens whose audience includes its own OIDC client ID, and Holmes's tokens carry <code>mcp-k8s</code>. To keep the API server unchanged, let Holmes request tokens for that client too:</p>
+<ol>
+<li>In your Dex config, add <code>trustedPeers: ["mcp-k8s"]</code> to the client the API server uses (for example <code>kubernetes</code>), and restart Dex.</li>
+<li>In Step 3, add <code>"audience:server:client_id:kubernetes"</code> to Holmes's <code>oauth.scopes</code>.</li>
+</ol>
+<p>Dex then issues tokens with both <code>kubernetes</code> and <code>mcp-k8s</code> in <code>aud</code>, so the API server and the MCP server both accept them. To find the client ID your API server uses (kubeadm):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>-n<span class="w"> </span>kube-system<span class="w"> </span>-l<span class="w"> </span><span class="nv">component</span><span class="o">=</span>kube-apiserver<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>oidc-client-id
+</span></code></pre></div>
+</details>
+<h3 id="step-2-store-the-client-secret">Step 2: Store the client secret<a class="headerlink" href="#step-2-store-the-client-secret" title="Permanent link">&para;</a></h3>
+<p>Create a Kubernetes secret, in the namespace Holmes runs in, with the client secret from Step 1:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>create<span class="w"> </span>secret<span class="w"> </span>generic<span class="w"> </span>mcp-k8s-credentials<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a><span class="w">  </span>--from-literal<span class="o">=</span>client-secret<span class="o">=</span><span class="s1">&#39;&lt;CLIENT_SECRET&gt;&#39;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-22-3"><a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a><span class="w">  </span>-n<span class="w"> </span>&lt;holmes-namespace&gt;<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a><span class="w">  </span>--dry-run<span class="o">=</span>client<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>-
+</span></code></pre></div>
+<h3 id="step-3-deploy">Step 3: Deploy<a class="headerlink" href="#step-3-deploy" title="Permanent link">&para;</a></h3>
+<p>Replace <code>&lt;DEX_ISSUER_URL&gt;</code> with your Dex issuer URL (for example <code>https://dex.example.com</code>). All three Dex URLs below derive from the <code>issuer</code> in your Dex config: the server-side <code>authorization_url</code> is the issuer itself, and the Holmes-side <code>authorization_url</code> and <code>token_url</code> are the issuer followed by <code>/auth</code> and <code>/token</code>. The <code>offline_access</code> scope lets Dex issue refresh tokens, so users don't have to sign in again every time their token expires. Some connectors ignore it, notably the SAML connector.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="step-3-deploy-holmes-helm-chart" name="__tabbed_4" type="radio" /><input id="step-3-deploy-robusta-helm-chart" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="step-3-deploy-holmes-helm-chart">Holmes Helm Chart</label><label for="step-3-deploy-robusta-helm-chart">Robusta Helm Chart</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>When using the <strong>standalone Holmes Helm Chart</strong>, update your <code>values.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Inject the Dex client secret as an env var so the OAuth flow can read it.</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nt">additionalEnvVars</span><span class="p">:</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MCP_OAUTH_CLIENT_SECRET</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="w">    </span><span class="nt">valueFrom</span><span class="p">:</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="w">      </span><span class="nt">secretKeyRef</span><span class="p">:</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp-k8s-credentials</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="w">        </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">client-secret</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="c1"># Disable built-in Kubernetes toolsets — they run with the Holmes pod&#39;s</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a><span class="c1"># ServiceAccount, which would bypass per-user RBAC.</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a><span class="nt">toolsets</span><span class="p">:</span>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="w">  </span><span class="nt">kubernetes/core</span><span class="p">:</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a><span class="w">  </span><span class="nt">kubernetes/logs</span><span class="p">:</span>
+</span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a><span class="w">  </span><span class="nt">bash</span><span class="p">:</span>
+</span><span id="__span-23-17"><a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>
+</span><span id="__span-23-19"><a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a><span class="nt">mcpAddons</span><span class="p">:</span>
+</span><span id="__span-23-20"><a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a><span class="w">  </span><span class="nt">kubernetes</span><span class="p">:</span>
+</span><span id="__span-23-21"><a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-23-22"><a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>
+</span><span id="__span-23-23"><a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a><span class="w">    </span><span class="nt">serviceAccount</span><span class="p">:</span>
+</span><span id="__span-23-24"><a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a><span class="w">      </span><span class="nt">create</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-23-25"><a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a><span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;k8s-mcp-sa&quot;</span>
+</span><span id="__span-23-26"><a id="__codelineno-23-26" name="__codelineno-23-26" href="#__codelineno-23-26"></a><span class="w">      </span><span class="nt">createClusterRoleBinding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-23-27"><a id="__codelineno-23-27" name="__codelineno-23-27" href="#__codelineno-23-27"></a>
+</span><span id="__span-23-28"><a id="__codelineno-23-28" name="__codelineno-23-28" href="#__codelineno-23-28"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-23-29"><a id="__codelineno-23-29" name="__codelineno-23-29" href="#__codelineno-23-29"></a><span class="w">      </span><span class="nt">readOnly</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-23-30"><a id="__codelineno-23-30" name="__codelineno-23-30" href="#__codelineno-23-30"></a>
+</span><span id="__span-23-31"><a id="__codelineno-23-31" name="__codelineno-23-31" href="#__codelineno-23-31"></a><span class="w">      </span><span class="c1"># Server-side: validate each user&#39;s Dex token, then pass it through to the API server.</span>
+</span><span id="__span-23-32"><a id="__codelineno-23-32" name="__codelineno-23-32" href="#__codelineno-23-32"></a><span class="w">      </span><span class="nt">serverConfig</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-23-33"><a id="__codelineno-23-33" name="__codelineno-23-33" href="#__codelineno-23-33"></a><span class="w">        </span><span class="no">require_oauth = true</span>
+</span><span id="__span-23-34"><a id="__codelineno-23-34" name="__codelineno-23-34" href="#__codelineno-23-34"></a><span class="w">        </span><span class="no">accept_opaque_tokens = false</span>
+</span><span id="__span-23-35"><a id="__codelineno-23-35" name="__codelineno-23-35" href="#__codelineno-23-35"></a><span class="w">        </span><span class="no">cluster_auth_mode = &quot;passthrough&quot;</span>
+</span><span id="__span-23-36"><a id="__codelineno-23-36" name="__codelineno-23-36" href="#__codelineno-23-36"></a><span class="w">        </span><span class="no">authorization_url = &quot;&lt;DEX_ISSUER_URL&gt;&quot;</span>
+</span><span id="__span-23-37"><a id="__codelineno-23-37" name="__codelineno-23-37" href="#__codelineno-23-37"></a><span class="w">        </span><span class="no">oauth_audience = &quot;mcp-k8s&quot;</span>
+</span><span id="__span-23-38"><a id="__codelineno-23-38" name="__codelineno-23-38" href="#__codelineno-23-38"></a>
+</span><span id="__span-23-39"><a id="__codelineno-23-39" name="__codelineno-23-39" href="#__codelineno-23-39"></a><span class="w">      </span><span class="c1"># Holmes-side: tells Holmes which OAuth endpoints to drive in the browser.</span>
+</span><span id="__span-23-40"><a id="__codelineno-23-40" name="__codelineno-23-40" href="#__codelineno-23-40"></a><span class="w">      </span><span class="nt">oauth</span><span class="p">:</span>
+</span><span id="__span-23-41"><a id="__codelineno-23-41" name="__codelineno-23-41" href="#__codelineno-23-41"></a><span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-23-42"><a id="__codelineno-23-42" name="__codelineno-23-42" href="#__codelineno-23-42"></a><span class="w">        </span><span class="nt">authorization_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;DEX_ISSUER_URL&gt;/auth&quot;</span>
+</span><span id="__span-23-43"><a id="__codelineno-23-43" name="__codelineno-23-43" href="#__codelineno-23-43"></a><span class="w">        </span><span class="nt">token_url</span><span class="p">:</span><span class="w">         </span><span class="s">&quot;&lt;DEX_ISSUER_URL&gt;/token&quot;</span>
+</span><span id="__span-23-44"><a id="__codelineno-23-44" name="__codelineno-23-44" href="#__codelineno-23-44"></a><span class="w">        </span><span class="nt">client_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mcp-k8s&quot;</span>
+</span><span id="__span-23-45"><a id="__codelineno-23-45" name="__codelineno-23-45" href="#__codelineno-23-45"></a><span class="w">        </span><span class="nt">client_secret</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;{{</span><span class="nv"> </span><span class="s">env.MCP_OAUTH_CLIENT_SECRET</span><span class="nv"> </span><span class="s">}}&quot;</span>
+</span><span id="__span-23-46"><a id="__codelineno-23-46" name="__codelineno-23-46" href="#__codelineno-23-46"></a><span class="w">        </span><span class="nt">scopes</span><span class="p">:</span>
+</span><span id="__span-23-47"><a id="__codelineno-23-47" name="__codelineno-23-47" href="#__codelineno-23-47"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;openid&quot;</span>
+</span><span id="__span-23-48"><a id="__codelineno-23-48" name="__codelineno-23-48" href="#__codelineno-23-48"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;profile&quot;</span>
+</span><span id="__span-23-49"><a id="__codelineno-23-49" name="__codelineno-23-49" href="#__codelineno-23-49"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;email&quot;</span>
+</span><span id="__span-23-50"><a id="__codelineno-23-50" name="__codelineno-23-50" href="#__codelineno-23-50"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;groups&quot;</span>
+</span><span id="__span-23-51"><a id="__codelineno-23-51" name="__codelineno-23-51" href="#__codelineno-23-51"></a><span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;offline_access&quot;</span>
+</span></code></pre></div>
+<p>Apply the configuration:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>holmes<span class="w"> </span>robusta/holmes<span class="w"> </span>-f<span class="w"> </span>values.yaml
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>When using the <strong>Robusta Helm Chart</strong> (which includes HolmesGPT), update your <code>generated_values.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="nt">holmes</span><span class="p">:</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="w">  </span><span class="c1"># Inject the Dex client secret as an env var so the OAuth flow can read it.</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="w">  </span><span class="nt">additionalEnvVars</span><span class="p">:</span>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MCP_OAUTH_CLIENT_SECRET</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="w">      </span><span class="nt">valueFrom</span><span class="p">:</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="w">        </span><span class="nt">secretKeyRef</span><span class="p">:</span>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a><span class="w">          </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">mcp-k8s-credentials</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a><span class="w">          </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">client-secret</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">  </span><span class="c1"># Disable built-in Kubernetes toolsets — they run with the Holmes pod&#39;s</span>
+</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">  </span><span class="c1"># ServiceAccount, which would bypass per-user RBAC.</span>
+</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="w">  </span><span class="nt">toolsets</span><span class="p">:</span>
+</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="w">    </span><span class="nt">kubernetes/core</span><span class="p">:</span>
+</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="w">    </span><span class="nt">kubernetes/logs</span><span class="p">:</span>
+</span><span id="__span-25-16"><a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-25-17"><a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a><span class="w">    </span><span class="nt">bash</span><span class="p">:</span>
+</span><span id="__span-25-18"><a id="__codelineno-25-18" name="__codelineno-25-18" href="#__codelineno-25-18"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-25-19"><a id="__codelineno-25-19" name="__codelineno-25-19" href="#__codelineno-25-19"></a>
+</span><span id="__span-25-20"><a id="__codelineno-25-20" name="__codelineno-25-20" href="#__codelineno-25-20"></a><span class="w">  </span><span class="nt">mcpAddons</span><span class="p">:</span>
+</span><span id="__span-25-21"><a id="__codelineno-25-21" name="__codelineno-25-21" href="#__codelineno-25-21"></a><span class="w">    </span><span class="nt">kubernetes</span><span class="p">:</span>
+</span><span id="__span-25-22"><a id="__codelineno-25-22" name="__codelineno-25-22" href="#__codelineno-25-22"></a><span class="w">      </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-25-23"><a id="__codelineno-25-23" name="__codelineno-25-23" href="#__codelineno-25-23"></a>
+</span><span id="__span-25-24"><a id="__codelineno-25-24" name="__codelineno-25-24" href="#__codelineno-25-24"></a><span class="w">      </span><span class="nt">serviceAccount</span><span class="p">:</span>
+</span><span id="__span-25-25"><a id="__codelineno-25-25" name="__codelineno-25-25" href="#__codelineno-25-25"></a><span class="w">        </span><span class="nt">create</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-25-26"><a id="__codelineno-25-26" name="__codelineno-25-26" href="#__codelineno-25-26"></a><span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;k8s-mcp-sa&quot;</span>
+</span><span id="__span-25-27"><a id="__codelineno-25-27" name="__codelineno-25-27" href="#__codelineno-25-27"></a><span class="w">        </span><span class="nt">createClusterRoleBinding</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-25-28"><a id="__codelineno-25-28" name="__codelineno-25-28" href="#__codelineno-25-28"></a>
+</span><span id="__span-25-29"><a id="__codelineno-25-29" name="__codelineno-25-29" href="#__codelineno-25-29"></a><span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-25-30"><a id="__codelineno-25-30" name="__codelineno-25-30" href="#__codelineno-25-30"></a><span class="w">        </span><span class="nt">readOnly</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-25-31"><a id="__codelineno-25-31" name="__codelineno-25-31" href="#__codelineno-25-31"></a>
+</span><span id="__span-25-32"><a id="__codelineno-25-32" name="__codelineno-25-32" href="#__codelineno-25-32"></a><span class="w">        </span><span class="c1"># Server-side: validate each user&#39;s Dex token, then pass it through to the API server.</span>
+</span><span id="__span-25-33"><a id="__codelineno-25-33" name="__codelineno-25-33" href="#__codelineno-25-33"></a><span class="w">        </span><span class="nt">serverConfig</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-25-34"><a id="__codelineno-25-34" name="__codelineno-25-34" href="#__codelineno-25-34"></a><span class="w">          </span><span class="no">require_oauth = true</span>
+</span><span id="__span-25-35"><a id="__codelineno-25-35" name="__codelineno-25-35" href="#__codelineno-25-35"></a><span class="w">          </span><span class="no">accept_opaque_tokens = false</span>
+</span><span id="__span-25-36"><a id="__codelineno-25-36" name="__codelineno-25-36" href="#__codelineno-25-36"></a><span class="w">          </span><span class="no">cluster_auth_mode = &quot;passthrough&quot;</span>
+</span><span id="__span-25-37"><a id="__codelineno-25-37" name="__codelineno-25-37" href="#__codelineno-25-37"></a><span class="w">          </span><span class="no">authorization_url = &quot;&lt;DEX_ISSUER_URL&gt;&quot;</span>
+</span><span id="__span-25-38"><a id="__codelineno-25-38" name="__codelineno-25-38" href="#__codelineno-25-38"></a><span class="w">          </span><span class="no">oauth_audience = &quot;mcp-k8s&quot;</span>
+</span><span id="__span-25-39"><a id="__codelineno-25-39" name="__codelineno-25-39" href="#__codelineno-25-39"></a>
+</span><span id="__span-25-40"><a id="__codelineno-25-40" name="__codelineno-25-40" href="#__codelineno-25-40"></a><span class="w">        </span><span class="c1"># Holmes-side: tells Holmes which OAuth endpoints to drive in the browser.</span>
+</span><span id="__span-25-41"><a id="__codelineno-25-41" name="__codelineno-25-41" href="#__codelineno-25-41"></a><span class="w">        </span><span class="nt">oauth</span><span class="p">:</span>
+</span><span id="__span-25-42"><a id="__codelineno-25-42" name="__codelineno-25-42" href="#__codelineno-25-42"></a><span class="w">          </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+</span><span id="__span-25-43"><a id="__codelineno-25-43" name="__codelineno-25-43" href="#__codelineno-25-43"></a><span class="w">          </span><span class="nt">authorization_url</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;DEX_ISSUER_URL&gt;/auth&quot;</span>
+</span><span id="__span-25-44"><a id="__codelineno-25-44" name="__codelineno-25-44" href="#__codelineno-25-44"></a><span class="w">          </span><span class="nt">token_url</span><span class="p">:</span><span class="w">         </span><span class="s">&quot;&lt;DEX_ISSUER_URL&gt;/token&quot;</span>
+</span><span id="__span-25-45"><a id="__codelineno-25-45" name="__codelineno-25-45" href="#__codelineno-25-45"></a><span class="w">          </span><span class="nt">client_id</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;mcp-k8s&quot;</span>
+</span><span id="__span-25-46"><a id="__codelineno-25-46" name="__codelineno-25-46" href="#__codelineno-25-46"></a><span class="w">          </span><span class="nt">client_secret</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;{{</span><span class="nv"> </span><span class="s">env.MCP_OAUTH_CLIENT_SECRET</span><span class="nv"> </span><span class="s">}}&quot;</span>
+</span><span id="__span-25-47"><a id="__codelineno-25-47" name="__codelineno-25-47" href="#__codelineno-25-47"></a><span class="w">          </span><span class="nt">scopes</span><span class="p">:</span>
+</span><span id="__span-25-48"><a id="__codelineno-25-48" name="__codelineno-25-48" href="#__codelineno-25-48"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;openid&quot;</span>
+</span><span id="__span-25-49"><a id="__codelineno-25-49" name="__codelineno-25-49" href="#__codelineno-25-49"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;profile&quot;</span>
+</span><span id="__span-25-50"><a id="__codelineno-25-50" name="__codelineno-25-50" href="#__codelineno-25-50"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;email&quot;</span>
+</span><span id="__span-25-51"><a id="__codelineno-25-51" name="__codelineno-25-51" href="#__codelineno-25-51"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;groups&quot;</span>
+</span><span id="__span-25-52"><a id="__codelineno-25-52" name="__codelineno-25-52" href="#__codelineno-25-52"></a><span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">&quot;offline_access&quot;</span>
+</span></code></pre></div>
+<p>Apply the configuration:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>robusta<span class="w"> </span>robusta/robusta<span class="w"> </span>-f<span class="w"> </span>generated_values.yaml<span class="w"> </span>--set<span class="w"> </span><span class="nv">clusterName</span><span class="o">=</span>&lt;YOUR_CLUSTER_NAME&gt;
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="optional-dex-behind-a-private-ca">Optional: Dex behind a private CA<a class="headerlink" href="#optional-dex-behind-a-private-ca" title="Permanent link">&para;</a></h3>
+<p>If Dex's certificate comes from a private CA (for example a cert-manager <code>Issuer</code> backed by Vault), the MCP server fails to start with <code>x509: certificate signed by unknown authority</code>. Both the MCP server and Holmes call Dex, so give both the CA. A CA certificate is public, so it is safe to keep in your values; never copy the private key (<code>tls.key</code>).</p>
+<p>With cert-manager, the CA is in the <code>ca.crt</code> key of Dex's certificate Secret:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>kubectl<span class="w"> </span>get<span class="w"> </span>secret<span class="w"> </span>&lt;DEX_TLS_SECRET&gt;<span class="w"> </span>-n<span class="w"> </span>&lt;dex-namespace&gt;<span class="w"> </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">&#39;{.data.ca\.crt}&#39;</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>base64<span class="w"> </span>-d<span class="w"> </span>&gt;<span class="w"> </span>dex-ca.pem
+</span></code></pre></div>
+<p>cert-manager only writes <code>ca.crt</code> when the issuer returns a CA, so if <code>dex-ca.pem</code> comes out empty, get the CA certificate from whoever runs the issuer.</p>
+<p>Holmes takes the CA base64-encoded in <code>certificate</code>; get that value with:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>base64<span class="w"> </span>-i<span class="w"> </span>dex-ca.pem<span class="w"> </span><span class="p">|</span><span class="w"> </span>tr<span class="w"> </span>-d<span class="w"> </span><span class="s1">&#39;\n&#39;</span>
+</span></code></pre></div>
+<p>The MCP server takes the CA as PEM (the contents of <code>dex-ca.pem</code>) in <code>certificateAuthority</code>. The chart mounts it at <code>/etc/kubernetes-mcp-ca/ca.crt</code>, and <code>certificate_authority</code> in <code>serverConfig</code> points the server at that file. If <code>ca.crt</code> is an intermediate CA, use the root CA for Holmes's <code>certificate</code>.</p>
+<p>Merge these into your values from Step 3:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="5:2"><input checked="checked" id="optional-dex-behind-a-private-ca-holmes-helm-chart" name="__tabbed_5" type="radio" /><input id="optional-dex-behind-a-private-ca-robusta-helm-chart" name="__tabbed_5" type="radio" /><div class="tabbed-labels"><label for="optional-dex-behind-a-private-ca-holmes-helm-chart">Holmes Helm Chart</label><label for="optional-dex-behind-a-private-ca-robusta-helm-chart">Robusta Helm Chart</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<p>When using the <strong>standalone Holmes Helm Chart</strong>, update your <code>values.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="c1"># Dex CA, base64-encoded, for Holmes&#39;s own calls to Dex</span>
+</span><span id="__span-29-2"><a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a><span class="nt">certificate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;BASE64_DEX_CA&gt;&quot;</span>
+</span><span id="__span-29-3"><a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>
+</span><span id="__span-29-4"><a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a><span class="nt">mcpAddons</span><span class="p">:</span>
+</span><span id="__span-29-5"><a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a><span class="w">  </span><span class="nt">kubernetes</span><span class="p">:</span>
+</span><span id="__span-29-6"><a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a><span class="w">    </span><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-29-7"><a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a><span class="w">      </span><span class="c1"># Dex CA as PEM; mounted at /etc/kubernetes-mcp-ca/ca.crt</span>
+</span><span id="__span-29-8"><a id="__codelineno-29-8" name="__codelineno-29-8" href="#__codelineno-29-8"></a><span class="w">      </span><span class="nt">certificateAuthority</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-29-9"><a id="__codelineno-29-9" name="__codelineno-29-9" href="#__codelineno-29-9"></a><span class="w">        </span><span class="no">-----BEGIN CERTIFICATE-----</span>
+</span><span id="__span-29-10"><a id="__codelineno-29-10" name="__codelineno-29-10" href="#__codelineno-29-10"></a><span class="w">        </span><span class="no">&lt;DEX_CA_PEM_LINES&gt;</span>
+</span><span id="__span-29-11"><a id="__codelineno-29-11" name="__codelineno-29-11" href="#__codelineno-29-11"></a><span class="w">        </span><span class="no">-----END CERTIFICATE-----</span>
+</span><span id="__span-29-12"><a id="__codelineno-29-12" name="__codelineno-29-12" href="#__codelineno-29-12"></a>
+</span><span id="__span-29-13"><a id="__codelineno-29-13" name="__codelineno-29-13" href="#__codelineno-29-13"></a><span class="w">      </span><span class="nt">serverConfig</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-29-14"><a id="__codelineno-29-14" name="__codelineno-29-14" href="#__codelineno-29-14"></a><span class="w">        </span><span class="no">require_oauth = true</span>
+</span><span id="__span-29-15"><a id="__codelineno-29-15" name="__codelineno-29-15" href="#__codelineno-29-15"></a><span class="w">        </span><span class="no">accept_opaque_tokens = false</span>
+</span><span id="__span-29-16"><a id="__codelineno-29-16" name="__codelineno-29-16" href="#__codelineno-29-16"></a><span class="w">        </span><span class="no">cluster_auth_mode = &quot;passthrough&quot;</span>
+</span><span id="__span-29-17"><a id="__codelineno-29-17" name="__codelineno-29-17" href="#__codelineno-29-17"></a><span class="w">        </span><span class="no">authorization_url = &quot;&lt;DEX_ISSUER_URL&gt;&quot;</span>
+</span><span id="__span-29-18"><a id="__codelineno-29-18" name="__codelineno-29-18" href="#__codelineno-29-18"></a><span class="w">        </span><span class="no">oauth_audience = &quot;mcp-k8s&quot;</span>
+</span><span id="__span-29-19"><a id="__codelineno-29-19" name="__codelineno-29-19" href="#__codelineno-29-19"></a><span class="w">        </span><span class="no">certificate_authority = &quot;/etc/kubernetes-mcp-ca/ca.crt&quot;</span>
+</span></code></pre></div>
+<p>Apply the configuration:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>holmes<span class="w"> </span>robusta/holmes<span class="w"> </span>-f<span class="w"> </span>values.yaml
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>When using the <strong>Robusta Helm Chart</strong> (which includes HolmesGPT), update your <code>generated_values.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="nt">holmes</span><span class="p">:</span>
+</span><span id="__span-31-2"><a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="w">  </span><span class="c1"># Dex CA, base64-encoded, for Holmes&#39;s own calls to Dex</span>
+</span><span id="__span-31-3"><a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">  </span><span class="nt">certificate</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&lt;BASE64_DEX_CA&gt;&quot;</span>
+</span><span id="__span-31-4"><a id="__codelineno-31-4" name="__codelineno-31-4" href="#__codelineno-31-4"></a>
+</span><span id="__span-31-5"><a id="__codelineno-31-5" name="__codelineno-31-5" href="#__codelineno-31-5"></a><span class="w">  </span><span class="nt">mcpAddons</span><span class="p">:</span>
+</span><span id="__span-31-6"><a id="__codelineno-31-6" name="__codelineno-31-6" href="#__codelineno-31-6"></a><span class="w">    </span><span class="nt">kubernetes</span><span class="p">:</span>
+</span><span id="__span-31-7"><a id="__codelineno-31-7" name="__codelineno-31-7" href="#__codelineno-31-7"></a><span class="w">      </span><span class="nt">config</span><span class="p">:</span>
+</span><span id="__span-31-8"><a id="__codelineno-31-8" name="__codelineno-31-8" href="#__codelineno-31-8"></a><span class="w">        </span><span class="c1"># Dex CA as PEM; mounted at /etc/kubernetes-mcp-ca/ca.crt</span>
+</span><span id="__span-31-9"><a id="__codelineno-31-9" name="__codelineno-31-9" href="#__codelineno-31-9"></a><span class="w">        </span><span class="nt">certificateAuthority</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-31-10"><a id="__codelineno-31-10" name="__codelineno-31-10" href="#__codelineno-31-10"></a><span class="w">          </span><span class="no">-----BEGIN CERTIFICATE-----</span>
+</span><span id="__span-31-11"><a id="__codelineno-31-11" name="__codelineno-31-11" href="#__codelineno-31-11"></a><span class="w">          </span><span class="no">&lt;DEX_CA_PEM_LINES&gt;</span>
+</span><span id="__span-31-12"><a id="__codelineno-31-12" name="__codelineno-31-12" href="#__codelineno-31-12"></a><span class="w">          </span><span class="no">-----END CERTIFICATE-----</span>
+</span><span id="__span-31-13"><a id="__codelineno-31-13" name="__codelineno-31-13" href="#__codelineno-31-13"></a>
+</span><span id="__span-31-14"><a id="__codelineno-31-14" name="__codelineno-31-14" href="#__codelineno-31-14"></a><span class="w">        </span><span class="nt">serverConfig</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+</span><span id="__span-31-15"><a id="__codelineno-31-15" name="__codelineno-31-15" href="#__codelineno-31-15"></a><span class="w">          </span><span class="no">require_oauth = true</span>
+</span><span id="__span-31-16"><a id="__codelineno-31-16" name="__codelineno-31-16" href="#__codelineno-31-16"></a><span class="w">          </span><span class="no">accept_opaque_tokens = false</span>
+</span><span id="__span-31-17"><a id="__codelineno-31-17" name="__codelineno-31-17" href="#__codelineno-31-17"></a><span class="w">          </span><span class="no">cluster_auth_mode = &quot;passthrough&quot;</span>
+</span><span id="__span-31-18"><a id="__codelineno-31-18" name="__codelineno-31-18" href="#__codelineno-31-18"></a><span class="w">          </span><span class="no">authorization_url = &quot;&lt;DEX_ISSUER_URL&gt;&quot;</span>
+</span><span id="__span-31-19"><a id="__codelineno-31-19" name="__codelineno-31-19" href="#__codelineno-31-19"></a><span class="w">          </span><span class="no">oauth_audience = &quot;mcp-k8s&quot;</span>
+</span><span id="__span-31-20"><a id="__codelineno-31-20" name="__codelineno-31-20" href="#__codelineno-31-20"></a><span class="w">          </span><span class="no">certificate_authority = &quot;/etc/kubernetes-mcp-ca/ca.crt&quot;</span>
+</span></code></pre></div>
+<p>Apply the configuration:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-32-1"><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>robusta<span class="w"> </span>robusta/robusta<span class="w"> </span>-f<span class="w"> </span>generated_values.yaml<span class="w"> </span>--set<span class="w"> </span><span class="nv">clusterName</span><span class="o">=</span>&lt;YOUR_CLUSTER_NAME&gt;
+</span></code></pre></div>
+</div>
+</div>
+</div>
 <h2 id="common-use-cases">Common Use Cases<a class="headerlink" href="#common-use-cases" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-20-1"><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;List all pods in CrashLoopBackOff across all namespaces&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;List all pods in CrashLoopBackOff across all namespaces&quot;</span>
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;What events are happening in the production namespace?&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-34-1"><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;What events are happening in the production namespace?&quot;</span>
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;Show me the resource requests and limits for all deployments in namespace backend&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-35-1"><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;Show me the resource requests and limits for all deployments in namespace backend&quot;</span>
 </span></code></pre></div>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;Why is the checkout-api pod not scheduling?&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>holmes<span class="w"> </span>ask<span class="w"> </span><span class="s2">&quot;Why is the checkout-api pod not scheduling?&quot;</span>
 </span></code></pre></div>
 
 
