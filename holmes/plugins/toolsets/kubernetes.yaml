@@ -226,21 +226,15 @@ toolsets:
           err_content=$(cat "$err_file" 2>/dev/null)
           rm -f "$err_file"
 
-          # Output results as a JSON object with metadata
-          if [ -n "$ALL_MATCHES" ]; then
-            RESULTS=$(echo "$ALL_MATCHES" | jq -s '.')
-          else
-            RESULTS="[]"
-          fi
-
-          jq -n \
-            --argjson results "$RESULTS" \
+          # Output results as a JSON object with metadata. Results go through stdin, not --argjson:
+          # an argument over the OS limit (~1MB on macOS) fails with "Argument list too long".
+          printf '%s\n' "$ALL_MATCHES" | jq -s \
             --argjson total_items_processed "$PROCESSED" \
             --argjson matches_found "$TOTAL_MATCHES" \
             --arg stderr "$err_content" \
             --argjson scope "$SCOPE" \
             --argjson notes "$NOTES" \
-            '{total_items_processed: $total_items_processed, matches_found: $matches_found, results: $results, stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
+            '{total_items_processed: $total_items_processed, matches_found: $matches_found, results: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
         transformers:
           - name: llm_summarize
             config:
@@ -363,19 +357,17 @@ toolsets:
 
           if command -v jq &>/dev/null; then
             if [ -n "$data" ]; then
-              rows=$(echo "$data" | jq -R . | jq -s '.')
               count=$(echo "$data" | wc -l)
             else
-              rows="[]"
               count=0
             fi
-            jq -n \
+            # Rows go through stdin, not --argjson, so large tables don't hit "Argument list too long"
+            printf '%s' "$data" | jq -R . | jq -s \
               --argjson count "$count" \
               --arg header "$header" \
-              --argjson rows "$rows" \
               --arg stderr "$err_content" \
               --argjson scope "$SCOPE" \
-              '{count: $count, header: $header, rows: $rows, stderr: (if $stderr == "" then null else $stderr end), scope: $scope}'
+              '{count: $count, header: $header, rows: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope}'
           else
             echo "=== STDERR ==="
             echo "$err_content"

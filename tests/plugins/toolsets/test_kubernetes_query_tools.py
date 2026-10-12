@@ -361,6 +361,47 @@ def test_tabular_query_filter_pattern_is_optional_and_still_filters(kube_stub):
     assert result["rows"] == ["web-1"]
 
 
+def test_tabular_query_with_no_rows_returns_empty_list(kube_stub):
+    result = _run("kubernetes_tabular_query", _params("kubernetes_tabular_query", "pods"))
+
+    assert result["count"] == 0
+    assert result["rows"] == []
+
+
+# --- large outputs (results must not be passed as a command-line argument) ------
+
+BIG_BLOB = "x" * 3000  # 1000 items x 3KB = ~3MB, above macOS and Linux single-arg limits
+
+
+def test_jq_query_returns_results_larger_than_arg_limit(kube_stub):
+    items = [{"metadata": {"name": f"cm-{i}", "namespace": "team-a"}, "data": {"blob": BIG_BLOB}} for i in range(1000)]
+    kube_stub.serve("/api/v1/pods", _list(items))
+
+    result = _run("kubernetes_jq_query", _params("kubernetes_jq_query", "pods", jq_expr=".items[]"))
+
+    assert result["stderr"] is None
+    assert result["matches_found"] == 1000
+    assert len(result["results"]) == 1000
+
+
+def test_jq_query_with_no_matches_returns_empty_list(kube_stub):
+    kube_stub.serve("/api/v1/pods", _list(_items("web-1")))
+
+    result = _run("kubernetes_jq_query", _params("kubernetes_jq_query", "pods", jq_expr=".items[] | select(.x)"))
+
+    assert result["matches_found"] == 0
+    assert result["results"] == []
+
+
+def test_tabular_query_returns_rows_larger_than_arg_limit(kube_stub):
+    kube_stub.tabular("NAME\n" + "".join(f"row-{i}-{BIG_BLOB}\n" for i in range(1000)))
+
+    result = _run("kubernetes_tabular_query", _params("kubernetes_tabular_query", "pods"))
+
+    assert result["count"] == 1000
+    assert len(result["rows"]) == 1000
+
+
 # --- tool schema -----------------------------------------------------------------
 
 
