@@ -14,9 +14,9 @@ metadata:
   {{- end }}
 data:
   custom_toolset.yaml: |-
-    {{- /* Copies: merge and mergeOverwrite modify their first argument, and the
-           pod's checksum/toolset-config must not depend on this file mutating
-           the shared values. deepCopy fails on null, which has nothing to copy. */}}
+    {{- /* Copies: merge and mergeOverwrite modify their first argument, so
+           rendering this file would otherwise change .Values for every template
+           rendered after it. deepCopy fails on null, which has nothing to copy. */}}
     {{- $toolsets := .Values.toolsets }}
     {{- if kindIs "map" $toolsets }}{{ $toolsets = deepCopy $toolsets }}{{ end }}
     {{- if .Values.k8sRBAC }}
