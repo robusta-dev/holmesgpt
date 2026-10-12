@@ -194,6 +194,17 @@ data:
           "mode" "streamable-http"
           "icon_url" "https://cdn.simpleicons.org/kubernetes/326CE5"
     }}
+    {{- if include "holmes.kubernetesMcp.inPod" . }}
+    {{- if .Values.mcpAddons.kubernetes.config.oauth }}
+    {{- fail "mcpAddons.kubernetes: config.oauth needs the server as its own Deployment, and a mounted kubeconfig runs it inside the Holmes pod. Set one of config.oauth or config.kubeconfig.secretName." }}
+    {{- end }}
+    {{- $k8sMcpConfig = dict
+          "mode" "stdio"
+          "command" "/opt/k8s-mcp/kubernetes-mcp-server"
+          "args" (include "holmes.kubernetesMcp.args" . | fromYamlArray)
+          "icon_url" "https://cdn.simpleicons.org/kubernetes/326CE5"
+    }}
+    {{- end }}
     {{- with .Values.mcpAddons.kubernetes.config.oauth }}
     {{- if . }}
     {{- $_ := set $k8sMcpConfig "oauth" . }}

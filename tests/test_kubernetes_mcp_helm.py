@@ -1,7 +1,10 @@
-"""Renders the Kubernetes MCP addon with `helm template` and checks that a CA
-certificate set in mcpAddons.kubernetes.config.certificateAuthority reaches the
-MCP server pod, so `certificate_authority` in serverConfig can point at it (for
-example, Dex served from a private CA)."""
+"""Renders the Kubernetes MCP addon with `helm template` and checks:
+
+- a CA certificate set in mcpAddons.kubernetes.config.certificateAuthority
+  reaches the MCP server pod, so `certificate_authority` in serverConfig can
+  point at it (for example, Dex served from a private CA);
+- with a mounted kubeconfig, the server runs as a stdio subprocess of Holmes,
+  so nothing but Holmes can reach the kubeconfig's cluster credentials."""
 
 import shutil
 import subprocess
@@ -76,3 +79,90 @@ def test_ca_without_server_config_still_mounts(tmp_path):
     pod = _pod(_render(tmp_path, ca_pem=CA_PEM))
     assert [v["name"] for v in pod["volumes"]] == ["mcp-ca"]
     assert [m["mountPath"] for m in pod["containers"][0]["volumeMounts"]] == [CA_PATH]
+
+
+KUBECONFIG_SET = ["--set", "mcpAddons.kubernetes.config.kubeconfig.secretName=kc"]
+
+
+def _render_chart(*extra_args):
+    args = [
+        "helm", "template", "t", str(HELM_DIR), "--namespace", "holmes",
+        "--set", "mcpAddons.kubernetes.enabled=true", *extra_args,
+    ]
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
+    return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+
+def _named(docs, kind, name):
+    return next((d for d in docs if d["kind"] == kind and d["metadata"]["name"] == name), None)
+
+
+def _holmes_pod(docs):
+    return _named(docs, "Deployment", "t-holmes")["spec"]["template"]["spec"]
+
+
+def _k8s_mcp_server_config(docs):
+    toolsets = yaml.safe_load(_named(docs, "ConfigMap", "custom-toolsets-configmap")["data"]["custom_toolset.yaml"])
+    return toolsets["mcp_servers"]["kubernetes"]["config"]
+
+
+def test_without_kubeconfig_the_server_is_its_own_deployment():
+    docs = _render_chart()
+    assert _named(docs, "Deployment", "t-k8s-mcp-server") is not None
+    assert _named(docs, "Service", "t-k8s-mcp-server") is not None
+    assert "initContainers" not in _holmes_pod(docs)
+    assert _k8s_mcp_server_config(docs)["url"] == "http://t-k8s-mcp-server.holmes.svc.cluster.local:8000/mcp"
+
+
+def test_kubeconfig_runs_the_server_inside_the_holmes_pod(tmp_path):
+    config_file = tmp_path / "server-config.toml"
+    config_file.write_text('disabled_tools = ["configuration_view"]\n')
+    docs = _render_chart(
+        *KUBECONFIG_SET,
+        "--set", "mcpAddons.kubernetes.networkPolicy.enabled=true",
+        "--set-file", f"mcpAddons.kubernetes.config.serverConfig={config_file}",
+    )
+
+    # Nothing listens on the network or carries an identity of its own.
+    for kind, name in [
+        ("Deployment", "t-k8s-mcp-server"),
+        ("Service", "t-k8s-mcp-server"),
+        ("ServiceAccount", "k8s-mcp-sa"),
+        ("ClusterRoleBinding", "t-k8s-mcp"),
+        ("NetworkPolicy", "t-k8s-mcp-network-policy"),
+    ]:
+        assert _named(docs, kind, name) is None, (kind, name)
+
+    pod = _holmes_pod(docs)
+    [init] = pod["initContainers"]
+    assert init["image"] == "us-central1-docker.pkg.dev/genuine-flight-317411/mcp/kubernetes-mcp-server:v0.0.61-oauth"
+    assert init["command"] == ["cp", "/app/kubernetes-mcp-server", "/opt/k8s-mcp/kubernetes-mcp-server"]
+    assert init["securityContext"] == {"readOnlyRootFilesystem": True}
+    mounts = {m["mountPath"]: m["name"] for m in pod["containers"][0]["volumeMounts"]}
+    volumes = {v["name"]: v for v in pod["volumes"]}
+    assert volumes[mounts["/opt/k8s-mcp"]]["emptyDir"] == {}
+    assert volumes[mounts["/etc/kubernetes"]]["secret"]["secretName"] == "kc"
+    assert volumes[mounts["/etc/kubernetes-mcp"]]["secret"]["secretName"] == "t-k8s-mcp-server-config"
+
+    assert _k8s_mcp_server_config(docs) == {
+        "mode": "stdio",
+        "command": "/opt/k8s-mcp/kubernetes-mcp-server",
+        "args": [
+            "--read-only",
+            "--config", "/etc/kubernetes-mcp/config.toml",
+            "--kubeconfig", "/etc/kubernetes/kubeconfig",
+            "--cluster-provider", "kubeconfig",
+        ],
+        "icon_url": "https://cdn.simpleicons.org/kubernetes/326CE5",
+    }
+
+
+def test_kubeconfig_keeps_user_init_containers():
+    docs = _render_chart(*KUBECONFIG_SET, "--set-json", 'initContainers=[{"name":"mine","image":"busybox"}]')
+    assert [c["name"] for c in _holmes_pod(docs)["initContainers"]] == ["mine", "k8s-mcp-binary"]
+
+
+def test_kubeconfig_with_oauth_is_refused():
+    with pytest.raises(subprocess.CalledProcessError) as error:
+        _render_chart(*KUBECONFIG_SET, "--set", "mcpAddons.kubernetes.config.oauth.enabled=true")
+    assert "config.oauth needs the server as its own Deployment" in error.value.stderr

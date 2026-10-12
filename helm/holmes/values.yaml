@@ -882,6 +882,11 @@ mcpAddons:
       extraArgs: []
       # Kubeconfig secret for connecting to external clusters
       # Create a secret: kubectl create secret generic k8s-mcp-kubeconfig --from-file=kubeconfig=/path/to/kubeconfig -n <NAMESPACE>
+      # When set, the server runs inside the Holmes pod as a subprocess Holmes starts
+      # for each call, with no port another pod could reach the kubeconfig's
+      # credentials through. serviceAccount, networkPolicy, nodeSelector, tolerations
+      # and affinity then don't apply, resources size only the container that copies
+      # the binary in, and config.oauth can't be used.
       kubeconfig:
         secretName: ""    # Name of K8s secret containing the kubeconfig file
         secretKey: "kubeconfig"  # Key in secret (default: "kubeconfig")
