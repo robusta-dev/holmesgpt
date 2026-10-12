@@ -860,7 +860,7 @@ mcpAddons:
       create: true
       name: "k8s-mcp-sa"
       annotations: {}
-      # Create the role bindings below for the ServiceAccount
+      # Bind the ServiceAccount to the roles described under clusterRole
       # Set to false for OAuth mode (the OAuth token provides permissions instead)
       createClusterRoleBinding: true
       # ClusterRole to bind to the ServiceAccount. Empty binds the built-in "view"
