@@ -3,7 +3,7 @@
 # Proves that guidance makes Holmes scope every kubernetes/core query instead of
 # listing the whole cluster. A ConfigMap with the same name but a different app
 # label sits in a second namespace.
-user_prompt: "Our invoice-relay app's resources carry the label app=invoice-relay. Which namespace is its ConfigMap in, and what owner-ticket does it list?"
+user_prompt: "Our invoice-relay app's resources carry the label app=invoice-relay. Which namespace is its ConfigMap in, and what owner-ticket value is set in its data?"
 
 include_tool_calls: true
 

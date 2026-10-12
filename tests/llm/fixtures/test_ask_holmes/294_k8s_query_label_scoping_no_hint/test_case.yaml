@@ -3,7 +3,7 @@
 # large-cluster guidance (compare 295, which adds it). This measures whether the
 # tool descriptions alone lead Holmes to filter server-side by label. A ConfigMap
 # with the same name but a different app label sits in a second namespace.
-user_prompt: "Our ledger-sync app's resources carry the label app=ledger-sync. Which namespace is its ConfigMap in, and what owner-ticket does it list?"
+user_prompt: "Our ledger-sync app's resources carry the label app=ledger-sync. Which namespace is its ConfigMap in, and what owner-ticket value is set in its data?"
 
 include_tool_calls: true
 
