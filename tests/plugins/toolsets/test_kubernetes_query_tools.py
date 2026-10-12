@@ -61,7 +61,14 @@ APIS = {
 STUB_KUBECTL = r"""#!/bin/bash
 printf '%s\n' "$*" >> "$KUBE_STUB_DIR/calls.log"
 if [ "$1" = "api-resources" ]; then
-  cat "$KUBE_STUB_DIR/api-resources.txt"
+  # `--namespaced=X -o name` prints name.group (just name for the core group)
+  case "$*" in
+    *--namespaced=*)
+      args="$*"; want="${args##*--namespaced=}"; want="${want%% *}"
+      awk -v want="$want" '$(NF-1) == want {g = $(NF-2); n = $1; if (index(g, "/")) n = n "." substr(g, 1, index(g, "/") - 1); print n}' \
+        "$KUBE_STUB_DIR/api-resources.txt" ;;
+    *) cat "$KUBE_STUB_DIR/api-resources.txt" ;;
+  esac
   exit 0
 fi
 if [ "$1" = "get" ] && [ "$2" = "--raw" ]; then
@@ -378,6 +385,31 @@ def test_tabular_query_passes_selectors_to_kubectl(kube_stub):
         "label_selector": "app=web",
         "field_selector": "status.phase=Running",
     }
+    assert result["notes"] == []
+
+
+def test_tabular_query_notes_namespace_ignored_for_cluster_scoped_kind(kube_stub):
+    kube_stub.tabular("NAME\nnode-1\n")
+
+    result = _run("kubernetes_tabular_query", _params("kubernetes_tabular_query", "nodes", namespace="team-a"))
+
+    assert _tabular_get_calls(kube_stub) == ["get nodes --all-namespaces -o custom-columns=NAME:.metadata.name"]
+    assert result["scope"]["namespace"] is None
+    assert result["notes"] == ["namespace 'team-a' ignored: nodes is cluster-scoped."]
+
+
+def test_tabular_query_keeps_namespace_for_grouped_namespaced_kind(kube_stub):
+    kube_stub.tabular("NAME\ndeny-all\n")
+
+    result = _run(
+        "kubernetes_tabular_query", _params("kubernetes_tabular_query", "networkpolicies", namespace="team-a")
+    )
+
+    assert _tabular_get_calls(kube_stub) == [
+        "get networkpolicies -n team-a -o custom-columns=NAME:.metadata.name"
+    ]
+    assert result["scope"]["namespace"] == "team-a"
+    assert result["notes"] == []
 
 
 @pytest.mark.parametrize("value", [None, ""])

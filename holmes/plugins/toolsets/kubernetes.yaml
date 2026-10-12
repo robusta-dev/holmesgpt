@@ -265,8 +265,9 @@ toolsets:
         description: >
           Extract specific fields from Kubernetes resources in tabular format with optional filtering.
           Returns a JSON object with keys: "count" (number of rows), "header" (column header line),
-          "rows" (array of data rows), "stderr" (error output or null), and "scope"
-          (the namespace and selectors actually queried).
+          "rows" (array of data rows), "stderr" (error output or null), "scope"
+          (the namespace and selectors actually queried), and "notes" (e.g. a namespace
+          ignored for a cluster-scoped kind).
           Only requested fields are transmitted, so it works well on large clusters.
           If you know the namespace or labels of the resources you need, pass namespace,
           label_selector and/or field_selector so filtering happens server-side; unscoped
@@ -316,7 +317,17 @@ toolsets:
           [ "$SEL_FIELDS" = "None" ] && SEL_FIELDS=""
           [ "$FILTER_PATTERN" = "None" ] && FILTER_PATTERN=""
 
-          # kubectl ignores -n for cluster-scoped kinds, like the other query tools
+          # kubectl ignores -n for cluster-scoped kinds; say so instead of reporting a namespace that wasn't applied
+          NOTES='[]'
+          if [ -n "$SEL_NAMESPACE" ]; then
+            is_kind() { awk -v kind="$KIND" '$1 == kind || index($1, kind ".") == 1 {found = 1} END {exit !found}'; }
+            if kubectl api-resources --namespaced=false -o name 2>/dev/null | is_kind \
+              && ! kubectl api-resources --namespaced=true -o name 2>/dev/null | is_kind; then
+              NOTES=$(jq -nc --arg note "namespace '${SEL_NAMESPACE}' ignored: ${KIND} is cluster-scoped." '[$note]')
+              SEL_NAMESPACE=""
+            fi
+          fi
+
           SCOPE_ARGS=()
           if [ -n "$SEL_NAMESPACE" ]; then
             SCOPE_ARGS+=(-n "$SEL_NAMESPACE")
@@ -346,7 +357,8 @@ toolsets:
 
           if [ $kubectl_exit -ne 0 ] || [ -z "$output" ]; then
             if command -v jq &>/dev/null; then
-              jq -n --arg stderr "$err_content" --argjson scope "$SCOPE" '{count: 0, header: null, rows: [], stderr: $stderr, scope: $scope}'
+              jq -n --arg stderr "$err_content" --argjson scope "$SCOPE" --argjson notes "$NOTES" \
+                '{count: 0, header: null, rows: [], stderr: $stderr, scope: $scope, notes: $notes}'
             else
               echo "=== STDERR ==="
               echo "$err_content"
@@ -377,7 +389,8 @@ toolsets:
               --arg header "$header" \
               --arg stderr "$err_content" \
               --argjson scope "$SCOPE" \
-              '{count: $count, header: $header, rows: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope}'
+              --argjson notes "$NOTES" \
+              '{count: $count, header: $header, rows: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
           else
             echo "=== STDERR ==="
             echo "$err_content"
