@@ -134,6 +134,12 @@ opt_slack_channel: Optional[str] = typer.Option(
     "--slack-channel",
     help="Slack channel if --destination=slack (experimental). E.g. #devops",
 )
+opt_teams_webhook_url: Optional[str] = typer.Option(
+    None,
+    "--teams-webhook-url",
+    help="Microsoft Teams incoming webhook URL if --destination=teams",
+    envvar="TEAMS_WEBHOOK_URL",
+)
 opt_json_output_file: Optional[str] = typer.Option(
     None,
     "--json-output-file",
@@ -214,6 +220,7 @@ def ask(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
+    teams_webhook_url: Optional[str] = opt_teams_webhook_url,
     show_tool_output: bool = typer.Option(
         False,
         "--show-tool-output",
@@ -312,6 +319,7 @@ def ask(
         custom_toolsets_from_cli=custom_toolsets,
         slack_token=slack_token,
         slack_channel=slack_channel,
+        teams_webhook_url=teams_webhook_url,
     )
 
     # Enable disk-based OAuth token storage for CLI mode
@@ -487,6 +495,7 @@ def alertmanager(
     destination: Optional[DestinationType] = opt_destination,
     slack_token: Optional[str] = opt_slack_token,
     slack_channel: Optional[str] = opt_slack_channel,
+    teams_webhook_url: Optional[str] = opt_teams_webhook_url,
     json_output_file: Optional[str] = opt_json_output_file,
 ):
     """
@@ -507,6 +516,7 @@ def alertmanager(
         alertmanager_file=alertmanager_file,
         slack_token=slack_token,
         slack_channel=slack_channel,
+        teams_webhook_url=teams_webhook_url,
         custom_toolsets_from_cli=custom_toolsets,
     )
 
