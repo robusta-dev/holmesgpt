@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field
 
 from holmes.checks.checks import execute_check
 from holmes.checks.models import Check, CheckMode, CheckResult, CheckStatus
-from holmes.config import Config
+from holmes.config import SERVER_TOOLSET_TAGS, Config
 from holmes.core.issue import Issue, IssueStatus
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetTag
+from holmes.core.tools import PrerequisiteCacheMode
 from holmes.core.usage_recorder import UsageRecorderState, resolve_provider
 from holmes.plugins.destinations.slack.plugin import SlackDestination
 
@@ -69,7 +69,7 @@ class CheckExecutionResponse(BaseModel):
 def _get_ai(model: Optional[str]) -> ToolCallingLLM:
     return _CONFIG.create_toolcalling_llm(
         dal=_CONFIG.dal,
-        toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+        toolset_tag_filter=SERVER_TOOLSET_TAGS,
         enable_all_toolsets_possible=False,
         prerequisite_cache=PrerequisiteCacheMode.DISABLED,
         reuse_executor=True,

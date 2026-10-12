@@ -62,6 +62,13 @@ from holmes.utils.pydantic_utils import (
 
 DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
 
+# The Holmes server caches one tool executor: the CORE and CLUSTER toolsets
+# that config enables (enable_all_toolsets_possible=False). Every server caller
+# must ask for it with these tags, through Config.create_server_tool_executor or
+# by passing them to create_toolcalling_llm. Any other key rebuilds the executor
+# from scratch, re-checking every toolset, and replaces the cached one.
+SERVER_TOOLSET_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
+
 
 def _parse_custom_skill_paths_env() -> List[str]:
     raw = os.environ.get("CUSTOM_SKILL_PATHS")
@@ -531,6 +538,25 @@ class Config(RobustaBaseConfig):
         executor = ToolExecutor(toolsets, on_event=on_event)
         eager_load_oauth_tools(executor)
         return executor
+
+    def create_server_tool_executor(
+        self,
+        dal: Optional["SupabaseDal"] = None,
+        prerequisite_cache: PrerequisiteCacheMode = PrerequisiteCacheMode.DISABLED,
+    ) -> ToolExecutor:
+        """Return the Holmes server's cached executor, building it if there is none.
+
+        ``prerequisite_cache`` only applies when the executor is built. The
+        default, DISABLED, runs live checks and writes nothing to disk, and the
+        toolsets it checks start their status refresh interval.
+        """
+        return self.create_tool_executor(
+            dal,
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
+            enable_all_toolsets_possible=False,
+            prerequisite_cache=prerequisite_cache,
+            reuse_executor=True,
+        )
 
     def refresh_tool_executor(
         self,

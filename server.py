@@ -53,7 +53,7 @@ from holmes.common.env_vars import (
     TOOLSET_STATUS_REFRESH_INTERVAL_SECONDS,
     TRACE_TOKEN_USAGE,
 )
-from holmes.config import DEFAULT_CONFIG_LOCATION, Config
+from holmes.config import DEFAULT_CONFIG_LOCATION, SERVER_TOOLSET_TAGS, Config
 from holmes.core.llm import MODEL_LIST_FILE_LOCATION
 from holmes.core.conversation_links import resolve_conversation_link
 from holmes.core.conversations import (
@@ -68,7 +68,7 @@ from holmes.core.models import (
 )
 from holmes.core.prompt import PromptComponent
 from holmes.core.tool_calling_llm import RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
 from holmes.core.scheduled_prompts import ScheduledPromptsExecutor
 from holmes.utils.connection_utils import patch_socket_create_connection
 from holmes.plugins.toolsets.robusta_platform_mcp.robusta_platform_mcp import (
@@ -337,12 +337,7 @@ def _toolset_status_refresh_loop():
                 # Re-discover platform-mcp tools so the dynamic remote-tool
                 # surface (new clusters, flipped account flag) reaches a
                 # RUNNING caller without a pod restart.
-                executor = config.create_tool_executor(
-                    dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-                    enable_all_toolsets_possible=False,
-                    reuse_executor=True,
-                )
+                executor = config.create_server_tool_executor(dal)
                 refresh_platform_mcp_tools(executor)
             except Exception:
                 logging.error(
@@ -351,7 +346,7 @@ def _toolset_status_refresh_loop():
             try:
                 changes = config.refresh_tool_executor(
                     dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+                    toolset_tag_filter=SERVER_TOOLSET_TAGS,
                     enable_all_toolsets_possible=False,
                 )
                 if changes:
@@ -512,7 +507,7 @@ def oauth_callback(request: OAuthCallbackRequest) -> OAuthCallbackResponse:
         bool(request.code_verifier), request.redirect_uri,
     )
     try:
-        executor = config.create_tool_executor(dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED)
+        executor = config.create_server_tool_executor(dal)
         return process_oauth_callback(request, executor.toolsets, _get_token_manager(), executor=executor)
     except OAuthConfigLookupError as e:
         logging.error("OAuth config error for '%s': %s", request.toolset_name, e.detail)
@@ -658,7 +653,7 @@ def chat(chat_request: ChatRequest, http_request: Request):
 
         ai = config.create_toolcalling_llm(
             dal=dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
             enable_all_toolsets_possible=False,
             prerequisite_cache=PrerequisiteCacheMode.DISABLED,
             reuse_executor=True,
@@ -931,9 +926,7 @@ class InfoResponse(BaseModel):
 @app.get("/api/info", response_model=InfoResponse, response_model_exclude_none=True)
 def get_info(detail: Optional[str] = None) -> InfoResponse:
     """Return server info. Use ?detail=full for per-toolset breakdown."""
-    executor = config.create_tool_executor(
-        dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-    )
+    executor = config.create_server_tool_executor(dal)
     all_toolsets = executor.toolsets
 
     enabled_count = sum(1 for t in all_toolsets if t.status == ToolsetStatusEnum.ENABLED)

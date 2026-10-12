@@ -37,7 +37,6 @@ from holmes.core.tools import (
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolInvokeContext,
-    ToolsetTag,
 )
 from holmes.version import get_version
 
@@ -417,12 +416,8 @@ class ToolCallWorker:
     def _get_tool_executor(self):
         # reuse_executor=True returns the same cached executor the toolset
         # sync built at startup — no prerequisite re-checks per call.
-        return self.config.create_tool_executor(
-            self.dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-            enable_all_toolsets_possible=False,
-            prerequisite_cache=PrerequisiteCacheMode.ENABLED,
-            reuse_executor=True,
+        return self.config.create_server_tool_executor(
+            self.dal, prerequisite_cache=PrerequisiteCacheMode.ENABLED
         )
 
     def _get_llm(self):
