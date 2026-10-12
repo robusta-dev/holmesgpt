@@ -21,9 +21,11 @@ toolsets:
           Prefer over bash for large queries - paginates via the Kubernetes API so large
           clusters don't overflow context.
           Returns a JSON object with keys: "total_items_processed", "matches_found",
-          "results" (array of matching resources), and "stderr" (error output or null).
-          The 'kind' parameter must be the plural form of the resource type
-          (e.g., "pods" not "pod", "jobs" not "job").
+          "results" (array of matching resources), "stderr" (error output or null), and
+          "notes" (e.g. which API group was queried when a kind exists in several groups).
+          The 'kind' parameter is the resource type: plural ("pods"), singular ("pod"),
+          short name ("netpol"), or plural.group to pick an API group explicitly
+          (e.g. "networkpolicies.crd.projectcalico.org").
           Do not worry about escaping the jq_expr - it will be done by the system.
           Example: .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
         script: |
@@ -42,57 +44,65 @@ toolsets:
           JQ_FILTER=$(printf '%s' "$JQ_FILTER" | tr $'\n\r' '  ')
 
           err_file=$(mktemp)
+          PROCESSED=0
+          NOTES='[]'
 
-          # Get the API path for the resource kind using kubectl
-          # Match the resource name (first column) as an EXACT string, not a
-          # grep regex - otherwise a kind like '.*' or 'a|b' would match the
-          # wrong resource. awk compares $1 literally and stops at the first hit.
-          API_INFO=$(kubectl api-resources --no-headers 2>>"$err_file" | awk -v kind="$KIND" '$1 == kind {print; exit}')
+          add_note() {
+            NOTES=$(jq -c --arg note "$1" '. + [$note]' <<< "$NOTES")
+          }
 
-          if [ -z "$API_INFO" ]; then
+          fail() {
             err_content=$(cat "$err_file" 2>/dev/null)
             rm -f "$err_file"
-            jq -n --arg stderr "Unable to find resource kind '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, results: [], stderr: $stderr}'
+            jq -n --arg stderr "$1 $err_content" --argjson total "$PROCESSED" --argjson notes "$NOTES" \
+              '{total_items_processed: $total, matches_found: 0, results: [], stderr: $stderr, notes: $notes}'
             exit 0
+          }
+
+          # Resolve KIND to one API resource with the precedence `kubectl get` uses:
+          # the core group first, then API groups in server discovery order (/apis).
+          # Do not take the first `kubectl api-resources` match - that list is sorted
+          # by group NAME, so a CRD reusing a built-in plural (e.g. Calico's
+          # crd.projectcalico.org networkpolicies) shadowed networking.k8s.io and the
+          # query silently returned 0 items. Names are compared as exact strings.
+          # Rows: NAME|SHORTNAMES|APIVERSION|NAMESPACED|KIND (SHORTNAMES may be empty)
+          RESOURCES=$(kubectl api-resources --no-headers 2>>"$err_file" \
+            | awk '{ s = (NF == 5) ? $2 : ""; print $1 "|" s "|" $(NF-2) "|" $(NF-1) "|" $NF }')
+          GROUP_ORDER=$(kubectl get --raw /apis 2>/dev/null | jq -r '[.groups[].name] | join(" ")' 2>/dev/null)
+          KIND_NAME="${KIND%%.*}"
+          KIND_GROUP=""
+          if [[ "$KIND" == *.* ]]; then
+            KIND_GROUP="${KIND#*.}"
           fi
+          RESOURCE_ROW=$(printf '%s\n' "$RESOURCES" | awk -F'|' -v n="$KIND_NAME" -v g="$KIND_GROUP" -v order="$GROUP_ORDER" '
+            BEGIN { n = tolower(n); m = split(order, o, " "); for (i = 1; i <= m; i++) rank[o[i]] = i }
+            {
+              grp = (index($3, "/") > 0) ? substr($3, 1, index($3, "/") - 1) : ""
+              if ($1 != n && index("," $2 ",", "," n ",") == 0 && tolower($5) != n) next
+              if (g != "" && grp != g) next
+              r = (grp == "") ? 0 : ((grp in rank) ? rank[grp] : m + 1)
+              if (best == "" || r < best_rank) { best = $0; best_rank = r }
+            }
+            END { if (best != "") print best }')
 
-          # Extract NAMESPACED value
-          if [[ "$API_INFO" == *" true "* ]]; then
-            PREFIX=$(echo "$API_INFO" | sed 's/ true .*//')
-          elif [[ "$API_INFO" == *" false "* ]]; then
-            PREFIX=$(echo "$API_INFO" | sed 's/ false .*//')
-          else
-            err_content=$(cat "$err_file" 2>/dev/null)
-            rm -f "$err_file"
-            jq -n --arg stderr "Could not parse API info for '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, results: [], stderr: $stderr}'
-            exit 0
+          if [ -z "$RESOURCE_ROW" ]; then
+            fail "Unable to find resource kind '${KIND}'."
           fi
+          IFS='|' read -r RESOURCE_NAME _ API_VERSION NAMESPACED _ <<< "$RESOURCE_ROW"
 
-          # Trim trailing spaces from prefix and collapse internal spaces
-          PREFIX=$(echo "$PREFIX" | sed 's/  *$//' | sed 's/  */ /g')
-
-          IFS=' ' read -ra PREFIX_FIELDS <<< "$PREFIX"
-          FIELD_COUNT=0
-          for field in "${PREFIX_FIELDS[@]}"; do
-            ((FIELD_COUNT++))
+          # Say when the same plural exists in other groups, so a surprising result
+          # can be re-run against the other one. metrics.k8s.io and events.k8s.io
+          # only mirror core pods/nodes/events, so they are not worth a note.
+          OTHER_VERSIONS=$(printf '%s\n' "$RESOURCES" | awk -F'|' -v n="$RESOURCE_NAME" -v av="$API_VERSION" \
+            '$1 == n && $3 != av && $3 !~ /^(metrics|events)\.k8s\.io\// {print $3}')
+          for other in $OTHER_VERSIONS; do
+            if [[ "$other" == */* ]]; then
+              other_kind="${RESOURCE_NAME}.${other%/*}"
+            else
+              other_kind="$RESOURCE_NAME"
+            fi
+            add_note "'${RESOURCE_NAME}' also exists in ${other}; queried ${API_VERSION}. Use kind=${other_kind} to query the other one."
           done
-
-          RESOURCE_NAME="${PREFIX_FIELDS[0]}"
-          if [ $FIELD_COUNT -ge 2 ]; then
-            API_VERSION="${PREFIX_FIELDS[$((FIELD_COUNT - 1))]}"
-          else
-            API_VERSION=""
-          fi
-
-          if [ -z "$API_VERSION" ] || [ -z "$RESOURCE_NAME" ]; then
-            err_content=$(cat "$err_file" 2>/dev/null)
-            rm -f "$err_file"
-            jq -n --arg stderr "Unable to parse API info for resource kind '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, results: [], stderr: $stderr}'
-            exit 0
-          fi
 
           # Build API path
           if [[ "$API_VERSION" == "v1" ]]; then
@@ -104,27 +114,21 @@ toolsets:
           # Process resources in chunks using API pagination
           LIMIT=500
           CONTINUE=""
-          PROCESSED=0
           TOTAL_MATCHES=0
           ALL_MATCHES=""
 
           while true; do
-            if [ -z "$CONTINUE" ]; then
-              QUERY="${API_PATH}?limit=${LIMIT}"
-            else
-              QUERY="${API_PATH}?limit=${LIMIT}&continue=${CONTINUE}"
+            QUERY="${API_PATH}?limit=${LIMIT}"
+            if [ -n "$CONTINUE" ]; then
+              # continue tokens are base64 and may contain '+', '/' or '='
+              QUERY="${QUERY}&continue=$(jq -rn --arg v "$CONTINUE" '$v|@uri')"
             fi
 
             OUTPUT=$(kubectl get --raw "$QUERY" 2>>"$err_file")
             exit_code=$?
 
             if [ $exit_code -ne 0 ]; then
-              err_content=$(cat "$err_file" 2>/dev/null)
-              rm -f "$err_file"
-              jq -n --arg stderr "kubectl get --raw failed for $QUERY. $err_content" \
-                --argjson total "$PROCESSED" \
-                '{total_items_processed: $total, matches_found: 0, results: [], stderr: $stderr}'
-              exit 0
+              fail "kubectl get --raw failed for $QUERY."
             fi
 
             ITEMS_COUNT=$(echo "$OUTPUT" | jq '.items | length')
@@ -132,12 +136,7 @@ toolsets:
             MATCHES=$(echo "$OUTPUT" | jq -c "$JQ_FILTER" 2>>"$err_file")
             jq_exit=$?
             if [ $jq_exit -ne 0 ]; then
-              err_content=$(cat "$err_file" 2>/dev/null)
-              rm -f "$err_file"
-              jq -n --arg stderr "jq expression failed. $err_content" \
-                --argjson total "$PROCESSED" \
-                '{total_items_processed: $total, matches_found: 0, results: [], stderr: $stderr}'
-              exit 0
+              fail "jq expression failed."
             fi
 
             if [ "$ITEMS_COUNT" -gt 0 ]; then
@@ -175,7 +174,8 @@ toolsets:
             --argjson total_items_processed "$PROCESSED" \
             --argjson matches_found "$TOTAL_MATCHES" \
             --arg stderr "$err_content" \
-            '{total_items_processed: $total_items_processed, matches_found: $matches_found, results: $results, stderr: (if $stderr == "" then null else $stderr end)}'
+            --argjson notes "$NOTES" \
+            '{total_items_processed: $total_items_processed, matches_found: $matches_found, results: $results, stderr: (if $stderr == "" then null else $stderr end), notes: $notes}'
         transformers:
           - name: llm_summarize
             config:
@@ -290,8 +290,11 @@ toolsets:
           Prefer over bash for large queries - paginates via the Kubernetes API so large
           clusters don't overflow context.
           Returns a JSON object with keys: "total_items_processed", "matches_found" (number of matches),
-          "preview" (first 10 results truncated to 200 chars), and "stderr" (error output or null).
-          The 'kind' parameter must be the plural form of the resource type ("pods" not "pod").
+          "preview" (first 10 results truncated to 200 chars), "stderr" (error output or null),
+          and "notes" (e.g. which API group was queried when a kind exists in several groups).
+          The 'kind' parameter is the resource type: plural ("pods"), singular ("pod"),
+          short name ("netpol"), or plural.group to pick an API group explicitly
+          (e.g. "networkpolicies.crd.projectcalico.org").
           Use select() to filter objects before extracting properties; do not worry about escaping
           the jq_expr - it will be done by the system.
           e.g. .items[] | select(.spec.containers[].image | test("^gcr.io/") | not) | .metadata.name
@@ -304,55 +307,58 @@ toolsets:
           KIND={{ kind }}
 
           err_file=$(mktemp)
+          TOTAL_PROCESSED=0
+          NOTES='[]'
 
-          # Get the API path for the resource kind
-          # Match the resource name (first column) as an EXACT string, not a
-          # grep regex - otherwise a kind like '.*' or 'a|b' would match the
-          # wrong resource. awk compares $1 literally and stops at the first hit.
-          API_INFO=$(kubectl api-resources --no-headers 2>>"$err_file" | awk -v kind="$KIND" '$1 == kind {print; exit}')
+          add_note() {
+            NOTES=$(jq -c --arg note "$1" '. + [$note]' <<< "$NOTES")
+          }
 
-          if [ -z "$API_INFO" ]; then
+          fail() {
             err_content=$(cat "$err_file" 2>/dev/null)
             rm -f "$err_file"
-            jq -n --arg stderr "Unable to find resource kind '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, preview: [], stderr: $stderr}'
+            jq -n --arg stderr "$1 $err_content" --argjson total "$TOTAL_PROCESSED" --argjson notes "$NOTES" \
+              '{total_items_processed: $total, matches_found: 0, preview: [], stderr: $stderr, notes: $notes}'
             exit 0
+          }
+
+          # Resolve KIND like `kubectl get` does (core first, then /apis discovery
+          # order). See kubernetes_jq_query for why the first api-resources match is wrong.
+          # Rows: NAME|SHORTNAMES|APIVERSION|NAMESPACED|KIND (SHORTNAMES may be empty)
+          RESOURCES=$(kubectl api-resources --no-headers 2>>"$err_file" \
+            | awk '{ s = (NF == 5) ? $2 : ""; print $1 "|" s "|" $(NF-2) "|" $(NF-1) "|" $NF }')
+          GROUP_ORDER=$(kubectl get --raw /apis 2>/dev/null | jq -r '[.groups[].name] | join(" ")' 2>/dev/null)
+          KIND_NAME="${KIND%%.*}"
+          KIND_GROUP=""
+          if [[ "$KIND" == *.* ]]; then
+            KIND_GROUP="${KIND#*.}"
           fi
+          RESOURCE_ROW=$(printf '%s\n' "$RESOURCES" | awk -F'|' -v n="$KIND_NAME" -v g="$KIND_GROUP" -v order="$GROUP_ORDER" '
+            BEGIN { n = tolower(n); m = split(order, o, " "); for (i = 1; i <= m; i++) rank[o[i]] = i }
+            {
+              grp = (index($3, "/") > 0) ? substr($3, 1, index($3, "/") - 1) : ""
+              if ($1 != n && index("," $2 ",", "," n ",") == 0 && tolower($5) != n) next
+              if (g != "" && grp != g) next
+              r = (grp == "") ? 0 : ((grp in rank) ? rank[grp] : m + 1)
+              if (best == "" || r < best_rank) { best = $0; best_rank = r }
+            }
+            END { if (best != "") print best }')
 
-          if [[ "$API_INFO" == *" true "* ]]; then
-            PREFIX=$(echo "$API_INFO" | sed 's/ true .*//')
-          elif [[ "$API_INFO" == *" false "* ]]; then
-            PREFIX=$(echo "$API_INFO" | sed 's/ false .*//')
-          else
-            err_content=$(cat "$err_file" 2>/dev/null)
-            rm -f "$err_file"
-            jq -n --arg stderr "Could not parse API info for '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, preview: [], stderr: $stderr}'
-            exit 0
+          if [ -z "$RESOURCE_ROW" ]; then
+            fail "Unable to find resource kind '${KIND}'."
           fi
+          IFS='|' read -r RESOURCE_NAME _ API_VERSION NAMESPACED _ <<< "$RESOURCE_ROW"
 
-          PREFIX=$(echo "$PREFIX" | sed 's/  *$//' | sed 's/  */ /g')
-
-          IFS=' ' read -ra PREFIX_FIELDS <<< "$PREFIX"
-          FIELD_COUNT=0
-          for field in "${PREFIX_FIELDS[@]}"; do
-            ((FIELD_COUNT++))
+          OTHER_VERSIONS=$(printf '%s\n' "$RESOURCES" | awk -F'|' -v n="$RESOURCE_NAME" -v av="$API_VERSION" \
+            '$1 == n && $3 != av && $3 !~ /^(metrics|events)\.k8s\.io\// {print $3}')
+          for other in $OTHER_VERSIONS; do
+            if [[ "$other" == */* ]]; then
+              other_kind="${RESOURCE_NAME}.${other%/*}"
+            else
+              other_kind="$RESOURCE_NAME"
+            fi
+            add_note "'${RESOURCE_NAME}' also exists in ${other}; queried ${API_VERSION}. Use kind=${other_kind} to query the other one."
           done
-          RESOURCE_NAME="${PREFIX_FIELDS[0]}"
-
-          if [ $FIELD_COUNT -ge 2 ]; then
-            API_VERSION="${PREFIX_FIELDS[$((FIELD_COUNT - 1))]}"
-          else
-            API_VERSION=""
-          fi
-
-          if [ -z "$API_VERSION" ] || [ -z "$RESOURCE_NAME" ]; then
-            err_content=$(cat "$err_file" 2>/dev/null)
-            rm -f "$err_file"
-            jq -n --arg stderr "Unable to parse API info for resource kind '${KIND}'. $err_content" \
-              '{total_items_processed: 0, matches_found: 0, preview: [], stderr: $stderr}'
-            exit 0
-          fi
 
           # Build API path
           if [[ "$API_VERSION" == "v1" ]]; then
@@ -365,25 +371,19 @@ toolsets:
           LIMIT=500
           CONTINUE=""
           ALL_MATCHES=""
-          TOTAL_PROCESSED=0
 
           while true; do
-            if [ -z "$CONTINUE" ]; then
-              QUERY="${API_PATH}?limit=${LIMIT}"
-            else
-              QUERY="${API_PATH}?limit=${LIMIT}&continue=${CONTINUE}"
+            QUERY="${API_PATH}?limit=${LIMIT}"
+            if [ -n "$CONTINUE" ]; then
+              # continue tokens are base64 and may contain '+', '/' or '='
+              QUERY="${QUERY}&continue=$(jq -rn --arg v "$CONTINUE" '$v|@uri')"
             fi
 
             OUTPUT=$(kubectl get --raw "$QUERY" 2>>"$err_file")
             exit_code=$?
 
             if [ $exit_code -ne 0 ]; then
-              err_content=$(cat "$err_file" 2>/dev/null)
-              rm -f "$err_file"
-              jq -n --arg stderr "kubectl get --raw failed for $QUERY. $err_content" \
-                --argjson total "$TOTAL_PROCESSED" \
-                '{total_items_processed: $total, matches_found: 0, preview: [], stderr: $stderr}'
-              exit 0
+              fail "kubectl get --raw failed for $QUERY."
             fi
 
             ITEMS_COUNT=$(echo "$OUTPUT" | jq '.items | length')
@@ -392,12 +392,7 @@ toolsets:
             BATCH_MATCHES=$(echo "$OUTPUT" | jq -c -r {{ jq_expr }} 2>>"$err_file")
             jq_exit=$?
             if [ $jq_exit -ne 0 ]; then
-              err_content=$(cat "$err_file" 2>/dev/null)
-              rm -f "$err_file"
-              jq -n --arg stderr "jq expression failed. $err_content" \
-                --argjson total "$TOTAL_PROCESSED" \
-                '{total_items_processed: $total, matches_found: 0, preview: [], stderr: $stderr}'
-              exit 0
+              fail "jq expression failed."
             fi
 
             if [ -n "$BATCH_MATCHES" ]; then
@@ -432,7 +427,8 @@ toolsets:
             --argjson preview "$PREVIEW" \
             --argjson total_items_processed "$TOTAL_PROCESSED" \
             --arg stderr "$err_content" \
-            '{total_items_processed: $total_items_processed, matches_found: $matches_found, preview: $preview, stderr: (if $stderr == "" then null else $stderr end)}'
+            --argjson notes "$NOTES" \
+            '{total_items_processed: $total_items_processed, matches_found: $matches_found, preview: $preview, stderr: (if $stderr == "" then null else $stderr end), notes: $notes}'
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose
