@@ -98,7 +98,7 @@ spec:
       dnsPolicy: ClusterFirst
       {{- end }}
       {{- $initContainers := .Values.initContainers | default list }}
-      {{- if include "holmes.kubernetesMcp.inPod" . }}
+      {{- if include "holmes.kubernetesMcp.inHolmesPod" . }}
       {{- /* Holmes runs the Kubernetes MCP server as a subprocess; copy its binary
              out of the add-on's image so the version stays the add-on's. */}}
       {{- $k8sMcp := .Values.mcpAddons.kubernetes }}
@@ -276,6 +276,12 @@ spec:
           - name: SKILL_REPOS_DIR
             value: /var/holmes/skill-repos
           {{- end }}
+          {{- if include "holmes.kubernetesMcp.inHolmesPod" . }}
+          # Holmes writes each stdio MCP server's stderr under this directory, and
+          # the root filesystem is read-only.
+          - name: HOLMES_CONFIGPATH_DIR
+            value: /tmp/.holmes
+          {{- end }}
           {{- if .Values.additionalEnvVars -}}
           {{ toYaml .Values.additionalEnvVars | nindent 10 }}
           {{- end }}
@@ -340,7 +346,7 @@ spec:
             mountPath: /etc/holmes/skills
             readOnly: true
           {{- end }}
-          {{- if include "holmes.kubernetesMcp.inPod" . }}
+          {{- if include "holmes.kubernetesMcp.inHolmesPod" . }}
           {{- include "holmes.kubernetesMcp.volumeMounts" . | nindent 10 }}
           {{- end }}
           {{- if .Values.additionalVolumeMounts -}}
@@ -403,7 +409,7 @@ spec:
                 path: {{ $name }}/SKILL.md
               {{- end }}
         {{- end }}
-        {{- if include "holmes.kubernetesMcp.inPod" . }}
+        {{- if include "holmes.kubernetesMcp.inHolmesPod" . }}
         {{- include "holmes.kubernetesMcp.volumes" . | nindent 8 }}
         {{- end }}
         {{- if .Values.additionalVolumes -}}

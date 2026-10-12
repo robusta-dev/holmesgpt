@@ -40,7 +40,7 @@ Use the Kubernetes MCP when investigating:
 Deployment: with a mounted kubeconfig it holds credentials for other clusters, and a
 subprocess has no port another pod could reach them through.
 */}}
-{{- define "holmes.kubernetesMcp.inPod" -}}
+{{- define "holmes.kubernetesMcp.inHolmesPod" -}}
 {{- if and .Values.mcpAddons.kubernetes.enabled .Values.mcpAddons.kubernetes.config.kubeconfig.secretName -}}
 true
 {{- end -}}
@@ -74,7 +74,7 @@ Server arguments shared by the Deployment and the in-pod subprocess, as a YAML l
 {{- if $config.toolsets }}{{ $args = concat $args (list "--toolsets" ($config.toolsets | toString)) }}{{ end -}}
 {{- if $config.logLevel }}{{ $args = concat $args (list "--log-level" ($config.logLevel | toString)) }}{{ end -}}
 {{- if include "holmes.kubernetesMcp.configSecret" . }}{{ $args = concat $args (list "--config" "/etc/kubernetes-mcp/config.toml") }}{{ end -}}
-{{- if include "holmes.kubernetesMcp.inPod" . }}{{ $args = concat $args (list "--kubeconfig" "/etc/kubernetes/kubeconfig" "--cluster-provider" "kubeconfig") }}{{ end -}}
+{{- if include "holmes.kubernetesMcp.inHolmesPod" . }}{{ $args = concat $args (list "--kubeconfig" "/etc/kubernetes/kubeconfig" "--cluster-provider" "kubeconfig") }}{{ end -}}
 {{- range $config.extraArgs }}{{ $args = append $args (. | toString) }}{{ end -}}
 {{- toYaml $args -}}
 {{- end -}}
@@ -84,7 +84,7 @@ Volume mounts for whichever container runs the server, as a YAML list (possibly 
 */}}
 {{- define "holmes.kubernetesMcp.volumeMounts" -}}
 {{- $mounts := list -}}
-{{- if include "holmes.kubernetesMcp.inPod" . -}}
+{{- if include "holmes.kubernetesMcp.inHolmesPod" . -}}
 {{- $mounts = append $mounts (dict "name" "k8s-mcp-bin" "mountPath" "/opt/k8s-mcp" "readOnly" true) -}}
 {{- $mounts = append $mounts (dict "name" "k8s-mcp-kubeconfig" "mountPath" "/etc/kubernetes" "readOnly" true) -}}
 {{- end -}}
@@ -103,7 +103,7 @@ Volumes backing holmes.kubernetesMcp.volumeMounts, as a YAML list (possibly empt
 {{- define "holmes.kubernetesMcp.volumes" -}}
 {{- $config := .Values.mcpAddons.kubernetes.config -}}
 {{- $volumes := list -}}
-{{- if include "holmes.kubernetesMcp.inPod" . -}}
+{{- if include "holmes.kubernetesMcp.inHolmesPod" . -}}
 {{- $volumes = append $volumes (dict "name" "k8s-mcp-bin" "emptyDir" dict) -}}
 {{- $volumes = append $volumes (dict "name" "k8s-mcp-kubeconfig" "secret" (dict "secretName" $config.kubeconfig.secretName "defaultMode" 420 "items" (list (dict "key" ($config.kubeconfig.secretKey | default "kubeconfig") "path" "kubeconfig")))) -}}
 {{- end -}}

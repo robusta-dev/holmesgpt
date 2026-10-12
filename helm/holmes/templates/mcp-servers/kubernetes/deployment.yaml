@@ -40,7 +40,7 @@ stringData:
   config.toml: |
 {{ $serverConfig | indent 4 }}
 {{- end }}
-{{- if not (include "holmes.kubernetesMcp.inPod" .) }}
+{{- if not (include "holmes.kubernetesMcp.inHolmesPod" .) }}
 ---
 apiVersion: apps/v1
 kind: Deployment
