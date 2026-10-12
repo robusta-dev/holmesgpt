@@ -88,6 +88,12 @@ toolsets:
             exit 0
           }
 
+          # The namespace becomes part of the raw API path, so anything other than a valid
+          # namespace name (e.g. 'default/services/x:80/proxy/?') could reach other API endpoints
+          if [ -n "$SEL_NAMESPACE" ] && ! [[ "$SEL_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            fail "Invalid namespace '${SEL_NAMESPACE}': must be a Kubernetes namespace name (lowercase letters, digits and '-')."
+          fi
+
           # Get the API path for the resource kind using kubectl
           # Match the resource name (first column) as an EXACT string, not a
           # grep regex - otherwise a kind like '.*' or 'a|b' would match the
@@ -99,7 +105,11 @@ toolsets:
           # before networking.k8s.io. Pick what `kubectl get` picks: the core group,
           # then the first group in server discovery order (/apis).
           if [ "$(printf '%s\n' "$CANDIDATES" | grep -c .)" -gt 1 ] && [[ "$API_INFO" != *" v1 "* ]]; then
-            for group in $(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null); do
+            API_GROUPS=$(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null)
+            if [ -z "$API_GROUPS" ]; then
+              add_note "Several API groups serve '${KIND}' and server discovery (/apis) failed, so the first group listed by kubectl api-resources was used."
+            fi
+            for group in $API_GROUPS; do
               match=$(printf '%s\n' "$CANDIDATES" | grep -F " $group/" | head -1)
               if [ -n "$match" ]; then
                 API_INFO="$match"
@@ -227,7 +237,7 @@ toolsets:
           rm -f "$err_file"
 
           # Output results as a JSON object with metadata. Results go through stdin, not --argjson:
-          # an argument over the OS limit (~1MB on macOS) fails with "Argument list too long".
+          # Linux caps a single argument at 128KB, so larger results failed with "Argument list too long".
           printf '%s\n' "$ALL_MATCHES" | jq -s \
             --argjson total_items_processed "$PROCESSED" \
             --argjson matches_found "$TOTAL_MATCHES" \
@@ -461,6 +471,11 @@ toolsets:
             exit 0
           }
 
+          # The namespace becomes part of the raw API path; see kubernetes_jq_query
+          if [ -n "$SEL_NAMESPACE" ] && ! [[ "$SEL_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            fail "Invalid namespace '${SEL_NAMESPACE}': must be a Kubernetes namespace name (lowercase letters, digits and '-')."
+          fi
+
           # Get the API path for the resource kind
           # Match the resource name (first column) as an EXACT string, not a
           # grep regex - otherwise a kind like '.*' or 'a|b' would match the
@@ -470,7 +485,11 @@ toolsets:
           # Pick the group `kubectl get` picks when several serve this plural.
           # See kubernetes_jq_query for why the first api-resources match is wrong.
           if [ "$(printf '%s\n' "$CANDIDATES" | grep -c .)" -gt 1 ] && [[ "$API_INFO" != *" v1 "* ]]; then
-            for group in $(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null); do
+            API_GROUPS=$(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null)
+            if [ -z "$API_GROUPS" ]; then
+              add_note "Several API groups serve '${KIND}' and server discovery (/apis) failed, so the first group listed by kubectl api-resources was used."
+            fi
+            for group in $API_GROUPS; do
               match=$(printf '%s\n' "$CANDIDATES" | grep -F " $group/" | head -1)
               if [ -n "$match" ]; then
                 API_INFO="$match"

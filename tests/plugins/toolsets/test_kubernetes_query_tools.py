@@ -119,6 +119,9 @@ def kube_stub(tmp_path, monkeypatch):
         def tabular(self, text):
             (tmp_path / "tabular.txt").write_text(text)
 
+        def fail_discovery(self):
+            (tmp_path / "apis.json").unlink()
+
         def calls(self):
             log = tmp_path / "calls.log"
             return log.read_text().splitlines() if log.exists() else []
@@ -177,6 +180,20 @@ def test_core_group_wins_over_other_groups(kube_stub, tool_name):
 
     assert result["total_items_processed"] == 1
     assert kube_stub.raw_calls() == ["/api/v1/pods?limit=500"]
+
+
+@pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
+def test_failed_discovery_falls_back_with_a_note(kube_stub, tool_name):
+    kube_stub.fail_discovery()
+    kube_stub.serve("/apis/crd.projectcalico.org/v1/networkpolicies", _list([]))
+
+    result = _run(tool_name, _params(tool_name, "networkpolicies"))
+
+    assert kube_stub.raw_calls() == ["/apis/crd.projectcalico.org/v1/networkpolicies?limit=500"]
+    assert result["notes"] == [
+        "Several API groups serve 'networkpolicies' and server discovery (/apis) failed, "
+        "so the first group listed by kubectl api-resources was used."
+    ]
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
@@ -287,6 +304,39 @@ def test_namespace_ignored_for_cluster_scoped_kind(kube_stub, tool_name):
     assert kube_stub.raw_calls() == ["/api/v1/nodes?limit=500"]
     assert result["scope"]["namespace"] is None
     assert result["notes"] == ["namespace 'team-a' ignored: nodes is cluster-scoped."]
+
+
+@pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
+@pytest.mark.parametrize(
+    "namespace",
+    [
+        "default/services/http:admin:80/proxy/config?x=",
+        "default/pods/web-1/log?x=",
+        "a/b",
+        "..",
+        "team-a%2Fsecrets",
+        "Team-A",
+        "-team",
+        "a" * 64,
+    ],
+)
+def test_invalid_namespace_is_rejected_before_any_request(kube_stub, tool_name, namespace):
+    # The namespace is part of the raw API path, so it must not be able to reach other endpoints
+    result = _run(tool_name, _params(tool_name, "pods", namespace=namespace))
+
+    assert result["stderr"].startswith(f"Invalid namespace '{namespace}'")
+    assert kube_stub.calls() == []
+
+
+@pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
+@pytest.mark.parametrize("namespace", ["a", "team-a", "kube-system", "ns1", "a" * 63])
+def test_valid_namespace_names_are_accepted(kube_stub, tool_name, namespace):
+    kube_stub.serve(f"/api/v1/namespaces/{namespace}/pods", _list(_items("web-1", namespace=namespace)))
+
+    result = _run(tool_name, _params(tool_name, "pods", namespace=namespace))
+
+    assert result["stderr"] is None
+    assert kube_stub.raw_calls() == [f"/api/v1/namespaces/{namespace}/pods?limit=500"]
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
