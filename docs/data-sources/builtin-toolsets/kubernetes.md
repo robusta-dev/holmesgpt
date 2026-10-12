@@ -118,9 +118,9 @@ HolmesGPT inherits permissions for accessing Kubernetes from its environment:
 - **When running locally**: HolmesGPT uses your current `kubectl` context and the permissions configured in your kubeconfig file.
 - **When running in-cluster**: HolmesGPT uses the ServiceAccount defined in the Helm chart. The Helm chart automatically creates a ServiceAccount, ClusterRole, and ClusterRoleBinding when `createServiceAccount: true` (default). See the [Service Account Configuration](../../reference/helm-configuration.md#service-account-configuration) section for details.
 
-The complete ServiceAccount, ClusterRole, and ClusterRoleBinding definitions can be found in the Helm chart templates:
+The complete ServiceAccount, ClusterRole, and ClusterRoleBinding definitions can be found in the Helm chart template:
 
-[**View Service Account Template**](https://raw.githubusercontent.com/HolmesGPT/holmesgpt/refs/heads/master/helm/holmes/templates/holmesgpt-service-account.yaml) (the ClusterRole's rules are in [`_rbac.tpl`](https://raw.githubusercontent.com/HolmesGPT/holmesgpt/refs/heads/master/helm/holmes/templates/_rbac.tpl))
+[**View Service Account Template**](https://raw.githubusercontent.com/HolmesGPT/holmesgpt/refs/heads/master/helm/holmes/templates/holmesgpt-service-account.yaml)
 
 ### Adaptive Behavior
 
