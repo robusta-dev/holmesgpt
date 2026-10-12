@@ -41,7 +41,6 @@ The simplest setup. The MCP server runs in the same cluster it monitors and auth
           create: true
           name: "k8s-mcp-sa"
           createClusterRoleBinding: true
-          clusterRole: "view"
 
         config:
           readOnly: true
@@ -76,7 +75,6 @@ The simplest setup. The MCP server runs in the same cluster it monitors and auth
             create: true
             name: "k8s-mcp-sa"
             createClusterRoleBinding: true
-            clusterRole: "view"
 
           config:
             readOnly: true

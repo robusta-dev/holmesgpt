@@ -247,11 +247,36 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ .Values.mcpAddons.kubernetes.serviceAccount.clusterRole }}
+  name: {{ .Values.mcpAddons.kubernetes.serviceAccount.clusterRole | default "view" }}
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.mcpAddons.kubernetes.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
+{{- $holmesRole := include "holmes.rbacRoleName" . }}
+{{- if and $holmesRole (not .Values.mcpAddons.kubernetes.serviceAccount.clusterRole) }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .Values.namespaceScopedRBAC }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
+metadata:
+  name: {{ .Release.Name }}-k8s-mcp-holmes
+  {{- if .Values.namespaceScopedRBAC }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    app: {{ .Release.Name }}-k8s-mcp
+    app.kubernetes.io/name: k8s-mcp-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: holmes
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: {{ if .Values.namespaceScopedRBAC }}Role{{ else }}ClusterRole{{ end }}
+  name: {{ $holmesRole }}
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.mcpAddons.kubernetes.serviceAccount.name }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

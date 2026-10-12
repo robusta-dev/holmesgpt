@@ -12,6 +12,16 @@ default
 {{- end -}}
 
 {{/*
+Name of the Role (namespaceScopedRBAC) or ClusterRole that holmesgpt-service-account.yaml
+creates for Holmes; empty when the chart creates none.
+*/}}
+{{- define "holmes.rbacRoleName" -}}
+{{- if and .Values.createServiceAccount (not .Values.k8sRBAC) -}}
+{{ .Release.Name }}-holmes{{ if .Values.namespaceScopedRBAC }}-role{{ else }}-cluster-role{{ end }}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Determine if this is a Robusta (hosted) environment.
 Returns "true" if ROBUSTA_UI_DOMAIN is not set OR ends with "robusta.dev"
 */}}
