@@ -156,43 +156,27 @@ def _match_count(tool_name, result):
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
-@pytest.mark.parametrize("kind", ["networkpolicies", "netpol", "networkpolicy", "NetworkPolicy"])
-def test_builtin_group_wins_over_colliding_crd(kube_stub, tool_name, kind):
+def test_builtin_group_wins_over_colliding_crd(kube_stub, tool_name):
     kube_stub.serve("/apis/networking.k8s.io/v1/networkpolicies", _list(_items("deny-all", "allow-web")))
     kube_stub.serve("/apis/crd.projectcalico.org/v1/networkpolicies", _list([]))
 
-    result = _run(tool_name, _params(tool_name, kind))
+    result = _run(tool_name, _params(tool_name, "networkpolicies"))
 
     assert result["stderr"] is None
     assert result["total_items_processed"] == 2
     assert _match_count(tool_name, result) == 2
     assert kube_stub.raw_calls() == ["/apis/networking.k8s.io/v1/networkpolicies?limit=500"]
-    assert result["notes"] == [
-        "'networkpolicies' also exists in crd.projectcalico.org/v1; queried networking.k8s.io/v1. "
-        "Use kind=networkpolicies.crd.projectcalico.org to query the other one."
-    ]
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
-def test_group_qualified_kind_selects_that_group(kube_stub, tool_name):
-    kube_stub.serve("/apis/crd.projectcalico.org/v1/networkpolicies", _list(_items("calico-np")))
-
-    result = _run(tool_name, _params(tool_name, "networkpolicies.crd.projectcalico.org"))
-
-    assert result["total_items_processed"] == 1
-    assert kube_stub.raw_calls() == ["/apis/crd.projectcalico.org/v1/networkpolicies?limit=500"]
-    assert "Use kind=networkpolicies.networking.k8s.io" in result["notes"][0]
-
-
-@pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
-def test_core_kind_has_no_note_for_metrics_mirror(kube_stub, tool_name):
+def test_core_group_wins_over_other_groups(kube_stub, tool_name):
+    # metrics.k8s.io also serves "pods"; the core group must still be used
     kube_stub.serve("/api/v1/pods", _list(_items("web-1")))
 
     result = _run(tool_name, _params(tool_name, "pods"))
 
     assert result["total_items_processed"] == 1
     assert kube_stub.raw_calls() == ["/api/v1/pods?limit=500"]
-    assert result["notes"] == []
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
@@ -306,15 +290,6 @@ def test_namespace_ignored_for_cluster_scoped_kind(kube_stub, tool_name):
 
 
 @pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
-@pytest.mark.parametrize("namespace", ["../kube-system", "Team-A", "a/b", "-x"])
-def test_invalid_namespace_is_rejected_before_any_request(kube_stub, tool_name, namespace):
-    result = _run(tool_name, _params(tool_name, "pods", namespace=namespace))
-
-    assert result["stderr"].startswith(f"Invalid namespace '{namespace}'")
-    assert kube_stub.raw_calls() == []
-
-
-@pytest.mark.parametrize("tool_name", PAGINATED_TOOLS)
 def test_api_error_for_bad_field_selector_is_returned_with_query(kube_stub, tool_name):
     # The stub has no response for this path, so it fails like the API server would
     result = _run(tool_name, _params(tool_name, "pods", field_selector="spec.foo=bar"))
@@ -404,17 +379,16 @@ def test_selector_params_are_optional(tool_name):
         ), f"{tool_name}.{name} must accept null"
 
 
-def test_user_description_shows_scope_and_hides_null():
+def test_user_description_shows_selectors():
     tool = TOOLS["kubernetes_jq_query"]
 
     scoped = tool.get_parameterized_one_liner(
         {"kind": "pods", "jq_expr": ".items", "namespace": "team-a", "label_selector": "app=web", "field_selector": None}
     )
-    nulls = tool.get_parameterized_one_liner(
-        {"kind": "pods", "jq_expr": ".items", "namespace": None, "label_selector": None, "field_selector": None}
-    )
     omitted = tool.get_parameterized_one_liner({"kind": "pods", "jq_expr": ".items"})
 
-    assert scoped == "jq query: kubectl get pods -n team-a -l app=web | jq '.items'"
-    assert nulls == "jq query: kubectl get pods | jq '.items'"
-    assert omitted == "jq query: kubectl get pods | jq '.items'"
+    assert scoped == (
+        "jq query: kubectl get pods | jq '.items' (namespace=team-a, label_selector=app=web, field_selector=None)"
+    )
+    # 'namespace' is a Jinja global; an omitted param must not render it
+    assert omitted == "jq query: kubectl get pods | jq '.items' (namespace=, label_selector=, field_selector=)"

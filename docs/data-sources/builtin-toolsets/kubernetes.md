@@ -38,8 +38,6 @@ All three tools accept optional parameters that narrow the query on the Kubernet
 
 When none are set, the tools query every namespace. Each result includes a `scope` object showing the namespace and selectors that were applied.
 
-The `kind` parameter accepts a plural (`networkpolicies`), singular (`networkpolicy`), short name (`netpol`), or `plural.group` (`networkpolicies.crd.projectcalico.org`). If a CRD reuses a built-in name, HolmesGPT picks the same API group as `kubectl get` and adds a note naming the other group.
-
 #### Large Clusters
 
 On clusters with thousands of namespaces or pods, unscoped queries are slow. Tell HolmesGPT about your cluster so it scopes its queries with the parameters above, by adding instructions to the Core toolset:
