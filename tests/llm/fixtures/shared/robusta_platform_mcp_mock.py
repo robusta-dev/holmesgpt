@@ -3,7 +3,9 @@
 Serves fetch_resource_issues_metadata, fetch_configuration_changes_metadata and
 fetch_resource_recommendation with the production tool names, descriptions and
 input schemas, so the LLM sees the same tool surface it gets from platform-mcp.
-Rows come from JSON fixtures in the directory passed as the first argument:
+They are a copy of that contract: update them when it changes.
+fetch_resource_recommendation always returns no recommendations. The other two
+read rows from JSON fixtures in the directory passed as the first argument:
 
   issues_metadata.json    rows for fetch_resource_issues_metadata
   changes_metadata.json   rows for fetch_configuration_changes_metadata
@@ -32,9 +34,10 @@ import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import mcp.types as types
+from dateutil.parser import isoparse
 from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
 
@@ -179,7 +182,9 @@ TOOLS = [
 
 
 def _parse_time(value: str) -> datetime:
-    parsed = datetime.fromisoformat(value.strip().replace(" ", "T", 1))
+    # isoparse, not datetime.fromisoformat: on Python 3.10 that rejects "Z",
+    # "+00" and 4-digit fractions, all of which the rows and LLMs use.
+    parsed = isoparse(value.strip())
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
@@ -192,13 +197,20 @@ def _load_rows(fixtures: Path, name: str) -> List[Dict[str, Any]]:
     return json.loads(path.read_text())
 
 
-def _cluster_scope(args: Dict[str, Any], current_cluster: str) -> Optional[List[str]]:
+def _cluster_scope(args: Dict[str, Any], current_cluster: str) -> List[str]:
+    """The clusters to query; ["*"] means every cluster in the account."""
     clusters = [c for c in (args.get("clusters") or []) if c]
     if clusters:
         return clusters
     if args.get("all_clusters"):
-        return None
+        return ["*"]
     return [current_cluster]
+
+
+def _cluster_matches(cluster: str, clusters: List[str], include_external: bool) -> bool:
+    if clusters == ["*"]:
+        return include_external or cluster != EXTERNAL_CLUSTER
+    return cluster in clusters or (include_external and cluster == EXTERNAL_CLUSTER)
 
 
 def _query_findings(
@@ -208,11 +220,11 @@ def _query_findings(
     include_external: bool,
     columns: tuple,
 ) -> Any:
+    if not args.get("start_datetime") or not args.get("end_datetime"):
+        raise ValueError("start_datetime and end_datetime are required")
     start = _parse_time(args["start_datetime"])
     end = _parse_time(args["end_datetime"])
     clusters = _cluster_scope(args, current_cluster)
-    if clusters is not None and include_external:
-        clusters = clusters + [EXTERNAL_CLUSTER]
     aggregation_key = args.get("aggregation_key")
     if isinstance(aggregation_key, str):
         aggregation_key = [aggregation_key]
@@ -224,8 +236,7 @@ def _query_findings(
         row
         for row in rows
         if start <= _parse_time(row["creation_date"]) <= end
-        and (clusters is None or row["cluster"] in clusters)
-        and (clusters is not None or include_external or row["cluster"] != EXTERNAL_CLUSTER)
+        and _cluster_matches(row["cluster"], clusters, include_external)
         and (not args.get("workload") or row["subject_name"] == args["workload"])
         and (not args.get("namespace") or row["subject_namespace"] == args["namespace"])
         and (not aggregation_key or row.get("aggregation_key") in aggregation_key)
@@ -252,7 +263,6 @@ def build_server(fixtures: Path, current_cluster: str) -> Server:
                 include_external=False,
                 columns=ISSUE_COLUMNS + ("aggregation_key",),
             )
-            empty = f"found no data matching the filters: {args}"
         elif name == "fetch_configuration_changes_metadata":
             include_external = args.get("include_external")
             result = _query_findings(
@@ -262,13 +272,20 @@ def build_server(fixtures: Path, current_cluster: str) -> Server:
                 include_external=True if include_external is None else include_external,
                 columns=ISSUE_COLUMNS,
             )
-            empty = f"found no data matching the filters: {args}"
         elif name == "fetch_resource_recommendation":
-            result = []
-            empty = f"Could not find any recommendations with filters: {args}"
+            return [
+                types.TextContent(
+                    type="text",
+                    text=f"Could not find any recommendations with filters: {args}",
+                )
+            ]
         else:
             raise ValueError(f"Unknown tool: {name}")
-        text = json.dumps(result) if result else empty
+        text = (
+            json.dumps(result)
+            if result
+            else f"found no data matching the filters: {args}"
+        )
         return [types.TextContent(type="text", text=text)]
 
     return server
