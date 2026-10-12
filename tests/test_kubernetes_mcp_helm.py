@@ -4,8 +4,8 @@
   reaches the MCP server pod, so `certificate_authority` in serverConfig can
   point at it (for example, Dex served from a private CA);
 - the MCP ServiceAccount's role bindings: by default the built-in "view" role
-  plus the role the chart creates for Holmes, which has the node, RBAC and CRD
-  reads "view" lacks."""
+  plus a chart role with Holmes's read rules (node, RBAC and CRD reads "view"
+  lacks), never the customClusterRoleRules that widen Holmes itself."""
 
 import shutil
 import subprocess
@@ -26,12 +26,17 @@ MIIBszCCAVmgAwIBAgIUTESTONLYTESTONLYTESTONLYTESTONLYwCgYIKoZIzj0E
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm binary not installed")
 
 
-def _render(tmp_path, ca_pem=None, server_config=None):
+def _helm_template(*extra_args):
     args = [
         "helm", "template", "t", str(HELM_DIR), "--namespace", "holmes",
-        "--show-only", TEMPLATE,
-        "--set", "mcpAddons.kubernetes.enabled=true",
+        "--set", "mcpAddons.kubernetes.enabled=true", *extra_args,
     ]
+    result = subprocess.run(args, capture_output=True, text=True, check=True)
+    return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+
+
+def _render(tmp_path, ca_pem=None, server_config=None):
+    args = ["--show-only", TEMPLATE]
     if server_config is not None:
         config_file = tmp_path / "server-config.toml"
         config_file.write_text(server_config)
@@ -40,8 +45,7 @@ def _render(tmp_path, ca_pem=None, server_config=None):
         ca_file = tmp_path / "ca.pem"
         ca_file.write_text(ca_pem)
         args += ["--set-file", f"mcpAddons.kubernetes.config.certificateAuthority={ca_file}"]
-    result = subprocess.run(args, capture_output=True, text=True, check=True)
-    return {doc["kind"]: doc for doc in yaml.safe_load_all(result.stdout) if doc}
+    return {doc["kind"]: doc for doc in _helm_template(*args)}
 
 
 def _pod(docs):
@@ -82,73 +86,75 @@ def test_ca_without_server_config_still_mounts(tmp_path):
     assert [m["mountPath"] for m in pod["containers"][0]["volumeMounts"]] == [CA_PATH]
 
 
+
 MCP_SA = "k8s-mcp-sa"
+CUSTOM_SECRET_RULE = ('--set-json', 'customClusterRoleRules[0]={"apiGroups":[""],"resources":["secrets"],"verbs":["get"]}')
 
 
-def _mcp_bindings(*sets):
-    """Renders the whole chart and returns ({(kind, name): role doc}, [MCP SA bindings])."""
-    args = [
-        "helm", "template", "t", str(HELM_DIR), "--namespace", "holmes",
-        "--set", "mcpAddons.kubernetes.enabled=true",
-    ]
-    for value in sets:
-        args += ["--set", value]
-    result = subprocess.run(args, capture_output=True, text=True, check=True)
-    docs = [doc for doc in yaml.safe_load_all(result.stdout) if doc]
+def _mcp_rbac(*helm_args):
+    """Returns {(kind, name): role} for every role the chart renders, and the MCP
+    ServiceAccount's bindings as (binding kind, binding name, role kind, role name)."""
+    docs = _helm_template(*helm_args)
     roles = {(d["kind"], d["metadata"]["name"]): d for d in docs if d["kind"] in ("Role", "ClusterRole")}
-    bindings = [
-        d for d in docs
-        if d["kind"] in ("RoleBinding", "ClusterRoleBinding")
-        and any(s["name"] == MCP_SA for s in d["subjects"])
-    ]
+    bindings = sorted(
+        (d["kind"], d["metadata"]["name"], d["roleRef"]["kind"], d["roleRef"]["name"])
+        for d in docs
+        if d["kind"] in ("RoleBinding", "ClusterRoleBinding") and any(s["name"] == MCP_SA for s in d["subjects"])
+    )
     return roles, bindings
 
 
-def _role_refs(bindings):
-    return sorted((b["kind"], b["roleRef"]["kind"], b["roleRef"]["name"]) for b in bindings)
-
-
-def _grants(role, api_group, resource):
+def _reads(role, api_group, resource):
     return any(
-        api_group in rule["apiGroups"] and resource in rule["resources"] and "list" in rule["verbs"]
+        api_group in rule["apiGroups"] and resource in rule["resources"] and {"get", "list"} <= set(rule["verbs"])
         for rule in role["rules"]
     )
 
 
-def test_default_binds_view_and_holmes_cluster_role():
-    roles, bindings = _mcp_bindings()
-    assert _role_refs(bindings) == [
-        ("ClusterRoleBinding", "ClusterRole", "t-holmes-cluster-role"),
-        ("ClusterRoleBinding", "ClusterRole", "view"),
+def test_default_binds_view_and_a_read_only_chart_role():
+    roles, bindings = _mcp_rbac()
+    # The view binding keeps the name and roleRef earlier releases created: roleRef is
+    # immutable, so changing either would fail `helm upgrade`.
+    assert bindings == [
+        ("ClusterRoleBinding", "t-k8s-mcp", "ClusterRole", "view"),
+        ("ClusterRoleBinding", "t-k8s-mcp-role-binding", "ClusterRole", "t-k8s-mcp-role"),
     ]
-    holmes_role = roles[("ClusterRole", "t-holmes-cluster-role")]
-    assert _grants(holmes_role, "", "nodes")
-    assert _grants(holmes_role, "rbac.authorization.k8s.io", "rolebindings")
-    assert _grants(holmes_role, "apiextensions.k8s.io", "customresourcedefinitions")
+    role = roles[("ClusterRole", "t-k8s-mcp-role")]
+    assert _reads(role, "", "nodes")
+    assert _reads(role, "rbac.authorization.k8s.io", "rolebindings")
+    assert _reads(role, "apiextensions.k8s.io", "customresourcedefinitions")
+    assert {verb for rule in role["rules"] for verb in rule["verbs"]} <= {"get", "list", "watch"}
 
 
-def test_namespace_scoped_binds_holmes_role_in_release_namespace():
-    roles, bindings = _mcp_bindings("namespaceScopedRBAC=true")
-    assert _role_refs(bindings) == [
-        ("ClusterRoleBinding", "ClusterRole", "view"),
-        ("RoleBinding", "Role", "t-holmes-role"),
+def test_chart_role_has_holmes_read_rules_without_custom_rules():
+    roles, _ = _mcp_rbac(*CUSTOM_SECRET_RULE)
+    holmes_rules = roles[("ClusterRole", "t-holmes-cluster-role")]["rules"]
+    assert holmes_rules[0]["resources"] == ["secrets"]
+    assert roles[("ClusterRole", "t-k8s-mcp-role")]["rules"] == holmes_rules[1:]
+
+
+def test_namespace_scoped_uses_a_role_in_release_namespace():
+    roles, bindings = _mcp_rbac("--set", "namespaceScopedRBAC=true")
+    assert bindings == [
+        ("ClusterRoleBinding", "t-k8s-mcp", "ClusterRole", "view"),
+        ("RoleBinding", "t-k8s-mcp-role-binding", "Role", "t-k8s-mcp-role"),
     ]
-    assert ("Role", "t-holmes-role") in roles
-    role_binding = next(b for b in bindings if b["kind"] == "RoleBinding")
-    assert role_binding["metadata"]["namespace"] == "holmes"
+    assert roles[("Role", "t-k8s-mcp-role")]["metadata"]["namespace"] == "holmes"
+
+
+def test_chart_role_does_not_depend_on_holmes_service_account():
+    roles, bindings = _mcp_rbac("--set", "createServiceAccount=false")
+    assert ("ClusterRole", "t-holmes-cluster-role") not in roles
+    assert ("ClusterRoleBinding", "t-k8s-mcp-role-binding", "ClusterRole", "t-k8s-mcp-role") in bindings
 
 
 def test_explicit_cluster_role_is_bound_alone():
-    _, bindings = _mcp_bindings("mcpAddons.kubernetes.serviceAccount.clusterRole=cluster-admin")
-    assert _role_refs(bindings) == [("ClusterRoleBinding", "ClusterRole", "cluster-admin")]
-
-
-def test_without_chart_holmes_role_binds_view_only():
-    roles, bindings = _mcp_bindings("createServiceAccount=false")
-    assert not any(name.startswith("t-holmes") for _, name in roles)
-    assert _role_refs(bindings) == [("ClusterRoleBinding", "ClusterRole", "view")]
+    roles, bindings = _mcp_rbac("--set", "mcpAddons.kubernetes.serviceAccount.clusterRole=cluster-admin")
+    assert bindings == [("ClusterRoleBinding", "t-k8s-mcp", "ClusterRole", "cluster-admin")]
+    assert ("ClusterRole", "t-k8s-mcp-role") not in roles
 
 
 def test_oauth_mode_binds_nothing():
-    _, bindings = _mcp_bindings("mcpAddons.kubernetes.serviceAccount.createClusterRoleBinding=false")
+    roles, bindings = _mcp_rbac("--set", "mcpAddons.kubernetes.serviceAccount.createClusterRoleBinding=false")
     assert bindings == []
+    assert ("ClusterRole", "t-k8s-mcp-role") not in roles

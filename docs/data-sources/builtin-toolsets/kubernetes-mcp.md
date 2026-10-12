@@ -86,6 +86,8 @@ The simplest setup. The MCP server runs in the same cluster it monitors and auth
     helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
 
+The chart binds the ServiceAccount to the built-in `view` ClusterRole plus a role with the reads the built-in Kubernetes toolsets use: nodes, RBAC objects and CRDs. To bind a single ClusterRole of your own instead, set `serviceAccount.clusterRole` to its name.
+
 ### Step 2: Verify
 
 ```bash

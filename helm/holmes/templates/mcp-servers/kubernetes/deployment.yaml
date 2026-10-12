@@ -252,13 +252,32 @@ subjects:
 - kind: ServiceAccount
   name: {{ .Values.mcpAddons.kubernetes.serviceAccount.name }}
   namespace: {{ .Release.Namespace }}
-{{- $holmesRole := include "holmes.rbacRoleName" . }}
-{{- if and $holmesRole (not .Values.mcpAddons.kubernetes.serviceAccount.clusterRole) }}
+{{- if not .Values.mcpAddons.kubernetes.serviceAccount.clusterRole }}
+{{- /* "view" has reads this role lacks (limitranges, endpointslices, CRDs whose operators
+       aggregate into "view"); this role has the node, RBAC and CRD reads "view" lacks.
+       customClusterRoleRules stay out: they widen Holmes only, and this server takes
+       unauthenticated calls. */}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: {{ if .Values.namespaceScopedRBAC }}Role{{ else }}ClusterRole{{ end }}
+metadata:
+  name: {{ .Release.Name }}-k8s-mcp-role
+  {{- if .Values.namespaceScopedRBAC }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    app: {{ .Release.Name }}-k8s-mcp
+    app.kubernetes.io/name: k8s-mcp-server
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: mcp-server
+    app.kubernetes.io/part-of: holmes
+rules:
+{{- include "holmes.kubernetesReadRules" . }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ if .Values.namespaceScopedRBAC }}RoleBinding{{ else }}ClusterRoleBinding{{ end }}
 metadata:
-  name: {{ .Release.Name }}-k8s-mcp-holmes
+  name: {{ .Release.Name }}-k8s-mcp-role-binding
   {{- if .Values.namespaceScopedRBAC }}
   namespace: {{ .Release.Namespace }}
   {{- end }}
@@ -271,7 +290,7 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: {{ if .Values.namespaceScopedRBAC }}Role{{ else }}ClusterRole{{ end }}
-  name: {{ $holmesRole }}
+  name: {{ .Release.Name }}-k8s-mcp-role
 subjects:
 - kind: ServiceAccount
   name: {{ .Values.mcpAddons.kubernetes.serviceAccount.name }}

@@ -860,13 +860,14 @@ mcpAddons:
       create: true
       name: "k8s-mcp-sa"
       annotations: {}
-      # Bind the ServiceAccount to the roles clusterRole selects
+      # Create the role bindings below for the ServiceAccount
       # Set to false for OAuth mode (the OAuth token provides permissions instead)
       createClusterRoleBinding: true
       # ClusterRole to bind to the ServiceAccount. Empty binds the built-in "view"
-      # role plus the role this chart creates for Holmes (the reads kubernetes/core
-      # has that "view" lacks: nodes, RBAC objects, CRDs). The Holmes role is
-      # bound only when the chart creates it (createServiceAccount, no k8sRBAC).
+      # ClusterRole plus a role the chart creates with Holmes's own read rules:
+      # nodes, RBAC objects, CRDs and the top-level crdPermissions, without
+      # customClusterRoleRules. Under namespaceScopedRBAC that role is a Role in
+      # the release namespace, where its cluster-scoped reads grant nothing.
       # Set a name ("view", "cluster-admin", your own) to bind only that ClusterRole.
       clusterRole: ""
 
