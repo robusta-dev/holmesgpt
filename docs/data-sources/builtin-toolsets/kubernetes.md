@@ -28,6 +28,81 @@ holmes:
 | kubernetes_tabular_query | Extract specific fields from resources in tabular format with optional filtering |
 | kubernetes_count | Count Kubernetes resources matching a jq filter |
 
+All three tools accept optional parameters that narrow the query on the Kubernetes API server, before any data is sent to HolmesGPT:
+
+| Parameter | Example | Notes |
+|-----------|---------|-------|
+| `namespace` | `payments` | Ignored for cluster-scoped kinds such as `nodes` |
+| `label_selector` | `app=checkout,tier!=db` or `env in (prod,staging)` | Standard Kubernetes label selector syntax |
+| `field_selector` | `status.phase!=Running` or `spec.nodeName=node-1` | Supported fields depend on the kind; unsupported fields return the API server's error |
+
+When none are set, the tools query every namespace. Each result includes a `scope` object showing the namespace and selectors that were applied.
+
+The `kind` parameter accepts a plural (`networkpolicies`), singular (`networkpolicy`), short name (`netpol`), or `plural.group` (`networkpolicies.crd.projectcalico.org`). If a CRD reuses a built-in name, HolmesGPT picks the same API group as `kubectl get` and adds a note naming the other group.
+
+#### Large Clusters
+
+On clusters with thousands of namespaces or pods, unscoped queries are slow. Tell HolmesGPT about your cluster so it scopes its queries with the parameters above, by adding instructions to the Core toolset:
+
+=== "Holmes CLI"
+
+    Add to `~/.holmes/config.yaml`:
+
+    ```yaml
+    toolsets:
+      kubernetes/core:
+        llm_instructions: |
+          This cluster is very large (thousands of namespaces and pods). Always pass
+          namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+          kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+          question truly needs every namespace.
+    ```
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    toolsets:
+      kubernetes/core:
+        enabled: true
+        llm_instructions: |
+          This cluster is very large (thousands of namespaces and pods). Always pass
+          namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+          kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+          question truly needs every namespace.
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      toolsets:
+        kubernetes/core:
+          enabled: true
+          llm_instructions: |
+            This cluster is very large (thousands of namespaces and pods). Always pass
+            namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+            kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+            question truly needs every namespace.
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+Adapt the text to your environment, for example by naming the label that identifies each team's workloads. Robusta platform users can add the same text to their account's Global Instructions instead.
+
 ### Logs
 
 !!! info "Enabled by Default"
