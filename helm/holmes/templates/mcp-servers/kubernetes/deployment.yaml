@@ -255,8 +255,8 @@ subjects:
 {{- if not .Values.mcpAddons.kubernetes.serviceAccount.clusterRole }}
 {{- /* "view" has reads this role lacks (limitranges, endpointslices, CRDs whose operators
        aggregate into "view"); this role has the node, RBAC and CRD reads "view" lacks.
-       customClusterRoleRules stay out: they widen Holmes only, and this server takes
-       unauthenticated calls. */}}
+       customClusterRoleRules stay out: they can grant Holmes Secret reads, and this
+       server answers unauthenticated calls. */}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: {{ if .Values.namespaceScopedRBAC }}Role{{ else }}ClusterRole{{ end }}

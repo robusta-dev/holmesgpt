@@ -86,9 +86,11 @@ def test_ca_without_server_config_still_mounts(tmp_path):
     assert [m["mountPath"] for m in pod["containers"][0]["volumeMounts"]] == [CA_PATH]
 
 
-
 MCP_SA = "k8s-mcp-sa"
-CUSTOM_SECRET_RULE = ('--set-json', 'customClusterRoleRules[0]={"apiGroups":[""],"resources":["secrets"],"verbs":["get"]}')
+CUSTOM_SECRET_RULE = (
+    "--set-json",
+    'customClusterRoleRules[0]={"apiGroups":[""],"resources":["secrets"],"verbs":["get"]}',
+)
 
 
 def _mcp_rbac(*helm_args):
@@ -113,8 +115,8 @@ def _reads(role, api_group, resource):
 
 def test_default_binds_view_and_a_read_only_chart_role():
     roles, bindings = _mcp_rbac()
-    # The view binding keeps the name and roleRef earlier releases created: roleRef is
-    # immutable, so changing either would fail `helm upgrade`.
+    # roleRef is immutable, so the view binding keeps the name and roleRef earlier
+    # releases created, or `helm upgrade` fails.
     assert bindings == [
         ("ClusterRoleBinding", "t-k8s-mcp", "ClusterRole", "view"),
         ("ClusterRoleBinding", "t-k8s-mcp-role-binding", "ClusterRole", "t-k8s-mcp-role"),
