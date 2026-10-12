@@ -111,6 +111,9 @@ class Config(RobustaBaseConfig):
     fast_model: Optional[str] = None
     max_steps: int = 100
     cluster_name: Optional[str] = None
+    # True when no CLUSTER_NAME was declared, so the name comes from the mounted
+    # Robusta config and a change there should restart Holmes.
+    _cluster_name_from_robusta_config: bool = False
 
     alertmanager_url: Optional[str] = None
     alertmanager_username: Optional[str] = None
@@ -359,11 +362,15 @@ class Config(RobustaBaseConfig):
             val = os.getenv(field_name.upper(), None)
             if val is not None:
                 kwargs[field_name] = val
+        # Read before CLUSTER_NAME is exported below; afterwards the variable
+        # holds the startup name whether or not anyone declared it.
+        cluster_name_declared = bool(os.environ.get("CLUSTER_NAME"))
         kwargs["cluster_name"] = Config.__get_cluster_name()
-        if kwargs["cluster_name"] and not os.environ.get("CLUSTER_NAME"):
+        if kwargs["cluster_name"] and not cluster_name_declared:
             os.environ["CLUSTER_NAME"] = kwargs["cluster_name"]
         kwargs["should_try_robusta_ai"] = True
         result = cls(**kwargs)
+        result._cluster_name_from_robusta_config = not cluster_name_declared
         # CUSTOM_SKILL_PATHS / SKILL_REPOS share one env-fallback path with
         # load_from_file, so the two loaders cannot drift.
         result._apply_env_fallbacks()
@@ -389,6 +396,13 @@ class Config(RobustaBaseConfig):
                 "Failed to load '%s' from Robusta config", key, exc_info=True
             )
             return None
+
+    def robusta_cluster_name_changed(self) -> bool:
+        """Whether the mounted Robusta config now names a different cluster than the one this process runs as."""
+        if not self._cluster_name_from_robusta_config:
+            return False
+        current = Config.get_robusta_global_config_value("cluster_name")
+        return bool(current) and current != self.cluster_name
 
     @staticmethod
     def __get_cluster_name() -> Optional[str]:

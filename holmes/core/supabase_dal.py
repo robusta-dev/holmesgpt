@@ -433,10 +433,22 @@ class SupabaseDal:
                         )
         return None
 
+    def robusta_token_changed(self) -> bool:
+        """Whether the Robusta token now differs from the one this process connected with."""
+        try:
+            current = self.__load_robusta_config()
+        except Exception:
+            # An invalid new token would stop a restarted Holmes from starting;
+            # keep serving with the one that works.
+            logging.warning("Failed to re-read the Robusta token", exc_info=True)
+            return False
+        return current is not None and current != self._robusta_token
+
     def __init_config(self) -> bool:
         # trying to load the supabase connection parameters from the robusta token, if exists
         # if not, using env variables as fallback
         robusta_token = self.__load_robusta_config()
+        self._robusta_token = robusta_token
         if robusta_token:
             self.account_id = robusta_token.account_id
             self.url = robusta_token.store_url

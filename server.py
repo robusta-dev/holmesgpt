@@ -11,6 +11,7 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
 import json
 import logging
+import signal
 import ssl
 import sys
 import threading
@@ -291,6 +292,22 @@ def _get_next_refresh_interval(
     return default_interval, 0
 
 
+def _restart_if_robusta_identity_changed() -> bool:
+    """Restart when a helm upgrade changed the cluster name or token in the mounted Robusta config.
+
+    Holmes reads both once, at startup, and connects to the platform as that
+    identity. SIGTERM takes uvicorn's graceful shutdown, which retires in-flight
+    conversations, and Kubernetes then starts a container that reads the new values.
+    """
+    if not (config.robusta_cluster_name_changed() or dal.robusta_token_changed()):
+        return False
+    logging.warning(
+        "The Robusta config now has a different cluster name or token; restarting Holmes to apply it"
+    )
+    os.kill(os.getpid(), signal.SIGTERM)
+    return True
+
+
 def _toolset_status_refresh_loop():
     interval = TOOLSET_STATUS_REFRESH_INTERVAL_SECONDS
     if interval <= 0:
@@ -315,6 +332,14 @@ def _toolset_status_refresh_loop():
                 )
 
             time.sleep(sleep_time)
+            try:
+                # First, so a stale identity is not heartbeated again.
+                if _restart_if_robusta_identity_changed():
+                    return
+            except Exception:
+                logging.error(
+                    "Failed to check the Robusta config for changes", exc_info=True
+                )
             try:
                 # Re-read the Robusta model catalog before publishing status, so
                 # the heartbeat advertises what the agent can serve right now:
