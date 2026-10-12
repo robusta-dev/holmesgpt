@@ -67,9 +67,8 @@ def sigterms(monkeypatch):
 
 def _start_holmes(monkeypatch):
     config = Config.load_from_env()
-    dal = SupabaseDal(
-        config.cluster_name
-    )  # holmes.config.SupabaseDal is mocked session-wide
+    # holmes.config.SupabaseDal is mocked session-wide.
+    dal = SupabaseDal(config.cluster_name)
     monkeypatch.setattr(server, "config", config)
     monkeypatch.setattr(server, "dal", dal)
     return config

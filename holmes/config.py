@@ -111,8 +111,8 @@ class Config(RobustaBaseConfig):
     fast_model: Optional[str] = None
     max_steps: int = 100
     cluster_name: Optional[str] = None
-    # True when no CLUSTER_NAME was declared, so the name comes from the mounted
-    # Robusta config and a change there should restart Holmes.
+    # Set by load_from_env when no CLUSTER_NAME was declared, so the name comes
+    # from the mounted Robusta config and a change there should restart Holmes.
     _cluster_name_from_robusta_config: bool = False
 
     alertmanager_url: Optional[str] = None
