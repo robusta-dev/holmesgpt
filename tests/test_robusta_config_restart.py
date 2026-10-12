@@ -41,10 +41,14 @@ def robusta_config(tmp_path, monkeypatch, responses):
     path = tmp_path / "active_playbooks.yaml"
     monkeypatch.setattr("holmes.common.env_vars.ROBUSTA_CONFIG_PATH", str(path))
     monkeypatch.setattr("holmes.core.supabase_dal.ROBUSTA_CONFIG_PATH", str(path))
+    # load_from_env exports CLUSTER_NAME itself, which monkeypatch would not undo.
+    monkeypatch.setattr(os, "environ", os.environ.copy())
     monkeypatch.delenv("CLUSTER_NAME", raising=False)
     monkeypatch.delenv("ROBUSTA_UI_TOKEN", raising=False)
     # A connected DAL would reach the platform and patch postgrest globally.
-    monkeypatch.setattr(SupabaseDal, "_SupabaseDal__connect", lambda self, options: None)
+    monkeypatch.setattr(
+        SupabaseDal, "_SupabaseDal__connect", lambda self, options: None
+    )
     monkeypatch.setattr(SupabaseDal, "patch_postgrest_execute", lambda self: None)
     # Startup fetches the model catalog when it finds platform credentials.
     responses.assert_all_requests_are_fired = False
@@ -63,7 +67,9 @@ def sigterms(monkeypatch):
 
 def _start_holmes(monkeypatch):
     config = Config.load_from_env()
-    dal = SupabaseDal(config.cluster_name)  # holmes.config.SupabaseDal is mocked session-wide
+    dal = SupabaseDal(
+        config.cluster_name
+    )  # holmes.config.SupabaseDal is mocked session-wide
     monkeypatch.setattr(server, "config", config)
     monkeypatch.setattr(server, "dal", dal)
     return config
@@ -76,15 +82,20 @@ def test_cluster_rename_restarts_holmes(robusta_config, monkeypatch, sigterms):
 
     _write_config(robusta_config, cluster_name="prod-v2")
     monkeypatch.setattr(server, "TOOLSET_STATUS_REFRESH_INTERVAL_SECONDS", 1)
+    running = set(threading.enumerate())
     server._toolset_status_refresh_loop()
-    refresh = next(t for t in threading.enumerate() if t.name == "toolset-refresh")
+    (refresh,) = {
+        t for t in set(threading.enumerate()) - running if t.name == "toolset-refresh"
+    }
     refresh.join(timeout=30)
 
     assert not refresh.is_alive()
     assert sigterms == [signal.SIGTERM]
 
 
-def test_declared_cluster_name_ignores_the_mounted_config(robusta_config, monkeypatch, sigterms):
+def test_declared_cluster_name_ignores_the_mounted_config(
+    robusta_config, monkeypatch, sigterms
+):
     monkeypatch.setenv("CLUSTER_NAME", "from-env")
     _write_config(robusta_config, cluster_name="prod")
     assert _start_holmes(monkeypatch).cluster_name == "from-env"
@@ -94,7 +105,9 @@ def test_declared_cluster_name_ignores_the_mounted_config(robusta_config, monkey
     assert sigterms == []
 
 
-def test_config_mounted_after_startup_restarts_holmes(robusta_config, monkeypatch, sigterms):
+def test_config_mounted_after_startup_restarts_holmes(
+    robusta_config, monkeypatch, sigterms
+):
     assert _start_holmes(monkeypatch).cluster_name is None
 
     _write_config(robusta_config, cluster_name="prod")

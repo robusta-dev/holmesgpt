@@ -395,7 +395,7 @@ class SupabaseDal:
             logging.debug(f"No robusta config in {config_file_path}")
             return None
 
-        logging.info(f"loading config {config_file_path}")
+        logging.debug(f"loading config {config_file_path}")
         with open(config_file_path) as file:
             yaml_content = yaml.safe_load(file)
             config = RobustaConfig(**yaml_content)
