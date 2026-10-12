@@ -141,12 +141,14 @@ def test_server_callers_reuse_the_cached_executor(server_config, clock, monkeypa
 def test_api_info_reports_the_toolsets_the_chat_loads(server_config):
     """ROB-1501: /api/info describes the executor the server's chat uses."""
     config, _ = server_config
+    chat_toolsets = config.cached_tool_executor.toolsets
 
     info = TestClient(server.app).get("/api/info?detail=full").json()
 
-    chat_toolsets = config.cached_tool_executor.toolsets
-    assert [t["name"] for t in info["toolsets"]] == [t.name for t in chat_toolsets]
-    assert info["toolsets_summary"]["total"] == len(chat_toolsets)
+    assert [(t["name"], t["status"]) for t in info["toolsets"]] == [
+        (t.name, t.status.value) for t in chat_toolsets
+    ]
+    assert info["toolsets_summary"]["enabled"] == len([t for t in chat_toolsets if t.status.value == "enabled"])
 
 
 def test_admin_reload_builds_the_executor_the_refresh_reuses(server_config, clock, monkeypatch):
