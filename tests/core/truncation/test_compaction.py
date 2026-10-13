@@ -929,26 +929,15 @@ def _unavailable():
     )
 
 
-def test_compaction_503_on_primary_still_tries_the_flattened_fallback():
-    """Some gateways answer 503 to the tools-attached request they cannot translate."""
-    llm = RecordingFakeLLM([_unavailable(), _make_response(content="FALLBACK SUMMARY")])
-    result = compact_conversation_history(
-        original_conversation_history=_history_with_tool_calls(),
-        llm=llm,  # type: ignore
-        tools=_TOOLS,
-    )
-    assert len(llm.calls) == 2
-    assert result.summary == "FALLBACK SUMMARY"
-
-
-def test_compaction_503_on_fallback_is_a_refusal():
-    llm = RecordingFakeLLM([_unavailable(), _unavailable()])
+def test_compaction_503_is_a_refusal():
+    llm = RecordingFakeLLM([_unavailable(), _make_response(content="UNUSED")])
     with pytest.raises(CompactionRefusedError):
         compact_conversation_history(
             original_conversation_history=_history_with_tool_calls(),
             llm=llm,  # type: ignore
             tools=_TOOLS,
         )
+    assert len(llm.calls) == 1
 
 
 def test_throttling_is_not_mistaken_for_a_context_length_rejection():

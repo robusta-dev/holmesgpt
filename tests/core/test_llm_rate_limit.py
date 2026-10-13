@@ -770,3 +770,17 @@ def test_total_budget_is_shared_by_calls_in_a_scope(clock, budget, cap):
     assert clock.sleeps == [4, 4]
     # Outside the scope the per-call budget applies again.
     assert call_with_rate_limit_retry(scripted(rate_limit(), "ok"), model="m") == "ok"
+
+
+def test_nested_total_budget_draws_from_the_outer_one(clock, budget, cap):
+    with rate_limit_retry_scope(total_max_wait_seconds=10):
+        with rate_limit_retry_scope(total_max_wait_seconds=180):
+            first = scripted(
+                rate_limit({"Retry-After": "4"}), rate_limit({"Retry-After": "4"}), "ok"
+            )
+            assert call_with_rate_limit_retry(first, model="m") == "ok"
+            second = scripted(rate_limit({"Retry-After": "4"}), "ok")
+            with pytest.raises(litellm.RateLimitError):
+                call_with_rate_limit_retry(second, model="m")
+        assert llm_rate_limit._retry_scope.get().shared_budget.remaining == 2
+    assert clock.sleeps == [4, 4]

@@ -607,7 +607,7 @@ class TestRecordError:
         state = _make_state()
         exc = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
         exc.llm_rate_limit_retries = 2
-        exc.compaction_usage = RequestStats(
+        exc.refused_compaction_usage = RequestStats(
             total_tokens=180000, prompt_tokens=179000, llm_rate_limit_retries=5
         )
         record_error(state, exc)

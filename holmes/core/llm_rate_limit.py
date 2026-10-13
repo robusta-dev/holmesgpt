@@ -64,20 +64,23 @@ class _RetryScope:
 
 
 class _SharedBudget:
-    """Backoff time left for every LLM call in a scope together."""
+    """Backoff time left for the LLM calls of a scope together, nested in any
+    enclosing budget. Calls in a scope are expected to run one at a time."""
 
-    def __init__(self, seconds: float) -> None:
+    def __init__(self, seconds: float, parent: Optional["_SharedBudget"]) -> None:
         self._remaining = seconds
-        self._lock = threading.Lock()
+        self._parent = parent
 
     @property
     def remaining(self) -> float:
-        with self._lock:
+        if self._parent is None:
             return self._remaining
+        return min(self._remaining, self._parent.remaining)
 
     def spend(self, seconds: float) -> None:
-        with self._lock:
-            self._remaining = max(0.0, self._remaining - seconds)
+        self._remaining = max(0.0, self._remaining - seconds)
+        if self._parent is not None:
+            self._parent.spend(seconds)
 
 
 _retry_scope: ContextVar[_RetryScope] = ContextVar(
@@ -105,7 +108,7 @@ def rate_limit_retry_scope(
             if max_wait_seconds is not None
             else outer.max_wait_seconds,
             cancel_event if cancel_event is not None else outer.cancel_event,
-            _SharedBudget(total_max_wait_seconds)
+            _SharedBudget(total_max_wait_seconds, outer.shared_budget)
             if total_max_wait_seconds is not None
             else outer.shared_budget,
         )

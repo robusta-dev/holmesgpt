@@ -18,7 +18,6 @@ from holmes.core.llm import LLM
 from holmes.core.llm_rate_limit import (
     LLMRetryCancelled,
     is_provider_capacity_error,
-    is_service_unavailable_error,
     retry_counts,
 )
 from holmes.core.llm_usage import RequestStats
@@ -477,9 +476,7 @@ def compact_conversation_history(
             compaction_usage += RequestStats(**retry_counts(e))
             # Already retried by the LLM call, and the fallback would only hit the
             # same limit again. The caller decides whether the turn can go on.
-            # A 503 still gets the fallback: some gateways answer 503 when they
-            # cannot translate the tools-attached request (ROB-424 family).
-            if is_provider_capacity_error(e) and not is_service_unavailable_error(e):
+            if is_provider_capacity_error(e):
                 raise CompactionRefusedError(e, compaction_usage) from e
             fallback_reason = f"summarization request failed: {e}"
             history_overflowed = _is_context_length_error(e)

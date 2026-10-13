@@ -115,13 +115,13 @@ def compact_if_necessary(
         # refusal for: skip it and try again on the next iteration. Otherwise
         # all its requests (one per chunk) share one budget.
         fits = initial_tokens.total_tokens + maximum_output_token <= max_context_size
-        budget = (
-            {"max_wait_seconds": 0}
-            if fits
-            else {"total_max_wait_seconds": env_vars.LLM_RATE_LIMIT_MAX_WAIT_SECONDS}
-        )
         try:
-            with rate_limit_retry_scope(**budget):
+            with rate_limit_retry_scope(
+                max_wait_seconds=0 if fits else None,
+                total_max_wait_seconds=None
+                if fits
+                else env_vars.LLM_RATE_LIMIT_MAX_WAIT_SECONDS,
+            ):
                 compaction_result = compact_conversation_history(
                     original_conversation_history=messages, llm=llm, tools=tools
                 )
@@ -129,7 +129,7 @@ def compact_if_necessary(
             if not fits:
                 # Raised as the provider's own error so callers map it to 429
                 # etc.; the usage of chunks already summarized rides along.
-                e.provider_error.compaction_usage = e.usage  # type: ignore[attr-defined]
+                e.provider_error.refused_compaction_usage = e.usage  # type: ignore[attr-defined]
                 raise e.provider_error
             logging.warning(
                 f"Skipping compaction, the provider refused the request: {e}"

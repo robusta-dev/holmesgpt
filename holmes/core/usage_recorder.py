@@ -452,7 +452,7 @@ class UsageRecorderState:
             self.stats = RequestStats()
         # A refused compaction carries the usage of its billed chunks, which
         # already include the failing call's retry counters.
-        compaction_usage = getattr(exc, "compaction_usage", None)
+        compaction_usage = getattr(exc, "refused_compaction_usage", None)
         if isinstance(compaction_usage, RequestStats):
             self.stats += compaction_usage
         else:
