@@ -174,7 +174,8 @@ def test_reload_checks_the_server_inside_its_interval(tmp_path):
 def test_refresh_keeps_an_executor_rebuilt_while_it_ran(tmp_path, monkeypatch):
     """An admin reload can rebuild the executor while a refresh runs its
     checks. The refresh must not replace that executor with the one it built
-    from the config it started with."""
+    from the config it started with, but still reports the change it found,
+    so the server syncs the toolset statuses to the platform."""
     server_down = tmp_path / "server_down"
     config, _ = _mcp_config(tmp_path, f"test -e {server_down} && exit 1; {WORKING_SERVER}")
     _refresh(config)
@@ -198,7 +199,8 @@ def test_refresh_keeps_an_executor_rebuilt_while_it_ran(tmp_path, monkeypatch):
     # The server went down, so the refresh finds a change it would apply.
     changes = config.refresh_tool_executor(None, toolset_tag_filter=TAGS)
     assert config.cached_tool_executor is rebuilt[0]
-    assert changes == []
+    assert changes == [("example", "enabled", "failed")]
+    assert _example(config).status == ToolsetStatusEnum.FAILED
 
 
 def _write_custom_toolsets(toolsets_file: Path, sessions: Path, **server_fields) -> None:
