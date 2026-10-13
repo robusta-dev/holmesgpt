@@ -25,6 +25,7 @@ if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
 
 import holmes.utils.env as env_utils
+from holmes.plugins.toolsets import load_toolsets_from_config
 from holmes.core.tools import (
     StructuredToolResultStatus,
     ToolInvokeContext,
@@ -522,6 +523,76 @@ class TestMCPGeneral:
         monkeypatch.setattr(mcp_toolset, "_get_server_tools", mock_get_server_tools)
         mcp_toolset.prerequisites_callable(config=mcp_toolset.config)
         assert len(list(mcp_toolset.tools)) == 1
+
+    @staticmethod
+    def _three_tool_server():
+        async def mock_get_server_tools():
+            schema = {"type": "object", "properties": {}, "required": []}
+            return ListToolsResult(
+                tools=[
+                    Tool(name="incident_list", inputSchema=schema),
+                    Tool(name="incident_update", inputSchema=schema),
+                    Tool(name="insights_dashboard_add_chart", inputSchema=schema),
+                ]
+            )
+
+        return mock_get_server_tools
+
+    def test_allowed_tools_drops_unlisted_tools(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            config={"url": "http://0.0.0.0/3005"},
+            allowed_tools=["incident_*"],
+        )
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", self._three_tool_server())
+
+        mcp_toolset.prerequisites_callable(config=mcp_toolset.config)
+
+        assert sorted(t.name for t in mcp_toolset.tools) == [
+            "incident_list",
+            "incident_update",
+        ]
+
+    def test_allowed_tools_exact_names(self, monkeypatch, suppress_migration_warnings):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp",
+            config={"url": "http://0.0.0.0/3005"},
+            allowed_tools=["incident_list", "not_on_server"],
+        )
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", self._three_tool_server())
+
+        mcp_toolset.prerequisites_callable(config=mcp_toolset.config)
+
+        assert [t.name for t in mcp_toolset.tools] == ["incident_list"]
+
+    def test_empty_allowed_tools_loads_everything(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        mcp_toolset = RemoteMCPToolset(
+            name="test_mcp", config={"url": "http://0.0.0.0/3005"}
+        )
+        monkeypatch.setattr(mcp_toolset, "_get_server_tools", self._three_tool_server())
+
+        mcp_toolset.prerequisites_callable(config=mcp_toolset.config)
+
+        assert len(mcp_toolset.tools) == 3
+
+    def test_allowed_tools_read_from_mcp_servers_config(self):
+        toolsets = load_toolsets_from_config(
+            {
+                "incident_io": {
+                    "type": "mcp",
+                    "config": {"url": "http://0.0.0.0/3005"},
+                    "allowed_tools": ["incident_*"],
+                    "approval_required_tools": ["incident_update"],
+                }
+            }
+        )
+
+        assert toolsets[0].allowed_tools == ["incident_*"]
+        assert toolsets[0].approval_required_tools == ["incident_update"]
 
     def test_toolset_returns_configured_headers(
         self, monkeypatch, suppress_migration_warnings

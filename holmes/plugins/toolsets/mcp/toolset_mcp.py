@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import binascii
+import fnmatch
 import json
 import logging
 import os
@@ -962,6 +963,14 @@ class RemoteMCPToolset(Toolset):
     ]
     description: str = "MCP server toolset"
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
+    allowed_tools: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Tool names/patterns (fnmatch) to load from the MCP server. When set, "
+            "every other tool the server lists is dropped and never sent to the LLM. "
+            "Empty loads all tools."
+        ),
+    )
     _mcp_config: Optional[Union[MCPConfig, StdioMCPConfig]] = None
 
     @property
@@ -989,8 +998,25 @@ class RemoteMCPToolset(Toolset):
             RemoteMCPTool.create(
                 tool, self, is_remote=tool.name.startswith(REMOTE_TOOL_NAME_PREFIX)
             )
-            for tool in tools_result.tools
+            for tool in self._filter_allowed_tools(tools_result.tools)
         ]
+
+    def _filter_allowed_tools(self, tools: List[MCP_Tool]) -> List[MCP_Tool]:
+        """Keep only the tools matching `allowed_tools`; all of them when it is empty."""
+        if not self.allowed_tools:
+            return list(tools)
+        kept = [
+            tool
+            for tool in tools
+            if any(fnmatch.fnmatch(tool.name, pattern) for pattern in self.allowed_tools)
+        ]
+        logging.info(
+            "MCP server %s: allowed_tools kept %d of %d tools",
+            self.name,
+            len(kept),
+            len(tools),
+        )
+        return kept
 
     def _render_headers(
         self, request_context: Optional[Dict[str, Any]] = None
