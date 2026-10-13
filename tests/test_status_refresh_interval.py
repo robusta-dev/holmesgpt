@@ -8,7 +8,7 @@ import yaml
 import server
 from holmes.config import Config
 from holmes.core import toolset_manager as toolset_manager_module
-from holmes.core.tools import ToolsetStatusEnum, ToolsetTag
+from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag
 
 STDIO_SERVER = Path(__file__).parent / "stdio_server.py"
 TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
@@ -169,6 +169,41 @@ def test_reload_checks_the_server_inside_its_interval(tmp_path):
     config.reload_toolsets()
     _refresh(config)
     assert _sessions_opened(sessions) == 2
+
+
+def test_refresh_keeps_an_executor_rebuilt_while_it_ran(tmp_path, monkeypatch):
+    """An admin reload can rebuild the executor while a refresh runs its
+    checks. The refresh must not replace that executor with the one it built
+    from the config it started with."""
+    server_down = tmp_path / "server_down"
+    config, _ = _mcp_config(tmp_path, f"test -e {server_down} && exit 1; {WORKING_SERVER}")
+    _refresh(config)
+    assert _example(config).status == ToolsetStatusEnum.ENABLED
+
+    refresh_toolsets = config.toolset_manager.refresh_toolsets_and_get_changes
+    rebuilt = []
+
+    def refresh_then_admin_reload(*args, **kwargs):
+        result = refresh_toolsets(*args, **kwargs)
+        config.reload_toolsets()
+        rebuilt.append(
+            config.create_tool_executor(
+                None,
+                toolset_tag_filter=TAGS,
+                enable_all_toolsets_possible=False,
+                prerequisite_cache=PrerequisiteCacheMode.DISABLED,
+                reuse_executor=True,
+            )
+        )
+        return result
+
+    monkeypatch.setattr(config.toolset_manager, "refresh_toolsets_and_get_changes", refresh_then_admin_reload)
+    server_down.touch()
+
+    # The server went down, so the refresh finds a change it would apply.
+    changes = config.refresh_tool_executor(None, toolset_tag_filter=TAGS)
+    assert config.cached_tool_executor is rebuilt[0]
+    assert changes == []
 
 
 def _write_custom_toolsets(toolsets_file: Path, sessions: Path, **server_fields) -> None:
