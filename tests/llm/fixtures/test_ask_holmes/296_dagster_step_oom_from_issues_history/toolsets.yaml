@@ -18,7 +18,7 @@ mcp_servers:
       mode: stdio
       command: python
       args:
-        - tests/llm/fixtures/test_ask_holmes/293_dagster_step_oom_from_issues_history/environment_mock.py
+        - tests/llm/fixtures/test_ask_holmes/296_dagster_step_oom_from_issues_history/environment_mock.py
   robusta_platform_mcp:
     enabled: true
     config:
@@ -26,5 +26,5 @@ mcp_servers:
       command: python
       args:
         - tests/llm/fixtures/shared/robusta_platform_mcp_mock.py
-        - tests/llm/fixtures/test_ask_holmes/293_dagster_step_oom_from_issues_history
+        - tests/llm/fixtures/test_ask_holmes/296_dagster_step_oom_from_issues_history
         - --cluster=prod-eu-1
