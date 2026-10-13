@@ -631,6 +631,39 @@ class TestRecordError:
             record_error(state, wrapped)
         assert _state_arg(state).stats.total_tokens == 1000
 
+    def test_carried_usage_replaces_the_last_token_count(self, monkeypatch):
+        """It is the request's total so far, not an increment."""
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        error = RuntimeError("compaction failed")
+        attach_unrecorded_usage(error, RequestStats(total_tokens=900, prompt_tokens=900))
+
+        def stream():
+            yield StreamMessage(
+                event=StreamEvents.TOKEN_COUNT,
+                data={"metadata": {"costs": {"total_tokens": 400}}},
+            )
+            raise error
+
+        with pytest.raises(RuntimeError):
+            list(stream_with_usage_recording(stream(), state))
+        assert _state_arg(state).stats.total_tokens == 900
+
+    def test_suppressed_context_is_not_searched(self, monkeypatch):
+        """An earlier, handled error's usage must not be charged to a new one."""
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        old = RuntimeError("handled earlier")
+        attach_unrecorded_usage(old, RequestStats(total_tokens=123, prompt_tokens=123))
+        try:
+            try:
+                raise old
+            except RuntimeError:
+                raise ValueError("new failure") from None
+        except ValueError as new:
+            record_error(state, new)
+        assert _state_arg(state).stats.total_tokens == 0
+
     def test_overloaded_is_an_error_with_its_status(self, monkeypatch):
         _patch_inline_thread(monkeypatch)
         state = _make_state()

@@ -20,7 +20,7 @@ from holmes.core.llm_rate_limit import (
     is_provider_capacity_error,
     retry_counts,
 )
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
 from holmes.plugins.prompts import load_and_render_prompt
 
 
@@ -470,7 +470,8 @@ def compact_conversation_history(
                 fallback_reason = "summarization response contains no text"
             else:
                 summarization_requests = 1
-        except LLMRetryCancelled:
+        except LLMRetryCancelled as e:
+            attach_unrecorded_usage(e, compaction_usage)
             raise
         except Exception as e:
             compaction_usage += RequestStats(**retry_counts(e))
@@ -500,7 +501,8 @@ def compact_conversation_history(
             summary_text, summarization_requests = _summarize_in_chunks(
                 flattened_history, llm, input_budget, instructions_message, compaction_usage
             )
-        except LLMRetryCancelled:
+        except LLMRetryCancelled as e:
+            attach_unrecorded_usage(e, compaction_usage)
             raise
         except Exception as e:
             compaction_usage += RequestStats(**retry_counts(e))

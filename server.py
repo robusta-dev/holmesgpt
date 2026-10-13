@@ -16,6 +16,7 @@ import ssl
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -989,12 +990,17 @@ async def health_check():
     return {"status": "healthy"}
 
 
+_readiness_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="readyz")
+
+
 @app.get("/readyz")
 async def readiness_check():
     try:
         # The first call can build the model registry (network I/O): run it off
-        # the event loop, on asyncio's executor rather than the chat threadpool.
-        models_list = await asyncio.to_thread(config.get_models_list)
+        # the event loop, on its own thread rather than the chat threadpool.
+        models_list = await asyncio.get_running_loop().run_in_executor(
+            _readiness_executor, config.get_models_list
+        )
         return {"status": "ready", "models": models_list}
     except Exception as e:
         logging.error(f"Readiness check failed: {e}", exc_info=True)

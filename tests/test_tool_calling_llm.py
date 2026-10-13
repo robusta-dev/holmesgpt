@@ -27,11 +27,16 @@ from litellm import ModelResponse
 from holmes.core.llm import LLM, ContextWindowUsage
 from holmes.core.llm_rate_limit import LLMRetryCancelled, call_with_rate_limit_retry
 from holmes.core.models import PendingToolApproval, ToolApprovalDecision, ToolCallResult
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import (
+    RequestStats,
+    attach_unrecorded_usage,
+    unrecorded_usage,
+)
 from holmes.core.tool_calling_llm import LLMInterruptedError, ToolCallingLLM
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.truncation.input_context_window_limiter import (
+    CompactionInsufficientError,
     ContextWindowLimiterOutput,
 )
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -1944,6 +1949,53 @@ class TestRateLimitRetryInLoop:
         assert costs["llm_rate_limit_wait_ms"] == 7000
 
 
+    @patch(LIMIT_PATCH)
+    def test_failed_compaction_carries_the_requests_usage(
+        self, mock_limit, make_ai, mock_llm
+    ):
+        """call_stream's own stats die with the raise; the recorder reads the error,
+        which carries every iteration so far plus the compaction's billed calls."""
+        compaction = RequestStats(
+            total_tokens=5000, prompt_tokens=5000, llm_rate_limit_retries=3
+        )
+        error = CompactionInsufficientError(
+            "too big", events=[], compaction_usage=compaction
+        )
+        mock_limit.side_effect = [
+            _make_context_limiter_passthrough([{"role": "user", "content": "q"}]),
+            error,
+        ]
+        mock_llm.completion.return_value = _make_llm_response(
+            content="checking", tool_calls=[_make_mock_tool_call()]
+        )
+        ai = make_ai()
+        ai._invoke_llm_tool_call = MagicMock(return_value=_make_tool_call_result())
+
+        with pytest.raises(CompactionInsufficientError) as info:
+            list(ai.call_stream(msgs=[{"role": "user", "content": "q"}]))
+
+        carried = unrecorded_usage(info.value)
+        assert carried.total_tokens == 70 + 5000  # iteration 1 + compaction
+        assert carried.llm_rate_limit_retries == 3
+        assert carried.num_compactions == 1
+
+    @patch(LIMIT_PATCH)
+    def test_cancel_during_compaction_keeps_its_billed_usage(
+        self, mock_limit, make_ai, mock_llm
+    ):
+        cancelled = LLMRetryCancelled()
+        attach_unrecorded_usage(cancelled, RequestStats(total_tokens=4000, prompt_tokens=4000))
+        mock_limit.side_effect = cancelled
+
+        with pytest.raises(LLMInterruptedError) as info:
+            list(
+                make_ai().call_stream(
+                    msgs=[{"role": "user", "content": "q"}],
+                    cancel_event=threading.Event(),
+                )
+            )
+        assert unrecorded_usage(info.value).total_tokens == 4000
+
 # ---------------------------------------------------------------------------
 # Repeated tool calls after a multi-request compaction (ROB-1519)
 # ---------------------------------------------------------------------------
@@ -2027,19 +2079,3 @@ class TestRepeatedCallsAfterOverflowingCompaction:
         results = _events_of_type(events, StreamEvents.TOOL_RESULT)
         assert ai._directly_invoke_tool_call.call_count == 2
         assert "already been called" in json.dumps(results[-1].data)
-
-    def test_insufficient_compaction_carries_its_usage_to_the_recorder(
-        self, make_ai, mock_llm
-    ):
-        """call_stream's own stats die with the raise; the recorder reads the error."""
-        from holmes.core.llm_usage import unrecorded_usage
-        from holmes.core.truncation.input_context_window_limiter import (
-            CompactionInsufficientError,
-        )
-
-        usage = RequestStats(total_tokens=0, llm_rate_limit_retries=3, llm_rate_limit_wait_ms=9000)
-        error = CompactionInsufficientError("too big", events=[], compaction_usage=usage)
-        with patch(LIMIT_PATCH, side_effect=error):
-            with pytest.raises(CompactionInsufficientError) as info:
-                list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
-        assert unrecorded_usage(info.value) is usage

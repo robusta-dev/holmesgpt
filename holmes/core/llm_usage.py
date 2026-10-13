@@ -6,7 +6,7 @@ from typing import Optional
 from litellm.types.utils import ModelResponse
 from pydantic import BaseModel
 
-from holmes.core.llm_rate_limit import retry_counts
+from holmes.core.llm_rate_limit import iter_exception_chain, retry_counts
 
 
 def _extract_detail_field(details: object, field: str) -> Optional[int]:
@@ -158,19 +158,15 @@ _UNRECORDED_USAGE = "holmes_unrecorded_usage"
 
 
 def attach_unrecorded_usage(error: BaseException, usage: RequestStats) -> None:
-    """Carry usage that was billed but never reached a TOKEN_COUNT event to the
-    usage recorder, which only sees the raised error."""
+    """Carry usage that never reached a TOKEN_COUNT event to the usage
+    recorder, which only sees the raised error."""
     setattr(error, _UNRECORDED_USAGE, usage)
 
 
 def unrecorded_usage(error: BaseException) -> Optional[RequestStats]:
     """Usage attached to ``error`` or to an error it was raised from."""
-    seen = set()
-    current: Optional[BaseException] = error
-    while current is not None and id(current) not in seen:
+    for current in iter_exception_chain(error):
         usage = getattr(current, _UNRECORDED_USAGE, None)
         if isinstance(usage, RequestStats):
             return usage
-        seen.add(id(current))
-        current = current.__cause__ or current.__context__
     return None

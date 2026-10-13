@@ -27,7 +27,11 @@ from holmes.common.env_vars import (
 )
 from holmes.core.llm import LLM
 from holmes.core.llm_rate_limit import LLMRetryCancelled, rate_limit_retry_scope
-from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
+from holmes.core.llm_usage import (
+    RequestStats,
+    attach_unrecorded_usage,
+    unrecorded_usage,
+)
 from holmes.core.models import (
     FrontendToolResult,
     PendingFrontendToolCall,
@@ -125,6 +129,21 @@ def _extract_text_from_content(content: Any) -> str:
                 return item.get("text", "")
 
     return ""
+
+
+def _attach_request_usage(
+    error: BaseException, stats: RequestStats, compaction: Optional[RequestStats]
+) -> None:
+    """Put the request's usage so far, plus a failed compaction's billed
+    requests, on ``error``: call_stream's ``stats`` dies with the raise, and
+    the usage recorder only sees the error."""
+    total = stats.model_copy()
+    if compaction is not None:
+        compaction = compaction.model_copy()
+        if compaction.total_tokens > 0:
+            compaction.num_compactions = 1
+        total += compaction
+    attach_unrecorded_usage(error, total)
 
 
 def _merge_choices(response: Any) -> None:
@@ -1250,12 +1269,15 @@ class ToolCallingLLM:
                     )
             except CompactionInsufficientError as e:
                 yield from e.events
-                # `stats` dies with this frame; the recorder reads the error.
-                if e.compaction_usage:
-                    attach_unrecorded_usage(e, e.compaction_usage)
+                _attach_request_usage(e, stats, e.compaction_usage)
                 raise
             except LLMRetryCancelled as e:
-                raise LLMInterruptedError() from e
+                interrupted = LLMInterruptedError()
+                _attach_request_usage(interrupted, stats, unrecorded_usage(e))
+                raise interrupted from e
+            except Exception as e:
+                _attach_request_usage(e, stats, unrecorded_usage(e))
+                raise
 
             yield from limit_result.events
             messages = limit_result.messages

@@ -292,6 +292,19 @@ def _annotate(target: Any, retries: int, wait_s: float) -> None:
             setattr(target, key, value)
 
 
+def iter_exception_chain(error: BaseException) -> Iterator[BaseException]:
+    """``error`` and the errors it was raised from, in order (``__cause__``, or
+    ``__context__`` unless suppressed)."""
+    seen = set()
+    current: Optional[BaseException] = error
+    while current is not None and id(current) not in seen:
+        yield current
+        seen.add(id(current))
+        current = current.__cause__ or (
+            None if current.__suppress_context__ else current.__context__
+        )
+
+
 def retry_counts(obj: Any) -> Dict[str, int]:
     """Retry counters recorded on an LLM response or a raised exception.
 
@@ -302,14 +315,11 @@ def retry_counts(obj: Any) -> Dict[str, int]:
     hidden = getattr(obj, "_hidden_params", None)
     if isinstance(hidden, dict):
         return {key: int(hidden.get(key) or 0) for key in keys}
-    seen = set()
-    exc = obj if isinstance(obj, BaseException) else None
-    while exc is not None and id(exc) not in seen:
-        counts = {key: int(getattr(exc, key, 0) or 0) for key in keys}
-        if any(counts.values()):
-            return counts
-        seen.add(id(exc))
-        exc = exc.__cause__ or exc.__context__
+    if isinstance(obj, BaseException):
+        for exc in iter_exception_chain(obj):
+            counts = {key: int(getattr(exc, key, 0) or 0) for key in keys}
+            if any(counts.values()):
+                return counts
     return {key: 0 for key in keys}
 
 

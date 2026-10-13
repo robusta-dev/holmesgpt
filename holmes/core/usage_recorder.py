@@ -435,8 +435,9 @@ class UsageRecorderState:
     def _capture_error(self, exc: BaseException) -> None:
         """Set the failed status and record the error class in ``meta``.
 
-        Retries spent inside the failing LLM call (and a failed compaction's
-        usage) never reached a TOKEN_COUNT event, so they are added here.
+        Retries spent inside the failing LLM call never reached a TOKEN_COUNT
+        event, so they are added here; usage carried on the error (see
+        ``attach_unrecorded_usage``) replaces the last TOKEN_COUNT total.
         """
         msg = str(exc).lower()
         if is_rate_limit_error(exc) or ("rate" in msg and "limit" in msg):
@@ -448,14 +449,15 @@ class UsageRecorderState:
             "error_class": type(exc).__name__,
             "error_status_code": error_status_code(exc),
         }
+        # Usage carried on the error is the request's total so far, including
+        # the failing calls' retry counters.
+        carried = unrecorded_usage(exc)
+        if carried is not None:
+            self.stats = carried
+            return
         if self.stats is None:
             self.stats = RequestStats()
-        # Usage carried on the error (a failed compaction's billed requests)
-        # already includes the failing call's retry counters.
-        carried = unrecorded_usage(exc)
-        self.stats += (
-            carried if carried is not None else RequestStats(**retry_counts(exc))
-        )
+        self.stats += RequestStats(**retry_counts(exc))
 
     def _fire(self) -> None:
         """Submit the dal write to the shared recorder thread pool.

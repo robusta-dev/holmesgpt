@@ -130,7 +130,7 @@ def compact_if_necessary(
                 # Raised as the provider's own error so callers map it to 429
                 # etc.; the usage of chunks already summarized rides along.
                 attach_unrecorded_usage(e.provider_error, e.usage)
-                raise e.provider_error from None
+                raise e.provider_error from e
             logging.warning(
                 f"Skipping compaction, the provider refused the request: {e}"
             )

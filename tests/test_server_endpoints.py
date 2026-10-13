@@ -703,4 +703,4 @@ def test_readyz_reads_models_off_the_event_loop(client):
 
     assert response.status_code == 200
     assert response.json()["models"] == ["m"]
-    assert threads and threads[0].startswith("asyncio_")
+    assert threads and threads[0].startswith("readyz")
