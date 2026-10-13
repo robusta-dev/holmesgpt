@@ -171,7 +171,7 @@ LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS = int(
 # Max time one LLM call may spend backing off from rate-limit / overloaded /
 # 503 errors before the error is raised. 0 disables these retries.
 LLM_RATE_LIMIT_MAX_WAIT_SECONDS = float(
-    os.environ.get("LLM_RATE_LIMIT_MAX_WAIT_SECONDS", "180")
+    os.environ.get("LLM_RATE_LIMIT_MAX_WAIT_SECONDS", "30")
 )
 
 # Extra message fields to strip before sending messages to the provider API.
