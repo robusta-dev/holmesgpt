@@ -8,7 +8,7 @@ import yaml
 import server
 from holmes.config import Config
 from holmes.core import toolset_manager as toolset_manager_module
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag
+from holmes.core.tools import ToolsetStatusEnum, ToolsetTag
 
 STDIO_SERVER = Path(__file__).parent / "stdio_server.py"
 TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
@@ -185,16 +185,11 @@ def test_refresh_keeps_an_executor_rebuilt_while_it_ran(tmp_path, monkeypatch):
 
     def refresh_then_admin_reload(*args, **kwargs):
         result = refresh_toolsets(*args, **kwargs)
+        # The reload clears the cache, so this refresh rebuilds the executor
+        # from the reloaded toolset manager.
         config.reload_toolsets()
-        rebuilt.append(
-            config.create_tool_executor(
-                None,
-                toolset_tag_filter=TAGS,
-                enable_all_toolsets_possible=False,
-                prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-                reuse_executor=True,
-            )
-        )
+        _refresh(config)
+        rebuilt.append(config.cached_tool_executor)
         return result
 
     monkeypatch.setattr(config.toolset_manager, "refresh_toolsets_and_get_changes", refresh_then_admin_reload)
