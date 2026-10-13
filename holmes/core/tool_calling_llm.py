@@ -27,7 +27,7 @@ from holmes.common.env_vars import (
 )
 from holmes.core.llm import LLM
 from holmes.core.llm_rate_limit import LLMRetryCancelled, rate_limit_retry_scope
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
 from holmes.core.models import (
     FrontendToolResult,
     PendingFrontendToolCall,
@@ -1250,8 +1250,9 @@ class ToolCallingLLM:
                     )
             except CompactionInsufficientError as e:
                 yield from e.events
-                if e.compaction_usage and e.compaction_usage.total_tokens > 0:
-                    stats += e.compaction_usage
+                # `stats` dies with this frame; the recorder reads the error.
+                if e.compaction_usage:
+                    attach_unrecorded_usage(e, e.compaction_usage)
                 raise
             except LLMRetryCancelled as e:
                 raise LLMInterruptedError() from e

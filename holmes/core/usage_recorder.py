@@ -24,7 +24,7 @@ from holmes.core.llm_rate_limit import (
     is_rate_limit_error,
     retry_counts,
 )
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, unrecorded_usage
 from holmes.utils.stream import StreamEvents, StreamMessage
 
 if TYPE_CHECKING:
@@ -435,7 +435,7 @@ class UsageRecorderState:
     def _capture_error(self, exc: BaseException) -> None:
         """Set the failed status and record the error class in ``meta``.
 
-        Retries spent inside the failing LLM call (and a refused compaction's
+        Retries spent inside the failing LLM call (and a failed compaction's
         usage) never reached a TOKEN_COUNT event, so they are added here.
         """
         msg = str(exc).lower()
@@ -450,13 +450,12 @@ class UsageRecorderState:
         }
         if self.stats is None:
             self.stats = RequestStats()
-        # A refused compaction carries the usage of its billed chunks, which
-        # already include the failing call's retry counters.
-        compaction_usage = getattr(exc, "refused_compaction_usage", None)
-        if isinstance(compaction_usage, RequestStats):
-            self.stats += compaction_usage
-        else:
-            self.stats += RequestStats(**retry_counts(exc))
+        # Usage carried on the error (a failed compaction's billed requests)
+        # already includes the failing call's retry counters.
+        carried = unrecorded_usage(exc)
+        self.stats += (
+            carried if carried is not None else RequestStats(**retry_counts(exc))
+        )
 
     def _fire(self) -> None:
         """Submit the dal write to the shared recorder thread pool.

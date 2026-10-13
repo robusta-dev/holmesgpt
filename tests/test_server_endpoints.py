@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import json
+import threading
 import litellm
 import pytest
 from fastapi import Request
@@ -687,3 +688,19 @@ class TestExtractPassthroughHeaders:
         assert "authorization" in result["headers"]
         assert "cookie" in result["headers"]
         assert "x-tenant-id" in result["headers"]
+
+
+def test_readyz_reads_models_off_the_event_loop(client):
+    """Building the model registry can do network I/O on the first call."""
+    threads = []
+
+    def models():
+        threads.append(threading.current_thread().name)
+        return ["m"]
+
+    with patch("holmes.config.Config.get_models_list", side_effect=models):
+        response = client.get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json()["models"] == ["m"]
+    assert threads and threads[0].startswith("asyncio_")

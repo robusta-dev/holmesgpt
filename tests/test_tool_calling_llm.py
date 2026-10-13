@@ -2027,3 +2027,19 @@ class TestRepeatedCallsAfterOverflowingCompaction:
         results = _events_of_type(events, StreamEvents.TOOL_RESULT)
         assert ai._directly_invoke_tool_call.call_count == 2
         assert "already been called" in json.dumps(results[-1].data)
+
+    def test_insufficient_compaction_carries_its_usage_to_the_recorder(
+        self, make_ai, mock_llm
+    ):
+        """call_stream's own stats die with the raise; the recorder reads the error."""
+        from holmes.core.llm_usage import unrecorded_usage
+        from holmes.core.truncation.input_context_window_limiter import (
+            CompactionInsufficientError,
+        )
+
+        usage = RequestStats(total_tokens=0, llm_rate_limit_retries=3, llm_rate_limit_wait_ms=9000)
+        error = CompactionInsufficientError("too big", events=[], compaction_usage=usage)
+        with patch(LIMIT_PATCH, side_effect=error):
+            with pytest.raises(CompactionInsufficientError) as info:
+                list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
+        assert unrecorded_usage(info.value) is usage

@@ -20,7 +20,7 @@ import httpx
 import litellm
 import pytest
 
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
 from holmes.core.usage_recorder import (
     UsageRecorderState,
     record_error,
@@ -607,14 +607,29 @@ class TestRecordError:
         state = _make_state()
         exc = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
         exc.llm_rate_limit_retries = 2
-        exc.refused_compaction_usage = RequestStats(
-            total_tokens=180000, prompt_tokens=179000, llm_rate_limit_retries=5
+        attach_unrecorded_usage(
+            exc,
+            RequestStats(total_tokens=180000, prompt_tokens=179000, llm_rate_limit_retries=5),
         )
         record_error(state, exc)
         s = _state_arg(state)
         assert s.status == "rate_limited"
         assert s.stats.total_tokens == 180000
         assert s.stats.llm_rate_limit_retries == 5
+
+    def test_usage_carried_on_a_wrapped_error_is_recorded(self, monkeypatch):
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        cause = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
+        attach_unrecorded_usage(cause, RequestStats(total_tokens=1000, prompt_tokens=1000))
+        try:
+            try:
+                raise cause
+            except litellm.RateLimitError as e:
+                raise RuntimeError("wrapped") from e
+        except RuntimeError as wrapped:
+            record_error(state, wrapped)
+        assert _state_arg(state).stats.total_tokens == 1000
 
     def test_overloaded_is_an_error_with_its_status(self, monkeypatch):
         _patch_inline_thread(monkeypatch)

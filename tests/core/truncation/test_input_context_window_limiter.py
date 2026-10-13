@@ -7,7 +7,7 @@ import pytest
 
 from holmes.core import llm_rate_limit
 from holmes.core.llm import ContextWindowUsage
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, unrecorded_usage
 from holmes.core.truncation.compaction import CompactionRefusedError, CompactionResult
 from holmes.core.truncation.input_context_window_limiter import (
     CompactionInsufficientError,
@@ -134,7 +134,7 @@ def test_rate_limited_compaction_fails_the_turn_when_history_does_not_fit():
             )
     assert info.value is error
     # The usage of the refused compaction travels with the error to the recorder.
-    assert info.value.refused_compaction_usage.llm_rate_limit_retries == 3
+    assert unrecorded_usage(info.value).llm_rate_limit_retries == 3
 
 
 @pytest.mark.usefixtures("_compaction_on")

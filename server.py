@@ -9,6 +9,7 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
+import asyncio
 import json
 import logging
 import ssl
@@ -991,7 +992,9 @@ async def health_check():
 @app.get("/readyz")
 async def readiness_check():
     try:
-        models_list = config.get_models_list()
+        # The first call can build the model registry (network I/O): run it off
+        # the event loop, on asyncio's executor rather than the chat threadpool.
+        models_list = await asyncio.to_thread(config.get_models_list)
         return {"status": "ready", "models": models_list}
     except Exception as e:
         logging.error(f"Readiness check failed: {e}", exc_info=True)

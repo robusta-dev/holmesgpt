@@ -20,7 +20,7 @@ from holmes.core.llm import (
     get_context_window_compaction_threshold_pct,
 )
 from holmes.core.llm_rate_limit import rate_limit_retry_scope
-from holmes.core.llm_usage import RequestStats
+from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
 from holmes.core.truncation.compaction import (
     CompactionRefusedError,
     CompactionResult,
@@ -129,8 +129,8 @@ def compact_if_necessary(
             if not fits:
                 # Raised as the provider's own error so callers map it to 429
                 # etc.; the usage of chunks already summarized rides along.
-                e.provider_error.refused_compaction_usage = e.usage  # type: ignore[attr-defined]
-                raise e.provider_error
+                attach_unrecorded_usage(e.provider_error, e.usage)
+                raise e.provider_error from None
             logging.warning(
                 f"Skipping compaction, the provider refused the request: {e}"
             )
