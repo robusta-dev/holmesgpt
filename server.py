@@ -9,7 +9,6 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-import asyncio
 import json
 import logging
 import ssl
@@ -982,58 +981,20 @@ def get_info(detail: Optional[str] = None) -> InfoResponse:
     return resp
 
 
-# The probes are async so they run on the event loop: the threadpool can be
-# full of chats waiting on the LLM, and a probe that times out takes the pod down.
+# async so it runs on the event loop: the threadpool can be full of chats
+# waiting on the LLM, and a liveness probe that times out restarts the pod.
 @app.get("/healthz")
 async def health_check():
     return {"status": "healthy"}
 
 
-# Seconds a probe waits for the model list (the kubelet probe timeout is 3 s).
-_READINESS_TIMEOUT_SECONDS = 2.5
-_models_probe: Optional[asyncio.Future] = None
-
-
-def _start_models_probe(loop: asyncio.AbstractEventLoop) -> asyncio.Future:
-    """Read the model list on a daemon thread: building the registry does
-    network I/O, which must not run on the event loop or the chat threadpool."""
-    future = loop.create_future()
-    future.add_done_callback(lambda f: f.cancelled() or f.exception())
-
-    def settle(result=None, error: Optional[BaseException] = None) -> None:
-        if future.done():
-            return
-        if error is not None:
-            future.set_exception(error)
-        else:
-            future.set_result(result)
-
-    def run() -> None:
-        try:
-            models = config.get_models_list()
-        except Exception as e:
-            loop.call_soon_threadsafe(settle, None, e)
-        else:
-            loop.call_soon_threadsafe(settle, models)
-
-    threading.Thread(target=run, name="readyz-models", daemon=True).start()
-    return future
-
-
 @app.get("/readyz")
-async def readiness_check():
-    global _models_probe
-    loop = asyncio.get_running_loop()
-    # At most one read in flight: probes arriving meanwhile wait on the same one.
-    if _models_probe is None or _models_probe.done() or _models_probe.get_loop() is not loop:
-        _models_probe = _start_models_probe(loop)
+def readiness_check():
     try:
-        models_list = await asyncio.wait_for(
-            asyncio.shield(_models_probe), timeout=_READINESS_TIMEOUT_SECONDS
-        )
+        models_list = config.get_models_list()
         return {"status": "ready", "models": models_list}
     except Exception as e:
-        logging.error(f"Readiness check failed: {e!r}", exc_info=True)
+        logging.error(f"Readiness check failed: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail="Service not ready")
 
 

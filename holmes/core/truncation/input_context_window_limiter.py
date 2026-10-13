@@ -221,7 +221,8 @@ def compact_if_necessary(
             )
         )
         error = CompactionInsufficientError(failure_msg, events=events, compaction_usage=compaction_usage)
-        attach_unrecorded_usage(error, compaction_usage)
+        if compaction_usage is not None:
+            attach_unrecorded_usage(error, compaction_usage)
         raise error
 
     elapsed_ms = (time.monotonic() - t0) * 1000

@@ -1,15 +1,12 @@
 from unittest.mock import MagicMock, patch
 
 import json
-import threading
-import time
 import litellm
 import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 
 from holmes.core.tool_calling_llm import RelayRefusal
-import server
 from server import app, extract_passthrough_headers
 
 
@@ -690,56 +687,3 @@ class TestExtractPassthroughHeaders:
         assert "authorization" in result["headers"]
         assert "cookie" in result["headers"]
         assert "x-tenant-id" in result["headers"]
-
-
-def test_readyz_reads_models_on_a_daemon_thread(client, monkeypatch):
-    """Building the model registry can do network I/O: it must not run on the
-    event loop or the chat threadpool."""
-    monkeypatch.setattr(server, "_models_probe", None)
-    threads = []
-
-    def models():
-        threads.append(threading.current_thread())
-        return ["m"]
-
-    with patch("holmes.config.Config.get_models_list", side_effect=models):
-        response = client.get("/readyz")
-
-    assert response.status_code == 200
-    assert response.json()["models"] == ["m"]
-    assert threads[0].name == "readyz-models" and threads[0].daemon
-
-
-def test_readyz_is_not_ready_while_models_load_and_does_not_pile_up(monkeypatch):
-    monkeypatch.setattr(server, "_models_probe", None)
-    monkeypatch.setattr(server, "_READINESS_TIMEOUT_SECONDS", 0.2)
-    release = threading.Event()
-    calls = []
-
-    def models():
-        calls.append(1)
-        release.wait(5)
-        return ["m"]
-
-    # One client context keeps one event loop across requests, as uvicorn does.
-    with patch("holmes.config.Config.get_models_list", side_effect=models), TestClient(app) as client:
-        assert client.get("/readyz").status_code == 503
-        assert client.get("/readyz").status_code == 503
-        assert len(calls) == 1  # the second probe waited on the same read
-        release.set()
-        for _ in range(50):
-            response = client.get("/readyz")
-            if response.status_code == 200:
-                break
-            time.sleep(0.05)
-    assert response.status_code == 200
-
-
-def test_readyz_reports_a_failed_read_and_retries(client, monkeypatch):
-    monkeypatch.setattr(server, "_models_probe", None)
-    with patch(
-        "holmes.config.Config.get_models_list",
-        side_effect=[RuntimeError("supabase down"), ["m"]],
-    ):
-        assert client.get("/readyz").status_code == 503
-        assert client.get("/readyz").status_code == 200
