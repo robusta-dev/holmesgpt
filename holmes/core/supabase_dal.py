@@ -1244,6 +1244,7 @@ class SupabaseDal:
                 "prompt_tokens": getattr(stats, "prompt_tokens", 0) or 0,
                 "completion_tokens": getattr(stats, "completion_tokens", 0) or 0,
                 "cached_tokens": getattr(stats, "cached_tokens", None),
+                "cache_creation_tokens": getattr(stats, "cache_creation_tokens", None),
                 "reasoning_tokens": getattr(stats, "reasoning_tokens", 0) or 0,
                 "total_tokens": getattr(stats, "total_tokens", 0) or 0,
                 "total_cost": float(getattr(stats, "total_cost", 0.0) or 0.0),

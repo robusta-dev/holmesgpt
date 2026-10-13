@@ -48,6 +48,7 @@ def _stats() -> RequestStats:
         prompt_tokens=1000,
         completion_tokens=234,
         cached_tokens=50,
+        cache_creation_tokens=200,
         reasoning_tokens=12,
         max_completion_tokens_per_call=234,
         max_prompt_tokens_per_call=1000,
@@ -131,6 +132,7 @@ class TestRecordUsageEvent:
         assert payload["prompt_tokens"] == 1000
         assert payload["completion_tokens"] == 234
         assert payload["cached_tokens"] == 50
+        assert payload["cache_creation_tokens"] == 200
         assert payload["reasoning_tokens"] == 12
         assert payload["total_tokens"] == 1234
         assert payload["total_cost"] == pytest.approx(0.0123)
@@ -187,6 +189,37 @@ class TestRecordUsageEvent:
         payload = mock_dal.client.table.return_value.insert.call_args.args[0]
         assert payload["cached_tokens"] is None
 
+    def test_cache_creation_tokens_accumulated_across_iterations(self, mock_dal):
+        # Cache writes are summed per-iteration by RequestStats.__iadd__; the
+        # request total (not the last call's value) must reach the insert.
+        stats = RequestStats()
+        stats += RequestStats(
+            total_tokens=1100, prompt_tokens=1000, completion_tokens=100,
+            cached_tokens=0, cache_creation_tokens=900,
+        )
+        stats += RequestStats(
+            total_tokens=1300, prompt_tokens=1200, completion_tokens=100,
+            cached_tokens=900, cache_creation_tokens=250,
+        )
+        mock_dal.record_usage_event(_make_state(stats=stats))
+        payload = mock_dal.client.table.return_value.insert.call_args.args[0]
+        assert payload["cache_creation_tokens"] == 1150
+        assert payload["cached_tokens"] == 900
+
+    def test_handles_stats_with_none_cache_creation_tokens(self, mock_dal):
+        # Providers that don't report cache writes (non-Anthropic, or no
+        # caching) must land as NULL, not 0 — NULL means "not reported".
+        stats = RequestStats(
+            total_cost=0.001,
+            total_tokens=100,
+            prompt_tokens=80,
+            completion_tokens=20,
+            cached_tokens=10,
+        )
+        mock_dal.record_usage_event(_make_state(stats=stats))
+        payload = mock_dal.client.table.return_value.insert.call_args.args[0]
+        assert payload["cache_creation_tokens"] is None
+
     def test_handles_state_with_no_stats(self, mock_dal):
         # state.stats is None when the request never reached a terminal
         # event with cost data (aborted / pre-LLM error). The DAL must
@@ -199,6 +232,7 @@ class TestRecordUsageEvent:
         assert payload["total_tokens"] == 0
         assert payload["total_cost"] == 0.0
         assert payload["cached_tokens"] is None
+        assert payload["cache_creation_tokens"] is None
 
 
 # Feedback writes are no longer Holmes' responsibility — the FE calls the
