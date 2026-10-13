@@ -278,7 +278,7 @@ All policy lives in the MCP server; Holmes only maps tool name → approval.
 | **Locked-down mode** | Set `allowArbitraryKubectlCommands: false` to disable `run_kubectl_command` entirely |
 | **Scoped RBAC** | Least-privilege ClusterRole — no `cluster-admin`, no `secrets` |
 | **NetworkPolicy** | Ingress-only, locked to Holmes pods |
-| **Bearer-token auth** | Every HTTP request needs a token shared by Holmes and the server — see [Authentication token](#authentication-token) |
+| **Bearer-token auth** | With `auth.enabled: true` (the default), every HTTP request needs a token shared by Holmes and the server — see [Authentication token](#authentication-token) |
 | **Command timeout** | Commands are killed after a configurable timeout (default: 60s) |
 
 ### Authentication token

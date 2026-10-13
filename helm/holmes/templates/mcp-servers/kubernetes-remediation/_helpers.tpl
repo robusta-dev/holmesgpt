@@ -21,7 +21,11 @@ so it must not roll them a second time. With existingSecret there is no hook,
 so it goes on the pod template (next to the Secret's checksum) to roll them.
 */}}
 {{- define "holmes.kubernetesRemediationMcp.authRotation" -}}
-{{- .Values.mcpAddons.kubernetesRemediation.auth.rotation | default 0 | int64 | toString -}}
+{{- $rotation := .Values.mcpAddons.kubernetesRemediation.auth.rotation | default 0 -}}
+{{- if and (kindIs "string" $rotation) (not (regexMatch "^[0-9]+$" $rotation)) -}}
+{{- fail (printf "mcpAddons.kubernetesRemediation.auth.rotation must be a non-negative integer, got %q" $rotation) -}}
+{{- end -}}
+{{- $rotation | int64 | toString -}}
 {{- end -}}
 
 {{- define "holmes.kubernetesRemediationMcp.deploymentAnnotations" -}}

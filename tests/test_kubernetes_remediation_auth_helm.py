@@ -292,6 +292,11 @@ def test_rotation_renders_the_same_from_a_values_file_and_set(tmp_path):
     assert f'{ROTATION_KEY}: "20261008"' in from_file
 
 
+def test_rotation_rejects_non_integer_values():
+    with pytest.raises(subprocess.CalledProcessError):
+        render_raw("mcpAddons.kubernetesRemediation.auth.rotation=v2")
+
+
 def test_rotation_annotation_keeps_common_annotations():
     docs = render("commonAnnotations.owner=platform")
     for name in (HOLMES_DEPLOYMENT, MCP_DEPLOYMENT):
