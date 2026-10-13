@@ -66,7 +66,7 @@ cli: |
   **Environment Variables:**
 
   ```bash
-  export GRAFANA_URL="http://grafana.monitoring.svc.cluster.local:3000"
+  export GRAFANA_URL="https://grafana.example.com"  # Grafana's URL as your machine reaches it
   export GRAFANA_TOKEN="your-grafana-api-token"
   ```
 

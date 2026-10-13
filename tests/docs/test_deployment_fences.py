@@ -140,7 +140,6 @@ def build_page(tmp_path, text):
     [
         "``` {.yaml-toolset-config}",
         "```YAML-toolset-config",
-        "```yaml-helm-values {secret-qualifier=bearer}",
         "```Robusta-Region",
         "```robusta-region {.yaml}",
         "```yaml-toolset-confg",
@@ -148,7 +147,7 @@ def build_page(tmp_path, text):
         "~~~yaml",
         "```robusta-region {lang=python}",
     ],
-    ids=["brace", "case", "helm-values-qualifier", "region-case", "region-attribute", "name", "language-case", "tilde", "region-language"],
+    ids=["brace", "case", "region-case", "region-attribute", "name", "language-case", "tilde", "region-language"],
 )
 def test_a_fence_opening_in_a_form_no_page_writes_fails_the_build(tmp_path, monkeypatch, opening):
     monkeypatch.chdir(REPO)

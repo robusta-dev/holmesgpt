@@ -46,6 +46,8 @@ kubectl create secret generic grafana-mcp-secret \
 
 **Step 4: Configure Holmes**
 
+The Holmes CLI on your machine cannot resolve the server's cluster address. Run `kubectl port-forward -n <namespace> svc/grafana-mcp 8000:8000`, and use `http://localhost:8000/mcp` as the `url`.
+
 ```yaml-toolset-config
 mcp_servers:
   grafana:
@@ -82,16 +84,17 @@ mcp_servers:
 
 ### Self-Hosted MCP — Grafana API Key (Deprecated)
 
-For Grafana 8.x to 10.x, the versions that support API keys. Where your Grafana supports service accounts, use the [service account token setup](#self-hosted-mcp-service-account-token) above instead. API keys were deprecated in Grafana 11 and removed in later versions. Not all Grafana versions support API keys — see the compatibility table below.
+For Grafana 8.x to 11.5, the versions that support API keys. Where your Grafana supports service accounts, use the [service account token setup](#self-hosted-mcp-service-account-token) above instead. Grafana 11.6 migrates existing API keys to service account tokens at startup, and the migrated tokens keep working. Grafana 12.1 removed API keys.
 
 | Grafana Version | API Key Support |
 |----------------|-----------------|
-| 8.x - 10.x | Supported |
-| 11+ | Deprecated / removed — use service account tokens instead |
+| 8.x - 11.5 | Supported |
+| 11.6 - 12.0 | Existing keys migrated to service account tokens at startup — use service account tokens |
+| 12.1+ | Removed — use service account tokens |
 
 **Step 1: Create an API key**
 
-1. In Grafana, go to **Configuration** → **API Keys**
+1. In Grafana, open the **API Keys** page at `<your-grafana-url>/org/apikeys`
 2. Click **Add API key**, set the role to **Viewer**, and click **Add**
 3. Copy the token (starts with `eyJ...`)
 
@@ -119,6 +122,8 @@ kubectl create secret generic grafana-mcp-secret \
 ```
 
 **Step 5: Configure Holmes**
+
+The Holmes CLI on your machine cannot resolve the server's cluster address. Run `kubectl port-forward -n <namespace> svc/grafana-mcp 8000:8000`, and use `http://localhost:8000/mcp` as the `url`.
 
 ```yaml-toolset-config
 mcp_servers:

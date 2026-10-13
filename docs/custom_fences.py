@@ -25,6 +25,7 @@ name, and closed by the first line of three backticks:
     ```yaml-toolset-config {secret-qualifier=<name>}
     ```yaml-helm-values
     ```yaml-helm-values {reuse}
+    ```yaml-helm-values {secret-qualifier=<name>}
     ```multi-instance
 
 A robusta-region fence opens at the start of a line or indented by four spaces, as
@@ -265,12 +266,11 @@ CODE_LANGUAGES = (
     "yaml",
 )
 CODE_FENCE_RE = re.compile(rf"^ *```(?:{'|'.join(CODE_LANGUAGES)})?$")
-# ... and the custom fences, in the forms pages write. Only yaml-toolset-config fences take a
-# secret qualifier.
+# ... and the custom fences, in the forms pages write.
 SUPPORTED_OPENING_RE = re.compile(
     rf"^```(?P<multi>{MULTI_INSTANCE_FENCE})$"
     rf"|^```(?P<deployment>{TOOLSET_CONFIG_FENCE}|{HELM_VALUES_FENCE})(?: \{{(?P<option>reuse"
-    rf"|(?<={TOOLSET_CONFIG_FENCE} \{{)secret-qualifier=(?P<qualifier>[a-z0-9]+(?:-[a-z0-9]+)*))\}})?$"
+    rf"|secret-qualifier=(?P<qualifier>[a-z0-9]+(?:-[a-z0-9]+)*))\}})?$"
     rf"|^(?:    )?```(?P<region>{ROBUSTA_REGION_FENCE})(?: \{{lang=(?:yaml|bash|json)\}})?$"
 )
 CLOSING_LINE = "```"
@@ -304,10 +304,10 @@ SERVICE_ACCOUNT_LINE = (
     "`createServiceAccount: false`, as the namespace's `default` service account)"
 )
 
-HOLMES_VALUES_CAPTION = (
-    "When using the **standalone Holmes Helm Chart**, update your `values.yaml`:"
-)
-ROBUSTA_VALUES_CAPTION = "When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:"
+# A key set twice in one values file keeps only its last copy, and a list in the
+# shown values replaces the existing list, so both captions say to merge.
+HOLMES_VALUES_CAPTION = "When using the **standalone Holmes Helm Chart**, merge this into your `values.yaml`, appending list entries (such as `additionalEnvVars`) to the lists already there:"
+ROBUSTA_VALUES_CAPTION = "When using the **Robusta Helm Chart** (which includes HolmesGPT), merge the keys under `holmes:` into the `holmes:` key of your `generated_values.yaml` (add one if it has none), appending list entries (such as `additionalEnvVars`) to the lists already there:"
 CLI_CONFIG_CAPTION = "Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:"
 SECRET_CAPTION = "Create a Kubernetes secret in the namespace Holmes runs in:"
 SECRETS_CAPTION = "Create the Kubernetes secrets in the namespace Holmes runs in:"

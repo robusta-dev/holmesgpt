@@ -78,6 +78,11 @@ When you raise `TOOL_MEMORY_LIMIT_MB`, raise the pod's `resources.limits.memory`
 additionalEnvVars:
   - name: TOOL_MEMORY_LIMIT_MB
     value: "2000"
+
+# Raised with the tool limit, from the chart's default of 2048Mi
+resources:
+  limits:
+    memory: 4096Mi
 ---
 cli: |
   ```bash
