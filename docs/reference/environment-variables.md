@@ -81,16 +81,6 @@ Some providers' SDKs (OpenAI, Azure) also retry a rate limit once or twice withi
 export LLM_RATE_LIMIT_MAX_WAIT_SECONDS=300
 ```
 
-### LLM_MAX_CONCURRENT_CALLS_PER_MODEL
-**Default:** `0` (no limit)
-
-Maximum number of LLM calls in flight at once per model in one HolmesGPT process. Extra calls wait for a free slot, with no time limit. A call backing off from a rate limit does not hold a slot, and a streamed call holds one only until its stream is opened. Calls to the same model name on different `api_base` URLs have separate slots. Use this to keep many concurrent investigations from bursting one model deployment past its rate limit.
-
-**Example:**
-```bash
-export LLM_MAX_CONCURRENT_CALLS_PER_MODEL=8
-```
-
 ## Server Security
 
 ### HOLMES_API_KEY

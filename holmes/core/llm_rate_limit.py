@@ -18,7 +18,6 @@ from typing import (
     Iterator,
     Mapping,
     Optional,
-    Tuple,
     TypeVar,
 )
 
@@ -47,9 +46,6 @@ _QUOTA_EXHAUSTED_MARKERS = (
     "account limit has been reached",
     "insufficient_quota",
 )
-
-_model_semaphores: Dict[Tuple[str, Optional[str], int], threading.BoundedSemaphore] = {}
-_model_semaphores_lock = threading.Lock()
 
 
 class LLMRetryCancelled(Exception):
@@ -212,8 +208,8 @@ def _wait(retry_state: RetryCallState) -> float:
 
 
 def _stop(max_wait_seconds: float) -> Callable[[RetryCallState], bool]:
-    # Only time spent backing off counts; request time and waiting for a
-    # concurrency slot do not. Written so that a NaN budget stops.
+    # Only time spent backing off counts, not request time. Written so that a
+    # NaN budget stops.
     def stop(retry_state: RetryCallState) -> bool:
         upcoming = retry_state.upcoming_sleep or 0.0
         within_budget = retry_state.idle_for + upcoming <= max_wait_seconds
@@ -255,30 +251,6 @@ def _log_retry(model: str) -> Callable[[RetryCallState], None]:
         )
 
     return log
-
-
-@contextlib.contextmanager
-def _model_slot(
-    model: str, api_base: Optional[str], cancel_event: Optional[threading.Event]
-) -> Iterator[None]:
-    cap = env_vars.LLM_MAX_CONCURRENT_CALLS_PER_MODEL
-    if cap <= 0:
-        yield
-        return
-    # api_base tells apart deployments of one model name (e.g. two Azure resources).
-    key = (model, api_base, cap)
-    with _model_semaphores_lock:
-        semaphore = _model_semaphores.get(key)
-        if semaphore is None:
-            semaphore = threading.BoundedSemaphore(cap)
-            _model_semaphores[key] = semaphore
-    while not semaphore.acquire(timeout=1):
-        if cancel_event is not None and cancel_event.is_set():
-            raise LLMRetryCancelled()
-    try:
-        yield
-    finally:
-        semaphore.release()
 
 
 def _annotate(target: Any, retries: int, wait_s: float) -> None:
@@ -323,14 +295,8 @@ def retry_counts(obj: Any) -> Dict[str, int]:
     return {key: 0 for key in keys}
 
 
-def call_with_rate_limit_retry(
-    fn: Callable[[], T], model: str, api_base: Optional[str] = None
-) -> T:
-    """Run ``fn``, retrying rate-limit / overloaded / 503 errors within the wait budget.
-
-    The per-model concurrency slot is held only while ``fn`` runs, not while
-    backing off. For a streamed call that is until ``completion()`` returns.
-    """
+def call_with_rate_limit_retry(fn: Callable[[], T], model: str) -> T:
+    """Run ``fn``, retrying rate-limit / overloaded / 503 errors within the wait budget."""
     scope = _retry_scope.get()
     max_wait = (
         scope.max_wait_seconds
@@ -351,7 +317,7 @@ def call_with_rate_limit_retry(
     attempts = 0
     try:
         for attempt in retrying:
-            with attempt, _model_slot(model, api_base, scope.cancel_event):
+            with attempt:
                 attempts += 1
                 result = fn()
     except Exception as e:
