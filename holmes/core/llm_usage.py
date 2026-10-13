@@ -168,6 +168,13 @@ def unrecorded_usage(error: BaseException) -> Optional[RequestStats]:
     return _find_on_chain(error, _UNRECORDED_USAGE)
 
 
+def failure_usage(error: BaseException) -> RequestStats:
+    """What a failed step spent that its caller has not counted: the usage it
+    attached, or else the failing LLM call's retry counters."""
+    pending = unrecorded_usage(error)
+    return pending if pending is not None else RequestStats(**retry_counts(error))
+
+
 def attach_request_usage(error: BaseException, usage: RequestStats) -> None:
     """The whole request's usage up to the failure. The usage recorder only
     sees the raised error, so this is how it learns what was spent."""

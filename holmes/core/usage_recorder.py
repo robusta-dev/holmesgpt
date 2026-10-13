@@ -19,12 +19,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
-from holmes.core.llm_rate_limit import (
-    error_status_code,
-    is_rate_limit_error,
-    retry_counts,
-)
-from holmes.core.llm_usage import RequestStats, request_usage, unrecorded_usage
+from holmes.core.llm_rate_limit import error_status_code, is_rate_limit_error
+from holmes.core.llm_usage import RequestStats, failure_usage, request_usage
 from holmes.utils.stream import StreamEvents, StreamMessage
 
 if TYPE_CHECKING:
@@ -456,8 +452,7 @@ class UsageRecorderState:
             return
         if self.stats is None:
             self.stats = RequestStats()
-        pending = unrecorded_usage(exc)
-        self.stats += pending if pending is not None else RequestStats(**retry_counts(exc))
+        self.stats += failure_usage(exc)
 
     def _fire(self) -> None:
         """Submit the dal write to the shared recorder thread pool.

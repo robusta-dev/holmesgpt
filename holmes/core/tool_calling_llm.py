@@ -1,5 +1,4 @@
 import concurrent.futures
-import functools
 import json
 from json import tool
 import logging
@@ -37,16 +36,12 @@ from holmes.common.env_vars import (
     load_bool,
 )
 from holmes.core.llm import LLM
-from holmes.core.llm_rate_limit import (
-    LLMRetryCancelled,
-    rate_limit_retry_scope,
-    retry_counts,
-)
+from holmes.core.llm_rate_limit import LLMRetryCancelled, rate_limit_retry_scope
 from holmes.core.llm_usage import (
     RequestStats,
     attach_request_usage,
+    failure_usage,
     request_usage,
-    unrecorded_usage,
 )
 from holmes.core.models import (
     FrontendToolResult,
@@ -145,30 +140,6 @@ def _extract_text_from_content(content: Any) -> str:
                 return item.get("text", "")
 
     return ""
-
-
-def _attach_usage_on_error(
-    call_stream: Callable[..., Generator[StreamMessage, None, None]],
-) -> Callable[..., Generator[StreamMessage, None, None]]:
-    """Wrap ``call_stream`` so an error escaping it carries the request's usage
-    so far: its ``stats`` dies with the raise, and the usage recorder only
-    sees the error."""
-
-    @functools.wraps(call_stream)
-    def wrapper(
-        self: "ToolCallingLLM", *args: Any, **kwargs: Any
-    ) -> Generator[StreamMessage, None, None]:
-        stats = RequestStats()
-        try:
-            yield from call_stream(self, *args, _stats=stats, **kwargs)
-        except Exception as e:
-            pending = unrecorded_usage(e)
-            total = stats.model_copy()
-            total += pending if pending is not None else RequestStats(**retry_counts(e))
-            attach_request_usage(e, total)
-            raise
-
-    return wrapper
 
 
 def _with_prior_usage(
@@ -1215,7 +1186,6 @@ class ToolCallingLLM:
         metadata["costs"] = stats.model_dump()
         return build_stream_event_token_count(metadata=metadata)
 
-    @_attach_usage_on_error
     def call_stream(
         self,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
@@ -1228,7 +1198,6 @@ class ToolCallingLLM:
         cancel_event: Optional[threading.Event] = None,
         tool_number_offset: int = 0,
         iteration_offset: int = 0,
-        _stats: Optional[RequestStats] = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
@@ -1240,6 +1209,43 @@ class ToolCallingLLM:
         stream with an APPROVAL_REQUIRED event containing pending_frontend_tool_calls.
         The client executes the tool and resumes by sending frontend_tool_results.
         """
+        stats = RequestStats()
+        try:
+            yield from self._call_stream(
+                stats,
+                response_format=response_format,
+                msgs=msgs,
+                enable_tool_approval=enable_tool_approval,
+                tool_decisions=tool_decisions,
+                frontend_tool_results=frontend_tool_results,
+                request_context=request_context,
+                trace_span=trace_span,
+                cancel_event=cancel_event,
+                tool_number_offset=tool_number_offset,
+                iteration_offset=iteration_offset,
+            )
+        except Exception as e:
+            # `stats` dies with the raise and the usage recorder only sees the
+            # error, so the request's usage so far travels on it.
+            total = stats.model_copy()
+            total += failure_usage(e)
+            attach_request_usage(e, total)
+            raise
+
+    def _call_stream(
+        self,
+        stats: RequestStats,
+        response_format: Optional[Union[dict, Type[BaseModel]]] = None,
+        msgs: Optional[list[dict]] = None,
+        enable_tool_approval: bool = False,
+        tool_decisions: List[ToolApprovalDecision] | None = None,
+        frontend_tool_results: Optional[List[FrontendToolResult]] = None,
+        request_context: Optional[Dict[str, Any]] = None,
+        trace_span: Any = None,
+        cancel_event: Optional[threading.Event] = None,
+        tool_number_offset: int = 0,
+        iteration_offset: int = 0,
+    ):
         if trace_span is None:
             trace_span = DummySpan()
 
@@ -1283,7 +1289,6 @@ class ToolCallingLLM:
         tools: Optional[list] = self._get_tools()
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {}
-        stats = _stats if _stats is not None else RequestStats()
         if iteration_offset < 0:
             raise ValueError("iteration_offset must be non-negative")
         i = iteration_offset
