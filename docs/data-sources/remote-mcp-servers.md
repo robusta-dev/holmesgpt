@@ -455,7 +455,7 @@ mcp_servers:
       - incident_update
 ```
 
-`approval_required_tools` applies on top of `allowed_tools`: a tool must be loaded before it can require approval. If you set `health_check_tool`, include it in `allowed_tools`, otherwise the health check fails because the tool is not loaded.
+`approval_required_tools` applies on top of `allowed_tools`: a tool must be loaded before it can require approval. The auth health check still picks from every tool the server lists, so `health_check_tool`, or an auto-detected identity tool such as `get_me`, does not need to be in `allowed_tools` and stays hidden from the LLM if it is not.
 
 ## Configuration Format Migration
 

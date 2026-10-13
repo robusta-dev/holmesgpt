@@ -475,7 +475,7 @@ class RemoteMCPTool(Tool):
                     self.toolset,
                     is_remote=tool.name.startswith(REMOTE_TOOL_NAME_PREFIX),
                 )
-                for tool in tools_result.tools
+                for tool in self.toolset._filter_allowed_tools(tools_result.tools)
             ]
 
             if real_tools:
@@ -972,6 +972,10 @@ class RemoteMCPToolset(Toolset):
         ),
     )
     _mcp_config: Optional[Union[MCPConfig, StdioMCPConfig]] = None
+    # Every tool name the server listed, before allowed_tools filtering. The auth
+    # health check picks from these, so filtering out an identity tool such as
+    # get_me does not silently skip it.
+    _listed_tool_names: Optional[List[str]] = None
 
     @property
     def is_oauth_enabled(self) -> bool:
@@ -1003,6 +1007,7 @@ class RemoteMCPToolset(Toolset):
 
     def _filter_allowed_tools(self, tools: List[MCP_Tool]) -> List[MCP_Tool]:
         """Keep only the tools matching `allowed_tools`; all of them when it is empty."""
+        self._listed_tool_names = [tool.name for tool in tools]
         if not self.allowed_tools:
             return list(tools)
         kept = [
@@ -1188,7 +1193,7 @@ class RemoteMCPToolset(Toolset):
         Returns the name of the first allowlisted tool the server exposes, or
         None if it exposes none (in which case the auth health check is skipped).
         """
-        tool_names = {(t.mcp_tool_name or t.name) for t in self.tools}
+        tool_names = set(self._health_check_tool_names())
         for candidate in DEFAULT_HEALTH_CHECK_TOOLS:
             if candidate in tool_names:
                 logging.info(
@@ -1209,6 +1214,13 @@ class RemoteMCPToolset(Toolset):
         )
         return None
 
+    def _health_check_tool_names(self) -> List[str]:
+        """Raw names of the tools the health check may call: everything the server
+        listed, including tools `allowed_tools` keeps away from the LLM."""
+        if self._listed_tool_names is not None:
+            return self._listed_tool_names
+        return [t.mcp_tool_name or t.name for t in self.tools]
+
     def _run_health_check_tool(self, tool_name: str) -> Tuple[bool, str]:
         """Invoke a tool to verify authentication actually works.
 
@@ -1216,9 +1228,8 @@ class RemoteMCPToolset(Toolset):
         GitHub token). This method calls a specified read-only tool with empty
         arguments to verify the connection is fully functional.
         """
-        matching_tools = [t for t in self.tools if (t.mcp_tool_name or t.name) == tool_name]
-        if not matching_tools:
-            available = [t.name for t in self.tools]
+        available = self._health_check_tool_names()
+        if tool_name not in available:
             return (
                 False,
                 f"MCP server {self.name}: health_check_tool '{tool_name}' not found. "

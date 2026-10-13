@@ -6,6 +6,7 @@ import logging
 import shutil
 import subprocess
 import sys
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -593,6 +594,112 @@ class TestMCPGeneral:
 
         assert toolsets[0].allowed_tools == ["incident_*"]
         assert toolsets[0].approval_required_tools == ["incident_update"]
+
+    @staticmethod
+    def _github_like_server():
+        async def mock_get_server_tools():
+            schema = {"type": "object", "properties": {}}
+            return ListToolsResult(
+                tools=[
+                    Tool(name="list_repos", inputSchema=schema),
+                    Tool(name="get_me", inputSchema=schema),
+                ]
+            )
+
+        return mock_get_server_tools
+
+    def test_auto_health_check_runs_on_tool_excluded_by_allowed_tools(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        """Filtering get_me out of the LLM's tools must not skip the auth check."""
+        toolset = RemoteMCPToolset(
+            name="github",
+            config={"url": "http://localhost:8000"},
+            allowed_tools=["list_repos"],
+        )
+        monkeypatch.setattr(toolset, "_get_server_tools", self._github_like_server())
+        called_with = {}
+
+        async def mock_call_health_check(tool_name):
+            called_with["tool_name"] = tool_name
+            return CallToolResult(
+                isError=True,
+                content=[TextContent(type="text", text="401 Unauthorized")],
+            )
+
+        monkeypatch.setattr(
+            toolset, "_call_health_check_tool_async", mock_call_health_check
+        )
+
+        ok, msg = toolset.prerequisites_callable(config=toolset.config)
+
+        assert ok is False
+        assert called_with["tool_name"] == "get_me"
+        assert "401 Unauthorized" in msg
+        assert [t.name for t in toolset.tools] == ["list_repos"]
+
+    def test_configured_health_check_tool_need_not_be_allowed(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        toolset = RemoteMCPToolset(
+            name="github",
+            config={"url": "http://localhost:8000", "health_check_tool": "get_me"},
+            allowed_tools=["list_repos"],
+        )
+        monkeypatch.setattr(toolset, "_get_server_tools", self._github_like_server())
+
+        async def mock_call_health_check(tool_name):
+            return CallToolResult(
+                isError=False, content=[TextContent(type="text", text="ok")]
+            )
+
+        monkeypatch.setattr(
+            toolset, "_call_health_check_tool_async", mock_call_health_check
+        )
+
+        ok, msg = toolset.prerequisites_callable(config=toolset.config)
+
+        assert ok is True, msg
+        assert [t.name for t in toolset.tools] == ["list_repos"]
+
+    def test_oauth_connect_applies_allowed_tools(
+        self, monkeypatch, suppress_migration_warnings
+    ):
+        toolset = RemoteMCPToolset(
+            name="incident_io",
+            config={"url": "http://localhost:8000/mcp", "mode": "streamable-http"},
+            allowed_tools=["incident_*"],
+        )
+        toolset._mcp_config = MCPConfig(
+            url="http://localhost:8000/mcp", mode=MCPMode.STREAMABLE_HTTP
+        )
+        server = self._three_tool_server()
+
+        async def mock_get_server_tools_with_context(request_context):
+            return await server()
+
+        monkeypatch.setattr(
+            toolset,
+            "_get_server_tools_with_context",
+            mock_get_server_tools_with_context,
+        )
+        connect = RemoteMCPTool.create(
+            Tool(
+                name=toolset.connect_tool_name,
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            toolset,
+        )
+
+        result = connect._invoke_oauth_connect(
+            {}, SimpleNamespace(request_context={})
+        )
+
+        assert result.status == StructuredToolResultStatus.SUCCESS, result.error
+        assert sorted(t.name for t in result.oauth_tools) == [
+            "incident_list",
+            "incident_update",
+        ]
 
     def test_toolset_returns_configured_headers(
         self, monkeypatch, suppress_migration_warnings
