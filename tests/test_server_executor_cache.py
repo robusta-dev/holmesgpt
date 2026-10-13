@@ -23,13 +23,7 @@ from holmes.core.conversations_worker.processor import ConversationProcessor
 from holmes.core.conversations_worker.tool_call_worker import ToolCallWorker
 from holmes.core.models import ChatRequest
 from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
-from tests.test_status_refresh_interval import (  # noqa: F401 (clock is a fixture)
-    WORKING_SERVER,
-    _mcp_config,
-    _refresh,
-    _sessions_opened,
-    clock,
-)
+from tests.test_status_refresh_interval import WORKING_SERVER, _mcp_config, _refresh, _sessions_opened
 
 
 class _StopRequest(Exception):
@@ -43,7 +37,7 @@ def _disabled_dal() -> MagicMock:
 
 
 @pytest.fixture
-def server_config(tmp_path, monkeypatch):
+def built_server(tmp_path, monkeypatch):
     """The server module running on a Config whose executor is already built."""
     config, sessions = _mcp_config(tmp_path, WORKING_SERVER, status_refresh_interval_seconds=3600)
     dal = _disabled_dal()
@@ -115,8 +109,8 @@ SERVER_CALLERS = {
 
 
 @pytest.mark.parametrize("call", SERVER_CALLERS.values(), ids=SERVER_CALLERS.keys())
-def test_server_callers_reuse_the_cached_executor(server_config, clock, monkeypatch, call):
-    config, sessions = server_config
+def test_server_callers_reuse_the_cached_executor(built_server, clock, monkeypatch, call):
+    config, sessions = built_server
     executor = config.cached_tool_executor
     executor_requests = []
     create_tool_executor = Config.create_tool_executor
@@ -138,9 +132,9 @@ def test_server_callers_reuse_the_cached_executor(server_config, clock, monkeypa
     assert _sessions_opened(sessions) == 1
 
 
-def test_api_info_reports_the_toolsets_the_chat_loads(server_config):
+def test_api_info_reports_the_toolsets_the_chat_loads(built_server):
     """ROB-1501: /api/info describes the executor the server's chat uses."""
-    config, _ = server_config
+    config, _ = built_server
     chat_toolsets = config.cached_tool_executor.toolsets
 
     info = TestClient(server.app).get("/api/info?detail=full").json()
@@ -151,8 +145,8 @@ def test_api_info_reports_the_toolsets_the_chat_loads(server_config):
     assert info["toolsets_summary"]["enabled"] == len([t for t in chat_toolsets if t.status.value == "enabled"])
 
 
-def test_admin_reload_builds_the_executor_the_refresh_reuses(server_config, clock, monkeypatch):
-    config, sessions = server_config
+def test_admin_reload_builds_the_executor_the_refresh_reuses(built_server, clock, monkeypatch):
+    config, sessions = built_server
     monkeypatch.setattr(admin_api, "_CONFIG", config)
     monkeypatch.setattr(admin_api, "_DAL", _disabled_dal())
 
@@ -206,13 +200,7 @@ class _CountedSleep(_Delegating):
             raise _StopLoop
 
 
-def test_refresh_loop_builds_the_executor_with_one_live_check(tmp_path, monkeypatch):
-    """With nothing built yet, the loop's first cycle builds the executor with
-    live checks: one session per server, nothing written to disk, and the
-    server's refresh interval starts, so the next cycle checks nothing."""
-    config, sessions = _mcp_config(tmp_path, WORKING_SERVER, status_refresh_interval_seconds=3600)
-    status_file = tmp_path / "toolsets_status.json"
-    config.toolset_manager.toolset_status_location = status_file
+def _two_refresh_loop_cycles(config: Config, monkeypatch) -> None:
     monkeypatch.setattr(server, "config", config)
     monkeypatch.setattr(server, "dal", _disabled_dal())
     monkeypatch.setattr(server, "threading", _InlineThreading(server.threading))
@@ -220,6 +208,28 @@ def test_refresh_loop_builds_the_executor_with_one_live_check(tmp_path, monkeypa
 
     with pytest.raises(_StopLoop):
         server._toolset_status_refresh_loop()
+
+
+# Callers that can be the first to build the server's executor: the refresh
+# loop, and the tool-call worker when the startup toolset sync failed or an
+# admin reload just cleared the cache.
+FIRST_BUILDERS = {
+    "refresh_loop": _two_refresh_loop_cycles,
+    "tool_call_worker": _tool_call_worker,
+}
+
+
+@pytest.mark.parametrize("build", FIRST_BUILDERS.values(), ids=FIRST_BUILDERS.keys())
+def test_first_build_runs_one_live_check(tmp_path, monkeypatch, build):
+    """With nothing built yet, the executor is built with live checks: one
+    session per server and nothing written to disk, as the server may run on
+    a read-only filesystem. The server's refresh interval starts, so the
+    refresh loop's next cycle checks nothing."""
+    config, sessions = _mcp_config(tmp_path, WORKING_SERVER, status_refresh_interval_seconds=3600)
+    status_file = tmp_path / "toolsets_status.json"
+    config.toolset_manager.toolset_status_location = status_file
+
+    build(config, monkeypatch)
 
     assert config.cached_tool_executor is not None
     assert _sessions_opened(sessions) == 1

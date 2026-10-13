@@ -53,7 +53,7 @@ from holmes.common.env_vars import (
     TOOLSET_STATUS_REFRESH_INTERVAL_SECONDS,
     TRACE_TOKEN_USAGE,
 )
-from holmes.config import DEFAULT_CONFIG_LOCATION, SERVER_TOOLSET_TAGS, Config
+from holmes.config import DEFAULT_CONFIG_LOCATION, Config
 from holmes.core.llm import MODEL_LIST_FILE_LOCATION
 from holmes.core.conversation_links import resolve_conversation_link
 from holmes.core.conversations import (
@@ -68,7 +68,7 @@ from holmes.core.models import (
 )
 from holmes.core.prompt import PromptComponent
 from holmes.core.tool_calling_llm import RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
 from holmes.core.scheduled_prompts import ScheduledPromptsExecutor
 from holmes.utils.connection_utils import patch_socket_create_connection
 from holmes.plugins.toolsets.robusta_platform_mcp.robusta_platform_mcp import (

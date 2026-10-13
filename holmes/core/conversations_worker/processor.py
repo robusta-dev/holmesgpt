@@ -12,7 +12,6 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 from holmes.common.env_vars import CONVERSATION_WORKER_EVENT_BATCH_INTERVAL_SECONDS
-from holmes.config import SERVER_TOOLSET_TAGS
 from holmes.core.conversation_links import resolve_conversation_link
 from holmes.core.conversations import build_chat_messages
 from holmes.core.conversations_worker.event_publisher import (
@@ -31,7 +30,7 @@ from holmes.core.conversations_worker.models import (
 from holmes.core.models import ChatRequest
 from holmes.core.prompt import PromptComponent
 from holmes.core.relay_refusal import RELAY_REFUSAL_ERROR_CODES, RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode
 from holmes.core.tools_utils.filesystem_result_storage import tool_result_storage
 from holmes.core.tools_utils.frontend_tools import (
     FrontendToolCollisionError,

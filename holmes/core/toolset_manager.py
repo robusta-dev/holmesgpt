@@ -12,7 +12,7 @@ from pydantic import FilePath
 from holmes.core.config import config_path_dir
 from holmes.core.init_event import EventCallback, StatusEvent, StatusEventKind, ToolsetStatus
 from holmes.core.supabase_dal import SupabaseDal
-from holmes.core.tools import PrerequisiteCacheMode, Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, Toolset, ToolsetStatusEnum, ToolsetTag, ToolsetType
 from holmes.plugins.toolsets import load_builtin_toolsets, load_toolsets_from_config
 from holmes.utils.config_hash import check_and_update_config_hashes, compute_file_hash
 from holmes.utils.definitions import CUSTOM_TOOLSET_LOCATION
@@ -136,7 +136,7 @@ class ToolsetManager:
         """
         Returns the list of toolset tags that are relevant for server tools.
         """
-        return [ToolsetTag.CORE, ToolsetTag.CLUSTER]
+        return list(SERVER_TOOLSET_TAGS)
 
     def _list_all_toolsets(
         self,

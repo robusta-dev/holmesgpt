@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field
 
 from holmes.checks.checks import execute_check
 from holmes.checks.models import Check, CheckMode, CheckResult, CheckStatus
-from holmes.config import SERVER_TOOLSET_TAGS, Config
+from holmes.config import Config
 from holmes.core.issue import Issue, IssueStatus
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
-from holmes.core.tools import PrerequisiteCacheMode
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode
 from holmes.core.usage_recorder import UsageRecorderState, resolve_provider
 from holmes.plugins.destinations.slack.plugin import SlackDestination
 

@@ -20,7 +20,7 @@ from pydantic import (
 
 from holmes.core.init_event import EventCallback, StatusEvent, StatusEventKind
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
-from holmes.core.tools import PrerequisiteCacheMode, Toolset, ToolsetTag
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, Toolset, ToolsetTag
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.transformers.llm_summarize import LLMSummarizeTransformer
@@ -61,13 +61,6 @@ from holmes.utils.pydantic_utils import (
 
 
 DEFAULT_CONFIG_LOCATION = os.path.join(config_path_dir, "config.yaml")
-
-# The Holmes server caches one tool executor: the CORE and CLUSTER toolsets
-# that config enables (enable_all_toolsets_possible=False). Every server caller
-# must ask for it with these tags, through Config.create_server_tool_executor or
-# by passing them to create_toolcalling_llm. Any other key rebuilds the executor
-# from scratch, re-checking every toolset, and replaces the cached one.
-SERVER_TOOLSET_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
 
 
 def _parse_custom_skill_paths_env() -> List[str]:
@@ -545,6 +538,14 @@ class Config(RobustaBaseConfig):
         prerequisite_cache: PrerequisiteCacheMode = PrerequisiteCacheMode.DISABLED,
     ) -> ToolExecutor:
         """Return the Holmes server's cached executor, building it if there is none.
+
+        The server caches one executor, under the key (SERVER_TOOLSET_TAGS,
+        enable_all_toolsets_possible=False). Every server caller must request
+        that key: through this method, or by passing
+        ``toolset_tag_filter=SERVER_TOOLSET_TAGS, enable_all_toolsets_possible=False,
+        reuse_executor=True`` to create_toolcalling_llm, whose defaults are the
+        CLI's. With reuse_executor=True, any other key rebuilds the executor
+        from scratch, re-checking every toolset, and replaces the cached one.
 
         ``prerequisite_cache`` only applies when the executor is built. The
         default, DISABLED, runs live checks and writes nothing to disk, and the

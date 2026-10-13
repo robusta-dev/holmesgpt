@@ -215,6 +215,11 @@ class ToolsetTag(str, Enum):
     CLI = "cli"
 
 
+# The toolset tags of the Holmes server's cached tool executor. See
+# Config.create_server_tool_executor for how server callers must request it.
+SERVER_TOOLSET_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
+
+
 class ToolsetType(str, Enum):
     BUILTIN = "built-in"
     CUSTOMIZED = "custom"
