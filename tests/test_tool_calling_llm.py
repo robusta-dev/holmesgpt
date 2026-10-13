@@ -1912,6 +1912,21 @@ class TestRateLimitRetryInLoop:
                 )
         mock_llm.completion.assert_not_called()
 
+    def test_a_skipped_compaction_is_not_counted_as_one(self, make_ai, mock_llm):
+        def skipped_compaction(messages, **_kwargs):
+            output = _make_context_limiter_passthrough(messages)
+            output.compaction_skipped = True
+            output.compaction_usage = RequestStats(total_tokens=5000, prompt_tokens=5000)
+            return output
+
+        mock_llm.completion.return_value = _make_llm_response(content="done")
+        with patch(LIMIT_PATCH, side_effect=skipped_compaction):
+            events = list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
+
+        costs = _events_of_type(events, StreamEvents.ANSWER_END)[0].data["costs"]
+        assert costs["num_compactions"] == 0
+        assert costs["total_tokens"] > 5000
+
     def test_retries_of_a_skipped_compaction_are_counted(self, make_ai, mock_llm):
         def skipped_compaction(messages, **_kwargs):
             output = _make_context_limiter_passthrough(messages)

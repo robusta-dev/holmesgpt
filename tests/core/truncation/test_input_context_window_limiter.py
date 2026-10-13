@@ -17,7 +17,12 @@ from holmes.core.truncation.input_context_window_limiter import (
 from holmes.utils.stream import StreamEvents
 from tests.core.truncation.fake_llm import CharCountingFakeLLM, oversized_history
 
-_TOOLS = [{"type": "function", "function": {"name": "kubectl_get", "parameters": {"type": "object"}}}]
+_TOOLS = [
+    {
+        "type": "function",
+        "function": {"name": "kubectl_get", "parameters": {"type": "object"}},
+    }
+]
 
 
 def test_oversized_conversation_is_compacted_instead_of_failing():
@@ -30,10 +35,17 @@ def test_oversized_conversation_is_compacted_instead_of_failing():
     result = compact_if_necessary(llm, history, _TOOLS)  # type: ignore
 
     assert result.conversation_history_compacted is True
-    assert result.tokens.total_tokens + result.maximum_output_token <= result.max_context_size
+    assert (
+        result.tokens.total_tokens + result.maximum_output_token
+        <= result.max_context_size
+    )
     assert f"SUMMARY {len(llm.calls)}" in result.messages[1]["content"]
     assert result.messages[-1] == history[-1]
-    compacted = next(e for e in result.events if e.event == StreamEvents.CONVERSATION_HISTORY_COMPACTED)
+    compacted = next(
+        e
+        for e in result.events
+        if e.event == StreamEvents.CONVERSATION_HISTORY_COMPACTED
+    )
     assert compacted.data["metadata"]["summarization_requests"] > 1
     assert result.compaction_overflowing_tool_call_ids == ["c0", "c1"]
 
@@ -45,7 +57,11 @@ def test_oversized_conversation_recovers_via_smaller_chunks():
     result = compact_if_necessary(llm, oversized_history(), _TOOLS)  # type: ignore
 
     assert result.conversation_history_compacted is True
-    compacted = next(e for e in result.events if e.event == StreamEvents.CONVERSATION_HISTORY_COMPACTED)
+    compacted = next(
+        e
+        for e in result.events
+        if e.event == StreamEvents.CONVERSATION_HISTORY_COMPACTED
+    )
     assert compacted.data["metadata"]["fallback_used"] is True
     assert compacted.data["metadata"]["summarization_requests"] > 1
 
@@ -119,6 +135,7 @@ def test_rate_limited_compaction_is_skipped_while_history_fits():
 
     assert result.messages == messages
     assert result.conversation_history_compacted is False
+    assert result.compaction_skipped is True
     assert result.compaction_usage.llm_rate_limit_retries == 3
     assert result.compaction_usage.llm_rate_limit_wait_ms == 12000
 
@@ -132,6 +149,8 @@ def test_rate_limited_compaction_fails_the_turn_when_history_does_not_fit():
                 llm=_llm(950), messages=[{"role": "user", "content": "hi"}], tools=None
             )
     assert info.value is error
+    # The usage of the refused compaction travels with the error to the recorder.
+    assert info.value.compaction_usage.llm_rate_limit_retries == 3
 
 
 @pytest.mark.usefixtures("_compaction_on")
@@ -161,7 +180,9 @@ def test_compaction_waits_out_rate_limits_only_when_history_does_not_fit(
     seen = {}
 
     def compact(original_conversation_history, **_kwargs):
-        seen["budget"] = llm_rate_limit._retry_scope.get().max_wait_seconds
+        scope = llm_rate_limit._retry_scope.get()
+        seen["budget"] = scope.max_wait_seconds
+        seen["shared"] = scope.shared_budget
         return CompactionResult(messages_after_compaction=original_conversation_history)
 
     with patch(f"{MODULE}.compact_conversation_history", side_effect=compact):
@@ -170,3 +191,5 @@ def test_compaction_waits_out_rate_limits_only_when_history_does_not_fit(
         except CompactionInsufficientError:
             pass
     assert seen["budget"] == expected_budget
+    # Without a per-call cutoff, all of compaction's requests share one budget.
+    assert (seen["shared"] is None) == (expected_budget == 0)

@@ -60,6 +60,24 @@ class LLMRetryCancelled(Exception):
 class _RetryScope:
     max_wait_seconds: Optional[float] = None
     cancel_event: Optional[threading.Event] = None
+    shared_budget: Optional["_SharedBudget"] = None
+
+
+class _SharedBudget:
+    """Backoff time left for every LLM call in a scope together."""
+
+    def __init__(self, seconds: float) -> None:
+        self._remaining = seconds
+        self._lock = threading.Lock()
+
+    @property
+    def remaining(self) -> float:
+        with self._lock:
+            return self._remaining
+
+    def spend(self, seconds: float) -> None:
+        with self._lock:
+            self._remaining = max(0.0, self._remaining - seconds)
 
 
 _retry_scope: ContextVar[_RetryScope] = ContextVar(
@@ -71,11 +89,15 @@ _retry_scope: ContextVar[_RetryScope] = ContextVar(
 def rate_limit_retry_scope(
     *,
     max_wait_seconds: Optional[float] = None,
+    total_max_wait_seconds: Optional[float] = None,
     cancel_event: Optional[threading.Event] = None,
 ) -> Iterator[None]:
     """Override the wait budget or make backoff cancellable for LLM calls made
     inside this block, without threading arguments through ``LLM.completion``.
-    Settings left as None are inherited from an enclosing scope."""
+
+    ``max_wait_seconds`` applies to each call; ``total_max_wait_seconds`` is one
+    budget all calls in the block draw from. Settings left as None are inherited
+    from an enclosing scope."""
     outer = _retry_scope.get()
     token = _retry_scope.set(
         _RetryScope(
@@ -83,6 +105,9 @@ def rate_limit_retry_scope(
             if max_wait_seconds is not None
             else outer.max_wait_seconds,
             cancel_event if cancel_event is not None else outer.cancel_event,
+            _SharedBudget(total_max_wait_seconds)
+            if total_max_wait_seconds is not None
+            else outer.shared_budget,
         )
     )
     try:
@@ -299,6 +324,8 @@ def call_with_rate_limit_retry(
         if scope.max_wait_seconds is not None
         else env_vars.LLM_RATE_LIMIT_MAX_WAIT_SECONDS
     )
+    if scope.shared_budget is not None:
+        max_wait = min(max_wait, scope.shared_budget.remaining)
     sleeper = _Sleeper(scope.cancel_event)
     retrying = Retrying(
         retry=retry_if_exception(is_retryable_llm_error),
@@ -317,5 +344,8 @@ def call_with_rate_limit_retry(
     except Exception as e:
         _annotate(e, max(attempts - 1, 0), sleeper.slept)
         raise
+    finally:
+        if scope.shared_budget is not None:
+            scope.shared_budget.spend(sleeper.slept)
     _annotate(result, attempts - 1, sleeper.slept)
     return result

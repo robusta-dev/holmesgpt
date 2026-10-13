@@ -72,7 +72,7 @@ Interrupting the CLI (Esc) stops the backoff. Server requests run until the budg
 
 When the budget runs out the error is returned as before: rate limits as HTTP 429 from `/api/chat` (code `5204` in a stream), overloaded and service-unavailable errors as HTTP 500.
 
-Conversation-history compaction is not retried while the history still fits the context window. If the provider refuses it, compaction is skipped and tried again on the next step. Once the history no longer fits, compaction gets the full budget, and an exhausted budget is returned as the errors above.
+Conversation-history compaction is not retried while the history still fits the context window. If the provider refuses it, compaction is skipped and tried again on the next step. Once the history no longer fits, all of compaction's requests (it may summarize in several) share one budget, and an exhausted budget is returned as the errors above.
 
 Some providers' SDKs (OpenAI, Azure) also retry a rate limit once or twice within each attempt. That time does not count towards the budget.
 

@@ -435,8 +435,8 @@ class UsageRecorderState:
     def _capture_error(self, exc: BaseException) -> None:
         """Set the failed status and record the error class in ``meta``.
 
-        Retries spent inside the failing LLM call never reached a
-        TOKEN_COUNT event, so they are added to ``stats`` here.
+        Retries spent inside the failing LLM call (and a refused compaction's
+        usage) never reached a TOKEN_COUNT event, so they are added here.
         """
         msg = str(exc).lower()
         if is_rate_limit_error(exc) or ("rate" in msg and "limit" in msg):
@@ -450,7 +450,13 @@ class UsageRecorderState:
         }
         if self.stats is None:
             self.stats = RequestStats()
-        self.stats += RequestStats(**retry_counts(exc))
+        # A refused compaction carries the usage of its billed chunks, which
+        # already include the failing call's retry counters.
+        compaction_usage = getattr(exc, "compaction_usage", None)
+        if isinstance(compaction_usage, RequestStats):
+            self.stats += compaction_usage
+        else:
+            self.stats += RequestStats(**retry_counts(exc))
 
     def _fire(self) -> None:
         """Submit the dal write to the shared recorder thread pool.

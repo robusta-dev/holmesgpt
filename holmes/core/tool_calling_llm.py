@@ -1273,7 +1273,7 @@ class ToolCallingLLM:
             # Accumulate compaction costs
             compaction = limit_result.compaction_usage
             if compaction and compaction.total_tokens > 0:
-                compaction.num_compactions = 1
+                compaction.num_compactions = 0 if limit_result.compaction_skipped else 1
                 stats += compaction
                 cost_logger.debug(
                     f"Compaction cost (streaming): ${compaction.total_cost:.6f} | "

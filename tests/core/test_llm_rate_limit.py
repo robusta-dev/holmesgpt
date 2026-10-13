@@ -755,3 +755,18 @@ class TestServiceUnavailable:
             call_with_rate_limit_retry(fn, model="m")
         assert sum(clock.sleeps) <= 10
         assert retry_counts(info.value)["llm_rate_limit_retries"] == len(fn.calls) - 1
+
+
+def test_total_budget_is_shared_by_calls_in_a_scope(clock, budget, cap):
+    with rate_limit_retry_scope(total_max_wait_seconds=10):
+        first = scripted(
+            rate_limit({"Retry-After": "4"}), rate_limit({"Retry-After": "4"}), "ok"
+        )
+        assert call_with_rate_limit_retry(first, model="m") == "ok"
+        # 8 of the 10 seconds are spent; the next call cannot wait 4 more.
+        second = scripted(rate_limit({"Retry-After": "4"}), "ok")
+        with pytest.raises(litellm.RateLimitError):
+            call_with_rate_limit_retry(second, model="m")
+    assert clock.sleeps == [4, 4]
+    # Outside the scope the per-call budget applies again.
+    assert call_with_rate_limit_retry(scripted(rate_limit(), "ok"), model="m") == "ok"

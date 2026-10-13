@@ -20,6 +20,7 @@ import httpx
 import litellm
 import pytest
 
+from holmes.core.llm_usage import RequestStats
 from holmes.core.usage_recorder import (
     UsageRecorderState,
     record_error,
@@ -598,6 +599,21 @@ class TestRecordError:
         assert s.status == "error"
         assert s.meta["error_class"] == "ServiceUnavailableError"
         assert s.meta["error_status_code"] == 503
+        assert s.stats.llm_rate_limit_retries == 5
+
+    def test_refused_compaction_usage_is_recorded(self, monkeypatch):
+        """The usage of chunks summarized before the refusal was billed."""
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        exc = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
+        exc.llm_rate_limit_retries = 2
+        exc.compaction_usage = RequestStats(
+            total_tokens=180000, prompt_tokens=179000, llm_rate_limit_retries=5
+        )
+        record_error(state, exc)
+        s = _state_arg(state)
+        assert s.status == "rate_limited"
+        assert s.stats.total_tokens == 180000
         assert s.stats.llm_rate_limit_retries == 5
 
     def test_overloaded_is_an_error_with_its_status(self, monkeypatch):
