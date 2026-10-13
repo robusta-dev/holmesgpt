@@ -24,7 +24,7 @@ from holmes.core.llm_rate_limit import (
     is_rate_limit_error,
     retry_counts,
 )
-from holmes.core.llm_usage import RequestStats, unrecorded_usage
+from holmes.core.llm_usage import RequestStats, request_usage, unrecorded_usage
 from holmes.utils.stream import StreamEvents, StreamMessage
 
 if TYPE_CHECKING:
@@ -435,9 +435,10 @@ class UsageRecorderState:
     def _capture_error(self, exc: BaseException) -> None:
         """Set the failed status and record the error class in ``meta``.
 
-        Retries spent inside the failing LLM call never reached a TOKEN_COUNT
-        event, so they are added here; usage carried on the error (see
-        ``attach_unrecorded_usage``) replaces the last TOKEN_COUNT total.
+        The request's usage carried on the error (``attach_request_usage``)
+        replaces the last TOKEN_COUNT total, which lags behind it. Otherwise
+        the failing call's retries are added, as they never reached a
+        TOKEN_COUNT event.
         """
         msg = str(exc).lower()
         if is_rate_limit_error(exc) or ("rate" in msg and "limit" in msg):
@@ -449,15 +450,14 @@ class UsageRecorderState:
             "error_class": type(exc).__name__,
             "error_status_code": error_status_code(exc),
         }
-        # Usage carried on the error is the request's total so far, including
-        # the failing calls' retry counters.
-        carried = unrecorded_usage(exc)
-        if carried is not None:
-            self.stats = carried
+        total = request_usage(exc)
+        if total is not None:
+            self.stats = total
             return
         if self.stats is None:
             self.stats = RequestStats()
-        self.stats += RequestStats(**retry_counts(exc))
+        pending = unrecorded_usage(exc)
+        self.stats += pending if pending is not None else RequestStats(**retry_counts(exc))
 
     def _fire(self) -> None:
         """Submit the dal write to the shared recorder thread pool.

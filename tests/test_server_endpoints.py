@@ -2,12 +2,14 @@ from unittest.mock import MagicMock, patch
 
 import json
 import threading
+import time
 import litellm
 import pytest
 from fastapi import Request
 from fastapi.testclient import TestClient
 
 from holmes.core.tool_calling_llm import RelayRefusal
+import server
 from server import app, extract_passthrough_headers
 
 
@@ -690,17 +692,43 @@ class TestExtractPassthroughHeaders:
         assert "x-tenant-id" in result["headers"]
 
 
-def test_readyz_reads_models_off_the_event_loop(client):
-    """Building the model registry can do network I/O on the first call."""
+def test_readyz_loads_models_on_a_background_thread(client, monkeypatch):
+    """Building the model registry can do network I/O on the first call: it
+    must not block the event loop, and the pod is not ready until it is done."""
+    monkeypatch.setattr(server, "_models_loaded", threading.Event())
+    monkeypatch.setattr(server, "_models_loading", False)
+    release = threading.Event()
     threads = []
 
     def models():
         threads.append(threading.current_thread().name)
+        release.wait(5)
         return ["m"]
 
     with patch("holmes.config.Config.get_models_list", side_effect=models):
-        response = client.get("/readyz")
+        assert client.get("/readyz").status_code == 503  # returns while loading
+        release.set()
+        for _ in range(50):
+            response = client.get("/readyz")
+            if response.status_code == 200:
+                break
+            time.sleep(0.05)
 
     assert response.status_code == 200
     assert response.json()["models"] == ["m"]
-    assert threads and threads[0].startswith("readyz")
+    assert threads[0] == "readyz-models"
+
+
+def test_readyz_retries_after_a_failed_load(client, monkeypatch):
+    monkeypatch.setattr(server, "_models_loaded", threading.Event())
+    monkeypatch.setattr(server, "_models_loading", False)
+    with patch(
+        "holmes.config.Config.get_models_list", side_effect=[RuntimeError("supabase down"), ["m"], ["m"]]
+    ):
+        assert client.get("/readyz").status_code == 503
+        for _ in range(50):
+            response = client.get("/readyz")
+            if response.status_code == 200:
+                break
+            time.sleep(0.05)
+    assert response.status_code == 200

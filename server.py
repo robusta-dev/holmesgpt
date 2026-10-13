@@ -9,14 +9,12 @@ if add_custom_certificate(ADDITIONAL_CERTIFICATE):
 
 # DO NOT ADD ANY IMPORTS OR CODE ABOVE THIS LINE
 # IMPORTING ABOVE MIGHT INITIALIZE AN HTTPS CLIENT THAT DOESN'T TRUST THE CUSTOM CERTIFICATE
-import asyncio
 import json
 import logging
 import ssl
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -446,6 +444,7 @@ def stop_conversation_runtime():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _start_loading_models()
     yield
     # stop() blocks on Supabase writes and thread joins; keep it off the event loop.
     await run_in_threadpool(stop_conversation_runtime)
@@ -990,21 +989,41 @@ async def health_check():
     return {"status": "healthy"}
 
 
-_readiness_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="readyz")
+_models_loaded = threading.Event()
+_models_loading_lock = threading.Lock()
+_models_loading = False
+
+
+def _load_models() -> None:
+    global _models_loading
+    try:
+        config.get_models_list()
+        _models_loaded.set()
+    except Exception:
+        logging.error("Loading the model list failed", exc_info=True)
+    finally:
+        with _models_loading_lock:
+            _models_loading = False
+
+
+def _start_loading_models() -> None:
+    # Building the model registry does network I/O: do it on a daemon thread,
+    # never on the event loop or the chat threadpool. Started at startup, and
+    # again by /readyz after a failed attempt.
+    global _models_loading
+    with _models_loading_lock:
+        if _models_loading or _models_loaded.is_set():
+            return
+        _models_loading = True
+    threading.Thread(target=_load_models, name="readyz-models", daemon=True).start()
 
 
 @app.get("/readyz")
 async def readiness_check():
-    try:
-        # The first call can build the model registry (network I/O): run it off
-        # the event loop, on its own thread rather than the chat threadpool.
-        models_list = await asyncio.get_running_loop().run_in_executor(
-            _readiness_executor, config.get_models_list
-        )
-        return {"status": "ready", "models": models_list}
-    except Exception as e:
-        logging.error(f"Readiness check failed: {e}", exc_info=True)
+    if not _models_loaded.is_set():
+        _start_loading_models()
         raise HTTPException(status_code=503, detail="Service not ready")
+    return {"status": "ready", "models": config.get_models_list()}
 
 
 def build_ssl_kwargs() -> dict:

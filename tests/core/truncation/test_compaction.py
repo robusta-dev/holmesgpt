@@ -8,6 +8,7 @@ from litellm.types.utils import Choices, Message, ModelResponse, Usage
 
 from holmes.core.llm import DefaultLLM
 from holmes.core.llm_rate_limit import LLMRetryCancelled
+from holmes.core.llm_usage import unrecorded_usage
 from holmes.core.truncation import compaction
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.truncation.compaction import (
@@ -949,3 +950,20 @@ def test_throttling_is_not_mistaken_for_a_context_length_rejection():
     )
     assert not _is_context_length_error(throttled)
     assert _is_context_length_error(Exception("prompt is too long: 250000 tokens"))
+
+
+def test_cancelled_compaction_keeps_the_cancelled_calls_retries():
+    """A cancel during backoff ends compaction; the retries before it were spent."""
+    cancelled = LLMRetryCancelled()
+    cancelled.llm_rate_limit_retries = 3  # type: ignore[attr-defined]
+    cancelled.llm_rate_limit_wait_ms = 7000  # type: ignore[attr-defined]
+    llm = RecordingFakeLLM([cancelled])
+    with pytest.raises(LLMRetryCancelled) as info:
+        compact_conversation_history(
+            original_conversation_history=_history_with_tool_calls(),
+            llm=llm,  # type: ignore
+            tools=_TOOLS,
+        )
+    pending = unrecorded_usage(info.value)
+    assert pending.llm_rate_limit_retries == 3
+    assert pending.llm_rate_limit_wait_ms == 7000

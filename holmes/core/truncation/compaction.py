@@ -367,6 +367,18 @@ def _summarize_in_chunks(
     return summary, requests
 
 
+def _raise_if_cancelled_or_refused(error: Exception, usage: RequestStats) -> None:
+    """Count the failed call's retries, then re-raise a cancellation, or a
+    capacity refusal: the call already retried it, and the fallback would only
+    hit the same limit again. The caller decides whether the turn can go on."""
+    usage += RequestStats(**retry_counts(error))
+    if isinstance(error, LLMRetryCancelled):
+        attach_unrecorded_usage(error, usage)
+        raise error
+    if is_provider_capacity_error(error):
+        raise CompactionRefusedError(error, usage) from error
+
+
 def compact_conversation_history(
     original_conversation_history: list[dict],
     llm: LLM,
@@ -470,15 +482,8 @@ def compact_conversation_history(
                 fallback_reason = "summarization response contains no text"
             else:
                 summarization_requests = 1
-        except LLMRetryCancelled as e:
-            attach_unrecorded_usage(e, compaction_usage)
-            raise
         except Exception as e:
-            compaction_usage += RequestStats(**retry_counts(e))
-            # Already retried by the LLM call, and the fallback would only hit the
-            # same limit again. The caller decides whether the turn can go on.
-            if is_provider_capacity_error(e):
-                raise CompactionRefusedError(e, compaction_usage) from e
+            _raise_if_cancelled_or_refused(e, compaction_usage)
             fallback_reason = f"summarization request failed: {e}"
             history_overflowed = _is_context_length_error(e)
 
@@ -501,13 +506,8 @@ def compact_conversation_history(
             summary_text, summarization_requests = _summarize_in_chunks(
                 flattened_history, llm, input_budget, instructions_message, compaction_usage
             )
-        except LLMRetryCancelled as e:
-            attach_unrecorded_usage(e, compaction_usage)
-            raise
         except Exception as e:
-            compaction_usage += RequestStats(**retry_counts(e))
-            if is_provider_capacity_error(e):
-                raise CompactionRefusedError(e, compaction_usage) from e
+            _raise_if_cancelled_or_refused(e, compaction_usage)
             # Degrade gracefully via the empty-summary path below (original
             # history returned unchanged) instead of aborting the whole turn.
             fallback_reason = f"{fallback_reason}; fallback summarization failed: {e}"

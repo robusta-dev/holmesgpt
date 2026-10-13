@@ -66,12 +66,7 @@ def check_compaction_needed(
 class CompactionInsufficientError(Exception):
     """Raised when conversation compaction was not sufficient to fit the context window."""
 
-    def __init__(
-        self,
-        message: str,
-        events: list[StreamMessage],
-        compaction_usage: Optional[RequestStats] = None,
-    ):
+    def __init__(self, message: str, events: list[StreamMessage], compaction_usage: Optional[RequestStats] = None):
         """Store the failure message plus the stream events and usage gathered so far."""
         super().__init__(message)
         self.events = events
@@ -139,17 +134,13 @@ def compact_if_necessary(
                 messages_after_compaction=messages, usage=e.usage
             )
         compaction_usage = compaction_result.usage
-        compacted_tokens = llm.count_tokens(
-            compaction_result.messages_after_compaction, tools=tools
-        )
+        compacted_tokens = llm.count_tokens(compaction_result.messages_after_compaction, tools=tools)
         compacted_total_tokens = compacted_tokens.total_tokens
 
         if compacted_total_tokens < initial_tokens.total_tokens:
             messages = compaction_result.messages_after_compaction
             num_messages_after = len(messages)
-            compression_ratio = round(
-                (1 - compacted_total_tokens / initial_tokens.total_tokens) * 100, 1
-            )
+            compression_ratio = round((1 - compacted_total_tokens / initial_tokens.total_tokens) * 100, 1)
             compaction_message = f"The conversation history has been compacted from {initial_tokens.total_tokens} to {compacted_total_tokens} tokens"
             logging.info(compaction_message)
             conversation_history_compacted = True
@@ -229,14 +220,13 @@ def compact_if_necessary(
                 data={"content": failure_msg},
             )
         )
-        raise CompactionInsufficientError(
-            failure_msg, events=events, compaction_usage=compaction_usage
-        )
+        error = CompactionInsufficientError(failure_msg, events=events, compaction_usage=compaction_usage)
+        if compaction_usage:
+            attach_unrecorded_usage(error, compaction_usage)
+        raise error
 
     elapsed_ms = (time.monotonic() - t0) * 1000
-    logging.debug(
-        f"compact_if_necessary: {elapsed_ms:.1f}ms total | {tokens.total_tokens} tokens"
-    )
+    logging.debug(f"compact_if_necessary: {elapsed_ms:.1f}ms total | {tokens.total_tokens} tokens")
 
     return ContextWindowLimiterOutput(
         events=events,

@@ -1,4 +1,5 @@
 import concurrent.futures
+import functools
 import json
 from json import tool
 import logging
@@ -6,7 +7,17 @@ import re
 import threading
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    Union,
+)
 
 # Named logger for user-facing display messages (tool progress, AI messages, etc.)
 # In interactive mode this logger is silenced; the CLI renders from stream events instead.
@@ -26,10 +37,15 @@ from holmes.common.env_vars import (
     load_bool,
 )
 from holmes.core.llm import LLM
-from holmes.core.llm_rate_limit import LLMRetryCancelled, rate_limit_retry_scope
+from holmes.core.llm_rate_limit import (
+    LLMRetryCancelled,
+    rate_limit_retry_scope,
+    retry_counts,
+)
 from holmes.core.llm_usage import (
     RequestStats,
-    attach_unrecorded_usage,
+    attach_request_usage,
+    request_usage,
     unrecorded_usage,
 )
 from holmes.core.models import (
@@ -131,19 +147,41 @@ def _extract_text_from_content(content: Any) -> str:
     return ""
 
 
-def _attach_request_usage(
-    error: BaseException, stats: RequestStats, compaction: Optional[RequestStats]
-) -> None:
-    """Put the request's usage so far, plus a failed compaction's billed
-    requests, on ``error``: call_stream's ``stats`` dies with the raise, and
-    the usage recorder only sees the error."""
-    total = stats.model_copy()
-    if compaction is not None:
-        compaction = compaction.model_copy()
-        if compaction.total_tokens > 0:
-            compaction.num_compactions = 1
-        total += compaction
-    attach_unrecorded_usage(error, total)
+def _attach_usage_on_error(
+    call_stream: Callable[..., Generator[StreamMessage, None, None]],
+) -> Callable[..., Generator[StreamMessage, None, None]]:
+    """Wrap ``call_stream`` so an error escaping it carries the request's usage
+    so far: its ``stats`` dies with the raise, and the usage recorder only
+    sees the error."""
+
+    @functools.wraps(call_stream)
+    def wrapper(
+        self: "ToolCallingLLM", *args: Any, **kwargs: Any
+    ) -> Generator[StreamMessage, None, None]:
+        stats = RequestStats()
+        try:
+            yield from call_stream(self, *args, _stats=stats, **kwargs)
+        except Exception as e:
+            pending = unrecorded_usage(e)
+            total = stats.model_copy()
+            total += pending if pending is not None else RequestStats(**retry_counts(e))
+            attach_request_usage(e, total)
+            raise
+
+    return wrapper
+
+
+def _with_prior_usage(
+    stream: Iterator[StreamMessage], prior: RequestStats
+) -> Generator[StreamMessage, None, None]:
+    """Add the usage of earlier approval rounds to an error escaping ``stream``."""
+    try:
+        yield from stream
+    except Exception as e:
+        total = prior.model_copy()
+        total += request_usage(e) or RequestStats()
+        attach_request_usage(e, total)
+        raise
 
 
 def _merge_choices(response: Any) -> None:
@@ -750,7 +788,7 @@ class ToolCallingLLM:
             start_tool_count = 0
             saw_tool_results = False
 
-            for event in stream:
+            for event in _with_prior_usage(stream, accumulated_stats):
                 # Log blank line when a tool batch ends (transition away from TOOL_RESULT)
                 if saw_tool_results and event.event != StreamEvents.TOOL_RESULT:
                     display_logger.info("")
@@ -1177,6 +1215,7 @@ class ToolCallingLLM:
         metadata["costs"] = stats.model_dump()
         return build_stream_event_token_count(metadata=metadata)
 
+    @_attach_usage_on_error
     def call_stream(
         self,
         response_format: Optional[Union[dict, Type[BaseModel]]] = None,
@@ -1189,6 +1228,7 @@ class ToolCallingLLM:
         cancel_event: Optional[threading.Event] = None,
         tool_number_offset: int = 0,
         iteration_offset: int = 0,
+        _stats: Optional[RequestStats] = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
@@ -1243,7 +1283,7 @@ class ToolCallingLLM:
         tools: Optional[list] = self._get_tools()
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {}
-        stats = RequestStats()
+        stats = _stats if _stats is not None else RequestStats()
         if iteration_offset < 0:
             raise ValueError("iteration_offset must be non-negative")
         i = iteration_offset
@@ -1269,15 +1309,9 @@ class ToolCallingLLM:
                     )
             except CompactionInsufficientError as e:
                 yield from e.events
-                _attach_request_usage(e, stats, e.compaction_usage)
                 raise
             except LLMRetryCancelled as e:
-                interrupted = LLMInterruptedError()
-                _attach_request_usage(interrupted, stats, unrecorded_usage(e))
-                raise interrupted from e
-            except Exception as e:
-                _attach_request_usage(e, stats, unrecorded_usage(e))
-                raise
+                raise LLMInterruptedError() from e
 
             yield from limit_result.events
             messages = limit_result.messages

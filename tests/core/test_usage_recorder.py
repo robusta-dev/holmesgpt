@@ -20,7 +20,11 @@ import httpx
 import litellm
 import pytest
 
-from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
+from holmes.core.llm_usage import (
+    RequestStats,
+    attach_request_usage,
+    attach_unrecorded_usage,
+)
 from holmes.core.usage_recorder import (
     UsageRecorderState,
     record_error,
@@ -631,12 +635,29 @@ class TestRecordError:
             record_error(state, wrapped)
         assert _state_arg(state).stats.total_tokens == 1000
 
-    def test_carried_usage_replaces_the_last_token_count(self, monkeypatch):
-        """It is the request's total so far, not an increment."""
+    def test_request_usage_replaces_the_last_token_count(self, monkeypatch):
+        """It is the request's total so far, which the last TOKEN_COUNT lags behind."""
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        error = RuntimeError("main call failed")
+        attach_request_usage(error, RequestStats(total_tokens=900, prompt_tokens=900))
+
+        def stream():
+            yield StreamMessage(
+                event=StreamEvents.TOKEN_COUNT,
+                data={"metadata": {"costs": {"total_tokens": 400}}},
+            )
+            raise error
+
+        with pytest.raises(RuntimeError):
+            list(stream_with_usage_recording(stream(), state))
+        assert _state_arg(state).stats.total_tokens == 900
+
+    def test_unrecorded_usage_adds_to_the_last_token_count(self, monkeypatch):
         _patch_inline_thread(monkeypatch)
         state = _make_state()
         error = RuntimeError("compaction failed")
-        attach_unrecorded_usage(error, RequestStats(total_tokens=900, prompt_tokens=900))
+        attach_unrecorded_usage(error, RequestStats(total_tokens=500, prompt_tokens=500))
 
         def stream():
             yield StreamMessage(

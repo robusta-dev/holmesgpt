@@ -155,18 +155,32 @@ class RequestStats(BaseModel):
 
 
 _UNRECORDED_USAGE = "holmes_unrecorded_usage"
+_REQUEST_USAGE = "holmes_request_usage"
 
 
 def attach_unrecorded_usage(error: BaseException, usage: RequestStats) -> None:
-    """Carry usage that never reached a TOKEN_COUNT event to the usage
-    recorder, which only sees the raised error."""
+    """Billed usage of the failing step that the caller has not counted yet
+    (e.g. a failed compaction's requests)."""
     setattr(error, _UNRECORDED_USAGE, usage)
 
 
 def unrecorded_usage(error: BaseException) -> Optional[RequestStats]:
-    """Usage attached to ``error`` or to an error it was raised from."""
+    return _find_on_chain(error, _UNRECORDED_USAGE)
+
+
+def attach_request_usage(error: BaseException, usage: RequestStats) -> None:
+    """The whole request's usage up to the failure. The usage recorder only
+    sees the raised error, so this is how it learns what was spent."""
+    setattr(error, _REQUEST_USAGE, usage)
+
+
+def request_usage(error: BaseException) -> Optional[RequestStats]:
+    return _find_on_chain(error, _REQUEST_USAGE)
+
+
+def _find_on_chain(error: BaseException, attribute: str) -> Optional[RequestStats]:
     for current in iter_exception_chain(error):
-        usage = getattr(current, _UNRECORDED_USAGE, None)
+        usage = getattr(current, attribute, None)
         if isinstance(usage, RequestStats):
             return usage
     return None

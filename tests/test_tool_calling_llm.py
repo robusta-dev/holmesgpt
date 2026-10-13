@@ -29,10 +29,15 @@ from holmes.core.llm_rate_limit import LLMRetryCancelled, call_with_rate_limit_r
 from holmes.core.models import PendingToolApproval, ToolApprovalDecision, ToolCallResult
 from holmes.core.llm_usage import (
     RequestStats,
+    attach_request_usage,
     attach_unrecorded_usage,
-    unrecorded_usage,
+    request_usage,
 )
-from holmes.core.tool_calling_llm import LLMInterruptedError, ToolCallingLLM
+from holmes.core.tool_calling_llm import (
+    LLMInterruptedError,
+    ToolCallingLLM,
+    _with_prior_usage,
+)
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.truncation.input_context_window_limiter import (
@@ -1961,6 +1966,7 @@ class TestRateLimitRetryInLoop:
         error = CompactionInsufficientError(
             "too big", events=[], compaction_usage=compaction
         )
+        attach_unrecorded_usage(error, compaction)  # as compact_if_necessary does
         mock_limit.side_effect = [
             _make_context_limiter_passthrough([{"role": "user", "content": "q"}]),
             error,
@@ -1974,10 +1980,10 @@ class TestRateLimitRetryInLoop:
         with pytest.raises(CompactionInsufficientError) as info:
             list(ai.call_stream(msgs=[{"role": "user", "content": "q"}]))
 
-        carried = unrecorded_usage(info.value)
-        assert carried.total_tokens == 70 + 5000  # iteration 1 + compaction
-        assert carried.llm_rate_limit_retries == 3
-        assert carried.num_compactions == 1
+        total = request_usage(info.value)
+        assert total.total_tokens == 70 + 5000  # iteration 1 + compaction
+        assert total.llm_rate_limit_retries == 3
+        assert total.num_compactions == 0  # it did not compact anything
 
     @patch(LIMIT_PATCH)
     def test_cancel_during_compaction_keeps_its_billed_usage(
@@ -1994,7 +2000,43 @@ class TestRateLimitRetryInLoop:
                     cancel_event=threading.Event(),
                 )
             )
-        assert unrecorded_usage(info.value).total_tokens == 4000
+        assert request_usage(info.value).total_tokens == 4000
+
+    def test_failing_call_after_a_compaction_keeps_the_compaction_usage(
+        self, make_ai, mock_llm
+    ):
+        """The compaction's tokens reach stats but no TOKEN_COUNT with costs before
+        the main call fails; the failing call's retries are added too."""
+
+        def compacted(messages, **_kwargs):
+            output = _make_context_limiter_passthrough(messages)
+            output.compaction_usage = RequestStats(total_tokens=150000, prompt_tokens=150000)
+            return output
+
+        failure = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
+        failure.llm_rate_limit_retries = 4
+        mock_llm.completion.side_effect = failure
+        with patch(LIMIT_PATCH, side_effect=compacted):
+            with pytest.raises(litellm.RateLimitError) as info:
+                list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
+
+        total = request_usage(info.value)
+        assert total.total_tokens == 150000
+        assert total.llm_rate_limit_retries == 4
+
+    def test_call_adds_earlier_approval_rounds_to_the_failure(self, make_ai):
+        prior = RequestStats(total_tokens=50000, prompt_tokens=50000)
+        failure = RuntimeError("round 2 failed")
+
+        def round_two():
+            yield StreamMessage(event=StreamEvents.AI_MESSAGE, data={})
+            attach_request_usage(failure, RequestStats(total_tokens=700, prompt_tokens=700))
+            raise failure
+
+        with pytest.raises(RuntimeError):
+            list(_with_prior_usage(round_two(), prior))
+        assert request_usage(failure).total_tokens == 50700
+
 
 # ---------------------------------------------------------------------------
 # Repeated tool calls after a multi-request compaction (ROB-1519)
