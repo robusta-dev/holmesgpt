@@ -710,6 +710,10 @@ class Config(RobustaBaseConfig):
         prerequisite_cache, reuse_executor) are forwarded to
         :meth:`create_tool_executor`.
 
+        The defaults are the CLI's. Known issue: a server caller must pass the
+        server's executor key explicitly (see :meth:`create_server_tool_executor`),
+        or it rebuilds and replaces the server's cached executor.
+
         Migration from removed helpers
         ------------------------------
         ``create_console_toolcalling_llm(dal, refresh_toolsets, tracer, model_name, tool_results_dir, on_event)``::

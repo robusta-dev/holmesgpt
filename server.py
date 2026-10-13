@@ -344,6 +344,9 @@ def _toolset_status_refresh_loop():
                     "Failed to refresh platform-mcp tools", exc_info=True
                 )
             try:
+                # Known issue: on the first cycle the platform-mcp step above
+                # has just built the executor, so this refresh checks the
+                # toolsets without a status refresh interval a second time.
                 changes = config.refresh_tool_executor(
                     dal,
                     toolset_tag_filter=SERVER_TOOLSET_TAGS,
@@ -507,6 +510,11 @@ def oauth_callback(request: OAuthCallbackRequest) -> OAuthCallbackResponse:
         bool(request.code_verifier), request.redirect_uri,
     )
     try:
+        # Known issue: the user's tools are loaded into this executor after the
+        # token exchange. If a refresh replaces the cached executor in between,
+        # and its eager OAuth load ran before the token was stored, the new
+        # executor lacks this user's tools until the next rebuild (the
+        # <toolset>_connect placeholder still works meanwhile).
         executor = config.create_server_tool_executor(dal)
         return process_oauth_callback(request, executor.toolsets, _get_token_manager(), executor=executor)
     except OAuthConfigLookupError as e:
