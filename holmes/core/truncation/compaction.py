@@ -26,7 +26,7 @@ from holmes.plugins.prompts import load_and_render_prompt
 
 class CompactionRefusedError(Exception):
     """The provider refused the summarization for lack of capacity (rate limit,
-    quota or overload). Carries the usage of attempts made so far."""
+    quota, overload or 503). Carries the usage of attempts made so far."""
 
     def __init__(self, provider_error: Exception, usage: RequestStats):
         super().__init__(str(provider_error))

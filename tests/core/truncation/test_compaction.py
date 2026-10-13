@@ -575,6 +575,9 @@ def test_compaction_returns_original_history_when_both_attempts_unusable():
             llm_provider="anthropic",
             model="m",
         ),
+        litellm.ServiceUnavailableError(
+            message="BedrockException - unable to process", llm_provider="bedrock", model="m"
+        ),
     ],
 )
 def test_compaction_reports_provider_refusal_instead_of_degrading(error):

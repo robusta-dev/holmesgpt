@@ -22,6 +22,7 @@ from holmes.core.llm_rate_limit import (
     is_overloaded_error,
     is_rate_limit_error,
     is_retryable_llm_error,
+    is_service_unavailable_error,
     retry_after_seconds,
     retry_counts,
 )
@@ -42,6 +43,15 @@ def overloaded() -> litellm.InternalServerError:
         message='AnthropicError - {"type": "error", "error": {"type": "overloaded_error", "message": "Overloaded"}}',
         llm_provider="anthropic",
         model="claude-sonnet-4-5",
+    )
+
+
+def unavailable() -> litellm.ServiceUnavailableError:
+    # What litellm raises for a Bedrock ServiceUnavailableException.
+    return litellm.ServiceUnavailableError(
+        message='BedrockException - {"message": "Bedrock is unable to process your request."}',
+        llm_provider="bedrock",
+        model="anthropic.claude-sonnet-4-5-20250929-v1:0",
     )
 
 
@@ -136,9 +146,10 @@ class TestClassification:
                 ),
                 False,
             ),
+            (unavailable(), True),
             (
-                litellm.ServiceUnavailableError(
-                    message="down", llm_provider="openai", model="m"
+                litellm.APIConnectionError(
+                    message="connection reset", llm_provider="openai", model="m"
                 ),
                 False,
             ),
@@ -147,6 +158,12 @@ class TestClassification:
     )
     def test_retryable(self, exc, retryable):
         assert is_retryable_llm_error(exc) is retryable
+
+    def test_service_unavailable_is_a_capacity_error(self):
+        assert is_service_unavailable_error(unavailable())
+        assert error_status_code(unavailable()) == 503
+        assert not is_rate_limit_error(unavailable())
+        assert not is_overloaded_error(unavailable())
 
     def test_rate_limit_vs_overloaded(self):
         assert is_rate_limit_error(rate_limit())
@@ -713,3 +730,28 @@ def test_deployments_of_one_model_have_separate_slots(budget, cap):
     for t in threads:
         t.join(timeout=10)
     assert not barrier.broken
+
+
+class TestServiceUnavailable:
+    def test_bedrock_503s_then_success(self, clock, budget, cap):
+        response = model_response()
+        llm = _make_llm()
+        llm.model = "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"
+        with patch(
+            "holmes.core.llm.litellm.completion",
+            side_effect=[unavailable(), unavailable(), response],
+        ) as completion:
+            result = llm.completion(messages=[{"role": "user", "content": "hi"}])
+
+        assert result is response
+        assert completion.call_count == 3
+        assert len(clock.sleeps) == 2
+        assert RequestStats.from_response(result).llm_rate_limit_retries == 2
+
+    def test_persistent_503_reraises_after_budget(self, clock, budget, cap):
+        budget(10)
+        fn = scripted(*[unavailable() for _ in range(20)])
+        with pytest.raises(litellm.ServiceUnavailableError) as info:
+            call_with_rate_limit_retry(fn, model="m")
+        assert sum(clock.sleeps) <= 10
+        assert retry_counts(info.value)["llm_rate_limit_retries"] == len(fn.calls) - 1

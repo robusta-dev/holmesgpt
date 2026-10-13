@@ -586,6 +586,20 @@ class TestRecordError:
         assert _state_arg(state).stats.llm_rate_limit_retries == 2
         assert _state_arg(state).stats.llm_rate_limit_wait_ms == 4000
 
+    def test_service_unavailable_is_an_error_with_its_status(self, monkeypatch):
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+        exc = litellm.ServiceUnavailableError(
+            message="BedrockException - unable to process", llm_provider="bedrock", model="m"
+        )
+        exc.llm_rate_limit_retries = 5
+        record_error(state, exc)
+        s = _state_arg(state)
+        assert s.status == "error"
+        assert s.meta["error_class"] == "ServiceUnavailableError"
+        assert s.meta["error_status_code"] == 503
+        assert s.stats.llm_rate_limit_retries == 5
+
     def test_overloaded_is_an_error_with_its_status(self, monkeypatch):
         _patch_inline_thread(monkeypatch)
         state = _make_state()

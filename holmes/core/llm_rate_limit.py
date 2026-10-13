@@ -1,4 +1,4 @@
-"""Retry LLM calls that fail on provider rate limits or overload.
+"""Retry LLM calls that fail on provider rate limits, overload or 503s.
 
 A retry repeats one LLM call, never the whole run, so tool work already done
 in an investigation is kept.
@@ -120,9 +120,20 @@ def is_overloaded_error(e: BaseException) -> bool:
     return error_status_code(e) == 529
 
 
+def is_service_unavailable_error(e: BaseException) -> bool:
+    # litellm maps a provider 503 (Bedrock ServiceUnavailableException, OpenAI
+    # "server is overloaded", relay's transient 503s) to ServiceUnavailableError.
+    return error_status_code(e) == 503
+
+
 def is_provider_capacity_error(e: BaseException) -> bool:
-    """Rate limit, quota or overload: the provider refused for lack of capacity."""
-    return is_rate_limit_error(e) or is_overloaded_error(e)
+    """Rate limit, quota, overload or 503: the provider could not serve the
+    request right now."""
+    return (
+        is_rate_limit_error(e)
+        or is_overloaded_error(e)
+        or is_service_unavailable_error(e)
+    )
 
 
 def is_retryable_llm_error(e: BaseException) -> bool:
@@ -277,7 +288,7 @@ def retry_counts(obj: Any) -> Dict[str, int]:
 def call_with_rate_limit_retry(
     fn: Callable[[], T], model: str, api_base: Optional[str] = None
 ) -> T:
-    """Run ``fn``, retrying rate-limit / overloaded errors within the wait budget.
+    """Run ``fn``, retrying rate-limit / overloaded / 503 errors within the wait budget.
 
     The per-model concurrency slot is held only while ``fn`` runs, not while
     backing off. For a streamed call that is until ``completion()`` returns.
