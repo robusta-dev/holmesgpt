@@ -200,14 +200,18 @@ class _CountedSleep(_Delegating):
             raise _StopLoop
 
 
-def _two_refresh_loop_cycles(config: Config, monkeypatch) -> None:
+def _run_refresh_loop(config: Config, monkeypatch, cycles: int) -> None:
     monkeypatch.setattr(server, "config", config)
     monkeypatch.setattr(server, "dal", _disabled_dal())
     monkeypatch.setattr(server, "threading", _InlineThreading(server.threading))
-    monkeypatch.setattr(server, "time", _CountedSleep(server.time, cycles=2))
+    monkeypatch.setattr(server, "time", _CountedSleep(server.time, cycles=cycles))
 
     with pytest.raises(_StopLoop):
         server._toolset_status_refresh_loop()
+
+
+def _two_refresh_loop_cycles(config: Config, monkeypatch) -> None:
+    _run_refresh_loop(config, monkeypatch, cycles=2)
 
 
 # Callers that can be the first to build the server's executor: the refresh
@@ -234,3 +238,27 @@ def test_first_build_runs_one_live_check(tmp_path, monkeypatch, build):
     assert config.cached_tool_executor is not None
     assert _sessions_opened(sessions) == 1
     assert not status_file.exists()
+
+
+def test_refresh_loop_cycle_that_builds_the_executor_checks_each_server_once(tmp_path, monkeypatch):
+    """A server without a status refresh interval is checked on every cycle,
+    but the cycle that builds the executor has just checked it."""
+    config, sessions = _mcp_config(tmp_path, WORKING_SERVER)
+
+    _run_refresh_loop(config, monkeypatch, cycles=1)
+    assert config.cached_tool_executor is not None
+    assert _sessions_opened(sessions) == 1
+
+    _run_refresh_loop(config, monkeypatch, cycles=1)
+    assert _sessions_opened(sessions) == 2
+
+
+def test_refresh_loop_rediscovers_platform_mcp_tools_on_the_cached_executor(built_server, monkeypatch):
+    config, _ = built_server
+    executor = config.cached_tool_executor
+    rediscovered = []
+    monkeypatch.setattr(server, "refresh_platform_mcp_tools", rediscovered.append)
+
+    _run_refresh_loop(config, monkeypatch, cycles=1)
+
+    assert rediscovered == [executor]
