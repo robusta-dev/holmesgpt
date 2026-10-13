@@ -42,25 +42,15 @@ RUN python -m venv /venv --upgrade-deps && \
 ENV VIRTUAL_ENV=/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# kubectl: official release binary from dl.k8s.io, pulled with upstream SHA-256
-# verification. v1.37.0 is built with Go 1.26.6 (stdlib CVE fixes incl. the
-# CVE-2026-33818/56853/56858-56862 batch) and vendors x/net v0.57.0 / x/sys
-# v0.47.0 / x/text v0.40.0, clearing the x/net finding set (CVE-2026-33814/
-# 25681/27136/39821 High and friends) that the 1.36.x line carried and that
-# once forced a from-source rebuild (see git history). When bumping, check the
-# candidate's toolchain and x/* versions with:
-#   go version -m <(curl -sL https://dl.k8s.io/release/<ver>/bin/linux/amd64/kubectl)
 ARG TARGETARCH
-ARG KUBECTL_VERSION=v1.37.0
-RUN cd /tmp \
-    && curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
-    && curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl.sha256" -o kubectl.sha256 \
-    && echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c - \
-    && mv kubectl /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl \
-    && rm -f kubectl.sha256 \
-    && kubectl version --client
 
-# ArgoCD / Helm: CVE-patched static binaries (see scripts/build_go_binaries.sh).
+# kubectl / ArgoCD / Helm: CVE-patched static binaries (see scripts/build_go_binaries.sh).
+COPY bin/go-cve-rebuild/${TARGETARCH}/kubectl.gz /tmp/kubectl.gz
+COPY bin/go-cve-rebuild/${TARGETARCH}/kubectl.gz.sha256 /tmp/kubectl.gz.sha256
+RUN cd /tmp && sha256sum -c kubectl.gz.sha256 \
+    && gunzip /tmp/kubectl.gz && mv /tmp/kubectl /usr/local/bin/kubectl && chmod +x /usr/local/bin/kubectl \
+    && rm -f /tmp/kubectl.gz.sha256
+
 COPY bin/go-cve-rebuild/${TARGETARCH}/argocd.gz /tmp/argocd.gz
 COPY bin/go-cve-rebuild/${TARGETARCH}/argocd.gz.sha256 /tmp/argocd.gz.sha256
 RUN cd /tmp && sha256sum -c argocd.gz.sha256 \
@@ -102,6 +92,7 @@ COPY --from=builder /venv /venv
 # Runtime packages. librdkafka: confluent-kafka binding; libstdc++/libgcc:
 # compiled wheels. apk upgrade pulls Alpine security fixes for base-image
 # packages.
+# expat from edge: 2.9.0 CVE fixes; Alpine 3.24 ships 2.8.5.
 #
 # bash + GNU coreutils/findutils/grep/gzip: the bash toolset allowlist
 # (default_lists.py) lets the LLM run grep/find/sort/date/head/stat/zgrep/etc.
@@ -131,7 +122,8 @@ RUN apk upgrade --no-cache && apk add --no-cache \
     && apk add --no-cache \
     --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community \
     --repository=https://dl-cdn.alpinelinux.org/alpine/edge/main \
-    librdkafka
+    librdkafka \
+    expat
 
 # Set up kubectl
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl

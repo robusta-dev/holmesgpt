@@ -164,6 +164,9 @@ MCP_TOOL_CALL_TIMEOUT_SEC = float(
 )
 
 LLM_REQUEST_TIMEOUT = float(os.environ.get("LLM_REQUEST_TIMEOUT", "600"))
+LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS = int(
+    os.environ.get("LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS", str(24 * 60 * 60))
+)
 
 # Max time one LLM call may spend backing off from rate-limit / overloaded
 # errors before the error is raised. 0 disables these retries.
