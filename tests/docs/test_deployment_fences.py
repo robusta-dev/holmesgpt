@@ -11,7 +11,7 @@ from mkdocs.commands.build import build
 from mkdocs.config import load_config
 from pydantic import BaseModel, ConfigDict, Field
 
-from docs import custom_fences, fence_checks
+from docs import chart_checks, custom_fences, fence_checks
 from docs.custom_fences import SUPPORTED_OPENING_RE, TabFenceError
 from holmes.config import Config
 
@@ -412,14 +412,14 @@ def test_a_value_no_template_reads_is_an_error_beside_a_time_that_moves_on(tmp_p
         'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: holmes\n'
         'data:\n  rendered: {{ now | date "15:04:05" | quote }}\n  read: {{ .Values.read | quote }}\n',
     )
-    render = fence_checks._render
+    render = chart_checks._render
 
-    def a_second_later(changed, chart_dir):
+    def a_second_later(chart_dir, changed, release):
         if changed != values:
             time.sleep(1.1)
-        return render(changed, chart_dir)
+        return render(chart_dir, changed, release)
 
-    monkeypatch.setattr(fence_checks, "_render", a_second_later)
+    monkeypatch.setattr(chart_checks, "_render", a_second_later)
     assert fence_checks.check_fence(values, {}, time_and_read) == [
         "`unread`: the render does not depend on its value"
     ]
@@ -432,19 +432,19 @@ def test_values_whose_renders_differ_in_their_number_of_lines_are_an_error(tmp_p
     read = chart(
         tmp_path, "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: holmes\ndata:\n  read: {{ .Values.read | quote }}\n"
     )
-    render = fence_checks._render
+    render = chart_checks._render
     renders_of_values = 0
 
-    def a_line_more_the_second_time(changed, chart_dir):
+    def a_line_more_the_second_time(chart_dir, changed, release):
         nonlocal renders_of_values
-        result = render(changed, chart_dir)
+        result = render(chart_dir, changed, release)
         if changed == values:
             renders_of_values += 1
             if renders_of_values == 2:
                 result.stdout += "  line: line\n"
         return result
 
-    monkeypatch.setattr(fence_checks, "_render", a_line_more_the_second_time)
+    monkeypatch.setattr(chart_checks, "_render", a_line_more_the_second_time)
     assert fence_checks.check_fence(values, {}, read) == [
         "two renders of these values differ in their number of lines, so which values the chart reads cannot be told"
     ]
@@ -460,17 +460,33 @@ def test_a_rendered_kind_with_no_kubernetes_schema_is_an_error(tmp_path):
     ]
 
 
-def test_the_fence_checks_without_helm_fail_saying_what_to_install(monkeypatch, tmp_path):
+def test_the_chart_checks_without_helm_fail_saying_what_to_install(monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
-    with pytest.raises(RuntimeError, match=r"need Helm on PATH: install Helm"):
+    with pytest.raises(RuntimeError, match=r"the chart checks need Helm on PATH: install Helm"):
         fence_checks.check_fence({}, {}, CHART)
 
 
-def test_the_fence_checks_without_kubernetes_validate_fail_saying_what_to_install():
-    hidden = "import sys; sys.modules['kubernetes_validate'] = None; import docs.fence_checks"
+def test_the_chart_checks_without_kubernetes_validate_fail_saying_what_to_install():
+    hidden = "import sys; sys.modules['kubernetes_validate'] = None; import docs.chart_checks"
     result = subprocess.run([sys.executable, "-c", hidden], cwd=REPO, capture_output=True, text=True)
     assert result.returncode != 0
-    assert "the fence checks need kubernetes-validate, a dev dependency: run `poetry install --with dev`" in result.stderr
+    assert "the chart checks need kubernetes-validate, a dev dependency: run `poetry install --with dev`" in result.stderr
+
+
+def test_the_chart_checks_render_with_holmes_unimportable():
+    """Callers outside this repository render their own charts with docs/chart_checks.py
+    without installing Holmes."""
+    unimportable = (
+        "import sys; sys.modules['holmes'] = None\n"
+        "from pathlib import Path\n"
+        "from docs.chart_checks import check_chart\n"
+        "render, errors = check_chart(Path('helm/holmes'), {'logLevel': 'DEBUG'}, 'holmes')\n"
+        "print(errors, 'kind: Deployment' in render)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", unimportable], cwd=REPO, capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "[] True"
 
 
 def test_the_keys_a_derived_cli_tab_shows_are_holmes_config_keys():

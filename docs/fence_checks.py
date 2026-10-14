@@ -2,7 +2,8 @@
 The checks of a deployment fence's Helm values against what reads them: the Holmes chart, the
 Kubernetes API for what its templates pass through into an object, and Holmes for what the chart
 passes on to it. tests/docs runs `check_fence` on the values of every Holmes Helm Chart tab; the
-MkDocs build does not run it, and needs none of Helm, Holmes or this module.
+MkDocs build does not run it, and needs none of Helm, Holmes or this module. The chart and
+Kubernetes checks are `docs/chart_checks.py`'s, which needs no Holmes; this module adds Holmes's.
 
 The chart passes `toolsets`, `mcp_servers` (with the servers of the enabled `mcpAddons`) and
 `modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so their contents change
@@ -14,17 +15,15 @@ import copy
 import functools
 import os
 import re
-import shutil
-import subprocess
 import tempfile
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Tuple
 
 import yaml  # type: ignore
 from pydantic import BaseModel, ValidationError
 
+from docs.chart_checks import check_chart
 from docs.custom_fences import empty_value, key_path
 from holmes.core.llm import ModelEntry
 from holmes.core.tools import Toolset, ToolsetStatusEnum
@@ -33,129 +32,11 @@ from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.plugins.toolsets.multi_instance import MultiInstanceToolset, _parse_instances
 from holmes.utils.env import replace_env_vars_values
 
-try:
-    import kubernetes_validate.utils
-except ImportError as e:
-    raise ImportError(
-        "the fence checks need kubernetes-validate, a dev dependency: run `poetry install --with dev`"
-    ) from e
-
 # A placeholder the reader replaces, such as `<namespace>`.
 PLACEHOLDER_RE = re.compile(r"<[A-Za-z0-9_-]+>")
 
-# The Kubernetes version whose API schemas, as kubernetes-validate bundles them, the rendered
-# objects are checked against.
-KUBERNETES_VERSION = "1.36"
-
-
-def _helm() -> str:
-    helm = shutil.which("helm")
-    if helm is None:
-        raise RuntimeError(
-            "the fence checks need Helm on PATH: install Helm 3 or later, https://helm.sh/docs/intro/install/"
-        )
-    return helm
-
-
-def _render(values: dict, chart_dir: Path) -> subprocess.CompletedProcess:
-    """`helm template` of the chart with `values`, under the release name the docs' commands use."""
-    return subprocess.run(
-        [_helm(), "template", "holmes", str(chart_dir), "-f", "-"],
-        input=yaml.safe_dump(values),
-        capture_output=True,
-        text=True,
-    )
-
-
-def _lines(render: str) -> List[str]:
-    # A checksum annotation hashes a whole values subtree, so it changes with a value no template reads.
-    return [line for line in render.split("\n") if "checksum/" not in line]
-
-
-def _differing(lines: List[str], other: List[str]) -> Set[int]:
-    return {index for index, (line, other_line) in enumerate(zip(lines, other)) if line != other_line}
-
-
-def _leaves(node, path: tuple = ()) -> Iterator[Tuple[tuple, object]]:
-    """(key path, value) of every scalar under the mapping or list `node`, at any depth, list
-    items included. `check_fence` refuses an empty mapping, list or null before this runs."""
-    for key, value in node.items() if isinstance(node, dict) else enumerate(node):
-        if isinstance(value, (dict, list)):
-            yield from _leaves(value, path + (key,))
-        else:
-            yield path + (key,), value
-
-
-def _changed(value):
-    """A value other than `value`: a bool flipped, a number plus one, and any other value a string."""
-    if isinstance(value, bool):
-        return not value
-    if isinstance(value, (int, float)):
-        return value + 1
-    return f"{value}-changed"
-
-
-def _with(values: dict, path: tuple, value) -> dict:
-    changed = copy.deepcopy(values)
-    node = changed
-    for key in path[:-1]:
-        node = node[key]
-    node[path[-1]] = value
-    return changed
-
-
-def _unread(values: dict, render: str, chart_dir: Path) -> List[str]:
-    """An error for each leaf of `values` whose change leaves the chart's `render` the same.
-    A change Helm refuses, or one that changes the number of lines, counts as read."""
-    leaves = list(_leaves(values))
-    if not leaves:
-        return []
-    base = _lines(render)
-
-    def differing(leaf) -> Optional[Set[int]]:
-        path, value = leaf
-        result = _render(_with(values, path, _changed(value)), chart_dir)
-        lines = _lines(result.stdout)
-        if result.returncode != 0 or len(lines) != len(base):
-            return None
-        return _differing(base, lines)
-
-    with ThreadPoolExecutor() as pool:
-        changes = list(pool.map(differing, leaves))
-    # Rendered after every change, so it differs from `base` at each line holding a random value,
-    # or a time that moved on while the changes rendered: a change there says nothing about a value.
-    again = _lines(_render(values, chart_dir).stdout)
-    if len(again) != len(base):
-        return ["two renders of these values differ in their number of lines, so which values the chart reads cannot be told"]
-    unstable = _differing(base, again)
-    return [
-        f"`{key_path(path)}`: the render does not depend on its value"
-        for (path, _), lines in zip(leaves, changes)
-        if lines is not None and lines <= unstable
-    ]
-
-
-def _schema_errors(render: str) -> List[str]:
-    """Why the Kubernetes API schemas refuse each object of the render, in strict mode, which
-    refuses a field the schema does not declare."""
-    errors = []
-    for document in yaml.safe_load_all(render):
-        if not document:
-            continue
-        name = f"{document['kind']} {document['metadata']['name']}"
-        try:
-            kubernetes_validate.utils.validate(document, KUBERNETES_VERSION, strict=True)
-        except kubernetes_validate.utils.ValidationError as e:
-            where = ".".join(map(str, e.path))
-            errors.append(
-                f"the rendered {name} does not match its Kubernetes {KUBERNETES_VERSION} schema at `{where}`: {e.message}"
-            )
-        except kubernetes_validate.utils.SchemaNotFoundError:
-            errors.append(
-                f"the rendered {name} has no Kubernetes {KUBERNETES_VERSION} schema in kubernetes-validate: "
-                f"kind {document['kind']}, apiVersion {document['apiVersion']}"
-            )
-    return errors
+# The release name the docs' commands install the chart as.
+RELEASE = "holmes"
 
 
 @contextmanager
@@ -333,19 +214,13 @@ def check_fence(values: dict, environment: Dict[str, str], chart_dir: Path) -> L
     values, as the Holmes Helm Chart tab shows them; `environment` is the variables the group
     gives Holmes, its secret's keys and its `additionalEnvVars`.
 
-    No value may be empty (a list entry `""` excepted), as on the pages. The values must
-    render with `helm template`, every leaf must change the render when it changes (else the
-    render does not depend on its value), every rendered object must match its Kubernetes
-    schema, and Holmes must load what the render passes on to it. A line that differs between
-    two renders of `values`, such as a random token or the time, is not counted as a change."""
+    No value may be empty (a list entry `""` excepted), as on the pages. The chart and the
+    Kubernetes API must take the values (`check_chart`), and Holmes must load what the render
+    passes on to it."""
     empty = empty_value(values)
     if empty:
         return [f"`{key_path(empty)}` has no value"]
-    result = _render(values, chart_dir)
-    if result.returncode != 0:
-        return [f"helm template fails: {result.stderr.strip()}"]
-    return (
-        _unread(values, result.stdout, chart_dir)
-        + _schema_errors(result.stdout)
-        + _holmes_errors(result.stdout, environment)
-    )
+    render, errors = check_chart(chart_dir, values, RELEASE)
+    if render is None:
+        return errors
+    return errors + _holmes_errors(render, environment)
