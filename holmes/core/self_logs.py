@@ -4,10 +4,12 @@ Served as the ``holmes_logs`` internal request kind of the remote tool-call
 worker (never as an LLM tool). Reads Holmes's own pods and logs from the
 Kubernetes API server; if Holmes may not read them, the result carries the error.
 
-The result is bounded: ``tail_lines`` is clamped to 1..5000 and the combined
-log text to ``MAX_TOTAL_LOG_CHARS``, keeping the newest lines of each stream.
+The result is bounded: ``tail_lines`` is clamped to 1..HOLMES_LOGS_MAX_TAIL_LINES
+and the whole result to REMOTE_TOOL_RESULT_MAX_BYTES once JSON-encoded, keeping
+the newest lines of each stream.
 """
 
+import json
 import os
 import socket
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -17,11 +19,13 @@ from kubernetes import config as k8s_config
 from kubernetes.client.rest import ApiException
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from holmes.common.env_vars import (
+    HOLMES_LOGS_DEFAULT_TAIL_LINES,
+    HOLMES_LOGS_MAX_TAIL_LINES,
+    REMOTE_TOOL_RESULT_MAX_BYTES,
+)
 from holmes.utils.holmes_status import _detect_runner_namespace
 
-DEFAULT_TAIL_LINES = 500
-MAX_TAIL_LINES = 5000
-MAX_TOTAL_LOG_CHARS = 400_000
 # Holmes runs a handful of replicas; this only guards against a selector that
 # unexpectedly matches much more than Holmes.
 MAX_PODS = 20
@@ -32,7 +36,7 @@ LOG_REQUEST_TIMEOUT_SECONDS = 20
 class HolmesLogsRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    tail_lines: int = DEFAULT_TAIL_LINES
+    tail_lines: int = HOLMES_LOGS_DEFAULT_TAIL_LINES
     previous: bool = False
     pod_name: Optional[str] = None
     include_logs: bool = True
@@ -41,8 +45,8 @@ class HolmesLogsRequest(BaseModel):
     @classmethod
     def _clamp_tail_lines(cls, value: Any) -> int:
         if value is None:
-            return DEFAULT_TAIL_LINES
-        return max(1, min(MAX_TAIL_LINES, int(value)))
+            return HOLMES_LOGS_DEFAULT_TAIL_LINES
+        return max(1, min(HOLMES_LOGS_MAX_TAIL_LINES, int(value)))
 
 
 # ---- environment ----
@@ -159,19 +163,29 @@ def _bound_logs(entries: List[Dict[str, Any]], budget: int) -> None:
         remaining -= len(text)
 
 
+def _encoded_size(result: Dict[str, Any]) -> int:
+    # The same encoding the tool-call worker sends.
+    return len(json.dumps(result, ensure_ascii=False).encode("utf-8"))
+
+
 def _result(
     namespace: Optional[str],
     pods: List[Dict[str, Any]],
     logs: List[Dict[str, Any]],
     error: Optional[str],
 ) -> Dict[str, Any]:
-    _bound_logs(logs, MAX_TOTAL_LOG_CHARS)
-    return {
-        "namespace": namespace,
-        "pods": pods,
-        "logs": logs,
-        "error": error,
-    }
+    max_bytes = REMOTE_TOOL_RESULT_MAX_BYTES
+    result = {"namespace": namespace, "pods": pods, "logs": logs, "error": error}
+    # Escaping and multi-byte characters make the encoded size larger than the
+    # character count, so shrink the character budget until the result fits.
+    budget = max_bytes
+    while logs:
+        _bound_logs(logs, budget)
+        size = _encoded_size(result)
+        if size <= max_bytes or budget == 0:
+            break
+        budget = int(budget * max_bytes / size * 0.95)
+    return result
 
 
 # ---- entry point ----

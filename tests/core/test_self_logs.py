@@ -1,5 +1,6 @@
 """Holmes's own pods/logs (the ``holmes_logs`` internal request kind)."""
 
+import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
@@ -207,13 +208,16 @@ def test_previous_log_missing_is_reported_per_container():
     assert other_entry["error"] is None
 
 
+def _encoded_size(data):
+    return len(json.dumps(data, ensure_ascii=False).encode("utf-8"))
+
+
 def test_total_output_is_bounded(monkeypatch):
-    monkeypatch.setattr(self_logs, "MAX_TOTAL_LOG_CHARS", 1000)
+    monkeypatch.setattr(self_logs, "REMOTE_TOOL_RESULT_MAX_BYTES", 3000)
     big = "".join(f"line {i:05d}\n" for i in range(1000))
     api = _api([_pod(OWN), _pod(OTHER)], logs={(OWN, "holmes"): big, (OTHER, "holmes"): "short\n"})
     data = get_holmes_logs(HolmesLogsRequest(), core_api_factory=lambda: api)
-    total = sum(len(e["text"]) for e in data["logs"])
-    assert total <= 1000
+    assert _encoded_size(data) <= 3000
     own_entry = next(e for e in data["logs"] if e["pod"] == OWN)
     assert own_entry["truncated"] is True
     # Newest lines survive, cut on a line boundary.
@@ -271,3 +275,18 @@ def test_forbidden_log_reads_are_reported_per_container_keeping_pods():
     assert [p["name"] for p in data["pods"]] == [OWN]
     assert data["logs"][0]["text"] == ""
     assert "HTTP 403 Forbidden" in data["logs"][0]["error"]
+
+
+def test_escaped_log_text_still_fits_the_byte_limit(monkeypatch):
+    # Color codes and non-ASCII grow under JSON encoding: these lines are
+    # far below the limit in characters and far above it in bytes.
+    monkeypatch.setattr(self_logs, "REMOTE_TOOL_RESULT_MAX_BYTES", 20_000)
+    line = "\x1b[32mINFO\x1b[0m ✅ toolset ready\n"
+    big = line * 2000
+    assert len(big) > 20_000 and len(big) < 20_000 * 4
+    api = _api([_pod(OWN)], logs={(OWN, "holmes"): big})
+    data = get_holmes_logs(HolmesLogsRequest(), core_api_factory=lambda: api)
+    assert _encoded_size(data) <= 20_000
+    entry = data["logs"][0]
+    assert entry["truncated"] is True
+    assert entry["text"].endswith(line) and entry["text"].startswith("\x1b[32m")
