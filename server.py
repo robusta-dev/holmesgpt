@@ -24,8 +24,7 @@ import colorlog
 import litellm
 from pydantic import BaseModel
 from holmes.core.oauth_config import OAuthConfigLookupError, OAuthTokenExchangeError
-from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, process_oauth_callback
-from holmes.core.oauth_utils import _get_token_manager
+from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, handle_oauth_callback
 import sentry_sdk
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -511,13 +510,7 @@ def oauth_callback(request: OAuthCallbackRequest) -> OAuthCallbackResponse:
         bool(request.code_verifier), request.redirect_uri,
     )
     try:
-        # Known issue: the user's tools are loaded into this executor after the
-        # token exchange. If a refresh replaces the cached executor in between,
-        # and its eager OAuth load ran before the token was stored, the new
-        # executor lacks this user's tools until the next rebuild (the
-        # <toolset>_connect placeholder still works meanwhile).
-        executor = config.create_server_tool_executor(dal)
-        return process_oauth_callback(request, executor.toolsets, _get_token_manager(), executor=executor)
+        return handle_oauth_callback(request, config, dal)
     except OAuthConfigLookupError as e:
         logging.error("OAuth config error for '%s': %s", request.toolset_name, e.detail)
         raise HTTPException(status_code=400, detail=e.detail)
