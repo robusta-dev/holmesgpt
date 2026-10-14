@@ -5479,6 +5479,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#holmes-logs-in-the-robusta-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Holmes Logs in the Robusta UI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Holmes Logs in the Robusta UI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#holmes_logs_default_tail_lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HOLMES_LOGS_DEFAULT_TAIL_LINES
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#holmes_logs_max_tail_lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HOLMES_LOGS_MAX_TAIL_LINES
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#conversation-worker-executors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6476,6 +6515,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#holmes-logs-in-the-robusta-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Holmes Logs in the Robusta UI
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Holmes Logs in the Robusta UI">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#holmes_logs_default_tail_lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HOLMES_LOGS_DEFAULT_TAIL_LINES
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#holmes_logs_max_tail_lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HOLMES_LOGS_MAX_TAIL_LINES
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#conversation-worker-executors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7159,6 +7237,14 @@ silently weakens the signature and lets a client forge approval tokens.</p>
 <p><strong>Example:</strong>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">TOOL_MEMORY_LIMIT_MB</span><span class="o">=</span><span class="m">2000</span>
 </span></code></pre></div></p>
+<h2 id="holmes-logs-in-the-robusta-ui">Holmes Logs in the Robusta UI<a class="headerlink" href="#holmes-logs-in-the-robusta-ui" title="Permanent link">&para;</a></h2>
+<p>The Robusta UI shows Holmes's own pod logs. The whole result is limited to <code>REMOTE_TOOL_RESULT_MAX_BYTES</code> (default 1 MB) after JSON encoding; when the logs are longer, the newest lines are kept.</p>
+<h3 id="holmes_logs_default_tail_lines">HOLMES_LOGS_DEFAULT_TAIL_LINES<a class="headerlink" href="#holmes_logs_default_tail_lines" title="Permanent link">&para;</a></h3>
+<p><strong>Default:</strong> <code>500</code></p>
+<p>Lines per container that the UI gets when it does not ask for a number.</p>
+<h3 id="holmes_logs_max_tail_lines">HOLMES_LOGS_MAX_TAIL_LINES<a class="headerlink" href="#holmes_logs_max_tail_lines" title="Permanent link">&para;</a></h3>
+<p><strong>Default:</strong> <code>5000</code></p>
+<p>The largest number of lines per container that a request can ask for.</p>
 <h2 id="conversation-worker-executors">Conversation Worker Executors<a class="headerlink" href="#conversation-worker-executors" title="Permanent link">&para;</a></h2>
 <p>The conversation runtime (Robusta platform deployments) runs each conversation on a named <strong>executor</strong>. <code>Conversations.executor</code> names it: <code>manual</code> for live user asks (chat, follow-ups, a single "Investigate now") and <code>auto</code> for background work (auto-triage, "Add to queue" / bulk investigations, triggered workflows). Executors are created on demand and sized from the account setting <code>conversation_executors.&lt;name&gt;</code> (Settings → LLMs sets <code>manual</code>, Settings → Triage sets <code>auto</code>; applied live, no restart), falling back to the built-in default (<code>manual</code>=10, <code>auto</code>=1). <code>CONVERSATION_WORKER_MAX_CONCURRENT</code> (default 5) only sizes an executor whose name has no built-in default.</p>
 <p><strong>Upgrade note.</strong> Before executors existed, one shared pool of <code>CONVERSATION_WORKER_MAX_CONCURRENT</code> (5) ran everything. With the defaults above an agent now runs up to 11 conversations at once (10 <code>manual</code> + 1 <code>auto</code>), and <code>CONVERSATION_WORKER_MAX_CONCURRENT</code> no longer sizes those two executors. Deployments that tuned it should set the concurrency in Settings instead.</p>
@@ -7178,13 +7264,13 @@ silently weakens the signature and lets a client forge approval tokens.</p>
 <p>Overrides the URL LiteLLM fetches the model catalog (<code>model_prices_and_context_window.json</code>) from. LiteLLM uses that catalog to know each model's context window, max output tokens, and pricing. By default LiteLLM pulls it from <code>raw.githubusercontent.com</code>, which is unreachable from networks that block GitHub egress.</p>
 <p>Robusta hosts a mirror of the same file in each region. Pick the URL matching your Robusta region:</p>
 <div class="tabbed-set" data-tabs="1:3">
-<input checked="checked" id="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_1" name="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d" type="radio">
-<input id="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_2" name="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d" type="radio">
-<input id="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_3" name="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d" type="radio">
+<input checked="checked" id="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_1" name="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a" type="radio">
+<input id="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_2" name="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a" type="radio">
+<input id="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_3" name="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a" type="radio">
 <div class="tabbed-labels">
-<label for="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_1">US</label>
-<label for="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_2">EU</label>
-<label for="__tabbed_b4620d70_19f1_4bb8_b1c3_1f4279e9422d_3">AP</label>
+<label for="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_1">US</label>
+<label for="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_2">EU</label>
+<label for="__tabbed_5a48bf81_f493_4176_9573_4a0d46218e7a_3">AP</label>
 </div>
 <div class="tabbed-content">
 <div class="tabbed-block"><pre><code>https://api.robusta.dev/litellm/model_prices_and_context_window.json</code></pre></div>
@@ -7195,13 +7281,13 @@ silently weakens the signature and lets a client forge approval tokens.</p>
 <p>The mirror is cached and falls back to its last-known-good copy if the upstream is temporarily unreachable, so pointing at it gives the same freshness as the default URL without requiring egress to <code>raw.githubusercontent.com</code>.</p>
 <p><strong>Helm example:</strong></p>
 <div class="tabbed-set" data-tabs="1:3">
-<input checked="checked" id="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_1" name="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89" type="radio">
-<input id="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_2" name="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89" type="radio">
-<input id="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_3" name="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89" type="radio">
+<input checked="checked" id="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_1" name="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47" type="radio">
+<input id="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_2" name="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47" type="radio">
+<input id="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_3" name="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47" type="radio">
 <div class="tabbed-labels">
-<label for="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_1">US</label>
-<label for="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_2">EU</label>
-<label for="__tabbed_1850835c_21d1_497f_b78b_108d4d58ee89_3">AP</label>
+<label for="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_1">US</label>
+<label for="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_2">EU</label>
+<label for="__tabbed_ccfd7788_5140_46e3_b519_eeaa2e891a47_3">AP</label>
 </div>
 <div class="tabbed-content">
 <div class="tabbed-block"><pre><code class="language-yaml">additionalEnvVars:
