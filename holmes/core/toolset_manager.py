@@ -131,13 +131,6 @@ class ToolsetManager:
         """
         return [ToolsetTag.CORE, ToolsetTag.CLI]
 
-    @property
-    def server_tool_tags(self) -> List[ToolsetTag]:
-        """
-        Returns the list of toolset tags that are relevant for server tools.
-        """
-        return list(SERVER_TOOLSET_TAGS)
-
     def _list_all_toolsets(
         self,
         dal: Optional[SupabaseDal] = None,
@@ -675,7 +668,7 @@ class ToolsetManager:
             dal,
             check_prerequisites=True,
             enable_all_toolsets=False,
-            toolset_tags=self.server_tool_tags,
+            toolset_tags=SERVER_TOOLSET_TAGS,
         )
         return toolsets_with_status
 
@@ -692,7 +685,7 @@ class ToolsetManager:
             dal,
             check_prerequisites=True,
             enable_all_toolsets=False,
-            toolset_tags=self.server_tool_tags,
+            toolset_tags=SERVER_TOOLSET_TAGS,
             silent=True,
         )
 
