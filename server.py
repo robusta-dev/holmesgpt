@@ -336,17 +336,18 @@ def _toolset_status_refresh_loop():
             try:
                 # Re-discover platform-mcp tools so the dynamic remote-tool
                 # surface (new clusters, flipped account flag) reaches a
-                # RUNNING caller without a pod restart.
-                executor = config.create_server_tool_executor(dal)
-                refresh_platform_mcp_tools(executor)
+                # RUNNING caller without a pod restart. With no executor built
+                # yet, the refresh below builds it, which discovers the tools;
+                # building it here would make that refresh check every toolset
+                # again in the same cycle.
+                executor = config.cached_tool_executor
+                if executor is not None:
+                    refresh_platform_mcp_tools(executor)
             except Exception:
                 logging.error(
                     "Failed to refresh platform-mcp tools", exc_info=True
                 )
             try:
-                # Known issue: on the first cycle the platform-mcp step above
-                # has just built the executor, so this refresh checks the
-                # toolsets without a status refresh interval a second time.
                 changes = config.refresh_tool_executor(
                     dal,
                     toolset_tag_filter=SERVER_TOOLSET_TAGS,
