@@ -39,7 +39,7 @@ def mock_config():
     config = Mock(spec=Config)
     config.cluster_name = "test-cluster"
     all_toolsets = load_builtin_toolsets(dal=None)
-    config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
+    config.create_server_tool_executor.return_value = Mock(toolsets=all_toolsets)
     return config
 
 
@@ -61,7 +61,7 @@ def sample_toolset():
 
 
 def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[sample_toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -103,7 +103,7 @@ def test_sync_toolsets_with_config_schema(mock_subprocess_run, mock_dal, mock_co
         tags=[ToolsetTag.CORE],
     )
     toolset.check_prerequisites()
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -137,7 +137,7 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     )
     toolset2.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset1, toolset2])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset1, toolset2])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -171,7 +171,7 @@ def test_sync_toolsets_with_prerequisites_check(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -202,7 +202,7 @@ def test_sync_toolsets_with_failed_prerequisites(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -235,7 +235,7 @@ def test_sync_toolsets_with_successful_prerequisites(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -260,7 +260,7 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -296,7 +296,7 @@ def test_sync_toolsets_with_command_output_mismatch(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -370,7 +370,7 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     assert successful_toolset_2.status == ToolsetStatusEnum.ENABLED
     assert successful_toolset_2.error is None
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=all_toolsets)
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -509,11 +509,11 @@ def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
     -> ToolsetDBModel -> dal.sync_toolsets() for sending to database.
     RemoteMCPToolset is not in builtin toolsets, it's loaded from config.
     """
-    original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
+    original_toolsets = list(mock_config.create_server_tool_executor.return_value.toolsets)
 
     mcp_toolset_good = _create_mcp_toolset_with_tools(RemoteMCPToolset)
     all_toolsets_good = list(original_toolsets)
     all_toolsets_good.append(mcp_toolset_good)
-    mock_config.create_tool_executor.return_value.toolsets = all_toolsets_good
+    mock_config.create_server_tool_executor.return_value.toolsets = all_toolsets_good
 
     holmes_sync_toolsets_status(mock_dal, mock_config)

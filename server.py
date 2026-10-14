@@ -67,7 +67,7 @@ from holmes.core.models import (
 )
 from holmes.core.prompt import PromptComponent
 from holmes.core.tool_calling_llm import RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
 from holmes.core.scheduled_prompts import ScheduledPromptsExecutor
 from holmes.utils.connection_utils import patch_socket_create_connection
 from holmes.plugins.toolsets.robusta_platform_mcp.robusta_platform_mcp import (
@@ -335,14 +335,13 @@ def _toolset_status_refresh_loop():
             try:
                 # Re-discover platform-mcp tools so the dynamic remote-tool
                 # surface (new clusters, flipped account flag) reaches a
-                # RUNNING caller without a pod restart.
-                executor = config.create_tool_executor(
-                    dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-                    enable_all_toolsets_possible=False,
-                    reuse_executor=True,
-                )
-                refresh_platform_mcp_tools(executor)
+                # RUNNING caller without a pod restart. With no executor built
+                # yet, the refresh below builds it, which discovers the tools;
+                # building it here would make that refresh check every toolset
+                # again in the same cycle.
+                executor = config.cached_tool_executor
+                if executor is not None:
+                    refresh_platform_mcp_tools(executor)
             except Exception:
                 logging.error(
                     "Failed to refresh platform-mcp tools", exc_info=True
@@ -350,7 +349,7 @@ def _toolset_status_refresh_loop():
             try:
                 changes = config.refresh_tool_executor(
                     dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+                    toolset_tag_filter=SERVER_TOOLSET_TAGS,
                     enable_all_toolsets_possible=False,
                 )
                 if changes:
@@ -656,7 +655,7 @@ def chat(chat_request: ChatRequest, http_request: Request):
 
         ai = config.create_toolcalling_llm(
             dal=dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
             enable_all_toolsets_possible=False,
             prerequisite_cache=PrerequisiteCacheMode.DISABLED,
             reuse_executor=True,
@@ -929,9 +928,7 @@ class InfoResponse(BaseModel):
 @app.get("/api/info", response_model=InfoResponse, response_model_exclude_none=True)
 def get_info(detail: Optional[str] = None) -> InfoResponse:
     """Return server info. Use ?detail=full for per-toolset breakdown."""
-    executor = config.create_tool_executor(
-        dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-    )
+    executor = config.create_server_tool_executor(dal)
     all_toolsets = executor.toolsets
 
     enabled_count = sum(1 for t in all_toolsets if t.status == ToolsetStatusEnum.ENABLED)

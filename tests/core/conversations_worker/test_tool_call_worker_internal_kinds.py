@@ -153,7 +153,7 @@ def test_oauth_callback_skips_version_guard_and_tool_lookup():
     ):
         resp = worker._execute(row)
     assert resp["status"] == StructuredToolResultStatus.SUCCESS.value
-    worker.config.create_tool_executor.assert_not_called()
+    worker.config.create_server_tool_executor.assert_not_called()
 
 
 def test_oauth_callback_invalid_payload_does_not_leak_secrets():
@@ -243,7 +243,7 @@ def test_holmes_logs_dispatch_parses_and_clamps_payload():
     assert request.previous is True
     assert request.pod_name == "holmes-1"
     assert request.include_logs is True
-    worker.config.create_tool_executor.assert_not_called()
+    worker.config.create_server_tool_executor.assert_not_called()
 
 
 def test_holmes_logs_defaults_when_payload_missing():
@@ -298,7 +298,7 @@ def test_unknown_kind_is_error():
     resp = worker._execute(row)
     assert resp["status"] == StructuredToolResultStatus.ERROR.value
     assert "unknown internal request kind 'drop_tables'" in resp["error"]
-    worker.config.create_tool_executor.assert_not_called()
+    worker.config.create_server_tool_executor.assert_not_called()
 
 
 def test_non_object_payload_is_error():
@@ -339,7 +339,7 @@ def _tool_worker():
     executor.tools_by_name = {"probe": tool}
     executor._tool_to_toolset = {"probe": toolset}
     config = MagicMock()
-    config.create_tool_executor.return_value = executor
+    config.create_server_tool_executor.return_value = executor
     config._get_llm.return_value = MagicMock(spec=LLM)
     return ToolCallWorker(dal=MagicMock(), config=config, holmes_id="h"), tool
 

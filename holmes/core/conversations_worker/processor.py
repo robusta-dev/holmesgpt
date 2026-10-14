@@ -30,7 +30,7 @@ from holmes.core.conversations_worker.models import (
 from holmes.core.models import ChatRequest
 from holmes.core.prompt import PromptComponent
 from holmes.core.relay_refusal import RELAY_REFUSAL_ERROR_CODES, RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetTag
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode
 from holmes.core.tools_utils.filesystem_result_storage import tool_result_storage
 from holmes.core.tools_utils.frontend_tools import (
     FrontendToolCollisionError,
@@ -373,7 +373,7 @@ class ConversationProcessor:
         try:
             ai = self.config.create_toolcalling_llm(
                 dal=self.dal,
-                toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+                toolset_tag_filter=SERVER_TOOLSET_TAGS,
                 enable_all_toolsets_possible=False,
                 prerequisite_cache=PrerequisiteCacheMode.DISABLED,
                 reuse_executor=True,

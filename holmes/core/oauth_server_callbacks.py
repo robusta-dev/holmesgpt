@@ -12,7 +12,6 @@ from typing import Any, List, Optional
 from holmes.core.models import OAuthCallbackRequest, OAuthCallbackResponse
 from holmes.core.oauth_config import OAuthConfigLookupError
 from holmes.core.oauth_utils import _get_token_manager, exchange_code_for_tokens
-from holmes.core.tools import PrerequisiteCacheMode
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 
 logger = logging.getLogger(__name__)
@@ -118,11 +117,12 @@ def handle_oauth_callback(
     Raises :class:`OAuthConfigLookupError` / ``OAuthTokenExchangeError`` like
     :func:`process_oauth_callback`; callers map them to their transport.
     """
-    executor = config.create_tool_executor(
-        dal=dal,
-        reuse_executor=True,
-        prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-    )
+    # Known issue: the user's tools are loaded into this executor after the
+    # token exchange. If a refresh replaces the cached executor in between,
+    # and its eager OAuth load ran before the token was stored, the new
+    # executor lacks this user's tools until the next rebuild (the
+    # <toolset>_connect placeholder still works meanwhile).
+    executor = config.create_server_tool_executor(dal)
     return process_oauth_callback(
         request, executor.toolsets, _get_token_manager(), executor=executor
     )
