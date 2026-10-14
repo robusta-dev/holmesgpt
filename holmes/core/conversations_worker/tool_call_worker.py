@@ -33,11 +33,9 @@ from holmes.common.env_vars import (
 )
 from holmes.core.conversations_worker.models import RemoteToolCallStatus
 from holmes.core.tools import (
-    PrerequisiteCacheMode,
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolInvokeContext,
-    ToolsetTag,
 )
 from holmes.version import get_version
 
@@ -415,15 +413,9 @@ class ToolCallWorker:
     # ---- helpers ----
 
     def _get_tool_executor(self):
-        # reuse_executor=True returns the same cached executor the toolset
-        # sync built at startup — no prerequisite re-checks per call.
-        return self.config.create_tool_executor(
-            self.dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-            enable_all_toolsets_possible=False,
-            prerequisite_cache=PrerequisiteCacheMode.ENABLED,
-            reuse_executor=True,
-        )
+        # Returns the server's cached executor, usually built by the toolset
+        # sync at startup, so a call doesn't re-check prerequisites.
+        return self.config.create_server_tool_executor(self.dal)
 
     def _get_llm(self):
         # The executor's own configured LLM: used only for in-tool token
