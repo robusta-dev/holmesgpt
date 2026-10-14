@@ -613,6 +613,13 @@ class Config(RobustaBaseConfig):
 
         if changes or _toolset_tools_changed(current_toolsets, new_toolsets):
             with self._executor_lock:
+                # The checks ran without the lock. If another caller replaced
+                # or cleared the executor meanwhile (e.g. an admin reload), keep
+                # theirs instead of overwriting it with one built from the
+                # toolsets this refresh started with. Still return the changes,
+                # so the caller syncs the statuses of the executor now cached.
+                if self._cached_tool_executor is not cached_executor:
+                    return [(name, old.value, new.value) for name, old, new in changes]
                 executor = ToolExecutor(new_toolsets)
                 preload_oauth_tokens()
                 eager_load_oauth_tools(executor)
