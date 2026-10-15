@@ -32,6 +32,8 @@ For CLI deployments, you'll need to create the RBAC resources manually. For Helm
 
 ## Configuration
 
+With the chart, the defaults work out of the box once enabled (plug-and-play). The chart creates a scoped ClusterRole (no `cluster-admin`), an ingress-only NetworkPolicy locked to Holmes, and wires `approval_required_tools: ["run_kubectl_command"]`. Override `serviceAccount.clusterRole` to bring your own role, or `config.*` to tune the allowlists.
+
 === "Holmes CLI"
 
     **Step 1: Create RBAC Resources**
@@ -125,7 +127,7 @@ For CLI deployments, you'll need to create the RBAC resources manually. For Helm
           serviceAccountName: k8s-remediation-mcp-sa
           containers:
           - name: k8s-remediation-mcp
-            image: us-central1-docker.pkg.dev/genuine-flight-317411/mcp/kubernetes-remediation-mcp:1.2.0
+            image: us-central1-docker.pkg.dev/genuine-flight-317411/mcp/kubernetes-remediation-mcp:1.4.0
             imagePullPolicy: IfNotPresent
             ports:
             - containerPort: 8000
@@ -205,7 +207,7 @@ For CLI deployments, you'll need to create the RBAC resources manually. For Helm
 
 === "Holmes Helm Chart"
 
-    The defaults work out of the box once enabled (plug-and-play). Add the following to your `values.yaml`:
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
 
     ```yaml
     mcpAddons:
@@ -213,17 +215,15 @@ For CLI deployments, you'll need to create the RBAC resources manually. For Helm
         enabled: true
     ```
 
-    Then deploy or upgrade your Holmes installation:
+    Apply the configuration:
 
     ```bash
-    helm upgrade --install holmes robusta/holmes -f values.yaml
+    helm upgrade holmes robusta/holmes -f values.yaml
     ```
-
-    The chart creates a scoped ClusterRole (no `cluster-admin`), an ingress-only NetworkPolicy locked to Holmes, and wires `approval_required_tools: ["run_kubectl_command"]`. Override `serviceAccount.clusterRole` to bring your own role, or `config.*` to tune the allowlists.
 
 === "Robusta Helm Chart"
 
-    Add the following to your `generated_values.yaml`:
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
 
     ```yaml
     holmes:
@@ -232,10 +232,10 @@ For CLI deployments, you'll need to create the RBAC resources manually. For Helm
           enabled: true
     ```
 
-    Then deploy or upgrade your Robusta installation:
+    Apply the configuration:
 
     ```bash
-    helm upgrade --install robusta robusta/robusta -f generated_values.yaml --set clusterName=YOUR_CLUSTER_NAME
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
 
 ## GPU node diagnostics
@@ -278,7 +278,38 @@ All policy lives in the MCP server; Holmes only maps tool name → approval.
 | **Locked-down mode** | Set `allowArbitraryKubectlCommands: false` to disable `run_kubectl_command` entirely |
 | **Scoped RBAC** | Least-privilege ClusterRole — no `cluster-admin`, no `secrets` |
 | **NetworkPolicy** | Ingress-only, locked to Holmes pods |
+| **Bearer-token auth** | With `auth.enabled: true` (the default), every HTTP request needs a token shared by Holmes and the server — see [Authentication token](#authentication-token) |
 | **Command timeout** | Commands are killed after a configurable timeout (default: 60s) |
+
+### Authentication token
+
+With `auth.enabled: true` (the default), a Helm hook Job creates the Secret
+`<release>-k8s-remediation-mcp-token` with a random token the first time the
+chart is deployed, and both Holmes and the server read it. The token is never
+part of the rendered manifests, so `helm template` and ArgoCD renders are
+identical on every sync and do not restart Holmes. ArgoCD runs the hook as a
+`PreSync` hook. The Secret is not part of the Helm release, so `helm uninstall`
+leaves it in place and a reinstall reuses it. The hook needs a deploy tool that
+runs Helm hooks (Helm, ArgoCD, Flux); if you disable hooks, use `existingSecret`.
+
+To rotate the token, increase `auth.rotation`. The hook replaces the token and
+both pods restart with it in the same upgrade or sync:
+
+```yaml
+mcpAddons:
+  kubernetesRemediation:
+    auth:
+      rotation: 1
+```
+
+If the Secret is deleted, the next upgrade or sync creates a new token and
+restarts both Deployments.
+
+To manage the token yourself instead, set
+`mcpAddons.kubernetesRemediation.auth.existingSecret` to a Secret holding it
+under the key `token`. The chart then runs no hook. After you change that
+Secret, `helm upgrade` restarts both pods; under ArgoCD, also increase
+`auth.rotation`.
 
 ## Diagnostic-pod target policy
 
@@ -286,7 +317,7 @@ All policy lives in the MCP server; Holmes only maps tool name → approval.
 
     The `config` keys in this section are read by the MCP server, not by Holmes.
     On an older image they are passed through and ignored, and probe targets are
-    unrestricted. The Helm chart pins 1.2.0 by default.
+    unrestricted. The Helm chart pins 1.4.0 by default.
 
 `run_preapproved_diagnostic_image` is auto-approved, and the images it launches
 are network-probing tools (`curl`, `dig`, `wget`, `tcpdump`). The image allowlist

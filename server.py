@@ -15,6 +15,7 @@ import ssl
 import sys
 import threading
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -23,12 +24,12 @@ import colorlog
 import litellm
 from pydantic import BaseModel
 from holmes.core.oauth_config import OAuthConfigLookupError, OAuthTokenExchangeError
-from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, process_oauth_callback
-from holmes.core.oauth_utils import _get_token_manager
+from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, handle_oauth_callback
 import sentry_sdk
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from litellm.exceptions import AuthenticationError
 from holmes import get_version, is_official_release
 from holmes.common.env_vars import (
@@ -65,7 +66,8 @@ from holmes.core.models import (
     OAuthCallbackResponse,
 )
 from holmes.core.prompt import PromptComponent
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tool_calling_llm import RelayRefusal
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
 from holmes.core.scheduled_prompts import ScheduledPromptsExecutor
 from holmes.utils.connection_utils import patch_socket_create_connection
 from holmes.plugins.toolsets.robusta_platform_mcp.robusta_platform_mcp import (
@@ -245,11 +247,11 @@ def sync_before_server_start():
         holmes_sync_toolsets_status(dal, config)
     except Exception:
         logging.error("Failed to synchronise holmes toolsets", exc_info=True)
-    if conversation_worker is not None:
+    if conversation_runtime is not None:
         try:
-            conversation_worker.start()
+            conversation_runtime.start()
         except Exception:
-            logging.error("Failed to start conversation worker", exc_info=True)
+            logging.error("Failed to start conversation runtime", exc_info=True)
     if not ENABLED_SCHEDULED_PROMPTS:
         return
     # No need to check if dal is enabled again, done at the start of this function
@@ -260,12 +262,16 @@ def sync_before_server_start():
 
 
 def _has_failed_mcp_toolsets() -> bool:
-    """Check if any MCP toolsets are in FAILED state."""
+    """Check if any MCP toolsets that the shortened backoff cycles would
+    re-check are in FAILED state. A toolset with its own status refresh
+    interval is re-checked on that interval, not on backoff cycles."""
     executor = config.cached_tool_executor  # thread-safe property
     if not executor:
         return False
     return any(
-        t.type == ToolsetType.MCP and t.status == ToolsetStatusEnum.FAILED
+        t.type == ToolsetType.MCP
+        and t.status == ToolsetStatusEnum.FAILED
+        and t.status_refresh_interval_seconds is None
         for t in executor.toolsets
     )
 
@@ -329,14 +335,13 @@ def _toolset_status_refresh_loop():
             try:
                 # Re-discover platform-mcp tools so the dynamic remote-tool
                 # surface (new clusters, flipped account flag) reaches a
-                # RUNNING caller without a pod restart.
-                executor = config.create_tool_executor(
-                    dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-                    enable_all_toolsets_possible=False,
-                    reuse_executor=True,
-                )
-                refresh_platform_mcp_tools(executor)
+                # RUNNING caller without a pod restart. With no executor built
+                # yet, the refresh below builds it, which discovers the tools;
+                # building it here would make that refresh check every toolset
+                # again in the same cycle.
+                executor = config.cached_tool_executor
+                if executor is not None:
+                    refresh_platform_mcp_tools(executor)
             except Exception:
                 logging.error(
                     "Failed to refresh platform-mcp tools", exc_info=True
@@ -344,7 +349,7 @@ def _toolset_status_refresh_loop():
             try:
                 changes = config.refresh_tool_executor(
                     dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+                    toolset_tag_filter=SERVER_TOOLSET_TAGS,
                     enable_all_toolsets_possible=False,
                 )
                 if changes:
@@ -416,7 +421,33 @@ if ENABLE_TELEMETRY and SENTRY_DSN:
             "Skipping sentry initialization - not an official release and DEVELOPMENT_MODE not enabled"
         )
 
-app = FastAPI()
+
+def stop_conversation_runtime():
+    """Retire in-flight conversations before the process goes away.
+
+    uvicorn turns SIGTERM (rollout, node drain, scale-down, `docker stop`) into
+    a graceful shutdown, which runs this via the app lifespan. Without it the
+    daemon executor threads are simply frozen at interpreter exit and every
+    conversation the pod was mid-turn on stays 'running' with a dead assignee
+    until the stale-conversation sweep retires it. SIGKILL / OOM kill still
+    bypass this — the pg_cron sweep stays the backstop.
+    """
+    if conversation_runtime is None:
+        return
+    try:
+        conversation_runtime.stop()
+    except Exception:
+        logging.error("Failed to stop conversation runtime", exc_info=True)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    # stop() blocks on Supabase writes and thread joins; keep it off the event loop.
+    await run_in_threadpool(stop_conversation_runtime)
+
+
+app = FastAPI(lifespan=lifespan)
 _SERVER_START_TIME = time.time()
 
 HOLMES_API_KEY = os.environ.get("HOLMES_API_KEY", "").strip()
@@ -479,8 +510,7 @@ def oauth_callback(request: OAuthCallbackRequest) -> OAuthCallbackResponse:
         bool(request.code_verifier), request.redirect_uri,
     )
     try:
-        executor = config.create_tool_executor(dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED)
-        return process_oauth_callback(request, executor.toolsets, _get_token_manager(), executor=executor)
+        return handle_oauth_callback(request, config, dal)
     except OAuthConfigLookupError as e:
         logging.error("OAuth config error for '%s': %s", request.toolset_name, e.detail)
         raise HTTPException(status_code=400, detail=e.detail)
@@ -625,7 +655,7 @@ def chat(chat_request: ChatRequest, http_request: Request):
 
         ai = config.create_toolcalling_llm(
             dal=dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
             enable_all_toolsets_possible=False,
             prerequisite_cache=PrerequisiteCacheMode.DISABLED,
             reuse_executor=True,
@@ -829,6 +859,11 @@ def chat(chat_request: ChatRequest, http_request: Request):
     except HTTPException:
         # The generic ``except Exception`` below would otherwise rewrite these as 500.
         raise
+    except RelayRefusal as e:
+        # Relay's own refusal of a Robusta-hosted model carries the status to
+        # answer with (401 stale token, 403 account opted out) and the sentence
+        # the user has to act on (ROB-1389).
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except AuthenticationError as e:
         raise HTTPException(status_code=401, detail=e.message)
     except litellm.exceptions.RateLimitError as e:
@@ -842,37 +877,11 @@ scheduled_prompts_executor = ScheduledPromptsExecutor(
     dal=dal, config=config, chat_function=chat
 )
 
-conversation_worker = None
+conversation_runtime = None
 if ENABLE_CONVERSATION_WORKER:
-    from holmes.core.conversations_worker import ConversationWorker
+    from holmes.core.conversations_worker import ConversationRuntime
 
-    conversation_worker = ConversationWorker(
-        dal=dal, config=config, chat_function=chat
-    )
-
-
-@app.on_event("shutdown")
-def stop_conversation_worker():
-    """Retire in-flight conversations before the process goes away.
-
-    uvicorn turns SIGTERM (rollout, node drain, scale-down, `docker stop`) into
-    a graceful shutdown, which runs this hook. Without it nothing ever called
-    ConversationWorker.stop(): the worker threads are daemons, so they were
-    simply frozen at interpreter exit and every conversation the pod was
-    mid-turn on stayed 'running' with a dead assignee until the stale-conversation
-    sweep retired it — up to hours of spinner in the UI. stop() now marks those
-    rows 'timeout' with a "Holmes Restarted" error event first.
-
-    Declared as a sync def on purpose: Starlette runs it in a threadpool, and
-    the body is blocking (Supabase writes plus bounded thread joins). SIGKILL /
-    OOM kill still bypass all of this — the pg_cron sweep stays the backstop.
-    """
-    if conversation_worker is None:
-        return
-    try:
-        conversation_worker.stop()
-    except Exception:
-        logging.error("Failed to stop conversation worker", exc_info=True)
+    conversation_runtime = ConversationRuntime(dal=dal, config=config)
 
 
 @app.get("/api/model")
@@ -919,9 +928,7 @@ class InfoResponse(BaseModel):
 @app.get("/api/info", response_model=InfoResponse, response_model_exclude_none=True)
 def get_info(detail: Optional[str] = None) -> InfoResponse:
     """Return server info. Use ?detail=full for per-toolset breakdown."""
-    executor = config.create_tool_executor(
-        dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-    )
+    executor = config.create_server_tool_executor(dal)
     all_toolsets = executor.toolsets
 
     enabled_count = sum(1 for t in all_toolsets if t.status == ToolsetStatusEnum.ENABLED)
