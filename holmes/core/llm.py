@@ -164,6 +164,9 @@ def _bundled_pricing_for_underlying_model(
     first then strip leading segments one at a time (provider, then any
     route segment such as ``converse/``).
 
+    Direct provider entries use the same lookup to check whether pricing
+    is available without registering a custom price.
+
     Regional variants (``us.``/``eu.``/``au.``) are kept as-is on purpose:
     they carry the AWS-Bedrock regional premium, and that is the price we
     report. Stripping the regional prefix would silently switch us to a
@@ -990,6 +993,10 @@ class LLMModelRegistry:
                     if auto_pricing != existing_pricing:
                         _register_custom_pricing(litellm_name, auto_pricing)
                     continue
+            elif existing_pricing is None:
+                # Native providers resolve provider/route prefixes themselves;
+                # their cost-map entries may use the underlying model name.
+                existing_pricing = _bundled_pricing_for_underlying_model(entry.model)
 
             # 3. Warn once per unknown un-priced model so the operator knows
             # why usage-event costs will be 0.
