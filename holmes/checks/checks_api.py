@@ -213,9 +213,6 @@ def execute_health_check(
                             )
 
                             notification.status = "sent"
-                            logging.info(
-                                f"Sent Slack notification to {slack_channel} for check {check_name}"
-                            )
                         else:
                             notification.status = "skipped"
                             notification.error = (
@@ -239,9 +236,6 @@ def execute_health_check(
                             )
 
                             notification.status = "sent"
-                            logging.info(
-                                f"Sent webhook notification to {webhook_url} for check {check_name}"
-                            )
                         else:
                             notification.status = "skipped"
                             notification.error = (
@@ -256,6 +250,9 @@ def execute_health_check(
                     if notification_dest is not None:
                         try:
                             notification_dest.send_issue(issue, llm_result)
+                            logging.info(
+                                f"Sent {dest_type} notification for check {check_name}"
+                            )
                         except Exception as e:
                             notification.status = "failed"
                             notification.error = str(e)

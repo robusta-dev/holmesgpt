@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+import urllib.parse
 
 import requests  # type:ignore
 
@@ -46,7 +47,7 @@ class WebhookDestination(DestinationPlugin):
         method: str,
         webhook_url: str,
         headers: Optional[Dict[str, Any]] = None,
-    ):
+    ):      
         self.method = method
         self.webhook_url = webhook_url
         self.headers: Dict[str, Any] = dict(headers) if headers else {}
@@ -63,6 +64,14 @@ class WebhookDestination(DestinationPlugin):
             result: The LLM analysis result
         """
         try:
+            parsed = urllib.parse.urlparse(self.webhook_url)
+            if parsed.scheme not in ("http", "https"):
+                logging.error(
+                    f"WebhookDestination URL has unsupported scheme '{parsed.scheme}'"
+                )
+                raise Exception(f"WebhookDestination URL has unsupported scheme {parsed.scheme}")
+                
+      
             payload = self._create_event_payload(issue, result)
 
             response = requests.request(
@@ -84,7 +93,8 @@ class WebhookDestination(DestinationPlugin):
                     logging.error(f"Webhook error response: {error_details}")
                 except json.JSONDecodeError:
                     logging.error(f"Webhook error response: {e.response.text}")
-
+            raise
+        
     def _create_event_payload(self, issue: Issue, result: LLMResult) -> dict:
         """
         Build the versioned webhook event payload.

@@ -144,6 +144,9 @@ def check(
             parsed_webhook_headers = json.loads(webhook_headers)
         except json.JSONDecodeError as e:
             console.print(f"[red]Invalid webhook headers JSON: {e}[/red]")
+            raise typer.Exit(1) from e
+        if not isinstance(parsed_webhook_headers, dict):
+            console.print("[red]--webhook-headers must be a JSON object[/red]")
             raise typer.Exit(1)
         
     if inline_check:
