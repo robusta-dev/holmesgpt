@@ -33,10 +33,14 @@ tags:
   - chain-of-causation
   - logs
 
-setup_timeout: 300
+setup_timeout: 600
 
 before_test: |
+  set -euo pipefail
   kubectl create namespace app-291 --dry-run=client -o yaml | kubectl apply -f -
+  # The eval runner blocks Secret reads; keep the latency implementation there.
+  kubectl create secret generic inventory-code -n app-291 \
+    --from-file=server.py=./inventory.py --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f ./manifest.yaml
 
   # inventory-api must be Ready, so that "healthy by every signal Kubernetes
