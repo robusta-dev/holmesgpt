@@ -52,7 +52,7 @@ class WebhookDestination(DestinationPlugin):
         self.webhook_url = webhook_url
         self.headers: Dict[str, Any] = dict(headers) if headers else {}
 
-        if "Content-Type" not in self.headers:
+        if not any(k.lower() == "content-type" for k in self.headers):
             self.headers["Content-Type"] = "application/json"
 
     def send_issue(self, issue: Issue, result: LLMResult) -> None:

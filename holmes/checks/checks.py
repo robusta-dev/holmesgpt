@@ -626,10 +626,13 @@ class CheckRunner:
 
                 method = (
                     (webhook_config.webhook_method if webhook_config else None)
+                    or self.config.webhook_method
                     or "POST"
                 )
                 headers = (
-                    (webhook_config.webhook_headers if webhook_config else None) or {}
+                    (webhook_config.webhook_headers if webhook_config else None) 
+                    or self.config.webhook_headers
+                    or {}
                 )
 
                 try:

@@ -69,7 +69,7 @@ def check(
     webhook_url: Optional[str] = typer.Option(
         None,
         "--webhook-url",
-        help="Generic webhook URL for inline check alerts. Cannot be used with --slack-webhook or --slack-channel.",
+        help="Generic webhook URL for inline check alerts.",
         envvar="WEBHOOK_URL",
     ),
     webhook_method: Optional[str] = typer.Option(
