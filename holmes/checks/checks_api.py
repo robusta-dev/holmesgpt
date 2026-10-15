@@ -2,6 +2,7 @@ import logging
 import os
 import time
 from typing import Optional
+import json
 
 from fastapi import FastAPI, HTTPException
 from holmes.plugins.interfaces import DestinationPlugin
@@ -227,8 +228,31 @@ def execute_health_check(
                         webhook_url = dest_config.get("webhook_url") or os.environ.get(
                             "WEBHOOK_URL"
                         )
-                        webhook_method = dest_config.get("webhook_method") or "POST"
+                        webhook_method = (
+                            dest_config.get("webhook_method") 
+                            or os.environ.get(
+                                "WEBHOOK_METHOD"
+                            ) 
+                            or "POST"
+                        )
+
+                        
                         webhook_headers = dest_config.get("webhook_headers") or {}
+                        env_webhook_headers = os.environ.get("WEBHOOK_HEADERS") 
+                        if not webhook_headers and env_webhook_headers:
+                            try:
+                                webhook_headers = json.loads(env_webhook_headers )
+                            except (json.JSONDecodeError, TypeError):
+                                logging.warning("Invalid JSON in WEBHOOK_HEADERS; ignoring")
+
+                                notification.status = "skipped"
+                                notification.error = (
+                                    "WEBHOOK_URL not configured"
+                                )
+                                logging.warning(
+                                    "WEBHOOK_URL not configured, skipping Webhook notification"
+                                )
+                                continue
                         
                         if webhook_url:
                             notification_dest = WebhookDestination(
