@@ -6,6 +6,8 @@ import threading
 from enum import Enum
 from pathlib import Path
 
+from holmes.plugins.destinations.webhook.utils import InvalidWebhookHeadersError, resolve_webhook_headers
+
 display_logger = logging.getLogger("holmes.display.config")
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -350,9 +352,13 @@ class Config(RobustaBaseConfig):
             webhook_headers_env = os.environ.get("WEBHOOK_HEADERS")
             if webhook_headers_env:
                 try:
-                    self.webhook_headers = json.loads(webhook_headers_env)
-                except (json.JSONDecodeError, TypeError):
-                    logging.warning("Invalid JSON in WEBHOOK_HEADERS; ignoring")
+                    self.webhook_headers = resolve_webhook_headers(
+                        None,
+                        webhook_headers_env,
+                    )
+                except InvalidWebhookHeadersError as e:
+                    logging.warning("Invalid WEBHOOK_HEADERS: %s", e)
+                    self.webhook_headers = None
 
     @classmethod
     def load_from_env(cls):
