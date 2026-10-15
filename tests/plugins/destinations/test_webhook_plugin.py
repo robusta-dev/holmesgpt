@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
 
+import pytest
+import requests
 import responses
 
 from holmes.checks.models import CheckStatus
@@ -33,7 +35,9 @@ def _issue(**overrides) -> Issue:
 
 
 def test_payload_schema_is_versioned_and_stable():
-    payload = _destination()._create_event_payload(_issue(), LLMResult(result="finding"))
+    payload = _destination()._create_event_payload(
+        _issue(), LLMResult(result="finding")
+    )
 
     assert tuple(payload.keys()) == WEBHOOK_PAYLOAD_KEYS
     assert payload["schema_version"] == WEBHOOK_SCHEMA_VERSION == 1
@@ -43,7 +47,9 @@ def test_payload_schema_is_versioned_and_stable():
 
 
 def test_unknown_fields_are_null_rather_than_missing():
-    payload = _destination()._create_event_payload(_issue(), LLMResult(result="finding"))
+    payload = _destination()._create_event_payload(
+        _issue(), LLMResult(result="finding")
+    )
 
     for key in (
         "namespace",
@@ -150,11 +156,12 @@ def test_send_issue_honours_the_configured_method():
         assert rsps.calls[0].request.method == "PUT"
 
 
-def test_send_issue_swallows_http_errors_after_logging():
+def test_send_issue_raise_http_errors_after_logging():
     with responses.RequestsMock() as rsps:
         rsps.add(responses.POST, WEBHOOK_URL, json={"error": "nope"}, status=500)
         # must not raise: notification failures are recorded by the caller
-        _destination().send_issue(_issue(), LLMResult(result="finding"))
+        with pytest.raises(requests.exceptions.RequestException):
+            _destination().send_issue(_issue(), LLMResult(result="finding"))
 
 
 def test_headers_default_to_json_and_are_not_shared_between_instances():
