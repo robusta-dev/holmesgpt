@@ -2,10 +2,22 @@
 import json
 import os
 from typing import Any
-
+import requests
 
 class InvalidWebhookHeadersError(ValueError):
     """Raised when webhook headers are not a JSON object."""
+
+def is_valid_webhook_header_value(headers: dict[str, Any]) -> bool:
+    """Validate webhook header names and values."""
+
+    for name, value in headers.items():
+        if not isinstance(name, str) or not name:
+            return False
+
+        if not isinstance(value, str):
+            return False
+        
+    return True
 
 
 def resolve_webhook_headers(
@@ -38,8 +50,7 @@ def resolve_webhook_headers(
     if headers is None:
         return {}
 
-    if not isinstance(headers, dict):
+    if not isinstance(headers, dict) or not is_valid_webhook_header_value(headers=headers):
         raise InvalidWebhookHeadersError("Web hook headers must be a JSON object")
 
-    # Return a defensive copy so callers can't mutate configured input.
     return dict(headers)
