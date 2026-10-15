@@ -5,6 +5,7 @@ from typing import Optional
 import json
 
 from fastapi import FastAPI, HTTPException
+from holmes.plugins.destinations.webhook import InvalidWebhookHeadersError, resolve_webhook_headers
 from holmes.plugins.interfaces import DestinationPlugin
 from litellm.exceptions import AuthenticationError
 from pydantic import BaseModel, Field
@@ -236,23 +237,17 @@ def execute_health_check(
                             or "POST"
                         )
 
-                        
-                        webhook_headers = dest_config.get("webhook_headers") or {}
-                        env_webhook_headers = os.environ.get("WEBHOOK_HEADERS") 
-                        if not webhook_headers and env_webhook_headers:
-                            try:
-                                webhook_headers = json.loads(env_webhook_headers )
-                            except (json.JSONDecodeError, TypeError):
-                                logging.warning("Invalid JSON in WEBHOOK_HEADERS; ignoring")
-
-                                notification.status = "skipped"
-                                notification.error = (
-                                    "WEBHOOK_URL not configured"
-                                )
-                                logging.warning(
-                                    "WEBHOOK_URL not configured, skipping Webhook notification"
-                                )
-                                continue
+                        try:
+                            webhook_headers = resolve_webhook_headers(
+                                dest_config.get("webhook_headers"),
+                                os.environ.get("WEBHOOK_HEADERS"),
+                            )
+                        except InvalidWebhookHeadersError as exc:
+                            logging.warning("Invalid webhook headers: %s", exc)
+                            notification.status = "skipped"
+                            notification.error = str(exc)
+                            notifications.append(notification)
+                            continue
                         
                         if webhook_url:
                             notification_dest = WebhookDestination(
