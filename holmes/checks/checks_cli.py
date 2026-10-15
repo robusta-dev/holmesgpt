@@ -65,6 +65,24 @@ def check(
         help="Slack bot token for sending alerts. Can also be set via SLACK_TOKEN environment variable.",
         envvar="SLACK_TOKEN",
     ),
+    webhook_url: Optional[str] = typer.Option(
+        None,
+        "--webhook-url",
+        help="Generic webhook URL for inline check alerts. Cannot be used with --slack-webhook or --slack-channel.",
+        envvar="WEBHOOK_URL",
+    ),
+    webhook_method: Optional[str] = typer.Option(
+        None,
+        "--webhook-method",
+        help="HTTP method for the generic webhook (defaults to POST).",
+        envvar="WEBHOOK_METHOD",
+    ),
+    webhook_headers: Optional[str] = typer.Option(
+        None,
+        "--webhook-headers",
+        help="JSON object of extra HTTP headers for the generic webhook.",
+        envvar="WEBHOOK_HEADERS",
+    ),
     mode: CheckMode = typer.Option(
         CheckMode.MONITOR,
         "--mode",
@@ -110,7 +128,7 @@ def check(
     """
     console = init_logging(verbose)
 
-    # Validate mutually exclusive Slack options
+    # Validate mutually exclusive alert destination options
     if slack_channel and slack_webhook:
         console.print(
             "[red]Error: --slack-channel and --slack-webhook are mutually exclusive.[/red]\n"
@@ -118,13 +136,23 @@ def check(
             "Use --slack-channel with SLACK_TOKEN environment variable for bot-based alerts."
         )
         raise typer.Exit(1)
-
+    
+    # Validate webhook_headers is present
+    parsed_webhook_headers = None
+    if webhook_headers:
+        try:
+            parsed_webhook_headers = json.loads(webhook_headers)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Invalid webhook headers JSON: {e}[/red]")
+            raise typer.Exit(1)
+        
     if inline_check:
         checks_config = ChecksConfig(
             version=1,
             checks=[
-                Check(name="Inline Check", query=inline_check),
+                Check(name="Inline Check", query=inline_check, destinations=[]),
             ],
+            destinations = {}
         )
         if slack_webhook or slack_channel:
             # Use configured Slack token from config or webhook
@@ -133,10 +161,19 @@ def check(
                 slack_config["webhook_url"] = slack_webhook
             if slack_channel:
                 slack_config["channel"] = slack_channel
-            checks_config.destinations = {"slack": DestinationConfig(**slack_config)}
+            checks_config.destinations["slack"] = DestinationConfig(**slack_config)
 
             # Add destination to the check
-            checks_config.checks[0].destinations = ["slack"]
+            checks_config.checks[0].destinations.append("slack")
+
+        if webhook_url:
+            checks_config.destinations["webhook"] = DestinationConfig(
+                    webhook_url=webhook_url,
+                    webhook_method=webhook_method,
+                    webhook_headers=parsed_webhook_headers,
+                )
+            
+            checks_config.checks[0].destinations.append("webhook")
 
     else:
         # Determine checks file location
@@ -167,6 +204,9 @@ def check(
         model=model,
         slack_token=slack_token,
         slack_channel=slack_channel,
+        webhook_url=webhook_url,
+        webhook_method=webhook_method,
+        webhook_headers=parsed_webhook_headers,
     )
 
     for check in checks_config.checks:
