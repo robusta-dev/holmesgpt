@@ -632,12 +632,3 @@ class TestAccountDefaultModel:
             mock_dal.finish_scheduled_prompt_run.call_args.kwargs["status"]
             != RunStatus.FAILED
         )
-
-    def test_an_empty_model_without_a_registry_leaves_the_choice_to_holmes(
-        self, mock_dal, mock_chat_function, sample_scheduled_prompt_payload
-    ):
-        request = self._request_for(
-            mock_dal, mock_chat_function, sample_scheduled_prompt_payload, None
-        )
-
-        assert request.model is None

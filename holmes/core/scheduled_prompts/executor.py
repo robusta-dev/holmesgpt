@@ -159,7 +159,7 @@ class ScheduledPromptsExecutor:
     def _execute_scheduled_prompt(self, sp: ScheduledPrompt):
         run_id = sp.id
         available_models = self.config.get_models_list()
-        # An empty model_name means the account default; see _account_default_model.
+        # An empty model_name means the account default, resolved below.
         if sp.model_name and sp.model_name not in available_models:
             error_msg = f"Model '{sp.model_name}' not found in available models: {available_models}"
             logging.warning(
@@ -182,16 +182,6 @@ class ScheduledPromptsExecutor:
         self._execute_prompt(sp)
         logging.info("Successfully completed run %s", run_id)
 
-    def _account_default_model(self) -> Optional[str]:
-        """The model for a run saved with an empty model_name.
-
-        Relay reports the account default with the catalog. It goes through
-        get_model_params, so a name this agent lacks falls back the way a chat
-        does; None falls back to the relay-flagged default.
-        """
-        registry = self.config.llm_model_registry
-        return registry.account_default_model if registry else None
-
     def _execute_prompt(
         self,
         sp: ScheduledPrompt,
@@ -206,7 +196,9 @@ class ScheduledPromptsExecutor:
 
         chat_request = ChatRequest(
             ask=self._extract_prompt_text(sp.prompt),
-            model=sp.model_name or self._account_default_model(),
+            # The account default goes through get_model_params, so a name this
+            # agent lacks falls back as a chat does; None takes the relay default.
+            model=sp.model_name or self.config.llm_model_registry.account_default_model,
             conversation_history=None,
             stream=False,
             additional_system_prompt=additional_system_prompt,
