@@ -72,9 +72,9 @@ class WebhookDestination(DestinationPlugin):
                 or parsed.password is not None
             ):
                 logging.error(
-                    f"WebhookDestination has invalid webhook URL"
+                    "WebhookDestination has invalid webhook URL"
                 )
-                raise Exception(f"WebhookDestination has invalid webhook URL")
+                raise Exception("WebhookDestination has invalid webhook URL")
                 
       
             payload = self._create_event_payload(issue, result)
