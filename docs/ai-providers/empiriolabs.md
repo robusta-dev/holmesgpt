@@ -12,7 +12,7 @@ Use the OpenAI-compatible provider and set the EmpirioLabs base URL:
     export OPENAI_API_KEY="sk-empiriolabs-..."
     export OPENAI_API_BASE="https://api.empiriolabs.ai/v1"
 
-    holmes ask "what pods are failing?" --model="openai/qwen3-max"
+    holmes ask "what pods are failing?" --model="openai/qwen3-7-max"
     ```
 
 === "Holmes Helm Chart"
@@ -27,16 +27,16 @@ Use the OpenAI-compatible provider and set the EmpirioLabs base URL:
           secretKeyRef:
             name: holmes-secrets
             key: empirio-api-key
+      # Default model: the modelList key below
+      - name: MODEL
+        value: "empirio-qwen"
 
     modelList:
       empirio-qwen:
         api_key: "{{ env.OPENAI_API_KEY }}"
         api_base: "{{ env.OPENAI_API_BASE }}"
-        model: openai/qwen3-max
+        model: openai/qwen3-7-max
         temperature: 1
-
-    config:
-      model: "empirio-qwen"
     ```
 
 === "Robusta Helm Chart"
@@ -52,16 +52,16 @@ Use the OpenAI-compatible provider and set the EmpirioLabs base URL:
             secretKeyRef:
               name: robusta-holmes-secret
               key: empirio-api-key
+        # Default model: the modelList key below
+        - name: MODEL
+          value: "empirio-qwen"
 
       modelList:
         empirio-qwen:
           api_key: "{{ env.OPENAI_API_KEY }}"
           api_base: "{{ env.OPENAI_API_BASE }}"
-          model: openai/qwen3-max
+          model: openai/qwen3-7-max
           temperature: 1
-
-      config:
-        model: "empirio-qwen"
     ```
 
 ## Models
