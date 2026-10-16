@@ -48,7 +48,8 @@ jobs:
         run: |
           poetry run mike deploy --push dev
       - name: Rebuild every published version (manual)
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'workflow_dispatch'
         run: |
           poetry run scripts/rebuild-published-docs.sh
+          poetry run python scripts/compare_published_docs.py origin/gh-pages gh-pages
           git push origin gh-pages
