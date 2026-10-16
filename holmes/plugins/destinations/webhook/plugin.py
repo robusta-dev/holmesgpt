@@ -65,7 +65,12 @@ class WebhookDestination(DestinationPlugin):
         """
         try:
             parsed = urllib.parse.urlparse(self.webhook_url)
-            if parsed.scheme not in ("http", "https"):
+            if (
+                parsed.scheme not in ("http", "https")
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+            ):
                 logging.error(
                     f"WebhookDestination URL has unsupported scheme '{parsed.scheme}'"
                 )
@@ -81,6 +86,13 @@ class WebhookDestination(DestinationPlugin):
                 headers=self.headers,
                 timeout=30,
             )
+            
+            # Do not follow redirects to potentially unsafe destinations.
+            if response.is_redirect or response.is_permanent_redirect:
+                raise requests.exceptions.RequestException(
+                    "Webhook redirects are not allowed",
+                    response=response,
+                )
 
             response.raise_for_status()
             logging.info(f"Successfully sent issue to Webhook {self.webhook_url}")

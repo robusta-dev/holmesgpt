@@ -1,3 +1,4 @@
+import logging
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.rule import Rule
@@ -49,4 +50,7 @@ def handle_result(
 
     elif destination == DestinationType.WEBHOOK:
         webhook = config.create_webhook_destination()
-        webhook.send_issue(issue, result)
+        try:
+            webhook.send_issue(issue, result)
+        except Exception as exc:
+            logging.error("Failed to send issue to Webhook: %s", exc)
