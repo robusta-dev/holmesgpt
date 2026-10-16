@@ -5,7 +5,8 @@ on:
       - master
     tags:
       - '[0-9]*.[0-9]*.[0-9]*'
-  # Rebuilds every published version with the docs toolchain on master, e.g. after a mkdocs-material security fix.
+  # Rebuilds every published version with the docs toolchain on master, for a theme release that changes only its hashed
+  # assets (a mkdocs-material security fix); the content gate refuses a rebuild that changes anything else.
   workflow_dispatch:
 permissions:
   contents: write

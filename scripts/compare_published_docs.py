@@ -2,7 +2,7 @@
 
 Usage: python scripts/compare_published_docs.py PUBLISHED_REF REBUILT_REF   (run inside the repo, e.g. origin/gh-pages gh-pages)
 
-A rebuild with a newer docs toolchain may change the theme but not the content, so:
+A rebuild passes when its newer theme release changes only its hashed files and the links to them, so:
   - the theme's hashed files (bundle, main, palette and the search worker, with their source maps) are skipped
   - a page is compared as its whole text, with its generator meta, the hashed theme file names it links and the random tab group ids docs/custom_fences.py generates replaced
   - sitemap.xml is compared without its <lastmod> build dates
@@ -14,7 +14,7 @@ import gzip
 import re
 import subprocess
 import sys
-from typing import Callable, Dict, Iterator, Tuple
+from typing import Callable, Dict, Iterator, Optional, Tuple
 
 HASHED_THEME_PATH = r"(assets/(?:javascripts/bundle|javascripts/workers/search|stylesheets/main|stylesheets/palette))\.[0-9a-f]{8,}(\.min\.(?:js|css))"
 HASHED_THEME_LINK = re.compile(HASHED_THEME_PATH)
@@ -77,18 +77,18 @@ def excerpt(old: str, new: str, lines: int = 6) -> str:
     return "\n    ".join(diff[:lines] + more)
 
 
-def content_differences(path: str, old: bytes, new: bytes) -> Iterator[str]:
+def content_difference(path: str, old: bytes, new: bytes) -> Optional[str]:
     if path.endswith(".html"):
         old_text, new_text = norm(old.decode()), norm(new.decode())
-        if old_text != new_text:
-            yield f"{path}\n    {excerpt(old_text, new_text)}"
-    elif path.endswith(("sitemap.xml", "sitemap.xml.gz")):
+        if old_text == new_text:
+            return None
+        return f"{path}\n    {excerpt(old_text, new_text)}"
+    if path.endswith(("sitemap.xml", "sitemap.xml.gz")):
         if path.endswith(".gz"):
             old, new = gzip.decompress(old), gzip.decompress(new)
-        if LASTMOD.sub(b"", old) != LASTMOD.sub(b"", new):
-            yield f"{path}: differs"
-    else:
-        yield f"{path}: differs"
+        if LASTMOD.sub(b"", old) == LASTMOD.sub(b"", new):
+            return None
+    return f"{path}: differs"
 
 
 def differences(
@@ -105,7 +105,9 @@ def differences(
         elif old[0] != new[0]:
             yield f"{path}: mode {old[0]} -> {new[0]}"
         else:
-            yield from content_differences(path, read(old[1]), read(new[1]))
+            difference = content_difference(path, read(old[1]), read(new[1]))
+            if difference:
+                yield difference
 
 
 def main(argv: list) -> int:

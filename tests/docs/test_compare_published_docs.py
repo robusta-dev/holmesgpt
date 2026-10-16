@@ -22,24 +22,27 @@ SYMLINK = "120000"
 Site = Dict[str, Tuple[str, bytes]]
 
 
+def asset_hash(build: str) -> str:
+    return build.replace(".", "") + "0abcdef"
+
+
 def page(build: str, tab_id: str, title: str, body: str) -> str:
-    asset_hash = build.replace(".", "") + "0abcdef"
     return f"""<html><head>
 <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-{build}">
 <title>{title}</title>
-<link rel="stylesheet" href="../assets/stylesheets/main.{asset_hash}.min.css">
+<link rel="stylesheet" href="../assets/stylesheets/main.{asset_hash(build)}.min.css">
 </head><body>
 <nav class="md-nav md-nav--primary"><a href="../">Home</a><a href="./">Guide</a></nav>
 <article class="md-content__inner md-typeset">
 <input checked="checked" id="__tabbed_{tab_id}_1" name="__tabbed_{tab_id}" type="radio">
 <p>{body}</p>
 </article>
-<script src="../assets/javascripts/bundle.{asset_hash}.min.js"></script>
+<script src="../assets/javascripts/bundle.{asset_hash(build)}.min.js"></script>
 </body></html>"""
 
 
-def sitemap(lastmod: str) -> bytes:
-    return f"<urlset><url><loc>https://example.com/1.0/guide/</loc><lastmod>{lastmod}</lastmod></url></urlset>".encode()
+def sitemap(lastmod: str, loc: str = "https://example.com/1.0/guide/") -> bytes:
+    return f"<urlset><url><loc>{loc}</loc><lastmod>{lastmod}</lastmod></url></urlset>".encode()
 
 
 def site(
@@ -51,7 +54,7 @@ def site(
     guide_search_text: str = "Install the agent.",
     latest_aliases: Tuple[str, ...] = ("latest",),
 ) -> Site:
-    asset_hash = build.replace(".", "") + "0abcdef"
+    hashed = asset_hash(build)
     files = {
         "versions.json": json.dumps(
             [{"version": "1.0", "title": "1.0", "aliases": list(latest_aliases)}]
@@ -59,8 +62,8 @@ def site(
         "index.html": b'<meta http-equiv="refresh" content="0; url=latest/">',
         "1.0/index.html": page(build, tab_id, "Home", "Welcome.").encode(),
         "1.0/guide/index.html": page(build, tab_id, guide_title, guide_body).encode(),
-        f"1.0/assets/javascripts/bundle.{asset_hash}.min.js": f"/* material {build} */".encode(),
-        f"1.0/assets/javascripts/bundle.{asset_hash}.min.js.map": f'{{"version": "{build}"}}'.encode(),
+        f"1.0/assets/javascripts/bundle.{hashed}.min.js": f"/* material {build} */".encode(),
+        f"1.0/assets/javascripts/bundle.{hashed}.min.js.map": f'{{"version": "{build}"}}'.encode(),
         "1.0/assets/javascripts/glightbox.min.js": b"/* glightbox */",
         "1.0/search/search_index.json": json.dumps(
             {
@@ -111,6 +114,13 @@ def repo(tmp_path_factory):
             *REBUILT_ARGS, guide_search_text="Install the operator."
         ),
         "rebuilt-lost-latest-alias": site(*REBUILT_ARGS, latest_aliases=()),
+        "rebuilt-changed-sitemap-entry": {
+            **REBUILT_SAME_CONTENT,
+            "1.0/sitemap.xml": (
+                FILE,
+                sitemap(REBUILT_ARGS[2], loc="https://example.com/1.0/setup/"),
+            ),
+        },
     }
     stream = b""
     for name, files in trees.items():
@@ -162,6 +172,7 @@ def test_passes_a_rebuild_that_changes_only_the_theme(repo, monkeypatch, capsys)
         ),
         ("rebuilt-edited-search-entry", "1.0/search/search_index.json: differs"),
         ("rebuilt-lost-latest-alias", "versions.json: differs"),
+        ("rebuilt-changed-sitemap-entry", "1.0/sitemap.xml: differs"),
     ],
 )
 def test_refuses_a_content_difference(repo, monkeypatch, capsys, rebuilt, reported):
