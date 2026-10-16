@@ -244,6 +244,19 @@ runs:
         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
         helm version
 
+    - name: Install Flux CLI
+      shell: bash
+      run: |
+        # Used by the flux/core toolset evals
+        FLUX_VERSION=2.9.6
+        FLUX_TARBALL="flux_${FLUX_VERSION}_linux_amd64.tar.gz"
+        cd /tmp
+        curl -sLO "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/$FLUX_TARBALL"
+        curl -sL "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/flux_${FLUX_VERSION}_checksums.txt" \
+          | grep " $FLUX_TARBALL\$" | sha256sum -c -
+        sudo tar -xzf "$FLUX_TARBALL" -C /usr/local/bin flux
+        flux version --client
+
     - name: Install kube-prometheus-stack
       shell: bash
       run: |

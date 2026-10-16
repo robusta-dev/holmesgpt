@@ -1,7 +1,0 @@
-toolsets:
-  kubernetes/core:
-    enabled: true
-  flux/core:
-    enabled: true
-  kubernetes/logs:
-    enabled: true

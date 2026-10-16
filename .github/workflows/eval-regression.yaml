@@ -864,6 +864,21 @@ jobs:
             cp "$(which helm)" "$CACHE_DIR/bin/helm"
           fi
 
+          # === Install Flux CLI (cached or download), used by the flux/core evals ===
+          FLUX_VERSION=2.9.6
+          if [ ! -f "$CACHE_DIR/bin/flux-$FLUX_VERSION" ]; then
+            echo "Downloading Flux CLI"
+            FLUX_TARBALL="flux_${FLUX_VERSION}_linux_amd64.tar.gz"
+            curl -sLo "/tmp/$FLUX_TARBALL" "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/$FLUX_TARBALL"
+            curl -sL "https://github.com/fluxcd/flux2/releases/download/v${FLUX_VERSION}/flux_${FLUX_VERSION}_checksums.txt" \
+              | grep " $FLUX_TARBALL\$" | (cd /tmp && sha256sum -c -)
+            tar -xzf "/tmp/$FLUX_TARBALL" -C /tmp flux
+            mv /tmp/flux "$CACHE_DIR/bin/flux-$FLUX_VERSION"
+          fi
+          sudo cp "$CACHE_DIR/bin/flux-$FLUX_VERSION" /usr/local/bin/flux
+          sudo chmod +x /usr/local/bin/flux
+          flux version --client
+
           # === Install kube-prometheus-stack and metrics-server in parallel ===
           METRICS_MANIFEST="$CACHE_DIR/manifests/metrics-server-v0.7.2.yaml"
           if [ ! -f "$METRICS_MANIFEST" ]; then
