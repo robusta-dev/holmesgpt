@@ -22,9 +22,13 @@ from typing import Callable, Dict, Iterator, Tuple
 from bs4 import BeautifulSoup
 
 THEME_ASSET_FILE = re.compile(r"^[^/]+/assets/(javascripts|stylesheets)/")
-HASHED_ASSET = re.compile(r"(assets/(?:javascripts/bundle|javascripts/workers/search|stylesheets/main|stylesheets/palette))\.[0-9a-f]{8,}(\.min\.(?:js|css))")
+HASHED_ASSET = re.compile(
+    r"(assets/(?:javascripts/bundle|javascripts/workers/search|stylesheets/main|stylesheets/palette))\.[0-9a-f]{8,}(\.min\.(?:js|css))"
+)
 GENERATOR = re.compile(r'<meta name="generator" content="[^"]*"\s*/?>')
-TAB_GROUP_ID = re.compile(r"__tabbed_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}")
+TAB_GROUP_ID = re.compile(
+    r"__tabbed_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}"
+)
 LASTMOD = re.compile(rb"<lastmod>[^<]*</lastmod>")
 
 Tree = Dict[str, Tuple[str, str]]
@@ -38,7 +42,9 @@ def norm(text: str) -> str:
 
 def tree(ref: str) -> Tree:
     """Map each file path in ref to its (mode, blob id)."""
-    listing = subprocess.run(["git", "ls-tree", "-r", "-z", ref], capture_output=True, text=True, check=True).stdout
+    listing = subprocess.run(
+        ["git", "ls-tree", "-r", "-z", ref], capture_output=True, text=True, check=True
+    ).stdout
     entries = {}
     for entry in filter(None, listing.split("\0")):
         meta, path = entry.split("\t", 1)
@@ -48,22 +54,31 @@ def tree(ref: str) -> Tree:
 
 
 def blob_reader() -> Callable[[str], bytes]:
-    batch = subprocess.Popen(["git", "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    assert batch.stdin and batch.stdout
+    batch = subprocess.Popen(
+        ["git", "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    requests, replies = batch.stdin, batch.stdout
+    assert requests and replies
 
     def read(oid: str) -> bytes:
-        batch.stdin.write(oid.encode() + b"\n")
-        batch.stdin.flush()
-        size = int(batch.stdout.readline().split()[2])
-        data = batch.stdout.read(size)
-        batch.stdout.read(1)
+        requests.write(oid.encode() + b"\n")
+        requests.flush()
+        size = int(replies.readline().split()[2])
+        data = replies.read(size)
+        replies.read(1)
         return data
 
     return read
 
 
 def excerpt(old: str, new: str, lines: int = 6) -> str:
-    diff = [line[:200] for line in difflib.unified_diff(old.splitlines(), new.splitlines(), n=0, lineterm="") if not line.startswith(("---", "+++", "@@"))]
+    diff = [
+        line[:200]
+        for line in difflib.unified_diff(
+            old.splitlines(), new.splitlines(), n=0, lineterm=""
+        )
+        if not line.startswith(("---", "+++", "@@"))
+    ]
     more = [f"... ({len(diff) - lines} more lines)"] if len(diff) > lines else []
     return "\n    ".join(diff[:lines] + more)
 
@@ -78,7 +93,9 @@ def page_parts(html: str) -> Dict[str, str]:
 
 def search_entries(data: bytes) -> Dict[str, object]:
     index = json.loads(data)
-    entries: Dict[str, object] = {f"location {doc['location']!r}": doc for doc in index["docs"]}
+    entries: Dict[str, object] = {
+        f"location {doc['location']!r}": doc for doc in index["docs"]
+    }
     entries["config"] = index["config"]
     return entries
 
@@ -106,7 +123,9 @@ def content_differences(path: str, old: bytes, new: bytes) -> Iterator[str]:
         yield f"{path}: differs"
 
 
-def differences(published: Tree, rebuilt: Tree, read: Callable[[str], bytes]) -> Iterator[str]:
+def differences(
+    published: Tree, rebuilt: Tree, read: Callable[[str], bytes]
+) -> Iterator[str]:
     for path in sorted(published.keys() | rebuilt.keys()):
         old, new = published.get(path), rebuilt.get(path)
         if old == new or THEME_ASSET_FILE.match(path):
@@ -132,7 +151,9 @@ def main(argv: list) -> int:
     if found:
         print(f"Content differences between {published_ref} and {rebuilt_ref}: {found}")
         return 1
-    print(f"No content differences between {published_ref} and {rebuilt_ref} ({len(rebuilt)} files, {changed} changed)")
+    print(
+        f"No content differences between {published_ref} and {rebuilt_ref} ({len(rebuilt)} files, {changed} changed)"
+    )
     return 0
 
 
