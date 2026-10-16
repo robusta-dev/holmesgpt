@@ -601,32 +601,20 @@ class TestAccountDefaultModel:
     """A run saved with an empty model_name runs on the account default
     (ROB-1514), not on a "Model '' not found" failure."""
 
-    def _request_for(self, mock_dal, mock_chat_function, payload, registry):
-        config = MagicMock()
-        config.get_models_list = MagicMock(return_value=["gpt-4.1"])
-        config.get_skill_catalog = MagicMock(return_value={})
-        config.llm_model_registry = registry
+    def test_an_empty_model_runs_on_the_account_default(
+        self, mock_dal, mock_config, mock_chat_function, sample_scheduled_prompt_payload
+    ):
+        mock_config.llm_model_registry.account_default_model = "Robusta/Opus (latest)"
         executor = ScheduledPromptsExecutor(
-            dal=mock_dal, config=config, chat_function=mock_chat_function
+            dal=mock_dal, config=mock_config, chat_function=mock_chat_function
         )
-        payload["model_name"] = ""
-        mock_dal.claim_scheduled_prompt_run.return_value = payload
+        sample_scheduled_prompt_payload["model_name"] = ""
+        mock_dal.claim_scheduled_prompt_run.return_value = sample_scheduled_prompt_payload
 
         executor._process_next_prompt()
 
         mock_chat_function.assert_called_once()
-        return mock_chat_function.call_args.args[0]
-
-    def test_an_empty_model_runs_on_the_account_default(
-        self, mock_dal, mock_chat_function, sample_scheduled_prompt_payload
-    ):
-        registry = MagicMock()
-        registry.account_default_model = "Robusta/Opus (latest)"
-
-        request = self._request_for(
-            mock_dal, mock_chat_function, sample_scheduled_prompt_payload, registry
-        )
-
+        request = mock_chat_function.call_args.args[0]
         assert request.model == "Robusta/Opus (latest)"
         assert (
             mock_dal.finish_scheduled_prompt_run.call_args.kwargs["status"]
