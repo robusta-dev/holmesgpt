@@ -249,6 +249,26 @@ See [Tool Execution Safety](../data-sources/tool-execution-safety.md) for the fu
 export TOOL_MEMORY_LIMIT_MB=2000
 ```
 
+## Holmes Logs in the Robusta UI
+
+The Robusta UI shows Holmes's own pod logs. The whole result is limited to `REMOTE_TOOL_RESULT_MAX_BYTES` (default 1 MB) after JSON encoding; when the logs are longer, the newest lines are kept.
+
+### HOLMES_LOGS_DEFAULT_TAIL_LINES
+**Default:** `500`
+
+Lines per container that the UI gets when it does not ask for a number.
+
+### HOLMES_LOGS_MAX_TAIL_LINES
+**Default:** `5000`
+
+The largest number of lines per container that a request can ask for.
+
+## Conversation Worker Executors
+
+The conversation runtime (Robusta platform deployments) runs each conversation on a named **executor**. `Conversations.executor` names it: `manual` for live user asks (chat, follow-ups, a single "Investigate now") and `auto` for background work (auto-triage, "Add to queue" / bulk investigations, triggered workflows). Executors are created on demand and sized from the account setting `conversation_executors.<name>` (Settings → LLMs sets `manual`, Settings → Triage sets `auto`; applied live, no restart), falling back to the built-in default (`manual`=10, `auto`=1). `CONVERSATION_WORKER_MAX_CONCURRENT` (default 5) only sizes an executor whose name has no built-in default.
+
+**Upgrade note.** Before executors existed, one shared pool of `CONVERSATION_WORKER_MAX_CONCURRENT` (5) ran everything. With the defaults above an agent now runs up to 11 conversations at once (10 `manual` + 1 `auto`), and `CONVERSATION_WORKER_MAX_CONCURRENT` no longer sizes those two executors. Deployments that tuned it should set the concurrency in Settings instead.
+
 ## HolmesGPT Configuration
 
 ### MODEL_LIST_FILE_LOCATION
@@ -285,6 +305,11 @@ additionalEnvVars:
     value: https://api.robusta.dev/litellm/model_prices_and_context_window.json
 ```
 
+### LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS
+LiteLLM downloads its model catalog once at startup, so a model released while Holmes is running is missing from it until a restart. When a lookup for a model's context window, max output tokens, or pricing finds nothing, Holmes re-downloads the catalog, at most once per this interval.
+
+**Default:** `86400` (once a day)
+
 ### HOLMES_CONFIG_PATH
 Path to a custom HolmesGPT configuration file. If not set, defaults to `~/.holmes/config.yaml`.
 
@@ -312,6 +337,17 @@ When enabled, HolmesGPT emits logs as JSON (one object per line) instead of the 
 **Example:**
 ```bash
 export ENABLE_JSON_LOGS_FORMAT="true"
+```
+
+### SCOPED_NAMESPACES
+Comma-separated list of namespaces this Holmes instance's Kubernetes RBAC is limited to. When set, Holmes is told its access scope in the system prompt, so investigations start scoped to those namespaces instead of discovering the restriction from `Forbidden` errors. The Helm chart sets it automatically when `namespaceScopedRBAC` is enabled; set it yourself when scoping RBAC manually.
+
+**Default:** unset (cluster-wide access assumed)
+
+**Example:**
+```bash
+export SCOPED_NAMESPACES="monitoring"        # single namespace
+export SCOPED_NAMESPACES="monitoring,default"  # multiple namespaces
 ```
 
 ### TRACE_TOKEN_USAGE
@@ -344,6 +380,33 @@ export HOLMES_PASSTHROUGH_BLOCKED_HEADERS="authorization,cookie,set-cookie,x-int
 ```
 
 See [HTTP Header Propagation](../data-sources/header-propagation.md) for details.
+
+### HOLMES_CONNECTIVITY_CHECK_ALLOW_ALL_HOSTS
+**Default:** `false`
+
+When set to `true`, the `connectivity_check` toolset's `tcp_check` tool may probe
+private/internal destinations without them being listed in its `allowed_hosts`
+setting. Use it if you don't want to maintain an allowlist — at your own risk:
+the model picks the host and port, and `tcp_check`'s open/refused/filtered
+outcomes make that a usable network scanner if an investigation reads
+attacker-controlled text. A warning is logged at startup while it is on.
+
+Cloud-metadata (`169.254.169.254`), loopback and link-local targets remain
+blocked — this variable never unblocks them. The one setting that does is
+`block_internal_ips: false`, which removes those checks independently of this
+variable; a deployment that sets both gets the unrestricted behaviour of
+`block_internal_ips: false`. `block_private_ips: true` still overrides this.
+While it is on, any
+configured `allowed_hosts` entries are ignored entirely — they neither restrict
+destinations nor exempt one from the metadata/loopback block. Equivalent to
+setting `allow_all_hosts: true` in the toolset config.
+
+**Example:**
+```bash
+export HOLMES_CONNECTIVITY_CHECK_ALLOW_ALL_HOSTS=true
+```
+
+See [Connectivity Check](../data-sources/builtin-toolsets/connectivity-check.md) for details.
 
 ## Data Source Configuration
 
