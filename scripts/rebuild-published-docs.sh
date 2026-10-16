@@ -18,7 +18,7 @@ for version in $versions; do
     dir="$worktrees/$version"
     git -C "$repo" worktree add --quiet --detach "$dir" "$ref"
     echo "::group::$version ($(git -C "$dir" rev-parse --short HEAD))"
-    # mkdocs.yml loads docs.custom_fences by module name; import the tag's copy, not this checkout's.
+    # mkdocs.yml loads docs.custom_fences by module name, which otherwise resolves to the installed checkout's copy; older tags' mkdocs.yml name fence functions that copy lacks or renders differently.
     (cd "$dir" && PYTHONPATH="$dir" mike deploy "$version")
     echo "::endgroup::"
     git -C "$repo" worktree remove --force "$dir"
