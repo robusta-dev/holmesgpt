@@ -5,7 +5,7 @@ import importlib.util
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
 
 import pytest
 
@@ -17,11 +17,16 @@ assert spec and spec.loader
 compare_published_docs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(compare_published_docs)
 
+FILE = "100644"
+SYMLINK = "120000"
+Site = Dict[str, Tuple[str, bytes]]
 
-def page(build: str, tab_id: str, body: str) -> str:
+
+def page(build: str, tab_id: str, title: str, body: str) -> str:
     asset_hash = build.replace(".", "") + "0abcdef"
     return f"""<html><head>
 <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-{build}">
+<title>{title}</title>
 <link rel="stylesheet" href="../assets/stylesheets/main.{asset_hash}.min.css">
 </head><body>
 <nav class="md-nav md-nav--primary"><a href="../">Home</a><a href="./">Guide</a></nav>
@@ -41,18 +46,22 @@ def site(
     build: str,
     tab_id: str,
     lastmod: str,
+    guide_title: str = "Guide",
     guide_body: str = "Install the agent.",
     guide_search_text: str = "Install the agent.",
-) -> Dict[str, bytes]:
+    latest_aliases: Tuple[str, ...] = ("latest",),
+) -> Site:
     asset_hash = build.replace(".", "") + "0abcdef"
-    return {
+    files = {
         "versions.json": json.dumps(
-            [{"version": "1.0", "title": "1.0", "aliases": ["latest"]}]
+            [{"version": "1.0", "title": "1.0", "aliases": list(latest_aliases)}]
         ).encode(),
         "index.html": b'<meta http-equiv="refresh" content="0; url=latest/">',
-        "1.0/index.html": page(build, tab_id, "Welcome.").encode(),
-        "1.0/guide/index.html": page(build, tab_id, guide_body).encode(),
+        "1.0/index.html": page(build, tab_id, "Home", "Welcome.").encode(),
+        "1.0/guide/index.html": page(build, tab_id, guide_title, guide_body).encode(),
         f"1.0/assets/javascripts/bundle.{asset_hash}.min.js": f"/* material {build} */".encode(),
+        f"1.0/assets/javascripts/bundle.{asset_hash}.min.js.map": f'{{"version": "{build}"}}'.encode(),
+        "1.0/assets/javascripts/glightbox.min.js": b"/* glightbox */",
         "1.0/search/search_index.json": json.dumps(
             {
                 "config": {"lang": ["en"]},
@@ -67,42 +76,48 @@ def site(
             sitemap(lastmod), mtime=int(lastmod.replace("-", ""))
         ),
     }
+    return {"latest": (SYMLINK, b"1.0"), **{p: (FILE, c) for p, c in files.items()}}
 
 
 PUBLISHED = site("9.7.6", "0f3c9a2e_1b2c_4d5e_8f90_a1b2c3d4e5f6", "2026-09-01")
-REBUILT_SAME_CONTENT = site(
-    "9.7.7", "7d1e2f3a_4b5c_4d6e_9f01_b2c3d4e5f6a7", "2026-10-16"
-)
+REBUILT_ARGS = ("9.7.7", "7d1e2f3a_4b5c_4d6e_9f01_b2c3d4e5f6a7", "2026-10-16")
+REBUILT_SAME_CONTENT = site(*REBUILT_ARGS)
 
 
 @pytest.fixture(scope="module")
 def repo(tmp_path_factory):
     """A git repo with a tag per tree below, each tag a root commit holding exactly that tree."""
-    trees = {
+    trees: Dict[str, Site] = {
         "published": PUBLISHED,
         "rebuilt-same-content": REBUILT_SAME_CONTENT,
         "rebuilt-deleted-page": {
-            p: c for p, c in REBUILT_SAME_CONTENT.items() if p != "1.0/guide/index.html"
+            p: f for p, f in REBUILT_SAME_CONTENT.items() if p != "1.0/guide/index.html"
         },
-        "rebuilt-changed-word": site(
-            "9.7.7",
-            "7d1e2f3a_4b5c_4d6e_9f01_b2c3d4e5f6a7",
-            "2026-10-16",
-            guide_body="Install the operator.",
-        ),
+        "rebuilt-new-file": {
+            **REBUILT_SAME_CONTENT,
+            "1.0/extra/index.html": (FILE, b"<p>Extra.</p>"),
+        },
+        "rebuilt-latest-not-a-symlink": {
+            **REBUILT_SAME_CONTENT,
+            "latest": (FILE, b"1.0"),
+        },
+        "rebuilt-changed-plugin-asset": {
+            **REBUILT_SAME_CONTENT,
+            "1.0/assets/javascripts/glightbox.min.js": (FILE, b"/* glightbox 2 */"),
+        },
+        "rebuilt-changed-word": site(*REBUILT_ARGS, guide_body="Install the operator."),
+        "rebuilt-changed-title": site(*REBUILT_ARGS, guide_title="Setup"),
         "rebuilt-edited-search-entry": site(
-            "9.7.7",
-            "7d1e2f3a_4b5c_4d6e_9f01_b2c3d4e5f6a7",
-            "2026-10-16",
-            guide_search_text="Install the operator.",
+            *REBUILT_ARGS, guide_search_text="Install the operator."
         ),
+        "rebuilt-lost-latest-alias": site(*REBUILT_ARGS, latest_aliases=()),
     }
     stream = b""
     for name, files in trees.items():
         stream += f"commit refs/tags/{name}\ncommitter test <test@example.com> 0 +0000\ndata 0\n".encode()
-        for rel, content in files.items():
+        for rel, (mode, content) in files.items():
             stream += (
-                f"M 100644 inline {rel}\ndata {len(content)}\n".encode()
+                f"M {mode} inline {rel}\ndata {len(content)}\n".encode()
                 + content
                 + b"\n"
             )
@@ -122,7 +137,7 @@ def compare(repo: Path, rebuilt: str, monkeypatch) -> int:
 def test_passes_a_rebuild_that_changes_only_the_theme(repo, monkeypatch, capsys):
     assert compare(repo, "rebuilt-same-content", monkeypatch) == 0
     assert (
-        "No content differences between published and rebuilt-same-content (8 files, 5 changed)"
+        "No content differences between published and rebuilt-same-content (11 files, 6 changed)"
         in capsys.readouterr().out
     )
 
@@ -131,14 +146,22 @@ def test_passes_a_rebuild_that_changes_only_the_theme(repo, monkeypatch, capsys)
     "rebuilt, reported",
     [
         ("rebuilt-deleted-page", "1.0/guide/index.html: missing from the rebuild"),
+        ("rebuilt-new-file", "1.0/extra/index.html: new in the rebuild"),
+        ("rebuilt-latest-not-a-symlink", "latest: mode 120000 -> 100644"),
+        (
+            "rebuilt-changed-plugin-asset",
+            "1.0/assets/javascripts/glightbox.min.js: differs",
+        ),
         (
             "rebuilt-changed-word",
-            "1.0/guide/index.html [article]\n    -<p>Install the agent.</p>\n    +<p>Install the operator.</p>",
+            "1.0/guide/index.html\n    -<p>Install the agent.</p>\n    +<p>Install the operator.</p>",
         ),
         (
-            "rebuilt-edited-search-entry",
-            "1.0/search/search_index.json [location 'guide/']",
+            "rebuilt-changed-title",
+            "1.0/guide/index.html\n    -<title>Guide</title>\n    +<title>Setup</title>",
         ),
+        ("rebuilt-edited-search-entry", "1.0/search/search_index.json: differs"),
+        ("rebuilt-lost-latest-alias", "versions.json: differs"),
     ],
 )
 def test_refuses_a_content_difference(repo, monkeypatch, capsys, rebuilt, reported):

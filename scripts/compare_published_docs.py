@@ -3,28 +3,22 @@
 Usage: python scripts/compare_published_docs.py PUBLISHED_REF REBUILT_REF   (run inside the repo, e.g. origin/gh-pages gh-pages)
 
 A rebuild with a newer docs toolchain may change the theme but not the content, so:
-  - a page is compared by its article body and primary nav (a page with no article, such as a redirect, in full), with the random tab group ids docs/custom_fences.py generates replaced
-  - search/search_index.json is compared by its config and its entry for each location
+  - the theme's hashed files (bundle, main, palette and the search worker, with their source maps) are skipped
+  - a page is compared as its whole text, with its generator meta, the hashed theme file names it links and the random tab group ids docs/custom_fences.py generates replaced
   - sitemap.xml is compared without its <lastmod> build dates
-  - the theme's own files, under each version's assets/javascripts and assets/stylesheets, are skipped
-  - every other file is compared byte for byte
-A page that matches once its generator meta and hashed theme asset names are also replaced is not parsed, which skips the parse for nearly every page.
+  - every other file, search/search_index.json included, is compared byte for byte
 """
 
 import difflib
 import gzip
-import json
 import re
 import subprocess
 import sys
 from typing import Callable, Dict, Iterator, Tuple
 
-from bs4 import BeautifulSoup
-
-THEME_ASSET_FILE = re.compile(r"^[^/]+/assets/(javascripts|stylesheets)/")
-HASHED_ASSET = re.compile(
-    r"(assets/(?:javascripts/bundle|javascripts/workers/search|stylesheets/main|stylesheets/palette))\.[0-9a-f]{8,}(\.min\.(?:js|css))"
-)
+HASHED_THEME_PATH = r"(assets/(?:javascripts/bundle|javascripts/workers/search|stylesheets/main|stylesheets/palette))\.[0-9a-f]{8,}(\.min\.(?:js|css))"
+HASHED_THEME_LINK = re.compile(HASHED_THEME_PATH)
+HASHED_THEME_FILE = re.compile(rf"^[^/]+/{HASHED_THEME_PATH}(?:\.map)?$")
 GENERATOR = re.compile(r'<meta name="generator" content="[^"]*"\s*/?>')
 TAB_GROUP_ID = re.compile(
     r"__tabbed_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}"
@@ -36,7 +30,7 @@ Tree = Dict[str, Tuple[str, str]]
 
 def norm(text: str) -> str:
     text = GENERATOR.sub("<meta generator>", text)
-    text = HASHED_ASSET.sub(r"\1.HASH\2", text)
+    text = HASHED_THEME_LINK.sub(r"\1.HASH\2", text)
     return TAB_GROUP_ID.sub("__tabbed_ID", text)
 
 
@@ -83,37 +77,11 @@ def excerpt(old: str, new: str, lines: int = 6) -> str:
     return "\n    ".join(diff[:lines] + more)
 
 
-def page_parts(html: str) -> Dict[str, str]:
-    soup = BeautifulSoup(html, "html.parser")
-    article = soup.select_one("article.md-content__inner")
-    if article is None:
-        return {"page": html}
-    return {"article": str(article), "nav": str(soup.select_one("nav.md-nav--primary"))}
-
-
-def search_entries(data: bytes) -> Dict[str, object]:
-    index = json.loads(data)
-    entries: Dict[str, object] = {
-        f"location {doc['location']!r}": doc for doc in index["docs"]
-    }
-    entries["config"] = index["config"]
-    return entries
-
-
 def content_differences(path: str, old: bytes, new: bytes) -> Iterator[str]:
     if path.endswith(".html"):
         old_text, new_text = norm(old.decode()), norm(new.decode())
-        if old_text == new_text:
-            return
-        old_parts, new_parts = page_parts(old_text), page_parts(new_text)
-        for part in sorted(old_parts.keys() | new_parts.keys()):
-            if old_parts.get(part) != new_parts.get(part):
-                yield f"{path} [{part}]\n    {excerpt(old_parts.get(part, ''), new_parts.get(part, ''))}"
-    elif path.endswith("search/search_index.json"):
-        old_entries, new_entries = search_entries(old), search_entries(new)
-        for key in sorted(old_entries.keys() | new_entries.keys()):
-            if old_entries.get(key) != new_entries.get(key):
-                yield f"{path} [{key}]\n    {excerpt(repr(old_entries.get(key)), repr(new_entries.get(key)))}"
+        if old_text != new_text:
+            yield f"{path}\n    {excerpt(old_text, new_text)}"
     elif path.endswith(("sitemap.xml", "sitemap.xml.gz")):
         if path.endswith(".gz"):
             old, new = gzip.decompress(old), gzip.decompress(new)
@@ -128,7 +96,7 @@ def differences(
 ) -> Iterator[str]:
     for path in sorted(published.keys() | rebuilt.keys()):
         old, new = published.get(path), rebuilt.get(path)
-        if old == new or THEME_ASSET_FILE.match(path):
+        if old == new or HASHED_THEME_FILE.match(path):
             continue
         if new is None:
             yield f"{path}: missing from the rebuild"
