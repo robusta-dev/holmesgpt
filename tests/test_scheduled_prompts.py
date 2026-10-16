@@ -595,3 +595,49 @@ class TestScheduledPromptModel:
         assert sp.scheduled_prompt_definition_id is None
         assert sp.msg is None
         assert sp.metadata is None
+
+
+class TestAccountDefaultModel:
+    """A run saved with an empty model_name runs on the account default
+    (ROB-1514), not on a "Model '' not found" failure."""
+
+    def _request_for(self, mock_dal, mock_chat_function, payload, registry):
+        config = MagicMock()
+        config.get_models_list = MagicMock(return_value=["gpt-4.1"])
+        config.get_skill_catalog = MagicMock(return_value={})
+        config.llm_model_registry = registry
+        executor = ScheduledPromptsExecutor(
+            dal=mock_dal, config=config, chat_function=mock_chat_function
+        )
+        payload["model_name"] = ""
+        mock_dal.claim_scheduled_prompt_run.return_value = payload
+
+        executor._process_next_prompt()
+
+        mock_chat_function.assert_called_once()
+        return mock_chat_function.call_args.args[0]
+
+    def test_an_empty_model_runs_on_the_account_default(
+        self, mock_dal, mock_chat_function, sample_scheduled_prompt_payload
+    ):
+        registry = MagicMock()
+        registry.account_default_model = "Robusta/Opus (latest)"
+
+        request = self._request_for(
+            mock_dal, mock_chat_function, sample_scheduled_prompt_payload, registry
+        )
+
+        assert request.model == "Robusta/Opus (latest)"
+        assert (
+            mock_dal.finish_scheduled_prompt_run.call_args.kwargs["status"]
+            != RunStatus.FAILED
+        )
+
+    def test_an_empty_model_without_a_registry_leaves_the_choice_to_holmes(
+        self, mock_dal, mock_chat_function, sample_scheduled_prompt_payload
+    ):
+        request = self._request_for(
+            mock_dal, mock_chat_function, sample_scheduled_prompt_payload, None
+        )
+
+        assert request.model is None
