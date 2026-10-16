@@ -1,21 +1,25 @@
-import os
 import json
 import logging
-from typing import Any, Dict, Tuple, Optional
+import os
+from typing import Any, ClassVar, Dict, Optional, Tuple, Type
+
+
 from holmes.core.tools import (
     CallablePrerequisite,
-    ToolsetTag,
-    ToolInvokeContext,
+    StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
+    ToolInvokeContext,
     ToolParameter,
+    Toolset,
+    ToolsetTag,
 )
-from pydantic import AnyUrl
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.datadog.datadog_api import (
+    MAX_RETRY_COUNT_ON_RATE_LIMIT,
     DataDogRequestError,
     execute_datadog_http_request,
     get_headers,
-    MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
 from holmes.plugins.toolsets.datadog.datadog_models import (
     DatadogLogsConfig,
@@ -24,14 +28,11 @@ from holmes.plugins.toolsets.datadog.datadog_url_utils import generate_datadog_l
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_LOG_LIMIT,
     DEFAULT_TIME_SPAN_SECONDS,
-    Toolset,
 )
-
-from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.utils import (
     process_timestamps_to_int,
-    toolset_name_for_one_liner,
     standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 
 
@@ -60,6 +61,8 @@ def format_logs(raw_logs: list[dict]) -> str:
 class DatadogLogsToolset(Toolset):
     """Toolset for working with Datadog logs data."""
 
+    config_classes: ClassVar[list[Type[DatadogLogsConfig]]] = [DatadogLogsConfig]
+
     dd_config: Optional[DatadogLogsConfig] = None
 
     def __init__(self):
@@ -67,7 +70,7 @@ class DatadogLogsToolset(Toolset):
             name="datadog/logs",
             description="Toolset for fetching logs from Datadog, including historical data for pods no longer in the cluster",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
-            icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/datadog.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[],  # Initialize with empty tools first
             tags=[ToolsetTag.CORE],
@@ -79,7 +82,7 @@ class DatadogLogsToolset(Toolset):
     def _perform_healthcheck(self) -> Tuple[bool, str]:
         """Perform health check on Datadog logs API."""
         if not self.dd_config:
-            return False, "Datadog configuration not initialized"
+            return False, "Internal error: Datadog configuration not initialized"
         try:
             logging.info("Performing Datadog logs configuration healthcheck...")
             headers = get_headers(self.dd_config)
@@ -93,12 +96,12 @@ class DatadogLogsToolset(Toolset):
                 "page": {"limit": 1},
             }
 
-            search_url = f"{self.dd_config.site_api_url}/api/v2/logs/events/search"
+            search_url = f"{self.dd_config.api_url}/api/v2/logs/events/search"
             execute_datadog_http_request(
                 url=search_url,
                 headers=headers,
                 payload_or_params=payload,
-                timeout=self.dd_config.request_timeout,
+                timeout=self.dd_config.timeout_seconds,
                 method="POST",
             )
 
@@ -116,14 +119,14 @@ class DatadogLogsToolset(Toolset):
             else:
                 return False, f"Datadog API error: {e.status_code} - {e.response_text}"
         except Exception as e:
-            logging.exception("Failed during Datadog traces healthcheck")
-            return False, f"Healthcheck failed with exception: {str(e)}"
+            logging.exception("Failed during Datadog logs health check")
+            return False, f"Datadog Logs health check failed: {e}"
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
         if not config:
             return (
                 False,
-                "Missing config for dd_api_key, dd_app_key, or site_api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
+                "Missing config for api_key, app_key, or api_url. For details: https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
             )
 
         try:
@@ -134,17 +137,8 @@ class DatadogLogsToolset(Toolset):
             return success, error_msg
 
         except Exception as e:
-            logging.exception("Failed to set up Datadog toolset")
-            return (False, f"Failed to parse Datadog configuration: {str(e)}")
-
-    def get_example_config(self) -> Dict[str, Any]:
-        """Get example configuration for this toolset."""
-        example_config = DatadogLogsConfig(
-            dd_api_key="<your_datadog_api_key>",
-            dd_app_key="<your_datadog_app_key>",
-            site_api_url=AnyUrl("https://api.datadoghq.com"),
-        )
-        return example_config.model_dump(mode="json")
+            logging.exception("Failed to set up Datadog Logs toolset")
+            return (False, f"Invalid Datadog Logs configuration: {e}")
 
     def _reload_instructions(self):
         """Load Datadog logs specific troubleshooting instructions."""
@@ -227,10 +221,10 @@ class GetLogs(Tool):
             params["limit"] = limit
             sort = "timestamp" if params.get("sort_desc", False) else "-timestamp"
 
-            url = f"{self.toolset.dd_config.site_api_url}/api/v2/logs/events/search"
+            url = f"{self.toolset.dd_config.api_url}/api/v2/logs/events/search"
             headers = get_headers(self.toolset.dd_config)
 
-            storage = self.toolset.dd_config.storage_tiers[-1]
+            storage = self.toolset.dd_config.storage_tier
             payload = {
                 "filter": {
                     "query": params.get("query", "*"),
@@ -252,7 +246,7 @@ class GetLogs(Tool):
                 url=url,
                 headers=headers,
                 payload_or_params=payload,
-                timeout=self.toolset.dd_config.request_timeout,
+                timeout=self.toolset.dd_config.timeout_seconds,
                 method="POST",
             )
 

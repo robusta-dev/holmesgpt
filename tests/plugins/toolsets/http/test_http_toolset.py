@@ -1,0 +1,1181 @@
+from unittest.mock import Mock, patch
+
+import pytest
+import requests  # type: ignore
+from pydantic import ValidationError
+from requests.auth import HTTPDigestAuth  # type: ignore
+
+from holmes.core.tools import StructuredToolResultStatus, ToolInvokeContext
+from holmes.plugins.toolsets.http.http_toolset import (
+    AuthConfig,
+    EndpointConfig,
+    HttpRequest,
+    HttpToolset,
+    HttpToolsetConfig,
+    _parse_host_pattern,
+)
+
+
+class TestAuthConfig:
+    def test_basic_auth_valid(self):
+        auth = AuthConfig(type="basic", username="user", password="pass")
+        assert auth.type == "basic"
+        assert auth.username == "user"
+        assert auth.password == "pass"
+
+    def test_basic_auth_missing_username(self):
+        with pytest.raises(ValueError, match="Basic auth requires"):
+            AuthConfig(type="basic", password="pass")
+
+    def test_basic_auth_missing_password(self):
+        with pytest.raises(ValueError, match="Basic auth requires"):
+            AuthConfig(type="basic", username="user")
+
+    def test_bearer_auth_valid(self):
+        auth = AuthConfig(type="bearer", token="mytoken")
+        assert auth.type == "bearer"
+        assert auth.token == "mytoken"
+
+    def test_bearer_auth_missing_token(self):
+        with pytest.raises(ValueError, match="Bearer auth requires"):
+            AuthConfig(type="bearer")
+
+    def test_header_auth_valid(self):
+        auth = AuthConfig(type="header", name="X-API-Key", value="secret")
+        assert auth.type == "header"
+        assert auth.name == "X-API-Key"
+        assert auth.value == "secret"
+
+    def test_header_auth_missing_name(self):
+        with pytest.raises(ValueError, match="Header auth requires"):
+            AuthConfig(type="header", value="secret")
+
+    def test_header_auth_missing_value(self):
+        with pytest.raises(ValueError, match="Header auth requires"):
+            AuthConfig(type="header", name="X-API-Key")
+
+    def test_digest_auth_valid(self):
+        auth = AuthConfig(type="digest", username="user", password="pass")
+        assert auth.type == "digest"
+        assert auth.username == "user"
+        assert auth.password == "pass"
+
+    def test_digest_auth_missing_username(self):
+        with pytest.raises(ValueError, match="Digest auth requires"):
+            AuthConfig(type="digest", password="pass")
+
+    def test_digest_auth_missing_password(self):
+        with pytest.raises(ValueError, match="Digest auth requires"):
+            AuthConfig(type="digest", username="user")
+
+    def test_none_auth(self):
+        auth = AuthConfig(type="none")
+        assert auth.type == "none"
+
+
+class TestEndpointConfig:
+    def test_default_values(self):
+        endpoint = EndpointConfig(hosts=["example.com"])
+        assert endpoint.hosts == ["example.com"]
+        assert endpoint.paths == ["*"]
+        assert endpoint.get_methods() == ["GET"]
+
+    def test_multiple_hosts(self):
+        endpoint = EndpointConfig(hosts=["api.example.com", "api2.example.com"])
+        assert endpoint.hosts == ["api.example.com", "api2.example.com"]
+
+    def test_custom_methods(self):
+        endpoint = EndpointConfig(hosts=["example.com"], methods=["GET", "POST", "DELETE"])
+        assert endpoint.get_methods() == ["GET", "POST", "DELETE"]
+
+    def test_methods_normalized_to_uppercase(self):
+        endpoint = EndpointConfig(hosts=["example.com"], methods=["get", "post", "put"])
+        assert endpoint.get_methods() == ["GET", "POST", "PUT"]
+
+
+class TestParseHostPattern:
+    def test_bare_hostname_any_scheme_any_port(self):
+        ph = _parse_host_pattern("api.example.com")
+        assert ph.scheme is None
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports is None
+
+    def test_wildcard_any_scheme_any_port(self):
+        ph = _parse_host_pattern("*.example.com")
+        assert ph.scheme is None
+        assert ph.host_pattern == "*.example.com"
+        assert ph.ports is None
+
+    def test_host_with_port(self):
+        ph = _parse_host_pattern("api.example.com:8080")
+        assert ph.scheme is None
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({8080})
+
+    def test_https_implies_default_port(self):
+        ph = _parse_host_pattern("https://api.example.com")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({443})
+
+    def test_http_implies_default_port(self):
+        ph = _parse_host_pattern("http://api.example.com")
+        assert ph.scheme == "http"
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({80})
+
+    def test_https_with_explicit_port(self):
+        ph = _parse_host_pattern("https://api.example.com:8443")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({8443})
+
+    def test_https_wildcard_implies_default_port(self):
+        ph = _parse_host_pattern("https://*.example.com")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "*.example.com"
+        assert ph.ports == frozenset({443})
+
+    def test_https_wildcard_with_explicit_any_port(self):
+        ph = _parse_host_pattern("https://*.example.com:*")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "*.example.com"
+        assert ph.ports is None
+
+    def test_explicit_any_port_without_scheme(self):
+        ph = _parse_host_pattern("*.example.com:*")
+        assert ph.scheme is None
+        assert ph.host_pattern == "*.example.com"
+        assert ph.ports is None
+
+    def test_path_after_url_is_stripped(self):
+        ph = _parse_host_pattern("https://api.example.com/v1/things")
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({443})
+
+    def test_userinfo_stripped(self):
+        ph = _parse_host_pattern("https://user:pass@api.example.com:8443/v1")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports == frozenset({8443})
+
+    def test_userinfo_stripped_bare(self):
+        ph = _parse_host_pattern("user:pass@api.example.com")
+        assert ph.scheme is None
+        assert ph.host_pattern == "api.example.com"
+        assert ph.ports is None
+
+    def test_lowercases_host(self):
+        ph = _parse_host_pattern("API.Example.COM")
+        assert ph.host_pattern == "api.example.com"
+
+    def test_lowercases_scheme(self):
+        ph = _parse_host_pattern("HTTPS://api.example.com")
+        assert ph.scheme == "https"
+
+    def test_ipv6_url(self):
+        ph = _parse_host_pattern("https://[::1]:8443/foo")
+        assert ph.scheme == "https"
+        assert ph.host_pattern == "::1"
+        assert ph.ports == frozenset({8443})
+
+    def test_ipv6_url_default_port(self):
+        ph = _parse_host_pattern("https://[2001:db8::1]")
+        assert ph.host_pattern == "2001:db8::1"
+        assert ph.ports == frozenset({443})
+
+    def test_ipv6_bare_address(self):
+        ph = _parse_host_pattern("::1")
+        assert ph.host_pattern == "::1"
+        assert ph.ports is None
+
+    def test_rejects_empty(self):
+        with pytest.raises(ValueError, match="Empty"):
+            _parse_host_pattern("")
+
+    def test_rejects_unsupported_scheme(self):
+        with pytest.raises(ValueError, match="Unsupported scheme"):
+            _parse_host_pattern("ftp://api.example.com")
+
+    def test_rejects_invalid_port_text(self):
+        with pytest.raises(ValueError, match="Invalid port"):
+            _parse_host_pattern("api.example.com:abc")
+
+    def test_rejects_port_out_of_range_high(self):
+        with pytest.raises(ValueError, match="out of range"):
+            _parse_host_pattern("api.example.com:99999")
+
+    def test_rejects_port_out_of_range_low(self):
+        with pytest.raises(ValueError, match="out of range"):
+            _parse_host_pattern("api.example.com:0")
+
+    def test_rejects_empty_port(self):
+        with pytest.raises(ValueError, match="Empty port"):
+            _parse_host_pattern("api.example.com:")
+
+    def test_rejects_mid_host_wildcard(self):
+        with pytest.raises(ValueError, match="leading '\\*\\.'"):
+            _parse_host_pattern("api.*.example.com")
+
+    def test_rejects_unclosed_ipv6_bracket(self):
+        with pytest.raises(ValueError, match="Unclosed"):
+            _parse_host_pattern("https://[::1/foo")
+
+
+class TestEndpointConfigValidation:
+    def test_invalid_pattern_raises_validation_error(self):
+        with pytest.raises(ValidationError):
+            EndpointConfig(hosts=["ftp://api.example.com"])
+
+    def test_keeps_original_string(self):
+        endpoint = EndpointConfig(hosts=["https://api.example.com:8443"])
+        # Field stays as-written; parsing happens via parsed_hosts().
+        assert endpoint.hosts == ["https://api.example.com:8443"]
+        parsed = endpoint.parsed_hosts()
+        assert len(parsed) == 1
+        assert parsed[0].scheme == "https"
+        assert parsed[0].ports == frozenset({8443})
+
+
+class TestHttpToolsetSchemeAndPortEnforcement:
+    def _toolset(self, hosts):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[EndpointConfig(hosts=hosts, paths=["*"])]
+        )
+        return ts
+
+    def test_bare_hostname_allows_any_scheme_and_port(self):
+        ts = self._toolset(["jenkins.example.com"])
+        for url in [
+            "https://jenkins.example.com/x",
+            "http://jenkins.example.com/x",
+            "http://jenkins.example.com:8080/x",
+            "https://jenkins.example.com:9999/x",
+        ]:
+            endpoint, error = ts.match_endpoint(url)
+            assert endpoint is not None, f"expected match for {url}, got error={error}"
+
+    def test_https_only_blocks_http(self):
+        ts = self._toolset(["https://jenkins.example.com"])
+        endpoint, error = ts.match_endpoint("http://jenkins.example.com/x")
+        assert endpoint is None
+        assert error is not None
+
+    def test_https_only_blocks_non_default_port(self):
+        ts = self._toolset(["https://jenkins.example.com"])
+        endpoint, error = ts.match_endpoint("https://jenkins.example.com:8443/x")
+        assert endpoint is None
+
+    def test_https_only_allows_implicit_443(self):
+        ts = self._toolset(["https://jenkins.example.com"])
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com/x")
+        assert endpoint is not None
+
+    def test_https_only_allows_explicit_443(self):
+        ts = self._toolset(["https://jenkins.example.com"])
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com:443/x")
+        assert endpoint is not None
+
+    def test_explicit_port_pins_port(self):
+        ts = self._toolset(["https://jenkins.example.com:8443"])
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com:8443/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com/x")
+        assert endpoint is None
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com:443/x")
+        assert endpoint is None
+
+    def test_host_with_port_only_allows_either_scheme(self):
+        ts = self._toolset(["jenkins.example.com:8080"])
+        endpoint, _ = ts.match_endpoint("http://jenkins.example.com:8080/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com:8080/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("http://jenkins.example.com/x")
+        assert endpoint is None
+
+    def test_wildcard_scheme_pins_default_port(self):
+        ts = self._toolset(["https://*.tools.example.com"])
+        endpoint, _ = ts.match_endpoint("https://a.tools.example.com/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("https://a.tools.example.com:8443/x")
+        assert endpoint is None
+
+    def test_explicit_any_port_with_scheme(self):
+        ts = self._toolset(["https://*.tools.example.com:*"])
+        endpoint, _ = ts.match_endpoint("https://a.tools.example.com/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("https://a.tools.example.com:9999/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("http://a.tools.example.com/x")
+        assert endpoint is None
+
+    def test_mixed_entries(self):
+        ts = self._toolset(
+            [
+                "api.example.com",  # any scheme, any port
+                "https://jenkins.example.com:8080",  # https on 8080 only
+            ]
+        )
+        # api.example.com: anything goes
+        endpoint, _ = ts.match_endpoint("http://api.example.com:9000/x")
+        assert endpoint is not None
+        # jenkins.example.com: only https/8080
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com:8080/x")
+        assert endpoint is not None
+        endpoint, _ = ts.match_endpoint("http://jenkins.example.com:8080/x")
+        assert endpoint is None
+        endpoint, _ = ts.match_endpoint("https://jenkins.example.com/x")
+        assert endpoint is None
+
+
+class TestHttpToolsetHostMatching:
+    @pytest.fixture
+    def toolset(self):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(hosts=["api.github.com"]),
+                EndpointConfig(hosts=["*.atlassian.net"]),
+                EndpointConfig(hosts=["example.com"], paths=["/api/*"]),
+                EndpointConfig(
+                    hosts=["argocd.mycompany.com"],
+                    paths=["/api/v1/*"],
+                    methods=["GET", "POST"],
+                ),
+            ]
+        )
+        return ts
+
+    def test_exact_host_match(self, toolset):
+        endpoint, error = toolset.match_endpoint("https://api.github.com/repos/foo/bar")
+        assert error is None
+        assert endpoint is not None
+        assert "api.github.com" in endpoint.hosts
+
+    def test_wildcard_host_match(self, toolset):
+        endpoint, error = toolset.match_endpoint(
+            "https://mycompany.atlassian.net/wiki/rest/api/content"
+        )
+        assert error is None
+        assert endpoint is not None
+        assert "*.atlassian.net" in endpoint.hosts
+
+    def test_wildcard_match_multiple_subdomains(self, toolset):
+        endpoint, error = toolset.match_endpoint(
+            "https://foo.bar.atlassian.net/wiki/rest/api/content"
+        )
+        assert error is None
+        assert endpoint is not None
+        assert "*.atlassian.net" in endpoint.hosts
+
+    def test_path_match(self, toolset):
+        endpoint, error = toolset.match_endpoint("https://example.com/api/users")
+        assert error is None
+        assert endpoint is not None
+
+    def test_path_no_match(self, toolset):
+        endpoint, error = toolset.match_endpoint("https://example.com/other/path")
+        assert error is not None
+        assert endpoint is None
+
+    def test_no_host_match(self, toolset):
+        endpoint, error = toolset.match_endpoint("https://unknown.com/api")
+        assert error is not None
+        assert endpoint is None
+
+    def test_invalid_url(self, toolset):
+        endpoint, error = toolset.match_endpoint("not-a-url")
+        assert error is not None
+        assert endpoint is None
+
+    def test_host_match_with_port(self, toolset):
+        endpoint, error = toolset.match_endpoint("https://api.github.com:8443/repos/foo/bar")
+        assert error is None
+        assert endpoint is not None
+        assert "api.github.com" in endpoint.hosts
+
+
+class TestHttpToolsetMethodCheck:
+    @pytest.fixture
+    def toolset(self):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(hosts=["readonly.example.com"]),  # Default GET only
+                EndpointConfig(
+                    hosts=["readwrite.example.com"],
+                    methods=["GET", "POST", "PUT", "DELETE"],
+                ),
+            ]
+        )
+        return ts
+
+    def test_get_allowed_by_default(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readonly.example.com/api")
+        assert toolset.is_method_allowed("GET", endpoint)
+
+    def test_post_not_allowed_by_default(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readonly.example.com/api")
+        assert not toolset.is_method_allowed("POST", endpoint)
+
+    def test_post_allowed_when_configured(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readwrite.example.com/api")
+        assert toolset.is_method_allowed("POST", endpoint)
+
+    def test_delete_allowed_when_configured(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readwrite.example.com/api")
+        assert toolset.is_method_allowed("DELETE", endpoint)
+
+    def test_put_allowed_when_configured(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readwrite.example.com/api")
+        assert toolset.is_method_allowed("PUT", endpoint)
+
+    def test_method_check_case_insensitive(self, toolset):
+        endpoint, _ = toolset.match_endpoint("https://readwrite.example.com/api")
+        assert toolset.is_method_allowed("post", endpoint)
+        assert toolset.is_method_allowed("Post", endpoint)
+
+
+class TestHttpToolsetHeaders:
+    @pytest.fixture
+    def toolset(self):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[EndpointConfig(hosts=["example.com"])]
+        )
+        return ts
+
+    def test_bearer_auth_headers(self, toolset):
+        endpoint = EndpointConfig(
+            hosts=["example.com"], auth=AuthConfig(type="bearer", token="mytoken")
+        )
+        headers = toolset.build_headers(endpoint)
+        assert headers["Authorization"] == "Bearer mytoken"
+
+    def test_custom_header_auth(self, toolset):
+        endpoint = EndpointConfig(
+            hosts=["example.com"],
+            auth=AuthConfig(type="header", name="X-API-Key", value="secret"),
+        )
+        headers = toolset.build_headers(endpoint)
+        assert headers["X-API-Key"] == "secret"
+
+    def test_basic_auth_not_in_headers(self, toolset):
+        endpoint = EndpointConfig(
+            hosts=["example.com"],
+            auth=AuthConfig(type="basic", username="user", password="pass"),
+        )
+        headers = toolset.build_headers(endpoint)
+        assert "Authorization" not in headers
+
+    def test_digest_auth_not_in_headers(self, toolset):
+        endpoint = EndpointConfig(
+            hosts=["example.com"],
+            auth=AuthConfig(type="digest", username="user", password="pass"),
+        )
+        headers = toolset.build_headers(endpoint)
+        assert "Authorization" not in headers
+
+    def test_basic_auth_tuple(self):
+        toolset = HttpToolset()
+        endpoint = EndpointConfig(
+            hosts=["example.com"],
+            auth=AuthConfig(type="basic", username="user", password="pass"),
+        )
+        auth = toolset.get_request_auth(endpoint)
+        assert auth == ("user", "pass")
+
+    def test_digest_auth_returns_digest_handler(self):
+        toolset = HttpToolset()
+        endpoint = EndpointConfig(
+            hosts=["example.com"],
+            auth=AuthConfig(type="digest", username="user", password="pass"),
+        )
+        auth = toolset.get_request_auth(endpoint)
+        assert isinstance(auth, HTTPDigestAuth)
+
+    def test_extra_headers_override(self, toolset):
+        endpoint = EndpointConfig(hosts=["example.com"], auth=AuthConfig(type="none"))
+        headers = toolset.build_headers(endpoint, {"Accept": "text/plain"})
+        assert headers["Accept"] == "text/plain"
+
+    def test_default_headers_applied(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(
+            endpoints=[EndpointConfig(hosts=["example.com"])],
+            default_headers={"X-Custom-Header": "custom-value"},
+        )
+        endpoint = EndpointConfig(hosts=["example.com"], auth=AuthConfig(type="none"))
+        headers = toolset.build_headers(endpoint)
+        assert headers["X-Custom-Header"] == "custom-value"
+        assert headers["Accept"] == "application/json"
+
+    def test_extra_headers_override_default_headers(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(
+            endpoints=[EndpointConfig(hosts=["example.com"])],
+            default_headers={"X-Custom-Header": "default-value"},
+        )
+        endpoint = EndpointConfig(hosts=["example.com"], auth=AuthConfig(type="none"))
+        headers = toolset.build_headers(
+            endpoint, {"X-Custom-Header": "overridden-value"}
+        )
+        assert headers["X-Custom-Header"] == "overridden-value"
+
+
+class TestHttpToolsetPrerequisites:
+    def test_valid_config(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["example.com"],
+                        "auth": {"type": "bearer", "token": "test"},
+                    }
+                ]
+            }
+        )
+        assert success is True
+        assert "1 endpoint" in message
+
+    def test_empty_endpoints(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable({"endpoints": []})
+        assert success is False
+        assert "No endpoints configured" in message
+
+    def test_invalid_auth(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {"endpoints": [{"hosts": ["example.com"], "auth": {"type": "basic"}}]}
+        )
+        assert success is False
+        assert "Invalid HTTP configuration" in message
+
+    def test_invalid_method(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["example.com"],
+                        "methods": ["GET", "INVALID"],
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "invalid method" in message
+
+    def test_multiple_endpoints_with_different_auth(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api1.example.com"],
+                        "auth": {"type": "bearer", "token": "token1"},
+                    },
+                    {
+                        "hosts": ["api2.example.com"],
+                        "auth": {
+                            "type": "basic",
+                            "username": "user",
+                            "password": "pass",
+                        },
+                    },
+                    {
+                        "hosts": ["api3.example.com"],
+                        "auth": {"type": "header", "name": "X-API-Key", "value": "key"},
+                    },
+                ]
+            }
+        )
+        assert success is True
+        assert "3 endpoint" in message
+        assert "3 host pattern" in message
+
+    def test_endpoint_with_multiple_hosts(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api1.example.com", "api2.example.com"],
+                        "auth": {"type": "bearer", "token": "shared-token"},
+                    }
+                ]
+            }
+        )
+        assert success is True
+        assert "1 endpoint" in message
+        assert "2 host pattern" in message
+
+
+class TestHttpToolsetNaming:
+    def test_default_tool_name(self):
+        toolset = HttpToolset()
+        assert toolset._derive_tool_name() == "http_request"
+
+    def test_custom_name_with_slash(self):
+        toolset = HttpToolset(name="http/confluence")
+        assert toolset._derive_tool_name() == "http_confluence_request"
+
+    def test_custom_name_with_dash(self):
+        toolset = HttpToolset(name="my-api")
+        assert toolset._derive_tool_name() == "my_api_request"
+
+    def test_custom_name_simple(self):
+        toolset = HttpToolset(name="confluence")
+        assert toolset._derive_tool_name() == "confluence_request"
+
+    def test_tool_name_set_after_prerequisites(self):
+        toolset = HttpToolset(name="dagster")
+        toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {"hosts": ["dagster.example.com"], "auth": {"type": "none"}}
+                ]
+            }
+        )
+        assert len(toolset.tools) == 1
+        assert toolset.tools[0].name == "dagster_request"
+
+
+class TestHttpToolsetMultiInstance:
+    def test_two_instances_different_names(self):
+        ts1 = HttpToolset(name="confluence")
+        ts1.prerequisites_callable(
+            {
+                "endpoints": [
+                    {"hosts": ["*.atlassian.net"], "auth": {"type": "none"}}
+                ]
+            }
+        )
+
+        ts2 = HttpToolset(name="dagster")
+        ts2.prerequisites_callable(
+            {
+                "endpoints": [
+                    {"hosts": ["dagster.internal.com"], "auth": {"type": "none"}}
+                ]
+            }
+        )
+
+        assert ts1.tools[0].name == "confluence_request"
+        assert ts2.tools[0].name == "dagster_request"
+        assert ts1.name != ts2.name
+
+    def test_instance_with_llm_instructions(self):
+        toolset = HttpToolset(
+            name="confluence", llm_instructions="Use Confluence REST API v2."
+        )
+        toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {"hosts": ["*.atlassian.net"], "auth": {"type": "none"}}
+                ]
+            }
+        )
+        assert "Use Confluence REST API v2." in toolset.llm_instructions
+
+
+class TestHttpRequest:
+    @pytest.fixture
+    def toolset(self):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(hosts=["api.example.com"], auth=AuthConfig(type="none"))
+            ]
+        )
+        ts.tools = [HttpRequest(ts, tool_name="http_request")]
+        return ts
+
+    @pytest.fixture
+    def mock_context(self):
+        ctx = Mock(spec=ToolInvokeContext)
+        ctx.request_context = None
+        return ctx
+
+    def test_headers_must_be_dict(self, toolset, mock_context):
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test", "headers": '["value1", "value2"]'},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "must be a JSON object" in result.error
+
+    def test_headers_invalid_json(self, toolset, mock_context):
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test", "headers": "not-valid-json"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "Invalid headers JSON" in result.error
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_error_response_includes_error_field(self, mock_request, toolset, mock_context):
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 404
+        mock_response.json.return_value = {"message": "Not found"}
+        mock_request.return_value = mock_response
+
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert result.error is not None
+        assert "HTTP 404" in result.error
+        assert result.data["status_code"] == 404
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_success_response_no_error_field(self, mock_request, toolset, mock_context):
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_request.return_value = mock_response
+
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        assert result.error is None
+        assert result.data["status_code"] == 200
+        assert result.data["body"]["data"] == "test"
+
+    def test_url_not_whitelisted(self, toolset, mock_context):
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://not-whitelisted.com/test"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "not in whitelist" in result.error
+
+    def test_unsupported_method(self, toolset, mock_context):
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test", "method": "FOOBAR"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "Unsupported HTTP method" in result.error
+
+    def test_method_not_allowed_for_endpoint(self, toolset, mock_context):
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test", "method": "POST"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "not allowed for this endpoint" in result.error
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_post_with_body(self, mock_request, mock_context):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(
+                    hosts=["api.example.com"],
+                    methods=["GET", "POST"],
+                    auth=AuthConfig(type="none"),
+                )
+            ]
+        )
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 201
+        mock_response.json.return_value = {"id": 1}
+        mock_request.return_value = mock_response
+
+        tool = HttpRequest(ts)
+        result = tool._invoke(
+            {
+                "url": "https://api.example.com/items",
+                "method": "POST",
+                "body": '{"name": "test"}',
+            },
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        assert result.data["status_code"] == 201
+        mock_request.assert_called_once()
+        call_kwargs = mock_request.call_args
+        assert call_kwargs[0][0] == "POST"
+        assert call_kwargs[1]["data"] == '{"name": "test"}'
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_put_method(self, mock_request, mock_context):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(
+                    hosts=["api.example.com"],
+                    methods=["PUT"],
+                    auth=AuthConfig(type="none"),
+                )
+            ]
+        )
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"updated": True}
+        mock_request.return_value = mock_response
+
+        tool = HttpRequest(ts)
+        result = tool._invoke(
+            {
+                "url": "https://api.example.com/items/1",
+                "method": "PUT",
+                "body": '{"name": "updated"}',
+            },
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        call_kwargs = mock_request.call_args
+        assert call_kwargs[0][0] == "PUT"
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_delete_method(self, mock_request, mock_context):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(
+                    hosts=["api.example.com"],
+                    methods=["DELETE"],
+                    auth=AuthConfig(type="none"),
+                )
+            ]
+        )
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 204
+        mock_response.json.side_effect = Exception("No content")
+        mock_response.text = ""
+        mock_request.return_value = mock_response
+
+        tool = HttpRequest(ts)
+        result = tool._invoke(
+            {"url": "https://api.example.com/items/1", "method": "DELETE"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        call_kwargs = mock_request.call_args
+        assert call_kwargs[0][0] == "DELETE"
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_timeout_error(self, mock_request, toolset, mock_context):
+        mock_request.side_effect = requests.exceptions.Timeout("timed out")
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "timed out" in result.error
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_connection_error(self, mock_request, toolset, mock_context):
+        mock_request.side_effect = requests.exceptions.ConnectionError("refused")
+        tool = HttpRequest(toolset)
+        result = tool._invoke(
+            {"url": "https://api.example.com/test"},
+            mock_context,
+        )
+        assert result.status == StructuredToolResultStatus.ERROR
+        assert "Connection error" in result.error
+
+
+class TestHttpToolsetHealthCheck:
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_health_check_success(self, mock_request):
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_request.return_value = mock_response
+
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api.example.com"],
+                        "auth": {"type": "bearer", "token": "test"},
+                        "health_check_url": "https://api.example.com/health",
+                    }
+                ]
+            }
+        )
+        assert success is True
+        mock_request.assert_called_once()
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_health_check_failure(self, mock_request):
+        mock_response = Mock()
+        mock_response.ok = False
+        mock_response.status_code = 401
+        mock_response.text = "Unauthorized"
+        mock_request.return_value = mock_response
+
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api.example.com"],
+                        "auth": {"type": "bearer", "token": "bad-token"},
+                        "health_check_url": "https://api.example.com/health",
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "Health check failed" in message
+        assert "HTTP 401" in message
+        assert "To troubleshoot, run: curl" in message
+        assert "$TOKEN" in message
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_health_check_connection_error(self, mock_request):
+        mock_request.side_effect = requests.exceptions.ConnectionError("Connection refused")
+
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api.example.com"],
+                        "auth": {"type": "bearer", "token": "test"},
+                        "health_check_url": "https://api.example.com/health",
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "Health check failed" in message
+        assert "Connection error" in message
+        assert "To troubleshoot, run: curl" in message
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_health_check_timeout(self, mock_request):
+        mock_request.side_effect = requests.exceptions.Timeout("Request timed out")
+
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api.example.com"],
+                        "auth": {"type": "bearer", "token": "test"},
+                        "health_check_url": "https://api.example.com/health",
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "Health check failed" in message
+        assert "timed out" in message
+
+    def test_no_health_check_skips_request(self):
+        toolset = HttpToolset()
+        with patch(
+            "holmes.plugins.toolsets.http.http_toolset.requests.request"
+        ) as mock_request:
+            success, message = toolset.prerequisites_callable(
+                {
+                    "endpoints": [
+                        {
+                            "hosts": ["api.example.com"],
+                            "auth": {"type": "bearer", "token": "test"},
+                        }
+                    ]
+                }
+            )
+            assert success is True
+            mock_request.assert_not_called()
+
+
+class TestHttpRequestOneLiner:
+    def test_short_url(self):
+        ts = HttpToolset()
+        tool = HttpRequest(ts)
+        result = tool.get_parameterized_one_liner(
+            {"url": "https://api.example.com/test", "method": "GET"}
+        )
+        assert result == "HTTP GET https://api.example.com/test"
+
+    def test_long_url_truncated(self):
+        ts = HttpToolset()
+        tool = HttpRequest(ts)
+        long_url = "https://api.example.com/" + "a" * 100
+        result = tool.get_parameterized_one_liner({"url": long_url})
+        assert len(result) < len(long_url) + 20
+        assert "..." in result
+
+    def test_default_method(self):
+        ts = HttpToolset()
+        tool = HttpRequest(ts)
+        result = tool.get_parameterized_one_liner({"url": "https://api.example.com/test"})
+        assert result.startswith("HTTP GET")
+
+
+class TestDigestAuth:
+    def test_digest_auth_prereq(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["api.example.com"],
+                        "auth": {"type": "digest", "username": "user", "password": "pass"},
+                    }
+                ]
+            }
+        )
+        assert success is True
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_digest_auth_request(self, mock_request):
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(
+                    hosts=["api.example.com"],
+                    auth=AuthConfig(type="digest", username="user", password="pass"),
+                )
+            ]
+        )
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_request.return_value = mock_response
+
+        ctx = Mock(spec=ToolInvokeContext)
+        ctx.request_context = None
+        tool = HttpRequest(ts)
+        result = tool._invoke({"url": "https://api.example.com/test"}, ctx)
+
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        call_kwargs = mock_request.call_args[1]
+        assert isinstance(call_kwargs["auth"], HTTPDigestAuth)
+
+    def test_digest_curl_command(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(endpoints=[])
+        endpoint = EndpointConfig(
+            hosts=["api.example.com"],
+            auth=AuthConfig(type="digest", username="user", password="pass"),
+        )
+        cmd = toolset._build_curl_command(endpoint, "https://api.example.com/test")
+        assert "--digest" in cmd
+        assert '-u "$USERNAME:$PASSWORD"' in cmd
+
+
+class TestMTLS:
+    def test_client_cert_only(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(
+            endpoints=[],
+            client_cert_path="/path/to/cert.pem",
+        )
+        cert = toolset.get_client_cert()
+        assert cert == "/path/to/cert.pem"
+
+    def test_client_cert_and_key(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(
+            endpoints=[],
+            client_cert_path="/path/to/cert.pem",
+            client_key_path="/path/to/key.pem",
+        )
+        cert = toolset.get_client_cert()
+        assert cert == ("/path/to/cert.pem", "/path/to/key.pem")
+
+    def test_no_client_cert(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(endpoints=[])
+        cert = toolset.get_client_cert()
+        assert cert is None
+
+    def test_mtls_curl_command(self):
+        toolset = HttpToolset()
+        toolset._http_config = HttpToolsetConfig(
+            endpoints=[],
+            client_cert_path="/path/to/cert.pem",
+            client_key_path="/path/to/key.pem",
+        )
+        endpoint = EndpointConfig(
+            hosts=["api.example.com"],
+            auth=AuthConfig(type="none"),
+        )
+        cmd = toolset._build_curl_command(endpoint, "https://api.example.com/test")
+        assert '--cert "/path/to/cert.pem"' in cmd
+        assert '--key "/path/to/key.pem"' in cmd
+
+    def test_prereq_fails_missing_cert_file(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [{"hosts": ["api.example.com"]}],
+                "client_cert_path": "/nonexistent/cert.pem",
+            }
+        )
+        assert success is False
+        assert "Client certificate file not found" in message
+
+    def test_prereq_fails_missing_key_file(self, tmp_path):
+        cert_file = tmp_path / "cert.pem"
+        cert_file.write_text("fake cert")
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [{"hosts": ["api.example.com"]}],
+                "client_cert_path": str(cert_file),
+                "client_key_path": "/nonexistent/key.pem",
+            }
+        )
+        assert success is False
+        assert "Client key file not found" in message
+
+    @patch("holmes.plugins.toolsets.http.http_toolset.requests.request")
+    def test_mtls_cert_passed_to_request(self, mock_request, tmp_path):
+        cert_file = tmp_path / "cert.pem"
+        cert_file.write_text("fake cert")
+        key_file = tmp_path / "key.pem"
+        key_file.write_text("fake key")
+
+        ts = HttpToolset()
+        ts._http_config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(hosts=["api.example.com"], auth=AuthConfig(type="none"))
+            ],
+            client_cert_path=str(cert_file),
+            client_key_path=str(key_file),
+        )
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_request.return_value = mock_response
+
+        ctx = Mock(spec=ToolInvokeContext)
+        ctx.request_context = None
+        tool = HttpRequest(ts)
+        result = tool._invoke({"url": "https://api.example.com/test"}, ctx)
+
+        assert result.status == StructuredToolResultStatus.SUCCESS
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs["cert"] == (str(cert_file), str(key_file))

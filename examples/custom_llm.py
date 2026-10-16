@@ -1,13 +1,15 @@
 from typing import Any, Dict, List, Optional, Type, Union
-from holmes.core.llm import LLM, TokenCountMetadata
+
 from litellm.types.utils import ModelResponse
+from pydantic import BaseModel
+
+from holmes.core.llm import LLM, ContextWindowUsage
+from holmes.core.prompt import generate_user_prompt
 from holmes.core.tool_calling_llm import ToolCallingLLM
 from holmes.core.tools import Tool
-from holmes.plugins.toolsets import load_builtin_toolsets
-from pydantic import BaseModel
-from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.tools_utils.tool_executor import ToolExecutor
-from holmes.core.prompt import generate_user_prompt
+from holmes.plugins.prompts import load_and_render_prompt
+from holmes.plugins.toolsets import load_builtin_toolsets
 
 
 class MyCustomLLM(LLM):
@@ -19,8 +21,8 @@ class MyCustomLLM(LLM):
 
     def count_tokens(
         self, messages: list[dict], tools: Optional[list[dict[str, Any]]] = None
-    ) -> TokenCountMetadata:
-        return TokenCountMetadata(
+    ) -> ContextWindowUsage:
+        return ContextWindowUsage(
             total_tokens=1000,
             tools_to_call_tokens=100,
             system_tokens=200,
@@ -39,6 +41,7 @@ class MyCustomLLM(LLM):
         temperature: Optional[float] = None,
         drop_params: Optional[bool] = None,
     ) -> ModelResponse:
+        """Return a canned response demonstrating the LLM interface."""
         return ModelResponse(
             choices=[
                 {
@@ -66,10 +69,14 @@ def ask_holmes():
     )
 
     tool_executor = ToolExecutor(load_builtin_toolsets())
-    ai = ToolCallingLLM(tool_executor, max_steps=40, llm=MyCustomLLM())
+    ai = ToolCallingLLM(tool_executor, max_steps=100, llm=MyCustomLLM(), tool_results_dir=None)
 
     user_prompt = generate_user_prompt(prompt, context={})
-    response = ai.prompt_call(system_prompt, user_prompt)
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+    response = ai.call(messages)
 
     print(response.model_dump())
 

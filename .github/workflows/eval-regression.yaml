@@ -1,50 +1,1240 @@
 name: Run eval regression tests
 
 on:
+  # Evals no longer run automatically on every commit (this was the main CI eval
+  # cost driver). They run on-demand only: add an evals-* label to a PR (handled
+  # by the `labeled` event below), comment `/eval`, or trigger workflow_dispatch.
   pull_request:
     branches: ["*"]
-  push:
-    branches: [master]
+    types: [labeled]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'mkdocs.yml'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to comment on (auto-detects from branch if empty)'
+        required: false
+        default: ''
+      model:
+        description: 'Model(s) to test. Examples: gpt-4.1, gpt-4o, anthropic/claude-sonnet-4-20250514, azure/gpt-4.1, bedrock/anthropic.claude-sonnet-4-20250514-v1:0, gemini/gemini-1.5-pro, vertex_ai/claude-3-5-sonnet, ollama/llama2. Comma-separated for multiple.'
+        required: false
+        default: ''
+      markers:
+        description: 'Pytest markers (e.g., regression, easy, logs). Combined with "llm and". Leave empty for all LLM tests.'
+        required: false
+        default: ''
+      filter:
+        description: 'Eval ID / pytest -k filter (e.g., 09_crashpod, checkout). Use "id:" in /eval comments.'
+        required: false
+        default: ''
+      iterations:
+        description: 'Number of iterations (1-10)'
+        required: false
+        default: '1'
+      is_pr_trusted:
+        description: 'Allow running on fork PRs (use with caution - grants fork code access to secrets)'
+        required: false
+        default: 'false'
+        type: boolean
+  issue_comment:
+    types: [created]
 
 permissions:
   pull-requests: write
   contents: read
+  issues: write
 
 jobs:
+  # Handle /list command - outputs available eval names
+  list_evals:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/list')
+    steps:
+      - name: Check permissions and fork status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // author_association is a relationship label, not permission:
+            // COLLABORATOR includes read/triage outside collaborators
+            // and MEMBER is public org membership. Query the real level.
+            const actor = context.payload.comment.user.login;
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: actor
+            });
+            if (!['admin', 'write'].includes(permission.permission)) {
+              core.setFailed(`Permission denied: ${actor} has ${permission.permission} access (requires write or admin)`);
+              return;
+            }
+
+            // SECURITY: Block /list on fork PRs (although tbh it should be safe)
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            // Treat orphaned PRs (deleted head repo) as forks
+            const isFork = !pr.data.head.repo || pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+            if (isFork) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: '❌ `/list` command is not available on fork PRs for security reasons.'
+              });
+              core.setFailed('Fork PRs cannot use /list command');
+              return;
+            }
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Post eval list
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Collect eval names from fixture directories
+            const askHolmesPath = 'tests/llm/fixtures/test_ask_holmes';
+
+            const getEvalNames = (dir) => {
+              try {
+                return fs.readdirSync(dir)
+                  .filter(f => !f.startsWith('.'))
+                  .sort()
+                  .map(f => `\`${f}\``)
+                  .join(', ');
+              } catch (e) {
+                return '_(none found)_';
+              }
+            };
+
+            const askHolmesEvals = getEvalNames(askHolmesPath);
+
+            const body = `## 📋 Available Eval Names\n\n` +
+              `Use these with \`id:\` in your \`/eval\` command.\n\n` +
+              `**test_ask_holmes:**\n${askHolmesEvals}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
   llm_evals:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && (startsWith(github.event.comment.body, '/eval') || startsWith(github.event.comment.body, '/rerun')))
+
+    # Serialize automated regression runs per PR to avoid race conditions on persistent comment
+    # Manual runs (/eval, workflow_dispatch) get unique groups so they can run in parallel
+    concurrency:
+      group: ${{ github.event_name == 'pull_request' && format('eval-auto-pr-{0}', github.event.pull_request.number) || format('eval-{0}', github.run_id) }}
+      cancel-in-progress: false
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup HolmesGPT environment
-        uses: ./.github/actions/setup-holmes-env
+      - name: Handle /eval comment
+        id: eval-comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
         with:
-          python-version: '3.12'
-          install-kubectl: 'true'
+          script: |
+            // author_association is a relationship label, not permission:
+            // COLLABORATOR includes read/triage outside collaborators
+            // and MEMBER is public org membership. Query the real level.
+            const actor = context.payload.comment.user.login;
+            const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              username: actor
+            });
+            if (!['admin', 'write'].includes(permission.permission)) {
+              core.setFailed(`Permission denied: ${actor} has ${permission.permission} access (requires write or admin)`);
+              return;
+            }
 
-      - name: Setup KIND cluster
-        uses: ./.github/actions/setup-kind-cluster
+            // Get PR info for fork detection
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            let body = context.payload.comment.body;
+
+            // SECURITY: Check for trusted flag on fork PRs
+            // Treat orphaned PRs (deleted head repo) as forks
+            const isFork = !pr.data.head.repo || pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+            if (isFork) {
+              // Check if trusted: true is in the comment (parsed early, before checkout)
+              const trustedMatch = body.match(/^trusted\s*:\s*true\s*$/im);
+              const isTrusted = trustedMatch !== null;
+
+              if (!isTrusted) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: '⚠️ `/eval` and `/rerun` on fork PRs require explicit trust confirmation.\n\n' +
+                        'Running evals grants the fork code access to secrets. If you\'ve reviewed the code, add `trusted: true`:\n\n' +
+                        '```\n/eval\ntrusted: true\ntags: regression\n```\n\n' +
+                        'Or use `workflow_dispatch` with `is_pr_trusted: true` from the Actions UI.'
+                });
+                core.setFailed('Fork PRs require trusted: true to run /eval or /rerun');
+                return;
+              }
+              // Whoever releases secrets to fork code must not be its author
+              if (actor === pr.data.user.login) {
+                core.setFailed('The PR author cannot mark their own fork PR trusted - another maintainer must run /eval');
+                return;
+              }
+              core.warning(`Running /eval on trusted fork PR #${context.issue.number} - fork code will have access to secrets`);
+            }
+            let lastEvalCommentId = null;
+            const isRerunCommand = body.trim().toLowerCase().startsWith('/rerun');
+
+            // Handle /rerun command: find the last /eval comment on this PR
+            if (isRerunCommand) {
+              // Fetch all comments (paginate to handle PRs with 100+ comments)
+              let allComments = [];
+              let page = 1;
+              while (true) {
+                const response = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  per_page: 100,
+                  page: page
+                });
+                allComments = allComments.concat(response.data);
+                if (response.data.length < 100) break;
+                page++;
+              }
+
+              // Find the last /eval comment before this /rerun comment
+              const evalComments = allComments
+                .filter(c => c.id !== context.payload.comment.id && c.body.trim().toLowerCase().startsWith('/eval'))
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+              if (evalComments.length === 0) {
+                core.setFailed('No previous /eval comment found on this PR. Use /eval instead.');
+                return;
+              }
+
+              body = evalComments[0].body;
+              lastEvalCommentId = evalComments[0].id;
+              core.info(`Found last /eval comment: ${lastEvalCommentId}`);
+            }
+
+            core.setOutput('is_rerun_command', isRerunCommand.toString());
+            core.setOutput('last_eval_comment_id', lastEvalCommentId ? lastEvalCommentId.toString() : '');
+            core.setOutput('resolved_body', body);
+
+            // Parse branch parameter: runs Holmes code from that branch with eval fixtures from the PR
+            let targetBranch = '';
+            for (const line of body.split('\n').slice(1)) {
+              const colonIdx = line.indexOf(':');
+              if (colonIdx === -1) continue;
+              const key = line.slice(0, colonIdx).trim().toLowerCase();
+              const value = line.slice(colonIdx + 1).trim();
+              if (key === 'branch' && value && /^[a-zA-Z0-9_.\/-]*$/.test(value)) {
+                targetBranch = value;
+                break;
+              }
+            }
+            core.setOutput('branch', targetBranch);
+
+            core.setOutput('pr_sha', pr.data.head.sha);
+            core.setOutput('pr_branch', pr.data.head.ref);
+            core.setOutput('pr_labels', JSON.stringify((pr.data.labels || []).map(l => l.name)));
+
+            // Add eyes reaction to indicate the comment was seen and is being processed
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'eyes'
+            });
+
+      # SECURITY: Checkout to sibling directories so neither can overwrite the other.
+      # PR code goes to ./code/, trusted helpers go to ./.trusted/
+      - name: Checkout PR code
+        if: github.event_name != 'issue_comment' || steps.eval-comment.outcome == 'success'
+        uses: actions/checkout@v4
         with:
-          cluster-name: 'kind'
-          wait-for-ready: 'true'
+          # Always checkout PR code first (includes eval fixtures in tests/)
+          ref: ${{ steps.eval-comment.outputs.pr_sha || github.ref }}
+          path: code
+
+      # When branch: is specified in /eval, overlay Holmes source code from that branch
+      # while keeping tests/ (eval fixtures + framework) from the PR branch.
+      # This allows running master's Holmes code against a PR's new eval tests.
+      - name: Overlay Holmes code from target branch
+        if: (github.event_name != 'issue_comment' || steps.eval-comment.outcome == 'success') && steps.eval-comment.outputs.branch != ''
+        working-directory: code
+        run: |
+          git fetch origin "$TARGET_BRANCH"
+          # Replace all files except tests/ with versions from the target branch
+          git checkout "origin/$TARGET_BRANCH" -- . ':!tests/'
+        env:
+          TARGET_BRANCH: ${{ steps.eval-comment.outputs.branch }}
+
+      - name: Checkout trusted helpers from base branch
+        if: github.event_name != 'issue_comment' || steps.eval-comment.outcome == 'success'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref || 'master' }}
+          sparse-checkout: .github/scripts
+          path: .trusted
+
+      - name: Determine eval parameters
+        if: github.event_name != 'issue_comment' || steps.eval-comment.outcome == 'success'
+        id: eval-params
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // SECURITY: These whitelist regexes protect against shell injection by only
+            // allowing safe characters. This works together with proper quoting in bash
+            // (using env vars + "$VAR" syntax). If you modify these patterns or add new
+            // parameters, ensure: (1) regex is a whitelist of safe chars, (2) values are
+            // passed via env vars not inline, (3) bash references use double quotes.
+            const patterns = {
+              model: /^[a-zA-Z0-9_.,:\/-]*$/,
+              markers: /^[a-zA-Z0-9_\- ()]*$/,
+              filter: /^[a-zA-Z0-9_\- ]*$/,
+              iterations: /^[0-9]+$/,
+              pr_number: /^[0-9]*$/,
+              branch: /^[a-zA-Z0-9_.\/-]*$/
+            };
+
+            function validate(value, name) {
+              if (!value) return '';
+              if (patterns[name] && !patterns[name].test(value)) {
+                core.setFailed(`Invalid ${name}: must match ${patterns[name]}`);
+                return null;
+              }
+              return value;
+            }
+
+            function parseComment(body) {
+              const params = { model: '', markers: '', filter: '', iterations: '1', branch: '' };
+              const validKeys = new Set(Object.keys(params));
+              // Aliases: tag/tags -> markers (preferred), marker -> markers (legacy), filters/filter -> filter (legacy), id -> filter (preferred)
+              const keyAliases = { tag: 'markers', tags: 'markers', marker: 'markers', filters: 'filter', filter: 'filter', id: 'filter' };
+              for (const line of body.split('\n').slice(1)) {
+                const colonIdx = line.indexOf(':');
+                if (colonIdx === -1) continue;
+                let key = line.slice(0, colonIdx).trim().toLowerCase();
+                // Normalize aliases
+                if (keyAliases[key]) key = keyAliases[key];
+                // Strip leading/trailing quotes (users sometimes add them unnecessarily)
+                const value = line.slice(colonIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+                if (validKeys.has(key) && value) params[key] = value;
+              }
+              return params;
+            }
+
+            let model, markers, filter, iterations, isManual, triggerSource, prNumber, triggeredBy, branch, displayBranch;
+            let skipEval = false;
+            const event = context.eventName;
+
+            if (event === 'issue_comment') {
+              // Use resolved body (handles /rerun command by using the last /eval comment's body)
+              const resolvedBody = ${{ toJSON(steps.eval-comment.outputs.resolved_body) }} || context.payload.comment.body;
+              const isRerunCommand = ${{ toJSON(steps.eval-comment.outputs.is_rerun_command) }} === 'true';
+              const lastEvalCommentId = ${{ toJSON(steps.eval-comment.outputs.last_eval_comment_id) }} || '';
+
+              const parsed = parseComment(resolvedBody);
+              model = validate(parsed.model, 'model');
+              markers = validate(parsed.markers, 'markers');
+              filter = validate(parsed.filter, 'filter');
+              iterations = validate(parsed.iterations, 'iterations');
+              branch = validate(parsed.branch, 'branch');
+              if ([model, markers, filter, iterations, branch].includes(null)) return;
+              // displayBranch shows what branch we're testing: override branch or PR branch
+              const prBranch = ${{ toJSON(steps.eval-comment.outputs.pr_branch) }} || '';
+              displayBranch = branch || prBranch;
+              isManual = true;
+
+              // Build trigger source with links to both commands
+              const currentCommentUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}#issuecomment-${context.payload.comment.id}`;
+              if (isRerunCommand && lastEvalCommentId) {
+                const evalCommentUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${context.issue.number}#issuecomment-${lastEvalCommentId}`;
+                triggerSource = `[/rerun](${currentCommentUrl}) → [/eval](${evalCommentUrl})`;
+              } else {
+                triggerSource = branch ? `[/eval on branch \`${branch}\`](${currentCommentUrl})` : `[/eval comment](${currentCommentUrl})`;
+              }
+
+              // Apply PR labels as defaults (comment params override labels)
+              const prLabelsJson = ${{ toJSON(steps.eval-comment.outputs.pr_labels) }} || '[]';
+              const prLabels = JSON.parse(prLabelsJson);
+              if (prLabels.length > 0) {
+                const labelSafe = /^[a-zA-Z0-9_\-]+$/;
+                const modelSafe = /^[a-zA-Z0-9_.,:\/-]+$/;
+                const labels = prLabels;
+                const tagLabels = labels
+                  .filter(n => n.startsWith('evals-tag-'))
+                  .map(n => n.replace('evals-tag-', ''))
+                  .filter(n => labelSafe.test(n));
+                const idLabels = labels
+                  .filter(n => n.startsWith('evals-id-'))
+                  .map(n => n.replace('evals-id-', ''))
+                  .filter(n => labelSafe.test(n));
+                const modelLabels = labels
+                  .filter(n => n.startsWith('evals-model-'))
+                  .map(n => n.replace('evals-model-', ''))
+                  .filter(n => modelSafe.test(n));
+
+                // Only apply label defaults when the corresponding comment param was not specified
+                if (!markers && tagLabels.length > 0) {
+                  markers = tagLabels.join(' or ');
+                }
+                if (!filter && idLabels.length > 0) {
+                  filter = idLabels.join(' or ');
+                }
+                if (!model && modelLabels.length > 0) {
+                  model = modelLabels.join(',');
+                }
+              }
+
+              prNumber = context.issue.number;
+              triggeredBy = context.payload.comment.user.login;
+            } else if (event === 'workflow_dispatch') {
+              model = validate(${{ toJSON(github.event.inputs.model) }} || '', 'model');
+              markers = validate(${{ toJSON(github.event.inputs.markers) }} || '', 'markers');
+              filter = validate(${{ toJSON(github.event.inputs.filter) }} || '', 'filter');
+              iterations = validate(${{ toJSON(github.event.inputs.iterations) }} || '', 'iterations');
+              const prNum = validate(${{ toJSON(github.event.inputs.pr_number) }} || '', 'pr_number');
+              const isPrTrusted = ${{ toJSON(github.event.inputs.is_pr_trusted) }} === 'true';
+              branch = ''; // workflow_dispatch doesn't support branch override yet
+              if ([model, markers, filter, iterations, prNum].includes(null)) return;
+              isManual = true;
+              triggerSource = 'workflow_dispatch';
+              triggeredBy = context.actor;
+              displayBranch = context.ref.replace('refs/heads/', '');
+
+              // Auto-detect PR from branch if pr_number not provided
+              if (prNum) {
+                prNumber = parseInt(prNum, 10);
+              } else {
+                const currentBranch = context.ref.replace('refs/heads/', '');
+                const prs = await github.rest.pulls.list({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  head: `${context.repo.owner}:${currentBranch}`,
+                  state: 'open'
+                });
+                if (prs.data.length === 1) {
+                  prNumber = prs.data[0].number;
+                  core.info(`Auto-detected PR #${prNumber} from branch ${currentBranch}`);
+                } else if (prs.data.length > 1) {
+                  core.warning(`Multiple open PRs found for branch ${currentBranch}, please specify pr_number`);
+                  prNumber = null;
+                } else {
+                  core.info(`No open PR found for branch ${currentBranch}`);
+                  prNumber = null;
+                }
+              }
+
+              // SECURITY: Check if this is a fork PR and block unless explicitly trusted
+              if (prNumber) {
+                const pr = await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber
+                });
+                // Treat orphaned PRs (deleted head repo) as forks
+                const isFork = !pr.data.head.repo || pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+                if (isFork && !isPrTrusted) {
+                  core.setFailed(
+                    `Fork PR #${prNumber} detected. Manual workflow_dispatch on fork PRs requires ` +
+                    `is_pr_trusted=true (grants fork code access to secrets).`
+                  );
+                  return;
+                }
+                if (isFork && isPrTrusted) {
+                  core.warning(`Running on trusted fork PR #${prNumber} - fork code will have access to secrets`);
+                }
+              }
+            } else {
+              model = '';
+              markers = null;
+              filter = '';
+              iterations = '1';
+              branch = '';
+              isManual = false;
+              prNumber = event === 'pull_request' ? context.payload.pull_request.number : null;
+              triggeredBy = '';
+
+              // Evals do not run automatically on every commit anymore. For automatic
+              // (pull_request) triggers we skip by default and only run when the PR has
+              // at least one evals-* label opting it in (evals-tag-*, evals-id-*, or
+              // evals-model-*). /eval comments and workflow_dispatch are unaffected.
+              skipEval = true;
+
+              // Parse PR labels for evals-tag-*, evals-id-*, and evals-model-* to augment the regression run
+              if (event === 'pull_request' && context.payload.pull_request.labels) {
+                const labelSafe = /^[a-zA-Z0-9_\-]+$/;
+                // Model names can contain slashes, dots, and colons (e.g. sonnet-4.5, anthropic/claude-sonnet-4-5-20250929)
+                const modelSafe = /^[a-zA-Z0-9_.,:\/-]+$/;
+                const labels = context.payload.pull_request.labels.map(l => l.name);
+                const tagLabels = labels
+                  .filter(n => n.startsWith('evals-tag-'))
+                  .map(n => n.replace('evals-tag-', ''))
+                  .filter(n => labelSafe.test(n));
+                const idLabels = labels
+                  .filter(n => n.startsWith('evals-id-'))
+                  .map(n => n.replace('evals-id-', ''))
+                  .filter(n => labelSafe.test(n));
+                const modelLabels = labels
+                  .filter(n => n.startsWith('evals-model-'))
+                  .map(n => n.replace('evals-model-', ''))
+                  .filter(n => modelSafe.test(n));
+
+                // evals-skip-default label: when used alone, skips the automatic regression
+                // eval entirely (runs nothing). When combined with evals-tag-* or evals-id-*
+                // labels, runs only those tags/ids without prepending 'regression'.
+                const skipDefault = labels.includes('evals-skip-default');
+
+                if (idLabels.length > 0 && tagLabels.length === 0) {
+                  // Only IDs specified: broaden markers to all LLM tests, filter by ID
+                  markers = '';
+                  filter = idLabels.join(' or ');
+                  skipEval = false;
+                } else if (tagLabels.length > 0 && idLabels.length === 0) {
+                  // Only tags specified: add to regression markers (unless skip-default)
+                  markers = skipDefault ? tagLabels.join(' or ') : 'regression or ' + tagLabels.join(' or ');
+                  skipEval = false;
+                } else if (tagLabels.length > 0 && idLabels.length > 0) {
+                  // Both specified: use tag markers + ID filter
+                  markers = skipDefault ? tagLabels.join(' or ') : 'regression or ' + tagLabels.join(' or ');
+                  filter = idLabels.join(' or ');
+                  skipEval = false;
+                }
+                // else: no evals-tag-*/evals-id-* labels — stays skipped (skipEval=true)
+                // unless an evals-model-* label opts in below. evals-skip-default alone
+                // is now a no-op since skipping is the default.
+
+                // Override model if evals-model-* label is present. A model label on
+                // its own means "run the default regression suite on this model", so it
+                // opts the PR in (markers falls through to the 'regression' default below).
+                if (modelLabels.length > 0) {
+                  model = modelLabels.join(',');
+                  skipEval = false;
+                }
+              }
+
+              // Build descriptive trigger source for automatic runs
+              if (event === 'pull_request') {
+                const sha = context.payload.pull_request.head.sha.substring(0, 7);
+                const prBranch = context.payload.pull_request.head.ref;
+                displayBranch = prBranch;
+                // Only display labels that pass safe character checks
+                const displayLabelSafe = /^[a-zA-Z0-9_\-]+$/;
+                const displayModelSafe = /^[a-zA-Z0-9_.,:\/-]+$/;
+                const evalLabels = (context.payload.pull_request.labels || [])
+                  .map(l => l.name)
+                  .filter(n => {
+                    if (n === 'evals-skip-default') return true;
+                    if (n.startsWith('evals-model-')) {
+                      const suffix = n.slice('evals-model-'.length);
+                      return suffix.length > 0 && displayModelSafe.test(suffix);
+                    }
+                    if (n.startsWith('evals-tag-') || n.startsWith('evals-id-')) {
+                      const suffix = n.startsWith('evals-tag-') ? n.slice('evals-tag-'.length) : n.slice('evals-id-'.length);
+                      return suffix.length > 0 && displayLabelSafe.test(suffix);
+                    }
+                    return false;
+                  });
+                const labelSuffix = evalLabels.length > 0 ? ` (labels: ${evalLabels.map(l => '\`' + l + '\`').join(', ')})` : '';
+                triggerSource = `commit ${sha} on branch \`${prBranch}\`` + labelSuffix;
+              } else if (event === 'push') {
+                const sha = context.sha.substring(0, 7);
+                const pushBranch = context.ref.replace('refs/heads/', '');
+                displayBranch = pushBranch;
+                triggerSource = `push to \`${pushBranch}\` (${sha})`;
+              } else {
+                displayBranch = '';
+                triggerSource = 'automatic';
+              }
+            }
+
+            // Apply defaults
+            if (!model) model = ${{ toJSON(vars.MODEL) }} || '';
+            // Only apply regression default for automatic triggers, not for manual /eval or workflow_dispatch
+            // Note: markers may be '' (explicitly cleared by evals-id-* label parsing to broaden to all LLM tests)
+            if (markers == null && !isManual) markers = 'regression';
+            let iterNum = Math.min(Math.max(parseInt(iterations, 10) || 1, 1), 10);
+
+            core.setOutput('model', model);
+            core.setOutput('markers', markers || '');
+            core.setOutput('filter', filter);
+            core.setOutput('iterations', iterNum.toString());
+            core.setOutput('is_manual', isManual.toString());
+            core.setOutput('trigger_source', triggerSource);
+            core.setOutput('pr_number', prNumber ? prNumber.toString() : '');
+            core.setOutput('triggered_by', triggeredBy);
+            core.setOutput('branch', branch);
+            core.setOutput('display_branch', displayBranch || '');
+            core.setOutput('marker_expr', markers ? `llm and (${markers})` : 'llm');
+            core.setOutput('skip_eval', skipEval.toString());
+
+            // Log computed params for debugging
+            core.info(`eval-params: event=${event}, model=${model}, markers=${markers}, filter=${filter}, marker_expr=${markers ? 'llm and (' + markers + ')' : 'llm'}, skip_eval=${skipEval}, pr_number=${prNumber || '<none>'}, iterations=${iterNum}`);
+            core.setOutput('run_url', `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`);
+
+            // Output all common params as JSON for DRY usage in subsequent steps
+            core.setOutput('base_params', JSON.stringify({
+              is_manual: isManual.toString(),
+              trigger_source: triggerSource,
+              model,
+              markers,
+              filter,
+              iterations: iterNum.toString(),
+              branch,
+              display_branch: displayBranch || '',
+              run_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              pr_number: prNumber ? prNumber.toString() : ''
+            }));
 
       - name: Check if tests should run
         id: check-tests
+        if: github.event_name != 'issue_comment' || steps.eval-comment.outcome == 'success'
         shell: bash
         run: |
-          if [[ "${{ github.event_name }}" != "pull_request" ]] || [[ -n "${{ secrets.AZURE_API_KEY }}" && -n "${{ secrets.BRAINTRUST_API_KEY }}" ]]; then
+          # Skip eval if evals-skip-default label is the only eval label (no tags/ids specified)
+          if [[ "${{ steps.eval-params.outputs.skip_eval }}" == "true" ]]; then
+            echo "should-run=false" >> $GITHUB_OUTPUT
+            echo "Skipping eval: evals-skip-default label is set with no additional evals-tag-* or evals-id-* labels"
+            exit 0
+          fi
+          # Check one secret as proxy for secrets access (repo has all or none)
+          if [[ -n "${{ secrets.AZURE_API_KEY }}" ]]; then
             echo "should-run=true" >> $GITHUB_OUTPUT
-            echo "✅ Running tests - either not a PR or all required secrets are available"
           else
             echo "should-run=false" >> $GITHUB_OUTPUT
-            echo "⏭️ Skipping tests - PR from fork without required secrets"
           fi
+
+      - name: Post initial comment
+        id: initial-comment
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // SECURITY: Load helpers from trusted checkout (base branch) to prevent code injection from PRs
+            const {
+              AUTO_EVAL_COMMENT_IDENTIFIER,
+              buildParams,
+              buildBody,
+              buildRerunFooter,
+              parseRunHistory,
+              extractCurrentRun,
+              buildAutoCommentWithHistory
+            } = require('./.trusted/.github/scripts/eval-comment-helpers.js');
+
+            const p = buildParams(JSON.parse(${{ toJSON(steps.eval-params.outputs.base_params) }}));
+            const progressSteps = [
+              [false, 'Setup HolmesGPT environment'],
+              [false, 'Collect evals to run'],
+              [false, 'Setup KIND cluster'],
+              [false, 'Run evals']
+            ];
+
+            // For automated runs (not /eval or workflow_dispatch), use persistent comment
+            if (!p.isManual) {
+              // Find existing persistent comment
+              let existingComment = null;
+              let page = 1;
+              while (true) {
+                const response = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: p.prNumber,
+                  per_page: 100,
+                  page: page
+                });
+                const found = response.data.find(c => c.body.includes(AUTO_EVAL_COMMENT_IDENTIFIER));
+                if (found) {
+                  existingComment = found;
+                  break;
+                }
+                if (response.data.length < 100) break;
+                page++;
+              }
+
+              const currentContent = buildBody(p, progressSteps, { context });
+              const footer = buildRerunFooter(p, context);
+
+              if (existingComment) {
+                // Parse history from existing comment, including moving current run to history
+                const previousRuns = parseRunHistory(existingComment.body);
+                const currentRun = extractCurrentRun(existingComment.body);
+                if (currentRun && currentRun.content) {
+                  previousRuns.unshift(currentRun);
+                }
+                const body = buildAutoCommentWithHistory(currentContent, previousRuns, footer);
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingComment.id,
+                  body: body
+                });
+                core.setOutput('comment_id', existingComment.id.toString());
+                core.setOutput('is_persistent', 'true');
+              } else {
+                // Create new persistent comment
+                const body = buildAutoCommentWithHistory(currentContent, [], footer);
+                const comment = await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: p.prNumber,
+                  body: body
+                });
+                core.setOutput('comment_id', comment.data.id.toString());
+                core.setOutput('is_persistent', 'true');
+              }
+            } else {
+              // Manual runs: create a fresh comment (original behavior)
+              const comment = await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: p.prNumber,
+                body: buildBody(p, progressSteps, { context }) + buildRerunFooter(p, context)
+              });
+              core.setOutput('comment_id', comment.data.id.toString());
+              core.setOutput('is_persistent', 'false');
+            }
+
+      # Cache KIND infrastructure: binaries, Docker images, Helm charts, manifests
+      - name: Cache KIND infrastructure
+        if: steps.check-tests.outputs.should-run == 'true'
+        uses: actions/cache@v4
+        id: kind-cache
+        with:
+          path: ~/kind-cache
+          key: kind-infra-v1-kind0.31.0-calico3.31.3-prom72.6.2-metrics0.7.2
+
+      # Write KIND setup script to a file, then run it in background
+      # This runs in parallel with HolmesGPT environment setup, saving ~70s
+      # Caching saves an additional ~60s on subsequent runs
+      - name: Start KIND cluster setup (background)
+        if: steps.check-tests.outputs.should-run == 'true'
+        shell: bash
+        run: |
+          # Write the setup script to a file to avoid heredoc/indentation issues
+          cat > /tmp/kind-setup.sh << 'SCRIPT_EOF'
+          #!/bin/bash
+          set -e
+
+          CACHE_DIR="$HOME/kind-cache"
+          mkdir -p "$CACHE_DIR/bin" "$CACHE_DIR/manifests" "$CACHE_DIR/images" "$CACHE_DIR/helm-cache" "$CACHE_DIR/helm-data"
+
+          # Use cached Helm repository and chart data
+          export HELM_CACHE_HOME="$CACHE_DIR/helm-cache"
+          export HELM_DATA_HOME="$CACHE_DIR/helm-data"
+
+          # === Install KIND binary (cached or download) ===
+          if [ -f "$CACHE_DIR/bin/kind" ]; then
+            echo "Using cached KIND binary"
+            sudo cp "$CACHE_DIR/bin/kind" /usr/local/bin/kind
+            sudo chmod +x /usr/local/bin/kind
+          else
+            echo "Downloading KIND binary"
+            curl -sLo "$CACHE_DIR/bin/kind" https://kind.sigs.k8s.io/dl/v0.31.0/kind-linux-amd64
+            chmod +x "$CACHE_DIR/bin/kind"
+            sudo cp "$CACHE_DIR/bin/kind" /usr/local/bin/kind
+          fi
+          kind version
+
+          # === Load cached KIND node image if available ===
+          KIND_NODE_IMAGE="kindest/node:v1.35.0"
+          if [ -f "$CACHE_DIR/images/kind-node.tar" ]; then
+            echo "Loading cached KIND node image"
+            docker load -i "$CACHE_DIR/images/kind-node.tar"
+          fi
+
+          # === Create KIND cluster ===
+          cat > /tmp/kind-config.yaml << 'EOF'
+          kind: Cluster
+          apiVersion: kind.x-k8s.io/v1alpha4
+          networking:
+            disableDefaultCNI: true
+          nodes:
+          - role: control-plane
+            extraPortMappings:
+            - containerPort: 30000
+              hostPort: 30000
+              protocol: TCP
+            - containerPort: 30001
+              hostPort: 30001
+              protocol: TCP
+            kubeadmConfigPatches:
+            - |
+              kind: InitConfiguration
+              nodeRegistration:
+                kubeletExtraArgs:
+                  max-pods: "300"
+            - |
+              kind: KubeProxyConfiguration
+              metricsBindAddress: "0.0.0.0:10249"
+            - |
+              kind: KubeletConfiguration
+              maxPods: 300
+          EOF
+
+          kind create cluster --name kind --config /tmp/kind-config.yaml --image "$KIND_NODE_IMAGE"
+          kubectl cluster-info --context kind-kind
+
+          # Save KIND node image in background for cache (first run only)
+          if [ ! -f "$CACHE_DIR/images/kind-node.tar" ]; then
+            echo "Saving KIND node image for cache"
+            docker save "$KIND_NODE_IMAGE" -o "$CACHE_DIR/images/kind-node.tar" &
+            SAVE_NODE_PID=$!
+          fi
+
+          # === Load cached workload images into KIND (Calico, Prometheus, etc.) ===
+          if [ -f "$CACHE_DIR/images/workload-images.tar" ]; then
+            echo "Loading cached workload images into KIND"
+            kind load image-archive "$CACHE_DIR/images/workload-images.tar" --name kind
+            echo "Cached workload images loaded"
+          fi
+
+          # === Install Calico CNI ===
+          CALICO_VERSION="v3.31.3"
+          CALICO_MANIFEST="$CACHE_DIR/manifests/calico-operator-${CALICO_VERSION}.yaml"
+          if [ ! -f "$CALICO_MANIFEST" ]; then
+            echo "Downloading Calico operator manifest"
+            curl -sLo "$CALICO_MANIFEST" "https://raw.githubusercontent.com/projectcalico/calico/${CALICO_VERSION}/manifests/tigera-operator.yaml"
+          fi
+          kubectl create -f "$CALICO_MANIFEST"
+
+          for i in $(seq 1 90); do
+            kubectl get pods -n tigera-operator --no-headers 2>/dev/null | grep -q "tigera-operator" && break
+            sleep 2
+          done
+          kubectl wait --for=condition=Ready --timeout=300s -n tigera-operator pods --all
+
+          for i in $(seq 1 90); do
+            kubectl get crd installations.operator.tigera.io 2>/dev/null && break
+            sleep 2
+          done
+          kubectl wait --for=condition=Established --timeout=120s crd/installations.operator.tigera.io
+
+          # Create Calico installation
+          cat << 'EOF' | kubectl create -f -
+          apiVersion: operator.tigera.io/v1
+          kind: Installation
+          metadata:
+            name: default
+          spec:
+            calicoNetwork:
+              ipPools:
+              - blockSize: 26
+                cidr: 10.244.0.0/16
+                encapsulation: IPIP
+                natOutgoing: Enabled
+                nodeSelector: all()
+          EOF
+
+          for i in $(seq 1 90); do
+            kubectl get pods -n calico-system --no-headers 2>/dev/null | grep -q "calico" && break
+            sleep 2
+          done
+          kubectl wait --for=condition=Ready --timeout=300s -n calico-system pods --all
+
+          kubectl wait --for=condition=Ready nodes --all --timeout=300s
+          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
+
+          # === Install Helm (cached or download) ===
+          if [ -f "$CACHE_DIR/bin/helm" ]; then
+            echo "Using cached Helm binary"
+            sudo cp "$CACHE_DIR/bin/helm" /usr/local/bin/helm
+            sudo chmod +x /usr/local/bin/helm
+          else
+            echo "Downloading Helm"
+            curl -sL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+            cp "$(which helm)" "$CACHE_DIR/bin/helm"
+          fi
+
+          # === Install kube-prometheus-stack and metrics-server in parallel ===
+          METRICS_MANIFEST="$CACHE_DIR/manifests/metrics-server-v0.7.2.yaml"
+          if [ ! -f "$METRICS_MANIFEST" ]; then
+            echo "Downloading metrics-server manifest"
+            curl -sLo "$METRICS_MANIFEST" "https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml"
+          fi
+
+          (
+            helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+            helm repo update
+            helm install robusta prometheus-community/kube-prometheus-stack \
+              --version 72.6.2 \
+              --namespace default \
+              --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false \
+              --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+              --set prometheus.prometheusSpec.scrapeInterval=15s \
+              --set prometheus.prometheusSpec.resources.requests.memory=256Mi \
+              --set prometheus.prometheusSpec.resources.requests.cpu=100m \
+              --set prometheus.prometheusSpec.resources.limits.memory=512Mi \
+              --set prometheus.prometheusSpec.resources.limits.cpu=500m \
+              --set alertmanager.enabled=false \
+              --set grafana.enabled=false \
+              --set kubeStateMetrics.enabled=true \
+              --set nodeExporter.enabled=true \
+              --wait \
+              --timeout 5m
+            kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=prometheus -n default --timeout=300s
+          ) &
+          PROM_PID=$!
+
+          (
+            kubectl apply -f "$METRICS_MANIFEST"
+            kubectl patch deployment metrics-server -n kube-system \
+              --type='json' \
+              -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls"}]'
+            kubectl wait --for=condition=Available deployment/metrics-server -n kube-system --timeout=120s
+          ) &
+          METRICS_PID=$!
+
+          wait $PROM_PID
+          wait $METRICS_PID
+
+          # === Save workload images from KIND for cache (first run only) ===
+          # ctr export doesn't work in KIND (content digest errors on manifest lists),
+          # so we pull images on the host Docker daemon and use docker save instead.
+          if [ ! -f "$CACHE_DIR/images/workload-images.tar" ]; then
+            echo "Saving workload images for cache (first run only)"
+            IMAGES=$(docker exec kind-control-plane crictl images -o json \
+              | jq -r '.images[].repoTags[]' \
+              | grep -v '<none>' \
+              | grep -v 'kindest' \
+              | sort)
+            if [ -n "$IMAGES" ]; then
+              echo "Pulling $(echo "$IMAGES" | wc -l) images on host for caching..."
+              for img in $IMAGES; do
+                docker pull "$img" >/dev/null 2>&1 &
+              done
+              wait
+              # Save only images that were successfully pulled
+              SAVE_LIST=""
+              for img in $IMAGES; do
+                if docker image inspect "$img" >/dev/null 2>&1; then
+                  SAVE_LIST="$SAVE_LIST $img"
+                fi
+              done
+              if [ -n "$SAVE_LIST" ]; then
+                docker save $SAVE_LIST -o "$CACHE_DIR/images/workload-images.tar"
+                echo "Saved workload images for cache"
+              fi
+            fi
+          fi || true  # Never fail the build for caching
+
+          # Wait for background KIND node image save
+          [ -n "${SAVE_NODE_PID:-}" ] && wait $SAVE_NODE_PID || true
+
+          echo "KIND_SETUP_COMPLETE"
+          SCRIPT_EOF
+
+          chmod +x /tmp/kind-setup.sh
+          # Run in background, log to file
+          /tmp/kind-setup.sh > /tmp/kind-setup.log 2>&1 &
+          echo $! > /tmp/kind-setup-pid
+          echo "KIND cluster setup started in background (PID: $(cat /tmp/kind-setup-pid))"
+
+      - name: Setup HolmesGPT environment
+        if: steps.check-tests.outputs.should-run == 'true'
+        uses: ./code/.github/actions/setup-holmes-env
+        with:
+          python-version: '3.12'
+          install-kubectl: 'true'
+          working-directory: code
+
+      - name: Update progress - HolmesGPT setup done
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != '' && steps.initial-comment.outputs.comment_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // SECURITY: Load helpers from trusted checkout (base branch) to prevent code injection from PRs
+            const {
+              buildParams, buildBody, buildRerunFooter, parseRunHistory, buildAutoCommentWithHistory
+            } = require('./.trusted/.github/scripts/eval-comment-helpers.js');
+
+            const p = buildParams({
+              ...JSON.parse(${{ toJSON(steps.eval-params.outputs.base_params) }}),
+              comment_id: ${{ toJSON(steps.initial-comment.outputs.comment_id) }}
+            });
+            const isPersistent = ${{ toJSON(steps.initial-comment.outputs.is_persistent) }} === 'true';
+            const progressSteps = [
+              [true, 'Setup HolmesGPT environment'],
+              [false, 'Collect evals to run'],
+              [false, 'Setup KIND cluster'],
+              [false, 'Run evals']
+            ];
+
+            let body;
+            if (isPersistent) {
+              // Preserve history for automated runs
+              const existingComment = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: p.commentId
+              });
+              const previousRuns = parseRunHistory(existingComment.data.body);
+              const currentContent = buildBody(p, progressSteps, { context });
+              const footer = buildRerunFooter(p, context);
+              body = buildAutoCommentWithHistory(currentContent, previousRuns, footer);
+            } else {
+              body = buildBody(p, progressSteps, { context }) + buildRerunFooter(p, context);
+            }
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: p.commentId,
+              body: body
+            });
+
+      - name: Create model list file
+        if: steps.check-tests.outputs.should-run == 'true'
+        run: |
+          cat > /tmp/model_list.yaml << 'EOF'
+          ${{ secrets.MODEL_LIST_YAML }}
+          EOF
+
+      - name: Verify models
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.model != ''
+        uses: ./code/.github/actions/verify-models
+        with:
+          models: ${{ steps.eval-params.outputs.model }}
+          working-directory: code
+        env:
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION_NAME: ${{ vars.AWS_REGION_NAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          MODEL_LIST_FILE_LOCATION: /tmp/model_list.yaml
+
+      - name: Collect evals to run
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != ''
+        id: test-preview
+        working-directory: code
+        shell: bash
+        env:
+          MODEL: ${{ steps.eval-params.outputs.model }}
+          EVAL_MARKER_EXPR: ${{ steps.eval-params.outputs.marker_expr }}
+          EVAL_FILTER: ${{ steps.eval-params.outputs.filter }}
+          MODEL_LIST_FILE_LOCATION: /tmp/model_list.yaml
+        run: |
+          # Unset MODEL if empty so get_models() uses DEFAULT_MODEL
+          [[ -z "$MODEL" ]] && unset MODEL
+
+          echo "📋 Collect step params:"
+          echo "  MODEL=${MODEL:-<unset>}"
+          echo "  EVAL_MARKER_EXPR=${EVAL_MARKER_EXPR}"
+          echo "  EVAL_FILTER=${EVAL_FILTER:-<empty>}"
+
+          # Collect test files dynamically
+          TEST_FILES=()
+          for f in tests/llm/test_ask_holmes.py tests/llm/test_holmes_checks.py; do
+            [[ -f "$f" ]] && TEST_FILES+=("$f")
+          done
+          if [[ ${#TEST_FILES[@]} -eq 0 ]]; then
+            echo "❌ No test files found"
+            exit 1
+          fi
+          PYTEST_ARGS=(--collect-only -q "${TEST_FILES[@]}" -m "$EVAL_MARKER_EXPR")
+          [[ -n "$EVAL_FILTER" ]] && PYTEST_ARGS+=(-k "$EVAL_FILTER")
+          echo "  pytest args: ${PYTEST_ARGS[*]}"
+
+          # Collect test names
+          TEST_LIST=$(poetry run pytest "${PYTEST_ARGS[@]}" 2>/dev/null | grep -E "^tests/llm/" || true)
+          TEST_COUNT=$(echo "$TEST_LIST" | grep -c "^tests/llm/" || true)
+
+          # Collect valid markers from pyproject.toml using Python/tomllib (excluding 'llm' which is internal)
+          # Output as comma-separated plain names
+          VALID_MARKERS=$(python3 << 'PYEOF'
+          import tomllib
+          with open('pyproject.toml', 'rb') as f:
+              config = tomllib.load(f)
+          markers = config.get('tool', {}).get('pytest', {}).get('ini_options', {}).get('markers', [])
+          names = [m.split(':')[0] for m in sorted(markers) if m.split(':')[0] != 'llm']
+          print(','.join(names))
+          PYEOF
+          )
+
+          # Collect valid model names from model list file (top-level YAML keys)
+          VALID_MODELS=$(python3 << 'PYEOF'
+          import yaml, os
+          path = os.environ.get('MODEL_LIST_FILE_LOCATION', '')
+          try:
+              with open(path) as f:
+                  data = yaml.safe_load(f) or {}
+              print(','.join(sorted(data.keys())))
+          except Exception:
+              print('')
+          PYEOF
+          )
+
+          # Output for next steps
+          echo "test_count=$TEST_COUNT" >> $GITHUB_OUTPUT
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "test_preview<<$EOF" >> $GITHUB_OUTPUT
+          echo "$TEST_LIST" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "valid_markers<<$EOF" >> $GITHUB_OUTPUT
+          echo "$VALID_MARKERS" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "valid_models<<$EOF" >> $GITHUB_OUTPUT
+          echo "$VALID_MODELS" >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
+
+      - name: Update progress - evals collected
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != '' && steps.initial-comment.outputs.comment_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // SECURITY: Load helpers from trusted checkout (base branch) to prevent code injection from PRs
+            const {
+              buildParams, buildBody, buildRerunFooter, parseRunHistory, buildAutoCommentWithHistory
+            } = require('./.trusted/.github/scripts/eval-comment-helpers.js');
+
+            const p = buildParams({
+              ...JSON.parse(${{ toJSON(steps.eval-params.outputs.base_params) }}),
+              comment_id: ${{ toJSON(steps.initial-comment.outputs.comment_id) }},
+              test_count: ${{ toJSON(steps.test-preview.outputs.test_count) }},
+              test_preview: ${{ toJSON(steps.test-preview.outputs.test_preview) }},
+              valid_markers: ${{ toJSON(steps.test-preview.outputs.valid_markers) }},
+              valid_models: ${{ toJSON(steps.test-preview.outputs.valid_models) }}
+            });
+            const isPersistent = ${{ toJSON(steps.initial-comment.outputs.is_persistent) }} === 'true';
+            const progressSteps = [
+              [true, 'Setup HolmesGPT environment'],
+              [true, `Collect evals to run (${p.testCount} tests)`],
+              [false, 'Setup KIND cluster'],
+              [false, 'Run evals']
+            ];
+
+            let body;
+            if (isPersistent) {
+              // Preserve history for automated runs
+              const existingComment = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: p.commentId
+              });
+              const previousRuns = parseRunHistory(existingComment.data.body);
+              const currentContent = buildBody(p, progressSteps, { testPreview: p.testCount !== '0' ? p.testPreview : null, context });
+              const footer = buildRerunFooter(p, context);
+              body = buildAutoCommentWithHistory(currentContent, previousRuns, footer);
+            } else {
+              body = buildBody(p, progressSteps, { testPreview: p.testCount !== '0' ? p.testPreview : null, context }) + buildRerunFooter(p, context);
+            }
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: p.commentId,
+              body: body
+            });
+
+      - name: Wait for KIND cluster setup
+        if: steps.check-tests.outputs.should-run == 'true'
+        shell: bash
+        run: |
+          echo "Waiting for background KIND cluster setup to complete..."
+          KIND_PID=$(cat /tmp/kind-setup-pid)
+          # Poll until the background process finishes (can't use wait across shell invocations)
+          while kill -0 "$KIND_PID" 2>/dev/null; do
+            sleep 5
+          done
+          # Check exit status via the log sentinel
+          if grep -q "KIND_SETUP_COMPLETE" /tmp/kind-setup.log; then
+            echo "KIND cluster setup completed successfully"
+          else
+            echo "KIND cluster setup FAILED. Full logs:"
+            cat /tmp/kind-setup.log
+            exit 1
+          fi
+          # Show summary
+          echo "=== KIND setup log (last 20 lines) ==="
+          tail -20 /tmp/kind-setup.log
+          echo "=== Cluster status ==="
+          kubectl get nodes
+          kubectl get pods -n kube-system --no-headers | head -5 || true
+          kubectl get pods -n calico-system --no-headers || true
+
+      - name: Update progress - KIND ready, starting evals
+        if: steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != '' && steps.initial-comment.outputs.comment_id != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // SECURITY: Load helpers from trusted checkout (base branch) to prevent code injection from PRs
+            const {
+              buildParams, buildBody, buildRerunFooter, parseRunHistory, buildAutoCommentWithHistory
+            } = require('./.trusted/.github/scripts/eval-comment-helpers.js');
+
+            const p = buildParams({
+              ...JSON.parse(${{ toJSON(steps.eval-params.outputs.base_params) }}),
+              comment_id: ${{ toJSON(steps.initial-comment.outputs.comment_id) }},
+              test_count: ${{ toJSON(steps.test-preview.outputs.test_count) }},
+              test_preview: ${{ toJSON(steps.test-preview.outputs.test_preview) }},
+              valid_markers: ${{ toJSON(steps.test-preview.outputs.valid_markers) }},
+              valid_models: ${{ toJSON(steps.test-preview.outputs.valid_models) }}
+            });
+            const isPersistent = ${{ toJSON(steps.initial-comment.outputs.is_persistent) }} === 'true';
+            const progressSteps = [
+              [true, 'Setup HolmesGPT environment'],
+              [true, `Collect evals to run (${p.testCount} tests)`],
+              [true, 'Setup KIND cluster'],
+              [false, 'Run evals']
+            ];
+
+            let body;
+            if (isPersistent) {
+              // Preserve history for automated runs
+              const existingComment = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: p.commentId
+              });
+              const previousRuns = parseRunHistory(existingComment.data.body);
+              const currentContent = buildBody(p, progressSteps, { testPreview: p.testCount !== '0' ? p.testPreview : null, context });
+              const footer = buildRerunFooter(p, context);
+              body = buildAutoCommentWithHistory(currentContent, previousRuns, footer);
+            } else {
+              body = buildBody(p, progressSteps, { testPreview: p.testCount !== '0' ? p.testPreview : null, context }) + buildRerunFooter(p, context);
+            }
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: p.commentId,
+              body: body
+            });
 
       - name: Run tests
         if: steps.check-tests.outputs.should-run == 'true'
         id: evals
         continue-on-error: true
+        working-directory: code
         shell: bash
         env:
           RUN_LIVE: "true"
@@ -53,29 +1243,269 @@ jobs:
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
           AWS_REGION_NAME: ${{ vars.AWS_REGION_NAME }}
-          MODEL: ${{ vars.MODEL }}
-          CLASSIFIER_MODEL: ${{ vars.CLASSIFIER_MODEL }}
+          MODEL: ${{ steps.eval-params.outputs.model }}
+          ITERATIONS: ${{ steps.eval-params.outputs.iterations }}
+          CLASSIFIER_MODEL: ${{ vars.CLASSIFIER_MODEL || 'gpt-4.1' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
+          ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+          VICTORIALOGS_URL: ${{ secrets.VICTORIALOGS_URL }}
+          CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_SA_USER: ${{ secrets.CONFLUENCE_SA_USER }}
+          CONFLUENCE_SA_API_KEY: ${{ secrets.CONFLUENCE_SA_API_KEY }}
+          CONFLUENCE_USER: ${{ secrets.CONFLUENCE_USER }}
+          CONFLUENCE_API_KEY: ${{ secrets.CONFLUENCE_API_KEY }}
+          CORALOGIX_API_KEY: ${{ secrets.CORALOGIX_API_KEY }}
+          CORALOGIX_SEND_API_KEY: ${{ secrets.CORALOGIX_SEND_API_KEY }}
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_APP_KEY: ${{ secrets.DATADOG_APP_KEY }}
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          # Needed by tests/llm/utils/braintrust_history.py to authenticate the
+          # GitHub Actions API lookup that finds recent master-* / ci-benchmark-*
+          # workflow runs. Without it the unauthenticated 60 req/h rate limit is
+          # exhausted within minutes on shared runners and the "vs master" /
+          # "vs benchmark" columns silently come back empty.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MODEL_LIST_FILE_LOCATION: /tmp/model_list.yaml
           UPLOAD_DATASET: "true"
           EXPERIMENT_ID: github-${{ github.run_id }}.${{ github.run_number }}.${{ github.run_attempt }}
           GENERATE_REGRESSIONS_FILE: "true"
+          EVAL_MARKER_EXPR: ${{ steps.eval-params.outputs.marker_expr }}
+          EVAL_FILTER: ${{ steps.eval-params.outputs.filter }}
+          EVAL_BRANCH: ${{ steps.eval-params.outputs.branch }}
         run: |
-          poetry run pytest --no-cov tests/llm/test_ask_holmes.py tests/llm/test_investigate.py -s -n10 -m 'llm and easy and not no-cicd'
+          # Unset MODEL if empty so get_models() uses DEFAULT_MODEL
+          [[ -z "$MODEL" ]] && unset MODEL
+
+          echo "🧪 Run tests params:"
+          echo "  MODEL=${MODEL:-<unset>}"
+          echo "  EVAL_MARKER_EXPR=${EVAL_MARKER_EXPR}"
+          echo "  EVAL_FILTER=${EVAL_FILTER:-<empty>}"
+          echo "  MODEL_LIST_FILE_LOCATION=${MODEL_LIST_FILE_LOCATION:-<unset>}"
+          echo "  pwd=$(pwd)"
+
+          START_TIME=$(date +%s)
+
+          # Collect test files dynamically
+          TEST_FILES=()
+          for f in tests/llm/test_ask_holmes.py tests/llm/test_holmes_checks.py; do
+            [[ -f "$f" ]] && TEST_FILES+=("$f")
+          done
+          if [[ ${#TEST_FILES[@]} -eq 0 ]]; then
+            echo "❌ No test files found"
+            exit 1
+          fi
+          PYTEST_ARGS=(--no-cov "${TEST_FILES[@]}" -s -n10 -m "$EVAL_MARKER_EXPR")
+          [[ -n "$EVAL_FILTER" ]] && PYTEST_ARGS+=(-k "$EVAL_FILTER")
+          echo "  pytest args: ${PYTEST_ARGS[*]}"
+          set +e
+          poetry run pytest "${PYTEST_ARGS[@]}"
+          PYTEST_EXIT=$?
+          set -e
+          echo "pytest_exit=$PYTEST_EXIT" >> $GITHUB_OUTPUT
+
+          # Exit code handling:
+          # 0 = all tests passed
+          # 1 = some tests failed (normal) OR collection error under pytest-xdist
+          # 2 = collection errors (e.g. invalid MODEL, import error)
+          # 3 = interrupted by user
+          # 4 = internal pytest error
+          # 5 = no tests collected (markers/filters matched nothing)
+          #
+          # IMPORTANT: pytest-xdist (-n) returns exit code 1 for collection errors
+          # instead of 2. We detect this by checking if any results were produced.
+          if [[ $PYTEST_EXIT -eq 0 ]]; then
+            echo "pytest passed, all tests ok"
+          elif [[ $PYTEST_EXIT -eq 1 ]]; then
+            # Could be normal test failures OR collection error (pytest-xdist quirk).
+            # Check if results were actually produced. If not, it's a collection error.
+            if [[ ! -f "regressions.txt" && ! -f "evals_report.md" ]]; then
+              echo "❌ pytest exit code 1 but no results produced — treating as collection error"
+              echo "pytest_error=collection" >> $GITHUB_OUTPUT
+              {
+                echo "## ❌ Test Collection Failed"
+                echo ""
+                echo "pytest exited with code 1 but produced no results."
+                echo ""
+                echo "Common causes:"
+                echo "- **Invalid MODEL name** — check that the model short name exists in the model list"
+                echo "- **Import error** in test files"
+                echo "- **Invalid markers or filters**"
+                echo ""
+                echo "Check the [workflow logs](${{ steps.eval-params.outputs.run_url }}) for details."
+              } > evals_report.md
+            else
+              echo "pytest had test failures (exit code 1), results were produced"
+            fi
+          elif [[ $PYTEST_EXIT -eq 2 || $PYTEST_EXIT -eq 5 ]]; then
+            echo "❌ pytest failed with exit code $PYTEST_EXIT (collection error)"
+            echo "pytest_error=collection" >> $GITHUB_OUTPUT
+            {
+              echo "## ❌ Test Collection Failed"
+              echo ""
+              echo "pytest exited with code $PYTEST_EXIT. This usually means:"
+              echo "- **Exit 2**: Collection error (invalid MODEL name, import error, bad markers)"
+              echo "- **Exit 5**: No tests matched the given markers/filters"
+              echo ""
+              echo "Check the [workflow logs](${{ steps.eval-params.outputs.run_url }}) for details."
+            } > evals_report.md
+          elif [[ $PYTEST_EXIT -eq 3 || $PYTEST_EXIT -eq 4 ]]; then
+            echo "❌ pytest failed with exit code $PYTEST_EXIT (infrastructure error)"
+            echo "pytest_error=infrastructure" >> $GITHUB_OUTPUT
+            {
+              echo "## ❌ Pytest Internal Error"
+              echo ""
+              echo "pytest exited with code $PYTEST_EXIT. This usually means:"
+              echo "- **Exit 3**: Test run was interrupted"
+              echo "- **Exit 4**: Internal pytest error"
+              echo ""
+              echo "Check the [workflow logs](${{ steps.eval-params.outputs.run_url }}) for details."
+            } > evals_report.md
+          else
+            echo "❌ pytest failed with unexpected exit code $PYTEST_EXIT"
+            echo "pytest_error=unknown" >> $GITHUB_OUTPUT
+            echo "## ❌ Pytest Failed (exit code $PYTEST_EXIT)" > evals_report.md
+          fi
+
+          DURATION=$(($(date +%s) - START_TIME))
+          if [[ $DURATION -ge 3600 ]]; then
+            echo "duration=$((DURATION/3600))h $(((DURATION%3600)/60))m $((DURATION%60))s" >> $GITHUB_OUTPUT
+          elif [[ $DURATION -ge 60 ]]; then
+            echo "duration=$((DURATION/60))m $((DURATION%60))s" >> $GITHUB_OUTPUT
+          else
+            echo "duration=${DURATION}s" >> $GITHUB_OUTPUT
+          fi
+
       - name: Post evaluation results
-        if: always()
-        uses: ./.github/actions/post-eval-comment
+        if: always() && steps.check-tests.outputs.should-run == 'true' && steps.eval-params.outputs.pr_number != ''
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          report-file: 'evals_report.md'
-          comment-identifier: '## Results of HolmesGPT evals'
-          delete-previous: 'true'
+          script: |
+            const fs = require('fs');
+
+            // SECURITY: Load helpers from trusted checkout (base branch) to prevent code injection from PRs
+            const {
+              buildParams, buildBody, buildRerunFooter, parseRunHistory, buildAutoCommentWithHistory
+            } = require('./.trusted/.github/scripts/eval-comment-helpers.js');
+
+            const p = buildParams({
+              ...JSON.parse(${{ toJSON(steps.eval-params.outputs.base_params) }}),
+              comment_id: ${{ toJSON(steps.initial-comment.outputs.comment_id) }},
+              duration: ${{ toJSON(steps.evals.outputs.duration) }},
+              valid_markers: ${{ toJSON(steps.test-preview.outputs.valid_markers) }},
+              valid_models: ${{ toJSON(steps.test-preview.outputs.valid_models) }},
+              triggered_by: ${{ toJSON(steps.eval-params.outputs.triggered_by) }}
+            });
+            const isPersistent = ${{ toJSON(steps.initial-comment.outputs.is_persistent) }} === 'true';
+            const report = fs.existsSync('code/evals_report.md') ? fs.readFileSync('code/evals_report.md', 'utf8') : '';
+            const failures = fs.existsSync('code/regressions.txt') ? fs.readFileSync('code/regressions.txt', 'utf8').trim() : '';
+            const hasFailures = failures && failures !== '0';
+            const pytestError = ${{ toJSON(steps.evals.outputs.pytest_error) }} || '';
+            const hasPytestError = pytestError !== '';
+
+
+            // Build notification header for the user who triggered the eval (only for manual runs)
+            const triggeredBy = p.triggered_by || '';
+            const statusText = hasPytestError
+              ? pytestError === 'collection'
+                ? '❌ Test collection failed (no tests ran)'
+                : '❌ Pytest internal error (no tests ran)'
+              : hasFailures
+                ? `⚠️ Completed with ${failures} failure${failures === '1' ? '' : 's'}`
+                : '✅ Completed successfully';
+            const notifyHeader = triggeredBy ? `@${triggeredBy} Your eval run has finished. ${statusText}\n\n---\n\n` : '';
+
+            // Build current run content
+            const icon = hasPytestError ? '❌' : hasFailures ? '⚠️' : (p.isManual ? '🧪' : '✅');
+            const title = hasPytestError ? 'Eval Run Failed' : hasFailures ? 'Eval Results (with failures)' : (p.isManual ? 'Manual Eval Results' : 'Results of HolmesGPT evals');
+            let currentContent = buildBody(p, null, {
+              icon,
+              title,
+              context
+            });
+
+            // Insert failures warning before "Historical Comparison Details" if present
+            let reportContent = report || '⚠️ No eval report was generated.\n\n';
+            if (hasFailures) {
+              const failuresWarning = `\n### ⚠️ ${failures} Failure${failures === '1' ? '' : 's'} Detected\n\n`;
+              const historyMarker = '### Historical Comparison Details';
+              const historyIdx = reportContent.indexOf(historyMarker);
+              if (historyIdx !== -1) {
+                // Insert before Historical Comparison Details
+                reportContent = reportContent.slice(0, historyIdx) + failuresWarning + reportContent.slice(historyIdx);
+              } else {
+                // Append at the end if no Historical Comparison Details section
+                reportContent += failuresWarning;
+              }
+            }
+            currentContent += '\n' + reportContent;
+            const footer = buildRerunFooter(p, context, { includeLegend: true });
+
+            if (isPersistent && p.commentId) {
+              // For automated runs: update the persistent comment, preserving history
+              const existingComment = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: p.commentId
+              });
+              const previousRuns = parseRunHistory(existingComment.data.body);
+              const body = buildAutoCommentWithHistory(currentContent, previousRuns, footer);
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: p.commentId,
+                body: body
+              });
+            } else {
+              // For manual runs: delete progress comment and create fresh results comment
+              // This ensures the user gets a GitHub notification when evals complete
+              const body = notifyHeader + currentContent + footer;
+              if (p.commentId) {
+                await github.rest.issues.deleteComment({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  comment_id: p.commentId
+                });
+              }
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: p.prNumber, body
+              });
+            }
+
+      - name: Add completion reaction
+        if: always() && github.event_name == 'issue_comment' && steps.eval-comment.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Remove eyes reaction (was added to indicate processing started)
+            const reactions = await github.rest.reactions.listForIssueComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              comment_id: context.payload.comment.id
+            });
+            const eyesReaction = reactions.data.find(r => r.content === 'eyes' && r.user.login === 'github-actions[bot]');
+            if (eyesReaction) {
+              await github.rest.reactions.deleteForIssueComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                comment_id: context.payload.comment.id, reaction_id: eyesReaction.id
+              });
+            }
+            // Add hooray reaction to indicate completion
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              comment_id: context.payload.comment.id, content: 'hooray'
+            });
+
       - name: Check test results
-        if: always()
+        if: always() && steps.check-tests.outputs.should-run == 'true'
+        working-directory: code
         run: |
           if [[ -f "regressions.txt" ]]; then
-            echo "⚠️ There are regressions in the evals. Please check the evals file for details."
+            echo "⚠️ There are failures in the evals. Please check the file for details."
             cat regressions.txt
           else
-            echo "✅ All tests passed without regressions."
+            echo "✅ All tests passed."
           fi

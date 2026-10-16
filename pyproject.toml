@@ -10,18 +10,21 @@ packages = [{ include = "holmes" }]
 holmes = "holmes.main:run"
 
 [tool.poetry.dependencies]
-python = "^3.10"
-openai = ">=1.6.1,<1.100.0"
+python = ">=3.10,<3.14"
+openai = "^2.8.0"
+jiter = "!=0.13.0"  # Exclude 0.13.0 due to corrupted Windows wheel (RECORD file issue)
 jinja2 = "^3.1.2"
-typer = "^0.15.4"
+typer = "^0.22.0"
+typer-slim = "^0.22.0"
 python-benedict = "^0.33.1"
 humanize = "^4.9.0"
 rich = "^13.7.1"
-fastapi = "^0.116"
-uvicorn = "^0.30"
+fastapi = "^0.136.3"
+uvicorn = "^0.40"
 pydantic = "^2.7"
-supabase = "^2.5"
+supabase = "2.28.1"
 colorlog = "^6.8.2"
+python-json-logger = "^3.0.0"
 strenum = "^0.4.15"
 markdown = "^3.6"
 certifi = "^2024.7.4"
@@ -31,30 +34,81 @@ bs4 = "^0.0.2"
 markdownify = "^1.1.0"
 opensearch-py = "^2.8.0"
 backoff = "^2.2.1"
-litellm = "1.77.1"
+# Pin to stable release (check https://github.com/BerriAI/litellm/releases for updates)
+# Python is capped at <3.14 because litellm (>=1.84.0) declares Requires-Python <3.14.
+# Lift python back to "^3.10" once https://github.com/BerriAI/litellm/pull/30687 is merged
+# and released (expected in litellm 1.90+).
+# litellm >= 1.84.0 also fixes CRITICAL CVE-2026-49468 (auth bypass via Host header
+# injection) and relaxes the pinned aiohttp to >=3.10,<4.0, letting us take aiohttp 3.14.1.
+litellm = "1.89.0"
 sentry-sdk = {extras = ["fastapi"], version = "^2.20.0"}
 confluent-kafka = "^2.6.1"
 kubernetes = "^32.0.1"
-mcp = "v1.12.2"
+# mcp >= 1.27.2 fixes CVE-2026-52869 and CVE-2026-52870 (both High); >= 1.28.1
+# additionally fixes CVE-2026-59950 (High).
+mcp = "1.28.1"
 prompt-toolkit = "^3.0.51"
 pygments = "^2.18.0"
 azure-identity = "^1.23.0"
 azure-core = "^1.34.0"
 requests = "^2.32.4"
-azure-mgmt-sql = "^4.0.0b21"
-pyodbc = "^5.0.1"
-azure-monitor-query = "^1.2.0"
-azure-mgmt-monitor = "^7.0.0b1"
-azure-mgmt-alertsmanagement = "^1.0.0"
-azure-mgmt-resource = "^23.3.0"
+PyJWT = {extras = ["crypto"], version = "^2.8.0"}
 tenacity = "^9.1.2"
-# Due to a bug in the postgrest package, we need to pin the version to 0.16.8 until we will upgrade selfhost supabase versions.
-postgrest = "0.16.8"
 requests-aws4auth = "^1.3.1"
-prometrix = "0.2.5"
-httpx = {version = "<0.28", extras = ["socks"]}
+prometrix = "0.2.12"
+httpx = {extras = ["socks"], version = "^0.28.1"}
 ag-ui-protocol = "^0.1.9"
-google-cloud-aiplatform = ">=1.38"
+google-cloud-aiplatform = ">=1.133.0"
+slack-sdk = "^3.39.0"
+
+jq = "^1.10.0"
+tree-sitter = "^0.25.2"
+tree-sitter-bash = "^0.25.1"
+kopf = "^1.37.0"
+apscheduler = "^3.10.4"
+
+# Indirect dependencies to restrict vectors to address security vulnerability
+# Starlette >= 1.3.1 fixes CVE-2026-54283 (HIGH: request.form() size limits
+# silently ignored) and CVE-2026-54282; >= 1.0.1 already fixed CVE-2026-48710 /
+# GHSA-86qp-5c8j-p5mr (Host header validation when reconstructing request.url).
+starlette = ">=1.3.1"
+# cryptography >= 48.0.1 ships a patched OpenSSL in its wheels (GHSA-537c-gmf6-5ccf, HIGH);
+# >= 50.0.0 fixes CVE-2026-69247 (HIGH).
+# Use >= (not ^): ^ caps at the next major and would downgrade newer majors already on master.
+cryptography = ">=50.0.0"
+# pydantic-settings >= 2.14.2 fixes GHSA-4xgf-cpjx-pc3j (symlink escape out of secrets_dir).
+pydantic-settings = ">=2.14.2"
+# python-multipart >= 0.0.31 fixes CVE-2026-53540 (negative Content-Length buffers the whole body).
+# Use >= (not ^) because Poetry reads ^0.0.31 as ==0.0.31, which would exclude future 0.0.x patches.
+python-multipart = ">=0.0.31"
+# aiohttp >= 3.14.1 (pulled via litellm) clears CVE-2026-34993/47265 and the 3.14.x
+# hardening fixes; >= 3.14.3 fixes CVE-2026-69244 (HIGH) and CVE-2026-59881/69243 (Medium).
+aiohttp = ">=3.14.3"
+# pyasn1 >= 0.6.4 fixes CVE-2026-59885 and CVE-2026-59886 (both High).
+# Pulled in transitively via pyasn1-modules -> google-auth.
+pyasn1 = ">=0.6.4"
+urllib3 = "^2.6.3"
+sqlalchemy = "^2.0.46"
+pg8000 = "^1.31.5"
+pymysql = "^1.1.2"
+clickhouse-sqlalchemy = "^0.3.2"
+python-tds = "^1.17"
+sqlalchemy-pytds = "^1.0.2"
+pyopenssl = ">=24.0.0"
+pymongo = "^4.7.0"
+# Required for HTTP CONNECT proxy support in the websockets stdlib client
+# (used by the conversation worker's Supabase Realtime subscription).
+python-socks = {version = "^2.8.1", extras = ["asyncio"]}
+
+[tool.poetry.group.otel]
+optional = true
+
+[tool.poetry.group.otel.dependencies]
+opentelemetry-api = "^1.30.0"
+opentelemetry-sdk = "^1.30.0"
+opentelemetry-exporter-otlp-proto-grpc = "^1.30.0"
+opentelemetry-exporter-otlp-proto-http = "^1.30.0"
+opentelemetry-instrumentation-httpx = ">=0.51b0"
 
 [tool.poetry.group.dev]
 optional = true
@@ -79,6 +133,14 @@ pytest-dotenv = "^0.5.2"
 pytest-sugar = "^1.1.1"
 pytest-shared-session-scope = "^0.4.0"
 mkdocs-awesome-nav = "^3.2.0"
+mike = "^2.1.0"
+pytest-asyncio = "^1.3.0"
+respx = "^0.22.0"
+# OpenTelemetry packages for Coralogix eval tests (send traces/metrics)
+opentelemetry-api = "^1.30.0"
+opentelemetry-sdk = "^1.30.0"
+opentelemetry-exporter-otlp-proto-grpc = "^1.30.0"
+opentelemetry-exporter-otlp-proto-http = "^1.30.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -87,6 +149,8 @@ build-backend = "poetry.core.masonry.api"
 [tool.mypy]
 ignore_missing_imports = true
 scripts_are_modules = true
+# Name files from the repo root, so docs/custom_fences.py (docs/ has no __init__.py) is docs.custom_fences, the module mkdocs.yml and the fence tests import.
+explicit_package_bases = true
 exclude = [
     "tests/llm/fixtures/.*",
     "dist/.*",
@@ -95,6 +159,7 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 markers = [
     "llm: Evaluate LLM behaviour (prompt, tools, etc.)",
     "datetime: Tests involving datetime functionality",
@@ -102,7 +167,7 @@ markers = [
     "metrics: Tests involving metrics processing",
     "context_window: Tests involving context window handling",
     "network: Tests requiring network connectivity",
-    "runbooks: Tests involving runbook functionality",
+    "skills: Tests involving skill functionality",
     "chain-of-causation: Tests involving chain-of-causation analysis",
     "slackbot: Tests involving Slack bot functionality",
     "numerical: Tests involving numerical calculations or data",
@@ -128,7 +193,30 @@ markers = [
     "embeds: Tests ensuring embeds are as expected",
     "one-test: Runs only one simple eval",
     "loki: Loki toolset",
-    "coralogix: Runs coralogix evals"
+    "coralogix: Runs coralogix evals",
+    "fast: Fast cloud-only tests that don't require Kubernetes infrastructure",
+    "frontend: Run frontend tests",
+    "grafana: Tests involving Grafana dashboard interactions",
+    "images: Tests involving multimodal image content (vision, rendering, MCP ImageContent)",
+    "elasticsearch: Tests for Elasticsearch/OpenSearch toolset functionality",
+    "victorialogs: Tests for VictoriaLogs toolset functionality",
+    "integration: Integration tests requiring external services (e.g., running server, real APIs)",
+    "confluence: Tests for Confluence page fetching toolset",
+    # REGRESSION TEST SELECTION CRITERIA:
+    # - Must pass 30+ iterations reliably with Sonnet-4.5 model
+    # - No external API dependencies (Loki OK, NewRelic/DataDog excluded)
+    # - Tests core HolmesGPT functionality that should never regress
+    # - Fast execution to avoid slowing CI/CD pipelines
+    "regression: Critical regression tests that must always pass",
+    "benchmark: Challenging tests for evaluating and benchmarking model capabilities",
+    "advanced: Evals that separate stronger from weaker models (failed by haiku or opus)",
+    "db-connectors: Tests for the database/SQL connector toolset",
+    "mcp: Tests for MCP (Model Context Protocol) server integration",
+    "conversation_worker: conversation worker integration tests (requires running Holmes + Supabase)",
+    "manual: Tests requiring manual interaction (browser login, etc.) — skipped in CI",
+    "token-limit: Tests that enforce a maximum token usage budget",
+    "multi-cluster: Multi-cluster / multi-environment topology and scope-awareness evals (PR #2042 set) — cluster mismatches, name disambiguation across clusters/namespaces/regions, labeling discipline in cross-cluster data, toolset vs no-data distinction, time-window gaps",
+    "fable-not-opus: Tests that fable-5 passes and opus-4.6 fails — useful for measuring the capability gap between these two specific models"
 ]
 
 addopts = [
@@ -136,7 +224,9 @@ addopts = [
     "--cov=holmes",
     "-rs",  # Show skip reasons by default
     "--tb=short",  # Show shorter tracebacks by default
-    "--durations=10",  # Show 5 slowest tests after each run
+    "--durations=10",  # Show 10 slowest tests after each run
+    "-n", "auto",  # Run tests in parallel using pytest-xdist (auto-detect CPU count)
+    "--dist", "loadgroup",  # Distribute tests by load, respecting xdist_group marks
 ]
 
 # Logging configuration for pytest
@@ -145,11 +235,9 @@ log_cli_level = "INFO"
 log_cli_format = "%(asctime)s [%(levelname)8s] [%(name)s] %(message)s"
 log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
-# File logging
-log_file = "tests.log"
-log_file_level = "INFO"  # Changed from DEBUG to reduce noise in HTML report
-log_file_format = "%(asctime)s [%(levelname)8s] [%(name)s] %(message)s"
-log_file_date_format = "%Y-%m-%d %H:%M:%S"
+# Note: log_file is intentionally not set because pytest-xdist parallel workers
+# would corrupt a shared log file. Use log_cli (configured above) for debugging;
+# it produces per-worker output that is safe under xdist.
 
 [tool.coverage.run]
 branch = true

@@ -2,28 +2,43 @@ import json
 import logging
 import os
 import time
-import dateutil.parser
-from typing import Any, Dict, Optional, Tuple, Type, Union
-from urllib.parse import urljoin
+from enum import Enum
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, Union
+from urllib.parse import urljoin, urlparse
 
+import dateutil.parser
+import re
 import requests  # type: ignore
-from pydantic import BaseModel, field_validator, Field, model_validator
-from requests import RequestException
+from prometrix.auth import PrometheusAuthorization
 from prometrix.connect.aws_connect import AWSPrometheusConnect
+from prometrix.models.prometheus_config import (
+    AzurePrometheusConfig as PrometrixAzureConfig,
+)
 from prometrix.models.prometheus_config import PrometheusConfig as BasePrometheusConfig
+from pydantic import BaseModel, Field, field_validator, model_validator
+from requests import RequestException
+from requests.exceptions import SSLError  # type: ignore
+
+from holmes.common.env_vars import IS_OPENSHIFT, MAX_GRAPH_POINTS, MAX_GRAPH_POINTS_HARD_LIMIT
+from holmes.common.openshift import load_openshift_token
 from holmes.core.tools import (
     CallablePrerequisite,
     StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    StructuredToolResultStatus,
     Toolset,
     ToolsetTag,
 )
 from holmes.core.tools_utils.token_counting import count_tool_response_tokens
 from holmes.core.tools_utils.tool_context_window_limiter import get_pct_token_count
+from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
+from holmes.plugins.toolsets.json_filter_mixin import JsonFilterMixin
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
+)
 from holmes.plugins.toolsets.prometheus.utils import parse_duration_to_seconds
 from holmes.plugins.toolsets.service_discovery import PrometheusDiscovery
 from holmes.plugins.toolsets.utils import (
@@ -32,12 +47,7 @@ from holmes.plugins.toolsets.utils import (
     standard_start_datetime_tool_param_description,
     toolset_name_for_one_liner,
 )
-from holmes.utils.cache import TTLCache
-from holmes.common.env_vars import IS_OPENSHIFT, MAX_GRAPH_POINTS
-from holmes.common.openshift import load_openshift_token
-from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_GRAPH_TIME_SPAN_SECONDS,
-)
+from holmes.utils.pydantic_utils import ToolsetConfig
 
 PROMETHEUS_RULES_CACHE_KEY = "cached_prometheus_rules"
 PROMETHEUS_METADATA_API_LIMIT = 100  # Default limit for Prometheus metadata APIs (series, labels, metadata) to prevent overwhelming responses
@@ -51,51 +61,144 @@ MAX_METADATA_TIMEOUT_SECONDS = 60
 DEFAULT_METADATA_TIME_WINDOW_HRS = 1
 
 
-class PrometheusConfig(BaseModel):
-    # URL is optional because it can be set with an env var
-    prometheus_url: Optional[str]
+class PrometheusSubtype(str, Enum):
+    """Stable identifiers for the Prometheus toolset variants.
 
-    # New config for default time window for metadata APIs
-    default_metadata_time_window_hrs: int = DEFAULT_METADATA_TIME_WINDOW_HRS  # Default: only show metrics active in the last hour
+    Exposed to users as the top-level `subtype:` YAML field on the
+    `prometheus/metrics` toolset. Mirrors the `DatabaseSubtype` pattern
+    used by the Database toolset.
+    """
 
-    # Query timeout configuration
-    default_query_timeout_seconds: int = (
-        DEFAULT_QUERY_TIMEOUT_SECONDS  # Default timeout for PromQL queries
-    )
-    max_query_timeout_seconds: int = (
-        MAX_QUERY_TIMEOUT_SECONDS  # Maximum allowed timeout for PromQL queries
+    PROMETHEUS = "prometheus"
+    CORALOGIX = "coralogix"
+    GOOGLE_MANAGED_PROMETHEUS = "google-managed-prometheus"
+    GRAFANA_CLOUD = "grafana-cloud"
+    VICTORIAMETRICS = "victoriametrics"
+    AWS_MANAGED_PROMETHEUS = "aws-managed-prometheus"
+    AZURE_MANAGED_PROMETHEUS = "azure-managed-prometheus"
+
+
+def get_config_field(config: dict[str, Any], field: str) -> Any:
+    """Return the value of ``field`` from ``config``, falling back to the
+    matching upper-cased environment variable. Empty/None config values fall
+    through to the env var; missing or empty env vars return ``None``.
+    """
+    return config.get(field) or os.environ.get(field.upper()) or None
+
+
+def format_ssl_error_message(prometheus_url: str, error: SSLError) -> str:
+    """Format a clear SSL error message with remediation steps."""
+    return (
+        f"SSL certificate verification failed when connecting to Prometheus at {prometheus_url}. "
+        f"Error: {str(error)}. "
+        f"To disable SSL verification, set 'verify_ssl: false' in your configuration. "
+        f"For Helm deployments, add this to your values.yaml:\n"
+        f"  toolsets:\n"
+        f"    prometheus/metrics:\n"
+        f"      config:\n"
+        f"        verify_ssl: false"
     )
 
-    # Metadata API timeout configuration
-    default_metadata_timeout_seconds: int = (
-        DEFAULT_METADATA_TIMEOUT_SECONDS  # Default timeout for metadata/discovery APIs
-    )
-    max_metadata_timeout_seconds: int = (
-        MAX_METADATA_TIMEOUT_SECONDS  # Maximum allowed timeout for metadata APIs
+
+class PrometheusConfig(ToolsetConfig):
+    """Prometheus toolset configuration."""
+
+    _name: ClassVar[Optional[str]] = "Prometheus"
+    _description: ClassVar[Optional[str]] = "Connect to a self-hosted Prometheus server."
+    _icon_url: ClassVar[Optional[str]] = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/prometheus.svg"
+    _docs_anchor: ClassVar[Optional[str]] = "configuration"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.PROMETHEUS.value
+
+    _deprecated_mappings: ClassVar[Dict[str, Optional[str]]] = {
+        "headers": "additional_headers",
+        "default_metadata_time_window_hrs": "discover_metrics_from_last_hours",
+        "default_query_timeout_seconds": "query_timeout_seconds_default",
+        "max_query_timeout_seconds": "query_timeout_seconds_hard_max",
+        "default_metadata_timeout_seconds": "metadata_timeout_seconds_default",
+        "max_metadata_timeout_seconds": "metadata_timeout_seconds_hard_max",
+        "metrics_labels_time_window_hrs": "discover_metrics_from_last_hours",
+        "prometheus_ssl_enabled": "verify_ssl",
+        # Deprecated fields with no effect
+        "metrics_labels_cache_duration_hrs": None,
+        "fetch_labels_with_labels_api": None,
+        "fetch_metadata_with_series_api": None,
+    }
+
+    prometheus_url: Optional[str] = Field(
+        default=None,
+        title="URL",
+        description="Base URL of your Prometheus server including port",
+        examples=[
+            "http://prometheus-server.monitoring.svc.cluster.local:9090",
+            "http://prometheus.monitoring.svc:9090",
+        ],
     )
 
-    # DEPRECATED: These config values are deprecated and will be removed in a future version
-    # Using None as default so we can detect if user explicitly set them
-    metrics_labels_time_window_hrs: Optional[int] = (
-        None  # DEPRECATED - use default_metadata_time_window_hrs instead
+    discover_metrics_from_last_hours: int = Field(
+        default=DEFAULT_METADATA_TIME_WINDOW_HRS,
+        title="Discovery Window",
+        description="Only discover metrics with data in this time window (hours)",
     )
-    metrics_labels_cache_duration_hrs: Optional[int] = (
-        None  # DEPRECATED - no longer used
+
+    query_timeout_seconds_default: int = Field(
+        default=DEFAULT_QUERY_TIMEOUT_SECONDS,
+        title="Query Timeout",
+        description="Default timeout for PromQL queries (seconds)",
     )
-    fetch_labels_with_labels_api: Optional[bool] = None  # DEPRECATED - no longer used
-    fetch_metadata_with_series_api: Optional[bool] = None  # DEPRECATED - no longer used
+    query_timeout_seconds_hard_max: int = Field(
+        default=MAX_QUERY_TIMEOUT_SECONDS,
+        title="Max Query Timeout",
+        description="Maximum allowed timeout that the LLM can request for queries (seconds)",
+    )
 
-    tool_calls_return_data: bool = True
-    headers: Dict = Field(default_factory=dict)
-    rules_cache_duration_seconds: Optional[int] = 1800  # 30 minutes
-    additional_labels: Optional[Dict[str, str]] = None
-    prometheus_ssl_enabled: bool = True
+    metadata_timeout_seconds_default: int = Field(
+        default=DEFAULT_METADATA_TIMEOUT_SECONDS,
+        title="Metadata Timeout",
+        description="Default timeout for metadata/discovery API calls (seconds)",
+    )
+    metadata_timeout_seconds_hard_max: int = Field(
+        default=MAX_METADATA_TIMEOUT_SECONDS,
+        title="Max Metadata Timeout",
+        description="Maximum allowed timeout for metadata API calls (seconds)",
+    )
 
-    # Custom limit to the max number of tokens that a query result can take to proactively
-    #   prevent token limit issues. Expressed in % of the model's context window.
-    # This limit only overrides the global limit for all tools  (TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT)
-    #   if it is lower.
-    query_response_size_limit_pct: Optional[int] = None
+    tool_calls_return_data: bool = Field(
+        default=True,
+        title="Return Data",
+        description="Set to false to return only summaries without raw Prometheus data",
+    )
+    additional_headers: Dict[str, str] = Field(
+        default_factory=dict,
+        title="Headers",
+        description="HTTP headers for authentication (e.g., Authorization: Bearer token)",
+        examples=[
+            {"Authorization": "Basic <base64_encoded_credentials>"},
+            {"Authorization": "Bearer <token>"},
+        ],
+    )
+    rules_cache_duration_seconds: Optional[int] = Field(
+        default=1800,
+        title="Rules Cache Duration",
+        description="How long to cache Prometheus alerting/recording rules (seconds, null to disable)",
+    )
+    additional_labels: Optional[Dict[str, str]] = Field(
+        default=None,
+        title="Label Filters",
+        description="Label matchers applied to all queries (e.g., cluster=prod)",
+        examples=[{}, {"cluster": "prod", "namespace": "default"}],
+    )
+    verify_ssl: bool = Field(
+        default=True,
+        title="Verify SSL",
+        description="Set to false to skip SSL certificate verification (for self-signed certs)",
+    )
+
+    query_response_size_limit_pct: Optional[int] = Field(
+        default=None,
+        title="Response Size Limit",
+        description="Max response size as % of context window (overrides global limit if lower)",
+        examples=[10, 20, 30],
+    )
 
     @field_validator("prometheus_url")
     def ensure_trailing_slash(cls, v: Optional[str]) -> Optional[str]:
@@ -105,35 +208,15 @@ class PrometheusConfig(BaseModel):
 
     @model_validator(mode="after")
     def validate_prom_config(self):
-        # Check for deprecated config values and print warnings
-        deprecated_configs = []
-        if self.metrics_labels_time_window_hrs is not None:  # Check if explicitly set
-            deprecated_configs.append(
-                "metrics_labels_time_window_hrs (use default_metadata_time_window_hrs instead)"
-            )
-        if (
-            self.metrics_labels_cache_duration_hrs is not None
-        ):  # Check if explicitly set
-            deprecated_configs.append("metrics_labels_cache_duration_hrs")
-        if self.fetch_labels_with_labels_api is not None:  # Check if explicitly set
-            deprecated_configs.append("fetch_labels_with_labels_api")
-        if self.fetch_metadata_with_series_api is not None:  # Check if explicitly set
-            deprecated_configs.append("fetch_metadata_with_series_api")
-
-        if deprecated_configs:
-            logging.warning(
-                f"WARNING: The following Prometheus config values are deprecated and will be removed in a future version: "
-                f"{', '.join(deprecated_configs)}. These configs no longer affect behavior."
-            )
         # If openshift is enabled, and the user didn't configure auth headers, we will try to load the token from the service account.
         if IS_OPENSHIFT:
-            if self.headers.get("Authorization"):
+            if self.additional_headers.get("Authorization"):
                 return self
 
             openshift_token = load_openshift_token()
             if openshift_token:
                 logging.info("Using openshift token for prometheus toolset auth")
-                self.headers["Authorization"] = f"Bearer {openshift_token}"
+                self.additional_headers["Authorization"] = f"Bearer {openshift_token}"
 
         return self
 
@@ -141,12 +224,125 @@ class PrometheusConfig(BaseModel):
         return False
 
 
+class CoralogixPrometheusConfig(PrometheusConfig):
+    """Coralogix Prometheus-compatible endpoint configuration."""
+
+    _name: ClassVar[Optional[str]] = "Coralogix"
+    _description: ClassVar[Optional[str]] = "Connect to Coralogix's Prometheus-compatible endpoint."
+    _icon_url: ClassVar[Optional[str]] = "https://avatars.githubusercontent.com/u/35295744?s=200&v=4"
+    _docs_anchor: ClassVar[Optional[str]] = "coralogix-prometheus"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.CORALOGIX.value
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description="Coralogix Prometheus query endpoint URL",
+        examples=[
+            "https://prom-api.eu2.coralogix.com",
+        ],
+    )
+    additional_headers: Dict[str, str] = Field(
+        default={"token": "{{ env.CORALOGIX_API_KEY }}"},
+        title="Headers",
+        description="Must include your Coralogix API key as a 'token' header",
+        examples=[
+            {"token": "{{ env.CORALOGIX_API_KEY }}"},
+        ],
+    )
+    discover_metrics_from_last_hours: int = Field(
+        default=72,
+        title="Discover Metrics From Last Hours",
+        description="Time window in hours for metric discovery. Coralogix benefits from a longer lookback window.",
+    )
+
+
+class GooglePrometheusConfig(PrometheusConfig):
+    """Google Managed Prometheus configuration."""
+
+    _name: ClassVar[Optional[str]] = "Google Managed Prometheus"
+    _description: ClassVar[Optional[str]] = "Connect to Google Cloud Managed Prometheus using Workload Identity."
+    _icon_url: ClassVar[Optional[str]] = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/google-cloud.svg"
+    _docs_anchor: ClassVar[Optional[str]] = "google-managed-prometheus"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.GOOGLE_MANAGED_PROMETHEUS.value
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description="Google Managed Prometheus frontend service URL",
+        examples=[
+            "http://frontend.default.svc.cluster.local:9090",
+        ],
+    )
+
+
+class GrafanaCloudPrometheusConfig(PrometheusConfig):
+    """Grafana Cloud (Mimir) Prometheus-compatible endpoint configuration."""
+
+    _name: ClassVar[Optional[str]] = "Grafana Cloud"
+    _description: ClassVar[Optional[str]] = "Connect to Grafana Cloud's Prometheus (Mimir) endpoint."
+    _icon_url: ClassVar[Optional[str]] = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/grafana.svg"
+    _docs_anchor: ClassVar[Optional[str]] = "grafana-cloud-mimir"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.GRAFANA_CLOUD.value
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description="Grafana Cloud Prometheus endpoint URL",
+        examples=[
+            "https://prometheus-prod-XX-prod-REGION.grafana.net/api/prom",
+        ],
+    )
+    additional_headers: Dict[str, str] = Field(
+        default={"Authorization": "Basic {{ env.GRAFANA_CLOUD_AUTH }}"},
+        title="Headers",
+        description="Authorization header with Basic auth (base64 of instance_id:cloud_access_policy_token) or Bearer token",
+        examples=[
+            {"Authorization": "Basic <base64_encoded_credentials>"},
+            {"Authorization": "Bearer {{ env.GRAFANA_CLOUD_SA_TOKEN }}"},
+        ],
+    )
+
+
+class VictoriaMetricsConfig(PrometheusConfig):
+    """VictoriaMetrics — Prometheus-compatible TSDB (vmsingle / vmselect)."""
+
+    _name: ClassVar[Optional[str]] = "VictoriaMetrics"
+    _description: ClassVar[Optional[str]] = (
+        "Connect to VictoriaMetrics, a Prometheus-compatible TSDB."
+    )
+    _icon_url: ClassVar[Optional[str]] = "https://cdn.simpleicons.org/victoriametrics/621773"
+    _docs_anchor: ClassVar[Optional[str]] = "configuration"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.VICTORIAMETRICS.value
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description=(
+            "VictoriaMetrics HTTP API endpoint. Typically port 8428 for vmsingle, "
+            "8481 for vmselect."
+        ),
+        examples=[
+            "http://vmsingle-vmsingle.monitoring.svc.cluster.local:8428",
+            "http://vmselect.monitoring.svc.cluster.local:8481/select/0/prometheus",
+        ],
+    )
+
+
 class AMPConfig(PrometheusConfig):
+    _name: ClassVar[Optional[str]] = "AWS Managed Prometheus"
+    _description: ClassVar[Optional[str]] = "Connect to AWS Managed Service for Prometheus using IAM credentials."
+    _icon_url: ClassVar[Optional[str]] = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/aws.svg"
+    _docs_anchor: ClassVar[Optional[str]] = "aws-managed-prometheus-amp"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.AWS_MANAGED_PROMETHEUS.value
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description="AWS Managed Prometheus workspace endpoint URL",
+        examples=[
+            "https://aps-workspaces.us-east-1.amazonaws.com/workspaces/ws-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/",
+        ],
+    )
     aws_access_key: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
     aws_region: str
     aws_service_name: str = "aps"
-    prometheus_ssl_enabled: bool = False
+    verify_ssl: bool = False
     assume_role_arn: Optional[str] = None
 
     # Refresh the AWS client (and its STS creds) every N seconds (default: 15 minutes)
@@ -170,7 +366,7 @@ class AMPConfig(PrometheusConfig):
             try:
                 base_config = BasePrometheusConfig(
                     url=self.prometheus_url,
-                    disable_ssl=not self.prometheus_ssl_enabled,
+                    disable_ssl=not self.verify_ssl,
                     additional_labels=self.additional_labels,
                 )
                 self._aws_client = AWSPrometheusConnect(
@@ -189,12 +385,243 @@ class AMPConfig(PrometheusConfig):
         return self._aws_client
 
 
+class AzurePrometheusConfig(PrometheusConfig):
+    _name: ClassVar[Optional[str]] = "Azure Managed Prometheus"
+    _description: ClassVar[Optional[str]] = "Connect to Azure Monitor Managed Prometheus using Azure AD."
+    _icon_url: ClassVar[Optional[str]] = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/microsoft-azure.svg"
+    _docs_anchor: ClassVar[Optional[str]] = "azure-managed-prometheus"
+    _subtype: ClassVar[Optional[str]] = PrometheusSubtype.AZURE_MANAGED_PROMETHEUS.value
+    # These fields are Optional at the Pydantic level so managed identity
+    # (azure_use_managed_id=True) and the env-var fallback in __init__ keep
+    # working, but the UI form requires them — users configuring this
+    # through the frontend are expected to paste values directly. CLI/Helm
+    # users can omit them and rely on env vars or managed identity.
+    _ui_required_fields: ClassVar[List[str]] = [
+        "azure_client_id",
+        "azure_client_secret",
+        "azure_tenant_id",
+    ]
+
+    prometheus_url: str = Field(  # type: ignore[assignment]
+        title="URL",
+        description="Azure Monitor Prometheus workspace endpoint URL",
+        examples=[
+            "https://<your-workspace>.<region>.prometheus.monitor.azure.com:443/",
+        ],
+    )
+    azure_resource: Optional[str] = None
+    azure_metadata_endpoint: Optional[str] = None
+    azure_token_endpoint: Optional[str] = None
+    azure_use_managed_id: bool = False
+    azure_client_id: Optional[str] = Field(
+        default=None,
+        title="Client ID",
+        description="Azure AD application client ID",
+        examples=["00000000-0000-0000-0000-000000000000"],
+    )
+    azure_client_secret: Optional[str] = Field(
+        default=None,
+        title="Client Secret",
+        description="Azure AD application client secret",
+        examples=["{{ env.AZURE_CLIENT_SECRET }}"],
+        json_schema_extra={"format": "password"},
+    )
+    azure_tenant_id: Optional[str] = Field(
+        default=None,
+        title="Tenant ID",
+        description="Azure AD tenant ID",
+        examples=["00000000-0000-0000-0000-000000000000"],
+    )
+    verify_ssl: bool = True
+
+    # Refresh the Azure bearer token every N seconds (default: 15 minutes)
+    refresh_interval_seconds: int = 900
+
+    _prometrix_config: Optional[PrometrixAzureConfig] = None
+    _token_created_at: float = 0.0
+
+    @staticmethod
+    def _load_from_env_or_default(
+        config_value: Optional[str], env_var: str, default: Optional[str] = None
+    ) -> Optional[str]:
+        """Load value from config, environment variable, or use default."""
+        if config_value:
+            return config_value
+        return os.environ.get(env_var, default)
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Load from environment variables if not provided in config
+        self.azure_client_id = self._load_from_env_or_default(
+            self.azure_client_id, "AZURE_CLIENT_ID"
+        )
+        self.azure_tenant_id = self._load_from_env_or_default(
+            self.azure_tenant_id, "AZURE_TENANT_ID"
+        )
+        self.azure_client_secret = self._load_from_env_or_default(
+            self.azure_client_secret, "AZURE_CLIENT_SECRET"
+        )
+
+        # Set defaults from environment if not provided
+        self.azure_resource = self._load_from_env_or_default(
+            self.azure_resource,
+            "AZURE_RESOURCE",
+            "https://prometheus.monitor.azure.com",
+        )
+        # from https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/how-to-use-vm-token
+        self.azure_metadata_endpoint = self._load_from_env_or_default(
+            self.azure_metadata_endpoint,
+            "AZURE_METADATA_ENDPOINT",
+            "http://169.254.169.254/metadata/identity/oauth2/token",
+        )
+        self.azure_token_endpoint = self._load_from_env_or_default(
+            self.azure_token_endpoint, "AZURE_TOKEN_ENDPOINT"
+        )
+        if not self.azure_token_endpoint and self.azure_tenant_id:
+            self.azure_token_endpoint = (
+                f"https://login.microsoftonline.com/{self.azure_tenant_id}/oauth2/token"
+            )
+
+        # Check if managed identity should be used
+        if not self.azure_use_managed_id:
+            self.azure_use_managed_id = os.environ.get(
+                "AZURE_USE_MANAGED_ID", "false"
+            ).lower() in ("true", "1")
+
+        # Runtime semantics: if we're NOT using managed identity, then after
+        # the env-var fallback above, client_id / tenant_id / client_secret
+        # must be populated. Raise a clear error here rather than letting
+        # prometrix fail later with an opaque auth error. (UI users see the
+        # Pydantic/schema-level `required` marker via _ui_required_fields;
+        # this check catches CLI/Helm users whose env vars are also empty.)
+        if not self.azure_use_managed_id:
+            missing = [
+                name
+                for name, value in (
+                    ("azure_client_id", self.azure_client_id),
+                    ("azure_tenant_id", self.azure_tenant_id),
+                    ("azure_client_secret", self.azure_client_secret),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    f"Azure Managed Prometheus: missing credentials {missing}. "
+                    "Either set these fields in the config, set the matching "
+                    "AZURE_CLIENT_ID / AZURE_TENANT_ID / AZURE_CLIENT_SECRET env "
+                    "vars, or set `azure_use_managed_id: true` to use managed identity."
+                )
+
+        # Convert None to empty string for prometrix compatibility (prometrix checks != "")
+        azure_client_id = self.azure_client_id or ""
+        azure_tenant_id = self.azure_tenant_id or ""
+        azure_client_secret = self.azure_client_secret or ""
+        azure_resource = self.azure_resource or ""
+        azure_metadata_endpoint = self.azure_metadata_endpoint or ""
+        azure_token_endpoint = self.azure_token_endpoint or ""
+
+        # Create prometrix Azure config
+        self._prometrix_config = PrometrixAzureConfig(
+            url=self.prometheus_url,
+            azure_resource=azure_resource,
+            azure_metadata_endpoint=azure_metadata_endpoint,
+            azure_token_endpoint=azure_token_endpoint,
+            azure_use_managed_id=self.azure_use_managed_id,
+            azure_client_id=azure_client_id,
+            azure_client_secret=azure_client_secret,
+            azure_tenant_id=azure_tenant_id,
+            disable_ssl=not self.verify_ssl,
+            additional_labels=self.additional_labels,
+        )
+        # Ensure promtrix gets a real bool (not string) for managed identity
+        # fixing internal prometrix config issue
+        object.__setattr__(
+            self._prometrix_config,
+            "azure_use_managed_id",
+            bool(self.azure_use_managed_id),
+        )
+
+        PrometheusAuthorization.azure_authorization(self._prometrix_config)
+
+    @staticmethod
+    def is_azure_config(config: dict[str, Any]) -> bool:
+        """Return True if the config (dict + AZURE_* env vars) is complete enough
+        to actually use Azure Managed Prometheus auth.
+
+        Mirrors the completeness rules enforced in ``__init__``: either
+        ``azure_use_managed_id`` is enabled, or all three of
+        ``azure_client_id`` / ``azure_tenant_id`` / ``azure_client_secret`` are
+        resolvable. A partial Azure signal (e.g. ``AZURE_CLIENT_ID`` set on the
+        pod for an unrelated subsystem like Azure AI Foundry) logs a warning
+        explaining why Azure auth was skipped, then returns ``False`` so the
+        toolset falls back to plain Prometheus instead of failing on a missing
+        client secret.
+        """
+        creds = {
+            field: get_config_field(config, field)
+            for field in AzurePrometheusConfig._ui_required_fields
+        }
+        use_managed_id = str(
+            get_config_field(config, "azure_use_managed_id") or ""
+        ).lower() in ("true", "1")
+
+        if use_managed_id or all(creds.values()):
+            return True
+
+        found = [f"{f}/{f.upper()}" for f, v in creds.items() if v]
+        missing = [f"{f}/{f.upper()}" for f, v in creds.items() if not v]
+
+        if found:
+            logging.warning(
+                "Partial Azure Managed Prometheus credentials detected "
+                "(found: %s; missing: %s). Not using Azure auth — falling back "
+                "to plain Prometheus. To enable Azure, provide all of "
+                "azure_client_id / azure_tenant_id / azure_client_secret "
+                "(in the toolset config or as AZURE_* env vars), or set "
+                "azure_use_managed_id: true for managed identity.",
+                ", ".join(found),
+                ", ".join(missing),
+            )
+
+        return False
+
+    def is_amp(self) -> bool:
+        return False
+
+    def _should_refresh_token(self) -> bool:
+        if not PrometheusAuthorization.bearer_token:
+            return True
+        return (time.time() - self._token_created_at) >= self.refresh_interval_seconds
+
+    def request_new_token(self) -> bool:
+        """Request a new Azure access token using prometrix."""
+        success = PrometheusAuthorization.request_new_token(self._prometrix_config)
+        if success:
+            self._token_created_at = time.time()
+        return success
+
+    def get_authorization_headers(self) -> Dict[str, str]:
+        # Request new token if needed
+        if self._should_refresh_token():
+            if not self.request_new_token():
+                logging.error("Failed to request new Azure access token")
+                return {}
+            self._token_created_at = time.time()
+
+        headers = PrometheusAuthorization.get_authorization_headers(
+            self._prometrix_config
+        )
+        if not headers.get("Authorization"):
+            logging.warning("No authorization header generated for Azure Prometheus")
+        return headers
+
+
 class BasePrometheusTool(Tool):
     toolset: "PrometheusToolset"
 
 
 def do_request(
-    config,  # PrometheusConfig | AMPConfig
+    config,  # PrometheusConfig | AMPConfig | AzurePrometheusConfig
     url: str,
     params: Optional[Dict] = None,
     data: Optional[Dict] = None,
@@ -206,14 +633,15 @@ def do_request(
     """
     Route a request through either:
       - AWSPrometheusConnect (SigV4) when config is AMPConfig
+      - Azure bearer token auth when config is AzurePrometheusConfig
       - plain requests otherwise
 
     method defaults to GET so callers can omit it for reads.
     """
     if verify is None:
-        verify = config.prometheus_ssl_enabled
+        verify = config.verify_ssl
     if headers is None:
-        headers = config.headers or {}
+        headers = config.additional_headers or {}
 
     if isinstance(config, AMPConfig):
         client = config.get_aws_client()  # cached AWSPrometheusConnect
@@ -228,7 +656,21 @@ def do_request(
             headers=headers,
         )
 
-    # Non-AMP: plain HTTP
+    if isinstance(config, AzurePrometheusConfig):
+        # Merge Azure authorization headers with provided headers
+        azure_headers = config.get_authorization_headers()
+        headers = {**azure_headers, **headers}
+        return requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            params=params,
+            data=data,
+            timeout=timeout,
+            verify=verify,
+        )
+
+    # Non-AMP, Non-Azure: plain HTTP
     return requests.request(
         method=method,
         url=url,
@@ -256,23 +698,31 @@ def adjust_step_for_max_points(
     """
     Adjusts the step parameter to ensure the number of data points doesn't exceed max_points.
 
+    The default max_points is MAX_GRAPH_POINTS (env var, default 500). The LLM can override
+    this to request higher resolution (up to 2x the default) for simple low-cardinality
+    queries, or lower resolution for overview graphs. Token-based truncation provides
+    an additional safety net for responses that are too large.
+
     Args:
         start_timestamp: RFC3339 formatted start time
         end_timestamp: RFC3339 formatted end time
         step: The requested step duration in seconds (None for auto-calculation)
-        max_points_override: Optional override for max points (must be <= MAX_GRAPH_POINTS)
+        max_points_override: Optional override for max points. Can exceed MAX_GRAPH_POINTS
+            up to 2x the default to allow higher resolution for low-cardinality queries.
 
     Returns:
         Adjusted step value in seconds that ensures points <= max_points
     """
+    hard_limit = MAX_GRAPH_POINTS_HARD_LIMIT
+
     # Use override if provided and valid, otherwise use default
     max_points = MAX_GRAPH_POINTS
     if max_points_override is not None:
-        if max_points_override > MAX_GRAPH_POINTS:
+        if max_points_override > hard_limit:
             logging.warning(
-                f"max_points override ({max_points_override}) exceeds system limit ({MAX_GRAPH_POINTS}), using {MAX_GRAPH_POINTS}"
+                f"max_points override ({max_points_override}) exceeds hard limit ({hard_limit}), using {hard_limit}"
             )
-            max_points = MAX_GRAPH_POINTS
+            max_points = hard_limit
         elif max_points_override < 1:
             logging.warning(
                 f"max_points override ({max_points_override}) is invalid, using default {MAX_GRAPH_POINTS}"
@@ -287,12 +737,11 @@ def adjust_step_for_max_points(
 
     time_range_seconds = (end_dt - start_dt).total_seconds()
 
-    # If no step provided, calculate a reasonable default
-    # Aim for ~60 data points across the time range (1 per minute for hourly, etc)
+    # If no step provided, calculate default targeting max_points data points
     if step is None:
-        step = max(1, time_range_seconds / 60)
+        step = max(1, time_range_seconds / max_points)
         logging.debug(
-            f"No step provided, defaulting to {step}s for {time_range_seconds}s range"
+            f"No step provided, defaulting to {step}s for {time_range_seconds}s range (targeting {max_points} points)"
         )
 
     current_points = time_range_seconds / step
@@ -438,15 +887,48 @@ def create_structured_tool_result(
     )
 
 
-class ListPrometheusRules(BasePrometheusTool):
+class ListPrometheusRules(JsonFilterMixin, BasePrometheusTool):
     def __init__(self, toolset: "PrometheusToolset"):
         super().__init__(
             name="list_prometheus_rules",
-            description="List all defined Prometheus rules (api/v1/rules). Will show the Prometheus rules description, expression and annotations",
-            parameters={},
+            description=(
+                "List Prometheus rules (api/v1/rules). Returns rule names, expressions, and annotations. "
+                "Use filtering parameters to reduce response size. "
+                "Without filters, returns ALL rules which may be very large. "
+                "The returned JSON has the structure {groups: [{name, file, rules: [{name, query, state, labels, annotations, ...}]}]}. "
+                "When using jq, note the root object is 'data' already extracted, so use '.groups[]' not '.data.groups[]'."
+            ),
+            parameters=self.extend_parameters(
+                {
+                    "type": ToolParameter(
+                        description="Filter by rule type: 'alert' for alerting rules, 'record' for recording rules",
+                        type="string",
+                        required=False,
+                    ),
+                    "rule_name": ToolParameter(
+                        description="Filter by rule name(s). Can be specified multiple times for OR matching. Supports exact match only.",
+                        type="string",
+                        required=False,
+                    ),
+                    "rule_group": ToolParameter(
+                        description="Filter by rule group name(s). Can be specified multiple times for OR matching.",
+                        type="string",
+                        required=False,
+                    ),
+                    "file": ToolParameter(
+                        description="Filter by rule file path(s). Can be specified multiple times for OR matching.",
+                        type="string",
+                        required=False,
+                    ),
+                    "match": ToolParameter(
+                        description="Filter rules by label selector (e.g., '{severity=\"critical\"}', '{team=~\"platform.*\"}')",
+                        type="string",
+                        required=False,
+                    ),
+                }
+            ),
             toolset=toolset,
         )
-        self._cache = None
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         if not self.toolset.config or not self.toolset.config.prometheus_url:
@@ -461,19 +943,19 @@ class ListPrometheusRules(BasePrometheusTool):
                 error="Tool not supported in AMP",
                 params=params,
             )
-        if not self._cache and self.toolset.config.rules_cache_duration_seconds:
-            self._cache = TTLCache(self.toolset.config.rules_cache_duration_seconds)  # type: ignore
         try:
-            if self._cache:
-                cached_rules = self._cache.get(PROMETHEUS_RULES_CACHE_KEY)
-                if cached_rules:
-                    logging.debug("rules returned from cache")
-
-                    return StructuredToolResult(
-                        status=StructuredToolResultStatus.SUCCESS,
-                        data=cached_rules,
-                        params=params,
-                    )
+            # Build query parameters for server-side filtering
+            query_params: dict = {}
+            if params.get("type"):
+                query_params["type"] = params["type"]
+            if params.get("rule_name"):
+                query_params["rule_name[]"] = params["rule_name"]
+            if params.get("rule_group"):
+                query_params["rule_group[]"] = params["rule_group"]
+            if params.get("file"):
+                query_params["file[]"] = params["file"]
+            if params.get("match"):
+                query_params["match[]"] = params["match"]
 
             prometheus_url = self.toolset.config.prometheus_url
 
@@ -482,27 +964,33 @@ class ListPrometheusRules(BasePrometheusTool):
             rules_response = do_request(
                 config=self.toolset.config,
                 url=rules_url,
-                params=params,
+                params=query_params,
                 timeout=40,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             rules_response.raise_for_status()
             data = rules_response.json()["data"]
 
-            if self._cache:
-                self._cache.set(PROMETHEUS_RULES_CACHE_KEY, data)
-            return StructuredToolResult(
+            result = StructuredToolResult(
                 status=StructuredToolResultStatus.SUCCESS,
                 data=data,
                 params=params,
             )
+            return self.filter_result(result, params)
         except requests.Timeout:
             logging.warning("Timeout while fetching prometheus rules", exc_info=True)
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
                 error="Request timed out while fetching rules",
+                params=params,
+            )
+        except SSLError as e:
+            logging.warning("SSL error while fetching prometheus rules", exc_info=True)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=format_ssl_error_message(self.toolset.config.prometheus_url, e),
                 params=params,
             )
         except RequestException as e:
@@ -521,7 +1009,17 @@ class ListPrometheusRules(BasePrometheusTool):
             )
 
     def get_parameterized_one_liner(self, params) -> str:
-        return f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Rules"
+        filters = []
+        if params.get("type"):
+            filters.append(f"type={params['type']}")
+        if params.get("rule_name"):
+            filters.append(f"name={params['rule_name']}")
+        if params.get("rule_group"):
+            filters.append(f"group={params['rule_group']}")
+        filter_str = f" ({', '.join(filters)})" if filters else ""
+        return (
+            f"{toolset_name_for_one_liner(self.toolset.name)}: Fetch Rules{filter_str}"
+        )
 
 
 class GetMetricNames(BasePrometheusTool):
@@ -598,20 +1096,20 @@ class GetMetricNames(BasePrometheusTool):
 
             if params.get("start"):
                 query_params["start"] = params["start"]
-            elif self.toolset.config.default_metadata_time_window_hrs:
+            elif self.toolset.config.discover_metrics_from_last_hours:
                 # Use default time window
                 query_params["start"] = str(
                     int(time.time())
-                    - (self.toolset.config.default_metadata_time_window_hrs * 3600)
+                    - (self.toolset.config.discover_metrics_from_last_hours * 3600)
                 )
 
             response = do_request(
                 config=self.toolset.config,
                 url=url,
                 params=query_params,
-                timeout=self.toolset.config.default_metadata_timeout_seconds,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                timeout=self.toolset.config.metadata_timeout_seconds_default,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             response.raise_for_status()
@@ -716,20 +1214,20 @@ class GetLabelValues(BasePrometheusTool):
 
             if params.get("start"):
                 query_params["start"] = params["start"]
-            elif self.toolset.config.default_metadata_time_window_hrs:
+            elif self.toolset.config.discover_metrics_from_last_hours:
                 # Use default time window
                 query_params["start"] = str(
                     int(time.time())
-                    - (self.toolset.config.default_metadata_time_window_hrs * 3600)
+                    - (self.toolset.config.discover_metrics_from_last_hours * 3600)
                 )
 
             response = do_request(
                 config=self.toolset.config,
                 url=url,
                 params=query_params,
-                timeout=self.toolset.config.default_metadata_timeout_seconds,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                timeout=self.toolset.config.metadata_timeout_seconds_default,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             response.raise_for_status()
@@ -820,20 +1318,20 @@ class GetAllLabels(BasePrometheusTool):
 
             if params.get("start"):
                 query_params["start"] = params["start"]
-            elif self.toolset.config.default_metadata_time_window_hrs:
+            elif self.toolset.config.discover_metrics_from_last_hours:
                 # Use default time window
                 query_params["start"] = str(
                     int(time.time())
-                    - (self.toolset.config.default_metadata_time_window_hrs * 3600)
+                    - (self.toolset.config.discover_metrics_from_last_hours * 3600)
                 )
 
             response = do_request(
                 config=self.toolset.config,
                 url=url,
                 params=query_params,
-                timeout=self.toolset.config.default_metadata_timeout_seconds,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                timeout=self.toolset.config.metadata_timeout_seconds_default,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             response.raise_for_status()
@@ -934,20 +1432,20 @@ class GetSeries(BasePrometheusTool):
 
             if params.get("start"):
                 query_params["start"] = params["start"]
-            elif self.toolset.config.default_metadata_time_window_hrs:
+            elif self.toolset.config.discover_metrics_from_last_hours:
                 # Use default time window
                 query_params["start"] = str(
                     int(time.time())
-                    - (self.toolset.config.default_metadata_time_window_hrs * 3600)
+                    - (self.toolset.config.discover_metrics_from_last_hours * 3600)
                 )
 
             response = do_request(
                 config=self.toolset.config,
                 url=url,
                 params=query_params,
-                timeout=self.toolset.config.default_metadata_timeout_seconds,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                timeout=self.toolset.config.metadata_timeout_seconds_default,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             response.raise_for_status()
@@ -1024,9 +1522,9 @@ class GetMetricMetadata(BasePrometheusTool):
                 config=self.toolset.config,
                 url=url,
                 params=query_params,
-                timeout=self.toolset.config.default_metadata_timeout_seconds,
-                verify=self.toolset.config.prometheus_ssl_enabled,
-                headers=self.toolset.config.headers,
+                timeout=self.toolset.config.metadata_timeout_seconds_default,
+                verify=self.toolset.config.verify_ssl,
+                headers=self.toolset.config.additional_headers,
                 method="GET",
             )
             response.raise_for_status()
@@ -1111,8 +1609,8 @@ class ExecuteInstantQuery(BasePrometheusTool):
             payload = {"query": query}
 
             # Get timeout parameter and enforce limits
-            default_timeout = self.toolset.config.default_query_timeout_seconds
-            max_timeout = self.toolset.config.max_query_timeout_seconds
+            default_timeout = self.toolset.config.query_timeout_seconds_default
+            max_timeout = self.toolset.config.query_timeout_seconds_hard_max
             timeout = params.get("timeout", default_timeout)
             if timeout > max_timeout:
                 timeout = max_timeout
@@ -1125,10 +1623,10 @@ class ExecuteInstantQuery(BasePrometheusTool):
             response = do_request(
                 config=self.toolset.config,
                 url=url,
-                headers=self.toolset.config.headers,
+                headers=self.toolset.config.additional_headers,
                 data=payload,
                 timeout=timeout,
-                verify=self.toolset.config.prometheus_ssl_enabled,
+                verify=self.toolset.config.verify_ssl,
                 method="POST",
             )
 
@@ -1227,6 +1725,13 @@ class ExecuteInstantQuery(BasePrometheusTool):
                 params=params,
             )
 
+        except SSLError as e:
+            logging.warning("SSL error while executing Prometheus query", exc_info=True)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=format_ssl_error_message(self.toolset.config.prometheus_url, e),
+                params=params,
+            )
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
@@ -1281,7 +1786,11 @@ class ExecuteRangeQuery(BasePrometheusTool):
                     required=False,
                 ),
                 "step": ToolParameter(
-                    description="Query resolution step width in duration format or float number of seconds",
+                    description=(
+                        "Query resolution step width in duration format or float number of seconds. "
+                        "Smaller step = higher resolution but more data points. "
+                        "If not provided, automatically calculated from the time range and max_points."
+                    ),
                     type="number",
                     required=False,
                 ),
@@ -1301,9 +1810,10 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 ),
                 "max_points": ToolParameter(
                     description=(
-                        f"Maximum number of data points to return. Default: {int(MAX_GRAPH_POINTS)}. "
-                        f"Can be reduced to get fewer data points (e.g., 50 for simpler graphs). "
-                        f"Cannot exceed system limit of {int(MAX_GRAPH_POINTS)}. "
+                        f"Maximum number of data points per series. Default: {int(MAX_GRAPH_POINTS)}. "
+                        f"Only increase above default for queries returning few time series (1-3 series). "
+                        f"Decrease for high-cardinality queries (e.g., 50) to avoid hitting maximum number of data points. "
+                        f"Maximum: {int(MAX_GRAPH_POINTS_HARD_LIMIT)}. "
                         f"If your query would return more points than this limit, the step will be automatically adjusted."
                     ),
                     type="number",
@@ -1353,8 +1863,8 @@ class ExecuteRangeQuery(BasePrometheusTool):
             }
 
             # Get timeout parameter and enforce limits
-            default_timeout = self.toolset.config.default_query_timeout_seconds
-            max_timeout = self.toolset.config.max_query_timeout_seconds
+            default_timeout = self.toolset.config.query_timeout_seconds_default
+            max_timeout = self.toolset.config.query_timeout_seconds_hard_max
             timeout = params.get("timeout", default_timeout)
             if timeout > max_timeout:
                 timeout = max_timeout
@@ -1367,10 +1877,10 @@ class ExecuteRangeQuery(BasePrometheusTool):
             response = do_request(
                 config=self.toolset.config,
                 url=url,
-                headers=self.toolset.config.headers,
+                headers=self.toolset.config.additional_headers,
                 data=payload,
                 timeout=timeout,
-                verify=self.toolset.config.prometheus_ssl_enabled,
+                verify=self.toolset.config.verify_ssl,
                 method="POST",
             )
 
@@ -1471,6 +1981,15 @@ class ExecuteRangeQuery(BasePrometheusTool):
                 params=params,
             )
 
+        except SSLError as e:
+            logging.warning(
+                "SSL error while executing Prometheus range query", exc_info=True
+            )
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=format_ssl_error_message(self.toolset.config.prometheus_url, e),
+                params=params,
+            )
         except RequestException as e:
             logging.info("Failed to connect to Prometheus", exc_info=True)
             return StructuredToolResult(
@@ -1492,14 +2011,17 @@ class ExecuteRangeQuery(BasePrometheusTool):
 
 
 class PrometheusToolset(Toolset):
-    config: Optional[Union[PrometheusConfig, AMPConfig]] = None
+    config_classes: ClassVar[
+        list[Type[Union[PrometheusConfig, CoralogixPrometheusConfig, GooglePrometheusConfig, GrafanaCloudPrometheusConfig, VictoriaMetricsConfig, AMPConfig, AzurePrometheusConfig]]]
+    ] = [PrometheusConfig, CoralogixPrometheusConfig, GooglePrometheusConfig, GrafanaCloudPrometheusConfig, VictoriaMetricsConfig, AMPConfig, AzurePrometheusConfig]
+    config: Optional[Union[PrometheusConfig, CoralogixPrometheusConfig, GooglePrometheusConfig, GrafanaCloudPrometheusConfig, VictoriaMetricsConfig, AMPConfig, AzurePrometheusConfig]] = None
 
     def __init__(self):
         super().__init__(
             name="prometheus/metrics",
             description="Prometheus integration to fetch metadata and execute PromQL queries",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/prometheus/",
-            icon_url="https://upload.wikimedia.org/wikipedia/commons/3/38/Prometheus_software_logo.svg",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/prometheus.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 ListPrometheusRules(toolset=self),
@@ -1514,52 +2036,196 @@ class PrometheusToolset(Toolset):
             tags=[
                 ToolsetTag.CORE,
             ],
+            # Intent to expose for cross-cluster remote tool calls; the
+            # per-instance locality heuristic (remote_exposure_default) narrows
+            # this to the in-cluster instances only.
+            expose_remotely=True,
         )
         self._reload_llm_instructions()
+
+    # In-cluster URL host patterns: only instances pointed at a server INSIDE
+    # the cluster are useful to run remotely (an external SaaS endpoint is
+    # reachable from the caller directly). See design doc Business Logic B.
+    _IN_CLUSTER_HOST_RE = re.compile(
+        r"(\.svc(\.cluster\.local)?$|\.svc[:/]|\.cluster\.local$|"
+        r"^localhost$|^127\.|^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[01])\.)"
+    )
+
+    def remote_exposure_default(
+        self, instance_config: Optional[Dict[str, Any]] = None
+    ) -> Optional[bool]:
+        """Expose a prometheus instance remotely only when its URL is
+        in-cluster. Auto-detected URLs are always in-cluster. A configured
+        URL is judged by host: *.svc / *.cluster.local / localhost / RFC1918
+        => in-cluster (expose); anything else (public DNS / SaaS) => don't.
+        None when undeterminable (fall back to expose_remotely)."""
+        url = (instance_config or {}).get("prometheus_url") if instance_config else None
+        if not url:
+            # No explicit URL => auto-detected at runtime => in-cluster.
+            return True
+        try:
+            host = urlparse(str(url)).hostname or ""
+        except Exception:
+            return None
+        if not host:
+            return None
+        if "." not in host and ":" not in host:
+            return True  # single-label hostname => in-cluster service name
+        return bool(self._IN_CLUSTER_HOST_RE.search(host))
 
     def _reload_llm_instructions(self):
         template_file_path = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "prometheus_instructions.jinja2")
         )
-        self._load_llm_instructions(jinja_template=f"file://{template_file_path}")
+        tool_names = [t.name for t in self.tools]
+        self.llm_instructions = load_and_render_prompt(
+            prompt=f"file://{template_file_path}",
+            context={
+                "tool_names": tool_names,
+                "config": self.config,
+                "default_max_points": int(MAX_GRAPH_POINTS),
+                "hard_max_points": int(MAX_GRAPH_POINTS_HARD_LIMIT),
+            },
+        )
+
+    @classmethod
+    def _subtype_to_config_class(cls) -> Dict[str, Type[PrometheusConfig]]:
+        """Derive the subtype -> config class map from ``config_classes``.
+
+        Each variant declares its own ``_subtype`` ClassVar, so there's a
+        single source of truth (the class itself). Building the map on the
+        fly avoids the hand-maintained dict/enum drift risk: adding a new
+        variant is a one-step change (append to ``config_classes``) rather
+        than two (which invites forgetting the second).
+        """
+        return {
+            cls_._subtype: cls_  # type: ignore[misc]
+            for cls_ in cls.config_classes
+            if getattr(cls_, "_subtype", None)
+        }
 
     def determine_prometheus_class(
-        self, config: dict[str, Any]
-    ) -> Type[Union[PrometheusConfig, AMPConfig]]:
+        self, config: dict[str, Any], subtype: Optional[str] = None
+    ) -> Type[PrometheusConfig]:
+        # Explicit `subtype:` on the toolset YAML wins over field-shape detection.
+        if subtype:
+            try:
+                resolved = PrometheusSubtype(subtype)
+            except ValueError as exc:
+                valid = ", ".join(s.value for s in PrometheusSubtype)
+                raise ValueError(
+                    f"Unknown prometheus subtype '{subtype}'. "
+                    f"Valid values: {valid}. "
+                    "Omit `subtype` to auto-detect from the configuration fields."
+                ) from exc
+            mapping = self._subtype_to_config_class()
+            config_cls = mapping.get(resolved.value)
+            if config_cls is None:
+                # Every PrometheusSubtype should have a matching config class
+                # registered in ``config_classes``. If this fires, the enum
+                # and the registered variants have drifted — fix by adding
+                # the missing config class rather than catching this error.
+                raise RuntimeError(
+                    f"PrometheusSubtype '{resolved.value}' has no registered "
+                    f"config class in PrometheusToolset.config_classes. "
+                    f"Known subtypes: {sorted(mapping)}."
+                )
+            return config_cls
+
         has_aws_fields = "aws_region" in config
-        return AMPConfig if has_aws_fields else PrometheusConfig
+        if has_aws_fields:
+            return AMPConfig
+
+        # Check for Azure config using static method
+        is_azure = AzurePrometheusConfig.is_azure_config(config)
+        if is_azure:
+            logging.info("Detected Azure Managed Prometheus configuration")
+        return AzurePrometheusConfig if is_azure else PrometheusConfig
+
+    def _disable_azure_incompatible_tools(self):
+        """
+        Azure Managed Prometheus does not support some APIs.
+        Remove unsupported tools.
+        """
+        incompatible = {
+            "get_label_values",
+            "get_metric_metadata",
+            "list_prometheus_rules",
+        }
+        self.tools = [t for t in self.tools if t.name not in incompatible]
+
+    def _set_meta_from_config(self) -> None:
+        """Set self.meta with type/subtype so the frontend can distinguish
+        catalog cards that share the `prometheus/metrics` backend toolset
+        (e.g. Prometheus vs VictoriaMetrics vs Coralogix)."""
+        subtype = getattr(type(self.config), "_subtype", None) if self.config else None
+        self.meta = {"type": "prometheus", "subtype": subtype}
 
     def prerequisites_callable(self, config: dict[str, Any]) -> Tuple[bool, str]:
+        # Normalize: a missing config block is equivalent to an empty dict.
+        # Either way we want to build a PrometheusConfig (possibly with
+        # auto-discovered URL) rather than short-circuit.
+        config = config or {}
         try:
-            if config:
-                config_cls = self.determine_prometheus_class(config)
-                self.config = config_cls(**config)  # type: ignore
+            config_cls = self.determine_prometheus_class(config, self.subtype)
+            self.config = config_cls(**config)  # type: ignore
 
-                self._reload_llm_instructions()
-                return self._is_healthy()
-        except Exception:
-            logging.exception("Failed to create prometheus config")
-            return False, "Failed to create prometheus config"
-        try:
-            prometheus_url = os.environ.get("PROMETHEUS_URL")
-            if not prometheus_url:
-                prometheus_url = self.auto_detect_prometheus_url()
-                if not prometheus_url:
+            # Auto-discovery fallback: if the user didn't provide a URL AND
+            # they're on the generic PrometheusConfig (sibling variants
+            # make the URL required at validation time), try env var then
+            # in-cluster service discovery. This lets a user override
+            # settings like `verify_ssl` or timeouts while still relying
+            # on auto-discovery for the URL.
+            #
+            # We use `type(...) is PrometheusConfig` (not isinstance) on
+            # purpose: every sibling variant (VictoriaMetrics, AMP, Azure,
+            # etc.) redeclares `prometheus_url` as required, so an instance
+            # of those classes can never reach this branch with a missing
+            # URL — Pydantic already rejected it. Restricting discovery to
+            # the exact generic class avoids silently auto-filling a URL
+            # for a variant whose user *wanted* an explicit value.
+            if (
+                not self.config.prometheus_url
+                and type(self.config) is PrometheusConfig
+            ):
+                discovered = (
+                    os.environ.get("PROMETHEUS_URL")
+                    or self.auto_detect_prometheus_url()
+                )
+                if not discovered:
                     return (
                         False,
                         "Unable to auto-detect prometheus. Define prometheus_url in the configuration for tool prometheus/metrics",
                     )
+                self.config.prometheus_url = discovered
+                # Respect PROMETHEUS_AUTH_HEADER only when the user didn't
+                # supply their own additional_headers.
+                if not self.config.additional_headers:
+                    self.config.additional_headers = add_prometheus_auth(
+                        os.environ.get("PROMETHEUS_AUTH_HEADER")
+                    )
+                logging.info(f"Prometheus auto discovered at url {discovered}")
 
-            self.config = PrometheusConfig(
-                prometheus_url=prometheus_url,
-                headers=add_prometheus_auth(os.environ.get("PROMETHEUS_AUTH_HEADER")),
-            )
-            logging.info(f"Prometheus auto discovered at url {prometheus_url}")
+            self._set_meta_from_config()
+            if isinstance(self.config, AzurePrometheusConfig):
+                self._disable_azure_incompatible_tools()
             self._reload_llm_instructions()
+
+            # Single-instance path of the locality heuristic: the wrapper's
+            # remote_exposed_instances() applies it per instance, but an
+            # unwrapped prometheus (one instance, flat config) would otherwise
+            # publish remotely even when pointed at an external SaaS endpoint.
+            # Judge the resolved config (auto-discovered URLs included).
+            exposure = self.remote_exposure_default(
+                self.config.model_dump(exclude_none=True)
+            )
+            if exposure is not None:
+                self.expose_remotely = exposure
+
             return self._is_healthy()
         except Exception as e:
             logging.exception("Failed to set up prometheus")
-            return False, str(e)
+            return False, f"Invalid Prometheus configuration: {e}"
 
     def auto_detect_prometheus_url(self) -> Optional[str]:
         url: Optional[str] = PrometheusDiscovery.find_prometheus_url()
@@ -1584,9 +2250,9 @@ class PrometheusToolset(Toolset):
             response = do_request(
                 config=self.config,
                 url=url,
-                headers=self.config.headers,
+                headers=self.config.additional_headers,
                 timeout=10,
-                verify=self.config.prometheus_ssl_enabled,
+                verify=self.config.verify_ssl,
                 method="GET",
             )
 
@@ -1604,9 +2270,3 @@ class PrometheusToolset(Toolset):
                 False,
                 f"Failed to initialize using url={url}. Unexpected error: {str(e)}",
             )
-
-    def get_example_config(self):
-        example_config = PrometheusConfig(
-            prometheus_url="http://robusta-kube-prometheus-st-prometheus:9090"
-        )
-        return example_config.model_dump()

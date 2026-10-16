@@ -8,10 +8,12 @@ expected_output:
 #  - Logs show "ConnectionPoolExhausted" errors and "Failed to acquire database connection - pool exhausted"
 
 tags:
+  - advanced
   - logs
   - kubernetes
   - medium
   - loki
+  - benchmark
   
 setup_timeout: 600  # Increased to handle Datadog init containers
 

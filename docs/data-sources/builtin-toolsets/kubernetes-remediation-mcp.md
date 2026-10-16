@@ -1,0 +1,499 @@
+# Kubernetes Remediation (MCP)
+
+The Kubernetes Remediation MCP server is what lets Holmes **act on your cluster** — restart pods, scale deployments, drain nodes, patch and edit resources, and more — plus run **deeper diagnostics** than read-only access allows: reading files and processes *inside* running containers and launching short-lived troubleshooting pods (netshoot/busybox/curl).
+
+It runs **alongside** your existing [built-in Kubernetes toolset](kubernetes.md) (which already covers `get`/`describe`/`logs`), extending Holmes from read-only investigation to investigation **and** remediation — with every mutating action gated behind human approval.
+
+!!! info "What this adds over the built-in Kubernetes toolset"
+
+    | Capability | Built-in | + Remediation MCP |
+    |---|---|---|
+    | Read resources (`get` / `describe` / `logs`) | ✅ | — *(keep using the built-in)* |
+    | Read files & processes inside containers | ❌ | ✅ auto-approved |
+    | Run diagnostic pods (netshoot/busybox/curl) | ❌ | ✅ auto-approved |
+    | Write actions (restart / scale / drain / patch / …) | ❌ | ✅ **human-approved** |
+
+## Available Tools
+
+| Tool | Mutating | Approval | What it does |
+|------|----------|----------|--------------|
+| `read_file_from_container` | No | Auto | Read a single file from inside a running container, under the configured allow roots. Secret/token mounts, credential files and `/proc`, `/sys`, `/dev` are always refused. |
+| `run_preapproved_kubectl_command` | No | Auto | Run a read-only diagnostic command from the allowlist (`ps`/`top`/`df`/`ls`/`netstat`/`ss` via exec). |
+| `run_preapproved_diagnostic_image` | No | Auto | Launch a short-lived pod from a pre-approved troubleshooting image (netshoot/busybox/curl), capture output, auto-delete. By default probe targets are restricted to in-cluster destinations, and cloud metadata is refused for as long as the target policy is enabled ([details](#diagnostic-pod-target-policy)). |
+| `run_gpu_node_diagnostics` | No | Auto | Run named GPU/driver checks on a node — nvidia-smi state, throttling, ECC, dmesg XID errors, driver version mismatch, PCIe link, optional DCGM ([details](#gpu-node-diagnostics)). |
+| `get_remediation_mcp_config` | No | Auto | Return the live effective policy for debugging. |
+| `run_kubectl_command` | Yes | **Human approval** | Catch-all for everything not pre-approved: all mutations, arbitrary exec, non-allowlisted images. |
+
+Each tool is *either* always auto-approved *or* always human-approved — the split is fixed, so the model never has to guess whether an action is safe to take on its own. The read-only and diagnostic tools run immediately; the mutating fallback (`run_kubectl_command`) always pauses for a human.
+
+## Prerequisites
+
+For CLI deployments, you'll need to create the RBAC resources manually. For Helm deployments, the chart creates them automatically (a scoped, least-privilege ClusterRole — not `cluster-admin`).
+
+## Configuration
+
+With the chart, the defaults work out of the box once enabled (plug-and-play). The chart creates a scoped ClusterRole (no `cluster-admin`), an ingress-only NetworkPolicy locked to Holmes, and wires `approval_required_tools: ["run_kubectl_command"]`. Override `serviceAccount.clusterRole` to bring your own role, or `config.*` to tune the allowlists.
+
+=== "Holmes CLI"
+
+    **Step 1: Create RBAC Resources**
+
+    Create a file named `k8s-remediation-rbac.yaml` with a **scoped** ClusterRole (no `cluster-admin`, no `secrets`):
+
+    ```yaml
+    apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: holmes-mcp
+    ---
+    apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: k8s-remediation-mcp-sa
+      namespace: holmes-mcp
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRole
+    metadata:
+      name: k8s-remediation-mcp-role
+    rules:
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+        verbs: ["get", "list", "patch", "update", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments/scale", "statefulsets/scale", "replicasets/scale"]
+        verbs: ["get", "update", "patch"]
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "list", "create", "delete"]
+      - apiGroups: [""]
+        resources: ["pods/exec"]
+        verbs: ["create"]
+      - apiGroups: [""]
+        resources: ["pods/log"]
+        verbs: ["get"]
+      - apiGroups: [""]
+        resources: ["pods/eviction"]
+        verbs: ["create"]
+      - apiGroups: [""]
+        resources: ["nodes"]
+        verbs: ["get", "list", "patch", "update"]
+      - apiGroups: ["batch"]
+        resources: ["jobs", "cronjobs"]
+        verbs: ["get", "list", "create", "patch", "update", "delete"]
+      # Read-only context (NO secrets)
+      - apiGroups: [""]
+        resources: ["events", "services", "configmaps", "namespaces", "replicationcontrollers"]
+        verbs: ["get", "list"]
+    ---
+    apiVersion: rbac.authorization.k8s.io/v1
+    kind: ClusterRoleBinding
+    metadata:
+      name: k8s-remediation-mcp
+    roleRef:
+      apiGroup: rbac.authorization.k8s.io
+      kind: ClusterRole
+      name: k8s-remediation-mcp-role
+    subjects:
+    - kind: ServiceAccount
+      name: k8s-remediation-mcp-sa
+      namespace: holmes-mcp
+    ```
+
+    ```bash
+    kubectl apply -f k8s-remediation-rbac.yaml
+    ```
+
+    **Step 2: Deploy the MCP Server**
+
+    Create a file named `k8s-remediation-mcp-deployment.yaml`:
+
+    ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: k8s-remediation-mcp-server
+      namespace: holmes-mcp
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: k8s-remediation-mcp-server
+      template:
+        metadata:
+          labels:
+            app: k8s-remediation-mcp-server
+        spec:
+          serviceAccountName: k8s-remediation-mcp-sa
+          containers:
+          - name: k8s-remediation-mcp
+            image: us-central1-docker.pkg.dev/genuine-flight-317411/mcp/kubernetes-remediation-mcp:1.4.0
+            imagePullPolicy: IfNotPresent
+            ports:
+            - containerPort: 8000
+              name: http
+            # The defaults below ship in the image — listing them is optional.
+            env:
+            - name: KUBECTL_ALLOWED_COMMANDS
+              value: "edit,patch,delete,scale,rollout,cordon,uncordon,drain,taint,label,annotate,run,exec"
+            - name: KUBECTL_TIMEOUT
+              value: "60"
+            # Diagnostic-pod target policy (see "Diagnostic-pod target policy"
+            # below). These are the defaults; both are shown because they are
+            # the two you are most likely to need to change.
+            - name: KUBECTL_DIAGNOSTIC_ALLOW_EXTERNAL_TARGETS
+              value: "false"
+            - name: KUBECTL_DIAGNOSTIC_INTERNAL_DNS_SUFFIXES
+              value: ".svc,.svc.cluster.local,.cluster.local"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"
+              limits:
+                memory: "128Mi"
+            securityContext:
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 1000
+              allowPrivilegeEscalation: false
+            readinessProbe:
+              tcpSocket:
+                port: 8000
+              initialDelaySeconds: 5
+              periodSeconds: 10
+            livenessProbe:
+              tcpSocket:
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 30
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: k8s-remediation-mcp-server
+      namespace: holmes-mcp
+    spec:
+      selector:
+        app: k8s-remediation-mcp-server
+      ports:
+      - port: 8000
+        targetPort: 8000
+        protocol: TCP
+        name: http
+    ```
+
+    ```bash
+    kubectl apply -f k8s-remediation-mcp-deployment.yaml
+    ```
+
+    **Step 3: Configure Holmes CLI**
+
+    Add the MCP server configuration to **~/.holmes/config.yaml**:
+
+    ```yaml
+    mcp_servers:
+      kubernetes_remediation:
+        description: "Kubernetes remediation & deep diagnostics - execute kubectl and run diagnostic pods"
+        config:
+          url: "http://k8s-remediation-mcp-server.holmes-mcp.svc.cluster.local:8000/mcp"
+          mode: streamable-http
+        approval_required_tools:
+          - "run_kubectl_command"
+    ```
+
+    Only the mutating fallback (`run_kubectl_command`) is listed under `approval_required_tools`, so it requires confirmation before execution. The four read-only tools run immediately.
+
+    --8<-- "snippets/toolset_refresh_warning.md"
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    mcpAddons:
+      kubernetesRemediation:
+        enabled: true
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      mcpAddons:
+        kubernetesRemediation:
+          enabled: true
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+## GPU node diagnostics
+
+!!! warning "Requires MCP server image 1.3.0 or newer"
+
+Holmes can debug GPU nodes with `run_gpu_node_diagnostics` (server >= 1.3.0): it launches a short-lived pod pinned to the node and runs the **node's own binaries** through a read-only host-filesystem mount — nvidia-smi, dmesg, lspci, journalctl; no GPU is allocated and no GPU-specific image is pulled, so it works even on fully-utilized or cordoned nodes. The caller picks checks by name only (`overview`, `details`, `throttling`, `utilization_samples`, `ecc`, `page_retirement`, `row_remapper`, `compute_processes`, `kernel_gpu_errors`, `kernel_log_journal`, `driver_info`, `pci`, `pci_link`, `fabric_manager`, `gpu_device_holders`, `process_info`, `dcgm_*`) — every command is fixed in the server, which is why the tool is auto-approved.
+
+It is **off by default** — enable it via `gpuDiagnosticsEnabled`:
+
+```yaml
+mcpAddons:
+  kubernetesRemediation:
+    enabled: true
+    config:
+      gpuDiagnosticsEnabled: true
+      dcgmEnabled: true   # optional: dcgm_* checks; requires dcgmi installed on the GPU hosts
+```
+
+For custom nvidia-smi/dcgmi locations or other server knobs (`GPU_DIAG_NVIDIA_SMI_PATH`, `GPU_DIAG_TIMEOUT`, ...), use `additionalEnvVars`.
+
+```bash
+holmes ask "Training jobs on node gpu-worker-3 are slow - check the GPUs for throttling or ECC errors"
+```
+
+## Security Controls
+
+All policy lives in the MCP server; Holmes only maps tool name → approval.
+
+| Control | Description |
+|---------|-------------|
+| **Tool separation** | Read-only tools auto-approve; only `run_kubectl_command` (mutations) requires human approval |
+| **Path policy** | `read_file_from_container` checks the literal path, resolves it in-container with `readlink -f`, re-checks the canonical target and reads that target. Secret/token mounts (`/var/run/secrets`, `/run/secrets`, `/var/secrets`, `/etc/secrets`, `/vault/secrets`, ...), credential files (`.aws`, `.config/gcloud`, `.kube`, `.ssh`, `.env`, `*credentials*`, `*.pem`, `*.key`, `id_rsa*`, ...) and the `/proc`, `/sys`, `/dev` pseudo-filesystems are always denied regardless of configuration. A path that cannot be canonicalized (image without `readlink`) is refused (server >= 1.4.0) |
+| **Command allowlist** | `run_preapproved_kubectl_command` only runs the read-only diagnostics allowlist |
+| **Image allowlist** | `run_preapproved_diagnostic_image` only launches pre-approved, pinned troubleshooting images |
+| **Diagnostic target policy** | With the defaults, `run_preapproved_diagnostic_image` probes are restricted to in-cluster targets; cloud-metadata/link-local addresses are refused and cannot be re-enabled by config while the policy is on. `diagnosticAllowExternalTargets: true` permits external targets, and `diagnosticTargetPolicyEnabled: false` removes the whole layer — see [Diagnostic-pod target policy](#diagnostic-pod-target-policy) |
+| **Verb allowlist** | `run_kubectl_command` only accepts an allowlisted set of verbs |
+| **Flag blocklist** | Flags like `--kubeconfig`, `--context`, `--token`, `--as` are always blocked |
+| **Shell injection protection** | Shell metacharacters are rejected; `shell=False` |
+| **Locked-down mode** | Set `allowArbitraryKubectlCommands: false` to disable `run_kubectl_command` entirely |
+| **Scoped RBAC** | Least-privilege ClusterRole — no `cluster-admin`, no `secrets` |
+| **NetworkPolicy** | Ingress-only, locked to Holmes pods |
+| **Bearer-token auth** | With `auth.enabled: true` (the default), every HTTP request needs a token shared by Holmes and the server — see [Authentication token](#authentication-token) |
+| **Command timeout** | Commands are killed after a configurable timeout (default: 60s) |
+
+### Authentication token
+
+With `auth.enabled: true` (the default), a Helm hook Job creates the Secret
+`<release>-k8s-remediation-mcp-token` with a random token the first time the
+chart is deployed, and both Holmes and the server read it. The token is never
+part of the rendered manifests, so `helm template` and ArgoCD renders are
+identical on every sync and do not restart Holmes. ArgoCD runs the hook as a
+`PreSync` hook. The Secret is not part of the Helm release, so `helm uninstall`
+leaves it in place and a reinstall reuses it. The hook needs a deploy tool that
+runs Helm hooks (Helm, ArgoCD, Flux); if you disable hooks, use `existingSecret`.
+
+To rotate the token, increase `auth.rotation`. The hook replaces the token and
+both pods restart with it in the same upgrade or sync:
+
+```yaml
+mcpAddons:
+  kubernetesRemediation:
+    auth:
+      rotation: 1
+```
+
+If the Secret is deleted, the next upgrade or sync creates a new token and
+restarts both Deployments.
+
+To manage the token yourself instead, set
+`mcpAddons.kubernetesRemediation.auth.existingSecret` to a Secret holding it
+under the key `token`. The chart then runs no hook. After you change that
+Secret, `helm upgrade` restarts both pods; under ArgoCD, also increase
+`auth.rotation`.
+
+## Diagnostic-pod target policy
+
+!!! warning "Requires MCP server image 1.2.0 or newer"
+
+    The `config` keys in this section are read by the MCP server, not by Holmes.
+    On an older image they are passed through and ignored, and probe targets are
+    unrestricted. The Helm chart pins 1.4.0 by default.
+
+`run_preapproved_diagnostic_image` is auto-approved, and the images it launches
+are network-probing tools (`curl`, `dig`, `wget`, `tcpdump`). The image allowlist
+controls *what runs* but not *where the probe points* — so without a target
+policy, prompt-injected content in your cluster (a pod log, an annotation, an
+alert description) could steer an auto-approved probe at the cloud metadata
+service and have the response handed back to Holmes, or POST cluster data to an
+external collector. No approval prompt would appear, because this tool
+legitimately never asks for one.
+
+Two layers constrain the target:
+
+**1. Target validation in the server**, before any pod is created:
+
+- **Always refused, and not configurable:** cloud metadata and
+  link-local/loopback destinations — `169.254.0.0/16` (AWS/Azure/OpenStack IMDS
+  and ECS task metadata), `127.0.0.0/8`, `0.0.0.0/8`, `100.100.100.200`
+  (Alibaba), `192.0.0.192` (Oracle), `::1`, `fe80::/10`, `fd00:ec2::254`, plus
+  metadata hostnames like `metadata.google.internal`. Recognised in every IPv4
+  spelling (decimal, hex, octal, short forms) and as IPv4-mapped IPv6.
+- **Refused unless you opt in:** targets outside the cluster
+  (`diagnosticAllowExternalTargets`).
+- **Always refused:** redirect-following (`curl -L`), which would let the
+  responding server choose the real target.
+
+**2. An egress NetworkPolicy** on the diagnostic pod, which is the CNI-enforced
+backstop for anything validation cannot see — a DNS name that only resolves to a
+metadata address inside the pod, or `wget` following a redirect it was never told
+to follow. The server labels every diagnostic pod `robusta.dev/diagnostic-pod: "true"`
+and pins `hostNetwork: false` so the policy applies.
+
+!!! important "The NetworkPolicy is not installed by this chart"
+
+    Apply it yourself to **every namespace** Holmes may run diagnostics in —
+    NetworkPolicy is namespaced, and the namespace comes from the caller.
+    Namespaces without it fall back to target validation alone. It is also inert
+    on a CNI that does not enforce NetworkPolicy.
+
+    Note this is a *different* policy from the ingress-only one the chart already
+    renders for the MCP server itself: that one selects the server pod
+    (`app: kubernetes-remediation-mcp`) and restricts inbound traffic, whereas
+    this one selects the short-lived diagnostic pods and restricts their egress.
+
+Save this as `diagnostic-pod-networkpolicy.yaml` and apply it with
+`kubectl apply -f diagnostic-pod-networkpolicy.yaml -n <namespace>`. It ships
+alongside the MCP server, at
+[`servers/kubernetes-remediation/`](https://github.com/robusta-dev/holmes-mcp-integrations/tree/master/servers/kubernetes-remediation)
+in `holmes-mcp-integrations`, which is the canonical copy if the two ever drift.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kubernetes-remediation-diagnostic-pod-egress
+  labels:
+    app: kubernetes-remediation-mcp
+spec:
+  # The MCP server stamps this label on every diagnostic pod it creates, and
+  # pins hostNetwork:false (a host-networked pod is exempt from NetworkPolicy).
+  podSelector:
+    matchLabels:
+      robusta.dev/diagnostic-pod: "true"
+  policyTypes:
+    - Egress
+  egress:
+    # Cluster DNS, so service names still resolve. Scoped with `to:` — a rule
+    # carrying only `ports` would match ALL destinations on port 53, turning DNS
+    # into an exfiltration channel out of the cluster.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # In-cluster (RFC1918) destinations only. An egress policy denies whatever it
+    # does not allow, so cloud metadata (169.254.0.0/16), loopback (127.0.0.0/8),
+    # 0.0.0.0/8, 100.100.100.200 (Alibaba), 192.0.0.192 (Oracle) and the public
+    # internet are all denied by omission — none of them fall inside these blocks.
+    # Also covers DNS sent to the kube-dns Service ClusterIP on CNIs that evaluate
+    # policy before kube-proxy's DNAT.
+    - to:
+        - ipBlock:
+            cidr: 10.0.0.0/8
+        - ipBlock:
+            cidr: 172.16.0.0/12
+        - ipBlock:
+            cidr: 192.168.0.0/16
+```
+
+Two things to check against your cluster: `kubernetes.io/metadata.name` is set on
+every namespace automatically from Kubernetes 1.21, and CoreDNS carries
+`k8s-app: kube-dns` on both kubeadm and k3s — adjust the selector if your DNS
+provider differs. And if your **Service CIDR is outside RFC1918**, add it as an
+`ipBlock` or in-cluster resolution will break.
+
+If you set `diagnosticAllowExternalTargets: true`, widen the `ipBlock` to
+`0.0.0.0/0` but add the denied ranges back as `except` entries — this policy
+should never be looser than the server-side checks it backs up.
+
+Verify your CNI actually enforces it before relying on it:
+
+```bash
+kubectl run np-test --rm -i --restart=Never -n <namespace> \
+  --image=curlimages/curl:8.11.1 \
+  --overrides='{"metadata":{"labels":{"robusta.dev/diagnostic-pod":"true"}}}' \
+  -- curl -s -m 5 http://169.254.169.254/    # must time out, not answer
+```
+
+### If a legitimate probe is refused
+
+Refusals name the rule and the fix, and Holmes will usually correct itself. The
+most common case is a namespace-qualified short name: `kubernetes.default` is
+refused because by shape it is indistinguishable from an external domain — use
+the FQDN `kubernetes.default.svc.cluster.local`.
+
+Otherwise, in order of preference:
+
+1. **Custom cluster domain** → set `diagnosticInternalDnsSuffixes`.
+2. **Legitimate external probing** (egress checks, reaching a known external API)
+   → set `diagnosticAllowExternalTargets: true`. Metadata and link-local stay refused.
+3. **A one-off that genuinely needs a restricted target** → use
+   `run_kubectl_command`, which asks a human first.
+4. **Last resort** → `diagnosticTargetPolicyEnabled: false`.
+
+!!! danger "`diagnosticTargetPolicyEnabled: false` disables all target checks"
+
+    This includes the cloud-metadata ranges that are otherwise not configurable,
+    and restores the pre-1.2.0 behaviour: an auto-approved probe can be pointed
+    at the metadata service and its response returned to Holmes. The server logs
+    a warning at startup and on every call while it is off. Apply the egress
+    NetworkPolicy first if you set this, since it becomes your only remaining
+    control. The image allowlist, shell-metacharacter rejection and
+    flag-injection guard are unaffected.
+
+## Configuration Reference
+
+| Helm value (`config.*`) | Default | Purpose |
+|-------------------------|---------|---------|
+| `allowedCommands` | `edit,patch,delete,scale,rollout,cordon,uncordon,drain,taint,label,annotate,run,exec` | Hard verb allowlist for `run_kubectl_command` |
+| `dangerousFlags` | `--kubeconfig,--context,--cluster,--user,--token,--as,--as-group,--as-uid` | Blocked flags |
+| `preapprovedCommands` | `exec * -- ps*,...,exec * -- ss*` | `run_preapproved_kubectl_command` allowlist |
+| `diagnosticImages` | `nicolaka/netshoot:v0.13,busybox:1.37.0,curlimages/curl:8.11.1` | `run_preapproved_diagnostic_image` allowlist |
+| `diagnosticTargetPolicyEnabled` | `true` | master switch for the [target policy](#diagnostic-pod-target-policy); `false` disables **all** target checks |
+| `diagnosticAllowExternalTargets` | `false` | allow diagnostic probes to reach hosts outside the cluster |
+| `diagnosticInternalDnsSuffixes` | `.svc,.svc.cluster.local,.cluster.local` | DNS suffixes counted as cluster-internal (set for a custom cluster domain) |
+| `fileReadAllowedPaths` | `/app,/config,/data,/etc,/home,/opt,/srv,/tmp,/usr,/var/lib,/var/log,/var/tmp,/var/www,/workspace` | `read_file_from_container` allow roots (explicit; avoid `/`) |
+| `fileReadDeniedPaths` | `/var/run/secrets/,/run/secrets/,...` | operator denylist, applied on top of the server's built-in hard-denied roots and credential patterns |
+| `fileReadRequireCanonicalization` | `true` | refuse reads the container cannot resolve with `readlink -f` (server >= 1.4.0); `false` restores fail-open |
+| `allowArbitraryKubectlCommands` | `true` | enable the approval-gated fallback |
+| `timeout` | `60` | per-command timeout (s) |
+
+## Common Use Cases
+
+```bash
+holmes ask "Read /app/config.yaml from the checkout-api pod and tell me what database host it points to"
+```
+
+```bash
+holmes ask "From inside the production cluster, check whether the payments service DNS resolves and the endpoint is reachable"
+```
+
+```bash
+holmes ask "Restart the payment-service deployment in the production namespace"
+```
+
+```bash
+holmes ask "The checkout-api pods are crashlooping - investigate and fix"
+```
+
+## Additional Resources
+
+- [Kubernetes Remediation MCP Server setup guide](https://github.com/robusta-dev/holmes-mcp-integrations/tree/master/servers/kubernetes-remediation)

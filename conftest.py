@@ -1,27 +1,21 @@
-import os
+import json
 import logging
-from tests.llm.conftest import show_llm_summary_report
-from holmes.core.tracing import readable_timestamp, get_active_branch_name
-from tests.llm.utils.braintrust import get_braintrust_url
+import os
+import re
+import urllib.parse
+import urllib.request
 from unittest.mock import MagicMock, patch
+
 import pytest
 import responses as responses_
+
+from holmes.core.tracing import get_active_branch_name, readable_timestamp
+from tests.llm.conftest import show_llm_summary_report
+from tests.llm.utils.braintrust import get_braintrust_url
 
 
 def pytest_addoption(parser):
     """Add custom pytest command line options"""
-    parser.addoption(
-        "--generate-mocks",
-        action="store_true",
-        default=False,
-        help="Generate mock data files during test execution instead of using existing mocks",
-    )
-    parser.addoption(
-        "--regenerate-all-mocks",
-        action="store_true",
-        default=False,
-        help="Regenerate all mock data files, replacing existing ones (implies --generate-mocks)",
-    )
     parser.addoption(
         "--skip-setup",
         action="store_true",
@@ -83,10 +77,68 @@ def pytest_addoption(parser):
         default="",
         help="Comma-separated list of test IDs that are allowed to have setup failures even with --strict-setup-mode",
     )
+    parser.addoption(
+        "--additional-system-prompt-url",
+        action="store",
+        default=None,
+        help="URL returning the additional system prompt text or JSON (expects 'additional_system_prompt' field)",
+    )
 
 
 def pytest_configure(config):
     """Configure pytest settings"""
+    # Disable SSL verification if SSL_VERIFY env var is set to false/0
+    # This is useful for running tests in environments with TLS interception proxies
+    ssl_verify_env = os.environ.get("SSL_VERIFY", "true").lower()
+    if ssl_verify_env in ("false", "0", "no"):
+        try:
+            import litellm
+
+            litellm.ssl_verify = False
+        except ImportError:
+            pass
+
+        # Also patch OpenAI client to use verify=False for httpx
+        try:
+            import httpx
+            import openai
+
+            _original_openai_init = openai.OpenAI.__init__
+
+            def _patched_openai_init(self, *args, **kwargs):
+                if "http_client" not in kwargs:
+                    kwargs["http_client"] = httpx.Client(verify=False)
+                return _original_openai_init(self, *args, **kwargs)
+
+            openai.OpenAI.__init__ = _patched_openai_init
+        except ImportError:
+            pass
+
+    # Auto-derive CONFLUENCE_SA_BASE_URL from CONFLUENCE_BASE_URL if not already set.
+    # SA tokens require the Atlassian Cloud API gateway (api.atlassian.com/ex/confluence/{cloudId}/...)
+    # rather than the direct instance URL. We discover the cloud ID via the public tenant_info endpoint.
+    confluence_base = os.environ.get("CONFLUENCE_BASE_URL")
+    if confluence_base and not os.environ.get("CONFLUENCE_SA_BASE_URL"):
+        parsed = urllib.parse.urlparse(confluence_base)
+        if parsed.scheme not in ("http", "https"):
+            logging.warning(
+                f"CONFLUENCE_BASE_URL has unsupported scheme '{parsed.scheme}', skipping SA URL derivation"
+            )
+        else:
+            try:
+                tenant_url = f"{confluence_base.rstrip('/')}/_edge/tenant_info"
+                with urllib.request.urlopen(tenant_url, timeout=10) as resp:
+                    cloud_id = json.loads(resp.read())["cloudId"]
+                os.environ["CONFLUENCE_SA_BASE_URL"] = (
+                    f"https://api.atlassian.com/ex/confluence/{cloud_id}"
+                )
+                os.environ["CONFLUENCE_CLOUD_ID"] = cloud_id
+                logging.info(
+                    f"Auto-derived CONFLUENCE_SA_BASE_URL and CONFLUENCE_CLOUD_ID from cloud ID {cloud_id}"
+                )
+            except Exception as e:
+                logging.warning(f"Could not auto-derive CONFLUENCE_SA_BASE_URL: {e}")
+
     # Configure worker-specific log files for xdist compatibility
     # worker_id = getattr(config, "workerinput", {}).get("workerid", "master")
     # if worker_id != "master":
@@ -215,6 +267,7 @@ def responses():
             "https://api.eu.newrelic.com/graphql"
         )  # Allow New Relic API calls
         rsps.add_passthru("http://localhost")
+        rsps.add_passthru("https://oauth2.googleapis.com")  # Vertex AI auth
 
         # Allow all Datadog API calls to pass through (all regions and endpoints)
         rsps.add_passthru("https://api.datadoghq.com")
@@ -225,5 +278,44 @@ def responses():
         rsps.add_passthru("https://api.ap1.datadoghq.com")
         rsps.add_passthru("https://app.datadoghq.com")
         rsps.add_passthru("https://app.datadoghq.eu")
-        rsps.add_passthru("https://ng-api-http.eu2.coralogix.com")
+        # Allow all Coralogix API calls (query and ingestion endpoints, all regions)
+        rsps.add_passthru(re.compile(r"https://.*\.coralogix\.com"))
+        rsps.add_passthru(re.compile(r"https://.*\.coralogix\.us"))
+        rsps.add_passthru(re.compile(r"https://.*\.coralogix\.in"))
+        # Coralogix docs site (domain-table drift check in test_domain_map_sync.py)
+        rsps.add_passthru("https://coralogix.com")
+
+        # Allow Elasticsearch/OpenSearch Cloud API calls (various hosting regions)
+        rsps.add_passthru(re.compile(r"https://.*\.cloud\.es\.io"))  # Elastic Cloud
+        rsps.add_passthru(re.compile(r"https://.*\.elastic-cloud\.com"))  # Azure-hosted
+        rsps.add_passthru(
+            re.compile(r"https://.*\.es\.amazonaws\.com")
+        )  # AWS OpenSearch
+
+        # Allow Confluence/Atlassian Cloud API calls
+        rsps.add_passthru(re.compile(r"https://.*\.atlassian\.net"))
+        rsps.add_passthru("https://api.atlassian.com")  # Atlassian Cloud API gateway
+
+        # Allow
+        rsps.add_passthru("https://google.com")
+        rsps.add_passthru("https://burgergooglenetworkspam.co.uk")
+        rsps.add_passthru("https://www.google.com")
+        rsps.add_passthru("https://www.burgergooglenetworkspam.co.uk")
+        # example.com — stable public host for the internet-toolset SSRF eval
+        # (286_internet_fetch_public_url_allowed).
+        rsps.add_passthru("https://www.example.com")
+        rsps.add_passthru("http://www.example.com")
+        rsps.add_passthru("https://example.com")
+        rsps.add_passthru("http://example.com")
         yield rsps
+
+
+def pytest_collection_modifyitems(config, items):
+    """Auto-skip tests marked with @pytest.mark.manual unless explicitly requested."""
+    markexpr = config.getoption("-m", default="")
+    if "manual" in markexpr:
+        return  # User explicitly requested manual tests
+    skip_manual = pytest.mark.skip(reason="Manual test — run with: pytest -m manual")
+    for item in items:
+        if "manual" in item.keywords:
+            item.add_marker(skip_manual)

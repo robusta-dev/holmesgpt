@@ -1,37 +1,243 @@
-{{- if or (.Values.toolsets | not | empty) .Values.mcpAddons.aws.enabled .Values.mcpAddons.mariadb.enabled }}
+{{- if or (.Values.toolsets | not | empty) .Values.mcpAddons.aws.enabled .Values.mcpAddons.gcp.enabled .Values.mcpAddons.azure.enabled .Values.mcpAddons.github.enabled .Values.mcpAddons.gitlabMcp.enabled .Values.mcpAddons.sentry.enabled .Values.mcpAddons.prefect.enabled .Values.mcpAddons.kubernetesRemediation.enabled .Values.mcpAddons.kubernetes.enabled .Values.mcpAddons.confluenceMcp.enabled }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: custom-toolsets-configmap
   namespace: {{ .Release.Namespace }}
+  {{- with (include "holmes.commonLabels" .) }}
+  labels:
+    {{- . | nindent 4 }}
+  {{- end }}
+  {{- with (include "holmes.commonAnnotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
 data:
   custom_toolset.yaml: |-
-    toolsets: {{ toYaml .Values.toolsets | nindent 6 }}
+    {{- $toolsets := .Values.toolsets }}
+    {{- if .Values.k8sRBAC }}
+    {{- $rbacOverrides := dict "kubernetes/core" (dict "enabled" false) "kubernetes/logs" (dict "enabled" false) "bash" (dict "enabled" false) }}
+    {{- $toolsets = mergeOverwrite $toolsets $rbacOverrides }}
+    {{- end }}
+    toolsets: {{ toYaml $toolsets | nindent 6 }}
     {{- $mcpServers := .Values.mcp_servers }}
     {{- if .Values.mcpAddons.aws.enabled }}
     {{- $awsMcpServers := dict "aws_api" (dict
         "description" "AWS API MCP Server - comprehensive AWS service access. Allow executing any AWS CLI commands."
-        "url" (printf "http://%s-aws-mcp-server.%s.svc.cluster.local:8000" .Release.Name (.Values.mcpAddons.aws.config.namespace | default .Release.Namespace))
+        "config" (dict
+          "url" (printf "http://%s-aws-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name (.Values.mcpAddons.aws.config.namespace | default .Release.Namespace))
+          "mode" "streamable-http"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/aws.svg"
+        )
         "llm_instructions" (include "holmes.awsMcp.llmInstructions" . | trim)
       )
     }}
     {{- $mcpServers = merge $mcpServers $awsMcpServers }}
     {{- end }}
-    {{- if .Values.mcpAddons.mariadb.enabled }}
-    {{- $mariadbMcpServers := dict "mariadb" (dict
-        "description" "MariaDB database troubleshooting and monitoring MCP server"
+    {{- if .Values.mcpAddons.azure.enabled }}
+    {{- $azureMcpServers := dict "azure_api" (dict
+        "description" "Azure API MCP Server - comprehensive Azure service access. Execute any Azure CLI commands."
         "config" (dict
-          "url" (printf "http://%s-mariadb-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name (.Values.mcpAddons.mariadb.config.namespace | default .Release.Namespace))
+          "url" (printf "http://%s-azure-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name (.Values.mcpAddons.azure.config.namespace | default .Release.Namespace))
           "mode" "streamable-http"
-          "headers" (dict "Content-Type" "application/json")
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/microsoft-azure.svg"
         )
-        "llm_instructions" (include "holmes.mariadbMcp.llmInstructions" . | trim)
+        "llm_instructions" (include "holmes.azureMcp.llmInstructions" . | trim)
       )
     }}
-    {{- $mcpServers = merge $mcpServers $mariadbMcpServers }}
+    {{- $mcpServers = merge $mcpServers $azureMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.gcp.enabled }}
+    {{- $gcpMcpServers := dict }}
+    {{- if .Values.mcpAddons.gcp.gcloud.enabled }}
+    {{- $gcpMcpServers = merge $gcpMcpServers (dict "gcp_gcloud" (dict
+        "description" "Google Cloud management via gcloud CLI"
+        "config" (dict
+          "url" (printf "http://%s-gcp-mcp-server.%s.svc.cluster.local:%d/sse" .Release.Name (.Values.mcpAddons.gcp.config.namespace | default .Release.Namespace) (int .Values.mcpAddons.gcp.gcloud.port))
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/google-cloud.svg"
+        )
+        "llm_instructions" (include "holmes.gcpMcp.gcloud.llmInstructions" . | trim)
+      ))
+    }}
+    {{- end }}
+    {{- if .Values.mcpAddons.gcp.observability.enabled }}
+    {{- $gcpMcpServers = merge $gcpMcpServers (dict "gcp_observability" (dict
+        "description" "GCP Observability - logs, metrics, traces, errors"
+        "config" (dict
+          "url" (printf "http://%s-gcp-mcp-server.%s.svc.cluster.local:%d/sse" .Release.Name (.Values.mcpAddons.gcp.config.namespace | default .Release.Namespace) (int .Values.mcpAddons.gcp.observability.port))
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/google-cloud.svg"
+        )
+        "llm_instructions" (include "holmes.gcpMcp.observability.llmInstructions" . | trim)
+      ))
+    }}
+    {{- end }}
+    {{- if .Values.mcpAddons.gcp.storage.enabled }}
+    {{- $gcpMcpServers = merge $gcpMcpServers (dict "gcp_storage" (dict
+        "description" "Google Cloud Storage operations"
+        "config" (dict
+          "url" (printf "http://%s-gcp-mcp-server.%s.svc.cluster.local:%d/sse" .Release.Name (.Values.mcpAddons.gcp.config.namespace | default .Release.Namespace) (int .Values.mcpAddons.gcp.storage.port))
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/google-cloud.svg"
+        )
+        "llm_instructions" (include "holmes.gcpMcp.storage.llmInstructions" . | trim)
+      ))
+    }}
+    {{- end }}
+    {{- $mcpServers = merge $mcpServers $gcpMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.github.enabled }}
+    {{- if .Values.mcpAddons.github.auth.githubApp.secretName }}
+    {{/* No health_check_tool: App installation tokens 403 on /user, so get_me is not a valid auth probe. Combined with the deployment.yaml change that strips 'context' from GITHUB_TOOLSETS, Holmes auto-detect finds no identity tool and skips the auth health check. */}}
+    {{- $githubConfig := dict
+        "url" (printf "http://%s-github-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name .Release.Namespace)
+        "mode" "streamable-http"
+        "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/github.svg"
+    }}
+    {{- $githubMcpServers := dict "github" (dict
+        "description" "GitHub MCP Server - access repositories, pull requests, issues, and GitHub Actions. Debug CI failures, search code, and delegate tasks to Copilot."
+        "config" $githubConfig
+        "llm_instructions" (include "holmes.githubMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $githubMcpServers }}
+    {{- else }}
+    {{- /* PAT path: native streamable HTTP (github-mcp-server v1.4.0+).
+           Auth is per-request Bearer; the PAT is mounted as env on the Holmes
+           pod (see holmes.yaml) and rendered into the header via Jinja. */ -}}
+    {{- $githubConfig := dict
+        "url" (printf "http://%s-github-mcp-server.%s.svc.cluster.local:8000/" .Release.Name .Release.Namespace)
+        "mode" "streamable-http"
+        "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/github.svg"
+        "health_check_tool" "get_me"
+        "extra_headers" (dict
+          "Authorization" "Bearer {{ env.GITHUB_PERSONAL_ACCESS_TOKEN }}"
+        )
+    }}
+    {{- $githubMcpServers := dict "github" (dict
+        "description" "GitHub MCP Server - access repositories, pull requests, issues, and GitHub Actions. Debug CI failures, search code, and delegate tasks to Copilot."
+        "config" $githubConfig
+        "llm_instructions" (include "holmes.githubMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $githubMcpServers }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.mcpAddons.gitlabMcp.enabled }}
+    {{- $gitlabMcpServers := dict "gitlab" (dict
+        "description" "GitLab MCP Server - access projects, merge requests, issues, pipelines, and code. Debug CI failures, search code, and create MRs."
+        "config" (dict
+          "url" (printf "http://%s-gitlab-mcp-server.%s.svc.cluster.local:8000/sse" .Release.Name .Release.Namespace)
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/gitlab.svg"
+          "health_check_tool" "whoami"
+        )
+        "llm_instructions" (include "holmes.gitlabMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $gitlabMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.sentry.enabled }}
+    {{- $sentryMcpServers := dict "sentry" (dict
+        "description" "Sentry error tracking and monitoring - search issues, get stack traces, and analyze error patterns"
+        "config" (dict
+          "url" (printf "http://%s-sentry-mcp-server.%s.svc.cluster.local:8000/sse" .Release.Name .Release.Namespace)
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/sentry.svg"
+        )
+        "llm_instructions" (include "holmes.sentryMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $sentryMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.prefect.enabled }}
+    {{- $prefectMcpServers := dict "prefect" (dict
+        "description" "Prefect workflow orchestration - monitor flow runs, check deployments, and troubleshoot failures"
+        "config" (dict
+          "url" (printf "http://%s-prefect-mcp-server.%s.svc.cluster.local:8000/sse" .Release.Name .Release.Namespace)
+          "mode" "sse"
+          "icon_url" "https://cdn.simpleicons.org/prefect/024DFD"
+        )
+        "llm_instructions" (include "holmes.prefectMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $prefectMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.kubernetesRemediation.enabled }}
+    {{- $k8sRemediationConfig := dict
+        "url" (printf "http://%s-k8s-remediation-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name .Release.Namespace)
+        "mode" "streamable-http"
+        "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/kubernetes.svg"
+    }}
+    {{- if .Values.mcpAddons.kubernetesRemediation.auth.enabled }}
+    {{- /* The server rejects requests without this bearer token (image >= 1.2.0).
+           The token is mounted as env on the Holmes pod from the auth Secret
+           (see holmes.yaml) and rendered into the header via Jinja. */}}
+    {{- $_ := set $k8sRemediationConfig "extra_headers" (dict
+          "Authorization" "Bearer {{ env.K8S_REMEDIATION_MCP_TOKEN }}"
+        )
+    }}
+    {{- end }}
+    {{- $k8sRemediationMcpServers := dict "kubernetes_remediation" (dict
+        "description" "Kubernetes remediation & deep diagnostics - execute kubectl and run diagnostic pods"
+        "config" $k8sRemediationConfig
+        "llm_instructions" (include "holmes.kubernetesRemediationMcp.llmInstructions" . | trim)
+        "approval_required_tools" .Values.mcpAddons.kubernetesRemediation.approvalRequiredTools
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $k8sRemediationMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.kubernetes.enabled }}
+    {{- $k8sMcpConfig := dict
+          "url" (printf "http://%s-k8s-mcp-server.%s.svc.cluster.local:8000/mcp" .Release.Name .Release.Namespace)
+          "mode" "streamable-http"
+          "icon_url" "https://cdn.simpleicons.org/kubernetes/326CE5"
+    }}
+    {{- with .Values.mcpAddons.kubernetes.config.oauth }}
+    {{- if . }}
+    {{- $_ := set $k8sMcpConfig "oauth" . }}
+    {{- end }}
+    {{- end }}
+    {{- $k8sMcpServers := dict "kubernetes" (dict
+        "description" "Kubernetes cluster access - pods, events, logs, resources, nodes, and namespaces"
+        "config" $k8sMcpConfig
+        "llm_instructions" (include "holmes.kubernetesMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $k8sMcpServers }}
+    {{- end }}
+    {{- if .Values.mcpAddons.confluenceMcp.enabled }}
+    {{- $confluenceMcpServers := dict "confluence_mcp" (dict
+        "description" "Confluence documentation search and retrieval - find runbooks and internal documentation"
+        "config" (dict
+          "url" (printf "http://%s-confluence-mcp-server.%s.svc.cluster.local:8000/sse" .Release.Name .Release.Namespace)
+          "mode" "sse"
+          "icon_url" "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/confluence.svg"
+        )
+        "llm_instructions" (include "holmes.confluenceMcp.llmInstructions" . | trim)
+      )
+    }}
+    {{- $mcpServers = merge $mcpServers $confluenceMcpServers }}
     {{- end }}
     mcp_servers: {{ toYaml $mcpServers | nindent 6 }}
   model_list.yaml: |-
-    {{ .Values.modelList | toYaml | nindent 4 }}
+    {{- /*
+      Rewrite any string value in modelList that starts with `envRef:VAR`
+      to the runtime template `"{{ env.VAR }}"`. The corresponding env var
+      must be present on the Holmes pod — set `extraEnvVarsSecrets` (or add
+      `additional_env_froms` / `additionalEnvVars`) so it is.
+
+      The regex is anchored to the value position of a YAML mapping (i.e.
+      `key: envRef:VAR` at end-of-line) so `envRef:` occurring inside
+      a longer string (e.g. inside a `notes:` or `description:` field) is
+      left untouched. Helm's `toYaml` always emits scalar values as unquoted
+      plain scalars in `key: value` form, so this anchor covers every
+      real-world usage.
+    */ -}}
+    {{- $rendered := .Values.modelList | toYaml -}}
+    {{- $replacement := printf ": \"%s env.${1} %s\"" "{{" "}}" -}}
+    {{- $rewritten := regexReplaceAll "(?m): envRef:([A-Za-z_][A-Za-z0-9_]*)$" $rendered $replacement -}}
+    {{ $rewritten | nindent 4 }}
 
 {{- end }}

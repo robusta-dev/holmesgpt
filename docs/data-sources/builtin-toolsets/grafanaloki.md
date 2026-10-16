@@ -17,15 +17,25 @@ Connect HolmesGPT to Loki for log analysis through Grafana or direct API access.
 
 ## Configuration
 
-Choose one of the following methods:
+HolmesGPT supports three ways to connect to Loki. Pick the one that matches your setup:
 
-### Option 1: Through Grafana (Recommended)
+| Setup | When to use |
+|-------|-------------|
+| [Self-Hosted Loki via Grafana Proxy](#self-hosted-loki-via-grafana-proxy) (recommended) | You run your own Grafana with a Loki datasource configured |
+| [Self-Hosted Loki - Direct Connection](#self-hosted-loki-direct-connection) | Self-hosted Loki without Grafana, including multi-tenant setups needing `X-Scope-OrgID` |
+| [Grafana Cloud](#grafana-cloud) | Your Grafana Cloud stack (queries Loki via your Grafana Cloud Grafana) |
+
+### Self-Hosted Loki via Grafana Proxy
+
+HolmesGPT queries your self-hosted Loki through your Grafana instance's datasource proxy. Recommended when you already have Grafana — it handles authentication and you only need one API key. This is also the only mode that produces clickable "View in Grafana" links in Holmes's responses.
 
 **Required:**
+
 - [Grafana service account token](https://grafana.com/docs/grafana/latest/administration/service-accounts/) with Viewer role
 - Loki datasource UID from Grafana
 
 **Find your Loki datasource UID:**
+
 ```bash
 # Port forward to Grafana
 kubectl port-forward svc/grafana 3000:80
@@ -34,65 +44,97 @@ kubectl port-forward svc/grafana 3000:80
 curl -s -u admin:admin http://localhost:3000/api/datasources | jq '.[] | select(.type == "loki") | .uid'
 ```
 
-### Configuration (Grafana Proxy)
-
 ```yaml-toolset-config
 toolsets:
   grafana/loki:
     enabled: true
     config:
+      api_url: http://grafana.monitoring.svc.cluster.local  # Your Grafana URL
       api_key: <your grafana API key>
-      url: https://xxxxxxx.grafana.net # Your Grafana cloud account URL
       grafana_datasource_uid: <the UID of the loki data source in Grafana>
-
-  kubernetes/logs:
-    enabled: false # HolmesGPT's default logging mechanism MUST be disabled
 ```
 
-## Direct Connection
+### Self-Hosted Loki - Direct Connection
 
-The toolset can directly connect to a Loki instance without proxying through a Grafana instance. This is done by not setting the `grafana_datasource_uid` field. Not setting this field makes HolmesGPT assume that it is directly connecting to Loki.
-
-### Configuration (Direct Connection)
+HolmesGPT connects directly to a self-hosted Loki API endpoint without going through Grafana.
 
 ```yaml-toolset-config
 toolsets:
   grafana/loki:
     enabled: true
     config:
-      url: http://loki.logging
-      headers:
-        X-Scope-OrgID: "<tenant id>" # Set the X-Scope-OrgID if loki multitenancy is enabled
+      api_url: http://loki.monitoring.svc.cluster.local:3100
+      additional_headers:
+        X-Scope-OrgID: "<tenant id>"  # Only needed for multi-tenant Loki
+```
 
-  kubernetes/logs:
-    enabled: false # HolmesGPT's default logging mechanism MUST be disabled
+### Grafana Cloud
+
+Query Loki through your Grafana Cloud Grafana instance's datasource proxy. Same flow as the self-hosted proxy option, just pointed at your Grafana Cloud URL.
+
+**Required:**
+
+- Your Grafana Cloud Grafana URL (e.g., `https://myorg.grafana.net`)
+- A Grafana Cloud service account token with Viewer role
+- Loki datasource UID from your Grafana Cloud Grafana
+
+**Find your Loki datasource UID:**
+
+In your Grafana Cloud Grafana UI → Connections → Data sources → click on the Loki datasource. The UID appears in the URL. Or via the API:
+
+```bash
+curl -s -H "Authorization: Bearer <service-account-token>" https://<your-stack>.grafana.net/api/datasources | jq '.[] | select(.type == "loki") | .uid'
+```
+
+```yaml-toolset-config
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_url: https://<your-stack>.grafana.net
+      api_key: <grafana cloud service account token>
+      grafana_datasource_uid: <the UID of the Loki datasource>
+```
+
+## Multiple Instances
+
+```multi-instance
+toolset: grafana/loki
+name: Grafana Loki
+config: |
+  api_url: http://grafana.monitoring.svc.cluster.local
+  api_key: <your grafana API key>
+  grafana_datasource_uid: <the UID of the Loki datasource>
 ```
 
 ## Advanced Configuration
 
-### Search Labels
+### SSL Verification
 
-You can tweak the labels used by the toolset to identify Kubernetes resources. This is only needed if your Loki logs settings for `pod` and `namespace` differ from the defaults.
+For self-signed certificates, you can disable SSL verification:
 
 ```yaml-toolset-config
 toolsets:
   grafana/loki:
     enabled: true
     config:
-      url: ...
-      labels:
-          pod: "pod"
-          namespace: "namespace"
+      api_url: https://loki.internal
+      verify_ssl: false  # Disable SSL verification (default: true)
 ```
 
-Use the following commands to list Loki's labels and determine which ones to use:
+### External URL
 
-```bash
-# Make Loki accessible locally
-kubectl port-forward svc/loki 3100:3100
+Only applies to the **Self-Hosted Loki via Grafana Proxy** setup. If HolmesGPT reaches Grafana through an internal URL but you want the clickable "View in Grafana" links in responses to use a public URL:
 
-# List all labels. You may have to add the -H 'X-Scope-OrgID:<org id>' option with a valid org id
-curl http://localhost:3100/loki/api/v1/labels
+```yaml-toolset-config
+toolsets:
+  grafana/loki:
+    enabled: true
+    config:
+      api_url: http://grafana.monitoring.svc.cluster.local  # Internal URL for API calls
+      api_key: <your grafana API key>
+      grafana_datasource_uid: <loki datasource UID>
+      external_url: https://grafana.example.com  # URL used in clickable links
 ```
 
 ## Capabilities

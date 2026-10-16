@@ -1,8 +1,11 @@
-from typing import Dict, Optional, Tuple
-import os
 import json
+import os
+from typing import ClassVar, Dict, List, Optional, Tuple, Type
 from urllib.parse import quote
+
 from holmes.core.tools import (
+    StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolInvokeContext,
     ToolParameter,
@@ -10,22 +13,27 @@ from holmes.core.tools import (
 from holmes.plugins.toolsets.consts import (
     STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION,
 )
-from holmes.plugins.toolsets.grafana.common import get_base_url, GrafanaConfig
-from holmes.plugins.toolsets.grafana.toolset_grafana import BaseGrafanaToolset
-from holmes.plugins.toolsets.utils import (
-    process_timestamps_to_rfc3339,
-    standard_start_datetime_tool_param_description,
-)
-from holmes.plugins.toolsets.logging_utils.logging_api import (
-    DEFAULT_TIME_SPAN_SECONDS,
-    DEFAULT_LOG_LIMIT,
+from holmes.plugins.toolsets.grafana.common import (
+    DirectLokiConfig,
+    GrafanaCloudLokiConfig,
+    GrafanaConfig,
+    GrafanaLokiProxyConfig,
+    build_auth,
+    get_base_url,
 )
 from holmes.plugins.toolsets.grafana.loki_api import (
     execute_loki_query,
 )
-
-from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.plugins.toolsets.grafana.toolset_grafana import BaseGrafanaToolset
+from holmes.plugins.toolsets.logging_utils.logging_api import (
+    DEFAULT_LOG_LIMIT,
+    DEFAULT_TIME_SPAN_SECONDS,
+)
+from holmes.plugins.toolsets.utils import (
+    process_timestamps_to_rfc3339,
+    standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
+)
 
 
 def _build_grafana_loki_explore_url(
@@ -34,7 +42,7 @@ def _build_grafana_loki_explore_url(
     if not config.grafana_datasource_uid:
         return None
     try:
-        base_url = config.external_url or config.url
+        base_url = config.external_url or config.api_url
         datasource_uid = config.grafana_datasource_uid or "loki"
 
         from_str = start if start else "now-1h"
@@ -67,6 +75,16 @@ def _build_grafana_loki_explore_url(
 
 
 class GrafanaLokiToolset(BaseGrafanaToolset):
+    # base_grafana_toolset tries each class in order and uses the first that
+    # validates. The proxy variant is listed first because it matches the
+    # recommended path in the docs and existing configs with grafana_datasource_uid
+    # continue to parse successfully against it.
+    config_classes: ClassVar[List[Type[GrafanaConfig]]] = [
+        GrafanaLokiProxyConfig,
+        DirectLokiConfig,
+        GrafanaCloudLokiConfig,
+    ]
+
     def health_check(self) -> Tuple[bool, str]:
         """Test a dummy query to check if service available."""
         (start, end) = process_timestamps_to_rfc3339(
@@ -80,11 +98,15 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
             _ = execute_loki_query(
                 base_url=get_base_url(c),
                 api_key=c.api_key,
-                headers=c.headers,
+                headers=c.additional_headers,
                 query='{job="test_endpoint"}',
                 start=start,
                 end=end,
                 limit=1,
+                verify_ssl=c.verify_ssl,
+                timeout=c.timeout_seconds,
+                max_retries=c.max_retries,
+                auth=build_auth(c),
             )
         except Exception as e:
             return False, f"Unable to connect to Loki.\n{str(e)}"
@@ -94,7 +116,7 @@ class GrafanaLokiToolset(BaseGrafanaToolset):
         super().__init__(
             name="grafana/loki",
             description="Runs loki log queries using Grafana Loki or Loki directly.",
-            icon_url="https://grafana.com/media/docs/loki/logo-grafana-loki.png",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/grafana.svg",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanaloki/",
             tools=[],
         )
@@ -151,11 +173,15 @@ class LokiQuery(Tool):
             data = execute_loki_query(
                 base_url=get_base_url(config),
                 api_key=config.api_key,
-                headers=config.headers,
+                headers=config.additional_headers,
                 query=query_str,
                 start=start,
                 end=end,
                 limit=params.get("limit") or DEFAULT_LOG_LIMIT,
+                verify_ssl=config.verify_ssl,
+                timeout=config.timeout_seconds,
+                max_retries=config.max_retries,
+                auth=build_auth(config),
             )
 
             explore_url = _build_grafana_loki_explore_url(

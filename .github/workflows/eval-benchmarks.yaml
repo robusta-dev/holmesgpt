@@ -1,32 +1,55 @@
-name: Run full eval benchmarks
+name: Run eval benchmarks
 
 on:
   # Allow manual trigger
   workflow_dispatch:
     inputs:
+      benchmark_type:
+        description: 'Benchmark type (fast-benchmark, full-benchmark or advanced-benchmark). Cannot be combined with custom test_markers.'
+        required: false
+        type: choice
+        options:
+          - 'fast-benchmark'
+          - 'full-benchmark'
+          - 'advanced-benchmark'
+        default: 'fast-benchmark'
       models:
-        description: 'Comma-separated list of models to test (e.g., gpt-4o,claude-sonnet-4)'
+        description: 'Comma-separated list of models to test'
         required: false
-        default: 'gpt-4o,gpt-4.1,gpt-5,anthropic/claude-sonnet-4-20250514'
+        # NOTE: Keep in sync with DEFAULT_BENCHMARK_MODELS env var
+        default: 'opus-5,sonnet-5,haiku-4.5,gpt-5.4,gpt-5.5,gemini-3.1-pro-preview,qwen-next-80B-instruct,qwen-next-80B-thinking,deepseek-flash,deepseek-v4-pro,kimi-k3,glm-5.3'
       test_markers:
-        description: 'Additional pytest markers (will be combined with "llm" - e.g., "easy", "medium", "logs")'
+        description: 'Custom pytest markers (ONLY use if not using benchmark_type). Cannot be combined with benchmark_type.'
         required: false
-        default: 'easy'
+        default: ''
       iterations:
         description: 'Number of iterations per test (max 10)'
         required: false
-        # TODO: For testing, use just 1 iteration by default
-        default: '1'  # Was: '3'
+        default: '5'
+      create_pr:
+        description: 'Open a PR with the benchmark results. Uncheck to only post a Slack notification (no PR).'
+        required: false
+        type: boolean
+        default: true
+      verify_models:
+        description: 'Run the model config verification step before the benchmarks.'
+        required: false
+        type: boolean
+        default: false
 
-  # TODO: Enable after testing
-  # # Run weekly on Sunday at 2 AM UTC
-  # schedule:
-  #   - cron: '0 2 * * 0'
+  # Run weekly on Sunday at 2 AM UTC
+  schedule:
+    - cron: '0 2 * * 0'
+
+env:
+  # Default models for benchmarks - single source of truth
+  # NOTE: Keep workflow_dispatch default in sync with this for UI display
+  DEFAULT_BENCHMARK_MODELS: 'opus-5,sonnet-5,haiku-4.5,gpt-5.4,gpt-5.5,gemini-3.1-pro-preview,qwen-next-80B-instruct,qwen-next-80B-thinking,deepseek-flash,deepseek-v4-pro,kimi-k3,glm-5.3'
 
 jobs:
   run-benchmarks:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 240
 
     permissions:
       contents: write
@@ -48,85 +71,108 @@ jobs:
           cluster-name: 'kind'
           wait-for-ready: 'true'
 
-      - name: Determine test command
-        id: test-command
+      - name: Build benchmark command
+        id: build-command
+        env:
+          # Read the dispatch inputs via env (not inline ${{ }}) so they are
+          # never parsed as shell. They are emitted below as a JSON argument
+          # array rather than a command string, so the run step can execute
+          # them without a second round of shell parsing either.
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BENCHMARK_TYPE: ${{ github.event.inputs.benchmark_type }}
+          INPUT_TEST_MARKERS: ${{ github.event.inputs.test_markers }}
+          INPUT_MODELS: ${{ github.event.inputs.models }}
+          INPUT_ITERATIONS: ${{ github.event.inputs.iterations }}
         run: |
-          # Set default values from workflow inputs or triggers
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            MODEL="${{ github.event.inputs.models }}"
-            # Always prepend "llm and " to user-provided markers with proper parentheses
-            TEST_MARKERS="llm and (${{ github.event.inputs.test_markers }})"
-            # Cap iterations at 10
-            ITERATIONS="${{ github.event.inputs.iterations }}"
-            if [ "$ITERATIONS" -gt 10 ]; then
-              echo "Capping iterations at 10 (requested: $ITERATIONS)"
-              ITERATIONS="10"
+          ARGS=()
+
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            BENCHMARK_TYPE="$INPUT_BENCHMARK_TYPE"
+
+            # Add benchmark type or custom markers (script validates they're mutually exclusive)
+            if [ -n "$INPUT_TEST_MARKERS" ]; then
+              ARGS+=(--markers "$INPUT_TEST_MARKERS")
+            elif [ -n "$BENCHMARK_TYPE" ]; then
+              ARGS+=(--benchmark-type "$BENCHMARK_TYPE")
             fi
-          elif [ "${{ github.event_name }}" == "schedule" ]; then
-            MODEL="gpt-4o,anthropic/claude-sonnet-4-20250514,gpt-4.1"
-            TEST_MARKERS="llm and (easy)"
-            ITERATIONS="10"
+
+            # Add models only if specified (otherwise use script defaults)
+            if [ -n "$INPUT_MODELS" ]; then
+              ARGS+=(--models "$INPUT_MODELS")
+            fi
+
+            # Add iterations if specified
+            if [ -n "$INPUT_ITERATIONS" ] && [ "$INPUT_ITERATIONS" != "1" ]; then
+              ARGS+=(--iterations "$INPUT_ITERATIONS")
+            fi
+          else
+            # Scheduled run: use fast-benchmark with default models
+            BENCHMARK_TYPE="fast-benchmark"
+            ARGS+=(--benchmark-type fast-benchmark --models "$DEFAULT_BENCHMARK_MODELS")
           fi
 
-          # Set test path and markers separately
-          TEST_PATH="tests/llm/"
+          if [ ${#ARGS[@]} -gt 0 ]; then
+            ARGS_JSON=$(printf '%s\0' "${ARGS[@]}" | jq -Rsc 'split("\u0000")[:-1]')
+          else
+            ARGS_JSON='[]'
+          fi
 
-          # Write all outputs atomically
-          {
-            echo "models=$MODEL"
-            echo "test_path=$TEST_PATH"
-            echo "test_markers=$TEST_MARKERS"
-            echo "iterations=$ITERATIONS"
-          } >> $GITHUB_OUTPUT
+          echo "args_json=$ARGS_JSON" >> "$GITHUB_OUTPUT"
+          echo "benchmark_type=$BENCHMARK_TYPE" >> "$GITHUB_OUTPUT"
+          echo "command_display=./run_benchmarks_local.py ${ARGS[*]}" >> "$GITHUB_OUTPUT"
 
-      - name: Run evaluation benchmarks
+      - name: Create model list file
+        run: |
+          cat > /tmp/model_list.yaml << 'EOF'
+          ${{ secrets.MODEL_LIST_YAML }}
+          EOF
+
+      - name: Verify models
+        if: ${{ inputs.verify_models }}
+        uses: ./.github/actions/verify-models
+        with:
+          models: ${{ github.event.inputs.models || env.DEFAULT_BENCHMARK_MODELS }}
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
           AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
           AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
-          MODEL: ${{ steps.test-command.outputs.models }}
-          ITERATIONS: ${{ steps.test-command.outputs.iterations }}
-          RUN_LIVE: "true"
-          CLASSIFIER_MODEL: "gpt-4o"  # Always use OpenAI for classification
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION_NAME: ${{ vars.AWS_REGION_NAME }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          MODEL_LIST_FILE_LOCATION: /tmp/model_list.yaml
+
+      - name: Run evaluation benchmarks
+        id: run-benchmarks
+        env:
+          AZURE_API_BASE: ${{ secrets.AZURE_API_BASE }}
+          AZURE_API_KEY: ${{ secrets.AZURE_API_KEY }}
+          AZURE_API_VERSION: ${{ secrets.AZURE_API_VERSION }}
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.AWS_BEARER_TOKEN_BEDROCK }}
+          AWS_REGION_NAME: ${{ vars.AWS_REGION_NAME }}
           BRAINTRUST_API_KEY: ${{ secrets.BRAINTRUST_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          MOONSHOT_API_KEY: ${{ secrets.MOONSHOT_API_KEY }}
+          CONFLUENCE_BASE_URL: ${{ secrets.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_API_KEY: ${{ secrets.CONFLUENCE_API_KEY }}
+          ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
+          ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+          MODEL_LIST_FILE_LOCATION: /tmp/model_list.yaml
           EXPERIMENT_ID: "ci-benchmark-${{ github.run_id }}"
-          UPLOAD_DATASET: "true"
+          BENCHMARK_ARGS_JSON: ${{ steps.build-command.outputs.args_json }}
         run: |
-          poetry run pytest "${{ steps.test-command.outputs.test_path }}" \
-            -m "${{ steps.test-command.outputs.test_markers }}" \
-            --no-cov \
-            --tb=short \
-            -v \
-            --strict-setup-mode \
-            --strict-setup-exceptions=22_high_latency_dbi_down \
-            --json-report \
-            --json-report-file=eval_results.json \
-            || true  # Don't fail the workflow if tests fail
-
-          # TODO: For testing, show what would be run
-          echo "==== Test execution summary ===="
-          echo "Models: ${{ steps.test-command.outputs.models }}"
-          echo "Markers: ${{ steps.test-command.outputs.test_markers }}"
-          echo "Iterations: ${{ steps.test-command.outputs.iterations }}"
-          echo "================================"
-
-      - name: Generate benchmark report
-        if: always()
-        run: |
-          # Generate latest results
-          poetry run python tests/generate_eval_report.py \
-            --json-file eval_results.json \
-            --output-file docs/development/evaluations/latest-results.md \
-            --models "${{ steps.test-command.outputs.models }}"
-
-          # Also generate timestamped version for history
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          poetry run python tests/generate_eval_report.py \
-            --json-file eval_results.json \
-            --output-file "docs/development/evaluations/history/weekly/results_${TIMESTAMP}.md" \
-            --models "${{ steps.test-command.outputs.models }}"
+          # Read the arguments back as an array. Executing "${ARGS[@]}" passes
+          # each element as one argv entry with no shell re-parsing, so a
+          # crafted dispatch input cannot reach the secrets in this step's env.
+          mapfile -t -d '' ARGS < <(jq -j '.[] | (., "\u0000")' <<< "$BENCHMARK_ARGS_JSON")
+          echo "Running: ./run_benchmarks_local.py ${ARGS[*]}"
+          ./run_benchmarks_local.py "${ARGS[@]}"
 
       - name: Upload eval results
         if: always()
@@ -134,20 +180,93 @@ jobs:
         with:
           name: eval-results-${{ github.run_id }}
           path: |
+            docs/development/evaluations/fast-benchmark-results.md
+            docs/development/evaluations/full-benchmark-results.md
             docs/development/evaluations/latest-results.md
+            eval_results.json
 
-      # TODO: Enable after testing
-      # - name: Commit benchmark results
-      #   if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-      #   run: |
-      #     git config --local user.email "github-actions[bot]@users.noreply.github.com"
-      #     git config --local user.name "github-actions[bot]"
-      #
-      #     # Copy results to historical directory with timestamp
-      #     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-      #     mkdir -p docs/development/evaluations/history
-      #     cp docs/development/evaluations/latest-results.md "docs/development/evaluations/history/results_${TIMESTAMP}.md"
-      #
-      #     git add docs/development/evaluations/
-      #     git diff --staged --quiet || git commit -m "Update benchmark results [skip ci]"
-      #     git push
+      - name: Create PR with benchmark results
+        id: create-pr
+        if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_pr == 'true'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BENCHMARK_TYPE_OUT: ${{ steps.build-command.outputs.benchmark_type }}
+          COMMAND_DISPLAY: ${{ steps.build-command.outputs.command_display }}
+        run: |
+          # Configure git
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Create timestamped branch
+          BRANCH_NAME="automated/benchmark-$(date +%Y%m%d_%H%M%S)"
+          git checkout -b "$BRANCH_NAME"
+
+          # Add all evaluation results
+          git add docs/development/evaluations/
+
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          # Commit and push
+          BENCHMARK_TYPE="$BENCHMARK_TYPE_OUT"
+          git commit -m "Update ${BENCHMARK_TYPE:-benchmark} results"
+          git push origin "$BRANCH_NAME" --force
+
+          # Create PR (or update existing)
+          PR_TITLE="Weekly Benchmark Results $(date +%Y-%m-%d_%H-%M)"
+          PR_BODY="Automated weekly benchmark results from CI.
+
+          **Benchmark Type**: ${BENCHMARK_TYPE:-custom}
+          **Command**: $COMMAND_DISPLAY"
+
+          # Check if PR already exists
+          EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --json number --jq '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updating existing PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY"
+            echo "pr_url=$(gh pr view "$EXISTING_PR" --json url --jq '.url')" >> $GITHUB_OUTPUT
+          else
+            PR_URL=$(gh pr create \
+              --title "$PR_TITLE" \
+              --body "$PR_BODY" \
+              --base master \
+              --head "$BRANCH_NAME" 2>&1 | tail -1)
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Notify Slack on success
+        if: steps.run-benchmarks.outcome == 'success' && (github.ref_name == 'master' || github.ref_name == 'main')
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        run: |
+          PR_URL="${{ steps.create-pr.outputs.pr_url }}"
+          if [ -n "$PR_URL" ]; then
+            TEXT="Weekly eval benchmarks finished! Here is the PR: ${PR_URL}"
+          else
+            TEXT="Eval benchmarks finished! No PR was created for this run."
+          fi
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"channel\": \"#backend\", \"text\": \"${TEXT}\"}"
+
+      - name: Notify Slack on failure or cancellation
+        if: steps.run-benchmarks.outcome != 'success' && (github.ref_name == 'master' || github.ref_name == 'main')
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "${{ job.status }}" = "cancelled" ]; then
+            STATUS="cancelled"
+          else
+            STATUS="failed"
+          fi
+          curl -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"channel\": \"#backend-oncall\", \"text\": \"Weekly eval benchmarks ${STATUS}! See the run: ${RUN_URL}\"}"

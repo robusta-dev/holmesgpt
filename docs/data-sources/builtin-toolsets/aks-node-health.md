@@ -1,5 +1,8 @@
 # AKS Node Health
 
+!!! tip "Consider Azure MCP instead"
+    Most users should start with the [Azure MCP](azure-mcp.md) integration, which provides broad access to all Azure APIs including AKS node diagnostics. This standalone toolset is only needed if you require specific AKS node health CLI commands that aren't available through the MCP server.
+
 By enabling this toolset, HolmesGPT will be able to perform specialized health checks and troubleshooting for Azure Kubernetes Service (AKS) nodes, including node-specific diagnostics and performance analysis.
 
 ## Prerequisites
@@ -34,7 +37,29 @@ By enabling this toolset, HolmesGPT will be able to perform specialized health c
 
     --8<-- "snippets/toolset_refresh_warning.md"
 
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    toolsets:
+      aks/node-health:
+        enabled: true
+        config:
+          subscription_id: "<your Azure subscription ID>"
+          resource_group: "<your AKS resource group>"
+          cluster_name: "<your AKS cluster name>"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
 === "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
 
     ```yaml
     holmes:
@@ -45,6 +70,12 @@ By enabling this toolset, HolmesGPT will be able to perform specialized health c
             subscription_id: "<your Azure subscription ID>"
             resource_group: "<your AKS resource group>"
             cluster_name: "<your AKS cluster name>"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
 
 ## Advanced Configuration

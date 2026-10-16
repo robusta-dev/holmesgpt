@@ -1,0 +1,665 @@
+"""Unit tests for the database toolset."""
+
+import datetime
+import ipaddress
+import os
+import tempfile
+
+import certifi
+import pytds.tls
+import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
+from OpenSSL import crypto
+from pydantic import ValidationError
+
+sqlalchemy = pytest.importorskip("sqlalchemy")
+
+from holmes.plugins.toolsets.database.database import (  # noqa: E402
+    DatabaseConfig,
+    DatabaseSubtype,
+    DatabaseToolset,
+    _DEFAULT_DATABASE_ICON_URL,
+    _READONLY_PATTERN,
+    _SUBTYPE_ICON_URLS,
+    _WRITE_ANYWHERE_PATTERN,
+    _WRITE_PATTERN,
+    _detect_subtype,
+    _icon_url_for_subtype,
+    _lookup_driver_info,
+    _normalise_url,
+    _pytds_validate_host,
+    _serialize_value,
+)
+
+pytestmark = getattr(pytest.mark, "db-connectors")
+
+
+class TestNormaliseUrl:
+    def test_postgres_url(self):
+        assert (
+            _normalise_url("postgresql://user:pass@host/db")
+            == "postgresql+pg8000://user:pass@host/db"
+        )
+
+    def test_postgres_short_scheme(self):
+        assert (
+            _normalise_url("postgres://user:pass@host/db")
+            == "postgresql+pg8000://user:pass@host/db"
+        )
+
+    def test_mysql_url(self):
+        assert (
+            _normalise_url("mysql://user:pass@host/db")
+            == "mysql+pymysql://user:pass@host/db"
+        )
+
+    def test_mariadb_url(self):
+        assert (
+            _normalise_url("mariadb://user:pass@host/db")
+            == "mysql+pymysql://user:pass@host/db"
+        )
+
+    def test_mssql_url(self):
+        assert (
+            _normalise_url("mssql://user:pass@host/db")
+            == "mssql+pytds://user:pass@host/db"
+        )
+
+    def test_legacy_pymssql_url_rewritten_to_pytds(self):
+        # Configs written before the pymssql -> python-tds swap keep working.
+        assert (
+            _normalise_url("mssql+pymssql://user:pass@host/db")
+            == "mssql+pytds://user:pass@host/db"
+        )
+
+    def test_sqlite_url(self):
+        assert _normalise_url("sqlite:///path/to/db") == "sqlite:///path/to/db"
+
+    def test_already_correct_driver(self):
+        assert (
+            _normalise_url("postgresql+pg8000://user:pass@host/db")
+            == "postgresql+pg8000://user:pass@host/db"
+        )
+
+    def test_already_correct_pymysql(self):
+        assert (
+            _normalise_url("mysql+pymysql://user:pass@host/db")
+            == "mysql+pymysql://user:pass@host/db"
+        )
+
+    def test_unknown_scheme_passthrough(self):
+        url = "cockroachdb://user:pass@host/db"
+        assert _normalise_url(url) == url
+
+    def test_mysql_mysqldb_rewritten(self):
+        assert (
+            _normalise_url("mysql+mysqldb://user:pass@host/db")
+            == "mysql+pymysql://user:pass@host/db"
+        )
+
+
+class TestSerializeValue:
+    def test_none(self):
+        assert _serialize_value(None) is None
+
+    def test_primitives(self):
+        assert _serialize_value(42) == 42
+        assert _serialize_value(3.14) == 3.14
+        assert _serialize_value(True) is True
+        assert _serialize_value("hello") == "hello"
+
+    def test_bytes(self):
+        assert _serialize_value(b"\xde\xad") == "dead"
+
+    def test_dict_passthrough(self):
+        d = {"key": "value"}
+        assert _serialize_value(d) == d
+
+    def test_list_passthrough(self):
+        lst = [1, 2, 3]
+        assert _serialize_value(lst) == lst
+
+    def test_datetime_to_str(self):
+        from datetime import datetime
+
+        dt = datetime(2024, 1, 15, 12, 0, 0)
+        assert _serialize_value(dt) == "2024-01-15 12:00:00"
+
+    def test_decimal_to_str(self):
+        from decimal import Decimal
+
+        assert _serialize_value(Decimal("99.95")) == "99.95"
+
+
+class TestDatabaseConfig:
+    def test_basic_config(self):
+        config = DatabaseConfig(connection_url="postgresql://user:pass@host/db")
+        assert config.connection_url == "postgresql://user:pass@host/db"
+
+    def test_config_requires_url(self):
+        with pytest.raises(ValidationError):
+            DatabaseConfig()  # type: ignore[call-arg]
+
+
+class TestDatabaseToolset:
+    def test_toolset_name(self):
+        toolset = DatabaseToolset()
+        assert toolset.name == "database/sql"
+
+    def test_toolset_has_tools(self):
+        toolset = DatabaseToolset()
+        tool_names = [t.name for t in toolset.tools]
+        assert "database_sql_query" in tool_names
+        assert "database_sql_list_tables" in tool_names
+        assert "database_sql_describe_table" in tool_names
+
+    def test_toolset_disabled_by_default(self):
+        toolset = DatabaseToolset()
+        assert toolset.enabled is False
+
+
+_CERTIFI_BUNDLE = certifi.where()
+
+
+class TestCreateEngineConnectArgs:
+    """verify_ssl maps to the correct driver-specific connect_args."""
+
+    def _connect_args(self, monkeypatch, url, verify_ssl):
+        toolset = DatabaseToolset()
+        toolset.config = DatabaseConfig(connection_url=url, verify_ssl=verify_ssl)
+        captured = {}
+
+        def fake_create_engine(engine_url, **kwargs):
+            captured["connect_args"] = kwargs["connect_args"]
+
+        monkeypatch.setattr(sqlalchemy, "create_engine", fake_create_engine)
+        toolset._create_engine(url)
+        return captured["connect_args"]
+
+    def test_mssql_verify_ssl_enables_tls_with_ca_bundle(self, monkeypatch):
+        # pytds only turns TLS on when a CA bundle is passed; certifi's bundle
+        # gives a certificate-verified connection (required by Azure SQL).
+        args = self._connect_args(
+            monkeypatch, "mssql+pytds://user:pass@host/db", verify_ssl=True
+        )
+        assert args == {"cafile": certifi.where()}
+
+    def test_mssql_no_verify_ssl_disables_tls(self, monkeypatch):
+        # pytds has no encrypt-without-verification mode, so verify_ssl=False
+        # means no TLS at all (self-signed / plain servers).
+        args = self._connect_args(
+            monkeypatch, "mssql+pytds://user:pass@host/db", verify_ssl=False
+        )
+        assert args == {}
+
+    def test_postgres_no_verify_ssl(self, monkeypatch):
+        args = self._connect_args(
+            monkeypatch, "postgresql+pg8000://user:pass@host/db", verify_ssl=False
+        )
+        assert args == {"ssl_context": None}
+
+    def test_postgres_verify_ssl_passes_no_args(self, monkeypatch):
+        args = self._connect_args(
+            monkeypatch, "postgresql+pg8000://user:pass@host/db", verify_ssl=True
+        )
+        assert args == {}
+
+    def test_mssql_ca_bundle_resolved_per_connection(self, monkeypatch):
+        """A custom CA added at startup (CERTIFICATE env var) must be honored.
+
+        cert_utils patches certifi.where(), so resolving it per connection is
+        what lets a private-CA SQL Server work without a toolset-level setting.
+        """
+        monkeypatch.setattr(certifi, "where", lambda: "/tmp/custom_ca.pem")
+        args = self._connect_args(
+            monkeypatch, "mssql+pytds://user:pass@host/db", verify_ssl=True
+        )
+        assert args == {"cafile": "/tmp/custom_ca.pem"}
+
+    @pytest.mark.parametrize("verify_ssl", [True, False])
+    def test_engine_name_in_credentials_does_not_pick_wrong_driver(
+        self, monkeypatch, verify_ssl
+    ):
+        """A username containing another engine's name must not route SSL args.
+
+        'mssql' appears in the username here, but this is a PostgreSQL URL and
+        must get pg8000's arguments, never pytds's cafile.
+        """
+        url = "postgresql+pg8000://mssql_sync_user:pw@pg.example.com:5432/analytics"
+        args = self._connect_args(monkeypatch, url, verify_ssl=verify_ssl)
+        assert "cafile" not in args
+        assert args == ({} if verify_ssl else {"ssl_context": None})
+
+    def test_mysql_credentials_containing_mssql(self, monkeypatch):
+        url = "mysql+pymysql://mssql_migrator:pw@mysql.example.com/db"
+        args = self._connect_args(monkeypatch, url, verify_ssl=False)
+        assert args == {"ssl_disabled": True}
+
+    # Full engine x verify_ssl matrix. Every supported engine is pinned here so
+    # a change to one driver's SSL handling cannot silently alter another's.
+    # URLs are post-_normalise_url, which is what _create_engine always receives.
+    @pytest.mark.parametrize(
+        "url,verify_ssl,expected",
+        [
+            # SQL Server: TLS only when verifying; certifi bundle enables it.
+            ("mssql+pytds://u:p@host/db", True, {"cafile": _CERTIFI_BUNDLE}),
+            ("mssql+pytds://u:p@host/db", False, {}),
+            # PostgreSQL: pg8000 disables verification via ssl_context=None.
+            ("postgresql+pg8000://u:p@host/db", True, {}),
+            ("postgresql+pg8000://u:p@host/db", False, {"ssl_context": None}),
+            # MySQL / MariaDB: both normalise to pymysql, which uses ssl_disabled.
+            ("mysql+pymysql://u:p@host/db", True, {}),
+            ("mysql+pymysql://u:p@host/db", False, {"ssl_disabled": True}),
+            ("mariadb://u:p@host/db", True, {}),
+            ("mariadb://u:p@host/db", False, {"ssl_disabled": True}),
+            # ClickHouse uses `verify`.
+            ("clickhouse://u:p@host/db", True, {}),
+            ("clickhouse://u:p@host/db", False, {"verify": False}),
+            # SQLite is a local file: no SSL arguments in either mode.
+            ("sqlite:///tmp/test.db", True, {}),
+            ("sqlite:///tmp/test.db", False, {}),
+            # An unrecognised engine must not inherit another driver's args.
+            ("oracle+cx_oracle://u:p@host/db", True, {}),
+            ("oracle+cx_oracle://u:p@host/db", False, {}),
+        ],
+    )
+    def test_ssl_args_matrix(self, monkeypatch, url, verify_ssl, expected):
+        assert self._connect_args(monkeypatch, url, verify_ssl) == expected
+
+
+class TestSubtypeIcons:
+    """Icon must match the resolved DB subtype, not be hardcoded (FRO-190)."""
+
+    def test_every_known_subtype_has_a_distinct_icon(self):
+        known = [s for s in DatabaseSubtype if s is not DatabaseSubtype.UNKNOWN]
+        for subtype in known:
+            assert subtype in _SUBTYPE_ICON_URLS
+        icons = list(_SUBTYPE_ICON_URLS.values())
+        assert len(icons) == len(set(icons))
+
+    def test_icon_for_subtype_falls_back_for_unknown(self):
+        assert (
+            _icon_url_for_subtype(DatabaseSubtype.UNKNOWN)
+            == _DEFAULT_DATABASE_ICON_URL
+        )
+
+    @pytest.mark.parametrize("subtype", ["mssql", "mysql", "mariadb", "postgresql"])
+    def test_explicit_subtype_sets_icon_at_construction(self, subtype):
+        toolset = DatabaseToolset(subtype=subtype)
+        expected = _SUBTYPE_ICON_URLS[DatabaseSubtype(subtype)]
+        assert toolset.icon_url == expected
+        # Tools carry the icon too — it's what's stamped onto results.
+        for tool in toolset.tools:
+            assert tool.icon_url == expected
+
+    def test_sql_server_does_not_get_postgres_icon(self):
+        """Direct regression for FRO-190."""
+        toolset = DatabaseToolset(subtype="mssql")
+        postgres_icon = _SUBTYPE_ICON_URLS[DatabaseSubtype.POSTGRESQL]
+        assert toolset.icon_url != postgres_icon
+        assert toolset.icon_url == _SUBTYPE_ICON_URLS[DatabaseSubtype.MSSQL]
+
+    def test_autodetected_subtype_updates_icon(self):
+        """Icon reflects the detected subtype even if the DB is unreachable."""
+        toolset = DatabaseToolset()
+        assert toolset.icon_url == _DEFAULT_DATABASE_ICON_URL
+        toolset.prerequisites_callable(
+            {"connection_url": "mssql://user:pass@unreachable-host:1433/db"}
+        )
+        expected = _SUBTYPE_ICON_URLS[DatabaseSubtype.MSSQL]
+        assert toolset._subtype == DatabaseSubtype.MSSQL
+        assert toolset.icon_url == expected
+        for tool in toolset.tools:
+            assert tool.icon_url == expected
+
+    def test_sqlite_icon_applied_on_successful_connection(self, tmp_path):
+        db_path = tmp_path / "test.db"
+        toolset = DatabaseToolset()
+        success, _ = toolset.prerequisites_callable(
+            {"connection_url": f"sqlite:///{db_path}"}
+        )
+        assert success is True
+        assert toolset.icon_url == _SUBTYPE_ICON_URLS[DatabaseSubtype.SQLITE]
+
+
+class TestReadOnlyValidation:
+    """Test that write operations are blocked."""
+
+    def setup_method(self):
+        self.toolset = DatabaseToolset()
+        self.toolset.config = DatabaseConfig(connection_url="sqlite:///:memory:")
+
+    def test_select_allowed_with_sqlite(self):
+        """SELECT works end-to-end with a file-based SQLite database."""
+        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        db_file = tmp.name
+        tmp.close()
+        try:
+            file_engine = sqlalchemy.create_engine(f"sqlite:///{db_file}")
+            with file_engine.connect() as conn:
+                conn.execute(
+                    sqlalchemy.text("CREATE TABLE users (id INTEGER, name TEXT)")
+                )
+                conn.execute(sqlalchemy.text("INSERT INTO users VALUES (1, 'alice')"))
+                conn.commit()
+            file_engine.dispose()
+
+            self.toolset.config = DatabaseConfig(connection_url=f"sqlite:///{db_file}")
+            result = self.toolset.execute_query("SELECT * FROM users LIMIT 10")
+            assert result["columns"] == ["id", "name"]
+            assert len(result["rows"]) == 1
+            assert result["rows"][0] == [1, "alice"]
+            assert result["truncated"] is False
+        finally:
+            os.unlink(db_file)
+
+    def test_insert_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("INSERT INTO users VALUES (1, 'test')")
+
+    def test_update_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("UPDATE users SET name='x'")
+
+    def test_delete_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("DELETE FROM users")
+
+    def test_drop_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("DROP TABLE users")
+
+    def test_truncate_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("TRUNCATE TABLE users")
+
+    def test_create_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("CREATE TABLE foo (id int)")
+
+    def test_alter_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query("ALTER TABLE users ADD COLUMN age int")
+
+    def test_show_allowed(self):
+        """SHOW statements should not be blocked."""
+        assert _READONLY_PATTERN.match("SHOW TABLES")
+        assert not _WRITE_PATTERN.match("SHOW TABLES")
+
+    def test_describe_allowed(self):
+        assert _READONLY_PATTERN.match("DESCRIBE users")
+        assert not _WRITE_PATTERN.match("DESCRIBE users")
+
+    def test_explain_allowed(self):
+        assert _READONLY_PATTERN.match("EXPLAIN SELECT * FROM users")
+        assert not _WRITE_PATTERN.match("EXPLAIN SELECT * FROM users")
+
+    def test_with_cte_allowed(self):
+        assert _READONLY_PATTERN.match("WITH cte AS (SELECT 1) SELECT * FROM cte")
+        assert not _WRITE_PATTERN.match("WITH cte AS (SELECT 1) SELECT * FROM cte")
+
+    def test_writable_cte_blocked(self):
+        """Writable CTEs (WITH ... DELETE/INSERT/UPDATE) must be blocked."""
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query(
+                "WITH cte AS (DELETE FROM users RETURNING *) SELECT * FROM cte"
+            )
+
+    def test_writable_cte_insert_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query(
+                "WITH new AS (INSERT INTO users VALUES (1) RETURNING *) SELECT * FROM new"
+            )
+
+    def test_writable_cte_update_blocked(self):
+        with pytest.raises(ValueError, match="Write operations are not allowed"):
+            self.toolset.execute_query(
+                "WITH upd AS (UPDATE users SET name='x' RETURNING *) SELECT * FROM upd"
+            )
+
+    def test_write_anywhere_pattern(self):
+        """_WRITE_ANYWHERE_PATTERN catches write keywords inside CTEs."""
+        assert _WRITE_ANYWHERE_PATTERN.search(
+            "WITH cte AS (DELETE FROM users RETURNING *) SELECT * FROM cte"
+        )
+        assert not _WRITE_ANYWHERE_PATTERN.search("SELECT * FROM users")
+
+    def test_random_command_blocked(self):
+        with pytest.raises(ValueError, match="Only SELECT"):
+            self.toolset.execute_query("VACUUM ANALYZE")
+
+    def test_case_insensitive_block(self):
+        with pytest.raises(ValueError, match="Write operations"):
+            self.toolset.execute_query("insert INTO users VALUES (1)")
+
+    def test_whitespace_prefix_handled(self):
+        with pytest.raises(ValueError, match="Write operations"):
+            self.toolset.execute_query("   INSERT INTO users VALUES (1)")
+
+
+class TestToolOneLiners:
+    def test_query_one_liner(self):
+        toolset = DatabaseToolset()
+        query_tool = toolset.tools[0]  # DatabaseQuery
+        result = query_tool.get_parameterized_one_liner(
+            {"sql": "SELECT * FROM users WHERE active = true LIMIT 10"}
+        )
+        assert "Database" in result
+        assert "SELECT" in result
+
+    def test_list_tables_one_liner(self):
+        toolset = DatabaseToolset()
+        list_tool = toolset.tools[1]  # DatabaseListTables
+        result = list_tool.get_parameterized_one_liner({"schema": "public"})
+        assert "Database" in result
+        assert "public" in result
+
+    def test_describe_one_liner(self):
+        toolset = DatabaseToolset()
+        desc_tool = toolset.tools[2]  # DatabaseDescribeTable
+        result = desc_tool.get_parameterized_one_liner({"table_name": "orders"})
+        assert "Database" in result
+        assert "orders" in result
+
+
+class TestDetectSubtype:
+    def test_postgresql(self):
+        assert _detect_subtype("postgresql://user:pass@host/db") == DatabaseSubtype.POSTGRESQL
+
+    def test_postgres_short(self):
+        assert _detect_subtype("postgres://user:pass@host/db") == DatabaseSubtype.POSTGRESQL
+
+    def test_mysql(self):
+        assert _detect_subtype("mysql://user:pass@host/db") == DatabaseSubtype.MYSQL
+
+    def test_mysql_pymysql(self):
+        assert _detect_subtype("mysql+pymysql://user:pass@host/db") == DatabaseSubtype.MYSQL
+
+    def test_mysql_mysqldb(self):
+        assert _detect_subtype("mysql+mysqldb://user:pass@host/db") == DatabaseSubtype.MYSQL
+
+    def test_mariadb(self):
+        assert _detect_subtype("mariadb://user:pass@host/db") == DatabaseSubtype.MARIADB
+
+    def test_mssql(self):
+        assert _detect_subtype("mssql://user:pass@host/db") == DatabaseSubtype.MSSQL
+
+    def test_mssql_pytds(self):
+        assert _detect_subtype("mssql+pytds://user:pass@host/db") == DatabaseSubtype.MSSQL
+
+    def test_mssql_pymssql(self):
+        assert _detect_subtype("mssql+pymssql://user:pass@host/db") == DatabaseSubtype.MSSQL
+
+    def test_sqlite(self):
+        assert _detect_subtype("sqlite:///path/to/db") == DatabaseSubtype.SQLITE
+
+    def test_clickhouse(self):
+        assert _detect_subtype("clickhouse://user:pass@host/db") == DatabaseSubtype.CLICKHOUSE
+
+    def test_unknown_cockroachdb(self):
+        assert _detect_subtype("cockroachdb://user:pass@host/db") == DatabaseSubtype.UNKNOWN
+
+    def test_unknown_oracle(self):
+        assert _detect_subtype("oracle://user:pass@host/db") == DatabaseSubtype.UNKNOWN
+
+
+class TestLookupDriverInfo:
+    def test_known_scheme(self):
+        info = _lookup_driver_info("postgresql")
+        assert info is not None
+        assert info.subtype == DatabaseSubtype.POSTGRESQL
+        assert info.driver == "postgresql+pg8000"
+
+    def test_compound_scheme_contains_match(self):
+        info = _lookup_driver_info("mysql+mysqldb")
+        assert info is not None
+        assert info.subtype == DatabaseSubtype.MYSQL
+        assert info.driver == "mysql+pymysql"
+
+    def test_unknown_scheme_returns_none(self):
+        assert _lookup_driver_info("oracle") is None
+
+    def test_sqlite_no_driver_override(self):
+        info = _lookup_driver_info("sqlite")
+        assert info is not None
+        assert info.subtype == DatabaseSubtype.SQLITE
+        assert info.driver is None
+
+    def test_clickhouse_no_driver_override(self):
+        info = _lookup_driver_info("clickhouse")
+        assert info is not None
+        assert info.subtype == DatabaseSubtype.CLICKHOUSE
+        assert info.driver is None
+
+
+class TestDatabaseToolsetSubtype:
+    def test_default_subtype_is_unknown(self):
+        toolset = DatabaseToolset()
+        assert toolset._subtype == DatabaseSubtype.UNKNOWN
+
+    def test_explicit_subtype_mysql(self):
+        toolset = DatabaseToolset(subtype="mysql")
+        assert toolset._subtype == DatabaseSubtype.MYSQL
+
+    def test_explicit_subtype_postgresql(self):
+        toolset = DatabaseToolset(subtype="postgresql")
+        assert toolset._subtype == DatabaseSubtype.POSTGRESQL
+
+    def test_invalid_subtype_raises_value_error(self):
+        # An unknown subtype is a user typo with no legitimate interpretation —
+        # raise so it surfaces as a visible failed toolset in the UI instead of
+        # silently falling back to UNKNOWN (which would then be auto-detected
+        # from the URL, making the typo completely invisible).
+        with pytest.raises(ValueError) as exc_info:
+            DatabaseToolset(subtype="invalid_db")
+        message = str(exc_info.value)
+        assert "invalid_db" in message
+        # The error should list the valid enum values so the user can fix it
+        assert "mysql" in message
+        assert "postgresql" in message
+
+    def test_subtype_detected_from_url_in_prerequisites(self):
+        toolset = DatabaseToolset()
+        assert toolset._subtype == DatabaseSubtype.UNKNOWN
+        # Simulate prerequisites_callable with a MySQL URL — will fail connection
+        # but should still detect subtype before the health check
+        toolset.prerequisites_callable(
+            {"connection_url": "mysql+pymysql://user:pass@nonexistent:3306/db"}
+        )
+        assert toolset._subtype == DatabaseSubtype.MYSQL
+
+    def test_explicit_subtype_not_overridden_by_url(self):
+        toolset = DatabaseToolset(subtype="postgresql")
+        # Even with a MySQL URL, explicit subtype should be preserved
+        toolset.prerequisites_callable(
+            {"connection_url": "mysql+pymysql://user:pass@nonexistent:3306/db"}
+        )
+        assert toolset._subtype == DatabaseSubtype.POSTGRESQL
+
+
+class TestDatabaseToolsetMeta:
+    def test_default_meta(self):
+        toolset = DatabaseToolset()
+        assert toolset.meta == {"type": "database", "subtype": "unknown"}
+
+    def test_meta_with_explicit_subtype(self):
+        toolset = DatabaseToolset(subtype="postgresql")
+        assert toolset.meta == {"type": "database", "subtype": "postgresql"}
+
+    def test_meta_updated_after_prerequisites(self):
+        toolset = DatabaseToolset()
+        assert toolset.meta == {"type": "database", "subtype": "unknown"}
+        toolset.prerequisites_callable(
+            {"connection_url": "sqlite:///path/to/db"}
+        )
+        assert toolset.meta == {"type": "database", "subtype": "sqlite"}
+
+
+def _make_cert(cn, dns_names=(), ips=()):
+    key = ec.generate_private_key(ec.SECP256R1())
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, cn)])
+    now = datetime.datetime.now(datetime.timezone.utc)
+    builder = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(subject)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now)
+        .not_valid_after(now + datetime.timedelta(days=1))
+    )
+    sans = [x509.DNSName(d) for d in dns_names] + [
+        x509.IPAddress(ipaddress.ip_address(i)) for i in ips
+    ]
+    if sans:
+        builder = builder.add_extension(
+            x509.SubjectAlternativeName(sans), critical=False
+        )
+    # pytds hands validate_host a pyOpenSSL X509, so the tests do too.
+    return crypto.X509.from_cryptography(builder.sign(key, hashes.SHA256()))
+
+
+class TestPytdsValidateHost:
+    def test_patch_installed(self):
+        assert pytds.tls.validate_host is _pytds_validate_host
+
+    def test_cn_match(self):
+        assert _pytds_validate_host(_make_cert("sql.example.com"), b"sql.example.com")
+
+    def test_san_match_when_cn_differs(self):
+        # The case that raised AttributeError with stock pytds on pyOpenSSL >= 26.2.
+        cert = _make_cert("other", dns_names=["a.example.com", "sql.example.com"])
+        assert _pytds_validate_host(cert, b"sql.example.com")
+
+    def test_case_insensitive(self):
+        cert = _make_cert("other", dns_names=["SQL.Example.com"])
+        assert _pytds_validate_host(cert, b"sql.example.COM")
+
+    def test_wildcard_first_label_only(self):
+        cert = _make_cert("other", dns_names=["*.example.com"])
+        assert _pytds_validate_host(cert, b"sql.example.com")
+        assert not _pytds_validate_host(cert, b"a.sql.example.com")
+        assert not _pytds_validate_host(cert, b"example.com")
+
+    def test_no_match(self):
+        cert = _make_cert("other", dns_names=["a.example.com"], ips=["10.0.0.1"])
+        assert not _pytds_validate_host(cert, b"sql.example.com")
+
+    def test_ip_san_match(self):
+        cert = _make_cert("other", dns_names=["a.example.com"], ips=["10.0.0.1"])
+        assert _pytds_validate_host(cert, b"10.0.0.1")
+        assert not _pytds_validate_host(cert, b"10.0.0.2")
+
+    def test_cn_ignored_when_dns_san_present(self):
+        cert = _make_cert("sql.example.com", dns_names=["other.example.com"])
+        assert not _pytds_validate_host(cert, b"sql.example.com")
+
+    def test_cn_fallback_for_ip_without_ip_san(self):
+        cert = _make_cert("10.0.0.1", dns_names=["a.example.com"])
+        assert _pytds_validate_host(cert, b"10.0.0.1")
+
+    def test_no_san_extension(self):
+        assert not _pytds_validate_host(_make_cert("other"), b"sql.example.com")

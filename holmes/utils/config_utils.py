@@ -2,7 +2,7 @@
 Configuration utility functions for HolmesGPT.
 """
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from holmes.core.transformers import Transformer
@@ -60,17 +60,6 @@ def merge_transformers(
             merged_config.update(
                 override_transformer.config
             )  # Override with specific fields
-
-            # IMPORTANT: Preserve global_fast_model from both base and override
-            # This ensures our injected global_fast_model settings aren't lost during merging
-            if "global_fast_model" in base_transformer.config:
-                merged_config["global_fast_model"] = base_transformer.config[
-                    "global_fast_model"
-                ]
-            if "global_fast_model" in override_transformer.config:
-                merged_config["global_fast_model"] = override_transformer.config[
-                    "global_fast_model"
-                ]
 
             # Create new transformer with merged config
             from holmes.core.transformers import Transformer

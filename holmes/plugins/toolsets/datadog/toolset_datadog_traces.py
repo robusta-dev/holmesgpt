@@ -7,38 +7,38 @@ import os
 import re
 from typing import Any, Dict, Optional, Tuple
 
-from pydantic import AnyUrl
 
 from holmes.core.tools import (
     CallablePrerequisite,
+    ClassVar,
+    StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolInvokeContext,
     ToolParameter,
     Toolset,
-    StructuredToolResult,
-    StructuredToolResultStatus,
     ToolsetTag,
+    Type,
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.datadog.datadog_api import (
+    MAX_RETRY_COUNT_ON_RATE_LIMIT,
     DataDogRequestError,
     execute_datadog_http_request,
     get_headers,
-    MAX_RETRY_COUNT_ON_RATE_LIMIT,
 )
 from holmes.plugins.toolsets.datadog.datadog_models import DatadogTracesConfig
 from holmes.plugins.toolsets.datadog.datadog_url_utils import (
     generate_datadog_spans_analytics_url,
     generate_datadog_spans_url,
 )
-from holmes.plugins.toolsets.utils import (
-    process_timestamps_to_int,
-    toolset_name_for_one_liner,
-    standard_start_datetime_tool_param_description,
-)
-
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_TIME_SPAN_SECONDS,
+)
+from holmes.plugins.toolsets.utils import (
+    process_timestamps_to_int,
+    standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 
 # Valid percentile aggregations supported by Datadog
@@ -48,6 +48,8 @@ PERCENTILE_AGGREGATIONS = ["pc75", "pc90", "pc95", "pc98", "pc99"]
 class DatadogTracesToolset(Toolset):
     """Toolset for working with Datadog traces/APM data."""
 
+    config_classes: ClassVar[list[Type[DatadogTracesConfig]]] = [DatadogTracesConfig]
+
     dd_config: Optional[DatadogTracesConfig] = None
 
     def __init__(self):
@@ -55,7 +57,7 @@ class DatadogTracesToolset(Toolset):
             name="datadog/traces",
             description="Toolset for interacting with Datadog APM to fetch and analyze traces",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/datadog/",
-            icon_url="https://imgix.datadoghq.com//img/about/presskit/DDlogo.jpg",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/datadog.svg",
             prerequisites=[CallablePrerequisite(callable=self.prerequisites_callable)],
             tools=[
                 GetSpans(toolset=self),
@@ -79,7 +81,7 @@ class DatadogTracesToolset(Toolset):
             return success, error_msg
         except Exception as e:
             logging.exception("Failed to set up Datadog traces toolset")
-            return False, f"Failed to parse Datadog configuration: {str(e)}"
+            return False, f"Invalid Datadog Traces configuration: {e}"
 
     def _perform_healthcheck(self, dd_config: DatadogTracesConfig) -> Tuple[bool, str]:
         """Perform health check on Datadog traces API."""
@@ -104,13 +106,13 @@ class DatadogTracesToolset(Toolset):
             }
 
             # Use search endpoint instead
-            search_url = f"{dd_config.site_api_url}/api/v2/spans/events/search"
+            search_url = f"{dd_config.api_url}/api/v2/spans/events/search"
 
             execute_datadog_http_request(
                 url=search_url,
                 headers=headers,
                 payload_or_params=payload,
-                timeout=dd_config.request_timeout,
+                timeout=dd_config.timeout_seconds,
                 method="POST",
             )
 
@@ -128,16 +130,8 @@ class DatadogTracesToolset(Toolset):
             else:
                 return False, f"Datadog API error: {e.status_code} - {e.response_text}"
         except Exception as e:
-            logging.exception("Failed during Datadog traces healthcheck")
-            return False, f"Healthcheck failed with exception: {str(e)}"
-
-    def get_example_config(self) -> Dict[str, Any]:
-        example_config = DatadogTracesConfig(
-            dd_api_key="<your_datadog_api_key>",
-            dd_app_key="<your_datadog_app_key>",
-            site_api_url=AnyUrl("https://api.datadoghq.com"),
-        )
-        return example_config.model_dump(mode="json")
+            logging.exception("Failed during Datadog traces health check")
+            return False, f"Datadog Traces health check failed: {e}"
 
 
 class BaseDatadogTracesTool(Tool):
@@ -258,7 +252,7 @@ class GetSpans(BaseDatadogTracesTool):
                 sort = "-timestamp"
 
             # Use POST endpoint for more complex searches
-            url = f"{self.toolset.dd_config.site_api_url}/api/v2/spans/events/search"
+            url = f"{self.toolset.dd_config.api_url}/api/v2/spans/events/search"
             headers = get_headers(self.toolset.dd_config)
 
             payload = {
@@ -286,7 +280,7 @@ class GetSpans(BaseDatadogTracesTool):
                 url=url,
                 headers=headers,
                 payload_or_params=payload,
-                timeout=self.toolset.dd_config.request_timeout,
+                timeout=self.toolset.dd_config.timeout_seconds,
                 method="POST",
             )
 
@@ -619,7 +613,7 @@ class AggregateSpans(BaseDatadogTracesTool):
             query = params.get("query", "*")
 
             # Build the request payload
-            url = f"{self.toolset.dd_config.site_api_url}/api/v2/spans/analytics/aggregate"
+            url = f"{self.toolset.dd_config.api_url}/api/v2/spans/analytics/aggregate"
             headers = get_headers(self.toolset.dd_config)
 
             # Build payload attributes first
@@ -659,7 +653,7 @@ class AggregateSpans(BaseDatadogTracesTool):
                 url=url,
                 headers=headers,
                 payload_or_params=payload,
-                timeout=self.toolset.dd_config.request_timeout,
+                timeout=self.toolset.dd_config.timeout_seconds,
                 method="POST",
             )
 

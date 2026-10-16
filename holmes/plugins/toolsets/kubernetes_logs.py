@@ -3,7 +3,8 @@ import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from typing import Optional, List, Tuple, Set
+from typing import List, Optional, Tuple
+
 from pydantic import BaseModel
 
 from holmes.common.env_vars import KUBERNETES_LOGS_TIMEOUT_SECONDS
@@ -11,18 +12,15 @@ from holmes.core.tools import (
     StaticPrerequisite,
     StructuredToolResult,
     StructuredToolResultStatus,
+    Toolset,
     ToolsetTag,
 )
 from holmes.plugins.toolsets.logging_utils.logging_api import (
-    BasePodLoggingToolset,
-    FetchPodLogsParams,
-    LoggingCapability,
-    LoggingConfig,
-    PodLoggingTool,
     DEFAULT_TIME_SPAN_SECONDS,
+    FetchPodLogsParams,
+    PodLoggingTool,
 )
 from holmes.plugins.toolsets.utils import process_timestamps_to_int, to_unix_ms
-
 
 # match ISO 8601 format (YYYY-MM-DDTHH:MM:SS[.fffffffff]Z) or (YYYY-MM-DDTHH:MM:SS[.fffffffff]+/-XX:XX)
 timestamp_pattern = re.compile(
@@ -47,16 +45,8 @@ class LogResult(BaseModel):
     logs: list[StructuredLog]
 
 
-class KubernetesLogsToolset(BasePodLoggingToolset):
-    """Implementation of the unified logging API for Kubernetes logs using kubectl commands"""
-
-    @property
-    def supported_capabilities(self) -> Set[LoggingCapability]:
-        """Kubernetes native logging supports regex and exclude filters"""
-        return {
-            LoggingCapability.REGEX_FILTER,
-            LoggingCapability.EXCLUDE_FILTER,
-        }
+class KubernetesLogsToolset(Toolset):
+    """Kubernetes pod log fetching using kubectl commands"""
 
     def __init__(self):
         prerequisite = StaticPrerequisite(enabled=False, disabled_reason="Initializing")
@@ -64,9 +54,9 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
             name="kubernetes/logs",
             description="Read Kubernetes pod logs using a unified API",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/",
-            icon_url="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/kubernetes.svg",
             prerequisites=[prerequisite],
-            is_default=True,
+            enabled=True,
             tools=[],  # Initialize with empty tools first
             tags=[ToolsetTag.CORE],
         )
@@ -92,12 +82,9 @@ class KubernetesLogsToolset(BasePodLoggingToolset):
         except subprocess.TimeoutExpired:
             return False, "kubectl command timed out"
         except FileNotFoundError:
-            return False, "kubectl command not found"
+            return False, "kubectl command not found (ensure kubectl is installed and in PATH)"
         except Exception as e:
             return False, f"kubectl health check error: {str(e)}"
-
-    def get_example_config(self):
-        return LoggingConfig().model_dump()
 
     def fetch_pod_logs(self, params: FetchPodLogsParams) -> StructuredToolResult:
         try:

@@ -1,35 +1,111 @@
+import asyncio
+import base64
+import binascii
 import json
+import logging
+import os
+import re
+import threading
+import time
+from contextlib import asynccontextmanager
+from datetime import timedelta
+from enum import Enum
+from typing import Any, ClassVar, Dict, List, Optional, TextIO, Tuple, Type, Union
+from urllib.parse import urlparse
 
-from holmes.common.env_vars import SSE_READ_TIMEOUT
-from holmes.core.tools import (
-    ToolInvokeContext,
-    Toolset,
-    Tool,
-    ToolParameter,
-    StructuredToolResult,
-    StructuredToolResultStatus,
-    CallablePrerequisite,
-)
-
-from typing import Dict, Any, List, Optional, Union
+import httpx
 from mcp.client.session import ClientSession
 from mcp.client.sse import sse_client
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamablehttp_client
-from mcp.client.stdio import stdio_client, StdioServerParameters
-
 from mcp.types import Tool as MCP_Tool
+from pydantic import AnyUrl, BaseModel, Field, model_validator
 
-import asyncio
-from contextlib import asynccontextmanager
-from pydantic import BaseModel, Field, AnyUrl, model_validator
-from typing import Tuple
-import logging
-from enum import Enum
-import threading
+from holmes.common.env_vars import MCP_TOOL_CALL_TIMEOUT_SEC, SSE_READ_TIMEOUT
+from holmes.core.oauth_config import (
+    MCPOAuthConfig,
+    OAuthEndpoints,
+    OAuthTokenExchangeError,
+    _get_exchange_manager,
+)
+from holmes.core.oauth_utils import (
+    _get_token_manager,
+    cli_oauth_flow,
+    discover_auth_server_from_prm,
+    fetch_oauth_metadata,
+    generate_pkce,
+)
+from holmes.core.config import config_path_dir
+from holmes.core.tools import (
+    ApprovalRequirement,
+    CallablePrerequisite,
+    StructuredToolResult,
+    StructuredToolResultStatus,
+    Tool,
+    ToolInvokeContext,
+    ToolParameter,
+    Toolset,
+    ToolsetType,
+)
+from holmes.plugins.toolsets.mcp.oauth_token_manager import _get_user_id
+from holmes.utils.header_rendering import render_header_templates
+from holmes.utils.pydantic_utils import ToolsetConfig
+
+logger = logging.getLogger(__name__)
+
+REMOTE_TOOL_APPROVED_PARAM = "__robusta_user_approved"
+REMOTE_TOOL_SESSION_PREFIXES_PARAM = "__robusta_session_approved_prefixes"
+# Relay namespaces cross-cluster (remote) tools with this name prefix. It is the
+# only signal relay exposes for remoteness (there is no MCP `_meta`/annotation),
+# so we evaluate it once at tool-load time and store the result on the tool as
+# `is_remote` rather than re-sniffing the name on every invoke/one-liner call.
+REMOTE_TOOL_NAME_PREFIX = "remote_"
+display_logger = logging.getLogger("holmes.display.mcp_toolset")
+
+
+def _extract_root_error_message(exc: Exception) -> str:
+    """Extract the actual error message from an ExceptionGroup.
+
+    When the MCP library's internal asyncio.TaskGroup encounters errors (e.g. auth
+    failures, connection refused), the real exception gets wrapped in an
+    ExceptionGroup with the unhelpful message "unhandled errors in a TaskGroup
+    (1 sub-exception)".  This function unwraps the group to surface the actual
+    root-cause error so that users see, for example, "401 Unauthorized" instead.
+    """
+    current: BaseException = exc
+    while hasattr(current, "exceptions") and current.exceptions:
+        current = current.exceptions[0]
+    return str(current)
+
 
 # Lock per MCP server URL to serialize calls to the same server
 _server_locks: Dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
+
+
+def create_mcp_http_client_factory(verify_ssl: bool = True):
+    """Create a factory function for httpx clients with configurable SSL verification."""
+
+    def factory(
+        headers: Dict[str, str] | None = None,
+        timeout: httpx.Timeout | None = None,
+        auth: httpx.Auth | None = None,
+    ) -> httpx.AsyncClient:
+        kwargs: Dict[str, Any] = {
+            "follow_redirects": True,
+            "verify": verify_ssl,
+        }
+        if timeout is None:
+            kwargs["timeout"] = httpx.Timeout(SSE_READ_TIMEOUT)
+        else:
+            kwargs["timeout"] = timeout
+        if headers is not None:
+            kwargs["headers"] = headers
+        if auth is not None:
+            kwargs["auth"] = auth
+        return httpx.AsyncClient(**kwargs)
+
+    return factory
 
 
 def get_server_lock(url: str) -> threading.Lock:
@@ -46,27 +122,158 @@ class MCPMode(str, Enum):
     STDIO = "stdio"
 
 
-class MCPConfig(BaseModel):
-    url: AnyUrl
-    mode: MCPMode = MCPMode.SSE
-    headers: Optional[Dict[str, str]] = None
+# Well-known, read-only "who am I" tools used to verify MCP authentication when
+# no health_check_tool is explicitly configured. MCP servers commonly expose an
+# authenticated-identity endpoint (e.g. GitHub's get_me, GitLab's
+# whoami). Calling one with empty arguments is a side-effect-free way
+# to confirm credentials (such as an API token) are actually valid, since
+# list_tools succeeds even with a bad token. Order reflects matching priority.
+DEFAULT_HEALTH_CHECK_TOOLS: List[str] = [
+    "get_me",
+    "get_current_user",
+    "get_authenticated_user",
+    "whoami",
+]
+
+
+
+
+
+class MCPConfig(ToolsetConfig):
+    _name: ClassVar[Optional[str]] = "HTTP/SSE"
+    _description: ClassVar[Optional[str]] = "Connect via HTTP using SSE or Streamable HTTP transport"
+
+    mode: MCPMode = Field(
+        default=MCPMode.SSE,
+        title="Mode",
+        description="Connection mode to use when talking to the MCP server.",
+        examples=[MCPMode.STREAMABLE_HTTP],
+    )
+    url: AnyUrl = Field(
+        title="URL",
+        description="MCP server URL (for SSE or Streamable HTTP modes).",
+        examples=["http://example.com:8000/mcp/messages"],
+    )
+    headers: Optional[Dict[str, str]] = Field(
+        default=None,
+        title="Headers",
+        description="Optional HTTP headers to include in requests (e.g., Authorization).",
+        examples=[{"Authorization": "Bearer YOUR_TOKEN"}],
+    )
+    verify_ssl: bool = Field(
+        default=True,
+        title="Verify SSL",
+        description="Whether to verify SSL certificates (set to false for local/dev servers without valid SSL).",
+        examples=[False],
+    )
+    extra_headers: Optional[Dict[str, str]] = Field(
+        default=None,
+        title="Extra Headers",
+        description="Template headers that will be rendered with request context and environment variables.",
+        examples=[
+            {
+                "X-Custom-Header": "{{ request_context.headers['X-Custom-Header'] }}",
+                "X-Api-Key": "{{ env.API_KEY }}",
+            }
+        ],
+    )
+    icon_url: str = Field(
+        default="https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png",
+        description="Icon URL for this MCP server, displayed in the UI for tool calls.",
+        examples=["https://cdn.simpleicons.org/github/181717"],
+    )
+    oauth: Optional[MCPOAuthConfig] = Field(
+        default=None,
+        title="OAuth",
+        description="OAuth authorization_code configuration. When set, users authenticate via browser before tools can be used.",
+    )
+    health_check_tool: Optional[str] = Field(
+        default=None,
+        title="Health Check Tool",
+        description="Name of a read-only tool to invoke during health check to verify authentication works. "
+        "If set, this tool will be called with empty arguments after loading tools to ensure the "
+        "connection is fully functional (e.g., API token is valid). Example: 'get_me' for GitHub MCP.",
+        examples=["get_me", "get_current_user"],
+    )
+
+    @model_validator(mode="after")
+    def default_oauth_resource(self) -> "MCPConfig":
+        """Default the RFC 8707 resource indicator to the MCP server's canonical URL.
+
+        Only fills the value when it wasn't configured explicitly (None); an
+        explicit empty string opts out of sending a resource parameter entirely.
+        """
+        if self.oauth is not None and self.oauth.resource is None:
+            self.oauth.resource = str(self.url).rstrip("/")
+        return self
 
     def get_lock_string(self) -> str:
         return str(self.url)
 
 
-class StdioMCPConfig(BaseModel):
-    mode: MCPMode = MCPMode.STDIO
-    command: str
-    args: Optional[List[str]] = None
-    env: Optional[Dict[str, str]] = None
+class StdioMCPConfig(ToolsetConfig):
+    _name: ClassVar[Optional[str]] = "Stdio"
+    _description: ClassVar[Optional[str]] = "Run MCP server as a local subprocess using stdio transport"
+
+    mode: MCPMode = Field(
+        default=MCPMode.STDIO,
+        title="Mode",
+        description="Stdio mode runs an MCP server as a local subprocess.",
+        examples=[MCPMode.STDIO],
+    )
+    command: str = Field(
+        title="Command",
+        description="The command to start the MCP server (e.g., npx, uv, python).",
+        examples=["npx"],
+    )
+    args: Optional[List[str]] = Field(
+        default=None,
+        title="Arguments",
+        description="Arguments to pass to the MCP server command.",
+        examples=[["-y", "@modelcontextprotocol/server-github"]],
+    )
+    env: Optional[Dict[str, str]] = Field(
+        default=None,
+        title="Environment Variables",
+        description="Environment variables to set for the MCP server process.",
+        examples=[{"GITHUB_PERSONAL_ACCESS_TOKEN": "{{ env.GITHUB_TOKEN }}"}],
+    )
+    icon_url: str = Field(
+        default="https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png",
+        description="Icon URL for this MCP server, displayed in the UI for tool calls.",
+        examples=["https://cdn.simpleicons.org/github/181717"],
+    )
+    health_check_tool: Optional[str] = Field(
+        default=None,
+        title="Health Check Tool",
+        description="Name of a read-only tool to invoke during health check to verify authentication works. "
+        "If set, this tool will be called with empty arguments after loading tools to ensure the "
+        "connection is fully functional (e.g., API token is valid). Example: 'get_me' for GitHub MCP.",
+        examples=["get_me", "get_current_user"],
+    )
 
     def get_lock_string(self) -> str:
         return str(self.command)
 
 
+def _get_mcp_log_file(server_name: str) -> TextIO:
+    """Get a file handle for MCP server stderr output.
+
+    Redirects MCP subprocess stderr to ~/.holmes/logs/mcp/<server_name>.log
+    so it doesn't pollute the CLI output.
+    """
+    log_dir = os.path.join(config_path_dir, "logs", "mcp")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, f"{server_name}.log")
+    display_logger.info(f"MCP server '{server_name}' logs: {log_path}")
+    return open(log_path, "w")
+
+
+
 @asynccontextmanager
-async def get_initialized_mcp_session(toolset: "RemoteMCPToolset"):
+async def get_initialized_mcp_session(
+    toolset: "RemoteMCPToolset", request_context: Optional[Dict[str, Any]] = None
+):
     if toolset._mcp_config is None:
         raise ValueError("MCP config is not initialized")
 
@@ -76,43 +283,157 @@ async def get_initialized_mcp_session(toolset: "RemoteMCPToolset"):
             args=toolset._mcp_config.args or [],
             env=toolset._mcp_config.env,
         )
-        async with stdio_client(server_params) as (
-            read_stream,
-            write_stream,
-        ):
-            async with ClientSession(read_stream, write_stream) as session:
-                _ = await session.initialize()
-                yield session
+        errlog = _get_mcp_log_file(toolset.name)
+        try:
+            async with stdio_client(server_params, errlog=errlog) as (
+                read_stream,
+                write_stream,
+            ):
+                async with ClientSession(read_stream, write_stream) as session:
+                    _ = await session.initialize()
+                    yield session
+        finally:
+            errlog.close()
     elif toolset._mcp_config.mode == MCPMode.SSE:
         url = str(toolset._mcp_config.url)
+        httpx_factory = create_mcp_http_client_factory(toolset._mcp_config.verify_ssl)
+        rendered_headers = toolset._render_headers(request_context)
         async with sse_client(
-            url, toolset._mcp_config.headers, sse_read_timeout=SSE_READ_TIMEOUT
+            url,
+            rendered_headers,
+            sse_read_timeout=MCP_TOOL_CALL_TIMEOUT_SEC,
+            httpx_client_factory=httpx_factory,
         ) as (
             read_stream,
             write_stream,
         ):
-            async with ClientSession(read_stream, write_stream) as session:
+            async with ClientSession(
+                read_stream,
+                write_stream,
+                read_timeout_seconds=timedelta(seconds=MCP_TOOL_CALL_TIMEOUT_SEC),
+            ) as session:
                 _ = await session.initialize()
                 yield session
     else:
         url = str(toolset._mcp_config.url)
+        httpx_factory = create_mcp_http_client_factory(toolset._mcp_config.verify_ssl)
+        rendered_headers = toolset._render_headers(request_context)
         async with streamablehttp_client(
-            url, headers=toolset._mcp_config.headers, sse_read_timeout=SSE_READ_TIMEOUT
+            url,
+            headers=rendered_headers,
+            sse_read_timeout=MCP_TOOL_CALL_TIMEOUT_SEC,
+            httpx_client_factory=httpx_factory,
         ) as (
             read_stream,
             write_stream,
             _,
         ):
-            async with ClientSession(read_stream, write_stream) as session:
+            async with ClientSession(
+                read_stream,
+                write_stream,
+                read_timeout_seconds=timedelta(seconds=MCP_TOOL_CALL_TIMEOUT_SEC),
+            ) as session:
                 _ = await session.initialize()
                 yield session
 
 
 class RemoteMCPTool(Tool):
     toolset: "RemoteMCPToolset" = Field(exclude=True)
+    # Real server-side tool name; exposed name is prefixed on collision.
+    mcp_tool_name: str = Field(default="", exclude=True)
+    # Whether this is a relay cross-cluster tool. Decided once at creation (see
+    # REMOTE_TOOL_NAME_PREFIX) so call-time logic reads state instead of the name.
+    is_remote: bool = Field(default=False, exclude=True)
+
+    @property
+    def collision_safe_name(self) -> str:
+        """Raw name prefixed with the sanitized toolset name."""
+        prefix = re.sub(r"[^a-zA-Z0-9]+", "_", self.toolset.name).strip("_")
+        return f"{prefix}__{self.mcp_tool_name}"
+
+    def requires_approval(
+        self, params: Dict, context: ToolInvokeContext
+    ) -> Optional[ApprovalRequirement]:
+        """Prompt user for OAuth browser login when no cached token exists."""
+        if not self.toolset.is_oauth_enabled:
+            return None
+
+        oauth_config = self.toolset._mcp_config.oauth
+        disk_key = str(self.toolset._mcp_config.url) if isinstance(self.toolset._mcp_config, MCPConfig) else None
+
+        # Try to get a token from cache → refresh → DB → disk
+        mgr = _get_token_manager()
+        token = mgr.get_access_token(oauth_config, context.request_context, disk_key=disk_key)
+        if token:
+            logger.info("OAuth MCP %s: token available via manager", self.toolset.name)
+            return None
+
+        # No token found anywhere — need to authenticate
+        user_id = _get_user_id(context.request_context)
+
+        # CLI mode: no request_context means the call came from the CLI, not the API server
+        is_cli = context.request_context is None
+        if is_cli:
+            # CLI mode: run browser OAuth flow synchronously
+            logger.info("OAuth MCP %s: CLI mode, running browser OAuth flow", self.toolset.name)
+            oauth_endpoints = OAuthEndpoints(
+                authorization_url=oauth_config.authorization_url,
+                token_url=oauth_config.token_url,
+                client_id=oauth_config.client_id,
+                client_secret=oauth_config.client_secret,
+                scopes=oauth_config.scopes,
+                registration_endpoint=oauth_config.registration_endpoint,
+                resource=oauth_config.resource,
+            )
+            token_data = cli_oauth_flow(oauth_endpoints, self.toolset.name)
+            if token_data:
+                _get_token_manager().store_token(
+                    oauth_config, token_data, context.request_context,
+                    disk_key=disk_key, store_to_disk=True,
+                )
+                logger.info("OAuth MCP %s: CLI auth successful", self.toolset.name)
+                return None  # Token obtained, no approval needed
+            else:
+                logger.warning("OAuth MCP %s: CLI OAuth flow failed", self.toolset.name)
+                # Fall through to frontend flow as fallback
+
+        # Frontend mode: use PKCE + approval mechanism
+        code_verifier, code_challenge = generate_pkce()
+
+        _get_exchange_manager().register_pending(
+            tool_call_id=context.tool_call_id,
+            code_verifier=code_verifier,
+            oauth_config=oauth_config,
+        )
+
+        metadata: Dict[str, Any] = {
+            "authorization_url": oauth_config.authorization_url,
+            "client_id": oauth_config.client_id,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        if oauth_config.scopes:
+            metadata["scopes"] = oauth_config.scopes
+        if oauth_config.registration_endpoint:
+            metadata["registration_endpoint"] = oauth_config.registration_endpoint
+        if oauth_config.resource:
+            metadata["resource"] = oauth_config.resource
+        params["__oauth_metadata"] = metadata
+
+        return ApprovalRequirement(
+            needs_approval=True,
+            reason=f"OAuth authentication required for MCP server '{self.toolset.name}'",
+        )
+
+    def _is_placeholder_connect_tool(self) -> bool:
+        return (self.mcp_tool_name or self.name) == self.toolset.connect_tool_name
 
     def _invoke(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
         try:
+            # For OAuth placeholder tools: load real tools after authentication
+            if self._is_placeholder_connect_tool():
+                return self._invoke_oauth_connect(params, context)
+
             # Serialize calls to the same MCP server to prevent SSE conflicts
             # Different servers can still run in parallel
             if not self.toolset._mcp_config:
@@ -120,13 +441,68 @@ class RemoteMCPTool(Tool):
 
             lock = get_server_lock(str(self.toolset._mcp_config.get_lock_string()))
             with lock:
-                return asyncio.run(self._invoke_async(params))
+                return asyncio.run(
+                    self._invoke_async(
+                        params,
+                        context.request_context,
+                        context.user_approved,
+                        context.session_approved_prefixes,
+                    )
+                )
         except Exception as e:
+            error_detail = _extract_root_error_message(e)
             return StructuredToolResult(
                 status=StructuredToolResultStatus.ERROR,
-                error=str(e.args),
+                error=error_detail,
                 params=params,
                 invocation=f"MCPtool {self.name} with params {params}",
+            )
+
+    def _invoke_oauth_connect(self, params: dict, context: ToolInvokeContext) -> StructuredToolResult:
+        """Handle the OAuth placeholder tool: load real tools from the MCP server after authentication."""
+        try:
+            if not self.toolset._mcp_config:
+                raise ValueError("MCP config not initialized")
+
+            lock = get_server_lock(str(self.toolset._mcp_config.get_lock_string()))
+            with lock:
+                tools_result = asyncio.run(self.toolset._get_server_tools_with_context(context.request_context))
+
+            real_tools = [
+                RemoteMCPTool.create(
+                    tool,
+                    self.toolset,
+                    is_remote=tool.name.startswith(REMOTE_TOOL_NAME_PREFIX),
+                )
+                for tool in tools_result.tools
+            ]
+
+            if real_tools:
+                tool_names = [t.name for t in real_tools]
+                logger.info("OAuth MCP %s: loaded %d tools after authentication: %s", self.toolset.name, len(real_tools), tool_names)
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.SUCCESS,
+                    data=f"Successfully authenticated and discovered {len(real_tools)} tools: {', '.join(tool_names)}. You can now call these tools directly.",
+                    params=params,
+                    invocation=f"OAuth connect to {self.toolset.name}",
+                    oauth_tools=real_tools,
+                )
+            else:
+                logger.warning("OAuth MCP %s: authenticated but no tools found", self.toolset.name)
+                return StructuredToolResult(
+                    status=StructuredToolResultStatus.ERROR,
+                    error=f"Authenticated but no tools found on MCP server {self.toolset.name}",
+                    params=params,
+                    invocation=f"OAuth connect to {self.toolset.name}",
+                )
+        except Exception as e:
+            error_detail = _extract_root_error_message(e)
+            logger.warning("OAuth MCP %s: connect failed: %s", self.toolset.name, error_detail)
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.ERROR,
+                error=f"OAuth connect failed: {error_detail}",
+                params=params,
+                invocation=f"OAuth connect to {self.toolset.name}",
             )
 
     @staticmethod
@@ -138,18 +514,170 @@ class RemoteMCPTool(Tool):
         except Exception:
             return False
 
-    async def _invoke_async(self, params: Dict) -> StructuredToolResult:
-        async with get_initialized_mcp_session(self.toolset) as session:
-            tool_result = await session.call_tool(self.name, params)
+    @staticmethod
+    def _extract_text_from_content_block(block: Any) -> str:
+        """Extract text from any MCP content block type.
 
-        merged_text = " ".join(c.text for c in tool_result.content if c.type == "text")
+        TextContent: trivial passthrough.
+        EmbeddedResource (type="resource"): pulls text from TextResourceContents,
+        or base64-decodes BlobResourceContents when the mimeType indicates text.
+        Without this, tools like github's get_file_contents — which return the
+        actual file body inside an EmbeddedResource — appear to succeed but
+        deliver nothing usable to the LLM.
+        ResourceLink (type="resource_link"): surfaces the URI as a hint.
+        """
+        block_type = getattr(block, "type", None)
+        if block_type == "text":
+            return getattr(block, "text", "") or ""
+        if block_type == "resource":
+            resource = getattr(block, "resource", None)
+            if resource is None:
+                return ""
+            text = getattr(resource, "text", None)
+            if text is not None:
+                return text
+            blob = getattr(resource, "blob", None)
+            if blob is None:
+                return ""
+            mime = getattr(resource, "mimeType", "") or ""
+            uri = getattr(resource, "uri", "")
+            if (
+                mime.startswith("text/")
+                or mime in ("application/json", "application/xml")
+                or mime.endswith("+json")
+                or mime.endswith("+xml")
+            ):
+                try:
+                    return base64.b64decode(blob).decode("utf-8", errors="replace")
+                except (binascii.Error, ValueError):
+                    pass
+            return f"[binary resource uri={uri} mimeType={mime} base64_size={len(blob)}]"
+        if block_type == "resource_link":
+            uri = getattr(block, "uri", "")
+            name = getattr(block, "name", "") or ""
+            title = getattr(block, "title", "") or ""
+            label = title or name
+            return f"[resource_link {label}: {uri}]" if label else f"[resource_link: {uri}]"
+        return ""
+
+    def _strip_omitted_optional_params(self, params: Dict) -> Dict:
+        """Drop optional params the model explicitly set to null.
+
+        The tool schema we hand the LLM declares every optional param as
+        anyOf[<type>, null] and (in strict mode) also lists it in "required",
+        so models signal "leave this out" by sending an explicit null.  MCP
+        servers validate against their own inputSchema, where those params are
+        usually plain non-nullable types, so forwarding the null fails
+        validation and the model falls back to guessing sentinels like the
+        string "null".  Omitting the key is what the model actually meant.
+        """
+        if not params:
+            return params
+        return {
+            key: value
+            for key, value in params.items()
+            if value is not None
+            or (key in self.parameters and self.parameters[key].required)
+        }
+
+    @staticmethod
+    def _merge_result_payload(merged_text: str, structured_content: Any) -> str:
+        """Combine content[] text with CallToolResult.structuredContent.
+
+        A server that declares an outputSchema returns the machine-readable
+        payload in structuredContent and is only *recommended* to also
+        serialize it into a text block.  Many servers (e.g. CircleCI's) put a
+        human summary such as "Found 5 run(s)" in content[] instead, so
+        reading content[] alone hides every id the LLM needs to drill down.
+        """
+        # Per the spec the field is a JSON object or absent; ignore anything else
+        # rather than stringifying it into the model's context.
+        if not isinstance(structured_content, dict) or not structured_content:
+            return merged_text
+        structured_text = json.dumps(structured_content, default=str)
+        if not merged_text or merged_text.strip() == structured_text.strip():
+            return structured_text
+        # The spec only *recommends* that a server also serialize the payload
+        # into a text block, but the servers that do (including the reference
+        # Python SDK, which uses indent=2) pick their own separators and key
+        # order, so an exact string compare misses the common well-behaved case
+        # and doubles the whole payload in the model's context.  Compare the
+        # parsed values instead and keep the compact serialization.
+        try:
+            if json.loads(merged_text) == structured_content:
+                return structured_text
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return f"{merged_text}\n{structured_text}"
+
+    async def _invoke_async(
+        self,
+        params: Dict,
+        request_context: Optional[Dict[str, Any]],
+        user_approved: bool = False,
+        session_approved_prefixes: Optional[List[str]] = None,
+    ) -> StructuredToolResult:
+        is_remote = self.is_remote
+        call_params = self._strip_omitted_optional_params(params)
+        if is_remote and user_approved:
+            call_params = {**call_params, REMOTE_TOOL_APPROVED_PARAM: True}
+        if is_remote and session_approved_prefixes:
+            call_params = {
+                **call_params,
+                REMOTE_TOOL_SESSION_PREFIXES_PARAM: list(session_approved_prefixes),
+            }
+
+        async with get_initialized_mcp_session(
+            self.toolset, request_context
+        ) as session:
+            tool_result = await session.call_tool(
+                self.mcp_tool_name or self.name, call_params
+            )
+
+        text_chunks = [
+            self._extract_text_from_content_block(c) for c in tool_result.content
+        ]
+        merged_text = " ".join(t for t in text_chunks if t)
+
+        try:
+            response_data = json.loads(merged_text) if merged_text else {}
+        except (json.JSONDecodeError, ValueError):
+            response_data = {}
+        if (
+            isinstance(response_data, dict)
+            and response_data.get("status")
+            == StructuredToolResultStatus.APPROVAL_REQUIRED.value
+        ):
+            logger.info(
+                "MCP tool %s requires approval: %s",
+                self.name,
+                response_data.get("error"),
+            )
+            return StructuredToolResult(
+                status=StructuredToolResultStatus.APPROVAL_REQUIRED,
+                error=response_data.get("error"),
+                params=response_data.get("params", params),
+                invocation=f"MCPtool {self.name} with params {params}",
+            )
+
+        is_error = tool_result.isError or self._is_content_error(merged_text)
+
+        images = None
+        if not is_error:
+            images = [
+                {"data": c.data, "mimeType": c.mimeType}
+                for c in tool_result.content
+                if c.type == "image"
+            ] or None
+
         return StructuredToolResult(
             status=(
                 StructuredToolResultStatus.ERROR
-                if (tool_result.isError or self._is_content_error(merged_text))
+                if is_error
                 else StructuredToolResultStatus.SUCCESS
             ),
-            data=merged_text,
+            data=self._merge_result_payload(merged_text, tool_result.structuredContent),
+            images=images,
             params=params,
             invocation=f"MCPtool {self.name} with params {params}",
         )
@@ -159,13 +687,16 @@ class RemoteMCPTool(Tool):
         cls,
         tool: MCP_Tool,
         toolset: "RemoteMCPToolset",
+        is_remote: bool = False,
     ):
         parameters = cls.parse_input_schema(tool.inputSchema)
         return cls(
             name=tool.name,
+            mcp_tool_name=tool.name,
             description=tool.description or "",
             parameters=parameters,
             toolset=toolset,
+            is_remote=is_remote,
         )
 
     @classmethod
@@ -176,37 +707,362 @@ class RemoteMCPTool(Tool):
         schema_params = input_schema.get("properties", {})
         parameters = {}
         for key, val in schema_params.items():
-            parameters[key] = ToolParameter(
-                description=val.get("description"),
-                type=val.get("type", "string"),
-                required=key in required_list,
+            parameters[key] = cls._parse_tool_parameter(
+                val, root_schema=input_schema, required=key in required_list
             )
 
         return parameters
 
-    def get_parameterized_one_liner(self, params: Dict) -> str:
-        if params:
-            if params.get("cli_command"):  # Return AWS MCP cli command, if available
-                return f"{params.get('cli_command')}"
+    @classmethod
+    def _resolve_schema(
+        cls, schema: dict[str, Any], root_schema: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Resolves $ref and extracts the first non-null type from anyOf/oneOf/allOf."""
+        if not isinstance(schema, dict):
+            return schema
 
-        if isinstance(self.toolset._mcp_config, MCPConfig):
-            cmd = str(self.toolset._mcp_config.url)
-        elif isinstance(self.toolset._mcp_config, StdioMCPConfig):
-            cmd = self.toolset._mcp_config.command
-        else:
-            cmd = "unknown"
-        return f"Call MCP Server ({cmd} - {self.name})"
+        # 1. Resolve $ref
+        if "$ref" in schema:
+            ref_path = str(schema["$ref"])
+            if ref_path.startswith("#/"):
+                parts = ref_path[2:].split("/")
+                resolved = root_schema
+                for part in parts:
+                    if isinstance(resolved, dict):
+                        resolved = resolved.get(part, {})
+                    else:
+                        resolved = {}
+                        break
+
+                # Recursively resolve the matched definition in case it contains more refs/anyOf
+                resolved_schema = dict(schema)
+                resolved_schema.pop("$ref")
+                resolved_schema.update(cls._resolve_schema(resolved, root_schema))
+                return resolved_schema
+
+        # 2. Handle anyOf / oneOf / allOf for nullable or union types
+        for compound_key in ["anyOf", "oneOf", "allOf"]:
+            if compound_key in schema and isinstance(schema[compound_key], list):
+                if compound_key == "allOf":
+                    merged = dict(schema)
+                    merged.pop(compound_key)
+                    for sub_schema in schema[compound_key]:
+                        if isinstance(sub_schema, dict):
+                            resolved_sub = cls._resolve_schema(sub_schema, root_schema)
+                            if resolved_sub.get("type") != "null":
+                                for k, v in resolved_sub.items():
+                                    if k == "properties" and isinstance(v, dict):
+                                        merged.setdefault("properties", {}).update(v)
+                                    elif k == "required" and isinstance(v, list):
+                                        reqs = merged.setdefault("required", [])
+                                        for req in v:
+                                            if req not in reqs:
+                                                reqs.append(req)
+                                    elif k == "type":
+                                        if (
+                                            "type" not in merged
+                                            or merged["type"] == "null"
+                                        ):
+                                            merged["type"] = v
+                                    else:
+                                        merged[k] = v
+                    return merged
+                else:
+                    # Resolve $ref inside each branch, then decide whether to
+                    # flatten (single non-null branch = nullable shorthand) or
+                    # preserve the full union (multiple non-null branches).
+                    resolved_branches: list[dict] = []
+                    has_null = False
+                    for sub_schema in schema[compound_key]:
+                        if isinstance(sub_schema, dict):
+                            resolved_sub = cls._resolve_schema(sub_schema, root_schema)
+                            if resolved_sub.get("type") == "null":
+                                has_null = True
+                            else:
+                                resolved_branches.append(resolved_sub)
+
+                    if len(resolved_branches) == 1:
+                        # Nullable shorthand: anyOf[<type>, null] → collapse to the single type.
+                        # The nullable flag is handled downstream via required=False / type list.
+                        merged = dict(schema)
+                        merged.pop(compound_key)
+                        merged.update(resolved_branches[0])
+                        return merged
+                    elif len(resolved_branches) > 1:
+                        # True union — preserve as anyOf so _parse_tool_parameter
+                        # can populate ToolParameter.any_of.  Convert oneOf → anyOf
+                        # since OpenAI strict mode supports anyOf but not oneOf.
+                        merged = dict(schema)
+                        merged.pop(compound_key)
+                        branches = resolved_branches
+                        if has_null:
+                            branches = resolved_branches + [{"type": "null"}]
+                        merged["anyOf"] = branches
+                        return merged
+
+        return schema
+
+    @classmethod
+    def _parse_tool_parameter(
+        cls, schema: dict[str, Any], root_schema: dict[str, Any], required: bool = True
+    ) -> ToolParameter:
+        """Recursively parse a JSON Schema property into a ToolParameter.
+
+        This preserves nested items, properties, and enum from MCP tool schemas
+        so that the OpenAI-formatted schema sent to the LLM accurately describes
+        complex parameter types (arrays, objects).
+        """
+        schema = cls._resolve_schema(schema, root_schema)
+
+        # If _resolve_schema preserved a multi-branch anyOf, parse each branch
+        # into a ToolParameter and store on the any_of field.
+        any_of_params = None
+        if "anyOf" in schema and isinstance(schema["anyOf"], list):
+            branches = schema["anyOf"]
+            non_null = [
+                b for b in branches if isinstance(b, dict) and b.get("type") != "null"
+            ]
+            if len(non_null) > 1:
+                # True union — parse each branch as a ToolParameter
+                has_null = any(
+                    isinstance(b, dict) and b.get("type") == "null" for b in branches
+                )
+                any_of_params = [
+                    cls._parse_tool_parameter(branch, root_schema, required=True)
+                    for branch in non_null
+                ]
+                # Use a placeholder type; type_to_open_ai_schema will use any_of instead
+                return ToolParameter(
+                    description=schema.get("description"),
+                    type="anyOf",
+                    required=required if not has_null else False,
+                    any_of=any_of_params,
+                    json_schema_extra={
+                        k: v for k, v in schema.items() if k in {"default"}
+                    }
+                    or None,
+                )
+
+        param_type = schema.get("type", "string")
+
+        items = None
+        if "items" in schema and isinstance(schema["items"], dict):
+            items = cls._parse_tool_parameter(
+                schema["items"], root_schema, required=True
+            )
+
+        properties = None
+        if "properties" in schema and isinstance(schema["properties"], dict):
+            nested_required = schema.get("required", [])
+            properties = {
+                name: cls._parse_tool_parameter(
+                    prop, root_schema, required=name in nested_required
+                )
+                for name, prop in schema["properties"].items()
+            }
+
+        enum = schema.get("enum")
+
+        additional_properties = None
+        raw_ap = schema.get("additionalProperties")
+        if raw_ap is not None:
+            if isinstance(raw_ap, bool):
+                additional_properties = raw_ap
+            elif isinstance(raw_ap, dict):
+                # Resolve $ref pointers so the LLM sees concrete types, but
+                # preserve compound keywords (anyOf/oneOf) intact — _resolve_schema
+                # collapses those to a single branch which loses type information
+                # (e.g. string|array becomes just string).
+                if "$ref" in raw_ap:
+                    additional_properties = cls._resolve_schema(raw_ap, root_schema)
+                else:
+                    additional_properties = raw_ap
+
+        # Capture JSON Schema validation keywords that aren't modeled as
+        # dedicated ToolParameter fields.  These are passed through to the
+        # OpenAI-formatted schema so the LLM sees constraints like array
+        # length limits, numeric ranges, and string patterns.
+        _PASSTHROUGH_KEYWORDS = {
+            "minItems",
+            "maxItems",
+            "minimum",
+            "maximum",
+            "exclusiveMinimum",
+            "exclusiveMaximum",
+            "minLength",
+            "maxLength",
+            "pattern",
+            "default",
+        }
+        json_schema_extra = {
+            k: v for k, v in schema.items() if k in _PASSTHROUGH_KEYWORDS
+        }
+
+        return ToolParameter(
+            description=schema.get("description"),
+            type=param_type,
+            required=required,
+            items=items,
+            properties=properties,
+            enum=enum,
+            additional_properties=additional_properties,
+            json_schema_extra=json_schema_extra or None,
+        )
+
+    def get_parameterized_one_liner(self, params: Dict) -> str:
+        is_remote = self.is_remote
+        agent = None
+        display_params = params or {}
+        if is_remote:
+            agent = display_params.get("agent_name")
+            display_params = {
+                k: v
+                for k, v in display_params.items()
+                if k
+                not in (
+                    "agent_name",
+                    "instance",
+                    REMOTE_TOOL_APPROVED_PARAM,
+                    REMOTE_TOOL_SESSION_PREFIXES_PARAM,
+                )
+            }
+
+        one_liner = self._base_one_liner(display_params)
+
+        if is_remote:
+            suffix = (
+                f" on remote cluster `{agent}`" if agent else " on a remote cluster"
+            )
+            one_liner = f"{one_liner}{suffix}"
+        return one_liner
+
+    def _base_one_liner(self, params: Dict) -> str:
+        # AWS MCP cli_command
+        if params and params.get("cli_command"):
+            return f"{params.get('cli_command')}"
+
+        # gcloud MCP run_gcloud_command
+        if (self.mcp_tool_name or self.name) == "run_gcloud_command" and params and "args" in params:
+            args = params.get("args", [])
+            if isinstance(args, list):
+                return f"gcloud {' '.join(str(arg) for arg in args)}"
+
+        if self.name and params and "args" in params:
+            args = params.get("args", [])
+            if isinstance(args, list):
+                return f"{self.name} {' '.join(str(arg) for arg in args)}"
+
+        return f"{self.toolset.name}: {self.name} {params}"
 
 
 class RemoteMCPToolset(Toolset):
+    config_classes: ClassVar[list[Type[Union[MCPConfig, StdioMCPConfig]]]] = [
+        MCPConfig,
+        StdioMCPConfig,
+    ]
+    description: str = "MCP server toolset"
     tools: List[RemoteMCPTool] = Field(default_factory=list)  # type: ignore
-    icon_url: str = "https://registry.npmmirror.com/@lobehub/icons-static-png/1.46.0/files/light/mcp.png"
     _mcp_config: Optional[Union[MCPConfig, StdioMCPConfig]] = None
 
+    @property
+    def is_oauth_enabled(self) -> bool:
+        return isinstance(self._mcp_config, MCPConfig) and bool(self._mcp_config.oauth) and self._mcp_config.oauth.enabled
+
+    @property
+    def connect_tool_name(self) -> str:
+        """The name of the OAuth placeholder tool for this MCP server."""
+        return f"{self.name}_connect"
+
+    def get_oauth_config(self) -> Optional[Dict[str, Any]]:
+        """Return OAuth config dict for syncing to DB/frontend, or None if not OAuth-enabled."""
+        if not self.is_oauth_enabled or not isinstance(self._mcp_config, MCPConfig) or not self._mcp_config.oauth:
+            return None
+        return self._mcp_config.oauth.model_dump(exclude_none=True)
+
+    def _load_remote_tools(self, request_context: Optional[Dict[str, Any]] = None) -> List["RemoteMCPTool"]:
+        """Load tools from the MCP server and return as RemoteMCPTool instances."""
+        if request_context:
+            tools_result = asyncio.run(self._get_server_tools_with_context(request_context))
+        else:
+            tools_result = asyncio.run(self._get_server_tools())
+        return [
+            RemoteMCPTool.create(
+                tool, self, is_remote=tool.name.startswith(REMOTE_TOOL_NAME_PREFIX)
+            )
+            for tool in tools_result.tools
+        ]
+
+    def _render_headers(
+        self, request_context: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, str]]:
+        """
+        Merge and render headers for MCP connection.
+
+        Process:
+        1. Start with 'headers' field (backward compatibility, passed as-is)
+        2. Render 'extra_headers' via Jinja2 templates
+        3. Inject OAuth Bearer token if this is an OAuth-enabled toolset
+        4. Merge them (later layers take precedence)
+
+        Returns:
+            Merged headers dictionary or None
+        """
+        if not isinstance(self._mcp_config, MCPConfig):
+            return None
+
+        # Start with direct headers (no rendering, backward compatibility)
+        final_headers: Dict[str, str] = {}
+        if self._mcp_config.headers:
+            final_headers.update(self._mcp_config.headers)
+
+        # Render and merge config-level extra_headers
+        if self._mcp_config.extra_headers:
+            rendered = render_header_templates(
+                extra_headers=self._mcp_config.extra_headers,
+                request_context=request_context,
+                source_name=self.name,
+            )
+            if rendered:
+                final_headers.update(rendered)
+
+        # Inject OAuth Bearer token if available (only when authorization_url is
+        # known — before discovery it's None and we can't look up a token yet)
+        if self.is_oauth_enabled and self._mcp_config.oauth.authorization_url:
+            oauth_config = self._mcp_config.oauth
+            cached_token = _get_token_manager().get_access_token(oauth_config, request_context)
+            if cached_token:
+                final_headers["Authorization"] = f"Bearer {cached_token}"
+                logger.debug("OAuth token injected for MCP server %s", self.name)
+            else:
+                # OAuth is configured for this toolset but we have no user token
+                # (e.g. user_id is missing in server mode, or no one has authenticated).
+                # Strip any Authorization header coming from static `headers` /
+                # `extra_headers` so a shared service-account credential cannot
+                # silently substitute for the absent per-user OAuth token.
+                stripped = [k for k in list(final_headers.keys()) if k.lower() == "authorization"]
+                for k in stripped:
+                    del final_headers[k]
+                if stripped:
+                    logger.warning(
+                        "OAuth MCP server %s: no OAuth token available and static Authorization header suppressed — request will 401",
+                        self.name,
+                    )
+                else:
+                    logger.warning(
+                        "OAuth MCP server %s: no OAuth token available — request will 401",
+                        self.name,
+                    )
+
+        return final_headers if final_headers else None
+
     def model_post_init(self, __context: Any) -> None:
+        self.type = ToolsetType.MCP
         self.prerequisites = [
             CallablePrerequisite(callable=self.prerequisites_callable)
         ]
+        # Set icon from config if specified
+        if self.icon_url is None and self.config:
+            self.icon_url = self.config.get("icon_url")
 
     @model_validator(mode="before")
     @classmethod
@@ -265,30 +1121,241 @@ class RemoteMCPToolset(Toolset):
                 ):
                     self._mcp_config.url = AnyUrl(clean_url_str + "/sse")
 
-            tools_result = asyncio.run(self._get_server_tools())
+            # For OAuth-protected servers, skip full MCP session init (it will 401).
+            # Just verify the server is reachable and register a placeholder tool
+            # that triggers the OAuth flow on first use. Tools are loaded after auth.
+            if self.is_oauth_enabled:
+                return self._check_oauth_server_reachable()
 
-            self.tools = [
-                RemoteMCPTool.create(tool, self) for tool in tools_result.tools
-            ]
+            self.tools = self._load_remote_tools()
 
             if not self.tools:
-                logging.warning(f"mcp server {self.name} loaded 0 tools.")
+                logging.warning("mcp server %s loaded 0 tools.", self.name)
+
+            # Invoke a read-only tool to verify authentication actually works.
+            # MCP servers (e.g. GitHub) often return their tool list even with
+            # invalid credentials, so listing tools alone doesn't prove auth.
+            # Use the explicitly-configured tool if set, otherwise auto-detect a
+            # well-known read-only identity tool from the loaded tools.
+            health_check_tool_name = (
+                self._mcp_config.health_check_tool
+                or self._auto_detect_health_check_tool()
+            )
+            if health_check_tool_name:
+                health_check_result = self._run_health_check_tool(health_check_tool_name)
+                if not health_check_result[0]:
+                    return health_check_result
 
             return (True, "")
         except Exception as e:
+            error_detail = _extract_root_error_message(e)
             return (
                 False,
-                f"Failed to load mcp server {self.name}: {str(e)}",
+                f"Failed to load mcp server {self.name}: {error_detail}"
+                ". If the server is still starting up, Holmes will retry automatically",
             )
 
+    def _auto_detect_health_check_tool(self) -> Optional[str]:
+        """Pick a default health-check tool from a known allowlist of read-only
+        identity tools when none is explicitly configured.
+
+        Returns the name of the first allowlisted tool the server exposes, or
+        None if it exposes none (in which case the auth health check is skipped).
+        """
+        tool_names = {(t.mcp_tool_name or t.name) for t in self.tools}
+        for candidate in DEFAULT_HEALTH_CHECK_TOOLS:
+            if candidate in tool_names:
+                logging.info(
+                    "MCP server %s: no health_check_tool configured, auto-detected '%s' for auth validation",
+                    self.name,
+                    candidate,
+                )
+                return candidate
+        # No identity tool exposed — the auth health check is skipped. Log it so
+        # a silently-skipped check is diagnosable (e.g. GitHub MCP without its
+        # 'context' toolset enabled does not expose get_me). Set an explicit
+        # health_check_tool in config to validate auth via a different tool.
+        logging.debug(
+            "MCP server %s: no health_check_tool configured and none of %s are "
+            "exposed by the server; skipping auth health check",
+            self.name,
+            DEFAULT_HEALTH_CHECK_TOOLS,
+        )
+        return None
+
+    def _run_health_check_tool(self, tool_name: str) -> Tuple[bool, str]:
+        """Invoke a tool to verify authentication actually works.
+
+        MCP servers may return a tool list even with invalid credentials (e.g., bad
+        GitHub token). This method calls a specified read-only tool with empty
+        arguments to verify the connection is fully functional.
+        """
+        matching_tools = [t for t in self.tools if (t.mcp_tool_name or t.name) == tool_name]
+        if not matching_tools:
+            available = [t.name for t in self.tools]
+            return (
+                False,
+                f"MCP server {self.name}: health_check_tool '{tool_name}' not found. "
+                f"Available tools: {', '.join(available[:10])}{'...' if len(available) > 10 else ''}",
+            )
+
+        try:
+            result = asyncio.run(self._call_health_check_tool_async(tool_name))
+            if result.isError:
+                error_chunks = [
+                    RemoteMCPTool._extract_text_from_content_block(c)
+                    for c in result.content
+                ]
+                error_text = " ".join(t for t in error_chunks if t)
+                logging.warning(
+                    "MCP server %s health check failed (tool: %s): %s",
+                    self.name, tool_name, error_text or "unknown error"
+                )
+                return (
+                    False,
+                    f"MCP server {self.name}: health check tool '{tool_name}' with params {{}} "
+                    f"failed - {error_text or 'unknown error'}",
+                )
+            logging.info("MCP server %s health check passed (tool: %s)", self.name, tool_name)
+            return (True, "")
+        except Exception as e:
+            error_detail = _extract_root_error_message(e)
+            logging.warning(
+                "MCP server %s health check exception (tool: %s): %s",
+                self.name, tool_name, error_detail
+            )
+            return (
+                False,
+                f"MCP server {self.name}: health check tool '{tool_name}' with params {{}} "
+                f"failed - {error_detail}",
+            )
+
+    async def _call_health_check_tool_async(self, tool_name: str):
+        """Call a tool during health check (no request context available)."""
+        async with get_initialized_mcp_session(self, None) as session:
+            return await session.call_tool(tool_name, {})
+
+    def _check_oauth_server_reachable(self) -> Tuple[bool, str]:
+        """For OAuth MCP servers, verify reachability without authenticating.
+
+        If a cached token exists (from a previous request in the same conversation),
+        load the real tools directly. Otherwise, auto-discover OAuth endpoints if needed,
+        then register a placeholder tool that triggers the OAuth flow on first use.
+        """
+        if not isinstance(self._mcp_config, MCPConfig) or self._mcp_config.oauth is None:
+            return (False, f"MCP server {self.name}: OAuth enabled but config not properly initialized")
+        url = str(self._mcp_config.url).rstrip("/")
+        oauth_config = self._mcp_config.oauth
+
+        try:
+            # Collect HTTP responses for PRM discovery.  The WWW-Authenticate header
+            # (typically on a 401) contains the resource_metadata URL needed to find
+            # the authorization server.  We try two endpoints and pick the best
+            # response — preferring one with a WWW-Authenticate header.
+            responses: list[httpx.Response] = []
+            try:
+                r = httpx.get(
+                    f"{url}/.well-known/oauth-protected-resource",
+                    timeout=10,
+                    verify=self._mcp_config.verify_ssl,
+                    follow_redirects=False,
+                )
+                responses.append(r)
+            except Exception:
+                pass
+
+            try:
+                r2 = httpx.post(url, timeout=10, verify=self._mcp_config.verify_ssl, follow_redirects=False)
+                responses.append(r2)
+            except Exception:
+                pass
+
+            if not responses:
+                return (False, f"MCP server {self.name} unreachable: no HTTP response from either endpoint")
+
+            # Prefer the response with a WWW-Authenticate header (needed for PRM discovery)
+            response = next(
+                (r for r in responses if r.headers.get("www-authenticate")),
+                responses[0],
+            )
+
+            # Auto-discover OAuth endpoints if not configured
+            if not oauth_config.authorization_url or not oauth_config.token_url or not oauth_config.client_id:
+                discovered = self._discover_oauth_endpoints(url, response)
+                if not discovered:
+                    return (False, f"MCP server {self.name}: OAuth enabled but auto-discovery failed. Configure authorization_url, token_url, and client_id manually.")
+
+        except Exception as e:
+            return (False, f"MCP server {self.name} unreachable: {_extract_root_error_message(e)}")
+
+        # Register a placeholder tool that will trigger OAuth on first call.
+        # After auth succeeds, _invoke will load the real tools dynamically.
+        placeholder = MCP_Tool(
+            name=self.connect_tool_name,
+            description=f"Connect to {self.name} (requires OAuth authentication). Call this tool to authenticate and discover available tools.",
+            inputSchema={"type": "object", "properties": {}},
+        )
+        self.tools = [RemoteMCPTool.create(placeholder, self)]
+        logging.info("OAuth MCP server %s is reachable, registered placeholder tool (auth required)", self.name)
+        return (True, "")
+
+    def _discover_oauth_endpoints(self, mcp_url: str, initial_response: httpx.Response) -> bool:
+        """Auto-discover OAuth endpoints following the MCP SDK's discovery flow.
+
+        Discovery order (matching mcp.client.auth):
+        1. Try Protected Resource Metadata (RFC 9728) — path-based, then root-based
+        2. If PRM found auth server → fetch its OIDC/OAuth metadata
+        3. If PRM not found → legacy fallback on MCP server itself
+        4. Dynamic Client Registration deferred to runtime
+
+        Returns True if discovery succeeded and oauth config is fully populated.
+        """
+        if not isinstance(self._mcp_config, MCPConfig) or self._mcp_config.oauth is None:
+            return False
+        oauth_config = self._mcp_config.oauth
+        verify_ssl = self._mcp_config.verify_ssl
+
+        # Step 1: Find auth server via Protected Resource Metadata (RFC 9728)
+        auth_server_url, prm_scopes = discover_auth_server_from_prm(
+            initial_response, mcp_url, verify_ssl, self.name,
+        )
+        if prm_scopes and not oauth_config.scopes:
+            oauth_config.scopes = prm_scopes
+
+        # Step 2: Fetch OAuth/OIDC metadata
+        oidc_config = fetch_oauth_metadata(auth_server_url, mcp_url, verify_ssl, self.name)
+        if not oidc_config:
+            return False
+
+        if not oauth_config.authorization_url:
+            oauth_config.authorization_url = oidc_config.get("authorization_endpoint")
+        if not oauth_config.token_url:
+            oauth_config.token_url = oidc_config.get("token_endpoint")
+
+        if not oauth_config.authorization_url or not oauth_config.token_url:
+            logging.warning("OAuth discovery %s: missing authorization or token endpoint in metadata", self.name)
+            return False
+
+        if oidc_config.get("registration_endpoint"):
+            oauth_config.registration_endpoint = oidc_config["registration_endpoint"]
+
+        # DCR deferred to runtime — we don't know redirect_uri at startup
+        if not oauth_config.client_id:
+            if oauth_config.registration_endpoint:
+                logging.debug("OAuth discovery %s: no client_id, DCR deferred to runtime", self.name)
+            else:
+                logging.warning("OAuth discovery %s: no client_id and no DCR endpoint", self.name)
+
+        logging.debug(
+            "OAuth discovery %s complete: authorization_url=%s, token_url=%s, client_id=%s",
+            self.name, oauth_config.authorization_url, oauth_config.token_url, oauth_config.client_id,
+        )
+        return True
+
     async def _get_server_tools(self):
-        async with get_initialized_mcp_session(self) as session:
+        async with get_initialized_mcp_session(self, None) as session:
             return await session.list_tools()
 
-    def get_example_config(self) -> Dict[str, Any]:
-        example_config = MCPConfig(
-            url=AnyUrl("http://example.com:8000/mcp/messages"),
-            mode=MCPMode.STREAMABLE_HTTP,
-            headers={"Authorization": "Bearer YOUR_TOKEN"},
-        )
-        return example_config.model_dump()
+    async def _get_server_tools_with_context(self, request_context: Optional[Dict[str, Any]]):
+        async with get_initialized_mcp_session(self, request_context) as session:
+            return await session.list_tools()

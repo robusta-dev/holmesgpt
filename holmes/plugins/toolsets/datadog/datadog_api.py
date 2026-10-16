@@ -3,14 +3,16 @@ import logging
 import re
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Dict, Union, Tuple
+from typing import Any, ClassVar, Dict, Optional, Tuple, Union
 from urllib.parse import urlparse, urlunparse
+
 import requests  # type: ignore
-from pydantic import AnyUrl, BaseModel
+from pydantic import AnyUrl, Field
 from requests.structures import CaseInsensitiveDict  # type: ignore
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_incrementing
 from tenacity.wait import wait_base
 
+from holmes.utils.pydantic_utils import ToolsetConfig
 
 START_RETRY_DELAY = (
     5.0  # Initial fallback delay if datadog does not return a reset_time
@@ -93,13 +95,48 @@ def convert_api_url_to_app_url(api_url: Union[str, AnyUrl]) -> str:
     return app_url
 
 
-class DatadogBaseConfig(BaseModel):
+class DatadogBaseConfig(ToolsetConfig):
     """Base configuration for all Datadog toolsets"""
 
-    dd_api_key: str
-    dd_app_key: str
-    site_api_url: AnyUrl
-    request_timeout: int = 60
+    _deprecated_mappings: ClassVar[Dict[str, Optional[str]]] = {
+        "dd_api_key": "api_key",
+        "dd_app_key": "app_key",
+        "site_api_url": "api_url",
+        "request_timeout": "timeout_seconds",
+    }
+
+    api_key: str = Field(
+        title="API Key",
+        description="Datadog API key for authentication",
+        examples=["{{ env.DATADOG_API_KEY }}"],
+        json_schema_extra={"format": "password"},
+    )
+    app_key: str = Field(
+        title="Application Key",
+        description="Datadog application key for authentication",
+        examples=["{{ env.DATADOG_APP_KEY }}"],
+        json_schema_extra={"format": "password"},
+    )
+    api_url: AnyUrl = Field(
+        title="API URL",
+        description=(
+            "Datadog site API base URL. Pick the URL matching your Datadog region — "
+            "see https://docs.datadoghq.com/getting_started/site/ for the full list."
+        ),
+        examples=[
+            "https://api.datadoghq.com",
+            "https://api.datadoghq.eu",
+            "https://api.us3.datadoghq.com",
+            "https://api.us5.datadoghq.com",
+            "https://api.ap1.datadoghq.com",
+            "https://api.ddog-gov.com",
+        ],
+    )
+    timeout_seconds: int = Field(
+        default=60,
+        title="Timeout",
+        description="HTTP request timeout in seconds",
+    )
 
 
 class DataDogRequestError(Exception):
@@ -133,8 +170,8 @@ def get_headers(dd_config: DatadogBaseConfig) -> Dict[str, str]:
     """
     return {
         "Content-Type": "application/json",
-        "DD-API-KEY": dd_config.dd_api_key,
-        "DD-APPLICATION-KEY": dd_config.dd_app_key,
+        "DD-API-KEY": dd_config.api_key,
+        "DD-APPLICATION-KEY": dd_config.app_key,
     }
 
 

@@ -1,5 +1,9 @@
 # Tool Output Transformers
 
+!!! warning "Legacy feature — not recommended"
+
+    The `llm_summarize` transformer is a legacy feature. It is disabled by default and we don't recommend enabling it: summarization is lossy (the original tool output cannot be recovered afterwards) and it adds latency and cost to every large tool call. HolmesGPT now handles oversized tool results by [spilling them to disk](../reference/context-management.md), which preserves the full data for the model to read back. This page is kept for users with existing transformer configurations.
+
 HolmesGPT supports **transformers** that can process tool outputs before they're sent to the primary LLM. This enables automatic summarization of large outputs, reducing context window usage while preserving essential information.
 
 ## Overview
@@ -14,15 +18,17 @@ Configure transformer behavior globally in your HolmesGPT configuration:
 
 ```bash
 # CLI flags
-holmes ask "what pods are unhealthy?" --fast-model gpt-4o-mini
+holmes ask "what pods are unhealthy?" --fast-model anthropic/claude-haiku-4-5-20251001
 
 # Environment variables
-export FAST_MODEL="gpt-4o-mini"
+export FAST_MODEL="anthropic/claude-haiku-4-5-20251001"
 
 # Or via config file
 # ~/.holmes/config.yaml:
-# fast_model: gpt-4o-mini
+# fast_model: anthropic/claude-haiku-4-5-20251001
 ```
+
+Choose a fast, inexpensive model with a large context window, such as `anthropic/claude-haiku-4-5-20251001` (fast and cheap with 200k context).
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -275,4 +281,4 @@ MyTool(
 )
 ```
 
-For more information, see the [HolmesGPT documentation](https://docs.robusta.dev/master/configuration/holmesgpt/toolsets/).
+For more information, see the [HolmesGPT documentation](https://holmesgpt.dev/data-sources/custom-toolsets/).

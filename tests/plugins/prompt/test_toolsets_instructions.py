@@ -1,13 +1,14 @@
 from typing import Dict
-from holmes.plugins.prompts import load_and_render_prompt
+
 from holmes.core.tools import (
     StaticPrerequisite,
     StructuredToolResult,
-    Tool,
     StructuredToolResultStatus,
+    Tool,
     ToolInvokeContext,
     Toolset,
 )
+from holmes.plugins.prompts import load_and_render_prompt
 
 template = "builtin://_toolsets_instructions.jinja2"
 
@@ -34,9 +35,6 @@ class MockToolset(Toolset):
         super().__init__(**config)
         if self.enabled:
             self.check_prerequisites()
-
-    def get_example_config(self):
-        return {}
 
 
 def test_renders_single_toolset_with_instructions():
@@ -92,12 +90,8 @@ def test_renders_disabled_toolsets():
     ]
     result = load_and_render_prompt(template, {"toolsets": toolsets})
     expected = """
-* toolset "Toolset1": this is tool 1
-    *  status: disabled
-* toolset "Toolset2": this is tool 2
-    *  status: The toolset is enabled but misconfigured and failed to initialize.
-    *  error: Health check failed
-    *  setup instructions: https://example.com
+* Toolset1: this is tool 1
+* Toolset2 (FAILED, error: Health check failed): this is tool 2 [setup: https://example.com]
 """.strip()
     print(f"** result:\n{result}")
     print(f"** expected:\n{expected}")

@@ -1,13 +1,21 @@
 """
 LLM Summarize Transformer for fast model summarization of large tool outputs.
+
+LEGACY — disabled by default and NOT recommended. This predates the
+spill-to-disk mechanism (see docs/reference/context-management.md) and never
+worked well in practice: summarization is lossy (the original tool output is
+unrecoverable afterwards), adds latency and cost to every large tool call,
+and modern models do better working from the full data spilled to disk.
+Kept for backwards compatibility with existing configs that reference it.
 """
 
 import logging
-from typing import Optional, ClassVar
+from typing import ClassVar, Optional
+
 from pydantic import Field, PrivateAttr, StrictStr
 
+from ..llm import LLM, DefaultLLM
 from .base import BaseTransformer, TransformerError
-from ..llm import DefaultLLM, LLM
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +23,10 @@ logger = logging.getLogger(__name__)
 class LLMSummarizeTransformer(BaseTransformer):
     """
     Transformer that uses a fast LLM model to summarize large tool outputs.
+
+    LEGACY — disabled by default and NOT recommended (see module docstring).
+    Prefer the spill-to-disk mechanism, which preserves the full tool output
+    on disk for the model to read back.
 
     This transformer applies summarization when:
     1. A fast model is available
@@ -35,6 +47,10 @@ class LLMSummarizeTransformer(BaseTransformer):
 - When listing problematic entries, also try to use aggregate descriptions when possible
 - When possible, mention exact keywords, IDs, or patterns so the user can filter/search the original data and drill down on the parts they care about (extraction over abstraction)"""
 
+    # Class-level default fast model — set once at startup by Config.
+    # Individual instances can override via the ``fast_model`` field.
+    _default_fast_model: ClassVar[Optional[str]] = None
+
     # Pydantic fields with validation
     input_threshold: int = Field(
         default=1000, ge=0, description="Minimum input length to trigger summarization"
@@ -49,11 +65,6 @@ class LLMSummarizeTransformer(BaseTransformer):
         min_length=1,
         description="Fast model name for summarization (e.g., 'gpt-4o-mini')",
     )
-    global_fast_model: Optional[StrictStr] = Field(
-        default=None,
-        min_length=1,
-        description="Global fast model name fallback when fast_model is not set",
-    )
     api_key: Optional[str] = Field(
         default=None,
         description="API key for the fast model (optional, uses default if not provided)",
@@ -62,20 +73,19 @@ class LLMSummarizeTransformer(BaseTransformer):
     # Private attribute for the LLM instance (not serialized)
     _fast_llm: Optional[LLM] = PrivateAttr(default=None)
 
+    @classmethod
+    def set_default_fast_model(cls, model: str) -> None:
+        """Set the class-level default fast model (called once at startup)."""
+        cls._default_fast_model = model
+        logger.info(f"Set default fast model for LLMSummarizeTransformer: {model}")
+
     def model_post_init(self, __context) -> None:
         """Initialize the fast LLM instance after model validation."""
-        logger = logging.getLogger(__name__)
-
         self._fast_llm = None
 
-        # Determine which fast model to use: fast_model takes precedence over global_fast_model
-        effective_fast_model = self.fast_model or self.global_fast_model
+        # Explicit per-instance fast_model wins over class-level default
+        effective_fast_model = self.fast_model or self._default_fast_model
 
-        logger.debug(
-            f"LLMSummarizeTransformer initialization: fast_model='{self.fast_model}', global_fast_model='{self.global_fast_model}', effective='{effective_fast_model}'"
-        )
-
-        # Create fast LLM instance if a fast model is available
         if effective_fast_model:
             try:
                 self._fast_llm = DefaultLLM(effective_fast_model, self.api_key)
@@ -85,10 +95,6 @@ class LLMSummarizeTransformer(BaseTransformer):
             except Exception as e:
                 logger.warning(f"Failed to create fast LLM instance: {e}")
                 self._fast_llm = None
-        else:
-            logger.debug(
-                "No fast model configured (neither fast_model nor global_fast_model)"
-            )
 
     def should_apply(self, input_text: str) -> bool:
         """
@@ -104,9 +110,7 @@ class LLMSummarizeTransformer(BaseTransformer):
 
         # Skip if no fast model is configured
         if self._fast_llm is None:
-            logger.debug(
-                f"Skipping summarization: no fast model configured (fast_model='{self.fast_model}', global_fast_model='{self.global_fast_model}')"
-            )
+            logger.debug("Skipping summarization: no fast model configured")
             return False
 
         # Check if input exceeds threshold

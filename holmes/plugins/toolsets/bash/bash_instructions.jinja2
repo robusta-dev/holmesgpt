@@ -1,13 +1,36 @@
-# Bash commands
+# Bash Tool
 
-The tool `run_bash_command` allows you to run the following commands:
-- `kubectl get|describe|logs|top|events [options]`
-- `aws <service> <operation> [options]` (read-only)
-- `az|docker|helm|argocd [options]`
-- `grep|cut|sort|uniq|head|tail|wc|tr|base64|jq|sed [options]`
+Use the `bash` tool to execute shell commands. Provide `command` plus `suggested_prefixes`: an array with one prefix per command segment (segments are separated by `|`, `&&`, `||`, `;`, `&`).
 
-Commands can be piped with `|`. No `&&` support.
+Simple commands, pipes/chains of them, and environment variable references are auto-approved when every segment's prefix is in the allow list. Scripts and complex constructs (`for`/`while`/`until` loops, `if`/`case`, command substitution `$(...)`/backticks, process substitution) always require user approval — still use them when they're the right tool; the user will be prompted. For scripts, provide prefixes for the key operations inside the script (e.g. `for pod in pod1 pod2; do kubectl logs $pod; done` → `["kubectl logs"]`).
 
+**Command structure:** place identifiers (what you're targeting) first and parameter values last, so prefixes can match: `kubectl scale deployment nginx -n prod --replicas=3` (prefix `kubectl scale deployment nginx -n prod`), not `kubectl scale --replicas=3 deployment nginx -n prod`.
 
-The tool `kubectl_run_image` will run an image:
-- `kubectl run <name> --image=<image> --rm --attach --restart=Never --i --tty -- <command>`
+**Choosing prefixes:**
+- Read-only operations → the shortest prefix that commits to read-only behavior: `kubectl get pods -n default` → `kubectl get`; `grep error file.txt` → `grep`; `kubectl get pods | grep error | head -10` → `["kubectl get", "grep", "head"]`.
+- Operations that can branch to read OR write → a longer prefix that pins the read-only branch: `kubectl config view` (not `kubectl config`, which could also `set`); `git remote -v` (not `git remote`).
+- Destructive/write operations → include the full target identification (action + resource type + name + namespace) but exclude parameter values: `kubectl delete pod my-pod -n default` → `kubectl delete pod my-pod -n default`; `kubectl scale deployment nginx -n prod --replicas=3` → `kubectl scale deployment nginx -n prod`.
+
+**Read-only only:** this toolset is for reading state, not changing it. Output redirection to a file (`>`, `>>`) and command arguments that execute other programs or delete/modify files (e.g. `find -exec`/`-delete`) are never auto-approved on the strength of a command's prefix — by default they are denied outright, and even where an operator has relaxed that they still require an explicit user approval. Don't rely on them: pipe to a filter or read the data directly instead.
+
+## Allowed Commands
+
+Commands matching these prefixes execute immediately without prompting:
+{% if config and config.allow %}
+{% for prefix in config.allow %}
+- `{{ prefix }}`
+{% endfor %}
+{% else %}
+- (No commands pre-approved - all commands require user approval)
+{% endif %}
+
+## Blocked Commands
+
+These commands are blocked and cannot be executed:
+{% if config and config.deny %}
+{% for prefix in config.deny %}
+- `{{ prefix }}`
+{% endfor %}
+{% endif %}
+- `sudo` (always blocked)
+- `su` (always blocked)

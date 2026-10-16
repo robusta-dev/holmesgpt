@@ -1,41 +1,56 @@
-import requests  # type: ignore
+import gzip
+import io
 import logging
-from typing import Any, Dict, Tuple, List
+import os
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Tuple
+
+import requests  # type: ignore
+from pydantic import Field, PrivateAttr
+from requests.auth import HTTPDigestAuth  # type: ignore
+
 from holmes.core.tools import (
     CallablePrerequisite,
+    ClassVar,
+    StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolInvokeContext,
     ToolParameter,
     Toolset,
     ToolsetTag,
+    Type,
 )
-
-from pydantic import BaseModel, PrivateAttr
-from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
-from requests.auth import HTTPDigestAuth  # type: ignore
-import gzip
-import io
-from datetime import datetime, timedelta, timezone
-import os
-from collections import Counter
-
 from holmes.plugins.toolsets.utils import toolset_name_for_one_liner
+from holmes.utils.pydantic_utils import ToolsetConfig
 
 
-class MongoDBConfig(BaseModel):
-    public_key: str
-    private_key: str
-    project_id: str
+class MongoDBConfig(ToolsetConfig):
+    public_key: str = Field(
+        title="Public Key",
+        description="MongoDB Atlas public key for API authentication",
+    )
+    private_key: str = Field(
+        title="Private Key",
+        description="MongoDB Atlas private key for API authentication",
+    )
+    project_id: str = Field(
+        title="Project ID",
+        description="MongoDB Atlas project ID",
+    )
 
 
 # https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/
 class MongoDBAtlasToolset(Toolset):
+    config_classes: ClassVar[list[Type[MongoDBConfig]]] = [MongoDBConfig]
+
     name: str = "MongoDBAtlas"
     description: str = "The MongoDB Atlas API allows access to Mongodb projects and processes. You can find logs, alerts, events, slow queries and various metrics to understand the state of Mongodb projects."
     docs_url: str = (
         "https://www.mongodb.com/docs/atlas/reference/api-resources-spec/v2/"
     )
-    icon_url: str = "https://webimages.mongodb.com/_com_assets/cms/kuyjf3vea2hg34taa-horizontal_default_slate_blue.svg?auto=format%252Ccompress"
+    icon_url: str = "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/mongodb.svg"
     tags: List[ToolsetTag] = [ToolsetTag.CORE]
     _session: requests.Session = PrivateAttr(default=requests.Session())
 
@@ -75,9 +90,6 @@ class MongoDBAtlasToolset(Toolset):
                 "Invalid Atlas config. Failed to set up MongoDBAtlas toolset"
             )
             return False, "Invalid Atlas config"
-
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
 
 
 class MongoDBAtlasBaseTool(Tool):

@@ -1,3 +1,10 @@
+"""Tracing abstraction layer for HolmesGPT.
+
+Provides a pluggable tracing API with implementations for Braintrust and
+OpenTelemetry, plus no-op ``DummyTracer``/``DummySpan`` fallbacks.
+:class:`TracingFactory` selects the concrete implementation at startup.
+"""
+
 import getpass
 import logging
 import os
@@ -35,13 +42,26 @@ except ImportError:
 session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
 
-def readable_timestamp():
+def readable_timestamp() -> str:
+    """Return the session-start timestamp formatted as ``YYYYMMDD_HHMMSS``."""
     return session_timestamp
 
 
-def get_active_branch_name():
+def get_active_branch_name() -> str:
+    """Detect the current Git branch from CI env vars or the local ``.git`` directory."""
     try:
-        # First check if .git is a file (worktree case)
+        # First check GitHub Actions environment variables (CI)
+        github_head_ref = os.environ.get("GITHUB_HEAD_REF")  # Set for PRs
+        if github_head_ref:
+            return github_head_ref
+
+        github_ref = os.environ.get(
+            "GITHUB_REF", ""
+        )  # Set for pushes: refs/heads/branch-name
+        if github_ref.startswith("refs/heads/"):
+            return github_ref.replace("refs/heads/", "")
+
+        # Check if .git is a file (worktree case)
         git_path = Path(".git")
         if git_path.is_file():
             # Read the worktree git directory path
@@ -68,6 +88,7 @@ def get_active_branch_name():
 
 
 def get_machine_state_tags() -> Dict[str, str]:
+    """Return a dict of environment metadata: user, branch, platform, hostname."""
     return {
         "username": getpass.getuser(),
         "branch": get_active_branch_name(),
@@ -76,7 +97,8 @@ def get_machine_state_tags() -> Dict[str, str]:
     }
 
 
-def get_experiment_name():
+def get_experiment_name() -> str:
+    """Return the experiment name from ``EXPERIMENT_ID`` env var, or the session timestamp."""
     if os.environ.get("EXPERIMENT_ID"):
         return os.environ.get("EXPERIMENT_ID")
     return readable_timestamp()  # should never happen in evals (we set EXPERIMENT_ID in conftest.py), but can happen with holmesgpt cli
@@ -98,27 +120,95 @@ class SpanType(Enum):
     TOOL = "tool"
 
 
+# Emit Langfuse-vendor-specific ``langfuse.*`` span attributes. Off by default.
+HOLMES_LANGFUSE_ATTRIBUTES = (
+    os.environ.get("HOLMES_LANGFUSE_ATTRIBUTES", "false").lower() == "true"
+)
+
+
+def langfuse_trace_attributes(
+    ask: Optional[str],
+    *,
+    user_id: Optional[str] = None,
+    user_email: Optional[str] = None,
+    account_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    cluster_id: Optional[str] = None,
+    model: Optional[str] = None,
+    request_source: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build Langfuse trace-level root-span attributes; ``{}`` unless enrichment is enabled."""
+    if not HOLMES_LANGFUSE_ATTRIBUTES:
+        return {}
+
+    ask = ask or ""
+    attrs: Dict[str, Any] = {
+        "langfuse.trace.input": ask,
+    }
+    # trace name = conversation id (short + filterable; prompt is in trace.input)
+    if session_id:
+        attrs["langfuse.trace.name"] = session_id
+    # user id (Users view) with fallback
+    uid = user_id or user_email or account_id
+    if uid:
+        attrs["langfuse.user.id"] = uid
+    # session grouping (Sessions view) = conversation id
+    if session_id:
+        attrs["langfuse.session.id"] = session_id
+    # filterable metadata (only langfuse.trace.metadata.* is filterable)
+    for key, val in (
+        ("user_id", user_id),
+        ("user_email", user_email),
+        ("conversation_id", session_id),
+        ("account_id", account_id),
+        ("cluster_id", cluster_id),
+        ("model", model),
+        ("request_source", request_source),
+    ):
+        if val:
+            attrs[f"langfuse.trace.metadata.{key}"] = val
+    # trace tags (Trace Tags facet)
+    tags = [
+        f"{label}:{val}"
+        for label, val in (
+            ("source", request_source),
+            ("cluster", cluster_id),
+            ("model", model),
+        )
+        if val
+    ]
+    if tags:
+        attrs["langfuse.trace.tags"] = tags
+    return attrs
+
+
 class DummySpan:
     """A no-op span implementation for when tracing is disabled."""
 
     def start_span(self, name: Optional[str] = None, span_type=None, **kwargs):
+        """Return a new ``DummySpan`` (no-op child span)."""
         return DummySpan()
 
     def log(self, *args, **kwargs):
+        """No-op attribute logging."""
         pass
 
     def end(self):
+        """No-op span end."""
         pass
 
     def set_attributes(
         self, name: Optional[str] = None, type=None, span_attributes=None
     ) -> None:
+        """No-op attribute setter."""
         pass
 
     def __enter__(self):
+        """Enter the no-op context manager."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """Exit the no-op context manager."""
         pass
 
 
@@ -134,6 +224,7 @@ class DummyTracer:
         return DummySpan()
 
     def get_trace_url(self):
+        """No-op — always returns ``None``."""
         return None
 
     def wrap_llm(self, llm_module):
@@ -145,6 +236,14 @@ class BraintrustTracer:
     """Braintrust implementation of tracing."""
 
     def __init__(self, project: str):
+        """Initialise the Braintrust tracer for the given project.
+
+        Args:
+            project: Braintrust project name used for experiment tracking.
+
+        Raises:
+            ImportError: If the ``braintrust`` package is not installed.
+        """
         if not BRAINTRUST_AVAILABLE:
             raise ImportError("braintrust package is required for BraintrustTracer")
 
@@ -265,6 +364,24 @@ class BraintrustTracer:
 class TracingFactory:
     """Factory for creating tracer instances."""
 
+    _metrics = None
+    _active_tracer = None
+
+    @classmethod
+    def get_metrics(cls):
+        """Get the active metrics instance. Returns None if OTel not active."""
+        return cls._metrics
+
+    @classmethod
+    def set_metrics(cls, metrics):
+        """Register the metrics instance (called by OTel tracer on init)."""
+        cls._metrics = metrics
+
+    @classmethod
+    def get_active_tracer(cls):
+        """Get the active tracer instance. Returns DummyTracer if none active."""
+        return cls._active_tracer or DummyTracer()
+
     @staticmethod
     def create_tracer(trace_type: Optional[str], project: str = BRAINTRUST_PROJECT):
         """Create a tracer instance based on the trace type.
@@ -277,6 +394,19 @@ class TracingFactory:
             Tracer instance if tracing enabled, DummySpan if disabled
         """
         if not trace_type:
+            # Auto-detect: enable OTel if endpoint is configured
+            if os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                try:
+                    from holmes.core.otel_tracing import OpenTelemetryTracer
+
+                    service_name = os.environ.get("OTEL_SERVICE_NAME", "holmesgpt")
+                    tracer = OpenTelemetryTracer(service_name=service_name)
+                    TracingFactory._active_tracer = tracer
+                    return tracer
+                except ImportError:
+                    logging.warning(
+                        "OTEL_EXPORTER_OTLP_ENDPOINT set but otel packages not installed, using DummyTracer"
+                    )
             return DummyTracer()
 
         if trace_type.lower() == "braintrust":
@@ -293,6 +423,20 @@ class TracingFactory:
                 return DummyTracer()
 
             return BraintrustTracer(project=project)
+
+        if trace_type.lower() == "otel":
+            try:
+                from holmes.core.otel_tracing import OpenTelemetryTracer
+
+                service_name = os.environ.get("OTEL_SERVICE_NAME", "holmesgpt")
+                tracer = OpenTelemetryTracer(service_name=service_name)
+                TracingFactory._active_tracer = tracer
+                return tracer
+            except ImportError:
+                logging.warning(
+                    "OpenTelemetry tracing requested but otel packages not installed"
+                )
+                return DummyTracer()
 
         logging.warning(f"Unknown trace type: {trace_type}")
         return DummyTracer()

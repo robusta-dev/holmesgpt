@@ -6,6 +6,7 @@ This page documents all environment variables that can be used to configure Holm
 
 ### OpenAI
 - `OPENAI_API_KEY` - API key for OpenAI models
+- `OPENAI_API_BASE` - Custom base URL for OpenAI-compatible APIs (e.g., LiteLLM proxy, local inference servers). See [OpenAI-Compatible](../ai-providers/openai-compatible.md) for details.
 
 ### Anthropic
 - `ANTHROPIC_API_KEY` - API key for Anthropic Claude models
@@ -14,9 +15,9 @@ This page documents all environment variables that can be used to configure Holm
 - `GEMINI_API_KEY` - API key for Google Gemini models
 - `GOOGLE_API_KEY` - Alternative API key for Google services
 
-### Azure OpenAI
-- `AZURE_API_KEY` - API key for Azure OpenAI service
-- `AZURE_API_BASE` - Base URL for Azure OpenAI endpoint
+### Azure AI Foundry
+- `AZURE_API_KEY` - API key for Azure AI Foundry service
+- `AZURE_API_BASE` - Base URL for Azure AI Foundry endpoint
 - `AZURE_API_VERSION` - API version to use (e.g., "2024-02-15-preview")
 
 ### AWS Bedrock
@@ -31,19 +32,16 @@ This page documents all environment variables that can be used to configure Holm
 
 ## LLM Tool Calling Configuration
 
-### LLMS_WITH_STRICT_TOOL_CALLS
-**Default:** `"azure/gpt-4.1, openai/*"`
+### HOLMES_DISABLE_STRICT_TOOL_CALLS
+**Default:** `false`
 
-Comma-separated list of model patterns that support strict tool calling. When a model matches one of these patterns, HolmesGPT will:
-- Enable the `strict` flag for function definitions
-- Set `additionalProperties: false` in tool parameter schemas
-- Enforce stricter schema validation for tool calls
+When set to `true`, disables strict tool calling for all models. By default, strict mode is enabled universally — HolmesGPT sets `strict: true` and `additionalProperties: false` on all tool schemas. This prevents LLMs from hallucinating parameter names or sending malformed arguments.
 
-This improves reliability of tool calling for supported models by ensuring the LLM adheres more strictly to the defined tool schemas.
+Tools with dynamic-key parameters (`additionalProperties` with a schema, e.g., filter maps) are automatically excluded from strict mode on a per-tool basis, since both OpenAI and Anthropic require `additionalProperties: false` on all objects in strict mode.
 
 **Example:**
 ```bash
-export LLMS_WITH_STRICT_TOOL_CALLS="azure/gpt-4.1,openai/*,anthropic/claude-sonnet-4*"
+export HOLMES_DISABLE_STRICT_TOOL_CALLS=true
 ```
 
 ### TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS
@@ -58,7 +56,259 @@ export TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS=true
 
 **Note:** This setting is typically only needed when using Gemini models. Other providers handle empty parameter objects correctly.
 
+## Server Security
+
+### HOLMES_API_KEY
+**Default:** not set (authentication disabled)
+
+When set, all API requests must include this key via either:
+
+- `X-API-Key: <key>` header, or
+- `Authorization: Bearer <key>` header
+
+Health check endpoints (`/healthz`, `/readyz`) are always exempt.
+
+**Generating a key:**
+```bash
+# Generate a random key with 32 bytes of entropy
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+
+# Or use openssl
+openssl rand -base64 32
+```
+
+**Example:**
+```bash
+export HOLMES_API_KEY=my-secret-key-here
+```
+
+**Docker example:**
+```bash
+docker run -d \
+  -e HOLMES_API_KEY=your-generated-key \
+  ...
+```
+
+### HOLMES_APPROVAL_SIGNING_KEY
+**Default:** not set (an ephemeral key is generated per process at startup)
+
+HMAC signing key for tool-approval tokens. Holmes mints a short-lived JWT
+for every tool call that requires user approval and verifies the same JWT
+when the user approves. This prevents a client from forging an approval
+for a tool call Holmes never proposed.
+
+When unset, Holmes generates a 32-byte random key at startup. Approvals
+still work, but **in-flight approvals are invalidated on every restart** —
+users will see "Approval token validation failed" if they approve a
+modal after Holmes restarted. Set this env var to keep approvals working
+across restarts.
+
+**Generating a key:**
+```bash
+openssl rand -base64 32
+```
+
+The env var is used verbatim as the HMAC key — any string works, but use a
+high-entropy value like the snippet above. A short or guessable key
+silently weakens the signature and lets a client forge approval tokens.
+
+**Example (Kubernetes):**
+```yaml
+additionalEnvVars:
+  - name: HOLMES_APPROVAL_SIGNING_KEY
+    valueFrom:
+      secretKeyRef:
+        name: holmes-secrets
+        key: approval-signing-key
+```
+
+Tokens expire after 30 days.
+
+## SSL/TLS
+
+### CERTIFICATE
+
+Base64-encoded custom CA certificate for outbound HTTPS requests. When set, the certificate is appended to the default CA bundle so that HolmesGPT trusts your private CA for all connections (LLM APIs, Elasticsearch, Prometheus, etc.).
+
+=== "Holmes CLI"
+
+    ```bash
+    export CERTIFICATE="$(base64 -w0 /path/to/ca.crt)"
+    ```
+
+=== "Holmes Helm Chart"
+
+    ```yaml
+    certificate: "<base64-encoded CA cert>"
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    holmes:
+      certificate: "<base64-encoded CA cert>"
+    ```
+
+### API Server HTTPS (`HOLMES_SSL_*`)
+
+Serve the HolmesGPT API over **HTTPS directly from the application** (in-app TLS — no reverse proxy or ingress required). When both `HOLMES_SSL_CERTFILE` and `HOLMES_SSL_KEYFILE` are set, the server listens with TLS; otherwise it serves plain HTTP. If only one of the two is set, if a referenced file is missing, or if `HOLMES_SSL_CA_CERTS` / `HOLMES_SSL_KEYFILE_PASSWORD` is set without both server-side files, the server **fails to start** rather than silently falling back to HTTP.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `HOLMES_SSL_CERTFILE` | for HTTPS | Path to the PEM server certificate. Setting this **and** `HOLMES_SSL_KEYFILE` enables HTTPS. |
+| `HOLMES_SSL_KEYFILE` | for HTTPS | Path to the PEM private key for the certificate. |
+| `HOLMES_SSL_KEYFILE_PASSWORD` | optional | Password for an encrypted private key. |
+| `HOLMES_SSL_CA_CERTS` | optional | Path to a CA bundle used to **verify client certificates**. Setting it enables mutual TLS (mTLS) — clients without a CA-signed certificate are rejected. |
+
+=== "Holmes CLI"
+
+    ```bash
+    export HOLMES_SSL_CERTFILE=/path/to/tls.crt
+    export HOLMES_SSL_KEYFILE=/path/to/tls.key
+    # optional:
+    export HOLMES_SSL_KEYFILE_PASSWORD=changeit
+    export HOLMES_SSL_CA_CERTS=/path/to/ca.crt   # enables mTLS
+    ```
+
+=== "Holmes Helm Chart"
+
+    Provide a TLS secret and enable `tls` (see the [Kubernetes installation guide](../installation/kubernetes-installation.md)):
+
+    ```yaml
+    tls:
+      enabled: true
+      secretName: holmes-tls   # secret with tls.crt and tls.key
+      # caCertsSecretKey: ca.crt   # optional: key in the secret, enables mTLS
+    ```
+
+!!! note "Certificate rotation"
+    The server reads the certificate once at startup and does not hot-reload it. After rotating the certificate (or its secret), restart the process/pod for the new certificate to take effect.
+
+## Tool Result Size Limits
+
+These variables control how HolmesGPT handles large tool responses that exceed the LLM context window.
+
+When a tool returns more data than the context window can hold, Holmes can either save the result to disk (so the LLM can access it via `cat`, `grep`, etc.) or drop the data with an error asking the LLM to narrow its query.
+
+### HOLMES_TOOL_RESULT_STORAGE_ENABLED
+**Default:** `true`
+
+Controls whether large tool results are saved to the filesystem. When enabled, oversized results are written to a temp directory and the LLM receives a file path it can read with bash commands. When disabled, oversized results are dropped and the LLM is asked to retry with a narrower query.
+
+**Example:**
+```bash
+# Disable filesystem storage for large results
+export HOLMES_TOOL_RESULT_STORAGE_ENABLED=false
+```
+
+### HOLMES_TOOL_RESULT_STORAGE_PATH
+**Default:** System temp directory + `/.holmes` (e.g., `/tmp/.holmes`)
+
+Directory where large tool results are saved. Each chat session creates a subdirectory that is automatically cleaned up when the session ends.
+
+**Example:**
+```bash
+export HOLMES_TOOL_RESULT_STORAGE_PATH="/var/holmes/tool_results"
+```
+
+### TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT
+**Default:** `15`
+
+Maximum percentage of the LLM context window that a single tool response can use. If a tool result exceeds this limit, it triggers the large-result handling (filesystem storage or truncation). Set to `0` or a value above `100` to disable percentage-based limiting.
+
+**Example:**
+```bash
+# Allow each tool response to use up to 25% of context window
+export TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_PCT=25
+```
+
+### TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS
+**Default:** `25000`
+
+Absolute maximum tokens for a single tool response, regardless of context window size. The effective limit is the **minimum** of this value and the percentage-based limit above.
+
+**Example:**
+```bash
+# Raise the absolute cap to 50,000 tokens
+export TOOL_MAX_ALLOCATED_CONTEXT_WINDOW_TOKENS=50000
+```
+
+## Tool Subprocess Memory Limit
+
+### TOOL_MEMORY_LIMIT_MB
+**Default:** `800` on x86_64, `1500` on ARM / aarch64
+
+Per-subprocess virtual-memory cap (in MB) applied to every tool command Holmes runs. Implemented by prefixing each command with `ulimit -v <value × 1024>`. When a command exceeds the cap, the kernel kills it (exit `137`) and Holmes prefixes the output with an `[OOM]` hint instructing the LLM to retry with a narrower query.
+
+The cap limits **virtual address space**, not resident memory — Go binaries like `kubectl` can reserve hundreds of MB at startup, so set this too low and you will break commands that would otherwise use little RAM. On Kubernetes, keep this comfortably below the pod's `resources.limits.memory`. On macOS the cap is silently ignored (BSD kernel does not enforce `ulimit -v`).
+
+See [Tool Execution Safety](../data-sources/tool-execution-safety.md) for the full mechanism, implications, and tuning guidance.
+
+**Example:**
+```bash
+export TOOL_MEMORY_LIMIT_MB=2000
+```
+
+## Holmes Logs in the Robusta UI
+
+The Robusta UI shows Holmes's own pod logs. The whole result is limited to `REMOTE_TOOL_RESULT_MAX_BYTES` (default 1 MB) after JSON encoding; when the logs are longer, the newest lines are kept.
+
+### HOLMES_LOGS_DEFAULT_TAIL_LINES
+**Default:** `500`
+
+Lines per container that the UI gets when it does not ask for a number.
+
+### HOLMES_LOGS_MAX_TAIL_LINES
+**Default:** `5000`
+
+The largest number of lines per container that a request can ask for.
+
+## Conversation Worker Executors
+
+The conversation runtime (Robusta platform deployments) runs each conversation on a named **executor**. `Conversations.executor` names it: `manual` for live user asks (chat, follow-ups, a single "Investigate now") and `auto` for background work (auto-triage, "Add to queue" / bulk investigations, triggered workflows). Executors are created on demand and sized from the account setting `conversation_executors.<name>` (Settings → LLMs sets `manual`, Settings → Triage sets `auto`; applied live, no restart), falling back to the built-in default (`manual`=10, `auto`=1). `CONVERSATION_WORKER_MAX_CONCURRENT` (default 5) only sizes an executor whose name has no built-in default.
+
+**Upgrade note.** Before executors existed, one shared pool of `CONVERSATION_WORKER_MAX_CONCURRENT` (5) ran everything. With the defaults above an agent now runs up to 11 conversations at once (10 `manual` + 1 `auto`), and `CONVERSATION_WORKER_MAX_CONCURRENT` no longer sizes those two executors. Deployments that tuned it should set the concurrency in Settings instead.
+
 ## HolmesGPT Configuration
+
+### MODEL_LIST_FILE_LOCATION
+Path to a YAML file that defines named model configurations. When set, you can reference models by name using `--model=<name>` in the CLI or the `model` parameter in the HTTP API, instead of specifying the full model identifier and credentials each time.
+
+If unset, HolmesGPT looks for the model list file in this order:
+
+1. `/etc/holmes/config/model_list.yaml` (server / Helm default)
+2. `~/.holmes/model_list.yaml` (CLI default)
+
+**Example:**
+```bash
+export MODEL_LIST_FILE_LOCATION="/path/to/model_list.yaml"
+```
+
+See [Using Multiple Providers](../ai-providers/using-multiple-providers.md) for the model list file format and usage.
+
+### LITELLM_MODEL_COST_MAP_URL
+Overrides the URL LiteLLM fetches the model catalog (`model_prices_and_context_window.json`) from. LiteLLM uses that catalog to know each model's context window, max output tokens, and pricing. By default LiteLLM pulls it from `raw.githubusercontent.com`, which is unreachable from networks that block GitHub egress.
+
+Robusta hosts a mirror of the same file in each region. Pick the URL matching your Robusta region:
+
+```robusta-region
+https://api.robusta.dev/litellm/model_prices_and_context_window.json
+```
+
+The mirror is cached and falls back to its last-known-good copy if the upstream is temporarily unreachable, so pointing at it gives the same freshness as the default URL without requiring egress to `raw.githubusercontent.com`.
+
+**Helm example:**
+
+```robusta-region {lang=yaml}
+additionalEnvVars:
+  - name: LITELLM_MODEL_COST_MAP_URL
+    value: https://api.robusta.dev/litellm/model_prices_and_context_window.json
+```
+
+### LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS
+LiteLLM downloads its model catalog once at startup, so a model released while Holmes is running is missing from it until a restart. When a lookup for a model's context window, max output tokens, or pricing finds nothing, Holmes re-downloads the catalog, at most once per this interval.
+
+**Default:** `86400` (once a day)
 
 ### HOLMES_CONFIG_PATH
 Path to a custom HolmesGPT configuration file. If not set, defaults to `~/.holmes/config.yaml`.
@@ -68,7 +318,7 @@ Path to a custom HolmesGPT configuration file. If not set, defaults to `~/.holme
 export HOLMES_CONFIG_PATH="/path/to/custom/config.yaml"
 ```
 
-### HOLMES_LOG_LEVEL
+### LOG_LEVEL
 Controls the logging verbosity of HolmesGPT.
 
 **Values:** `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
@@ -76,14 +326,87 @@ Controls the logging verbosity of HolmesGPT.
 
 **Example:**
 ```bash
-export HOLMES_LOG_LEVEL="DEBUG"
+export LOG_LEVEL="DEBUG"
+```
+
+### ENABLE_JSON_LOGS_FORMAT
+When enabled, HolmesGPT emits logs as JSON (one object per line) instead of the default colored text format. This makes logs easier to index, search, and filter with log scrapers such as Filebeat.
+
+**Default:** `false`
+
+**Example:**
+```bash
+export ENABLE_JSON_LOGS_FORMAT="true"
+```
+
+### SCOPED_NAMESPACES
+Comma-separated list of namespaces this Holmes instance's Kubernetes RBAC is limited to. When set, Holmes is told its access scope in the system prompt, so investigations start scoped to those namespaces instead of discovering the restriction from `Forbidden` errors. The Helm chart sets it automatically when `namespaceScopedRBAC` is enabled; set it yourself when scoping RBAC manually.
+
+**Default:** unset (cluster-wide access assumed)
+
+**Example:**
+```bash
+export SCOPED_NAMESPACES="monitoring"        # single namespace
+export SCOPED_NAMESPACES="monitoring,default"  # multiple namespaces
+```
+
+### TRACE_TOKEN_USAGE
+When enabled, logs aggregated token usage (input, output, cached, total, cost) once per completed `/api/chat` request at `INFO` level. Useful for debugging token consumption and cost issues.
+
+**Default:** `false`
+
+**Example:**
+```bash
+export TRACE_TOKEN_USAGE="true"
+```
+
+**Sample output:**
+```
+Completed /api/chat request: ask=... (stream) | model=gpt-4o, input=45290, output=603, cached=0, total=45893, cost=$0.0656
 ```
 
 ### HOLMES_CACHE_DIR
 Directory for caching HolmesGPT data and temporary files.
 
-### HOLMES_POST_PROCESSING_PROMPT
-Custom prompt template for post-processing LLM responses.
+### HOLMES_PASSTHROUGH_BLOCKED_HEADERS
+**Default:** `"authorization,cookie,set-cookie"`
+
+Comma-separated list of HTTP header names that should **not** be forwarded from incoming requests to toolsets via `request_context`. Case-insensitive.
+
+**Example:**
+```bash
+# Also block a custom internal header
+export HOLMES_PASSTHROUGH_BLOCKED_HEADERS="authorization,cookie,set-cookie,x-internal-only"
+```
+
+See [HTTP Header Propagation](../data-sources/header-propagation.md) for details.
+
+### HOLMES_CONNECTIVITY_CHECK_ALLOW_ALL_HOSTS
+**Default:** `false`
+
+When set to `true`, the `connectivity_check` toolset's `tcp_check` tool may probe
+private/internal destinations without them being listed in its `allowed_hosts`
+setting. Use it if you don't want to maintain an allowlist — at your own risk:
+the model picks the host and port, and `tcp_check`'s open/refused/filtered
+outcomes make that a usable network scanner if an investigation reads
+attacker-controlled text. A warning is logged at startup while it is on.
+
+Cloud-metadata (`169.254.169.254`), loopback and link-local targets remain
+blocked — this variable never unblocks them. The one setting that does is
+`block_internal_ips: false`, which removes those checks independently of this
+variable; a deployment that sets both gets the unrestricted behaviour of
+`block_internal_ips: false`. `block_private_ips: true` still overrides this.
+While it is on, any
+configured `allowed_hosts` entries are ignored entirely — they neither restrict
+destinations nor exempt one from the metadata/loopback block. Equivalent to
+setting `allow_all_hosts: true` in the toolset config.
+
+**Example:**
+```bash
+export HOLMES_CONNECTIVITY_CHECK_ALLOW_ALL_HOSTS=true
+```
+
+See [Connectivity Check](../data-sources/builtin-toolsets/connectivity-check.md) for details.
 
 ## Data Source Configuration
 
@@ -91,9 +414,11 @@ Custom prompt template for post-processing LLM responses.
 - `PROMETHEUS_URL` - URL of the Prometheus server
 
 ### Confluence
-- `CONFLUENCE_BASE_URL` - Base URL of Confluence instance
-- `CONFLUENCE_EMAIL` - Email for Confluence authentication
-- `CONFLUENCE_API_KEY` - API key for Confluence
+
+- `CONFLUENCE_API_URL` - Base URL of Confluence instance (e.g., `https://mycompany.atlassian.net`)
+- `CONFLUENCE_USER` - User email (Cloud) or username (Data Center) for authentication
+- `CONFLUENCE_API_KEY` - API token (Cloud) or password (Data Center)
+- `CONFLUENCE_PAT` - Personal Access Token (Data Center, used with `auth_type: bearer`)
 
 ### GitHub
 - `GITHUB_TOKEN` - Personal access token for GitHub API
@@ -114,10 +439,24 @@ Custom prompt template for post-processing LLM responses.
 ### Slab
 - `SLAB_API_KEY` - API key for Slab integration
 
+## Remote MCP Servers
+
+### MCP_TOOL_CALL_TIMEOUT_SEC
+**Default:** `120` (falls back to `SSE_READ_TIMEOUT`)
+
+Per-request timeout, in seconds, for MCP tool calls. Forwarded to the MCP SDK's `ClientSession.call_tool(read_timeout_seconds=...)`, which enforces it via `anyio.fail_after` around the response-stream receive. Without a bound here, streamable-http tool calls can hang indefinitely if the MCP server dies mid-response (the httpx/anyio stream EOF does not reliably wake pending response futures).
+
+On expiry the SDK raises `McpError(code=REQUEST_TIMEOUT)`, which Holmes surfaces as a `StructuredToolResultStatus.ERROR` result with the message `Timed out while waiting for response to ClientRequest. Waited N seconds.`
+
+**Example:**
+```bash
+export MCP_TOOL_CALL_TIMEOUT_SEC=60
+```
+
 ## Testing and Development
 
 ### RUN_LIVE
-When set to `true`, enables live execution of commands in tests instead of using mocked responses. Strongly recommended for accurate test results.
+Enables live execution of commands in tests. Defaults to `true`.
 
 **Example:**
 ```bash
@@ -161,37 +500,6 @@ Custom experiment name for tracking test runs in Braintrust.
 Controls message building flow in ask_holmes tests:
 - `cli` (default) - Uses CLI-style message building
 - `server` - Uses server-style message building with ChatRequest
-
-## Usage Examples
-
-### Basic Setup
-```bash
-# Set up OpenAI
-export OPENAI_API_KEY="sk-..."
-export HOLMES_LOG_LEVEL="INFO"
-
-# Run HolmesGPT
-holmes ask "what pods are failing?"
-```
-
-### Gemini Configuration
-```bash
-# Configure for Gemini models
-export GEMINI_API_KEY="your-key"
-export TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS=true
-
-holmes ask "analyze cluster health" --model="gemini/gemini-1.5-pro"
-```
-
-### Testing with Strict Tool Calling
-```bash
-# Enable strict tool calling for additional models
-export LLMS_WITH_STRICT_TOOL_CALLS="azure/gpt-4.1,openai/*,custom/model-*"
-export RUN_LIVE=true
-export MODEL="custom/model-v2"
-
-poetry run pytest tests/llm/ -n 6
-```
 
 ## See Also
 

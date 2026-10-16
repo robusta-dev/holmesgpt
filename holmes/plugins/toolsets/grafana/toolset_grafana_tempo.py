@@ -1,34 +1,37 @@
-import os
 import json
+import os
 import time
 import uuid
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, cast
 from urllib.parse import quote
-from typing import Any, Dict, Tuple, cast, List, Optional
 
-from holmes.common.env_vars import load_bool, MAX_GRAPH_POINTS
+from holmes.common.env_vars import MAX_GRAPH_POINTS, load_bool
 from holmes.core.tools import (
     StructuredToolResult,
+    StructuredToolResultStatus,
     Tool,
     ToolInvokeContext,
     ToolParameter,
-    StructuredToolResultStatus,
 )
 from holmes.plugins.toolsets.consts import STANDARD_END_DATETIME_TOOL_PARAM_DESCRIPTION
 from holmes.plugins.toolsets.grafana.base_grafana_toolset import BaseGrafanaToolset
 from holmes.plugins.toolsets.grafana.common import (
+    DirectTempoConfig,
+    GrafanaCloudTempoConfig,
     GrafanaTempoConfig,
+    GrafanaTempoProxyConfig,
 )
 from holmes.plugins.toolsets.grafana.grafana_tempo_api import GrafanaTempoAPI
 from holmes.plugins.toolsets.logging_utils.logging_api import (
     DEFAULT_GRAPH_TIME_SPAN_SECONDS,
 )
 from holmes.plugins.toolsets.utils import (
-    toolset_name_for_one_liner,
-    process_timestamps_to_int,
-    standard_start_datetime_tool_param_description,
     adjust_step_for_max_points,
-    seconds_to_duration_string,
     duration_string_to_seconds,
+    process_timestamps_to_int,
+    seconds_to_duration_string,
+    standard_start_datetime_tool_param_description,
+    toolset_name_for_one_liner,
 )
 
 TEMPO_LABELS_ADD_PREFIX = load_bool("TEMPO_LABELS_ADD_PREFIX", True)
@@ -47,7 +50,7 @@ def _build_grafana_explore_tempo_url(
     if not config.grafana_datasource_uid:
         return None
     try:
-        base_url = config.external_url or config.url
+        base_url = config.external_url or config.api_url
         datasource_uid = config.grafana_datasource_uid
         now_s = int(time.time())
         start_ts = start if start else now_s - 3600
@@ -134,15 +137,14 @@ def _build_grafana_explore_tempo_url(
 
 
 class BaseGrafanaTempoToolset(BaseGrafanaToolset):
-    config_class = GrafanaTempoConfig
-
-    def get_example_config(self):
-        example_config = GrafanaTempoConfig(
-            api_key="YOUR API KEY",
-            url="YOUR GRAFANA URL",
-            grafana_datasource_uid="<UID of the tempo datasource to use>",
-        )
-        return example_config.model_dump()
+    # base_grafana_toolset tries each class in order and uses the first that
+    # validates. The proxy variant is listed first because it matches the
+    # recommended path in the docs.
+    config_classes: ClassVar[list[Type[GrafanaTempoConfig]]] = [
+        GrafanaTempoProxyConfig,
+        DirectTempoConfig,
+        GrafanaCloudTempoConfig,
+    ]
 
     @property
     def grafana_config(self) -> GrafanaTempoConfig:
@@ -1082,7 +1084,7 @@ class GrafanaTempoToolset(BaseGrafanaTempoToolset):
         super().__init__(
             name="grafana/tempo",
             description="Fetches kubernetes traces from Tempo",
-            icon_url="https://grafana.com/static/assets/img/blog/tempo.png",
+            icon_url="https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/grafana.svg",
             docs_url="https://holmesgpt.dev/data-sources/builtin-toolsets/grafanatempo/",
             tools=[
                 FetchTracesSimpleComparison(self),

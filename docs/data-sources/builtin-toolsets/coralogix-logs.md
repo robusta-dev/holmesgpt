@@ -3,37 +3,142 @@
 HolmesGPT can use Coralogix for logs/traces (DataPrime) and, separately, PromQL-style metrics. This page shows both setups.
 
 ## Prerequisites
-1. A [Coralogix API key](https://coralogix.com/docs/developer-portal/apis/data-query/direct-archive-query-http-api/#api-key) which is assigned the `DataQuerying` permission preset
-2. A [Coralogix domain](https://coralogix.com/docs/user-guides/account-management/account-settings/coralogix-domain/). For example `eu2.coralogix.com`
-3. Your team's [name or hostname](https://coralogix.com/docs/user-guides/account-management/organization-management/create-an-organization/#teams-in-coralogix). For example `your-company-name`
 
-You can deduce the `domain` and `team_hostname` configuration fields by looking at the URL you use to access the Coralogix UI.
+1. A [Coralogix API key](https://coralogix.com/docs/developer-portal/apis/data-query/direct-archive-query-http-api/#api-key) with `DataQuerying` permissions
+2. A [Coralogix domain](https://coralogix.com/docs/user-guides/account-management/account-settings/coralogix-domain/) (e.g., `eu2.coralogix.com`)
+3. (Optional) Your team's [slug](https://coralogix.com/docs/user-guides/account-management/organization-management/create-an-organization/#teams-in-coralogix) - only needed for generating clickable UI permalink URLs in tool output
 
-For example if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` then the `team_hostname` is `my-team` and the Coralogix `domain` is `eu2.coralogix.com`.
+You can find your `domain` and `team_slug` from the URL you use to access Coralogix. For example, if you access Coralogix at `https://my-team.app.eu2.coralogix.com/` then `team_slug` is `my-team` and `domain` is `eu2.coralogix.com`.
 
 ## Configuration
-Configure both the Coralogix DataPrime toolset (for logs/traces) and the Prometheus metrics toolset (for metrics) using the same API key:
 
-```yaml-toolset-config
-toolsets:
-  coralogix:
-    enabled: true
-    config:
-      api_key: "<your Coralogix API key>"
-      domain: "eu2.coralogix.com"
-      team_hostname: "your-company-name"
+Configure both the Coralogix DataPrime toolset (for logs/traces) and the Prometheus metrics toolset (for metrics) using the same API key. The `team_slug` field is optional — it's only used to generate clickable permalink URLs that open query results in the Coralogix UI.
 
-  prometheus/metrics:
-    enabled: true
-    config:
-      headers:
-        Authorization: "Bearer <your Coralogix API key>"
-      prometheus_url: "https://ng-api-http.eu2.coralogix.com/metrics"  # replace domain
+Holmes automatically derives the UI hostname for permalinks from your `domain` — the Coralogix UI uses a different hostname than the API in most regions. For example, with the US2 domain (`us2.coralogix.com` or `cx498.coralogix.com`) permalinks point to `https://<team_slug>.app.cx498.coralogix.com`. If your team's UI lives at a non-standard address, set the optional `ui_url` field to its full base URL (e.g. `ui_url: "https://my-team.app.cx498.coralogix.com"`) to override the derived hostname.
 
+=== "Holmes CLI"
 
+    Set the environment variable:
+
+    ```bash
+    export CORALOGIX_API_KEY=your-coralogix-api-key
+    ```
+
+    Add the following to **~/.holmes/config.yaml**. Create the file if it doesn't exist:
+
+    ```yaml
+    toolsets:
+      coralogix:
+        enabled: true
+        config:
+          api_key: "{{ env.CORALOGIX_API_KEY }}"
+          domain: "eu2.coralogix.com"
+          # Optional: enables clickable UI permalink URLs in tool output
+          team_slug: "your-company-name"
+
+      prometheus/metrics:
+        enabled: true
+        subtype: coralogix
+        config:
+          additional_headers:
+            Authorization: "Bearer {{ env.CORALOGIX_API_KEY }}"
+          prometheus_url: "https://ng-api-http.eu2.coralogix.com/metrics"  # replace domain
+    ```
+
+    --8<-- "snippets/toolset_refresh_warning.md"
+
+=== "Holmes Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-coralogix-logs \
+      --from-literal=CORALOGIX_API_KEY=your-coralogix-api-key \
+      -n <namespace>
+    ```
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    extraEnvVarsSecrets:
+      - holmes-coralogix-logs
+
+    toolsets:
+      coralogix:
+        enabled: true
+        config:
+          api_key: "{{ env.CORALOGIX_API_KEY }}"
+          domain: "eu2.coralogix.com"
+          # Optional: enables clickable UI permalink URLs in tool output
+          team_slug: "your-company-name"
+
+      prometheus/metrics:
+        enabled: true
+        subtype: coralogix
+        config:
+          additional_headers:
+            Authorization: "Bearer {{ env.CORALOGIX_API_KEY }}"
+          prometheus_url: "https://ng-api-http.eu2.coralogix.com/metrics"  # replace domain
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-coralogix-logs \
+      --from-literal=CORALOGIX_API_KEY=your-coralogix-api-key \
+      -n <namespace>
+    ```
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      extraEnvVarsSecrets:
+        - holmes-coralogix-logs
+
+      toolsets:
+        coralogix:
+          enabled: true
+          config:
+            api_key: "{{ env.CORALOGIX_API_KEY }}"
+            domain: "eu2.coralogix.com"
+            # Optional: enables clickable UI permalink URLs in tool output
+            team_slug: "your-company-name"
+
+        prometheus/metrics:
+          enabled: true
+          subtype: coralogix
+          config:
+            additional_headers:
+              Authorization: "Bearer {{ env.CORALOGIX_API_KEY }}"
+            prometheus_url: "https://ng-api-http.eu2.coralogix.com/metrics"  # replace domain
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+**Note**: Both toolsets use the same API key. In Kubernetes, you only need to create one secret — the env var feeds both the `coralogix` toolset's `api_key` field and the Prometheus toolset's `Authorization` header.
+
+## Multiple Instances
+
+```multi-instance
+toolset: coralogix
+name: Coralogix
+config: |
+  api_key: "<your Coralogix API key>"
+  domain: "eu2.coralogix.com"
 ```
-
-**Note**: Both toolsets use the same API key. The DataPrime toolset supports fields (`CoralogixConfig`): `api_key`, `domain`, `team_hostname`, optional `labels`.
 
 ## Recommended: Customize Coralogix Instructions
 
@@ -41,7 +146,12 @@ By specifying details about your Coralogix metrics, logs, and traces, you can si
 
 To configure this:
 
-1. Go to [platform.robusta.dev](https://platform.robusta.dev/)
+1. Open the Robusta platform — pick your region:
+
+    ```robusta-region
+    [platform.robusta.dev](https://platform.robusta.dev/)
+    ```
+
 2. Navigate to **Settings → AI Assistant → AI Customization**
 3. Add your labels and metric details
 4. Save your changes

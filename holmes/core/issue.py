@@ -1,7 +1,7 @@
-from strenum import StrEnum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
+from strenum import StrEnum
 
 
 class IssueStatus(StrEnum):
@@ -37,6 +37,10 @@ class Issue(BaseModel):
     # we want to classify as open/closed so we can color the issue red/green
     # if these fields are not present, an LLM  may be used to guess them
     presentation_status: Optional[IssueStatus] = None
+
+    # Controls whether to append status to the title in Slack messages (e.g., " - open")
+    # Set to False for health checks and other non-incident alerts
+    show_status_in_title: bool = True
 
     # Markdown with key metadata about the issue. Suggested format is several lines each styled as "*X*: Y" and separated by \n
     presentation_key_metadata: Optional[str] = None

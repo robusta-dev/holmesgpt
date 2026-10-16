@@ -1,8 +1,9 @@
 toolsets:
   kubernetes/core:
+    expose_remotely: true  # cluster-local; callable cross-cluster via platform-mcp
     description: "Read access to cluster resources (excluding secrets and other sensitive data)"
     docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/"
-    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    icon_url: "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/kubernetes.svg"
     tags:
       - core
     prerequisites:
@@ -13,88 +14,241 @@ toolsets:
     # This reduces context window usage while preserving key information for debugging.
 
     tools:
-      - name: "kubectl_describe"
-        description: >
-          Run kubectl describe <kind> <name> -n <namespace>,
-          call this when users ask for description,
-          for example when a user asks
-            - 'describe pod xyz-123'
-            - 'show service xyz-123 in namespace my-ns'
-        command: "kubectl describe {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-        transformers:
-          - name: llm_summarize
-            config:
-              input_threshold: 1000
-              prompt: |
-                Summarize this kubectl describe output focusing on:
-                - What needs attention or immediate action
-                - Resource status and health indicators
-                - Any errors, warnings, or non-standard states
-                - Key configuration details that could affect functionality
-                - When possible, mention exact field names so the user can grep for specific details
-                - Be concise: aim for ≤ 50% of the original length; avoid repeating defaults/healthy/unchanged details
-                - Prefer aggregates and counts; list only outliers and actionable items
-                - Keep grep-friendly: include exact field names/values that matter
-
-      - name: "kubectl_get_by_name"
-        description: "Run `kubectl get <kind> <name> --show-labels`"
-        command: "kubectl get --show-labels -o wide {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-
-      - name: "kubectl_get_by_kind_in_namespace"
-        description: "Run `kubectl get <kind> -n <namespace> --show-labels` to get all resources of a given type in namespace"
-        command: "kubectl get --show-labels -o wide {{ kind }} -n {{namespace}}"
-        transformers:
-          - name: llm_summarize
-            config:
-              input_threshold: 1000
-              prompt: |
-                Summarize this kubectl output focusing on:
-                - What needs attention or immediate action
-                - Group similar resources into aggregate descriptions
-                - Make sure to mention outliers, errors, and non-standard states
-                - List healthy resources as aggregate descriptions
-                - When listing unhealthy resources, also try to use aggregate descriptions when possible
-                - When possible, mention exact keywords so the user can rerun the command with | grep <keyword> and drill down
-                - Be concise and avoid expansion: target ≤ 50% of input size; prefer counts + outliers over full listings
-
-      - name: "kubectl_get_by_kind_in_cluster"
-        description: "Run `kubectl get -A <kind> --show-labels` to get all resources of a given type in the cluster"
-        command: "kubectl get -A --show-labels -o wide {{ kind }}"
-        transformers:
-          - name: llm_summarize
-            config:
-              input_threshold: 1000
-              prompt: |
-                Summarize this kubectl output focusing on:
-                - What needs attention or immediate action
-                - Group similar resources into a single line and description
-                - Make sure to mention outliers, errors, and non-standard states
-                - List healthy resources as aggregate descriptions
-                - When listing unhealthy resources, also try to use aggregate descriptions when possible
-                - When possible, mention exact keywords so the user can rerun the command with | grep <keyword> and drill down on the parts they care about
-                - Strive for ≤ 50% of the original size; keep results compact and grep-friendly (one line per aggregate)
-
-      - name: "kubectl_find_resource"
-        description: "Run `kubectl get {{ kind }} -A --show-labels | grep {{ keyword }}` to find a resource where you know a substring of the name, IP, namespace, or labels"
-        command: "kubectl get -A --show-labels -o wide {{ kind }} | grep {{ keyword }}"
-
-      - name: "kubectl_get_yaml"
-        description: "Run `kubectl get -o yaml` on a single Kubernetes resource"
-        command: "kubectl get -o yaml {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-
-      - name: "kubectl_events"
-        description: "Retrieve the events for a specific Kubernetes resource. `resource_type` can be any kubernetes resource type: 'pod', 'service', 'deployment', 'job', 'node', etc."
-        command: "kubectl events --for {{resource_type}}/{{ resource_name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-
       - name: "kubernetes_jq_query"
-        user_description: "Query Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -r {{jq_expr}}"
+        user_description: "jq query: kubectl get {{kind}} | jq '{{jq_expr}}' (namespace={{namespace if namespace is string}}, label_selector={{label_selector}}, field_selector={{field_selector}})"
         description: >
-          Use kubectl to get json for all resources of a specific kind pipe the results to jq to filter them. Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give. e.g. give an expression like .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
-        command: kubectl get {{ kind }} --all-namespaces -o json | jq -r {{ jq_expr }}
+          Use kubectl to get json for all resources of a specific kind and filter with jq.
+          Prefer over bash for large queries - paginates via the Kubernetes API so large
+          clusters don't overflow context.
+          If you know the namespace or labels of the resources you need, pass namespace,
+          label_selector and/or field_selector so filtering happens server-side; unscoped
+          queries can be slow on large clusters.
+          Returns a JSON object with keys: "total_items_processed", "matches_found",
+          "results" (array of matching resources), "stderr" (error output or null),
+          "scope" (the resource, namespace and selectors actually queried), and
+          "notes" (e.g. a namespace ignored for a cluster-scoped kind).
+          The 'kind' parameter must be the plural form of the resource type
+          (e.g., "pods" not "pod", "jobs" not "job").
+          Do not worry about escaping the jq_expr - it will be done by the system.
+          Example: .items[] | .spec.containers[].image | select(test("^gcr.io/") | not)
+        parameters:
+          namespace:
+            type: string
+            required: false
+            description: "Only query resources in this namespace. Ignored for cluster-scoped kinds such as nodes."
+          label_selector:
+            type: string
+            required: false
+            description: "Kubernetes label selector applied server-side, e.g. 'app=web,tier!=db' or 'env in (prod,staging)'."
+          field_selector:
+            type: string
+            required: false
+            description: "Kubernetes field selector applied server-side. All kinds support metadata.name and metadata.namespace; pods also support status.phase and spec.nodeName, e.g. 'status.phase!=Running'."
+        script: |
+          #!/bin/bash
+
+          # SECURITY: assign sanitized params to shell variables in an unquoted
+          # assignment slot, then reference them only as "$VAR". Never interpolate
+          # {{ param }} inside a quoted context - sanitize() (shlex.quote) wraps
+          # dangerous values in single quotes, which are literal (and command
+          # substitution stays active) inside a double-quoted or single-quoted slot.
+          KIND={{ kind }}
+          # 'namespace' is also a Jinja global (namespace()), so it is defined even when omitted
+          SEL_NAMESPACE={{ namespace if namespace is string else "" }}
+          SEL_LABELS={{ label_selector }}
+          SEL_FIELDS={{ field_selector }}
+          # Strict tool calls send null for unset optional params, which renders as 'None'
+          [ "$SEL_NAMESPACE" = "None" ] && SEL_NAMESPACE=""
+          [ "$SEL_LABELS" = "None" ] && SEL_LABELS=""
+          [ "$SEL_FIELDS" = "None" ] && SEL_FIELDS=""
+
+          # Collapse multi-line jq expressions (LLMs sometimes write multi-line jq)
+          # Note: use $'\n' syntax instead of '\n' because Jinja2 interprets \n as literal newlines
+          JQ_FILTER={{ jq_expr }}
+          JQ_FILTER=$(printf '%s' "$JQ_FILTER" | tr $'\n\r' '  ')
+
+          err_file=$(mktemp)
+          PROCESSED=0
+          NOTES='[]'
+          SCOPE='null'
+
+          add_note() {
+            NOTES=$(jq -c --arg note "$1" '. + [$note]' <<< "$NOTES")
+          }
+
+          uri_encode() {
+            jq -rn --arg v "$1" '$v|@uri'
+          }
+
+          fail() {
+            err_content=$(cat "$err_file" 2>/dev/null)
+            rm -f "$err_file"
+            jq -n --arg stderr "$1 $err_content" --argjson total "$PROCESSED" --argjson notes "$NOTES" --argjson scope "$SCOPE" \
+              '{total_items_processed: $total, matches_found: 0, results: [], stderr: $stderr, scope: $scope, notes: $notes}'
+            exit 0
+          }
+
+          # The namespace becomes part of the raw API path, so anything other than a valid
+          # namespace name (e.g. 'default/services/x:80/proxy/?') could reach other API endpoints
+          if [ -n "$SEL_NAMESPACE" ] && ! [[ "$SEL_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            fail "Invalid namespace '${SEL_NAMESPACE}': must be a Kubernetes namespace name (lowercase letters, digits and '-')."
+          fi
+
+          # Get the API path for the resource kind using kubectl
+          # Match the resource name (first column) as an EXACT string, not a
+          # grep regex - otherwise a kind like '.*' or 'a|b' would match the
+          # wrong resource.
+          CANDIDATES=$(kubectl api-resources --no-headers 2>>"$err_file" | awk -v kind="$KIND" '$1 == kind')
+          API_INFO=$(printf '%s\n' "$CANDIDATES" | head -1)
+          # `kubectl api-resources` sorts by group name, so a CRD reusing a built-in
+          # plural (e.g. Calico's crd.projectcalico.org networkpolicies) can be listed
+          # before networking.k8s.io. Pick what `kubectl get` picks: the core group,
+          # then the first group in server discovery order (/apis).
+          if [ "$(printf '%s\n' "$CANDIDATES" | grep -c .)" -gt 1 ] && [[ "$API_INFO" != *" v1 "* ]]; then
+            API_GROUPS=$(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null)
+            if [ -z "$API_GROUPS" ]; then
+              add_note "Several API groups serve '${KIND}' and server discovery (/apis) failed, so the first group listed by kubectl api-resources was used."
+            fi
+            for group in $API_GROUPS; do
+              match=$(printf '%s\n' "$CANDIDATES" | grep -F " $group/" | head -1)
+              if [ -n "$match" ]; then
+                API_INFO="$match"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "$API_INFO" ]; then
+            fail "Unable to find resource kind '${KIND}'."
+          fi
+
+          # Extract NAMESPACED value
+          if [[ "$API_INFO" == *" true "* ]]; then
+            NAMESPACED=true
+            PREFIX=$(echo "$API_INFO" | sed 's/ true .*//')
+          elif [[ "$API_INFO" == *" false "* ]]; then
+            NAMESPACED=false
+            PREFIX=$(echo "$API_INFO" | sed 's/ false .*//')
+          else
+            fail "Could not parse API info for '${KIND}'."
+          fi
+
+          # Trim trailing spaces from prefix and collapse internal spaces
+          PREFIX=$(echo "$PREFIX" | sed 's/  *$//' | sed 's/  */ /g')
+
+          IFS=' ' read -ra PREFIX_FIELDS <<< "$PREFIX"
+          FIELD_COUNT=0
+          for field in "${PREFIX_FIELDS[@]}"; do
+            ((FIELD_COUNT++))
+          done
+
+          RESOURCE_NAME="${PREFIX_FIELDS[0]}"
+          if [ $FIELD_COUNT -ge 2 ]; then
+            API_VERSION="${PREFIX_FIELDS[$((FIELD_COUNT - 1))]}"
+          else
+            API_VERSION=""
+          fi
+
+          if [ -z "$API_VERSION" ] || [ -z "$RESOURCE_NAME" ]; then
+            fail "Unable to parse API info for resource kind '${KIND}'."
+          fi
+
+          # Build API path: namespaced kinds can be listed within one namespace;
+          # cluster-scoped kinds ignore the namespace (as kubectl does)
+          if [[ "$API_VERSION" == "v1" ]]; then
+            API_BASE="/api/v1"
+          else
+            API_BASE="/apis/${API_VERSION}"
+          fi
+          if [ -n "$SEL_NAMESPACE" ] && [ "$NAMESPACED" = "true" ]; then
+            API_PATH="${API_BASE}/namespaces/${SEL_NAMESPACE}/${RESOURCE_NAME}"
+          else
+            if [ -n "$SEL_NAMESPACE" ]; then
+              add_note "namespace '${SEL_NAMESPACE}' ignored: ${RESOURCE_NAME} is cluster-scoped."
+              SEL_NAMESPACE=""
+            fi
+            API_PATH="${API_BASE}/${RESOURCE_NAME}"
+          fi
+
+          SELECTOR_QUERY=""
+          if [ -n "$SEL_LABELS" ]; then
+            SELECTOR_QUERY="${SELECTOR_QUERY}&labelSelector=$(uri_encode "$SEL_LABELS")"
+          fi
+          if [ -n "$SEL_FIELDS" ]; then
+            SELECTOR_QUERY="${SELECTOR_QUERY}&fieldSelector=$(uri_encode "$SEL_FIELDS")"
+          fi
+
+          SCOPE=$(jq -nc --arg resource "$RESOURCE_NAME" --arg api_version "$API_VERSION" \
+            --arg namespace "$SEL_NAMESPACE" --arg labels "$SEL_LABELS" --arg fields "$SEL_FIELDS" \
+            '{resource: $resource, api_version: $api_version,
+              namespace: (if $namespace == "" then null else $namespace end),
+              label_selector: (if $labels == "" then null else $labels end),
+              field_selector: (if $fields == "" then null else $fields end)}')
+
+          # Process resources in chunks using API pagination
+          LIMIT=500
+          CONTINUE=""
+          TOTAL_MATCHES=0
+          ALL_MATCHES=""
+
+          while true; do
+            QUERY="${API_PATH}?limit=${LIMIT}${SELECTOR_QUERY}"
+            if [ -n "$CONTINUE" ]; then
+              # continue tokens are base64 and may contain '+', '/' or '='
+              QUERY="${QUERY}&continue=$(uri_encode "$CONTINUE")"
+            fi
+
+            OUTPUT=$(kubectl get --raw "$QUERY" 2>>"$err_file")
+            exit_code=$?
+
+            if [ $exit_code -ne 0 ]; then
+              fail "kubectl get --raw failed for $QUERY."
+            fi
+
+            ITEMS_COUNT=$(echo "$OUTPUT" | jq '.items | length')
+
+            MATCHES=$(echo "$OUTPUT" | jq -c "$JQ_FILTER" 2>>"$err_file")
+            jq_exit=$?
+            if [ $jq_exit -ne 0 ]; then
+              fail "jq expression failed."
+            fi
+
+            if [ "$ITEMS_COUNT" -gt 0 ]; then
+              if [ -n "$MATCHES" ]; then
+                if [ -z "$ALL_MATCHES" ]; then
+                  ALL_MATCHES="$MATCHES"
+                else
+                  ALL_MATCHES="$ALL_MATCHES"$'\n'"$MATCHES"
+                fi
+                MATCH_COUNT=$(echo "$MATCHES" | grep -c . || true)
+                TOTAL_MATCHES=$((TOTAL_MATCHES + MATCH_COUNT))
+              fi
+              PROCESSED=$((PROCESSED + ITEMS_COUNT))
+            fi
+
+            CONTINUE=$(echo "$OUTPUT" | jq -r '.metadata.continue // empty')
+
+            if [ -z "$CONTINUE" ]; then
+              break
+            fi
+          done
+
+          err_content=$(cat "$err_file" 2>/dev/null)
+          rm -f "$err_file"
+
+          # Output results as a JSON object with metadata. Results go through stdin, not --argjson:
+          # Linux caps a single argument at 128KB, so larger results failed with "Argument list too long".
+          printf '%s\n' "$ALL_MATCHES" | jq -s \
+            --argjson total_items_processed "$PROCESSED" \
+            --argjson matches_found "$TOTAL_MATCHES" \
+            --arg stderr "$err_content" \
+            --argjson scope "$SCOPE" \
+            --argjson notes "$NOTES" \
+            '{total_items_processed: $total_items_processed, matches_found: $matches_found, results: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
         transformers:
           - name: llm_summarize
             config:
-              input_threshold: 1000
+              input_threshold: 10000
               prompt: |
                 Summarize this jq query output focusing on:
                 - Key patterns and commonalities in the data
@@ -106,51 +260,385 @@ toolsets:
                 - Be concise: aim for ≤ 50% of the original text; prioritize aggregates and actionable outliers
                 - Include grep-ready keys/values; avoid repeating entire objects or unchanged defaults
 
-      - name: "kubernetes_count"
-        user_description: "Count Kubernetes Resources: kubectl get {{kind}} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
+      - name: "kubernetes_tabular_query"
+        user_description: "filter: kubectl get {{kind}} columns='{{columns}}' (namespace={{namespace if namespace is string}}, label_selector={{label_selector}}, field_selector={{field_selector}}, filter={{filter_pattern}})"
         description: >
-          Use kubectl to get apply a jq filter and then count the results.
-          Use this whenever asked to count kubernetes resources.
-          Use select() to filter objects before extracting properties, e.g. .items[] | select(.metadata.namespace == "test-1") | .metadata.name
-          Do not worry about escaping the jq_expr it will be done by the system on an unescaped expression that you give.
-          e.g. give an expression like .items[] | select(.spec.containers[].image | test("^gcr.io/") | not) | .metadata.name
+          Extract specific fields from Kubernetes resources in tabular format with optional filtering.
+          Returns a JSON object with keys: "count" (number of rows), "header" (column header line),
+          "rows" (array of data rows), "stderr" (error output or null), "scope"
+          (the namespace and selectors actually queried), and "notes" (e.g. a namespace
+          ignored for a cluster-scoped kind).
+          Only requested fields are transmitted, so it works well on large clusters.
+          If you know the namespace or labels of the resources you need, pass namespace,
+          label_selector and/or field_selector so filtering happens server-side; unscoped
+          queries can be slow on large clusters.
+          Column specification format: HEADER:FIELD_PATH,HEADER2:FIELD_PATH2,...
+          e.g. NAME:.metadata.name,STATUS:.status.phase,IMAGE:.spec.containers[0].image
+          Optional filter_pattern matches any column (grep regex), e.g. filter_pattern="Running".
+
+          LIMITATIONS - not allowed characters in columns: ' / ; and newline.
+          Label keys containing dots or slashes (e.g. kubernetes.io/arch, app.kubernetes.io/name)
+          CANNOT be queried with this tool because dots are path separators in JSONPath and
+          slashes are forbidden characters. Use kubernetes_jq_query instead for labels with
+          special characters, e.g.: .items[] | {name: .metadata.name, arch: .metadata.labels["kubernetes.io/arch"]}
+          Similarly, use .status.nodeInfo.architecture instead of .metadata.labels["kubernetes.io/arch"] when possible.
+        parameters:
+          namespace:
+            type: string
+            required: false
+            description: "Only query resources in this namespace. Ignored for cluster-scoped kinds such as nodes."
+          label_selector:
+            type: string
+            required: false
+            description: "Kubernetes label selector applied server-side, e.g. 'app=web,tier!=db' or 'env in (prod,staging)'. Unlike columns, label keys with dots or slashes work here."
+          field_selector:
+            type: string
+            required: false
+            description: "Kubernetes field selector applied server-side. All kinds support metadata.name and metadata.namespace; pods also support status.phase and spec.nodeName, e.g. 'status.phase!=Running'."
+          filter_pattern:
+            type: string
+            required: false
+            description: "grep -E regex matched against each output row, e.g. 'Running'."
         script: |
-          echo "Command executed: kubectl get {{ kind }} --all-namespaces -o json | jq -c -r {{ jq_expr }}"
-          echo "---"
+          #!/bin/bash
+          # SECURITY: assign sanitized params to shell variables (unquoted slot),
+          # then reference them only as "$VAR" - never interpolate {{ param }}
+          # inside a quoted context. See kubernetes_jq_query for the rationale.
+          KIND={{ kind }}
+          CUSTOM_COLUMNS={{ columns }}
+          # 'namespace' is also a Jinja global (namespace()), so it is defined even when omitted
+          SEL_NAMESPACE={{ namespace if namespace is string else "" }}
+          SEL_LABELS={{ label_selector }}
+          SEL_FIELDS={{ field_selector }}
+          FILTER_PATTERN={{ filter_pattern }}
+          # Strict tool calls send null for unset optional params, which renders as 'None'
+          [ "$SEL_NAMESPACE" = "None" ] && SEL_NAMESPACE=""
+          [ "$SEL_LABELS" = "None" ] && SEL_LABELS=""
+          [ "$SEL_FIELDS" = "None" ] && SEL_FIELDS=""
+          [ "$FILTER_PATTERN" = "None" ] && FILTER_PATTERN=""
 
-          # Execute the command and capture both stdout and stderr separately
-          temp_error=$(mktemp)
-          matches=$(kubectl get {{ kind }} --all-namespaces -o json 2>"$temp_error" | jq -c -r {{ jq_expr }} 2>>"$temp_error")
-          exit_code=$?
-          error_output=$(cat "$temp_error")
-          rm -f "$temp_error"
-
-          if [ $exit_code -ne 0 ]; then
-            echo "Error executing command (exit code: $exit_code):"
-            echo "$error_output"
-            exit $exit_code
-          else
-            # Show any stderr warnings even if command succeeded
-            if [ -n "$error_output" ]; then
-              echo "Warnings/stderr output:"
-              echo "$error_output"
-              echo "---"
+          # kubectl ignores -n for cluster-scoped kinds; say so instead of reporting a namespace that wasn't applied
+          NOTES='[]'
+          if [ -n "$SEL_NAMESPACE" ]; then
+            is_kind() { awk -v kind="$KIND" '$1 == kind || index($1, kind ".") == 1 {found = 1} END {exit !found}'; }
+            if kubectl api-resources --namespaced=false -o name 2>/dev/null | is_kind \
+              && ! kubectl api-resources --namespaced=true -o name 2>/dev/null | is_kind; then
+              NOTES=$(jq -nc --arg note "namespace '${SEL_NAMESPACE}' ignored: ${KIND} is cluster-scoped." '[$note]')
+              SEL_NAMESPACE=""
             fi
-
-            # Filter out empty lines for accurate count
-            filtered_matches=$(echo "$matches" | grep -v '^$' | grep -v '^null$')
-            if [ -z "$filtered_matches" ]; then
-              count=0
-            else
-              count=$(echo "$filtered_matches" | wc -l)
-            fi
-            preview=$(echo "$filtered_matches" | head -n 10 | cut -c 1-200 | nl)
-
-            echo "$count results"
-            echo "---"
-            echo "A *preview* of results is shown below (up to 10 results, up to 200 chars):"
-            echo "$preview"
           fi
+
+          SCOPE_ARGS=()
+          if [ -n "$SEL_NAMESPACE" ]; then
+            SCOPE_ARGS+=(-n "$SEL_NAMESPACE")
+          else
+            SCOPE_ARGS+=(--all-namespaces)
+          fi
+          if [ -n "$SEL_LABELS" ]; then
+            SCOPE_ARGS+=(-l "$SEL_LABELS")
+          fi
+          if [ -n "$SEL_FIELDS" ]; then
+            SCOPE_ARGS+=(--field-selector "$SEL_FIELDS")
+          fi
+
+          err_file=$(mktemp)
+          output=$(kubectl get "$KIND" "${SCOPE_ARGS[@]}" -o custom-columns="$CUSTOM_COLUMNS" 2>"$err_file")
+          kubectl_exit=$?
+          err_content=$(cat "$err_file" 2>/dev/null)
+          rm -f "$err_file"
+
+          SCOPE='null'
+          if command -v jq &>/dev/null; then
+            SCOPE=$(jq -nc --arg namespace "$SEL_NAMESPACE" --arg labels "$SEL_LABELS" --arg fields "$SEL_FIELDS" \
+              '{namespace: (if $namespace == "" then null else $namespace end),
+                label_selector: (if $labels == "" then null else $labels end),
+                field_selector: (if $fields == "" then null else $fields end)}')
+          fi
+
+          if [ $kubectl_exit -ne 0 ] || [ -z "$output" ]; then
+            if command -v jq &>/dev/null; then
+              jq -n --arg stderr "$err_content" --argjson scope "$SCOPE" --argjson notes "$NOTES" \
+                '{count: 0, header: null, rows: [], stderr: $stderr, scope: $scope, notes: $notes}'
+            else
+              echo "=== STDERR ==="
+              echo "$err_content"
+              echo "=== ROWS ==="
+              echo "=== COUNT ==="
+              echo 0
+            fi
+            exit 0
+          fi
+
+          # Split header and data rows
+          header=$(echo "$output" | head -1)
+          if [ -n "$FILTER_PATTERN" ]; then
+            data=$(echo "$output" | tail -n +2 | grep -E -- "$FILTER_PATTERN" || true)
+          else
+            data=$(echo "$output" | tail -n +2)
+          fi
+
+          if command -v jq &>/dev/null; then
+            if [ -n "$data" ]; then
+              count=$(echo "$data" | wc -l)
+            else
+              count=0
+            fi
+            # Rows go through stdin, not --argjson, so large tables don't hit "Argument list too long"
+            printf '%s' "$data" | jq -R . | jq -s \
+              --argjson count "$count" \
+              --arg header "$header" \
+              --arg stderr "$err_content" \
+              --argjson scope "$SCOPE" \
+              --argjson notes "$NOTES" \
+              '{count: $count, header: $header, rows: ., stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
+          else
+            echo "=== STDERR ==="
+            echo "$err_content"
+            echo "=== HEADER ==="
+            echo "$header"
+            echo "=== ROWS ==="
+            echo "$data"
+            echo "=== COUNT ==="
+            if [ -n "$data" ]; then echo "$data" | wc -l; else echo 0; fi
+          fi
+        transformers:
+          - name: llm_summarize
+            config:
+              input_threshold: 10000
+              prompt: |
+                Summarize this tabular output focusing on:
+                - Key patterns and trends in the data
+                - Resources that need attention (errors, pending, failures)
+                - Group similar items into aggregate descriptions
+                - Highlight outliers or unusual values
+                - Mention specific resource names only for problematic items
+                - Provide counts and distributions where relevant
+                - Be concise: aim for ≤ 50% of the original size
+                - Keep output actionable and focused on anomalies
+
+      - name: "kubernetes_count"
+        user_description: "count: kubectl get {{kind}} | jq '{{jq_expr}}' (namespace={{namespace if namespace is string}}, label_selector={{label_selector}}, field_selector={{field_selector}})"
+        description: >
+          Use kubectl to apply a jq filter and then count the results.
+          Use this whenever asked to count kubernetes resources.
+          Prefer over bash for large queries - paginates via the Kubernetes API so large
+          clusters don't overflow context.
+          If you know the namespace or labels of the resources you need, pass namespace,
+          label_selector and/or field_selector so filtering happens server-side; unscoped
+          queries can be slow on large clusters.
+          Returns a JSON object with keys: "total_items_processed", "matches_found" (number of matches),
+          "preview" (first 10 results truncated to 200 chars), "stderr" (error output or null),
+          "scope" (the resource, namespace and selectors actually queried), and
+          "notes" (e.g. a namespace ignored for a cluster-scoped kind).
+          The 'kind' parameter must be the plural form of the resource type ("pods" not "pod").
+          Use select() to filter objects before extracting properties; do not worry about escaping
+          the jq_expr - it will be done by the system.
+          e.g. .items[] | select(.spec.containers[].image | test("^gcr.io/") | not) | .metadata.name
+        parameters:
+          namespace:
+            type: string
+            required: false
+            description: "Only count resources in this namespace. Ignored for cluster-scoped kinds such as nodes."
+          label_selector:
+            type: string
+            required: false
+            description: "Kubernetes label selector applied server-side, e.g. 'app=web,tier!=db' or 'env in (prod,staging)'."
+          field_selector:
+            type: string
+            required: false
+            description: "Kubernetes field selector applied server-side. All kinds support metadata.name and metadata.namespace; pods also support status.phase and spec.nodeName, e.g. 'status.phase!=Running'."
+        script: |
+          #!/bin/bash
+
+          # SECURITY: assign sanitized params to shell variables (unquoted slot),
+          # then reference them only as "$VAR" - never interpolate {{ param }}
+          # inside a quoted context. See kubernetes_jq_query for the rationale.
+          KIND={{ kind }}
+          # 'namespace' is also a Jinja global (namespace()), so it is defined even when omitted
+          SEL_NAMESPACE={{ namespace if namespace is string else "" }}
+          SEL_LABELS={{ label_selector }}
+          SEL_FIELDS={{ field_selector }}
+          # Strict tool calls send null for unset optional params, which renders as 'None'
+          [ "$SEL_NAMESPACE" = "None" ] && SEL_NAMESPACE=""
+          [ "$SEL_LABELS" = "None" ] && SEL_LABELS=""
+          [ "$SEL_FIELDS" = "None" ] && SEL_FIELDS=""
+
+          err_file=$(mktemp)
+          TOTAL_PROCESSED=0
+          NOTES='[]'
+          SCOPE='null'
+
+          add_note() {
+            NOTES=$(jq -c --arg note "$1" '. + [$note]' <<< "$NOTES")
+          }
+
+          uri_encode() {
+            jq -rn --arg v "$1" '$v|@uri'
+          }
+
+          fail() {
+            err_content=$(cat "$err_file" 2>/dev/null)
+            rm -f "$err_file"
+            jq -n --arg stderr "$1 $err_content" --argjson total "$TOTAL_PROCESSED" --argjson notes "$NOTES" --argjson scope "$SCOPE" \
+              '{total_items_processed: $total, matches_found: 0, preview: [], stderr: $stderr, scope: $scope, notes: $notes}'
+            exit 0
+          }
+
+          # The namespace becomes part of the raw API path; see kubernetes_jq_query
+          if [ -n "$SEL_NAMESPACE" ] && ! [[ "$SEL_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$ ]]; then
+            fail "Invalid namespace '${SEL_NAMESPACE}': must be a Kubernetes namespace name (lowercase letters, digits and '-')."
+          fi
+
+          # Get the API path for the resource kind
+          # Match the resource name (first column) as an EXACT string, not a
+          # grep regex - otherwise a kind like '.*' or 'a|b' would match the
+          # wrong resource.
+          CANDIDATES=$(kubectl api-resources --no-headers 2>>"$err_file" | awk -v kind="$KIND" '$1 == kind')
+          API_INFO=$(printf '%s\n' "$CANDIDATES" | head -1)
+          # Pick the group `kubectl get` picks when several serve this plural.
+          # See kubernetes_jq_query for why the first api-resources match is wrong.
+          if [ "$(printf '%s\n' "$CANDIDATES" | grep -c .)" -gt 1 ] && [[ "$API_INFO" != *" v1 "* ]]; then
+            API_GROUPS=$(kubectl get --raw /apis 2>/dev/null | jq -r '.groups[].name' 2>/dev/null)
+            if [ -z "$API_GROUPS" ]; then
+              add_note "Several API groups serve '${KIND}' and server discovery (/apis) failed, so the first group listed by kubectl api-resources was used."
+            fi
+            for group in $API_GROUPS; do
+              match=$(printf '%s\n' "$CANDIDATES" | grep -F " $group/" | head -1)
+              if [ -n "$match" ]; then
+                API_INFO="$match"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "$API_INFO" ]; then
+            fail "Unable to find resource kind '${KIND}'."
+          fi
+
+          if [[ "$API_INFO" == *" true "* ]]; then
+            NAMESPACED=true
+            PREFIX=$(echo "$API_INFO" | sed 's/ true .*//')
+          elif [[ "$API_INFO" == *" false "* ]]; then
+            NAMESPACED=false
+            PREFIX=$(echo "$API_INFO" | sed 's/ false .*//')
+          else
+            fail "Could not parse API info for '${KIND}'."
+          fi
+
+          PREFIX=$(echo "$PREFIX" | sed 's/  *$//' | sed 's/  */ /g')
+
+          IFS=' ' read -ra PREFIX_FIELDS <<< "$PREFIX"
+          FIELD_COUNT=0
+          for field in "${PREFIX_FIELDS[@]}"; do
+            ((FIELD_COUNT++))
+          done
+          RESOURCE_NAME="${PREFIX_FIELDS[0]}"
+
+          if [ $FIELD_COUNT -ge 2 ]; then
+            API_VERSION="${PREFIX_FIELDS[$((FIELD_COUNT - 1))]}"
+          else
+            API_VERSION=""
+          fi
+
+          if [ -z "$API_VERSION" ] || [ -z "$RESOURCE_NAME" ]; then
+            fail "Unable to parse API info for resource kind '${KIND}'."
+          fi
+
+          # Build API path: namespaced kinds can be listed within one namespace;
+          # cluster-scoped kinds ignore the namespace (as kubectl does)
+          if [[ "$API_VERSION" == "v1" ]]; then
+            API_BASE="/api/v1"
+          else
+            API_BASE="/apis/${API_VERSION}"
+          fi
+          if [ -n "$SEL_NAMESPACE" ] && [ "$NAMESPACED" = "true" ]; then
+            API_PATH="${API_BASE}/namespaces/${SEL_NAMESPACE}/${RESOURCE_NAME}"
+          else
+            if [ -n "$SEL_NAMESPACE" ]; then
+              add_note "namespace '${SEL_NAMESPACE}' ignored: ${RESOURCE_NAME} is cluster-scoped."
+              SEL_NAMESPACE=""
+            fi
+            API_PATH="${API_BASE}/${RESOURCE_NAME}"
+          fi
+
+          SELECTOR_QUERY=""
+          if [ -n "$SEL_LABELS" ]; then
+            SELECTOR_QUERY="${SELECTOR_QUERY}&labelSelector=$(uri_encode "$SEL_LABELS")"
+          fi
+          if [ -n "$SEL_FIELDS" ]; then
+            SELECTOR_QUERY="${SELECTOR_QUERY}&fieldSelector=$(uri_encode "$SEL_FIELDS")"
+          fi
+
+          SCOPE=$(jq -nc --arg resource "$RESOURCE_NAME" --arg api_version "$API_VERSION" \
+            --arg namespace "$SEL_NAMESPACE" --arg labels "$SEL_LABELS" --arg fields "$SEL_FIELDS" \
+            '{resource: $resource, api_version: $api_version,
+              namespace: (if $namespace == "" then null else $namespace end),
+              label_selector: (if $labels == "" then null else $labels end),
+              field_selector: (if $fields == "" then null else $fields end)}')
+
+          # Process resources in chunks using API pagination
+          LIMIT=500
+          CONTINUE=""
+          ALL_MATCHES=""
+
+          while true; do
+            QUERY="${API_PATH}?limit=${LIMIT}${SELECTOR_QUERY}"
+            if [ -n "$CONTINUE" ]; then
+              # continue tokens are base64 and may contain '+', '/' or '='
+              QUERY="${QUERY}&continue=$(uri_encode "$CONTINUE")"
+            fi
+
+            OUTPUT=$(kubectl get --raw "$QUERY" 2>>"$err_file")
+            exit_code=$?
+
+            if [ $exit_code -ne 0 ]; then
+              fail "kubectl get --raw failed for $QUERY."
+            fi
+
+            ITEMS_COUNT=$(echo "$OUTPUT" | jq '.items | length')
+            TOTAL_PROCESSED=$((TOTAL_PROCESSED + ITEMS_COUNT))
+
+            BATCH_MATCHES=$(echo "$OUTPUT" | jq -c -r {{ jq_expr }} 2>>"$err_file")
+            jq_exit=$?
+            if [ $jq_exit -ne 0 ]; then
+              fail "jq expression failed."
+            fi
+
+            if [ -n "$BATCH_MATCHES" ]; then
+              if [ -z "$ALL_MATCHES" ]; then
+                ALL_MATCHES="$BATCH_MATCHES"
+              else
+                ALL_MATCHES="$ALL_MATCHES"$'\n'"$BATCH_MATCHES"
+              fi
+            fi
+
+            CONTINUE=$(echo "$OUTPUT" | jq -r '.metadata.continue // empty')
+            if [ -z "$CONTINUE" ]; then
+              break
+            fi
+          done
+
+          err_content=$(cat "$err_file" 2>/dev/null)
+          rm -f "$err_file"
+
+          # Count and preview the collected matches
+          filtered_matches=$(echo "$ALL_MATCHES" | grep -v '^$' | grep -v '^null$')
+          if [ -z "$filtered_matches" ]; then
+            MATCHES_FOUND=0
+            PREVIEW="[]"
+          else
+            MATCHES_FOUND=$(echo "$filtered_matches" | wc -l)
+            PREVIEW=$(echo "$filtered_matches" | head -n 10 | cut -c 1-200 | jq -R . | jq -s '.')
+          fi
+
+          jq -n \
+            --argjson matches_found "$MATCHES_FOUND" \
+            --argjson preview "$PREVIEW" \
+            --argjson total_items_processed "$TOTAL_PROCESSED" \
+            --arg stderr "$err_content" \
+            --argjson scope "$SCOPE" \
+            --argjson notes "$NOTES" \
+            '{total_items_processed: $total_items_processed, matches_found: $matches_found, preview: $preview, stderr: (if $stderr == "" then null else $stderr end), scope: $scope, notes: $notes}'
 
     # NOTE: this is only possible for probes with a healthz endpoint - we do this to avoid giving the LLM generic
     # http GET capabilities which are more powerful than we want to expose
@@ -172,7 +660,7 @@ toolsets:
   kubernetes/live-metrics:
     description: "Provides real-time metrics for pods and nodes"
     docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/"
-    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    icon_url: "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/kubernetes.svg"
     llm_instructions: |
       The kubectl_top_pods or kubectl_top_nodes do not return time series data or metrics that can be used for graphs
       Do NOT use kubectl_top_pods or kubectl_top_nodes for graph generation - it only shows current snapshot data
@@ -194,42 +682,19 @@ toolsets:
   kubernetes/kube-prometheus-stack:
     description: "Fetches prometheus definition"
     docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/"
-    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
+    icon_url: "https://raw.githubusercontent.com/gilbarbara/logos/de2c1f96ff6e74ea7ea979b43202e8d4b863c655/logos/kubernetes.svg"
     tags:
       - core
     tools:
       - name: "get_prometheus_target"
         description: "Fetch the definition of a Prometheus target"
-        command: 'kubectl get --raw ''/api/v1/namespaces/{{prometheus_namespace}}/services/{{prometheus_service_name}}:9090/proxy/api/v1/targets'' | jq ''.data.activeTargets[] | select(.labels.job == "{{ target_name }}")'''
-
-  kubernetes/krew-extras: # To make this work, install kube-lineage with krew
-    description: "Fetches children/dependents and parents/dependencies resources using kube-lineage installed via `kubectl krew`"
-    docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/"
-    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
-    tags:
-      - cli
-    prerequisites:
-      - command: "kubectl version --client && kubectl lineage --version"
-    tools:
-      - name: "kubectl_lineage_children"
-        description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-      - name: "kubectl_lineage_parents"
-        description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: "kubectl lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
-
-  kubernetes/kube-lineage-extras: # To make this work, build kube-lineage from source
-    description: "Fetches children/dependents and parents/dependencies resources using kube-lineage"
-    docs_url: "https://holmesgpt.dev/data-sources/builtin-toolsets/kubernetes/"
-    icon_url: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRPKA-U9m5BxYQDF1O7atMfj9EMMXEoGu4t0Q&s"
-    tags:
-      - cluster
-    prerequisites:
-      - command: "kubectl version --client && kube-lineage --version"
-    tools:
-      - name: "kubectl_lineage_children"
-        description: "Get all children/dependents of a Kubernetes resource, recursively, including their status"
-        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %}"
-      - name: "kubectl_lineage_parents"
-        description: "Get all parents/dependencies of a Kubernetes resource, recursively, including their status"
-        command: "kube-lineage {{ kind }} {{ name }}{% if namespace %} -n {{ namespace }}{% endif %} -D"
+        script: |
+          #!/bin/bash
+          # SECURITY: assign sanitized params to shell variables (unquoted slot),
+          # then reference them only as "$VAR". Pass target_name into jq via
+          # --arg so it is never interpolated into the jq program text.
+          PROM_NAMESPACE={{ prometheus_namespace }}
+          PROM_SERVICE={{ prometheus_service_name }}
+          TARGET_NAME={{ target_name }}
+          kubectl get --raw "/api/v1/namespaces/${PROM_NAMESPACE}/services/${PROM_SERVICE}:9090/proxy/api/v1/targets" \
+            | jq --arg target "$TARGET_NAME" '.data.activeTargets[] | select(.labels.job == $target)'

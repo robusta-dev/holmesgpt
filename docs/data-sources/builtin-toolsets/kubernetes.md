@@ -1,13 +1,17 @@
-# Kubernetes Toolsets
+# Kubernetes
 
-## Core ✓
+--8<-- "snippets/kubernetes_toolset_picker.md"
+
+## Toolsets
+
+### Core
 
 !!! info "Enabled by Default"
     This toolset is enabled by default and should typically remain enabled.
 
-By enabling this toolset, HolmesGPT will be able to describe and find Kubernetes resources like nodes, deployments, pods, etc.
+By enabling this toolset, HolmesGPT will be able to describe and find Kubernetes resources like nodes, deployments, pods, etc. The tools shell out to `kubectl`, authenticated with the pod's ServiceAccount when deployed in-cluster or with your local kubeconfig for CLI usage. Permissions are read-only by default — secrets and other sensitive resources are excluded.
 
-### Configuration
+**Configuration:**
 
 ```yaml
 holmes:
@@ -16,22 +20,88 @@ holmes:
             enabled: true
 ```
 
-### Capabilities
+**Capabilities:**
 
 | Tool Name | Description |
 |-----------|-------------|
-| kubectl_describe | Run kubectl describe command on a specific resource |
-| kubectl_get_by_name | Get details of a specific resource with labels |
-| kubectl_get_by_kind_in_namespace | List all resources of a given type in a namespace |
-| kubectl_get_by_kind_in_cluster | List all resources of a given type across the cluster |
-| kubectl_find_resources | Search for resources matching a keyword |
-| kubectl_get_yaml | Get YAML definition of a resource |
-| kubectl_events | Get events for a specific resource |
-| kubectl_memory_requests_all_namespaces | Get memory requests for all pods across all namespaces in MiB |
-| kubectl_memory_requests_namespace | Get memory requests for all pods in a specific namespace in MiB |
-| kubernetes_jq_query | Query Kubernetes resources using jq filters |
+| kubernetes_jq_query | Query Kubernetes resources using jq filters with pagination |
+| kubernetes_tabular_query | Extract specific fields from resources in tabular format with optional filtering |
+| kubernetes_count | Count Kubernetes resources matching a jq filter |
 
-## Logs ✓
+All three tools accept optional parameters that narrow the query on the Kubernetes API server, before any data is sent to HolmesGPT:
+
+| Parameter | Example | Notes |
+|-----------|---------|-------|
+| `namespace` | `payments` | Ignored for cluster-scoped kinds such as `nodes` |
+| `label_selector` | `app=checkout,tier!=db` or `env in (prod,staging)` | Standard Kubernetes label selector syntax |
+| `field_selector` | `status.phase!=Running` or `spec.nodeName=node-1` | Supported fields depend on the kind; unsupported fields return the API server's error |
+
+When none are set, the tools query every namespace. Each result includes a `scope` object showing the namespace and selectors that were applied.
+
+#### Large Clusters
+
+On clusters with thousands of namespaces or pods, unscoped queries are slow. Tell HolmesGPT about your cluster so it scopes its queries with the parameters above, by adding instructions to the Core toolset:
+
+=== "Holmes CLI"
+
+    Add to `~/.holmes/config.yaml`:
+
+    ```yaml
+    toolsets:
+      kubernetes/core:
+        llm_instructions: |
+          This cluster is very large (thousands of namespaces and pods). Always pass
+          namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+          kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+          question truly needs every namespace.
+    ```
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    toolsets:
+      kubernetes/core:
+        enabled: true
+        llm_instructions: |
+          This cluster is very large (thousands of namespaces and pods). Always pass
+          namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+          kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+          question truly needs every namespace.
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      toolsets:
+        kubernetes/core:
+          enabled: true
+          llm_instructions: |
+            This cluster is very large (thousands of namespaces and pods). Always pass
+            namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+            kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+            question truly needs every namespace.
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+Adapt the text to your environment, for example by naming the label that identifies each team's workloads. Robusta platform users can add the same text to their account's Global Instructions instead.
+
+### Logs
 
 !!! info "Enabled by Default"
     This toolset is enabled by default. You do not need to configure it.
@@ -40,7 +110,7 @@ By enabling this toolset, HolmesGPT will be able to read Kubernetes pod logs.
 
 --8<-- "snippets/toolsets_that_provide_logging.md"
 
-### Configuration
+**Configuration:**
 
 ```yaml
 holmes:
@@ -49,82 +119,237 @@ holmes:
             enabled: true
 ```
 
-### Capabilities
+**Capabilities:**
 
 | Tool Name | Description |
 |-----------|-------------|
 | kubectl_logs | Fetch logs from a specific pod |
 | kubectl_logs_all_containers | Fetch logs from all containers in a pod |
-| kubectl_previous_logs | Fetch previous logs from a pod |
-| kubectl_previous_logs_all_containers | Fetch previous logs from all containers in a pod |
+| kubectl_previous_logs | Fetch previous logs from a crashed pod |
+| kubectl_previous_logs_all_containers | Fetch previous logs from all containers in a crashed pod |
+| kubectl_container_previous_logs | Fetch previous logs from a specific container in a crashed pod |
 | kubectl_container_logs | Fetch logs from a specific container in a pod |
 | kubectl_logs_grep | Search for specific patterns in pod logs |
 | kubectl_logs_all_containers_grep | Search for patterns in logs from all containers |
 
-## Live Metrics
+### Live Metrics
+
+!!! note "Not Enabled by Default"
+    This toolset is only available when `kubectl top` is supported (requires [Metrics Server](https://github.com/kubernetes-sigs/metrics-server)).
 
 This toolset retrieves real-time CPU and memory usage for pods and nodes.
 
-### Configuration
+**Configuration:**
 
 ```yaml
 holmes:
     toolsets:
-        kubernetes/live_metrics:
+        kubernetes/live-metrics:
             enabled: true
 ```
 
-### Capabilities
+**Capabilities:**
 
 | Tool Name | Description |
 |-----------|-------------|
 | kubectl_top_pods | Get current CPU and memory usage for pods |
 | kubectl_top_nodes | Get current CPU and memory usage for nodes |
 
-## Prometheus Stack
+### Kube Prometheus Stack
 
-This toolset fetches Prometheus target definitions. Requires specific cluster role rules.
+!!! note "Not Enabled by Default"
+    This toolset must be explicitly enabled.
 
-### Configuration
+This toolset uses `kubectl` to proxy into a Prometheus service running in-cluster and fetch target definitions. This is different from the [Prometheus toolset](prometheus.md), which connects directly to a Prometheus server for metrics querying.
+
+**Configuration:**
 
 ```yaml
 holmes:
     toolsets:
-        kubernetes/prometheus_stack:
+        kubernetes/kube-prometheus-stack:
             enabled: true
+```
+
+**Capabilities:**
+
+| Tool Name | Description |
+|-----------|-------------|
+| get_prometheus_target | Fetch the definition of a Prometheus target via kubectl proxy |
+
+## Permissions
+
+!!! important "Read-Only by Default"
+    **The permissions described on this page are read-only** (`get`, `list`, `watch`). The built-in Kubernetes toolset **does not modify, create, delete, or update** any Kubernetes resources — it only reads cluster information for troubleshooting and analysis.
+
+    If you want HolmesGPT to also take remediating actions (restart pods, scale deployments, etc.), you can opt in by enabling the [Kubernetes Remediation (MCP)](kubernetes-remediation-mcp.md) toolset, which grants scoped write access alongside the read-only toolset.
+
+### How HolmesGPT Inherits Permissions
+
+HolmesGPT inherits permissions for accessing Kubernetes from its environment:
+
+- **When running locally**: HolmesGPT uses your current `kubectl` context and the permissions configured in your kubeconfig file.
+- **When running in-cluster**: HolmesGPT uses the ServiceAccount defined in the Helm chart. The Helm chart automatically creates a ServiceAccount, ClusterRole, and ClusterRoleBinding when `createServiceAccount: true` (default). See the [Service Account Configuration](../../reference/helm-configuration.md#service-account-configuration) section for details.
+
+The complete ServiceAccount, ClusterRole, and ClusterRoleBinding definitions can be found in the Helm chart template:
+
+[**View Service Account Template**](https://raw.githubusercontent.com/HolmesGPT/holmesgpt/refs/heads/master/helm/holmes/templates/holmesgpt-service-account.yaml)
+
+### Adaptive Behavior
+
+HolmesGPT automatically adjusts its behavior based on available permissions:
+
+- **You can modify these permissions** and HolmesGPT will automatically adapt to work with whatever permissions are available.
+- **If HolmesGPT tries to run `kubectl` commands** that it doesn't have permissions for, **it will discover the lack of permissions** and adjust its behavior accordingly. It will work with the resources it can access and inform you about any limitations.
+
+### Recommended Permissions
+
+For most users, we recommend giving **read-access to all non-sensitive resources** in the cluster. This allows HolmesGPT to:
+
+- Investigate issues across all namespaces
+- Access logs and events
+- Analyze resource configurations
+- Provide comprehensive troubleshooting insights
+
+The default permissions created by the Helm chart follow this recommendation and include read-only access (`get`, `list`, `watch`) to core Kubernetes resources, custom resources, and monitoring resources across all namespaces.
+
+### Adding Permissions for Additional Resources
+
+!!! note "In-Cluster Only"
+    This section applies only to HolmesGPT running **inside** a Kubernetes cluster via Helm. For local CLI deployments, permissions are managed through your kubeconfig file.
+
+HolmesGPT may require access to additional Kubernetes resources or CRDs for specific analyses. Permissions can be extended by modifying the ClusterRole rules.
+
+#### Default CRD Permissions
+
+HolmesGPT includes read-only permissions for common Kubernetes operators and tools by default. These can be individually enabled or disabled:
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    crdPermissions:
+      argo: true
+      flux: true
+      kafka: true
+      keda: true
+      crossplane: true
+      istio: true
+      gatewayApi: true
+      velero: true
+      externalSecrets: true
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      crdPermissions:
+        argo: true
+        flux: true
+        kafka: true
+        keda: true
+        crossplane: true
+        istio: true
+        gatewayApi: true
+        velero: true
+        externalSecrets: true
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+#### Adding Custom Permissions
+
+For resources not covered by the default CRD permissions, you can add custom ClusterRole rules.
+
+**Common scenarios:**
+
+- **External Integrations and CRDs** - Access to custom resources from other operators
+- **Additional Kubernetes resources** - Resources not included in the default permissions
+
+**Example: Adding Cert-Manager Permissions**
+
+To enable HolmesGPT to analyze cert-manager certificates and issuers (not included in default permissions), add custom ClusterRole rules:
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
     customClusterRoleRules:
-        - apiGroups: ["monitoring.coreos.com"]
-          resources: ["servicemonitors", "podmonitors", "prometheusrules"]
-          verbs: ["get", "list"]
-```
+      - apiGroups: ["cert-manager.io"]
+        resources: ["certificates", "certificaterequests", "issuers", "clusterissuers"]
+        verbs: ["get", "list", "watch"]
+    ```
 
-### Capabilities
+    Apply the configuration:
 
-| Tool Name | Description |
-|-----------|-------------|
-| kubectl_get_prometheus_targets | Get Prometheus monitoring targets |
-| kubectl_get_service_monitors | Get ServiceMonitor resources |
-| kubectl_get_pod_monitors | Get PodMonitor resources |
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
 
-## Resource Lineage Extras
+=== "Robusta Helm Chart"
 
-Two variations of resource lineage toolsets: one native and one using kubectl krew. Provides tools to fetch children/dependents and parents/dependencies of Kubernetes resources.
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
 
-### Configuration
+    ```yaml
+    holmes:
+      customClusterRoleRules:
+        - apiGroups: ["cert-manager.io"]
+          resources: ["certificates", "certificaterequests", "issuers", "clusterissuers"]
+          verbs: ["get", "list", "watch"]
+    ```
 
-```yaml
-holmes:
-    toolsets:
-        kubernetes/resource_lineage_extras:
-            enabled: true
-        # OR
-        kubernetes/resource_lineage_extras_krew:
-            enabled: true
-```
+    Apply the configuration:
 
-### Capabilities
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
 
-| Tool Name | Description |
-|-----------|-------------|
-| kubectl_lineage_children | Get child/dependent resources of a Kubernetes resource |
-| kubectl_lineage_parents | Get parent/dependency resources of a Kubernetes resource |
+#### Using an Existing ServiceAccount
+
+If you prefer to use an existing ServiceAccount with custom permissions instead of having the Helm chart create one:
+
+=== "Holmes Helm Chart"
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    createServiceAccount: false
+    customServiceAccountName: "your-existing-service-account"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      createServiceAccount: false
+      customServiceAccountName: "your-existing-service-account"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```

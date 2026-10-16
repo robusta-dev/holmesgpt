@@ -12,27 +12,37 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
 
     ```bash
     export ANTHROPIC_API_KEY="your-anthropic-api-key"
-    holmes ask "what pods are failing?" --model="anthropic/<your-claude-model>"
+    holmes ask "what pods are failing?" --model="anthropic/claude-sonnet-4-5"
+    ```
+
+    **Note**: You can use any Anthropic model by changing the model name. See [Claude Models Overview](https://docs.claude.com/en/docs/about-claude/models/overview#latest-models-comparison){:target="_blank"} for available model names.
+
+    You can also pass the API key directly as a command-line parameter:
+
+    ```bash
+    holmes ask "what pods are failing?" --model="anthropic/claude-sonnet-4-5" --api-key="your-api-key"
     ```
 
 === "Holmes Helm Chart"
 
-    **Create Kubernetes Secret:**
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
     ```bash
-    kubectl create secret generic holmes-secrets \
-      --from-literal=anthropic-api-key="sk-ant-..." \
+    kubectl create secret generic holmes-anthropic \
+      --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
       -n <namespace>
     ```
 
-    **Configure Helm Values:**
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
     ```yaml
-    # values.yaml
+    extraEnvVarsSecrets:
+      - holmes-anthropic
+
     additionalEnvVars:
-      - name: ANTHROPIC_API_KEY
-        valueFrom:
-          secretKeyRef:
-            name: holmes-secrets
-            key: anthropic-api-key
+      # Optional: Set default model (use modelList key name)
+      - name: MODEL
+        value: "claude-sonnet-4"  # This refers to the key name in modelList below
 
     # Configure at least one model using modelList
     modelList:
@@ -48,31 +58,35 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
         api_key: "{{ env.ANTHROPIC_API_KEY }}"
         model: anthropic/claude-opus-4-1-20250805
         temperature: 1
+    ```
 
-    # Optional: Set default model (use modelList key name)
-    config:
-      model: "claude-sonnet-4"  # This refers to the key name in modelList above
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
     ```
 
 === "Robusta Helm Chart"
 
-    **Create Kubernetes Secret:**
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
     ```bash
-    kubectl create secret generic robusta-holmes-secret \
-      --from-literal=anthropic-api-key="sk-ant-..." \
+    kubectl create secret generic holmes-anthropic \
+      --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
       -n <namespace>
     ```
 
-    **Configure Helm Values:**
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
     ```yaml
-    # values.yaml
     holmes:
+      extraEnvVarsSecrets:
+        - holmes-anthropic
+
       additionalEnvVars:
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: robusta-holmes-secret
-              key: anthropic-api-key
+        # Optional: Set default model (use modelList key name)
+        - name: MODEL
+          value: "claude-sonnet-4"  # This refers to the key name in modelList below
 
       # Configure at least one model using modelList
       modelList:
@@ -88,19 +102,13 @@ Get an [Anthropic API key](https://support.anthropic.com/en/articles/8114521-how
           api_key: "{{ env.ANTHROPIC_API_KEY }}"
           model: anthropic/claude-opus-4-1-20250805
           temperature: 1
-
-      # Optional: Set default model (use modelList key name)
-      config:
-        model: "claude-sonnet-4"  # This refers to the key name in modelList above
     ```
 
-## Using CLI Parameters
+    Apply the configuration:
 
-You can also pass the API key directly as a command-line parameter:
-
-```bash
-holmes ask "what pods are failing?" --model="anthropic/<your-claude-model>" --api-key="your-api-key"
-```
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
 
 ## Prompt Caching
 

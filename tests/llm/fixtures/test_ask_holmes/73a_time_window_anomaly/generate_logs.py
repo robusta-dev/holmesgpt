@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
-from datetime import datetime, timedelta
-import time
 import random
+import time
+from datetime import datetime, timedelta
 
 
 def generate_log_entry(
@@ -31,6 +31,8 @@ def main():
     current_time = start_time
     log_count = 0
 
+    failure_window_logged = False
+
     while current_time < datetime.utcnow():
         # Check if we're in the problematic time window (03:00-03:05)
         hour = current_time.hour
@@ -47,8 +49,9 @@ def main():
                 )
             )
 
-            # Add some diagnostic logs
-            if minute == 0 and current_time.second < 10:
+            # Add some diagnostic logs (once per failure window)
+            if minute == 0 and not failure_window_logged:
+                failure_window_logged = True
                 print(
                     json.dumps(
                         {
@@ -92,6 +95,17 @@ def main():
         # Add slight randomness to make it more realistic
         if random.random() < 0.1:
             current_time += timedelta(seconds=random.randint(1, 5))
+
+    # add a unique log message in the end so we'll know the pod is ready.
+    current_time += timedelta(seconds=random.randint(1, 5))
+    print(
+        generate_log_entry(
+            current_time,
+            status="success",
+            message="Job executed successfully in 167ms.",
+        ),
+        flush=True,
+    )
 
     # Keep pod running
     while True:

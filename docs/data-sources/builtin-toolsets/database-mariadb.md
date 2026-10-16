@@ -1,0 +1,226 @@
+# MariaDB
+
+Connect HolmesGPT to MariaDB databases to analyze query performance, investigate slow queries, check replication status, examine database health, and read data for troubleshooting.
+
+You can configure multiple MariaDB instances with different names (e.g., `app-mariadb`, `cache-mariadb`, `staging-mariadb`).
+
+## Creating a Read-Only User
+
+```sql
+-- Create user
+CREATE USER 'holmes_readonly'@'%' IDENTIFIED BY 'your_secure_password';
+
+-- Grant read-only permissions
+GRANT SELECT, SHOW VIEW, PROCESS, REPLICATION CLIENT ON *.* TO 'holmes_readonly'@'%';
+
+-- Grant access to performance and information schemas
+GRANT SELECT ON performance_schema.* TO 'holmes_readonly'@'%';
+GRANT SELECT ON information_schema.* TO 'holmes_readonly'@'%';
+
+FLUSH PRIVILEGES;
+```
+
+## Configuration
+
+**Connection URL format:**
+
+```
+mysql+pymysql://[username]:[password]@[host]:[port]/[database]
+```
+
+Note: MariaDB uses MySQL wire protocol, so use `mysql+pymysql://` in the connection URL.
+
+=== "Holmes CLI"
+
+    **~/.holmes/config.yaml:**
+
+    ```yaml
+    toolsets:
+      app-mariadb:
+        type: database
+        config:
+          connection_url: "mysql+pymysql://holmes_readonly:your_secure_password@mariadb.example.com:3306/appdb"
+        llm_instructions: "Application database with user and session data"
+
+      cache-mariadb:
+        type: database
+        config:
+          connection_url: "mysql+pymysql://cache_user:pass@cache-mariadb.internal:3306/cache"
+        llm_instructions: "Cache database for session storage"
+    ```
+
+    **Using environment variables:**
+
+    ```yaml
+    toolsets:
+      app-mariadb:
+        type: database
+        config:
+          connection_url: "{{ env.MARIADB_URL }}"
+    ```
+
+=== "Holmes Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-database-mariadb \
+      --from-literal=MARIADB_URL='mysql+pymysql://holmes_readonly:your_secure_password@mariadb.example.com:3306/appdb' \
+      -n <namespace>
+    ```
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    extraEnvVarsSecrets:
+      - holmes-database-mariadb
+
+    toolsets:
+      app-mariadb:
+        type: database
+        config:
+          connection_url: "{{ env.MARIADB_URL }}"
+        llm_instructions: "Application database with user and session data"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-database-mariadb \
+      --from-literal=MARIADB_URL='mysql+pymysql://holmes_readonly:your_secure_password@mariadb.example.com:3306/appdb' \
+      -n <namespace>
+    ```
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      extraEnvVarsSecrets:
+        - holmes-database-mariadb
+
+      toolsets:
+        app-mariadb:
+          type: database
+          config:
+            connection_url: "{{ env.MARIADB_URL }}"
+          llm_instructions: "Application database with user and session data"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+### Multiple instances
+
+=== "Holmes Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-database-mariadb-instances \
+      --from-literal=APP_MARIADB_URL='mysql+pymysql://holmes_readonly:your_secure_password@mariadb.example.com:3306/appdb' \
+      --from-literal=CACHE_MARIADB_URL='mysql+pymysql://cache_user:pass@cache-mariadb.internal:3306/cache' \
+      -n <namespace>
+    ```
+
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+
+    ```yaml
+    extraEnvVarsSecrets:
+      - holmes-database-mariadb-instances
+
+    toolsets:
+      app-mariadb:
+        type: database
+        config:
+          connection_url: "{{ env.APP_MARIADB_URL }}"
+
+      cache-mariadb:
+        type: database
+        config:
+          connection_url: "{{ env.CACHE_MARIADB_URL }}"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade holmes robusta/holmes -f values.yaml
+    ```
+
+=== "Robusta Helm Chart"
+
+    Create a Kubernetes secret in the namespace Holmes runs in:
+
+    ```bash
+    kubectl create secret generic holmes-database-mariadb-instances \
+      --from-literal=APP_MARIADB_URL='mysql+pymysql://holmes_readonly:your_secure_password@mariadb.example.com:3306/appdb' \
+      --from-literal=CACHE_MARIADB_URL='mysql+pymysql://cache_user:pass@cache-mariadb.internal:3306/cache' \
+      -n <namespace>
+    ```
+
+    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
+
+    ```yaml
+    holmes:
+      extraEnvVarsSecrets:
+        - holmes-database-mariadb-instances
+
+      toolsets:
+        app-mariadb:
+          type: database
+          config:
+            connection_url: "{{ env.APP_MARIADB_URL }}"
+
+        cache-mariadb:
+          type: database
+          config:
+            connection_url: "{{ env.CACHE_MARIADB_URL }}"
+    ```
+
+    Apply the configuration:
+
+    ```bash
+    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
+    ```
+
+## Configuration Options
+
+- **connection_url** (required): MariaDB connection URL
+- **read_only** (default: `true`): Only allow SELECT/SHOW/DESCRIBE/EXPLAIN/WITH statements
+- **verify_ssl** (default: `true`): Verify SSL certificates
+- **max_rows** (default: `200`): Maximum rows to return (1-10000)
+- **llm_instructions**: Context about this database
+
+## Common Use Cases
+
+```
+"Analyze query performance: SELECT * FROM users WHERE last_login > NOW() - INTERVAL 30 DAY"
+```
+
+```
+"Show replication status and lag"
+```
+
+```
+"List tables by size"
+```
+
+## Migrating from the MariaDB MCP addon
+
+Earlier versions shipped a separate MariaDB MCP server, enabled through
+`mcpAddons.mariadb` in the Helm chart. That addon has been removed and the chart no
+longer renders it, so leaving the old value in place gives you no MariaDB access at all.
+
+To migrate, remove the `mcpAddons.mariadb` block from your Helm values and configure
+this data source with your connection URL as shown above. The MCP server's read-only
+mode is replaced by the `read_only` option, which defaults to `true`.

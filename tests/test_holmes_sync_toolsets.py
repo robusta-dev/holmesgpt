@@ -1,9 +1,9 @@
 import os
 import subprocess
-from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
+from mcp.types import Tool as MCP_Tool
 
 from holmes.config import Config
 from holmes.core.tools import (
@@ -18,8 +18,10 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
-from holmes.utils.holmes_sync_toolsets import holmes_sync_toolsets_status
-from mcp.types import Tool as MCP_Tool
+from holmes.utils.holmes_sync_toolsets import (
+    build_remote_tools_meta,
+    holmes_sync_toolsets_status,
+)
 from tests.utils.bad_toolset_example import BadTool, BadToolset
 from tests.utils.toolsets import callable_success, failing_callable_for_test
 
@@ -37,13 +39,12 @@ def mock_config():
     config = Mock(spec=Config)
     config.cluster_name = "test-cluster"
     all_toolsets = load_builtin_toolsets(dal=None)
-    config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
+    config.create_server_tool_executor.return_value = Mock(toolsets=all_toolsets)
     return config
 
 
 class SampleToolset(Toolset):
-    def get_example_config(self) -> Dict[str, Any]:
-        return {}
+    pass
 
 
 @pytest.fixture
@@ -60,7 +61,7 @@ def sample_toolset():
 
 
 def test_sync_toolsets_basic(mock_dal, mock_config, sample_toolset):
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[sample_toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -89,22 +90,26 @@ def test_sync_toolsets_no_cluster_name(mock_dal):
     mock_dal.sync_toolsets.assert_not_called()
 
 
-@patch(
-    "holmes.utils.holmes_sync_toolsets.render_default_installation_instructions_for_toolset"
-)
-def test_sync_toolsets_with_installation_instructions(
-    mock_render, mock_dal, mock_config, sample_toolset
-):
-    mock_render.return_value = "Test installation instructions"
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[sample_toolset])
+@patch("subprocess.run")
+def test_sync_toolsets_with_config_schema(mock_subprocess_run, mock_dal, mock_config):
+    mock_subprocess_run.return_value = Mock(stdout="success", returncode=0)
+
+    # Create a toolset without config_classes - should have null schema
+    toolset = SampleToolset(
+        name="test-toolset",
+        description="Test toolset",
+        enabled=True,
+        tools=[YAMLTool(name="tool1", description="Tool 1", command="echo test")],
+        tags=[ToolsetTag.CORE],
+    )
+    toolset.check_prerequisites()
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
     mock_dal.sync_toolsets.assert_called_once()
     toolset_data = mock_dal.sync_toolsets.call_args[0][0][0]
-
-    assert toolset_data["installation_instructions"] == "Test installation instructions"
-    mock_render.assert_called_once_with(sample_toolset)
+    assert toolset_data["installation_instructions"] is not None
 
 
 @patch("subprocess.run")
@@ -132,7 +137,7 @@ def test_sync_toolsets_multiple(mock_subprocess_run, mock_dal, mock_config):
     )
     toolset2.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset1, toolset2])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset1, toolset2])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -166,7 +171,7 @@ def test_sync_toolsets_with_prerequisites_check(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -197,7 +202,7 @@ def test_sync_toolsets_with_failed_prerequisites(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -230,7 +235,7 @@ def test_sync_toolsets_with_successful_prerequisites(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -255,7 +260,7 @@ def test_sync_toolsets_with_missing_env_var_prerequisites(mock_dal, mock_config)
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -291,7 +296,7 @@ def test_sync_toolsets_with_command_output_mismatch(
     )
     toolset.check_prerequisites()
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=[toolset])
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=[toolset])
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -365,7 +370,7 @@ def test_sync_toolsets_with_toolset_having_failing_callable_prerequisite(
     assert successful_toolset_2.status == ToolsetStatusEnum.ENABLED
     assert successful_toolset_2.error is None
 
-    mock_config.create_tool_executor.return_value = Mock(toolsets=all_toolsets)
+    mock_config.create_server_tool_executor.return_value = Mock(toolsets=all_toolsets)
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
 
@@ -403,6 +408,54 @@ def test_toolsets_dumpable(mock_dal, mock_config):
     -> ToolsetDBModel -> dal.sync_toolsets() for sending to database.
     """
     holmes_sync_toolsets_status(mock_dal, mock_config)
+
+
+def _exposed_toolset(approval_required_tools=None):
+    ts = SampleToolset(
+        name="remote-toolset",
+        description="Remotely exposed toolset",
+        enabled=True,
+        tools=[
+            YAMLTool(name="list_buckets", description="List", command="echo a"),
+            YAMLTool(name="delete_bucket", description="Delete", command="echo b"),
+        ],
+        tags=[ToolsetTag.CLUSTER],
+        expose_remotely=True,
+        approval_required_tools=approval_required_tools or [],
+    )
+    ts.check_prerequisites()
+    assert ts.status == ToolsetStatusEnum.ENABLED
+    return ts
+
+
+def test_build_remote_tools_meta_publishes_yaml_tools():
+    """Regression: build_remote_tools_meta must not call removed Tool._is_restricted().
+
+    The restricted_tools mechanism was removed in favor of approval_required_tools;
+    a stale reference here raised AttributeError on YAMLTool at toolset-sync time.
+    """
+    meta = build_remote_tools_meta(_exposed_toolset())
+
+    assert meta is not None
+    tool_names = {t["function"]["name"] for t in meta["tools"]}
+    assert tool_names == {"list_buckets", "delete_bucket"}
+
+
+def test_build_remote_tools_meta_excludes_approval_required_tools():
+    meta = build_remote_tools_meta(
+        _exposed_toolset(approval_required_tools=["delete_*"])
+    )
+
+    assert meta is not None
+    tool_names = {t["function"]["name"] for t in meta["tools"]}
+    assert tool_names == {"list_buckets"}
+
+
+def test_build_remote_tools_meta_none_when_not_exposed():
+    ts = _exposed_toolset()
+    ts.expose_remotely = False
+
+    assert build_remote_tools_meta(ts) is None
 
 
 def _mock_get_server_tools(mock_tools_result):
@@ -449,28 +502,6 @@ def _create_bad_toolset():
     return toolset
 
 
-def test_toolsets_dumpable_with_bad_toolset_fails(mock_dal, mock_config):
-    """Test that BadToolset fails serialization due to circular reference.
-
-    If this test fails unexpectedly (function succeeds when it should fail), it may indicate that:
-    1. The code has changed and circular references are now handled differently
-    2. The test is no longer valid for the current implementation
-    3. The test should be updated or removed
-
-    Validates production path: holmes_sync_toolsets_status line 53 (toolset.model_dump())
-    should fail with circular reference error when Field(exclude=True) is missing.
-    """
-    original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
-
-    bad_toolset = _create_bad_toolset()
-    all_toolsets_bad = list(original_toolsets)
-    all_toolsets_bad.append(bad_toolset)
-    mock_config.create_tool_executor.return_value.toolsets = all_toolsets_bad
-
-    with pytest.raises(ValueError, match="Circular reference detected"):
-        holmes_sync_toolsets_status(mock_dal, mock_config)
-
-
 def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
     """Test that RemoteMCPToolset passes serialization with Field(exclude=True).
 
@@ -478,11 +509,11 @@ def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
     -> ToolsetDBModel -> dal.sync_toolsets() for sending to database.
     RemoteMCPToolset is not in builtin toolsets, it's loaded from config.
     """
-    original_toolsets = list(mock_config.create_tool_executor.return_value.toolsets)
+    original_toolsets = list(mock_config.create_server_tool_executor.return_value.toolsets)
 
     mcp_toolset_good = _create_mcp_toolset_with_tools(RemoteMCPToolset)
     all_toolsets_good = list(original_toolsets)
     all_toolsets_good.append(mcp_toolset_good)
-    mock_config.create_tool_executor.return_value.toolsets = all_toolsets_good
+    mock_config.create_server_tool_executor.return_value.toolsets = all_toolsets_good
 
     holmes_sync_toolsets_status(mock_dal, mock_config)

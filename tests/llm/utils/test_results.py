@@ -16,9 +16,14 @@ class TestResult:
     error_message: Optional[str] = None
     user_prompt: Optional[str] = None
     execution_time: Optional[float] = None
+    holmes_duration: Optional[float] = (
+        None  # Pure agent execution time (excludes setup/teardown)
+    )
+    num_llm_calls: Optional[int] = None  # Number of LLM API calls (turns)
+    tool_call_count: Optional[int] = None  # Total number of tool calls
     expected_correctness_score: float = 1.0
     actual_correctness_score: float = 0.0
-    mock_data_failure: bool = False
+    mock_data_failure: bool = False  # Deprecated, always False
 
     @property
     def test_case_name(self) -> str:
@@ -46,7 +51,7 @@ class TestStatus:
     def __init__(self, result: dict):
         self.actual_score = int(result.get("actual_correctness_score", 0))
         self.expected_score = int(result.get("expected_correctness_score", 1))
-        self.is_mock_failure = result.get("mock_data_failure", False)
+        self.is_mock_failure = False  # Mock system removed
         self.status = result.get(
             "status", ""
         )  # pytest status (passed, failed, skipped, etc.)
@@ -57,9 +62,16 @@ class TestStatus:
 
     @property
     def passed(self) -> bool:
-        return (
-            self.actual_score == 1
-        )  # TODO: possibly add `and not self.is_mock_failure`
+        # A test only counts as passed when BOTH the judge accepted the answer
+        # (actual_correctness_score == 1) AND pytest itself reported success.
+        # Checking pytest's status closes a long-standing reporting gap: any
+        # assertion that fires AFTER update_test_results has already logged the
+        # score (e.g. the max_tokens check or the memories_generated check) used
+        # to leave the GitHub markdown report showing :white_check_mark: even
+        # though pytest had failed the test.
+        if self.status and self.status not in ("passed", ""):
+            return False
+        return self.actual_score == 1
 
     @property
     def is_skipped(self) -> bool:
@@ -85,7 +97,7 @@ class TestStatus:
         if self.failed_due_to_throttling:
             return ":no_entry_sign:"
         elif self.is_skipped:
-            return ":minus:"
+            return ":heavy_minus_sign:"
         elif self.is_setup_failure:
             return ":construction:"
         elif self.is_mock_failure:
