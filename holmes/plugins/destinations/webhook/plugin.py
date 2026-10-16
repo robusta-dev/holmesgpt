@@ -72,9 +72,9 @@ class WebhookDestination(DestinationPlugin):
                 or parsed.password is not None
             ):
                 logging.error(
-                    f"WebhookDestination URL has unsupported scheme '{parsed.scheme}'"
+                    f"WebhookDestination has invalid webhook URL"
                 )
-                raise Exception(f"WebhookDestination URL has unsupported scheme {parsed.scheme}")
+                raise Exception(f"WebhookDestination has invalid webhook URL")
                 
       
             payload = self._create_event_payload(issue, result)
@@ -85,6 +85,7 @@ class WebhookDestination(DestinationPlugin):
                 json=payload,
                 headers=self.headers,
                 timeout=30,
+                allow_redirects=False,
             )
             
             # Do not follow redirects to potentially unsafe destinations.
