@@ -3,14 +3,15 @@
 Usage: python scripts/compare_published_docs.py PUBLISHED_REF REBUILT_REF   (run inside the repo, e.g. origin/gh-pages gh-pages)
 
 A rebuild passes when its newer theme release changes only its hashed files and the links to them, so:
-  - the theme's hashed files (bundle, main, palette and the search worker, with their source maps) are skipped
+  - the theme's hashed files (bundle, main, palette and the search worker, with their source maps) are skipped, but every one a rebuilt page links must exist in the rebuild
   - a page is compared as its whole text, with its generator meta, the hashed theme file names it links and the random tab group ids docs/custom_fences.py generates replaced
-  - sitemap.xml is compared without its <lastmod> build dates
+  - sitemap.xml is compared with its <lastmod> build dates blanked
   - every other file, search/search_index.json included, is compared byte for byte
 """
 
 import difflib
 import gzip
+import posixpath
 import re
 import subprocess
 import sys
@@ -24,6 +25,7 @@ TAB_GROUP_ID = re.compile(
     r"__tabbed_[0-9a-f]{8}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{4}_[0-9a-f]{12}"
 )
 LASTMOD = re.compile(rb"<lastmod>[^<]*</lastmod>")
+BLANK_LASTMOD = b"<lastmod></lastmod>"
 
 Tree = Dict[str, Tuple[str, str]]
 
@@ -86,7 +88,7 @@ def content_difference(path: str, old: bytes, new: bytes) -> Optional[str]:
     if path.endswith(("sitemap.xml", "sitemap.xml.gz")):
         if path.endswith(".gz"):
             old, new = gzip.decompress(old), gzip.decompress(new)
-        if LASTMOD.sub(b"", old) == LASTMOD.sub(b"", new):
+        if LASTMOD.sub(BLANK_LASTMOD, old) == LASTMOD.sub(BLANK_LASTMOD, new):
             return None
     return f"{path}: differs"
 
@@ -94,8 +96,26 @@ def content_difference(path: str, old: bytes, new: bytes) -> Optional[str]:
 def differences(
     published: Tree, rebuilt: Tree, read: Callable[[str], bytes]
 ) -> Iterator[str]:
+    """Each content difference, then each hashed theme file a rebuilt page links that the rebuild lacks. A page the rebuild left unchanged counts only for files the published tree had, so a link already broken there is not the rebuild's."""
+    linked_by: Dict[str, list] = {}
+
+    def scan_theme_links(path: str, text: str, changed: bool) -> None:
+        for link in HASHED_THEME_LINK.finditer(text):
+            # The link's "../" prefix is read backwards: a pattern that starts with it has no literal prefix to search for, and scans every page several times slower.
+            start = link.start()
+            while text.startswith("../", start - 3):
+                start -= 3
+            target = posixpath.normpath(
+                posixpath.join(posixpath.dirname(path), text[start : link.end()])
+            )
+            if target not in rebuilt and (changed or target in published):
+                linked_by.setdefault(target, []).append(path)
+
     for path in sorted(published.keys() | rebuilt.keys()):
         old, new = published.get(path), rebuilt.get(path)
+        new_page = read(new[1]).decode() if new and path.endswith(".html") else None
+        if new_page is not None:
+            scan_theme_links(path, new_page, old != new)
         if old == new or HASHED_THEME_FILE.match(path):
             continue
         if new is None:
@@ -105,9 +125,12 @@ def differences(
         elif old[0] != new[0]:
             yield f"{path}: mode {old[0]} -> {new[0]}"
         else:
-            difference = content_difference(path, read(old[1]), read(new[1]))
+            new_content = new_page.encode() if new_page is not None else read(new[1])
+            difference = content_difference(path, read(old[1]), new_content)
             if difference:
                 yield difference
+    for target, pages in sorted(linked_by.items()):
+        yield f"{target}: missing from the rebuild, linked by {len(pages)} page(s) such as {sorted(pages)[0]}"
 
 
 def main(argv: list) -> int:

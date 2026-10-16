@@ -26,23 +26,24 @@ def asset_hash(build: str) -> str:
     return build.replace(".", "") + "0abcdef"
 
 
-def page(build: str, tab_id: str, title: str, body: str) -> str:
+def page(build: str, tab_id: str, title: str, body: str, up: str) -> str:
     return f"""<html><head>
 <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-{build}">
 <title>{title}</title>
-<link rel="stylesheet" href="../assets/stylesheets/main.{asset_hash(build)}.min.css">
+<link rel="stylesheet" href="{up}assets/stylesheets/main.{asset_hash(build)}.min.css">
 </head><body>
 <nav class="md-nav md-nav--primary"><a href="../">Home</a><a href="./">Guide</a></nav>
 <article class="md-content__inner md-typeset">
 <input checked="checked" id="__tabbed_{tab_id}_1" name="__tabbed_{tab_id}" type="radio">
 <p>{body}</p>
 </article>
-<script src="../assets/javascripts/bundle.{asset_hash(build)}.min.js"></script>
+<script src="{up}assets/javascripts/bundle.{asset_hash(build)}.min.js"></script>
 </body></html>"""
 
 
 def sitemap(lastmod: str, loc: str = "https://example.com/1.0/guide/") -> bytes:
-    return f"<urlset><url><loc>{loc}</loc><lastmod>{lastmod}</lastmod></url></urlset>".encode()
+    stamp = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+    return f"<urlset><url><loc>{loc}</loc>{stamp}</url></urlset>".encode()
 
 
 def site(
@@ -60,8 +61,11 @@ def site(
             [{"version": "1.0", "title": "1.0", "aliases": list(latest_aliases)}]
         ).encode(),
         "index.html": b'<meta http-equiv="refresh" content="0; url=latest/">',
-        "1.0/index.html": page(build, tab_id, "Home", "Welcome.").encode(),
-        "1.0/guide/index.html": page(build, tab_id, guide_title, guide_body).encode(),
+        "1.0/index.html": page(build, tab_id, "Home", "Welcome.", "").encode(),
+        "1.0/guide/index.html": page(
+            build, tab_id, guide_title, guide_body, "../"
+        ).encode(),
+        f"1.0/assets/stylesheets/main.{hashed}.min.css": f"/* material {build} */".encode(),
         f"1.0/assets/javascripts/bundle.{hashed}.min.js": f"/* material {build} */".encode(),
         f"1.0/assets/javascripts/bundle.{hashed}.min.js.map": f'{{"version": "{build}"}}'.encode(),
         "1.0/assets/javascripts/glightbox.min.js": b"/* glightbox */",
@@ -114,6 +118,15 @@ def repo(tmp_path_factory):
             *REBUILT_ARGS, guide_search_text="Install the operator."
         ),
         "rebuilt-lost-latest-alias": site(*REBUILT_ARGS, latest_aliases=()),
+        "rebuilt-missing-linked-theme-file": {
+            p: f
+            for p, f in REBUILT_SAME_CONTENT.items()
+            if not p.startswith("1.0/assets/stylesheets/main.")
+        },
+        "rebuilt-sitemap-without-lastmod": {
+            **REBUILT_SAME_CONTENT,
+            "1.0/sitemap.xml": (FILE, sitemap("")),
+        },
         "rebuilt-changed-sitemap-entry": {
             **REBUILT_SAME_CONTENT,
             "1.0/sitemap.xml": (
@@ -147,7 +160,7 @@ def compare(repo: Path, rebuilt: str, monkeypatch) -> int:
 def test_passes_a_rebuild_that_changes_only_the_theme(repo, monkeypatch, capsys):
     assert compare(repo, "rebuilt-same-content", monkeypatch) == 0
     assert (
-        "No content differences between published and rebuilt-same-content (11 files, 6 changed)"
+        "No content differences between published and rebuilt-same-content (12 files, 7 changed)"
         in capsys.readouterr().out
     )
 
@@ -173,6 +186,11 @@ def test_passes_a_rebuild_that_changes_only_the_theme(repo, monkeypatch, capsys)
         ("rebuilt-edited-search-entry", "1.0/search/search_index.json: differs"),
         ("rebuilt-lost-latest-alias", "versions.json: differs"),
         ("rebuilt-changed-sitemap-entry", "1.0/sitemap.xml: differs"),
+        ("rebuilt-sitemap-without-lastmod", "1.0/sitemap.xml: differs"),
+        (
+            "rebuilt-missing-linked-theme-file",
+            f"1.0/assets/stylesheets/main.{asset_hash(REBUILT_ARGS[0])}.min.css: missing from the rebuild, linked by 2 page(s) such as 1.0/guide/index.html",
+        ),
     ],
 )
 def test_refuses_a_content_difference(repo, monkeypatch, capsys, rebuilt, reported):
