@@ -2,6 +2,7 @@ import fnmatch
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -14,19 +15,11 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    get_args,
 )
 from urllib.parse import urljoin, urlparse
 
 import requests  # type: ignore
-from pydantic import (
-    BaseModel,
-    Field,
-    PrivateAttr,
-    ValidationError,
-    model_validator,
-)
-from pydantic_core import PydanticCustomError
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError, model_validator
 from requests.auth import HTTPDigestAuth  # type: ignore
 
 from holmes.core.tools import (
@@ -219,32 +212,28 @@ def _parse_host_pattern(entry: str) -> ParsedHostPattern:
     return ParsedHostPattern(scheme=scheme, host_pattern=host_pattern, ports=ports)
 
 
-# Unknown keys that suggest the author wanted to tell Holmes *which URL to call*. The HTTP config has no
-# URL field, so such a key used to be dropped silently and the toolset loaded without Holmes ever learning
-# the URL (ROB-1376). Only these keys fail the load; other unknown keys keep being ignored with a warning,
-# so existing configs with a harmless stray key keep working.
-_URL_LIKE_KEY_HINTS = ("url", "uri", "endpoint", "webhook")
+class _FlagUnknownKeys(BaseModel):
+    """The HTTP config has no URL field, so a `url:` key was dropped silently and Holmes never
+    learned which URL to call (ROB-1376). Fail on url-like unknown keys, warn on other unknown keys."""
 
-
-def _check_unknown_keys(model: Type[BaseModel], data: Any) -> Any:
-    if not isinstance(data, dict):
+    @model_validator(mode="before")
+    @classmethod
+    def _flag_unknown_keys(cls, data: Any) -> Any:
+        if not isinstance(data, dict):  # already a model instance, e.g. built in code
+            return data
+        unknown = [k for k in data if k not in cls.model_fields]
+        url_like = [k for k in unknown if re.search(r"url|endpoint|webhook", str(k).lower())]
+        if url_like:
+            raise ValueError(
+                f"unknown field(s) {url_like}: there is no URL field, the config only allow-lists "
+                "hosts/paths/methods/auth. Put the URL Holmes should call in the toolset's llm_instructions."
+            )
+        if unknown:
+            logging.warning(f"Ignoring unknown {cls.__name__} field(s): {unknown}")
         return data
-    unknown = [k for k in data if isinstance(k, str) and k not in model.model_fields]
-    url_like = [k for k in unknown if any(h in k.lower() for h in _URL_LIKE_KEY_HINTS)]
-    if url_like:
-        raise PydanticCustomError(
-            "url_like_unknown_field",
-            "unknown field(s) {keys}",
-            {"keys": ", ".join(sorted(url_like))},
-        )
-    if unknown:
-        logging.warning(
-            f"Ignoring unknown {model.__name__} field(s): {', '.join(sorted(unknown))}"
-        )
-    return data
 
 
-class AuthConfig(BaseModel):
+class AuthConfig(_FlagUnknownKeys):
     type: Literal["none", "basic", "bearer", "header", "digest"] = "none"
     # For basic/digest auth
     username: Optional[str] = None
@@ -254,11 +243,6 @@ class AuthConfig(BaseModel):
     # For custom header auth
     name: Optional[str] = None
     value: Optional[str] = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_url_like_unknown_keys(cls, data: Any) -> Any:
-        return _check_unknown_keys(cls, data)
 
     @model_validator(mode="after")
     def validate_auth_fields(self) -> "AuthConfig":
@@ -277,7 +261,7 @@ class AuthConfig(BaseModel):
         return self
 
 
-class EndpointConfig(BaseModel):
+class EndpointConfig(_FlagUnknownKeys):
     hosts: List[str] = Field(
         description=(
             "Allowed host patterns. Each entry is one of:\n"
@@ -318,11 +302,6 @@ class EndpointConfig(BaseModel):
 
     _parsed_hosts: List[ParsedHostPattern] = PrivateAttr(default_factory=list)
 
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_url_like_unknown_keys(cls, data: Any) -> Any:
-        return _check_unknown_keys(cls, data)
-
     @model_validator(mode="after")
     def _parse_and_cache_hosts(self) -> "EndpointConfig":
         # Parsing both validates entries (raises on malformed) and populates the cache.
@@ -336,12 +315,7 @@ class EndpointConfig(BaseModel):
         return [m.upper() for m in self.methods]
 
 
-class HttpToolsetConfig(ToolsetConfig):
-    @model_validator(mode="before")
-    @classmethod
-    def _reject_url_like_unknown_keys(cls, data: Any) -> Any:
-        return _check_unknown_keys(cls, data)
-
+class HttpToolsetConfig(_FlagUnknownKeys, ToolsetConfig):
     endpoints: List[EndpointConfig] = Field(default_factory=list)
     verify_ssl: bool = True
     timeout_seconds: int = 30
@@ -368,55 +342,6 @@ class HttpToolsetConfig(ToolsetConfig):
         "(e.g. http://prometheus.monitoring.svc:9090). Enable it when every configured "
         "endpoint is a public host.",
     )
-
-
-def _model_at(loc: Tuple[Any, ...]) -> Optional[Type[BaseModel]]:
-    """The config model that owns the field at `loc` (e.g. ('endpoints', 0) -> EndpointConfig)."""
-    model: Type[BaseModel] = HttpToolsetConfig
-    for part in loc:
-        if isinstance(part, int):
-            continue
-        field = model.model_fields.get(part)
-        if field is None:
-            return None
-        nested = next(
-            (
-                t
-                for t in (field.annotation, *get_args(field.annotation))
-                if isinstance(t, type) and issubclass(t, BaseModel)
-            ),
-            None,
-        )
-        if nested is None:
-            return None
-        model = nested
-    return model
-
-
-def _format_config_errors(error: ValidationError) -> str:
-    """Render config validation errors without echoing input values, which can hold secrets."""
-    lines = []
-    has_url_like_unknown = False
-    for err in error.errors():
-        loc = err["loc"]
-        path = "".join(
-            f"[{p}]" if isinstance(p, int) else f".{p}" for p in loc
-        ).lstrip(".")
-        if err["type"] == "url_like_unknown_field":
-            has_url_like_unknown = True
-            owner = _model_at(loc)
-            allowed = f" Allowed: {', '.join(sorted(owner.model_fields))}." if owner else ""
-            where = f"{path}: " if path else ""
-            lines.append(f"- {where}unknown field(s) {err['ctx']['keys']}.{allowed}")
-        else:
-            lines.append(f"- {path or 'config'}: {err['msg']}")
-    if has_url_like_unknown:
-        lines.append(
-            "The HTTP config only whitelists what Holmes may call (hosts, paths, "
-            "methods, auth); there is no URL field. Describe the URLs Holmes should "
-            "call in the toolset's llm_instructions."
-        )
-    return "Invalid HTTP configuration:\n" + "\n".join(lines)
 
 
 class HttpToolset(Toolset):
@@ -460,9 +385,7 @@ class HttpToolset(Toolset):
         self._user_llm_instructions = llm_instructions
 
     def get_config_example(self) -> Optional[Dict[str, Any]]:
-        # The generated example would fill every field with a placeholder string
-        # (a string `extra_headers`, a missing client cert file, no endpoints), so
-        # copying it verbatim fails validation. Show a config that loads (ROB-1376).
+        # The generated example fails validation when copied (placeholder `extra_headers`, no endpoints).
         return {
             "endpoints": [
                 {
@@ -563,7 +486,12 @@ class HttpToolset(Toolset):
             )
 
         except ValidationError as e:
-            return False, _format_config_errors(e)
+            # Not str(e): it echoes the offending input, and configs hold secrets.
+            problems = "; ".join(
+                f"{'.'.join(map(str, err['loc'])) or 'config'}: {err['msg']}"
+                for err in e.errors()
+            )
+            return False, f"Invalid HTTP configuration: {problems}"
         except Exception as e:
             return False, f"Invalid HTTP configuration: {e}"
 
