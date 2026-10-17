@@ -1,7 +1,10 @@
+import json
+import re
 from unittest.mock import Mock, patch
 
 import pytest
 import requests  # type: ignore
+import yaml
 from pydantic import ValidationError
 from requests.auth import HTTPDigestAuth  # type: ignore
 
@@ -14,6 +17,7 @@ from holmes.plugins.toolsets.http.http_toolset import (
     HttpToolsetConfig,
     _parse_host_pattern,
 )
+from holmes.utils.holmes_sync_toolsets import get_config_schema_for_toolset
 
 
 class TestAuthConfig:
@@ -613,6 +617,162 @@ class TestHttpToolsetPrerequisites:
         assert success is True
         assert "1 endpoint" in message
         assert "2 host pattern" in message
+
+    def test_unknown_endpoint_field_rejected(self):
+        # ROB-1376: the AI setup wizard wrote a `url` key under the endpoint.
+        # It used to be dropped silently, leaving a toolset that loaded but
+        # never told the LLM which URL to call.
+        toolset = HttpToolset(name="grafana_irm_webhook")
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["https://*.grafana.net"],
+                        "methods": ["POST"],
+                        "paths": ["/integrations/v1/formatted_webhook/*"],
+                        "url": "https://x.grafana.net/integrations/v1/formatted_webhook/tok-SECRET/",
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "endpoints[0]: unknown field(s) url." in message
+        assert "auth, health_check_url, hosts, methods, paths" in message
+        assert "llm_instructions" in message
+        assert "tok-SECRET" not in message
+
+    @pytest.mark.parametrize("key", ["url", "base_url", "webhook_url", "endpoint"])
+    def test_url_like_unknown_field_gets_url_hint(self, key):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {"endpoints": [{"hosts": ["example.com"], key: "https://example.com/hook"}]}
+        )
+        assert success is False
+        assert f"endpoints[0]: unknown field(s) {key}." in message
+        assert "llm_instructions" in message
+
+    def test_unknown_top_level_url_field_rejected(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "base_url": "https://example.com/api",
+                "endpoints": [{"hosts": ["example.com"]}],
+            }
+        )
+        assert success is False
+        assert "unknown field(s) base_url." in message
+        assert "endpoints" in message
+
+    def test_unknown_auth_url_field_rejected(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["example.com"],
+                        "auth": {"type": "bearer", "token": "t", "token_url": "x"},
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "endpoints[0].auth: unknown field(s) token_url." in message
+
+    def test_other_unknown_fields_still_load_with_a_warning(self, caplog):
+        # Existing installs may carry a stray key that was always ignored; it must
+        # keep loading (only URL-like keys, which hide a missing URL, fail the load).
+        toolset = HttpToolset()
+        with caplog.at_level("WARNING"):
+            success, message = toolset.prerequisites_callable(
+                {
+                    "retries": 3,
+                    "endpoints": [
+                        {
+                            "hosts": ["example.com"],
+                            "description": "stray",
+                            "auth": {"type": "bearer", "token": "t", "bearer_token": "x"},
+                        }
+                    ],
+                }
+            )
+        assert success is True, message
+        warnings = " ".join(r.getMessage() for r in caplog.records)
+        assert "retries" in warnings
+        assert "description" in warnings
+        assert "bearer_token" in warnings
+
+    def test_validation_errors_do_not_echo_config_values(self):
+        toolset = HttpToolset()
+        success, message = toolset.prerequisites_callable(
+            {
+                "endpoints": [
+                    {
+                        "hosts": ["example.com"],
+                        "auth": {"type": "bearer", "password": "pw-SECRET"},
+                    }
+                ]
+            }
+        )
+        assert success is False
+        assert "endpoints[0].auth: Value error, Bearer auth requires 'token'" in message
+        assert "pw-SECRET" not in message
+
+    def test_every_documented_field_accepted(self):
+        config = HttpToolsetConfig(
+            endpoints=[
+                {
+                    "hosts": ["api.example.com"],
+                    "paths": ["/v1/*"],
+                    "methods": ["GET", "POST"],
+                    "auth": {"type": "digest", "username": "u", "password": "p"},
+                    "health_check_url": "https://api.example.com/health",
+                },
+                {
+                    "hosts": ["other.example.com"],
+                    "auth": {"type": "header", "name": "X-Key", "value": "k"},
+                },
+            ],
+            verify_ssl=False,
+            timeout_seconds=5,
+            default_headers={"Accept": "application/json"},
+            extra_headers={"X-Tenant": "{{ request_context.headers['X-Tenant'] }}"},
+            client_cert_path="/certs/client.pem",
+            client_key_path="/certs/client.key",
+            block_internal_ips=True,
+        )
+        assert config.endpoints[0].auth.type == "digest"
+        assert config.endpoints[1].auth.name == "X-Key"
+
+    def test_model_dump_round_trips_through_prerequisites(self):
+        # Confluence builds its HttpToolsetConfig in code and passes
+        # model_dump() back in, so a dump must never carry a rejected key.
+        config = HttpToolsetConfig(
+            endpoints=[
+                EndpointConfig(
+                    hosts=["wiki.example.com"],
+                    auth=AuthConfig(type="basic", username="u", password="p"),
+                )
+            ]
+        )
+        toolset = HttpToolset(name="confluence")
+        success, message = toolset.prerequisites_callable(config.model_dump())
+        assert success is True, message
+
+    def test_config_example_is_valid(self):
+        # The setup wizard is shown this example; a config copied from it must load.
+        example = HttpToolset(name="http").get_config_example()
+        assert example is not None
+        success, message = HttpToolset(name="http").prerequisites_callable(example)
+        assert success is True, message
+
+    def test_synced_example_yaml_is_valid(self):
+        # Same check through the exact payload Holmes syncs to the platform.
+        payload = json.loads(get_config_schema_for_toolset(HttpToolset(name="http")))
+        block = re.search(r"```yaml\n(.*?)```", payload["example_yaml"], re.S)
+        assert block is not None
+        config = yaml.safe_load(block.group(1))["holmes"]["toolsets"]["http"]["config"]
+        success, message = HttpToolset(name="http").prerequisites_callable(config)
+        assert success is True, message
 
 
 class TestHttpToolsetNaming:
