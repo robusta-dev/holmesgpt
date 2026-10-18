@@ -399,23 +399,6 @@ Once the IAM roles are set up, configure the Helm chart to enable multi-account 
     helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
 
-## OAuth (optional)
-
-The AWS MCP Server also accepts [OAuth 2.1 sign-in](https://docs.aws.amazon.com/agent-toolkit/latest/userguide/oauth-authentication.html) instead of IAM credentials. Configure it like any other [OAuth MCP server](../oauth-mcp-servers.md); Holmes opens a browser for the AWS login, so this suits the CLI rather than headless deployments. The `?oauth=initialize` suffix is required: without it the server answers unauthenticated requests with 200 and OAuth discovery fails. We verified discovery up to the AWS sign-in authorization server but not the browser login itself.
-
-```yaml
-mcp_servers:
-  aws_api:
-    description: "AWS MCP Server (OAuth)"
-    config:
-      mode: streamable-http
-      url: https://aws-mcp.us-east-1.api.aws/mcp?oauth=initialize
-      oauth:
-        enabled: true
-```
-
-OAuth grants no permissions beyond those of the signed-in identity; your IAM policies still apply.
-
 ## Example Usage
 
 ```

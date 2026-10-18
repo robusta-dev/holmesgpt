@@ -119,8 +119,6 @@ class AwsMCPToolset(RemoteMCPToolset):
         return AwsMCPConfig(**config)
 
     def _http_client_factory(self):
-        if self.is_oauth_enabled:
-            return super()._http_client_factory()
         return partial(create_sigv4_http_client, self._mcp_config)
 
     def _check_aws_credentials(self) -> Tuple[bool, str]:
@@ -146,8 +144,7 @@ class AwsMCPToolset(RemoteMCPToolset):
             self._mcp_config = self._build_mcp_config(config)
         except Exception as e:
             return (False, f"Invalid AWS MCP config for {self.name}: {e}")
-        if not self.is_oauth_enabled:
-            ok, message = self._check_aws_credentials()
-            if not ok:
-                return (ok, message)
+        ok, message = self._check_aws_credentials()
+        if not ok:
+            return (ok, message)
         return super().prerequisites_callable(config)
