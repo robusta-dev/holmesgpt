@@ -1,6 +1,6 @@
 import json
 import logging
-from functools import partial
+from functools import lru_cache, partial
 from typing import Any, Callable, ClassVar, Dict, Optional, Tuple, Type
 
 import boto3
@@ -53,6 +53,7 @@ class AwsMCPConfig(MCPConfig):
         return f"{self.url}#{self.profile or ''}"
 
 
+@lru_cache(maxsize=None)
 def aws_session(profile: Optional[str]) -> boto3.Session:
     return boto3.Session(profile_name=profile)
 
@@ -141,7 +142,10 @@ class AwsMCPToolset(RemoteMCPToolset):
     def prerequisites_callable(self, config) -> Tuple[bool, str]:
         if not config:
             return (False, f"Config is required for {self.name}")
-        self._mcp_config = self._build_mcp_config(config)
+        try:
+            self._mcp_config = self._build_mcp_config(config)
+        except Exception as e:
+            return (False, f"Invalid AWS MCP config for {self.name}: {e}")
         if not self.is_oauth_enabled:
             ok, message = self._check_aws_credentials()
             if not ok:
