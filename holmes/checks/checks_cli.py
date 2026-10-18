@@ -3,7 +3,6 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from holmes.plugins.destinations.webhook.utils import InvalidWebhookHeadersError, resolve_webhook_headers
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -142,6 +141,8 @@ def check(
     parsed_webhook_headers = None
 
     if webhook_headers:
+        # Lazy load the webhook utils
+        from holmes.plugins.destinations.webhook.utils import InvalidWebhookHeadersError, resolve_webhook_headers
         try:
             parsed_webhook_headers = resolve_webhook_headers(
                 None,
