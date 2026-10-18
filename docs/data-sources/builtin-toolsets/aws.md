@@ -8,7 +8,7 @@ Holmes connects to the hosted [AWS MCP Server](https://docs.aws.amazon.com/agent
 - **CLI users**: Holmes uses your local AWS credentials (`~/.aws`, environment variables or a named profile)
 
 !!! warning "Migrating from the AWS API MCP server pod"
-    Without `mcpAddons.aws.hosted.enabled: true` the chart still deploys the previous `aws-api-mcp-server` pod with the `aws-api-mcp-sa` service account, so existing values keep working. That server is [deprecated by AWS](https://github.com/awslabs/mcp/blob/main/src/aws-api-mcp-server/MIGRATION.md): to switch, set `hosted.enabled: true`, point the IAM role's trust policy at the **Holmes service account** instead (`system:serviceaccount:NAMESPACE:RELEASE-holmes-service-account`, `robusta-holmes-service-account` for the Robusta chart) and annotate it as shown below. In hosted mode `mcpAddons.aws.serviceAccount`, `image`, `networkPolicy` and `resources` are ignored. Export your current values with `helm get values RELEASE -n NAMESPACE > values.yaml` before upgrading.
+    Without `mcpAddons.aws.hosted.enabled: true` the chart still deploys the previous `aws-api-mcp-server` pod with the `aws-api-mcp-sa` service account, so existing values keep working. That server is [deprecated by AWS](https://github.com/awslabs/mcp/blob/main/src/aws-api-mcp-server/MIGRATION.md): to switch, set `hosted.enabled: true`, point the IAM role's trust policy at the **Holmes service account** instead (`system:serviceaccount:NAMESPACE:robusta-holmes-service-account`) and annotate it as shown below. In hosted mode `mcpAddons.aws.serviceAccount`, `image`, `networkPolicy` and `resources` are ignored. Export your current values with `helm get values RELEASE -n NAMESPACE > values.yaml` before upgrading.
 
 ## Single Account Setup
 
@@ -33,8 +33,7 @@ Holmes needs an IAM role with read-only permissions that its Kubernetes service 
 
     # 2. Create the IAM policy and role, trusting the Holmes service account
     # --namespace must match the namespace where Holmes is deployed
-    # --service-account is RELEASE-holmes-service-account (Holmes chart) or robusta-holmes-service-account (Robusta chart)
-    ./setup-irsa.sh --cluster-name YOUR_CLUSTER_NAME --region YOUR_REGION --namespace YOUR_NAMESPACE --service-account holmes-holmes-service-account
+    ./setup-irsa.sh --cluster-name YOUR_CLUSTER_NAME --region YOUR_REGION --namespace YOUR_NAMESPACE --service-account robusta-holmes-service-account
     ```
 
     The script outputs the role ARN at the end. Save it for Step 2:
@@ -60,11 +59,6 @@ Holmes needs an IAM role with read-only permissions that its Kubernetes service 
 
     **Create the IAM role:**
 
-    Service account names by installation method:
-
-    - Holmes Helm Chart: `RELEASE-holmes-service-account` (for example `holmes-holmes-service-account`)
-    - Robusta Helm Chart: `robusta-holmes-service-account`
-
     ```bash
     # Get your OIDC provider URL
     OIDC_PROVIDER=$(aws eks describe-cluster --name YOUR_CLUSTER_NAME --query "cluster.identity.oidc.issuer" --output text | sed -e "s/^https:\/\///")
@@ -83,7 +77,7 @@ Holmes needs an IAM role with read-only permissions that its Kubernetes service 
           "Condition": {
             "StringEquals": {
               "${OIDC_PROVIDER}:aud": "sts.amazonaws.com",
-              "${OIDC_PROVIDER}:sub": "system:serviceaccount:YOUR_NAMESPACE:SERVICE_ACCOUNT_NAME"
+              "${OIDC_PROVIDER}:sub": "system:serviceaccount:YOUR_NAMESPACE:robusta-holmes-service-account"
             }
           }
         }
@@ -258,7 +252,7 @@ curl -O https://raw.githubusercontent.com/robusta-dev/holmes-mcp-integrations/ma
 
 ### Step 2: Create Configuration File
 
-Edit `multi-cluster-config-example.yaml` with your cluster and account details. `kubernetes.service_account` must be the Holmes service account (`RELEASE-holmes-service-account`, or `robusta-holmes-service-account` for the Robusta chart).
+Edit `multi-cluster-config-example.yaml` with your cluster and account details. `kubernetes.service_account` must be the Holmes service account, `robusta-holmes-service-account`.
 
 ??? example "Example Configuration"
     ```yaml
@@ -275,7 +269,7 @@ Edit `multi-cluster-config-example.yaml` with your cluster and account details. 
 
     kubernetes:
       namespace: YOUR_NAMESPACE  # Must match the namespace where Holmes is deployed
-      service_account: holmes-holmes-service-account
+      service_account: robusta-holmes-service-account
 
     iam:
       role_name: EKSMultiAccountMCPRole
