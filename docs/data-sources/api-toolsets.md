@@ -63,7 +63,7 @@ toolsets:
 - **`type`** (required): Must be `http` for HTTP connectors
 - **`enabled`**: Whether the toolset is active
 - **`config`**: HTTP-specific configuration (see below)
-- **`llm_instructions`**: Custom instructions for the LLM about how to use this API
+- **`llm_instructions`**: Custom instructions for the LLM about how to use this API. This is also where the URL to call goes (e.g. `The base URL is: {{ env.API_URL }}`): `endpoints` only allow-lists hosts and paths, there is no URL field.
 
 #### Config Section
 

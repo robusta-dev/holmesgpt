@@ -264,6 +264,8 @@ class AuthConfig(_FlagUnknownKeys):
 class EndpointConfig(_FlagUnknownKeys):
     hosts: List[str] = Field(
         description=(
+            "Allow-list only: this does not tell Holmes which URL to call, so put the URL in the "
+            "toolset's llm_instructions.\n"
             "Allowed host patterns. Each entry is one of:\n"
             "  - bare hostname ('api.example.com') -- any scheme, any port\n"
             "  - leading wildcard ('*.example.com') -- any scheme, any port\n"
