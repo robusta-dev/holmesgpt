@@ -215,6 +215,11 @@ class ToolsetTag(str, Enum):
     CLI = "cli"
 
 
+# The toolset tags of the Holmes server's cached tool executor. See
+# Config.create_server_tool_executor for how server callers must request it.
+SERVER_TOOLSET_TAGS = [ToolsetTag.CORE, ToolsetTag.CLUSTER]
+
+
 class ToolsetType(str, Enum):
     BUILTIN = "built-in"
     CUSTOMIZED = "custom"
@@ -256,6 +261,11 @@ class ToolParameter(BaseModel):
         """
         # If this parameter has additionalProperties with a schema or True, it's not strict-compatible
         if self.additional_properties is not None and self.additional_properties is not False:
+            return False
+        # A free-form object (no properties, additionalProperties unspecified) would be
+        # closed with additionalProperties: false, leaving `{}` as its only valid value.
+        types = self.type if isinstance(self.type, list) else [self.type]
+        if "object" in types and not self.properties and self.additional_properties is None:
             return False
         # Recursively check nested properties
         if self.properties:
@@ -815,6 +825,17 @@ class Toolset(BaseModel):
             "this cluster (kubectl, in-cluster prometheus, ...)."
         ),
     )
+    status_refresh_interval_seconds: Optional[int] = Field(
+        default=None,
+        gt=0,
+        description=(
+            "Re-check this toolset at most once per this many seconds during the "
+            "server's periodic status refresh, keeping its last status and tools in "
+            "between. Unset, it is re-checked on every refresh "
+            "(TOOLSET_STATUS_REFRESH_INTERVAL_SECONDS)."
+        ),
+    )
+
     def remote_exposure_default(
         self, instance_config: Optional[Dict[str, Any]] = None
     ) -> Optional[bool]:

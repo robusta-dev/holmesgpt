@@ -53,7 +53,6 @@ from holmes.plugins.toolsets.investigator.core_investigation import (
     CoreInvestigationToolset,
 )
 from holmes.plugins.toolsets.kafka import KafkaToolset
-from holmes.plugins.toolsets.kubectl_run.kubectl_run_toolset import KubectlRunToolset
 from holmes.plugins.toolsets.kubernetes_logs import KubernetesLogsToolset
 from holmes.plugins.toolsets.mcp.aws_mcp import AwsMCPToolset
 from holmes.plugins.toolsets.mcp.toolset_mcp import MCPMode, RemoteMCPToolset
@@ -121,7 +120,6 @@ def load_python_toolsets(
         multi_instance(CoralogixToolset),
         RabbitMQToolset(),
         BashExecutorToolset(),
-        KubectlRunToolset(),
         multi_instance(ConfluenceToolset),
         multi_instance(MongoDBAtlasToolset),
         SkillsToolset(dal=dal, additional_search_paths=additional_search_paths),
@@ -136,6 +134,12 @@ def load_python_toolsets(
         from holmes.plugins.toolsets.prometheus.prometheus import PrometheusToolset
 
         toolsets.append(multi_instance(PrometheusToolset))
+
+        from holmes.plugins.toolsets.prometheus.multi_tenant_prometheus import (
+            MultiTenantPrometheusToolset,
+        )
+
+        toolsets.append(MultiTenantPrometheusToolset())
 
     if not USE_LEGACY_KUBERNETES_LOGS:
         toolsets.append(KubernetesLogsToolset())
