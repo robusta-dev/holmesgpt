@@ -1,8 +1,6 @@
 
 import json
-import os
 from typing import Any
-import requests
 
 class InvalidWebhookHeadersError(ValueError):
     """Raised when webhook headers are not a JSON object."""

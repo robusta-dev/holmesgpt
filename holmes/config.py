@@ -1,5 +1,4 @@
 import logging
-import json
 import os
 import os.path
 import threading

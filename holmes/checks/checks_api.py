@@ -2,11 +2,9 @@ import logging
 import os
 import time
 from typing import Optional
-import json
 
 from fastapi import FastAPI, HTTPException
 from holmes.plugins.destinations.webhook.utils import resolve_webhook_headers
-from holmes.plugins.interfaces import DestinationPlugin
 from litellm.exceptions import AuthenticationError
 from pydantic import BaseModel, Field
 
