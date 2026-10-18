@@ -200,9 +200,6 @@ def execute_health_check(
                     
                     if dest_type == "slack":
                         slack_channel = None
-                        notification = NotificationStatus(
-                            type="slack", status="pending"
-                        )
 
                         try:
                             # Check if SLACK_TOKEN is configured (from destination config or env var)
