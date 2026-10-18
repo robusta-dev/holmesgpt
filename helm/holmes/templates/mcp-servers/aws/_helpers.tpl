@@ -268,51 +268,12 @@ IMPORTANT: When investigating issues related to AWS resources or Kubernetes work
 - `aws___list_regions` and `aws___get_regional_availability` for region questions.
 - Each configured MCP server is one AWS account; pick the server matching the account you are investigating.
 
-## Investigation Principles
-
-**ALWAYS follow this investigation flow:**
-1. First, gather current state and configuration using AWS APIs
-2. Check CloudTrail for recent changes that might have caused the issue
-3. Collect metrics and logs from CloudWatch if available
-4. Analyze all gathered data before providing conclusions
-
-**Never say "check in AWS console" or "verify in AWS" - instead, use the MCP server to check it yourself.**
-
-## Core Investigation Patterns
-
-### For ANY connectivity or access issues:
-1. ALWAYS check the current configuration of the affected resource (RDS, EC2, ELB, etc.)
-2. ALWAYS examine security groups and network ACLs
-3. ALWAYS query CloudTrail for recent configuration changes
-4. Look for patterns in timing between when issues started and when changes were made
-
-### When investigating database issues (RDS):
-- `await call_boto3(service_name='rds', operation_name='DescribeDBInstances', params={'DBInstanceIdentifier': ID})` then read `VpcSecurityGroups`
-- `await call_boto3(service_name='ec2', operation_name='DescribeSecurityGroups', params={'GroupIds': [SG_ID]})`
-- `await call_boto3(service_name='rds', operation_name='DescribeEvents', params={'SourceIdentifier': ID, 'SourceType': 'db-instance'})`
-- `await call_boto3(service_name='cloudtrail', operation_name='LookupEvents', params={'LookupAttributes': [{'AttributeKey': 'ResourceName', 'AttributeValue': SG_ID}]})`
-
-### When investigating configuration changes:
-- `await call_boto3(service_name='cloudtrail', operation_name='LookupEvents', params={'StartTime': ..., 'MaxResults': 50})`; filter by `ResourceName` or `EventName` (RevokeSecurityGroupIngress, AuthorizeSecurityGroupIngress, ModifyDBInstance, ...)
-- Identify who made changes from `Username` and `sourceIPAddress` in the event JSON
-
-### When investigating pod/container issues on EKS:
-- `eks`: `DescribeCluster` (`params={'name': ...}`) and `DescribeNodegroup` (`params={'clusterName': ..., 'nodegroupName': ...}`)
-- `logs`: `FilterLogEvents` with `params={'logGroupName': '/aws/containerinsights/CLUSTER/application', 'startTime': ..., 'limit': 200}` when Container Insights is enabled
-- `ec2`: `DescribeInstances` with `params={'InstanceIds': [...]}` for the nodes
-
-### For networking and load balancer issues:
-- `ec2`: `DescribeVpcs`, `DescribeRouteTables`, `DescribeNetworkAcls`, `DescribeSecurityGroups`
-- `elbv2`: `DescribeLoadBalancers`, `DescribeTargetHealth`, `DescribeListeners`
-
 ## Keep results small
 
 - ALWAYS bound log and CloudTrail queries by time (start with 1-2 hour windows) and by `limit`/`MaxResults`; paginate with `NextToken` instead of requesting everything
 - NEVER download S3 object contents
 - Use DAILY granularity for Cost Explorer; prefer `GroupBy` over complex filters
 - Summarize in the script (counts, the matching rows) into `result` instead of returning whole responses
-
-Remember: Your goal is to gather evidence from AWS, not to instruct the user to gather it. Use the MCP server proactively to build a complete picture of what happened.
 {{- end -}}
 {{- if and .Values.mcpAddons.aws.multiAccount.enabled .Values.mcpAddons.aws.multiAccount.llm_account_descriptions }}
 
