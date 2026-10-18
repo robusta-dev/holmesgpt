@@ -6,8 +6,6 @@ import threading
 from enum import Enum
 from pathlib import Path
 
-from holmes.plugins.destinations.webhook.utils import InvalidWebhookHeadersError, resolve_webhook_headers
-
 display_logger = logging.getLogger("holmes.display.config")
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
@@ -41,7 +39,7 @@ from holmes.plugins.skills.skill_loader import (
 if TYPE_CHECKING:
     from holmes.core.tool_calling_llm import ToolCallingLLM
     from holmes.plugins.destinations.slack import SlackDestination
-    from holmes.plugins.destinations.webhook import WebhookDestination
+    from holmes.plugins.destinations.webhook.plugin import WebhookDestination
     from holmes.plugins.sources.github import GitHubSource
     from holmes.plugins.sources.jira import JiraServiceManagementSource, JiraSource
     from holmes.plugins.sources.opsgenie import OpsGenieSource
@@ -351,6 +349,7 @@ class Config(RobustaBaseConfig):
         if self.webhook_headers is None:
             webhook_headers_env = os.environ.get("WEBHOOK_HEADERS")
             if webhook_headers_env:
+                from holmes.plugins.destinations.webhook.utils import InvalidWebhookHeadersError, resolve_webhook_headers
                 try:
                     self.webhook_headers = resolve_webhook_headers(
                         None,

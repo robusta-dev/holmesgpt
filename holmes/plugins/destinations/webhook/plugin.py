@@ -96,7 +96,7 @@ class WebhookDestination(DestinationPlugin):
                 )
 
             response.raise_for_status()
-            logging.info(f"Successfully sent issue to Webhook {self.webhook_url}")
+            logging.info(f"Successfully sent issue to Webhook {parsed.scheme}://{parsed.hostname}")
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Failed to send issue to Webhook: {e}")
