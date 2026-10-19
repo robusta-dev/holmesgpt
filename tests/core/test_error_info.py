@@ -242,3 +242,31 @@ def test_the_cause_chain_may_loop():
 def test_from_provider_distinguishes_provider_errors_from_internal_ones():
     assert ErrorInfo.from_exception(_litellm(litellm.RateLimitError)).from_provider
     assert not ErrorInfo.from_exception(RuntimeError("tool bug")).from_provider
+
+
+@pytest.mark.parametrize(
+    "text,leaked",
+    [
+        ("endpoint 2001:db8::1234 unavailable", "2001:db8"),
+        ("via [2001:db8:85a3::8a2e:370:7334]:8443 down", "2001:db8"),
+        ("mapped ::ffff:10.1.2.3 x", "10.1.2.3"),
+        ("loopback ::1 refused", "::1"),
+        ("fe80::1 bad", "fe80"),
+    ],
+)
+def test_ipv6_addresses_are_redacted(text, leaked):
+    assert leaked not in sanitize_error_text(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "at 12:30:45 UTC",
+        "ratio a:b",
+        "model anthropic.claude-3-5-sonnet-20241022-v2:0 not found",
+        "key:value pairs",
+        "Limit: 30000",
+    ],
+)
+def test_text_that_only_looks_like_ipv6_is_kept(text):
+    assert sanitize_error_text(text) == text

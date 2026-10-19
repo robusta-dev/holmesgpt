@@ -9,6 +9,7 @@ provider).
 
 import ast
 import html
+import ipaddress
 import json
 import re
 from dataclasses import dataclass
@@ -26,6 +27,10 @@ _HTML = re.compile(r"<\s*(?:!doctype|html|head|body|h[1-6]|p|div)\b", re.IGNOREC
 _TAG = re.compile(r"<[^>]*>")
 _UUID = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+)
+_IPV6_CANDIDATE = re.compile(
+    r"(?<![0-9A-Za-z])[0-9A-Fa-f:]{2,}(?:\.\d{1,3}){3}(?![0-9A-Za-z])"
+    r"|(?<![0-9A-Za-z])[0-9A-Fa-f:]{2,}(?![0-9A-Za-z])"
 )
 _OPAQUE_TOKEN = re.compile(r"\b[A-Za-z0-9+/_=-]{32,}\b")
 
@@ -119,7 +124,17 @@ def _unwrap_body(text: str) -> str:
     return text
 
 
+def _redact_ipv6(match: "re.Match[str]") -> str:
+    candidate = match.group(0)
+    try:
+        ipaddress.IPv6Address(candidate)
+    except ValueError:
+        return candidate
+    return "[REDACTED_IP]"
+
+
 def _redact(text: str) -> str:
+    text = _IPV6_CANDIDATE.sub(_redact_ipv6, text)
     for pattern, replacement in _REDACTIONS:
         text = pattern.sub(replacement, text)
     return _OPAQUE_TOKEN.sub(_redact_opaque_token, text)
