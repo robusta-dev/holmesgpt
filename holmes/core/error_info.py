@@ -15,11 +15,16 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional
 
+from holmes.core.relay_refusal import RelayRefusal
+
 MAX_REASON_CHARS = 500
 MAX_CLASS_CHARS = 80
-# Bounds regex work on a pathological message; the reason is cut to
+# Bodies are parsed up to _MAX_PARSE_CHARS so a large JSON error still yields
+# its message; regexes only ever run on the _MAX_INPUT_CHARS that survive the
+# unwrap, which keeps their worst case small. The reason is cut to
 # MAX_REASON_CHARS after redaction.
-_MAX_INPUT_CHARS = 20_000
+_MAX_PARSE_CHARS = 64_000
+_MAX_INPUT_CHARS = 2_000
 
 _ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 _CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
@@ -73,7 +78,10 @@ _REDACTIONS = (
         r"\1\2[REDACTED]",
     ),
     (re.compile(r"(?i)([?&]key=)[^&\s]+"), r"\1[REDACTED]"),
-    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[REDACTED_EMAIL]"),
+    (
+        re.compile(r"[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,255}\.[A-Za-z]{2,}"),
+        "[REDACTED_EMAIL]",
+    ),
     (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}(?::\d{2,5})?\b"), "[REDACTED_IP]"),
     (
         re.compile(
@@ -86,6 +94,7 @@ _REDACTIONS = (
 )
 
 _PROVIDER = re.compile(r"[a-z0-9][a-z0-9_.-]{0,39}")
+_LLM_MODULES = ("litellm", "openai", "anthropic")
 _THROTTLE_MARKER = "Model is getting throttled"
 _MAX_CAUSE_DEPTH = 5
 
@@ -151,11 +160,11 @@ def _redact_opaque_token(match: "re.Match[str]") -> str:
 
 def sanitize_error_text(value: Any, limit: int = MAX_REASON_CHARS) -> str:
     """The provider's own sentence, redacted, on one line, at most ``limit`` chars."""
-    text = _as_text(value)[:_MAX_INPUT_CHARS].strip()
+    text = _as_text(value)[:_MAX_PARSE_CHARS].strip()
     text = _ERROR_PREFIX.sub("", text, count=1)
     text = _PROVIDER_PREFIX.sub("", text, count=1)
     text = _STATUS_PREFIX.sub("", text, count=1)
-    text = _unwrap_body(text.strip())
+    text = _unwrap_body(text.strip())[:_MAX_INPUT_CHARS]
     if _HTML.search(text):
         text = html.unescape(_TAG.sub(" ", text))
     text = _CONTROL.sub(" ", _ANSI.sub("", text))
@@ -173,6 +182,23 @@ def _chain(exc: BaseException) -> Iterator[BaseException]:
         seen.add(id(current))
         yield current
         current = current.__cause__ or current.__context__
+
+
+def _is_llm_error(exc: BaseException) -> bool:
+    """Raised by an LLM client library, or by the platform in front of it.
+    Only these carry a ``status_code`` / ``llm_provider`` worth trusting."""
+    return isinstance(exc, RelayRefusal) or any(
+        cls.__module__.split(".")[0] in _LLM_MODULES for cls in type(exc).__mro__
+    )
+
+
+def _attr(obj: Any, name: str) -> Any:
+    """``getattr`` that survives a property which raises: this runs inside
+    error handlers, which must not fail with a different error."""
+    try:
+        return getattr(obj, name, None)
+    except Exception:
+        return None
 
 
 def _valid_status(value: Any) -> Optional[int]:
@@ -211,8 +237,10 @@ class ErrorInfo:
         status_code: Optional[int] = None
         provider: Optional[str] = None
         for link in _chain(exc):
-            status_code = status_code or _valid_status(getattr(link, "status_code", None))
-            provider = provider or _valid_provider(getattr(link, "llm_provider", None))
+            if not _is_llm_error(link):
+                continue
+            status_code = status_code or _valid_status(_attr(link, "status_code"))
+            provider = provider or _valid_provider(_attr(link, "llm_provider"))
         try:
             message = str(exc)
         except Exception:

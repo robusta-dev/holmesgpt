@@ -536,7 +536,7 @@ class ConversationProcessor:
             self.fail(
                 task,
                 "An internal error occurred while processing your request",
-                raw_error=error_info.reason if error_info.from_provider else None,
+                raw_error=(error_info.reason or None) if error_info.from_provider else None,
                 error_info=error_info,
             )
         finally:

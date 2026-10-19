@@ -232,9 +232,8 @@ def test_a_value_whose_str_raises_is_survived():
 
 
 def test_the_cause_chain_may_loop():
-    a, b = RuntimeError("a"), RuntimeError("b")
+    a, b = RuntimeError("a"), _litellm(litellm.BadGatewayError)
     a.__cause__, b.__cause__ = b, a
-    b.status_code = 502  # type: ignore[attr-defined]
 
     assert ErrorInfo.from_exception(a).status_code == 502
 
@@ -270,3 +269,88 @@ def test_ipv6_addresses_are_redacted(text, leaked):
 )
 def test_text_that_only_looks_like_ipv6_is_kept(text):
     assert sanitize_error_text(text) == text
+
+
+@pytest.mark.parametrize(
+    "body",
+    ["a." * 10000, "a" * 20000, "a@" * 10000, "x" * 10000 + "." * 10000],
+    ids=["dotted", "alnum", "ats", "mixed"],
+)
+def test_large_bodies_are_sanitized_quickly(body):
+    import time
+
+    started = time.monotonic()
+    sanitize_error_text(body)
+
+    assert time.monotonic() - started < 0.5
+
+
+def test_a_raising_status_property_does_not_break_classification():
+    class Boom(litellm.ServiceUnavailableError):
+        armed = False
+
+        @property
+        def status_code(self):
+            if self.armed:
+                raise RuntimeError("property blew up")
+            return 503
+
+        @status_code.setter
+        def status_code(self, value):
+            pass
+
+        @property
+        def llm_provider(self):
+            if self.armed:
+                raise RuntimeError("property blew up")
+            return "p"
+
+        @llm_provider.setter
+        def llm_provider(self, value):
+            pass
+
+    exc = Boom(message="x", model="m", llm_provider="p")
+    Boom.armed = True
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert info.error_class == "Boom" and info.status_code is None and info.provider is None
+
+
+def test_a_non_llm_exception_with_a_status_code_is_not_a_provider_error():
+    class HttpFrameworkError(Exception):
+        status_code = 502
+
+    info = ErrorInfo.from_exception(HttpFrameworkError("db password=hunter2 down"))
+
+    assert not info.from_provider
+    assert info.status_code is None
+    assert info.event_fields() == {"error_class": "HttpFrameworkError"}
+
+
+def test_a_non_llm_wrapper_of_an_llm_error_is_still_a_provider_error():
+    try:
+        try:
+            raise _litellm(litellm.ServiceUnavailableError)
+        except litellm.ServiceUnavailableError as inner:
+            raise RuntimeError("wrapped") from inner
+    except RuntimeError as outer:
+        info = ErrorInfo.from_exception(outer)
+
+    assert info.from_provider and info.status_code == 503
+
+
+def test_relay_refusals_are_provider_errors():
+    assert ErrorInfo.from_exception(RelayRefusal("no", 401)).from_provider
+
+
+def test_a_large_json_body_is_still_unwrapped_before_the_length_cut():
+    body = '{"message": "capacity exhausted", "padding": "' + "x " * 5000 + '"}'
+
+    assert sanitize_error_text(body) == "capacity exhausted"
+
+
+def test_a_large_dict_repr_body_is_still_unwrapped_before_the_length_cut():
+    body = "Error code: 502 - {'msg': 'upstream failed', 'reason': 'capacity exhausted', 'pad': '" + "x " * 5000 + "'}"
+
+    assert sanitize_error_text(body) == "capacity exhausted"

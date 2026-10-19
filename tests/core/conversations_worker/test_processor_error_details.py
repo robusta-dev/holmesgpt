@@ -112,3 +112,23 @@ def test_the_outer_failure_handler_keeps_the_class_too():
     (event,) = p.dal.post_conversation_events.call_args.kwargs["events"]
     assert event["data"]["error_class"] == "RateLimitError"
     assert event["data"]["provider_status"] == 429
+
+
+def test_a_provider_error_without_a_message_omits_raw_error():
+    class Silent(litellm.APIError):
+        def __str__(self):
+            return ""
+
+    w, ai = _bare_worker()
+
+    _run(
+        w,
+        ai,
+        consume_side_effect=Silent(
+            status_code=500, message="", llm_provider="openai", model="m"
+        ),
+    )
+
+    data = _error_event(w)
+    assert data["provider_status"] == 500
+    assert "raw_error" not in data
