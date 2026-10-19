@@ -1,3 +1,4 @@
+import hashlib
 import json
 import yaml
 import logging
@@ -9,6 +10,8 @@ import fnmatch
 from holmes.config import Config
 from holmes.core.supabase_dal import SupabaseDal
 from holmes.core.tools import (
+    Tool,
+    ToolParameter,
     Toolset,
     ToolsetDBModel,
     ToolsetStatusEnum,
@@ -16,6 +19,7 @@ from holmes.core.tools import (
 from holmes.core.tools_utils.tool_executor import _mcp_tool_name
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
+from holmes.plugins.toolsets.multi_instance import INSTANCE_PARAM_NAME
 from holmes.version import get_version
 
 REMOTE_TOOLS_SCHEMA_VERSION = "v1"
@@ -34,6 +38,36 @@ def _exposed_tools(toolset: Toolset, tool_executor: Any) -> List[Any]:
         for name, ts in tool_executor._tool_to_toolset.items()
         if ts is toolset and name in tool_executor.tools_by_name
     ]
+
+
+def _parameter_contract(param: ToolParameter) -> dict:
+    contract = param.model_dump(
+        exclude={"description", "properties", "items", "any_of"}, exclude_none=True
+    )
+    if param.properties is not None:
+        contract["properties"] = {
+            name: _parameter_contract(p) for name, p in param.properties.items()
+        }
+    if param.items is not None:
+        contract["items"] = _parameter_contract(param.items)
+    if param.any_of is not None:
+        contract["any_of"] = [_parameter_contract(b) for b in param.any_of]
+    return contract
+
+
+def remote_tool_contract_hash(tool: Tool) -> str:
+    """Hash of what a caller sends this tool: parameter names, types and
+    constraints, not descriptions or the strict-mode rendering. The platform
+    routes a remote tool to every agent whose hash matches the newest Holmes
+    version's, so this is the only place tool schemas are compared.
+    `instance` is left out: the platform routes it per cluster."""
+    contract = {
+        name: _parameter_contract(param)
+        for name, param in tool.parameters.items()
+        if name != INSTANCE_PARAM_NAME
+    }
+    canonical = json.dumps(contract, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 def build_remote_tools_meta(toolset: Toolset, tool_executor: Any = None) -> Any:
@@ -57,7 +91,7 @@ def build_remote_tools_meta(toolset: Toolset, tool_executor: Any = None) -> Any:
             return None  # multi-instance toolset with zero exposed instances
 
     tools = [
-        tool.get_openai_format()
+        {**tool.get_openai_format(), "contract_hash": remote_tool_contract_hash(tool)}
         for tool in _exposed_tools(toolset, tool_executor)
         if not _tool_requires_approval(
             _mcp_tool_name(tool) or tool.name, toolset.approval_required_tools
@@ -151,6 +185,7 @@ def holmes_sync_toolsets_status(dal: SupabaseDal, config: Config) -> None:
                 docs_url=toolset.docs_url,
                 installation_instructions=toolset.installation_instructions,
                 meta=meta,
+                version=get_version(),
             ).model_dump()
         )
     dal.sync_toolsets(db_toolsets, config.cluster_name)

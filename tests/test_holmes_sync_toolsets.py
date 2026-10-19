@@ -13,6 +13,7 @@ from holmes.core.tools import (
     ToolsetCommandPrerequisite,
     ToolsetEnvironmentPrerequisite,
     ToolsetStatusEnum,
+    ToolParameter,
     ToolsetTag,
     YAMLTool,
 )
@@ -21,7 +22,9 @@ from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
 from holmes.utils.holmes_sync_toolsets import (
     build_remote_tools_meta,
     holmes_sync_toolsets_status,
+    remote_tool_contract_hash,
 )
+from holmes.version import get_version
 from tests.utils.bad_toolset_example import BadTool, BadToolset
 from tests.utils.toolsets import callable_success, failing_callable_for_test
 
@@ -517,3 +520,81 @@ def test_toolsets_dumpable_with_mcp_toolset_passes(mock_dal, mock_config):
     mock_config.create_server_tool_executor.return_value.toolsets = all_toolsets_good
 
     holmes_sync_toolsets_status(mock_dal, mock_config)
+
+
+# ---- ROB-1544: remote tool contract hashes ----
+
+
+def _tool(parameters, description="d"):
+    return YAMLTool(
+        name="t", description=description, command="echo", parameters=parameters
+    )
+
+
+def _hash(parameters, description="d"):
+    return remote_tool_contract_hash(_tool(parameters, description))
+
+
+def test_contract_hash_ignores_descriptions():
+    assert _hash(
+        {"q": ToolParameter(type="string", description="a")}, description="old"
+    ) == _hash({"q": ToolParameter(type="string", description="b")}, description="new")
+
+
+def test_contract_hash_ignores_strict_mode():
+    tool = _tool({"q": ToolParameter(type="string", required=False)})
+    with patch("holmes.core.openai_formatting.STRICT_TOOL_CALLS_ENABLED", True):
+        strict = (tool.get_openai_format(), remote_tool_contract_hash(tool))
+    with patch("holmes.core.openai_formatting.STRICT_TOOL_CALLS_ENABLED", False):
+        loose = (tool.get_openai_format(), remote_tool_contract_hash(tool))
+    assert strict[0] != loose[0]
+    assert strict[1] == loose[1]
+
+
+@pytest.mark.parametrize(
+    "changed",
+    [
+        # 0.40/0.41 published a phantom required `param` on the kubernetes tools.
+        {"q": ToolParameter(type="string"), "param": ToolParameter(type="string")},
+        {"q": ToolParameter(type="integer")},
+        {"q": ToolParameter(type="string", required=False)},
+        {"q": ToolParameter(type="string", enum=["a"])},
+        {"q": ToolParameter(type="string", json_schema_extra={"maxLength": 3})},
+    ],
+)
+def test_contract_hash_changes_with_what_a_caller_sends(changed):
+    assert _hash({"q": ToolParameter(type="string")}) != _hash(changed)
+
+
+def test_contract_hash_covers_nested_schemas_but_not_their_descriptions():
+    def obj(inner_type, description):
+        return {
+            "o": ToolParameter(
+                type="object",
+                properties={
+                    # A property may be named "description"; it is part of the contract.
+                    "description": ToolParameter(type=inner_type, description=description)
+                },
+            )
+        }
+
+    assert _hash(obj("string", "x")) == _hash(obj("string", "y"))
+    assert _hash(obj("string", "x")) != _hash(obj("integer", "x"))
+    assert _hash(obj("string", "x")) != _hash({"o": ToolParameter(type="object")})
+
+
+def test_contract_hash_leaves_out_the_instance_param():
+    assert _hash({"q": ToolParameter(type="string")}) == _hash(
+        {"q": ToolParameter(type="string"), "instance": ToolParameter(type="string")}
+    )
+
+
+def test_remote_tools_meta_carries_a_contract_hash_per_tool():
+    meta = build_remote_tools_meta(_exposed_toolset())
+    assert all(len(t["contract_hash"]) == 64 for t in meta["tools"])
+
+
+def test_sync_publishes_the_holmes_version_on_every_row(mock_dal, mock_config):
+    holmes_sync_toolsets_status(mock_dal, mock_config)
+    rows = mock_dal.sync_toolsets.call_args.args[0]
+    assert rows and {r["version"] for r in rows} == {get_version()}
