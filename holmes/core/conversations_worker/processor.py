@@ -518,12 +518,13 @@ class ConversationProcessor:
                 e.status_code,
                 e,
             )
+            error_info = ErrorInfo.from_exception(e)
             self.fail(
                 task,
                 str(e),
                 error_code=RELAY_REFUSAL_ERROR_CODES[e.status_code],
-                raw_error=str(e),
-                error_info=ErrorInfo.from_exception(e),
+                raw_error=error_info.message,
+                error_info=error_info,
             )
         except Exception as e:
             logging.exception(
@@ -535,7 +536,9 @@ class ConversationProcessor:
             error_info = ErrorInfo.from_exception(e)
             self.fail(
                 task,
-                "An internal error occurred while processing your request",
+                error_info.summary()
+                if error_info.from_provider
+                else "An internal error occurred while processing your request",
                 raw_error=error_info.message if error_info.from_provider else None,
                 error_info=error_info,
             )

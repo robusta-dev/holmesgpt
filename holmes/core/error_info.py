@@ -238,6 +238,15 @@ class ErrorInfo:
             provider = provider or "bedrock"
         return cls(error_class, status_code, provider, code, message)
 
+    def summary(self) -> str:
+        """One line for the surfaces that render the event's text: what failed
+        and where, then the provider's message when there is one."""
+        details = [str(d) for d in (self.status_code, self.provider, self.code) if d]
+        head = f"AI provider error: {self.error_class}"
+        if details:
+            head += f" ({', '.join(details)})"
+        return f"{head}. {self.message}" if self.message else f"{head}."
+
     def event_fields(self) -> Dict[str, Any]:
         """Fields for the error event the client receives."""
         fields: Dict[str, Any] = {"error_class": self.error_class}

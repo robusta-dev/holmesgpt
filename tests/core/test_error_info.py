@@ -376,3 +376,19 @@ def test_the_length_limit_is_reached_by_valid_prose():
     assert short_message(long_sentence) == long_sentence
     assert len(long_sentence) <= MAX_MESSAGE_CHARS
     assert short_message(long_sentence + " " + long_sentence) is None
+
+
+def test_summary_names_class_status_provider_code_and_message():
+    info = ErrorInfo("RateLimitError", 429, "openai", "rate_limit", "Slow down.")
+
+    assert info.summary() == (
+        "AI provider error: RateLimitError (429, openai, rate_limit). Slow down."
+    )
+
+
+def test_summary_omits_what_is_unknown():
+    assert ErrorInfo("Timeout", None, "x").summary() == "AI provider error: Timeout (x)."
+    assert ErrorInfo("Timeout", 408, None).summary() == "AI provider error: Timeout (408)."
+    assert ErrorInfo("Timeout", None, None, None, "Late.").summary() == (
+        "AI provider error: Timeout. Late."
+    )

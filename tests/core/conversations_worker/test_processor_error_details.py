@@ -37,7 +37,12 @@ def test_provider_failure_keeps_class_status_and_reason(is_robusta_model):
     _run(w, ai, consume_side_effect=exc)
 
     data = _error_event(w)
-    assert data["description"] == GENERIC_DESCRIPTION
+    expected = (
+        "AI provider error: ServiceUnavailableError (503, bedrock). "
+        "Bedrock is unable to process your request."
+    )
+    assert data["description"] == expected
+    assert data["msg"] == expected
     assert data["error_class"] == "ServiceUnavailableError"
     assert data["provider_status"] == 503
     assert data["provider"] == "bedrock"
@@ -65,6 +70,9 @@ def test_a_message_that_is_not_plain_prose_is_dropped_but_the_code_is_kept():
     for secret in ("sk-proj-AAAA", "admin@corp.com", "10.1.2.3", "Incorrect API key"):
         assert secret not in stored
     assert "raw_error" not in data
+    assert data["description"] == (
+        "AI provider error: AuthenticationError (401, openai, invalid_api_key)."
+    )
     assert data["error_class"] == "AuthenticationError"
     assert data["provider_status"] == 401
     assert data["provider_code"] == "invalid_api_key"
@@ -95,6 +103,7 @@ def test_unknown_exception_keeps_only_its_class():
     _run(w, ai, consume_side_effect=RuntimeError("db password=hunter2 failed"))
 
     data = _error_event(w)
+    assert data["description"] == GENERIC_DESCRIPTION
     assert data["error_class"] == "RuntimeError"
     assert "provider_status" not in data
     assert "raw_error" not in data
@@ -108,6 +117,7 @@ def test_relay_refusal_event_also_carries_its_class_and_status():
     _run(w, ai, consume_side_effect=RelayRefusal("Robusta AI is disabled.", 403))
 
     data = _error_event(w)
+    assert data["description"] == "Robusta AI is disabled."
     assert data["error_class"] == "RelayRefusal"
     assert data["provider_status"] == 403
     assert data["raw_error"] == "Robusta AI is disabled."
@@ -152,4 +162,19 @@ def test_a_provider_error_without_a_message_omits_raw_error():
 
     data = _error_event(w)
     assert data["provider_status"] == 500
+    assert "raw_error" not in data
+
+
+def test_a_relay_refusal_message_is_gated_like_any_provider_message():
+    w, ai = _bare_worker()
+
+    _run(
+        w,
+        ai,
+        consume_side_effect=RelayRefusal(
+            "Unauthorized for key sk-" + "proj-AAAABBBB1234 on 10.1.2.3", 401
+        ),
+    )
+
+    data = _error_event(w)
     assert "raw_error" not in data
