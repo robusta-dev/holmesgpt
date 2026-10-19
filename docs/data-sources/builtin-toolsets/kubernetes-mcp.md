@@ -880,7 +880,7 @@ Merge these into your values from Step 3:
 If the Dex login succeeds but Holmes reports `401 Unauthorized` from the MCP server, read the MCP server log. Holmes words this as `OAuth credentials expired ... removing cached token` for any 401, even when the token is fresh. The chart logs authentication failures by default (`mcpAddons.kubernetes.config.logLevel: "1"`); on an older chart, set that value yourself.
 
 ```bash
-kubectl logs -n <holmes-namespace> -l app.kubernetes.io/name=k8s-mcp-server | grep "Authentication failed"
+kubectl logs -n <holmes-namespace> -l app.kubernetes.io/name=k8s-mcp-server --tail=-1 | grep "Authentication failed"
 ```
 
 | Log message contains | Cause and fix |
