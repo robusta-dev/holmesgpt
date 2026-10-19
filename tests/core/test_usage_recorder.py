@@ -670,3 +670,35 @@ def test_a_throttle_keeps_its_rate_limited_status_and_gains_the_class(monkeypatc
 
     assert _state_arg(state).status == "rate_limited"
     assert _state_arg(state).meta["error_class"] == "RateLimitError"
+
+
+def test_frontend_cannot_forge_any_backend_error_key_on_a_failed_run(monkeypatch):
+    _patch_inline_thread(monkeypatch)
+    forged = {
+        "error_class": "Forged",
+        "error_status_code": 429,
+        "error_provider": "openai",
+        "error_provider_code": "rate_limit_exceeded",
+        "kept": "yes",
+    }
+    state = _make_state(meta=dict(forged))
+
+    with pytest.raises(RuntimeError):
+        list(stream_with_usage_recording(_failing_stream(RuntimeError("x")), state))
+
+    meta = _state_arg(state).meta
+    assert meta == {"error_class": "RuntimeError", "kept": "yes"}
+
+
+def test_frontend_cannot_forge_error_keys_on_a_successful_run():
+    from holmes.core.models import ChatRequest
+    from holmes.core.usage_recorder import build_chat_recorder_state
+
+    request = ChatRequest(
+        ask="q",
+        meta={"error_class": "Forged", "error_status_code": 500, "ok_key": 1},
+    )
+
+    state = build_chat_recorder_state(request, MagicMock(), dal=MagicMock(), is_streaming=True)
+
+    assert state.meta == {"ok_key": 1}

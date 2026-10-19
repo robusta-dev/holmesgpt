@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, Generator, Optional
 
-from holmes.core.error_info import ErrorInfo
+from holmes.core.error_info import ERROR_META_KEYS, ErrorInfo
 from holmes.core.llm_usage import RequestStats
 from holmes.utils.stream import StreamEvents, StreamMessage
 
@@ -145,7 +145,9 @@ def build_chat_recorder_state(
     # Merge meta: FE-supplied keys, then backend-derived keys (backend wins
     # on collision). Slack info goes under a 'slack' sub-key so it doesn't
     # clutter the top level.
-    merged_meta: Dict[str, Any] = dict(chat_request.meta or {})
+    merged_meta: Dict[str, Any] = {
+        k: v for k, v in (chat_request.meta or {}).items() if k not in ERROR_META_KEYS
+    }
     if slack_info is not None:
         merged_meta["slack"] = slack_info
 
@@ -431,6 +433,8 @@ class UsageRecorderState:
     def capture_error(self, exc: BaseException) -> None:
         """Record why the run failed in ``meta``; backend keys win over any
         frontend-supplied ones."""
+        for key in ERROR_META_KEYS:
+            self.meta.pop(key, None)
         self.meta.update(ErrorInfo.from_exception(exc).meta_fields())
 
     def _fire(self) -> None:

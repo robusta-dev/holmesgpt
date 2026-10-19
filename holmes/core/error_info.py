@@ -30,6 +30,18 @@ _ERROR_PREFIX = re.compile(
 )
 _PROVIDER_PREFIX = re.compile(r"^[A-Za-z]*Exception\s+-\s+")
 _STATUS_PREFIX = re.compile(r"^Error code:\s*\d+\s*-\s*")
+# litellm appends this to str(e) when it retried; it is not part of the body.
+_RETRY_SUFFIX = re.compile(
+    r"\s*LiteLLM Retried: \d+ times(?:, LiteLLM Max Retries: \d+)?\s*$"
+)
+
+# The keys the backend owns in HolmesUsageEvents.meta; clients cannot set them.
+ERROR_META_KEYS = (
+    "error_class",
+    "error_status_code",
+    "error_provider",
+    "error_provider_code",
+)
 
 # `code` first, then `type`; AWS puts it in `__type` as "namespace#Name".
 _CODE_KEYS = ("provider_code", "code", "type", "__type")
@@ -93,17 +105,8 @@ def _parse_body(text: str) -> Optional[dict]:
     return None
 
 
-def parse_provider_text(raw: str) -> Tuple[Optional[str], Optional[str]]:
-    """``(code, message)`` the provider reported in an exception's text.
-
-    A JSON / dict body is read field by field; anything else is only a message
-    candidate as a whole."""
-    text = _ERROR_PREFIX.sub("", raw.strip(), count=1)
-    text = _PROVIDER_PREFIX.sub("", text, count=1)
-    text = _STATUS_PREFIX.sub("", text, count=1).strip()
-    body = _parse_body(text)
-    if body is None:
-        return None, short_message(text)
+def _from_body(body: dict) -> Tuple[Optional[str], Optional[str]]:
+    """``(code, message)`` read field by field from a provider error body."""
     nested = body.get("error")
     code = message = None
     for source in (nested if isinstance(nested, dict) else None, body):
@@ -114,6 +117,35 @@ def parse_provider_text(raw: str) -> Tuple[Optional[str], Optional[str]]:
             (m for m in map(short_message, map(source.get, _MESSAGE_KEYS)) if m), None
         )
     return code, message
+
+
+def parse_provider_text(raw: str) -> Tuple[Optional[str], Optional[str]]:
+    """``(code, message)`` the provider reported in an exception's text.
+
+    A JSON / dict body is read field by field; anything else is only a message
+    candidate as a whole."""
+    text = _RETRY_SUFFIX.sub("", raw.strip(), count=1)
+    text = _ERROR_PREFIX.sub("", text, count=1)
+    text = _PROVIDER_PREFIX.sub("", text, count=1)
+    text = _STATUS_PREFIX.sub("", text, count=1).strip()
+    body = _parse_body(text)
+    if body is None:
+        return None, short_message(text)
+    return _from_body(body)
+
+
+def _structured_body(exc: BaseException) -> Optional[dict]:
+    """The error body litellm kept on the exception, or on the response it
+    wrapped. Preferred over the exception's text, which litellm decorates."""
+    body = _attr(exc, "body")
+    if isinstance(body, dict):
+        return body
+    response = _attr(exc, "response")
+    try:
+        body = response.json() if response is not None else None
+    except Exception:
+        return None
+    return body if isinstance(body, dict) else None
 
 
 def _is_llm_error(exc: BaseException) -> bool:
@@ -194,7 +226,10 @@ class ErrorInfo:
             status_code = status_code or _valid_status(_attr(link, "status_code"))
             provider = provider or _valid_provider(_attr(link, "llm_provider"))
             if first_llm_link:
-                code, message = parse_provider_text(_text(link))
+                body = _structured_body(link)
+                code, message = _from_body(body) if body else (None, None)
+                if code is None and message is None:
+                    code, message = parse_provider_text(_text(link))
                 first_llm_link = False
         error_class = _class_name(exc)
         if _THROTTLE_MARKER in _text(exc) and status_code is None:

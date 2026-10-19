@@ -297,3 +297,82 @@ def test_the_outermost_llm_error_supplies_the_message():
     info = ErrorInfo.from_exception(outer)
 
     assert (info.message, info.status_code) == ("Outer failure.", 429)
+
+
+@pytest.mark.parametrize(
+    "suffix",
+    [
+        " LiteLLM Retried: 2 times",
+        " LiteLLM Retried: 2 times, LiteLLM Max Retries: 3",
+        "\nLiteLLM Retried: 1 times, LiteLLM Max Retries: 2\n",
+    ],
+)
+def test_litellm_retry_text_after_the_body_does_not_hide_the_provider_fields(suffix):
+    raw = (
+        "litellm.ServiceUnavailableError: AnthropicException - "
+        '{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' + suffix
+    )
+
+    assert parse_provider_text(raw) == ("overloaded_error", "Overloaded")
+
+
+def test_litellm_retry_text_after_a_plain_message_is_not_part_of_it():
+    assert parse_provider_text("litellm.Timeout: OpenAIException - Request timed out. LiteLLM Retried: 2 times") == (
+        None,
+        "Request timed out.",
+    )
+
+
+def test_arbitrary_text_after_the_body_is_still_rejected():
+    raw = '{"error": {"type": "overloaded_error", "message": "Overloaded"}} and some trailing text'
+
+    assert parse_provider_text(raw) == (None, None)
+
+
+def test_the_structured_body_on_the_exception_is_read_before_its_text():
+    exc = _litellm(litellm.RateLimitError, "OpenAIException - Rate limit reached for gpt-4o in org-X: Limit 3")
+    exc.body = {"message": "Rate limit reached.", "type": "tokens", "code": "rate_limit_exceeded"}
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert (info.code, info.message) == ("rate_limit_exceeded", "Rate limit reached.")
+
+
+def test_the_json_of_the_wrapped_response_is_read_when_there_is_no_body_attribute():
+    import httpx
+
+    exc = _litellm(litellm.ServiceUnavailableError, "OpenAIException - gateway text: 10.0.0.1")
+    exc.response = httpx.Response(
+        503,
+        json={"error": {"message": "Overloaded", "type": "overloaded_error"}},
+        request=httpx.Request("POST", "http://x"),
+    )
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert (info.code, info.message) == ("overloaded_error", "Overloaded")
+
+
+@pytest.mark.parametrize("body", [None, "text", ["a"], {}, {"error": "flat"}])
+def test_a_body_without_usable_fields_falls_back_to_the_text(body):
+    exc = _litellm(litellm.ServiceUnavailableError, "OpenAIException - Overloaded.")
+    exc.body = body
+
+    assert ErrorInfo.from_exception(exc).message == "Overloaded."
+
+
+def test_a_response_that_cannot_be_decoded_falls_back_to_the_text():
+    import httpx
+
+    exc = _litellm(litellm.ServiceUnavailableError, "OpenAIException - Overloaded.")
+    exc.response = httpx.Response(503, content=b"<html>", request=httpx.Request("POST", "http://x"))
+
+    assert ErrorInfo.from_exception(exc).message == "Overloaded."
+
+
+def test_the_length_limit_is_reached_by_valid_prose():
+    long_sentence = " ".join(["overloadedness"] * 12) + "."
+
+    assert short_message(long_sentence) == long_sentence
+    assert len(long_sentence) <= MAX_MESSAGE_CHARS
+    assert short_message(long_sentence + " " + long_sentence) is None
