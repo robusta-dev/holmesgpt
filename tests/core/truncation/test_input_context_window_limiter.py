@@ -7,8 +7,7 @@ import pytest
 
 from holmes.core import llm_rate_limit
 from holmes.core.llm import ContextWindowUsage
-from holmes.core.llm_usage import RequestStats, unrecorded_usage
-from holmes.core.truncation.compaction import CompactionRefusedError, CompactionResult
+from holmes.core.truncation.compaction import CompactionResult
 from holmes.core.truncation.input_context_window_limiter import (
     CompactionInsufficientError,
     check_compaction_needed,
@@ -95,13 +94,6 @@ def _rate_limited() -> litellm.RateLimitError:
     return litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
 
 
-def _refused(error=None) -> CompactionRefusedError:
-    return CompactionRefusedError(
-        error or _rate_limited(),
-        RequestStats(llm_rate_limit_retries=3, llm_rate_limit_wait_ms=12000),
-    )
-
-
 @pytest.fixture
 def _compaction_on():
     with patch(f"{MODULE}.ENABLE_CONVERSATION_HISTORY_COMPACTION", True), patch(
@@ -110,31 +102,18 @@ def _compaction_on():
         yield
 
 
+# 900 + 100 output crosses the 95% threshold but fits the 1000 window; 950 does not.
+@pytest.mark.parametrize("tokens", [900, 950])
 @pytest.mark.usefixtures("_compaction_on")
-def test_rate_limited_compaction_is_skipped_while_history_fits():
-    messages = [{"role": "user", "content": "hi"}]
-    # 900 + 100 output crosses the 95% threshold but fits the 1000 window
-    with patch(f"{MODULE}.compact_conversation_history", side_effect=_refused()):
-        result = compact_if_necessary(llm=_llm(900), messages=messages, tools=None)
-
-    assert result.messages == messages
-    assert result.conversation_history_compacted is False
-    assert result.compaction_skipped is True
-    assert result.compaction_usage.llm_rate_limit_retries == 3
-    assert result.compaction_usage.llm_rate_limit_wait_ms == 12000
-
-
-@pytest.mark.usefixtures("_compaction_on")
-def test_rate_limited_compaction_fails_the_turn_when_history_does_not_fit():
+def test_rate_limited_compaction_fails_the_turn_with_the_provider_error(tokens):
     error = _rate_limited()
-    with patch(f"{MODULE}.compact_conversation_history", side_effect=_refused(error)):
+    with patch(f"{MODULE}.compact_conversation_history", side_effect=error):
         with pytest.raises(litellm.RateLimitError) as info:
             compact_if_necessary(
-                llm=_llm(950), messages=[{"role": "user", "content": "hi"}], tools=None
+                llm=_llm(tokens), messages=[{"role": "user", "content": "hi"}], tools=None
             )
     assert info.value is error
-    # The usage of the refused compaction travels with the error to the recorder.
-    assert unrecorded_usage(info.value).llm_rate_limit_retries == 3
+    assert info.value.__cause__ is None
 
 
 @pytest.mark.usefixtures("_compaction_on")
@@ -155,17 +134,15 @@ def test_history_too_big_without_rate_limit_is_still_insufficient():
             compact_if_necessary(llm=_llm(950), messages=messages, tools=None)
 
 
-@pytest.mark.parametrize("tokens, expected_budget", [(900, 0), (950, None)])
+@pytest.mark.parametrize("tokens", [900, 950])
 @pytest.mark.usefixtures("_compaction_on")
-def test_compaction_waits_out_rate_limits_only_when_history_does_not_fit(
-    tokens, expected_budget
-):
+def test_compaction_requests_share_one_budget(tokens):
     messages = [{"role": "user", "content": "hi"}]
     seen = {}
 
     def compact(original_conversation_history, **_kwargs):
         scope = llm_rate_limit._retry_scope.get()
-        seen["budget"] = scope.max_wait_seconds
+        seen["per_call"] = scope.max_wait_seconds
         seen["shared"] = scope.shared_budget
         return CompactionResult(messages_after_compaction=original_conversation_history)
 
@@ -174,6 +151,5 @@ def test_compaction_waits_out_rate_limits_only_when_history_does_not_fit(
             compact_if_necessary(llm=_llm(tokens), messages=messages, tools=None)
         except CompactionInsufficientError:
             pass
-    assert seen["budget"] == expected_budget
-    # Without a per-call cutoff, all of compaction's requests share one budget.
-    assert (seen["shared"] is None) == (expected_budget == 0)
+    assert seen["per_call"] is None
+    assert seen["shared"] is not None

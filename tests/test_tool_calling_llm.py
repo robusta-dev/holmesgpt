@@ -29,14 +29,13 @@ from holmes.core.llm_rate_limit import LLMRetryCancelled, call_with_rate_limit_r
 from holmes.core.models import PendingToolApproval, ToolApprovalDecision, ToolCallResult
 from holmes.core.llm_usage import (
     RequestStats,
-    attach_request_usage,
     attach_unrecorded_usage,
     request_usage,
 )
+from holmes.core.relay_refusal import RelayRefusal
 from holmes.core.tool_calling_llm import (
     LLMInterruptedError,
     ToolCallingLLM,
-    _with_prior_usage,
 )
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -1922,23 +1921,8 @@ class TestRateLimitRetryInLoop:
                 )
         mock_llm.completion.assert_not_called()
 
-    def test_a_skipped_compaction_is_not_counted_as_one(self, make_ai, mock_llm):
-        def skipped_compaction(messages, **_kwargs):
-            output = _make_context_limiter_passthrough(messages)
-            output.compaction_skipped = True
-            output.compaction_usage = RequestStats(total_tokens=5000, prompt_tokens=5000)
-            return output
-
-        mock_llm.completion.return_value = _make_llm_response(content="done")
-        with patch(LIMIT_PATCH, side_effect=skipped_compaction):
-            events = list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
-
-        costs = _events_of_type(events, StreamEvents.ANSWER_END)[0].data["costs"]
-        assert costs["num_compactions"] == 0
-        assert costs["total_tokens"] > 5000
-
-    def test_retries_of_a_skipped_compaction_are_counted(self, make_ai, mock_llm):
-        def skipped_compaction(messages, **_kwargs):
+    def test_retries_of_a_failed_compaction_are_counted(self, make_ai, mock_llm):
+        def failed_compaction(messages, **_kwargs):
             output = _make_context_limiter_passthrough(messages)
             output.compaction_usage = RequestStats(
                 llm_rate_limit_retries=2, llm_rate_limit_wait_ms=7000
@@ -1946,7 +1930,7 @@ class TestRateLimitRetryInLoop:
             return output
 
         mock_llm.completion.return_value = _make_llm_response(content="done")
-        with patch(LIMIT_PATCH, side_effect=skipped_compaction):
+        with patch(LIMIT_PATCH, side_effect=failed_compaction):
             events = list(make_ai().call_stream(msgs=[{"role": "user", "content": "q"}]))
 
         costs = _events_of_type(events, StreamEvents.ANSWER_END)[0].data["costs"]
@@ -2024,18 +2008,45 @@ class TestRateLimitRetryInLoop:
         assert total.total_tokens == 150000
         assert total.llm_rate_limit_retries == 4
 
-    def test_call_adds_earlier_approval_rounds_to_the_failure(self, make_ai):
-        prior = RequestStats(total_tokens=50000, prompt_tokens=50000)
-        failure = RuntimeError("round 2 failed")
+    @patch(LIMIT_PATCH, side_effect=_make_context_limiter_passthrough)
+    def test_a_failure_carries_earlier_approval_rounds(
+        self, _mock_limit, make_ai, mock_llm
+    ):
+        """call() passes the usage of its earlier rounds into each call_stream."""
+        failure = litellm.RateLimitError(message="slow down", llm_provider="openai", model="m")
+        failure.llm_rate_limit_retries = 2
+        mock_llm.completion.side_effect = failure
+        with pytest.raises(litellm.RateLimitError):
+            list(
+                make_ai().call_stream(
+                    msgs=[{"role": "user", "content": "q"}],
+                    prior_usage=RequestStats(total_tokens=50000, prompt_tokens=50000),
+                )
+            )
+        total = request_usage(failure)
+        assert total.total_tokens == 50000
+        assert total.llm_rate_limit_retries == 2
 
-        def round_two():
-            yield StreamMessage(event=StreamEvents.AI_MESSAGE, data={})
-            attach_request_usage(failure, RequestStats(total_tokens=700, prompt_tokens=700))
+    @patch(LIMIT_PATCH, side_effect=_make_context_limiter_passthrough)
+    def test_an_error_after_a_cancel_is_not_reported_as_an_interrupt(
+        self, _mock_limit, make_ai, mock_llm
+    ):
+        """Only a cancelled backoff is an interrupt; a relay refusal that lands as
+        the user cancels still reaches them with its message."""
+        cancel = threading.Event()
+        failure = litellm.AuthenticationError(message="bad key", llm_provider="openai", model="m")
+
+        def provider_call(**_kw):
+            cancel.set()
             raise failure
 
-        with pytest.raises(RuntimeError):
-            list(_with_prior_usage(round_two(), prior))
-        assert request_usage(failure).total_tokens == 50700
+        mock_llm.completion.side_effect = provider_call
+        with pytest.raises(RelayRefusal, match="bad key"):
+            list(
+                make_ai().call_stream(
+                    msgs=[{"role": "user", "content": "q"}], cancel_event=cancel
+                )
+            )
 
 
 # ---------------------------------------------------------------------------

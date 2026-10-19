@@ -24,16 +24,6 @@ from holmes.core.llm_usage import RequestStats, attach_unrecorded_usage
 from holmes.plugins.prompts import load_and_render_prompt
 
 
-class CompactionRefusedError(Exception):
-    """The provider refused the summarization for lack of capacity (rate limit,
-    quota, overload or 503). Carries the usage of attempts made so far."""
-
-    def __init__(self, provider_error: Exception, usage: RequestStats):
-        super().__init__(str(provider_error))
-        self.provider_error = provider_error
-        self.usage = usage
-
-
 class CompactionResult(BaseModel):
     """Result of conversation history compaction."""
 
@@ -340,6 +330,10 @@ def _summarize_in_chunks(
     retrying = Retrying(
         retry=retry_if_exception(_is_context_length_error),
         stop=stop_after_attempt(_MAX_SUMMARIZATION_ATTEMPTS) | (lambda _: sent == 1),
+        # A rejected attempt may have backed off from rate limits first.
+        before_sleep=lambda state: _add_retry_counts(
+            usage, state.outcome.exception() if state.outcome else None
+        ),
         reraise=True,
     )
     while next_part < len(parts):
@@ -367,16 +361,19 @@ def _summarize_in_chunks(
     return summary, requests
 
 
+def _add_retry_counts(usage: RequestStats, error: Optional[BaseException]) -> None:
+    if error is not None:
+        usage += RequestStats(**retry_counts(error))
+
+
 def _raise_if_cancelled_or_refused(error: Exception, usage: RequestStats) -> None:
     """Count the failed call's retries, then re-raise a cancellation, or a
     capacity refusal: the call already retried it, and the fallback would only
-    hit the same limit again. The caller decides whether the turn can go on."""
-    usage += RequestStats(**retry_counts(error))
-    if isinstance(error, LLMRetryCancelled):
+    hit the same limit again. The usage billed so far rides on the error."""
+    _add_retry_counts(usage, error)
+    if isinstance(error, LLMRetryCancelled) or is_provider_capacity_error(error):
         attach_unrecorded_usage(error, usage)
         raise error
-    if is_provider_capacity_error(error):
-        raise CompactionRefusedError(error, usage) from error
 
 
 def compact_conversation_history(

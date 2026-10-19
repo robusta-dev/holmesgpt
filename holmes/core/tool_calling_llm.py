@@ -6,17 +6,7 @@ import re
 import threading
 import time
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    Iterator,
-    List,
-    Optional,
-    Type,
-    Union,
-)
+from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 # Named logger for user-facing display messages (tool progress, AI messages, etc.)
 # In interactive mode this logger is silenced; the CLI renders from stream events instead.
@@ -41,7 +31,6 @@ from holmes.core.llm_usage import (
     RequestStats,
     attach_request_usage,
     failure_usage,
-    request_usage,
 )
 from holmes.core.models import (
     FrontendToolResult,
@@ -140,19 +129,6 @@ def _extract_text_from_content(content: Any) -> str:
                 return item.get("text", "")
 
     return ""
-
-
-def _with_prior_usage(
-    stream: Iterator[StreamMessage], prior: RequestStats
-) -> Generator[StreamMessage, None, None]:
-    """Add the usage of earlier approval rounds to an error escaping ``stream``."""
-    try:
-        yield from stream
-    except Exception as e:
-        total = prior.model_copy()
-        total += request_usage(e) or RequestStats()
-        attach_request_usage(e, total)
-        raise
 
 
 def _merge_choices(response: Any) -> None:
@@ -751,6 +727,7 @@ class ToolCallingLLM:
                 tool_number_offset=tool_number_offset,
                 request_context=request_context,
                 iteration_offset=total_num_llm_calls,
+                prior_usage=accumulated_stats,
             )
 
             tool_decisions = None
@@ -759,7 +736,7 @@ class ToolCallingLLM:
             start_tool_count = 0
             saw_tool_results = False
 
-            for event in _with_prior_usage(stream, accumulated_stats):
+            for event in stream:
                 # Log blank line when a tool batch ends (transition away from TOOL_RESULT)
                 if saw_tool_results and event.event != StreamEvents.TOOL_RESULT:
                     display_logger.info("")
@@ -1198,6 +1175,7 @@ class ToolCallingLLM:
         cancel_event: Optional[threading.Event] = None,
         tool_number_offset: int = 0,
         iteration_offset: int = 0,
+        prior_usage: Optional[RequestStats] = None,
     ):
         """
         This function DOES NOT call llm.completion(stream=true).
@@ -1226,8 +1204,10 @@ class ToolCallingLLM:
             )
         except Exception as e:
             # `stats` dies with the raise and the usage recorder only sees the
-            # error, so the request's usage so far travels on it.
-            total = stats.model_copy()
+            # error, so the request's usage so far (including earlier approval
+            # rounds, `prior_usage`) travels on it.
+            total = prior_usage.model_copy() if prior_usage else RequestStats()
+            total += stats
             total += failure_usage(e)
             attach_request_usage(e, total)
             raise
@@ -1335,14 +1315,14 @@ class ToolCallingLLM:
             # Accumulate compaction costs
             compaction = limit_result.compaction_usage
             if compaction and compaction.total_tokens > 0:
-                compaction.num_compactions = 0 if limit_result.compaction_skipped else 1
+                compaction.num_compactions = 1
                 stats += compaction
                 cost_logger.debug(
                     f"Compaction cost (streaming): ${compaction.total_cost:.6f} | "
                     f"Tokens: {compaction.prompt_tokens} prompt + {compaction.completion_tokens} completion = {compaction.total_tokens} total"
                 )
             elif compaction:
-                # A skipped or failed compaction can still have backed off.
+                # A failed compaction can still have backed off.
                 stats += compaction
 
             if (
@@ -1440,7 +1420,7 @@ class ToolCallingLLM:
               # recognised by status before anything keyed on the class runs;
               # the Azure case below is a 400, so it can never be taken first.
               except Exception as e:
-                if cancel_event and cancel_event.is_set():
+                if isinstance(e, LLMRetryCancelled):
                     raise LLMInterruptedError() from e
                 if _is_robusta_refusal(self.llm, e):
                     # _is_robusta_refusal already established the status is one

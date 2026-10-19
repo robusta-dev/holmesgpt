@@ -13,7 +13,6 @@ from holmes.core.truncation import compaction
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.core.truncation.compaction import (
     MESSAGE_PART_LABEL,
-    CompactionRefusedError,
     _count_image_tokens_in_messages,
     _is_context_length_error,
     _flatten_tool_messages_for_compaction,
@@ -580,19 +579,18 @@ def test_compaction_returns_original_history_when_both_attempts_unusable():
 )
 def test_compaction_reports_provider_refusal_instead_of_degrading(error):
     """The LLM call already waited out its retry budget, and the flattened
-    fallback would only hit the same limit again; the caller decides whether
-    the turn can go on without compacting."""
+    fallback would only hit the same limit again."""
     error.llm_rate_limit_retries = 2
     llm = RecordingFakeLLM([error, _make_response(content="UNUSED")])
-    with pytest.raises(CompactionRefusedError) as info:
+    with pytest.raises(type(error)) as info:
         compact_conversation_history(
             original_conversation_history=_history_with_tool_calls(),
             llm=llm,  # type: ignore
             tools=_TOOLS,
         )
     assert len(llm.calls) == 1
-    assert info.value.provider_error is error
-    assert info.value.usage.llm_rate_limit_retries == 2
+    assert info.value is error
+    assert unrecorded_usage(info.value).llm_rate_limit_retries == 2
 
 
 def test_compaction_refusal_in_fallback_keeps_primary_usage():
@@ -605,14 +603,14 @@ def test_compaction_refusal_in_fallback_keeps_primary_usage():
             litellm.RateLimitError(message="slow down", llm_provider="openai", model="m"),
         ]
     )
-    with pytest.raises(CompactionRefusedError) as info:
+    with pytest.raises(litellm.RateLimitError) as info:
         compact_conversation_history(
             original_conversation_history=_history_with_tool_calls(),
             llm=llm,  # type: ignore
             tools=_TOOLS,
         )
     assert len(llm.calls) == 2
-    assert info.value.usage.total_tokens == 520
+    assert unrecorded_usage(info.value).total_tokens == 520
 
 
 def test_compaction_keeps_retry_counts_of_a_failed_attempt():
@@ -765,6 +763,22 @@ def test_context_length_rejection_retries_with_smaller_chunks():
     assert _summarized_filler(llm.accepted) == sum(_text(m).count(FILLER) for m in history)
     assert result.summary is not None
     assert result.summarization_requests == len(llm.accepted)
+
+
+def test_chunk_resent_smaller_keeps_its_rate_limit_backoff():
+    """A chunk can back off from 429s before being rejected as too long."""
+    rejected = RuntimeError("prompt is too long: 213000 tokens > 200000 maximum")
+    rejected.llm_rate_limit_retries = 2  # type: ignore[attr-defined]
+    rejected.llm_rate_limit_wait_ms = 4000  # type: ignore[attr-defined]
+    llm = CharCountingFakeLLM(
+        [RuntimeError("prompt is too long: 213000 tokens > 200000 maximum"), rejected],
+        context_window=16_000,
+    )
+    result = compact_conversation_history(original_conversation_history=oversized_history(), llm=llm, tools=_TOOLS)  # type: ignore
+
+    assert result.summary is not None
+    assert result.usage.llm_rate_limit_retries == 2
+    assert result.usage.llm_rate_limit_wait_ms == 4000
 
 
 def test_single_part_chunk_rejected_as_too_long_is_not_resent():
@@ -932,7 +946,7 @@ def _unavailable():
 
 def test_compaction_503_is_a_refusal():
     llm = RecordingFakeLLM([_unavailable(), _make_response(content="UNUSED")])
-    with pytest.raises(CompactionRefusedError):
+    with pytest.raises(litellm.ServiceUnavailableError):
         compact_conversation_history(
             original_conversation_history=_history_with_tool_calls(),
             llm=llm,  # type: ignore

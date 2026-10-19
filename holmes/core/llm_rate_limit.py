@@ -39,9 +39,11 @@ WAIT_MS_KEY = "llm_rate_limit_wait_ms"
 _backoff = wait_random_exponential(multiplier=2, min=2, max=60)
 
 # Quota exhaustion also arrives as a 429 RateLimitError but does not clear by
-# waiting. litellm drops the error code from the body, so match the Robusta
-# relay's message. OpenAI's insufficient_quota text ("exceeded your current
-# quota") is not matched: Gemini uses the same words for its per-minute limits.
+# waiting. Matched: the Robusta relay's message, and the insufficient_quota code
+# when a proxy keeps it in the message. litellm drops that code from OpenAI's and
+# Azure's own errors, and their text ("exceeded your current quota") is not
+# matched because Gemini uses the same words for its per-minute limits, so an
+# out-of-credit OpenAI key is retried until the budget runs out.
 _QUOTA_EXHAUSTED_MARKERS = (
     "account limit has been reached",
     "insufficient_quota",
