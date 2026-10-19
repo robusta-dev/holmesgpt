@@ -119,15 +119,19 @@ def _from_body(body: dict) -> Tuple[Optional[str], Optional[str]]:
     return code, message
 
 
+def _clean_text(raw: str) -> str:
+    text = _RETRY_SUFFIX.sub("", raw.strip(), count=1)
+    text = _ERROR_PREFIX.sub("", text, count=1)
+    text = _PROVIDER_PREFIX.sub("", text, count=1)
+    return _STATUS_PREFIX.sub("", text, count=1).strip()
+
+
 def parse_provider_text(raw: str) -> Tuple[Optional[str], Optional[str]]:
     """``(code, message)`` the provider reported in an exception's text.
 
     A JSON / dict body is read field by field; anything else is only a message
     candidate as a whole."""
-    text = _RETRY_SUFFIX.sub("", raw.strip(), count=1)
-    text = _ERROR_PREFIX.sub("", text, count=1)
-    text = _PROVIDER_PREFIX.sub("", text, count=1)
-    text = _STATUS_PREFIX.sub("", text, count=1).strip()
+    text = _clean_text(raw)
     body = _parse_body(text)
     if body is None:
         return None, short_message(text)
@@ -230,6 +234,10 @@ class ErrorInfo:
                 code, message = _from_body(body) if body else (None, None)
                 if code is None and message is None:
                     code, message = parse_provider_text(_text(link))
+                    body = body or _parse_body(_clean_text(_text(link)))
+                # Relay names the provider it called; litellm only sees relay.
+                if body and _valid_provider(body.get("provider")):
+                    provider = body["provider"]
                 first_llm_link = False
         error_class = _class_name(exc)
         if _THROTTLE_MARKER in _text(exc) and status_code is None:

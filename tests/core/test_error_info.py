@@ -392,3 +392,41 @@ def test_summary_omits_what_is_unknown():
     assert ErrorInfo("Timeout", None, None, None, "Late.").summary() == (
         "AI provider error: Timeout. Late."
     )
+
+
+def test_the_provider_relay_reports_wins_over_the_one_litellm_sees():
+    exc = litellm.ServiceUnavailableError(
+        message="OpenAIException - Capacity.",
+        model="m",
+        llm_provider="openai",
+        response=None,
+    )
+    exc.body = {"msg": "x", "provider": "bedrock", "provider_code": "capacity"}
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert info.provider == "bedrock"
+    assert info.code == "capacity"
+
+
+def test_a_provider_name_in_the_body_that_is_not_a_name_is_ignored():
+    exc = litellm.ServiceUnavailableError(
+        message="OpenAIException - Capacity.", model="m", llm_provider="openai"
+    )
+    exc.body = {"provider": "http://10.1.2.3/x", "message": "Capacity."}
+
+    assert ErrorInfo.from_exception(exc).provider == "openai"
+
+
+def test_the_provider_relay_reports_in_the_exception_text_is_used_too():
+    exc = litellm.ServiceUnavailableError(
+        message="OpenAIException - Error code: 503 - {'msg': 'x', 'provider': "
+        "'bedrock', 'provider_code': 'capacity'}",
+        model="m",
+        llm_provider="openai",
+    )
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert info.provider == "bedrock"
+    assert info.code == "capacity"
