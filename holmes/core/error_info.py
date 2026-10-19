@@ -37,7 +37,10 @@ _IPV6_CANDIDATE = re.compile(
     r"(?<![0-9A-Za-z])[0-9A-Fa-f:]{2,}(?:\.\d{1,3}){3}(?![0-9A-Za-z])"
     r"|(?<![0-9A-Za-z])[0-9A-Fa-f:]{2,}(?![0-9A-Za-z])"
 )
-_OPAQUE_TOKEN = re.compile(r"\b[A-Za-z0-9+/_=-]{32,}\b")
+_OPAQUE_TOKEN = re.compile(r"\b[A-Za-z0-9+/_-]{32,}={0,2}")
+_REQUEST_ID_LABEL = re.compile(
+    r"(?i)(?:request|correlation|trace|operation|activity)[ _-]?id[\s:='\"]*$"
+)
 
 # litellm wraps the provider's text as "litellm.<Err>: <Err>: <Provider>Exception - <text>",
 # and the OpenAI client adds "Error code: <status> - <body>".
@@ -93,6 +96,7 @@ _REDACTIONS = (
     (re.compile(r"(arn:aws[a-z-]*:[a-z0-9-]+:[a-z0-9-]*:)\d{12}"), r"\1[REDACTED]"),
 )
 
+_TRACEBACK_MARKER = "Traceback (most recent call last)"
 _PROVIDER = re.compile(r"[a-z0-9][a-z0-9_.-]{0,39}")
 _LLM_MODULES = ("litellm", "openai", "anthropic")
 _THROTTLE_MARKER = "Model is getting throttled"
@@ -135,11 +139,13 @@ def _unwrap_body(text: str) -> str:
 
 def _redact_ipv6(match: "re.Match[str]") -> str:
     candidate = match.group(0)
-    try:
-        ipaddress.IPv6Address(candidate)
-    except ValueError:
-        return candidate
-    return "[REDACTED_IP]"
+    for end in (len(candidate), len(candidate) - 1):
+        try:
+            ipaddress.IPv6Address(candidate[:end])
+        except ValueError:
+            continue
+        return "[REDACTED_IP]" + candidate[end:]
+    return candidate
 
 
 def _redact(text: str) -> str:
@@ -152,7 +158,8 @@ def _redact(text: str) -> str:
 def _redact_opaque_token(match: "re.Match[str]") -> str:
     token = match.group(0)
     if _UUID.fullmatch(token):
-        return token
+        label = match.string[max(0, match.start() - 32) : match.start()]
+        return token if _REQUEST_ID_LABEL.search(label) else "[REDACTED_ID]"
     if any(c.isdigit() for c in token) and any(c.isalpha() for c in token):
         return "[REDACTED_TOKEN]"
     return token
@@ -160,7 +167,7 @@ def _redact_opaque_token(match: "re.Match[str]") -> str:
 
 def sanitize_error_text(value: Any, limit: int = MAX_REASON_CHARS) -> str:
     """The provider's own sentence, redacted, on one line, at most ``limit`` chars."""
-    text = _as_text(value)[:_MAX_PARSE_CHARS].strip()
+    text = _as_text(value)[:_MAX_PARSE_CHARS].split(_TRACEBACK_MARKER)[0].strip()
     text = _ERROR_PREFIX.sub("", text, count=1)
     text = _PROVIDER_PREFIX.sub("", text, count=1)
     text = _STATUS_PREFIX.sub("", text, count=1)

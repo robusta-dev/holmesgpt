@@ -354,3 +354,53 @@ def test_a_large_dict_repr_body_is_still_unwrapped_before_the_length_cut():
     body = "Error code: 502 - {'msg': 'upstream failed', 'reason': 'capacity exhausted', 'pad': '" + "x " * 5000 + "'}"
 
     assert sanitize_error_text(body) == "capacity exhausted"
+
+
+@pytest.mark.parametrize(
+    "text,leaked",
+    [
+        ("connect to 2001:db8::1234: connection refused", "2001:db8"),
+        ("dial [2001:db8::1]: refused", "2001:db8"),
+        ("host 2001:db8:85a3::8a2e:370:7334: timed out", "2001:db8"),
+    ],
+)
+def test_an_ipv6_address_followed_by_a_colon_is_redacted(text, leaked):
+    assert leaked not in sanitize_error_text(text)
+
+
+def test_a_traceback_in_the_message_is_dropped():
+    message = (
+        "OpenAIException - Connection error.\nTraceback (most recent call last):\n"
+        '  File "/app/.venv/lib/python3.12/site-packages/litellm/main.py", line 5437, in completion\n'
+        "    response = handler(...)\nValueError: boom"
+    )
+
+    out = sanitize_error_text(message)
+
+    assert out == "Connection error."
+
+
+@pytest.mark.parametrize(
+    "text,gone",
+    [
+        ("The subscription '3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d' could not be found", "3f1b2c4d"),
+        ("Application '3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d' not found in directory '9a8b7c6d-1111-2222-3333-444455556666'", "9a8b7c6d"),
+        ("Principal 3f1b2c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d does not have access", "3f1b2c4d"),
+    ],
+)
+def test_uuids_that_are_not_request_ids_are_redacted(text, gone):
+    assert gone not in sanitize_error_text(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Request ID: 5a1b2c3d-1111-2222-3333-444455556666 failed",
+        "x-amzn-RequestId: 5a1b2c3d-1111-2222-3333-444455556666",
+        "requestId=5a1b2c3d-1111-2222-3333-444455556666 failed",
+        "correlation id '5a1b2c3d-1111-2222-3333-444455556666' not found",
+        "trace_id: 5a1b2c3d-1111-2222-3333-444455556666",
+    ],
+)
+def test_request_and_correlation_ids_are_kept_for_support_tickets(text):
+    assert sanitize_error_text(text) == text
