@@ -893,8 +893,11 @@ mcpAddons:
       # Available: config, core, helm, tekton, kubevirt, kiali, kcp
       # Default (empty): enables "config" and "core" toolsets
       toolsets: ""
-      # Log level (0-9, similar to kubectl verbosity)
-      logLevel: ""
+      # Log level (0-9, similar to kubectl verbosity). Level 1 is the lowest that
+      # logs why a request was rejected with 401 (for example a missing
+      # `oauth_audience`), at the cost of a one-time startup banner and no
+      # per-request lines. Set "" or "0" to log almost nothing.
+      logLevel: "1"
       # Extra CLI arguments to pass to the server
       extraArgs: []
       # Kubeconfig secret for connecting to external clusters

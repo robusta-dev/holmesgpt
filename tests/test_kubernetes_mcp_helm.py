@@ -22,12 +22,14 @@ MIIBszCCAVmgAwIBAgIUTESTONLYTESTONLYTESTONLYTESTONLYwCgYIKoZIzj0E
 pytestmark = pytest.mark.skipif(shutil.which("helm") is None, reason="helm binary not installed")
 
 
-def _render(tmp_path, ca_pem=None, server_config=None):
+def _render(tmp_path, ca_pem=None, server_config=None, log_level=None):
     args = [
         "helm", "template", "t", str(HELM_DIR), "--namespace", "holmes",
         "--show-only", TEMPLATE,
         "--set", "mcpAddons.kubernetes.enabled=true",
     ]
+    if log_level is not None:
+        args += ["--set-string", f"mcpAddons.kubernetes.config.logLevel={log_level}"]
     if server_config is not None:
         config_file = tmp_path / "server-config.toml"
         config_file.write_text(server_config)
@@ -42,6 +44,21 @@ def _render(tmp_path, ca_pem=None, server_config=None):
 
 def _pod(docs):
     return docs["Deployment"]["spec"]["template"]["spec"]
+
+
+def _log_level_args(docs):
+    args = _pod(docs)["containers"][0]["args"]
+    return args[args.index("--log-level") :][:2] if "--log-level" in args else []
+
+
+def test_default_log_level_shows_auth_failures(tmp_path):
+    """Level 0 hides why the server rejects a token (401); level 1 is the lowest that shows it."""
+    assert _log_level_args(_render(tmp_path)) == ["--log-level", "1"]
+
+
+def test_log_level_can_be_overridden(tmp_path):
+    assert _log_level_args(_render(tmp_path, log_level="5")) == ["--log-level", "5"]
+    assert _log_level_args(_render(tmp_path, log_level="")) == []
 
 
 def test_no_ca_renders_nothing_extra(tmp_path):
