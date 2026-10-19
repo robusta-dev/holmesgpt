@@ -161,10 +161,10 @@ Choose your installation method.
 
 === "Holmes Helm Chart"
 
-    When using the **standalone Holmes Helm Chart**, update your `values.yaml`, annotating the Holmes service account with the IAM role from Step 1:
+    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
 
     ```yaml
-    serviceAccount:
+    serviceAccount:  # IAM role from Step 1
       annotations:
         eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/HolmesMCPRole"
 
@@ -324,6 +324,7 @@ Once the IAM roles are set up, configure the Helm chart to enable multi-account 
     When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
 
     ```yaml
+    # No IRSA annotation needed: each role is assumed with the pod's projected token
     mcpAddons:
       aws:
         enabled: true
@@ -351,8 +352,6 @@ Once the IAM roles are set up, configure the Helm chart to enable multi-account 
             aws_dev is the development account and contains the development resources.
             aws_prod is the production account and contains the production resources.
     ```
-
-    No IRSA annotation is needed on the Holmes service account in this mode: each role is assumed with the pod's projected token.
 
     Apply the configuration:
 
