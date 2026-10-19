@@ -536,7 +536,7 @@ class ConversationProcessor:
             self.fail(
                 task,
                 "An internal error occurred while processing your request",
-                raw_error=(error_info.reason or None) if error_info.from_provider else None,
+                raw_error=error_info.message if error_info.from_provider else None,
                 error_info=error_info,
             )
         finally:
@@ -612,7 +612,7 @@ class ConversationProcessor:
         # can group/filter on it without parsing prose.
         if reason is not None:
             data["reason"] = reason
-        # The provider's own sentence, already sanitized by the caller.
+        # The provider's short message, when it is plain prose (see ErrorInfo).
         if raw_error is not None:
             data["raw_error"] = raw_error
         if error_info is not None:

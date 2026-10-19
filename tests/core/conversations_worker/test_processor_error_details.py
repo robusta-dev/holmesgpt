@@ -47,12 +47,13 @@ def test_provider_failure_keeps_class_status_and_reason(is_robusta_model):
     )
 
 
-def test_customer_key_failure_never_stores_secrets_from_the_provider_message():
+def test_a_message_that_is_not_plain_prose_is_dropped_but_the_code_is_kept():
     w, ai = _bare_worker()
     exc = _provider_error(
         litellm.AuthenticationError,
-        "OpenAIException - Incorrect API key provided: sk-proj-AAAABBBBCCCCDDDD1234567890 "
-        "for admin@corp.com at 10.1.2.3:8443",
+        "OpenAIException - Error code: 401 - {'error': {'message': 'Incorrect API key provided: "
+        "sk-proj-AAAABBBBCCCCDDDD1234567890 for admin@corp.com at 10.1.2.3:8443', "
+        "'type': 'invalid_request_error', 'code': 'invalid_api_key'}}",
         401,
         provider="openai",
     )
@@ -61,11 +62,31 @@ def test_customer_key_failure_never_stores_secrets_from_the_provider_message():
 
     data = _error_event(w)
     stored = repr(data)
-    for secret in ("sk-proj-AAAA", "admin@corp.com", "10.1.2.3"):
+    for secret in ("sk-proj-AAAA", "admin@corp.com", "10.1.2.3", "Incorrect API key"):
         assert secret not in stored
+    assert "raw_error" not in data
     assert data["error_class"] == "AuthenticationError"
     assert data["provider_status"] == 401
-    assert "Incorrect API key provided" in data["raw_error"]
+    assert data["provider_code"] == "invalid_api_key"
+
+
+def test_the_robusta_account_limit_sentence_survives_for_the_ui():
+    w, ai = _bare_worker()
+    ai.llm.is_robusta_model = True
+    exc = _provider_error(
+        litellm.RateLimitError,
+        "OpenAIException - Error code: 429 - {'error': {'message': 'Your Robusta AI account limit has "
+        "been reached. Contact support@robusta.dev to increase limits.', "
+        "'type': 'rate_limit_exceeded', 'code': 'account_limit_reached'}}",
+        429,
+        provider="openai",
+    )
+
+    _run(w, ai, consume_side_effect=exc)
+
+    data = _error_event(w)
+    assert data["raw_error"] == "Your Robusta AI account limit has been reached."
+    assert data["provider_code"] == "account_limit_reached"
 
 
 def test_unknown_exception_keeps_only_its_class():
