@@ -20,7 +20,7 @@ from pydantic import (
 
 from holmes.core.init_event import EventCallback, StatusEvent, StatusEventKind
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
-from holmes.core.tools import PrerequisiteCacheMode, Toolset, ToolsetTag
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, Toolset, ToolsetTag
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.toolset_manager import ToolsetManager
 from holmes.core.transformers.llm_summarize import LLMSummarizeTransformer
@@ -532,6 +532,33 @@ class Config(RobustaBaseConfig):
         eager_load_oauth_tools(executor)
         return executor
 
+    def create_server_tool_executor(
+        self,
+        dal: Optional["SupabaseDal"] = None,
+        prerequisite_cache: PrerequisiteCacheMode = PrerequisiteCacheMode.DISABLED,
+    ) -> ToolExecutor:
+        """Return the Holmes server's cached executor, building it if there is none.
+
+        The server caches one executor, under the key (SERVER_TOOLSET_TAGS,
+        enable_all_toolsets_possible=False). Every server caller must request
+        that key: through this method, or by passing
+        ``toolset_tag_filter=SERVER_TOOLSET_TAGS, enable_all_toolsets_possible=False,
+        reuse_executor=True`` to create_toolcalling_llm, whose defaults are the
+        CLI's. With reuse_executor=True, any other key rebuilds the executor
+        from scratch, re-checking every toolset, and replaces the cached one.
+
+        ``prerequisite_cache`` only applies when the executor is built. The
+        default, DISABLED, runs live checks and writes nothing to disk, and the
+        toolsets it checks start their status refresh interval.
+        """
+        return self.create_tool_executor(
+            dal,
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
+            enable_all_toolsets_possible=False,
+            prerequisite_cache=prerequisite_cache,
+            reuse_executor=True,
+        )
+
     def refresh_tool_executor(
         self,
         dal: Optional["SupabaseDal"] = None,
@@ -586,6 +613,13 @@ class Config(RobustaBaseConfig):
 
         if changes or _toolset_tools_changed(current_toolsets, new_toolsets):
             with self._executor_lock:
+                # The checks ran without the lock. If another caller replaced
+                # or cleared the executor meanwhile (e.g. an admin reload), keep
+                # theirs instead of overwriting it with one built from the
+                # toolsets this refresh started with. Still return the changes,
+                # so the caller syncs the statuses of the executor now cached.
+                if self._cached_tool_executor is not cached_executor:
+                    return [(name, old.value, new.value) for name, old, new in changes]
                 executor = ToolExecutor(new_toolsets)
                 preload_oauth_tokens()
                 eager_load_oauth_tools(executor)
@@ -682,6 +716,10 @@ class Config(RobustaBaseConfig):
         Executor parameters (toolset_tag_filter, enable_all_toolsets_possible,
         prerequisite_cache, reuse_executor) are forwarded to
         :meth:`create_tool_executor`.
+
+        The defaults are the CLI's. Known issue: a server caller must pass the
+        server's executor key explicitly (see :meth:`create_server_tool_executor`),
+        or it rebuilds and replaces the server's cached executor.
 
         Migration from removed helpers
         ------------------------------
