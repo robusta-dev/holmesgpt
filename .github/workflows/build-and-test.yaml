@@ -144,8 +144,7 @@ jobs:
             -o log_cli=false \
             --tb=short \
             -W ignore \
-            --json-report --json-report-omit=log \
-            --json-report-file=test-results.json
+            --json-report --json-report-file=test-results.json
 
       - name: Upload test results
         if: always()
