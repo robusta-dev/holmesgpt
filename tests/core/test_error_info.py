@@ -430,3 +430,18 @@ def test_the_provider_relay_reports_in_the_exception_text_is_used_too():
 
     assert info.provider == "bedrock"
     assert info.code == "capacity"
+
+
+def test_the_provider_in_the_text_body_is_used_when_the_exception_body_is_unusable():
+    exc = litellm.ServiceUnavailableError(
+        message="OpenAIException - Error code: 503 - {'msg': 'x', 'provider': "
+        "'bedrock', 'provider_code': 'capacity'}",
+        model="m",
+        llm_provider="openai",
+    )
+    exc.body = {"unrelated": "field"}
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert info.provider == "bedrock"
+    assert info.code == "capacity"

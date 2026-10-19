@@ -178,3 +178,5 @@ def test_a_relay_refusal_message_is_gated_like_any_provider_message():
 
     data = _error_event(w)
     assert "raw_error" not in data
+    assert data["description"] == "The Robusta platform refused the request."
+    assert data["msg"] == data["description"]

@@ -521,7 +521,7 @@ class ConversationProcessor:
             error_info = ErrorInfo.from_exception(e)
             self.fail(
                 task,
-                str(e),
+                error_info.message or "The Robusta platform refused the request.",
                 error_code=RELAY_REFUSAL_ERROR_CODES[e.status_code],
                 raw_error=error_info.message,
                 error_info=error_info,

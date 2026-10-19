@@ -234,7 +234,7 @@ class ErrorInfo:
                 code, message = _from_body(body) if body else (None, None)
                 if code is None and message is None:
                     code, message = parse_provider_text(_text(link))
-                    body = body or _parse_body(_clean_text(_text(link)))
+                    body = _parse_body(_clean_text(_text(link))) or body
                 # Relay names the provider it called; litellm only sees relay.
                 if body and _valid_provider(body.get("provider")):
                     provider = body["provider"]
