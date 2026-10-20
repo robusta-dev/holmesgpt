@@ -19,7 +19,7 @@ from holmes.core.tools import (
 from holmes.core.tools_utils.tool_executor import _mcp_tool_name
 from holmes.plugins.prompts import load_and_render_prompt
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
-from holmes.plugins.toolsets.multi_instance import INSTANCE_PARAM_NAME
+from holmes.plugins.toolsets.multi_instance import INSTANCE_PARAM, INSTANCE_PARAM_NAME
 from holmes.version import get_version
 
 REMOTE_TOOLS_SCHEMA_VERSION = "v1"
@@ -40,10 +40,51 @@ def _exposed_tools(toolset: Toolset, tool_executor: Any) -> List[Any]:
     ]
 
 
+# Keys that annotate a JSON schema without changing what it accepts.
+_SCHEMA_ANNOTATIONS = frozenset(
+    {"description", "title", "examples", "example", "default", "$comment"}
+)
+
+
+def _canonical_order(values: list) -> list:
+    return sorted(values, key=lambda v: json.dumps(v, sort_keys=True, default=str))
+
+
+def _schema_contract(schema: Any) -> Any:
+    """A raw JSON schema (an MCP tool's `additionalProperties`, or
+    `json_schema_extra`) without annotations. `properties` maps names to
+    schemas, so its keys are kept whatever they are called."""
+    if isinstance(schema, list):
+        return [_schema_contract(v) for v in schema]
+    if not isinstance(schema, dict):
+        return schema
+    contract: dict = {}
+    for key, value in schema.items():
+        if key in _SCHEMA_ANNOTATIONS:
+            continue
+        if key == "properties" and isinstance(value, dict):
+            contract[key] = {n: _schema_contract(v) for n, v in value.items()}
+        elif key in ("enum", "required", "type") and isinstance(value, list):
+            contract[key] = _canonical_order(value)
+        else:
+            contract[key] = _schema_contract(value)
+    return contract
+
+
 def _parameter_contract(param: ToolParameter) -> dict:
+    # exclude_defaults: a field added to ToolParameter later leaves the hash of
+    # every parameter that does not set it unchanged.
     contract = param.model_dump(
-        exclude={"description", "properties", "items", "any_of"}, exclude_none=True
+        exclude={"description", "properties", "items", "any_of"},
+        exclude_none=True,
+        exclude_defaults=True,
     )
+    for key in ("enum", "type"):
+        if isinstance(contract.get(key), list):
+            contract[key] = _canonical_order(contract[key])
+    for key in ("additional_properties", "json_schema_extra"):
+        if key in contract:
+            contract[key] = _schema_contract(contract[key])
     if param.properties is not None:
         contract["properties"] = {
             name: _parameter_contract(p) for name, p in param.properties.items()
@@ -57,14 +98,15 @@ def _parameter_contract(param: ToolParameter) -> dict:
 
 def remote_tool_contract_hash(tool: Tool) -> str:
     """Hash of what a caller sends this tool: parameter names, types and
-    constraints, not descriptions or the strict-mode rendering. The platform
-    routes a remote tool to every agent whose hash matches the newest Holmes
-    version's, so this is the only place tool schemas are compared.
-    `instance` is left out: the platform routes it per cluster."""
+    constraints, not descriptions, defaults or the strict-mode rendering. The
+    platform routes a remote tool to every agent whose hash matches the newest
+    Holmes version's, so this is the only place tool schemas are compared.
+    The `instance` param a multi-instance toolset adds is left out: the
+    platform routes it per cluster. A tool's own `instance` param counts."""
     contract = {
         name: _parameter_contract(param)
         for name, param in tool.parameters.items()
-        if name != INSTANCE_PARAM_NAME
+        if not (name == INSTANCE_PARAM_NAME and param == INSTANCE_PARAM)
     }
     canonical = json.dumps(contract, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()

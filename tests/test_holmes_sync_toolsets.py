@@ -19,6 +19,7 @@ from holmes.core.tools import (
 )
 from holmes.plugins.toolsets import load_builtin_toolsets
 from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
+from holmes.plugins.toolsets.multi_instance import INSTANCE_PARAM
 from holmes.utils.holmes_sync_toolsets import (
     build_remote_tools_meta,
     holmes_sync_toolsets_status,
@@ -583,9 +584,47 @@ def test_contract_hash_covers_nested_schemas_but_not_their_descriptions():
     assert _hash(obj("string", "x")) != _hash({"o": ToolParameter(type="object")})
 
 
-def test_contract_hash_leaves_out_the_instance_param():
+def test_contract_hash_leaves_out_the_injected_instance_param():
     assert _hash({"q": ToolParameter(type="string")}) == _hash(
+        {"q": ToolParameter(type="string"), "instance": INSTANCE_PARAM}
+    )
+
+
+def test_contract_hash_counts_a_tools_own_instance_param():
+    assert _hash({"q": ToolParameter(type="string")}) != _hash(
         {"q": ToolParameter(type="string"), "instance": ToolParameter(type="string")}
+    )
+
+
+def test_contract_hash_ignores_annotations_inside_raw_schemas():
+    def free_form(description, default):
+        return {
+            "labels": ToolParameter(
+                type="object",
+                additional_properties={
+                    "type": "string",
+                    "description": description,
+                    "properties": {"description": {"type": "string", "title": description}},
+                },
+                json_schema_extra={"maxProperties": 5, "default": default},
+            )
+        }
+
+    assert _hash(free_form("a", 1)) == _hash(free_form("b", 2))
+    changed = free_form("a", 1)
+    changed["labels"].additional_properties["properties"]["description"]["type"] = "integer"
+    assert _hash(free_form("a", 1)) != _hash(changed)
+
+
+def test_contract_hash_ignores_the_order_of_enum_values_and_union_types():
+    assert _hash(
+        {"q": ToolParameter(type=["string", "null"], enum=["a", "b", None])}
+    ) == _hash({"q": ToolParameter(type=["null", "string"], enum=[None, "b", "a"])})
+
+
+def test_contract_hash_treats_an_explicit_default_like_an_unset_field():
+    assert _hash({"q": ToolParameter(type="string", required=True)}) == _hash(
+        {"q": ToolParameter()}
     )
 
 
