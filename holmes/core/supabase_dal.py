@@ -1,5 +1,6 @@
 import base64
 import binascii
+import functools
 import gzip
 import json
 import logging
@@ -8,7 +9,7 @@ import ssl
 import threading
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 from urllib.request import getproxies, proxy_bypass
 from uuid import uuid4
@@ -18,7 +19,10 @@ import sentry_sdk
 import yaml  # type: ignore
 from cachetools import TTLCache  # type: ignore
 from postgrest._sync import request_builder as supabase_request_builder
-from postgrest._sync.request_builder import SyncQueryRequestBuilder
+from postgrest._sync.request_builder import (
+    SyncQueryRequestBuilder,
+    SyncSingleRequestBuilder,
+)
 from postgrest.base_request_builder import QueryArgs
 from postgrest.exceptions import APIError as PGAPIError
 from postgrest.types import ReturnMethod
@@ -34,6 +38,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from holmes.clients.robusta_client import fetch_supabase_api_key
 from holmes.common.env_vars import (
     ROBUSTA_ACCOUNT_ID,
     ROBUSTA_CONFIG_PATH,
@@ -150,6 +155,33 @@ class SupabaseDnsException(Exception):
         super().__init__(message)
 
 
+
+def _is_missing_rpc_error(exc: Exception) -> bool:
+    """PostgREST PGRST202: the function (with these named args) is not in the
+    schema cache — i.e. the migration that adds it is not applied."""
+    code = getattr(exc, "code", None) or ""
+    message = (getattr(exc, "message", None) or str(exc) or "").lower()
+    return code == "PGRST202" or "could not find the function" in message
+
+
+def _is_jwt_error(exc: PGAPIError) -> bool:
+    message = (exc.message or "").lower()
+    return exc.code in ("PGRST301", "PGRST303") or "jwt expired" in message
+
+
+# How long the per-account executor sizes read from AccountSettings are
+# cached; a UI change takes at most this long to reach the executors.
+EXECUTOR_SIZES_CACHE_TTL_SEC = 60
+
+
+class ExecutorRpcUnsupportedError(Exception):
+    """The database lacks the executor-aware conversation RPCs (ROB-1369).
+
+    robusta-storage migration 20260916073349 is deployed before Holmes, so
+    this is a deploy error: raised instead of retried, and surfaced by the
+    claim loops' error logging.
+    """
+
 class SupabaseConnectionException(Exception):
     """Raised when Holmes cannot open a connection to the Robusta platform.
 
@@ -194,7 +226,7 @@ class SupabaseRetryTransport(httpx.HTTPTransport):
     than just postgrest table queries:
 
     1. ``http2=False`` — httpcore's *sync* HTTP/2 connection is not thread-safe,
-       and one ``SupabaseDal`` client is shared across the conversation worker,
+       and one ``SupabaseDal`` client is shared across the conversation runtime,
        realtime callbacks and request threads. HTTP/1.1 gives each concurrent
        request its own pooled, thread-safe connection.
     2. Retry on ``RemoteProtocolError`` — even on HTTP/1.1, Supabase's edge
@@ -222,7 +254,12 @@ class SupabaseRetryTransport(httpx.HTTPTransport):
         return super().handle_request(request)
 
 
+KEY_CACHE: TTLCache = TTLCache(maxsize=64, ttl=24 * 60 * 60)
+
+
 class SupabaseDal:
+    _reauth_lock = threading.Lock()
+
     def __init__(self, cluster: str):
         self.enabled = self.__init_config()
         self.cluster = cluster
@@ -275,8 +312,7 @@ class SupabaseDal:
             httpx_client=httpx_client,
         )
         sentry_sdk.set_tag("db_url", self.url)
-        self.client = create_client(self.url, self.api_key, options)  # type: ignore
-        self.user_id = self.sign_in()
+        self.__connect(options)
         ttl = int(os.environ.get("SAAS_SESSION_TOKEN_TTL_SEC", "82800"))  # 23 hours
         self.patch_postgrest_execute()
         self.token_cache = TTLCache(maxsize=1, ttl=ttl)
@@ -296,31 +332,75 @@ class SupabaseDal:
             )
             hierarchy_ttl = 60
         self.skill_hierarchy_cache = TTLCache(maxsize=1, ttl=hierarchy_ttl)
+        self.executor_sizes_cache: TTLCache = TTLCache(
+            maxsize=1, ttl=EXECUTOR_SIZES_CACHE_TTL_SEC
+        )
         self.lock = threading.Lock()
+
+    def __connect(self, options: ClientOptions):
+        self.options = options
+        cache_key = f"{self.account_id}:{self.cluster}"
+        sources = (
+            lambda: KEY_CACHE.pop(cache_key, None),
+            lambda: fetch_supabase_api_key(self.account_id, self.cluster),
+        )
+        for source in sources:
+            key = source()
+            if not key:
+                continue
+            try:
+                self.__login(key, options)
+                KEY_CACHE[cache_key] = key
+                return
+            except Exception as e:
+                logging.warning(f"Supabase login with the relay api key failed: {e}")
+        self.__login(self.api_key, options)
+
+    def __login(self, api_key: str, options: ClientOptions):
+        self.client = create_client(self.url, api_key, options)  # type: ignore
+        self.user_id = self.sign_in()
 
     def patch_postgrest_execute(self):
         logging.info("Patching postgres execute")
+        self._original_execute = SyncQueryRequestBuilder.execute
+        SyncQueryRequestBuilder.execute = self._with_jwt_retry(self._original_execute)
+        self._original_rpc_execute = SyncSingleRequestBuilder.execute
+        SyncSingleRequestBuilder.execute = self._with_jwt_retry(
+            self._original_rpc_execute
+        )
 
+    def _with_jwt_retry(self, original_execute):
         # This is somewhat hacky.
+        @functools.wraps(original_execute)
         def execute_with_retry(_self):
             try:
-                return self._original_execute(_self)
+                return original_execute(_self)
             except PGAPIError as exc:
-                message = exc.message or ""
-                if exc.code == "PGRST301" or "expired" in message.lower():
-                    # JWT expired. Sign in again and retry the query
-                    logging.error(
-                        "JWT token expired/invalid, signing in to Supabase again"
-                    )
-                    self.sign_in()
-                    # update the session to the new one, after re-sign in
-                    _self.session = self.client.postgrest.session
-                    return self._original_execute(_self)
-                else:
+                if not _is_jwt_error(exc):
                     raise
+                # Every SupabaseDal patches the same class, so a request may
+                # belong to another instance with other credentials.
+                if _self.request.session is not self.options.httpx_client:
+                    raise
+                # The request keeps the headers it was built with.
+                headers = _self.request.headers
+                headers.update(self._reauthorize(headers.get("Authorization")))
+                return original_execute(_self)
 
-        self._original_execute = SyncQueryRequestBuilder.execute
-        SyncQueryRequestBuilder.execute = execute_with_retry
+        return execute_with_retry
+
+    def _reauthorize(self, rejected_authorization: Optional[str]) -> Dict[str, str]:
+        with self._reauth_lock:
+            # Another thread may already have replaced the rejected token.
+            headers = self.client.options.headers
+            if headers.get("Authorization") == rejected_authorization:
+                logging.error("JWT token expired/invalid, signing in to Supabase again")
+                self.__connect(self.options)
+                headers = self.client.options.headers
+            return {
+                "Authorization": headers["Authorization"],
+                "apikey": headers["apiKey"],
+            }
 
     @staticmethod
     def __load_robusta_config() -> Optional[RobustaToken]:
@@ -828,6 +908,39 @@ class SupabaseDal:
             )
             return None
 
+    def get_conversation_executor_sizes(self) -> Any:
+        """The raw ``AccountSettings.settings.conversation_executors`` value
+        (``{name: size}`` written from the UI; ROB-1369), cached for
+        ``EXECUTOR_SIZES_CACHE_TTL_SEC``. Validated by ``ExecutorSizing``, not
+        here. ``{}`` when unset, disabled, or the read fails (the failure is
+        cached too so an outage is not re-queried every discovery tick).
+        """
+        if not self.enabled:
+            return {}
+        with self.lock:
+            cached = self.executor_sizes_cache.get("sizes")
+        if cached is not None:
+            return cached
+        sizes: Any = {}
+        try:
+            res = (
+                self.client.table(ACCOUNT_SETTINGS_TABLE)
+                .select("settings")
+                .eq("account_id", self.account_id)
+                .execute()
+            )
+            settings = (res.data[0].get("settings") or {}) if res.data else {}
+            sizes = settings.get("conversation_executors") or {}
+        except Exception:
+            logging.warning(
+                "Failed to read conversation_executors from AccountSettings; "
+                "using built-in executor sizes",
+                exc_info=True,
+            )
+        with self.lock:
+            self.executor_sizes_cache["sizes"] = sizes
+        return sizes
+
     def get_skill_hierarchy_config(self) -> SkillHierarchyConfig:
         """Read the per-account skill name-collision policy from AccountSettings.
 
@@ -1028,38 +1141,65 @@ class SupabaseDal:
                 f"An error occurred during toolset synchronization: {e}", exc_info=True
             )
 
-    def sync_skills(self, skills: list[dict], cluster_name: str) -> None:
+    def sync_skills(
+        self, skills: list[dict], cluster_name: str, prune: bool
+    ) -> None:
         """Mirror this cluster's filesystem + builtin skills into HolmesCustomSkills.
 
         The filesystem stays the source of truth -- Holmes keeps executing these from disk.
         These rows exist only so the UI can display them, so this is a plain upsert plus a
-        prune of names that no longer exist for this (account, cluster), exactly like
-        sync_toolsets. Best-effort: a failure here must never break startup.
+        prune of names that no longer exist for this (account, cluster). Best-effort: a
+        failure here must never break startup.
 
-        Note this intentionally does NOT delete when `skills` is empty: an empty list means
-        "no skills loaded", which we cannot distinguish from a load failure, and wiping the
-        UI's view on a transient error would be worse than showing slightly stale rows.
+        `prune` is required rather than defaulted because it gates a DELETE, so the caller
+        has to state whether the loaded set is authoritative. Pass the loader's
+        FilesystemSkills.sources_ok: True only when every skill source was readable.
+
+        The four cases:
+          prune=True,  skills non-empty -> upsert, then delete every other name
+          prune=True,  skills empty     -> delete every row for this cluster (the user really
+                                           did delete their last skill)
+          prune=False, skills non-empty -> upsert only; a partially-readable load must not
+                                           prune the part that failed to load
+          prune=False, skills empty     -> no-op; nothing was read, so nothing is known
         """
         if not self.enabled:
             logging.info("Robusta store not initialized. Skipping sync holmes skills.")
             return
 
-        if not skills:
-            logging.debug("No skills were provided for synchronization.")
+        if not skills and not prune:
+            logging.debug(
+                "No skills loaded and sources were not fully readable; skipping sync."
+            )
             return
 
         provided_skill_names = [skill["skill_name"] for skill in skills]
 
         try:
-            self.client.table(HOLMES_CUSTOM_SKILLS_TABLE).upsert(
-                skills, on_conflict="account_id, cluster_id, skill_name"
-            ).execute()
+            if skills:
+                self.client.table(HOLMES_CUSTOM_SKILLS_TABLE).upsert(
+                    skills, on_conflict="account_id, cluster_id, skill_name"
+                ).execute()
 
-            self.client.table(HOLMES_CUSTOM_SKILLS_TABLE).delete().eq(
-                "account_id", self.account_id
-            ).eq("cluster_id", cluster_name).not_.in_(
-                "skill_name", provided_skill_names
-            ).execute()
+            if not prune:
+                logging.info(
+                    f"Upserted {len(skills)} custom skills; skipped pruning because at "
+                    "least one skill source could not be read."
+                )
+                return
+
+            stale = (
+                self.client.table(HOLMES_CUSTOM_SKILLS_TABLE)
+                .delete()
+                .eq("account_id", self.account_id)
+                .eq("cluster_id", cluster_name)
+            )
+            # Only add the not-in filter when there is something to exclude. An empty list
+            # renders as `skill_name=not.in.()`, which PostgREST does not reliably accept --
+            # and semantically the empty case wants an unfiltered delete anyway.
+            if provided_skill_names:
+                stale = stale.not_.in_("skill_name", provided_skill_names)
+            stale.execute()
 
             logging.info(f"Synchronized {len(skills)} custom skills successfully.")
         except Exception as e:
@@ -1239,7 +1379,7 @@ class SupabaseDal:
                        NOT take destructive action in this case.
 
         We deliberately distinguish "definitive answer from server" from
-        "couldn't reach the server" so the conversation worker only disables
+        "couldn't reach the server" so the conversation runtime only disables
         itself when Supabase has actually told us realtime is off.
         """
         if not self.enabled:
@@ -1302,35 +1442,47 @@ class SupabaseDal:
         return None
 
     def claim_n_pending_conversations(
-        self, holmes_id: str, limit: int
+        self, holmes_id: str, limit: int, executor: str
     ) -> List[Dict]:
         """
-        Claim up to ``limit`` pending conversations (oldest first), landing them
-        directly in 'running' ('queued' is deprecated). ``limit`` <= 0 claims
-        nothing. Returns the claimed rows (assignee=holmes_id).
+        Claim up to ``limit`` pending conversations of ``executor`` (oldest
+        first), landing them directly in 'running' ('queued' is deprecated).
+        ``limit`` <= 0 claims nothing. Returns the claimed rows
+        (assignee=holmes_id).
+
+        Always filtered by executor (ROB-1369): nothing claims across
+        executors. Raises ``ExecutorRpcUnsupportedError`` when the database
+        predates the executor-aware RPC signature (a deploy error).
         """
         if not self.enabled:
             return []
         if limit <= 0:
             return []
 
+        params: Dict[str, object] = {
+            "_account_id": self.account_id,
+            "_cluster_id": self.cluster,
+            "_assignee": holmes_id,
+            "_limit": limit,
+            "_executor": executor,
+        }
+
         # Retry transient infra errors (DNS/5xx) so a hiccup doesn't skip a poll.
         @retry(
-            retry=retry_if_exception_type(Exception),
+            retry=retry_if_not_exception_type(ExecutorRpcUnsupportedError),
             stop=stop_after_attempt(3),
             wait=wait_exponential(multiplier=0.5, min=0.5, max=2.0),
             reraise=True,
         )
         def _claim_with_retry() -> List[Dict]:
-            res = self.client.rpc(
-                "claim_n_pending_conversations",
-                {
-                    "_account_id": self.account_id,
-                    "_cluster_id": self.cluster,
-                    "_assignee": holmes_id,
-                    "_limit": limit,
-                },
-            ).execute()
+            try:
+                res = self.client.rpc(
+                    "claim_n_pending_conversations", params
+                ).execute()
+            except Exception as exc:
+                if _is_missing_rpc_error(exc):
+                    raise ExecutorRpcUnsupportedError(str(exc)) from exc
+                raise
             if not res.data:
                 return []
             if isinstance(res.data, list):
@@ -1339,9 +1491,61 @@ class SupabaseDal:
 
         try:
             return _claim_with_retry()
+        except ExecutorRpcUnsupportedError:
+            raise
         except Exception:
             logging.exception(
                 "Supabase error while claiming conversations (after retries)",
+                exc_info=True,
+            )
+            return []
+
+    def list_pending_conversation_executors(self) -> List[str]:
+        """Distinct ``executor`` names of claimable pending conversations for this
+        account + cluster (ROB-1369). Raises ``ExecutorRpcUnsupportedError`` when
+        the database predates the RPC.
+        """
+        if not self.enabled:
+            return []
+
+        @retry(
+            retry=retry_if_not_exception_type(ExecutorRpcUnsupportedError),
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=0.5, min=0.5, max=2.0),
+            reraise=True,
+        )
+        def _list_with_retry() -> List[str]:
+            try:
+                res = self.client.rpc(
+                    "pending_conversation_executors",
+                    {"_account_id": self.account_id, "_cluster_id": self.cluster},
+                ).execute()
+            except Exception as exc:
+                if _is_missing_rpc_error(exc):
+                    raise ExecutorRpcUnsupportedError(str(exc)) from exc
+                raise
+            data = res.data
+            if not data:
+                return []
+            if not isinstance(data, list):
+                data = [data]
+            names: List[str] = []
+            for item in data:
+                # PostgREST returns a SETOF text as a bare list of strings; a
+                # TABLE-returning variant would yield {"executor": ...} rows.
+                value = item.get("executor") if isinstance(item, dict) else item
+                if isinstance(value, str) and value:
+                    names.append(value)
+            return names
+
+        try:
+            return _list_with_retry()
+        except ExecutorRpcUnsupportedError:
+            raise
+        except Exception:
+            logging.exception(
+                "Supabase error while listing pending conversation executors "
+                "(after retries)",
                 exc_info=True,
             )
             return []
