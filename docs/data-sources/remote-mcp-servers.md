@@ -325,6 +325,10 @@ SSE transport is deprecated. Use `streamable-http` for new integrations.
 
 The URL should end with `/sse`. If it doesn't, HolmesGPT will automatically append it.
 
+## AWS MCP Server
+
+The hosted AWS MCP Server needs SigV4-signed requests. Use `mode: aws` instead of `streamable-http` and Holmes signs with its AWS credentials; see [AWS (MCP)](builtin-toolsets/aws.md).
+
 ## OAuth Authentication
 
 For MCP servers that require OAuth authentication (e.g. Atlassian, Notion), see the dedicated [OAuth MCP Servers](oauth-mcp-servers.md) page.
@@ -429,6 +433,33 @@ mcp_servers:
 ```
 
 The setting works on any toolset, not only MCP servers.
+
+**Loading Only Some of a Server's Tools**
+
+Holmes sends the definition of every tool an MCP server lists to the LLM on each request. A server with a large catalog can fill most of the model's context window, or exceed it, before the investigation starts, and the catalog can grow on the server side without any change to your config.
+
+Set `allowed_tools` to the tool names Holmes should load. Holmes drops every other tool the server lists. Entries are matched with `fnmatch`, so `incident_*` matches every tool whose name starts with `incident_`. When `allowed_tools` is unset or empty, Holmes loads every tool.
+
+```yaml
+mcp_servers:
+  incident_io:
+    description: "incident.io - incidents, alerts and on-call"
+    config:
+      url: "https://mcp.incident.io/mcp"
+      mode: streamable-http
+      headers:
+        Authorization: "Bearer {{ env.INCIDENT_IO_API_KEY }}"
+    allowed_tools:
+      - incident_*
+      - alert_list
+      - alert_show
+      - escalation_*
+      - schedule_show
+    approval_required_tools:
+      - incident_update
+```
+
+`approval_required_tools` applies on top of `allowed_tools`: a tool must be loaded before it can require approval. The auth health check still picks from every tool the server lists, so `health_check_tool`, or an auto-detected identity tool such as `get_me`, does not need to be in `allowed_tools` and stays hidden from the LLM if it is not.
 
 ## Configuration Format Migration
 
