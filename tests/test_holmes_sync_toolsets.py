@@ -594,6 +594,31 @@ def test_contract_hash_counts_a_tools_own_instance_param():
     assert _hash({"q": ToolParameter(type="string")}) != _hash(
         {"q": ToolParameter(type="string"), "instance": ToolParameter(type="string")}
     )
+    # Equal to the injected one, but the tool's own.
+    assert _hash({"q": ToolParameter(type="string")}) != _hash(
+        {"q": ToolParameter(type="string"), "instance": INSTANCE_PARAM.model_copy()}
+    )
+
+
+def test_contract_hash_keeps_literals_inside_raw_schemas():
+    def const(value):
+        return {"q": ToolParameter(type="object", json_schema_extra={"const": value})}
+
+    assert _hash(const({"description": "a"})) != _hash(const({"description": "b"}))
+
+
+def test_contract_hash_ignores_the_order_of_union_branches():
+    a, b = ToolParameter(type="string"), ToolParameter(type="integer")
+    assert _hash({"q": ToolParameter(any_of=[a, b])}) == _hash(
+        {"q": ToolParameter(any_of=[b, a])}
+    )
+
+    def raw(branches):
+        return {"q": ToolParameter(type="object", additional_properties={"anyOf": branches})}
+
+    s, i = {"type": "string"}, {"type": "integer"}
+    assert _hash(raw([s, i])) == _hash(raw([i, s]))
+    assert _hash(raw([s, i])) != _hash(raw([s, {"type": "boolean"}]))
 
 
 def test_contract_hash_ignores_annotations_inside_raw_schemas():

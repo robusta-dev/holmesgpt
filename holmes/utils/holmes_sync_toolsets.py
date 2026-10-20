@@ -50,24 +50,54 @@ def _canonical_order(values: list) -> list:
     return sorted(values, key=lambda v: json.dumps(v, sort_keys=True, default=str))
 
 
+# Keywords whose value is a schema, a list of schemas or a map of names to
+# schemas. Everything else is a literal (const, enum, pattern, ...) and is
+# hashed as published.
+_SCHEMA_VALUED = frozenset(
+    {
+        "items",
+        "prefixItems",
+        "additionalItems",
+        "additionalProperties",
+        "unevaluatedItems",
+        "unevaluatedProperties",
+        "contains",
+        "propertyNames",
+        "not",
+        "if",
+        "then",
+        "else",
+    }
+)
+_SCHEMA_MAPS = frozenset(
+    {"properties", "patternProperties", "dependentSchemas", "$defs", "definitions"}
+)
+# Combinators whose branches accept the same inputs in any order.
+_SCHEMA_UNORDERED = frozenset({"anyOf", "oneOf", "allOf"})
+
+
 def _schema_contract(schema: Any) -> Any:
     """A raw JSON schema (an MCP tool's `additionalProperties`, or
-    `json_schema_extra`) without annotations. `properties` maps names to
-    schemas, so its keys are kept whatever they are called."""
-    if isinstance(schema, list):
-        return [_schema_contract(v) for v in schema]
+    `json_schema_extra`) without annotations. Only schema positions are
+    walked, so a literal such as a `const` object keeps every key."""
     if not isinstance(schema, dict):
         return schema
     contract: dict = {}
     for key, value in schema.items():
         if key in _SCHEMA_ANNOTATIONS:
             continue
-        if key == "properties" and isinstance(value, dict):
+        if key in _SCHEMA_MAPS and isinstance(value, dict):
             contract[key] = {n: _schema_contract(v) for n, v in value.items()}
+        elif key in _SCHEMA_UNORDERED and isinstance(value, list):
+            contract[key] = _canonical_order([_schema_contract(v) for v in value])
+        elif key in _SCHEMA_VALUED and isinstance(value, list):
+            contract[key] = [_schema_contract(v) for v in value]
+        elif key in _SCHEMA_VALUED:
+            contract[key] = _schema_contract(value)
         elif key in ("enum", "required", "type") and isinstance(value, list):
             contract[key] = _canonical_order(value)
         else:
-            contract[key] = _schema_contract(value)
+            contract[key] = value
     return contract
 
 
@@ -92,7 +122,9 @@ def _parameter_contract(param: ToolParameter) -> dict:
     if param.items is not None:
         contract["items"] = _parameter_contract(param.items)
     if param.any_of is not None:
-        contract["any_of"] = [_parameter_contract(b) for b in param.any_of]
+        contract["any_of"] = _canonical_order(
+            [_parameter_contract(b) for b in param.any_of]
+        )
     return contract
 
 
@@ -102,11 +134,13 @@ def remote_tool_contract_hash(tool: Tool) -> str:
     platform routes a remote tool to every agent whose hash matches the newest
     Holmes version's, so this is the only place tool schemas are compared.
     The `instance` param a multi-instance toolset adds is left out: the
-    platform routes it per cluster. A tool's own `instance` param counts."""
+    platform routes it per cluster. It is recognised by identity, since the
+    wrapper injects that very object, so a tool's own `instance` param counts
+    even when it is equal."""
     contract = {
         name: _parameter_contract(param)
         for name, param in tool.parameters.items()
-        if not (name == INSTANCE_PARAM_NAME and param == INSTANCE_PARAM)
+        if not (name == INSTANCE_PARAM_NAME and param is INSTANCE_PARAM)
     }
     canonical = json.dumps(contract, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()
