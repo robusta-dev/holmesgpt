@@ -1214,7 +1214,7 @@ EXPECTED_COSTS_KEYS = {
 EXPECTED_TOKEN_COUNT_METADATA_KEYS = {"costs", "usage", "tokens", "max_tokens", "max_output_tokens"}
 
 EXPECTED_ANSWER_END_KEYS = {
-    "content", "messages", "metadata", "tool_calls", "num_llm_calls", "prompt", "costs",
+    "content", "messages", "metadata", "tool_calls", "num_llm_calls", "costs",
 }
 
 EXPECTED_APPROVAL_REQUIRED_KEYS = {
@@ -1289,6 +1289,29 @@ class TestSSEEventShapes:
         assert isinstance(data["messages"], list)
         assert isinstance(data["tool_calls"], list)
         assert isinstance(data["num_llm_calls"], int)
+
+    @patch(LIMIT_PATCH, side_effect=_make_context_limiter_passthrough)
+    def test_answer_end_event_has_no_json_encoded_values(self, _mock_limit, make_ai, mock_llm):
+        """ANSWER_END data is stored as-is in a jsonb column, so no top-level
+        value may be a JSON document serialized to a string."""
+        mock_llm.completion.side_effect = [
+            _make_llm_response(content="answer", tool_calls=None, cost=0.01)
+        ]
+
+        events = _collect_stream_events(
+            make_ai().call_stream(msgs=[{"role": "user", "content": "go"}])
+        )
+
+        data = _events_of_type(events, StreamEvents.ANSWER_END)[0].data
+        for key, value in data.items():
+            if isinstance(value, str):
+                try:
+                    decoded = json.loads(value)
+                except ValueError:
+                    continue
+                assert not isinstance(decoded, (dict, list)), (
+                    f"ANSWER_END.{key} is a JSON-encoded string"
+                )
 
     @patch(LIMIT_PATCH, side_effect=_make_context_limiter_passthrough)
     def test_approval_required_event_shape(self, _mock_limit, make_ai, mock_llm):

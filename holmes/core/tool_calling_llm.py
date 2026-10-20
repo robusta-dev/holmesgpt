@@ -1443,7 +1443,6 @@ class ToolCallingLLM:
                         "metadata": metadata,
                         "tool_calls": all_tool_calls,
                         "num_llm_calls": i,
-                        "prompt": json.dumps(messages, indent=2),
                         "costs": stats.model_dump(),
                     },
                 )
