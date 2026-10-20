@@ -17,6 +17,10 @@ include_tool_calls: true
 
 tags:
   - db-connectors
+  # The MySQL pod does not pass its readiness probe within 300s on the CI
+  # KIND runner when it shares the node with a full eval-benchmark load
+  # (observed in runs 39412180321 and 39415365149)
+  - no-cicd
 
 setup_timeout: 300
 
