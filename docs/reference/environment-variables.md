@@ -269,6 +269,18 @@ The conversation runtime (Robusta platform deployments) runs each conversation o
 
 **Upgrade note.** Before executors existed, one shared pool of `CONVERSATION_WORKER_MAX_CONCURRENT` (5) ran everything. With the defaults above an agent now runs up to 11 conversations at once (10 `manual` + 1 `auto`), and `CONVERSATION_WORKER_MAX_CONCURRENT` no longer sizes those two executors. Deployments that tuned it should set the concurrency in Settings instead.
 
+## Agent Engine
+
+### AGENT_ENGINE
+
+Selects the agent loop implementation. Default: `legacy` (HolmesGPT's own loop). The other
+values run the loop on an open-source harness while keeping the same tools, prompts, LLM
+routing and API contract. See [Agent Engines](agent-engines.md).
+
+```bash
+AGENT_ENGINE=pydantic_ai   # legacy | openai_agents | pydantic_ai | langgraph
+```
+
 ## HolmesGPT Configuration
 
 ### MODEL_LIST_FILE_LOCATION

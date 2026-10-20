@@ -549,8 +549,8 @@ def generate_markdown_report(
         )
 
     # Generate detailed table
-    markdown += "\n\n| Status | Test case | Time | Turns | Tools | Cost | Total tokens | Input | Max input | Output | Max output | Cached | Non-cached | Reasoning | Skill Generated | Skills Read | Compactions | Denied commands | Src |\n"
-    markdown += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+    markdown += "\n\n| Status | Test case | Engine | Env | Time | Turns | Tools | Cost | Total tokens | Input | Max input | Output | Max output | Cached | Non-cached | Reasoning | Skill Generated | Skills Read | Compactions | Denied commands | Src |\n"
+    markdown += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
 
     # Track totals for summary row
     total_time = 0.0
@@ -699,7 +699,7 @@ def generate_markdown_report(
             memories_count, skills_read_count, num_compactions
         )
 
-        markdown += f"| {primary_status_symbol}{primary_events} | {test_case_name} | {time_str} | {turns_str} | {tools_str} | {cost_str} | {total_tokens_str} | {input_str} | {max_prompt_str} | {output_str} | {max_completion_str} | {cached_tokens_str} | {non_cached_tokens_str} | {reasoning_str} | {skill_generated_str} | {skills_read_str} | {compactions_str} | {denied_commands_str} | {source_str} |\n"
+        markdown += f"| {primary_status_symbol}{primary_events} | {test_case_name} | {result.get('engine', 'legacy')} | {result.get('env_config', 'default')} | {time_str} | {turns_str} | {tools_str} | {cost_str} | {total_tokens_str} | {input_str} | {max_prompt_str} | {output_str} | {max_completion_str} | {cached_tokens_str} | {non_cached_tokens_str} | {reasoning_str} | {skill_generated_str} | {skills_read_str} | {compactions_str} | {denied_commands_str} | {source_str} |\n"
 
         # If this test ran a closed-loop replay (rerun_with_memory: true and
         # a memory was actually captured), emit a second row labeled
@@ -833,7 +833,7 @@ def generate_markdown_report(
         f"**{total_skills_read}**" if total_skills_read else "—"
     )
     total_denied_str = str(total_denied_commands) if total_denied_commands > 0 else "—"
-    markdown += f"| | **Total** | **{avg_time_str}** avg | **{avg_turns_str}** avg | **{avg_tools_str}** avg | **{total_cost_str}** | **{total_tokens_total_str}** | **{total_prompt_str}** | **{max_prompt_max_str}** | **{total_completion_str}** | **{max_completion_max_str}** | **{total_cached_tokens_str}** | **{total_non_cached_tokens_str}** | **{total_reasoning_str}** | {skill_generated_total_str} | {skills_read_total_str} | **{total_compactions_str}** | **{total_denied_str}** | |\n"
+    markdown += f"| | **Total** | | | **{avg_time_str}** avg | **{avg_turns_str}** avg | **{avg_tools_str}** avg | **{total_cost_str}** | **{total_tokens_total_str}** | **{total_prompt_str}** | **{max_prompt_max_str}** | **{total_completion_str}** | **{max_completion_max_str}** | **{total_cached_tokens_str}** | **{total_non_cached_tokens_str}** | **{total_reasoning_str}** | {skill_generated_total_str} | {skills_read_total_str} | **{total_compactions_str}** | **{total_denied_str}** | |\n"
 
     # Collapsed skills-mechanism stats (counts + mean replay delta only).
     markdown += _generate_skills_summary(sorted_results)

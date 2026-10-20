@@ -57,6 +57,22 @@ Available variables:
 - `ASK_HOLMES_TEST_TYPE`: `cli` (default) or `server` — controls message building flow
 - `SSL_VERIFY`: Set to `false` to disable SSL verification (for sandbox environments with TLS interception proxies)
 
+## Comparing Agent Engines
+
+`ENV_CONFIGS` runs every selected test once per named configuration and sets the listed
+environment variables for the test's duration. The agent reads `AGENT_ENGINE` when it is
+built, so this compares engines (legacy loop vs OSS harnesses) in one run:
+
+```bash
+ENV_CONFIGS='legacy:AGENT_ENGINE=legacy|pydantic:AGENT_ENGINE=pydantic_ai|langgraph:AGENT_ENGINE=langgraph' \
+poetry run pytest tests/llm/test_ask_holmes.py -m "llm and regression" -n 4 --no-cov
+```
+
+Format: `name:VAR=val;VAR2=val|name2:` (`|` separates configs, `;` separates variables,
+an empty `name:` is a baseline). The terminal prints an "ENV CONFIG COMPARISON RESULTS" table
+(pass rate, avg/P90 time, avg tokens, avg cost per config) and `evals_report.md` has `Engine`
+and `Env` columns. In CI, `/eval` comments accept `engines: legacy,pydantic_ai`.
+
 ## Testing with Different Models
 
 ```bash

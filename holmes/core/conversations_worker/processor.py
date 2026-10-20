@@ -11,6 +11,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
+from holmes.core.engines import legacy_requirement
 from holmes.common.env_vars import CONVERSATION_WORKER_EVENT_BATCH_INTERVAL_SECONDS
 from holmes.core.conversation_links import resolve_conversation_link
 from holmes.core.conversations import build_chat_messages
@@ -371,6 +372,12 @@ class ConversationProcessor:
         tool_results_dir = storage.__enter__()
         is_robusta_model = False
         try:
+            legacy_reason = legacy_requirement(
+                enable_tool_approval=bool(chat_request.enable_tool_approval),
+                tool_decisions=chat_request.tool_decisions,
+                frontend_tool_results=chat_request.frontend_tool_results,
+                frontend_tools=chat_request.frontend_tools,
+            )
             ai = self.config.create_toolcalling_llm(
                 dal=self.dal,
                 toolset_tag_filter=SERVER_TOOLSET_TAGS,
@@ -380,6 +387,9 @@ class ConversationProcessor:
                 model=chat_request.model,
                 tracer=server_tracer,
                 tool_results_dir=tool_results_dir,
+                engine=chat_request.engine,
+                needs_legacy_engine=bool(legacy_reason),
+                needs_legacy_reason=legacy_reason or "",
             )
             is_robusta_model = ai.llm.is_robusta_model
 

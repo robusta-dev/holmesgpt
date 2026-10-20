@@ -96,6 +96,7 @@ def log_to_braintrust(
         "model": model,
         "eval_id": base_test_id,  # Base test case ID without variant suffix
         "test_id": test_case.id,  # Full test case ID with variant suffix if present
+        "engine": os.environ.get("AGENT_ENGINE", "legacy"),
     }
 
     if suggested_memories is not None:

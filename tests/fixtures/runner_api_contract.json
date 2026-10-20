@@ -269,6 +269,18 @@
           "default": false,
           "title": "Enable Tool Approval"
         },
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Engine"
+        },
         "frontend_tool_results": {
           "anyOf": [
             {

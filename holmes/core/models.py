@@ -196,6 +196,9 @@ class PendingFrontendToolCall(BaseModel):
 class ChatRequestBaseModel(BaseModel):
     conversation_history: Optional[list[dict]] = None
     model: Optional[str] = None
+    # Agent loop implementation for this request (see holmes.core.engines);
+    # None uses the server's configured default.
+    engine: Optional[str] = None
     stream: bool = Field(default=False)
     enable_tool_approval: Optional[bool] = (
         False  # Optional boolean for backwards compatibility

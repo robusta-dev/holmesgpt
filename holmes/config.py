@@ -19,6 +19,7 @@ from pydantic import (
 )
 
 from holmes.core.init_event import EventCallback, StatusEvent, StatusEventKind
+from holmes.core.engines import get_engine_class, resolve_engine, validate_engine_id
 from holmes.core.llm import DefaultLLM, LLMModelRegistry
 from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, Toolset, ToolsetTag
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -110,6 +111,9 @@ class Config(RobustaBaseConfig):
     api_version: Optional[str] = None
     fast_model: Optional[str] = None
     max_steps: int = 100
+    # Agent loop implementation; see holmes.core.engines. None means legacy
+    # unless AGENT_ENGINE is set in the environment.
+    agent_engine: Optional[str] = None
     cluster_name: Optional[str] = None
 
     alertmanager_url: Optional[str] = None
@@ -331,12 +335,20 @@ class Config(RobustaBaseConfig):
             if skill_repos:
                 self.skill_repos = skill_repos
 
+        if not self.agent_engine:
+            engine_from_env = os.environ.get("AGENT_ENGINE")
+            if engine_from_env and engine_from_env.strip():
+                self.agent_engine = engine_from_env.strip()
+        if self.agent_engine:
+            validate_engine_id(self.agent_engine)
+
     @classmethod
     def load_from_env(cls):
         kwargs = {}
         for field_name in [
             "model",
             "fast_model",
+            "agent_engine",
             "api_key",
             "api_base",
             "api_version",
@@ -709,6 +721,9 @@ class Config(RobustaBaseConfig):
         tracer=None,
         tool_results_dir: Optional[Path] = None,
         on_event: EventCallback = None,
+        engine: Optional[str] = None,
+        needs_legacy_engine: bool = False,
+        needs_legacy_reason: str = "",
     ) -> "ToolCallingLLM":
         """
         Create a ToolCallingLLM with explicit behavioral controls.
@@ -749,7 +764,13 @@ class Config(RobustaBaseConfig):
                 tool_results_dir=tool_results_dir,
             )
         """
-        from holmes.core.tool_calling_llm import ToolCallingLLM
+        engine_id = resolve_engine(
+            engine,
+            self.agent_engine,
+            needs_legacy=needs_legacy_engine,
+            reason=needs_legacy_reason,
+        )
+        engine_class = get_engine_class(engine_id)
 
         # Create LLM first so model info appears during toolset loading
         llm = self._get_llm(model_key=model, tracer=tracer, on_event=on_event)
@@ -761,7 +782,7 @@ class Config(RobustaBaseConfig):
             reuse_executor=reuse_executor,
             on_event=on_event,
         )
-        return ToolCallingLLM(
+        return engine_class(
             tool_executor,
             self.max_steps,
             llm,

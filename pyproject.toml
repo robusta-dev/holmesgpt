@@ -11,7 +11,7 @@ holmes = "holmes.main:run"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
-openai = "^2.8.0"
+openai = "^2.45.0"
 jiter = "!=0.13.0"  # Exclude 0.13.0 due to corrupted Windows wheel (RECORD file issue)
 jinja2 = "^3.1.2"
 typer = "^0.22.0"
@@ -99,6 +99,33 @@ pymongo = "^4.7.0"
 # Required for HTTP CONNECT proxy support in the websockets stdlib client
 # (used by the conversation worker's Supabase Realtime subscription).
 python-socks = {version = "^2.8.1", extras = ["asyncio"]}
+
+# Optional agent engines (see holmes/core/engines). Each group installs one
+# OSS harness; select it with AGENT_ENGINE / config `agent_engine` / per-request `engine`.
+[tool.poetry.group.engine-openai-agents]
+optional = true
+
+[tool.poetry.group.engine-openai-agents.dependencies]
+# 0.21+ requires openai 3.x, which litellm 1.89 forbids.
+openai-agents = "0.20.0"
+
+[tool.poetry.group.engine-pydantic-ai]
+optional = true
+
+[tool.poetry.group.engine-pydantic-ai.dependencies]
+# 2.x requires Python 3.11 and openai 3.x; 1.x is the last line that fits this project.
+pydantic-ai-slim = "1.107.8"
+# Newer releases of these transitive deps require Python >= 3.11.
+griffelib = "<2.3.2"
+httpx2 = "<2.15"
+
+[tool.poetry.group.engine-langgraph]
+optional = true
+
+[tool.poetry.group.engine-langgraph.dependencies]
+langchain = "^1.4.6"
+langchain-core = "^1.6.12"
+langgraph = "^1.2.16"
 
 [tool.poetry.group.otel]
 optional = true

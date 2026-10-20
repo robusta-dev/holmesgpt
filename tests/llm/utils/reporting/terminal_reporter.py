@@ -628,6 +628,8 @@ class TestStatistics:
         # Calculate cost metrics
         total_cost = sum(r.get("cost", 0) for r in results)
         avg_cost = total_cost / len(results) if results else 0
+        total_tokens = sum(r.get("total_tokens", 0) or 0 for r in results)
+        avg_tokens = total_tokens / len(results) if results else 0
 
         return {
             "runs": runs,
@@ -641,6 +643,8 @@ class TestStatistics:
             "pass_rate": (passed / valid_runs * 100) if valid_runs > 0 else 0,
             "total_cost": total_cost,
             "avg_cost": avg_cost,
+            "total_tokens": total_tokens,
+            "avg_tokens": avg_tokens,
         }
 
     def get_stats(self, test_case: str, model: str) -> Optional[Dict[str, Any]]:
@@ -1197,6 +1201,10 @@ def _print_env_config_comparison_table(
                 ]
                 if combo_stats["avg_time"]:
                     cell_lines.append(f"Avg:   {combo_stats['avg_time']:.1f}s")
+                if combo_stats.get("avg_tokens"):
+                    cell_lines.append(f"Tok:   {combo_stats['avg_tokens']:,.0f}")
+                if combo_stats.get("avg_cost"):
+                    cell_lines.append(f"Cost:  ${combo_stats['avg_cost']:.4f}")
 
                 cell_text = "\n".join(cell_lines)
 

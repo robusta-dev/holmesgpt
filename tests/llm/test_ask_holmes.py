@@ -13,9 +13,10 @@ from unittest.mock import patch
 import pytest
 from holmes.config import Config
 from holmes.core.conversations import build_chat_messages
+from holmes.core.engines import LEGACY_ENGINE, get_engine_class
 from holmes.core.models import ChatRequest
 from holmes.core.prompt import build_initial_ask_messages, todowrite_overrides
-from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
+from holmes.core.tool_calling_llm import LLMResult
 from holmes.core.tools_utils.filesystem_result_storage import tool_result_storage
 from holmes.core.tools_utils.frontend_tools import inject_frontend_tools
 from holmes.core.tools_utils.tool_executor import ToolExecutor
@@ -83,15 +84,22 @@ def test_ask_holmes(
     # Set initial properties early so they're available even if test fails
     set_initial_properties(request, test_case, model, env_config)
 
+    # The engine the run will use: the env config's value wins over the ambient one.
+    engine_id = env_config.env_vars.get(
+        "AGENT_ENGINE", os.environ.get("AGENT_ENGINE", LEGACY_ENGINE)
+    )
+    request.node.user_properties.append(("engine", engine_id))
+
     tracer = TracingFactory.create_tracer("braintrust")
-    metadata = {"model": model, "env_config": env_config.name}
+    metadata = {"model": model, "env_config": env_config.name, "engine": engine_id}
     tracer.start_experiment(additional_metadata=metadata)
 
     result: Optional[LLMResult] = None
 
     try:
         with tracer.start_trace(
-            name=f"{test_case.id}[{model}][{env_config.name}]", span_type=SpanType.EVAL
+            name=f"{test_case.id}[{model}][{env_config.name}][{engine_id}]",
+            span_type=SpanType.EVAL,
         ) as eval_span:
             set_trace_properties(request, eval_span)
             check_and_skip_test(test_case, request, shared_test_infrastructure)
@@ -572,7 +580,9 @@ def ask_holmes(
         toolset_span.log(metadata={"toolset_names": enabled_toolsets})
 
     with tool_result_storage() as tool_results_dir:
-        ai = ToolCallingLLM(
+        # Read at call time so ENV_CONFIGS (applied per test) can switch engines.
+        engine_id = os.environ.get("AGENT_ENGINE", LEGACY_ENGINE)
+        ai = get_engine_class(engine_id)(
             tool_executor=tool_executor,
             max_steps=100,
             llm=create_eval_llm(model=model, tracer=tracer),

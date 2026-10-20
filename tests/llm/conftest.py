@@ -863,6 +863,7 @@ def _collect_test_results_from_stats(terminalreporter):
                 ),  # Any throttling during execution
                 "model": user_props.get("model", "Unknown"),
                 "env_config": user_props.get("env_config", "default"),
+                "engine": user_props.get("engine", "legacy"),
                 "clean_test_case_id": user_props.get("clean_test_case_id"),
                 "braintrust_span_id": user_props.get("braintrust_span_id"),
                 "braintrust_root_span_id": user_props.get("braintrust_root_span_id"),

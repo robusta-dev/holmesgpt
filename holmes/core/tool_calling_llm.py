@@ -282,6 +282,8 @@ def _is_robusta_refusal(llm: LLM, error: Exception) -> bool:
 
 
 class ToolCallingLLM:
+    # Identifier used by holmes.core.engines to select this loop implementation.
+    engine_id: str = "legacy"
     llm: LLM
 
     def __init__(
@@ -304,7 +306,7 @@ class ToolCallingLLM:
         Used to inject per-request frontend tools via a cloned executor
         without mutating the shared ToolCallingLLM instance.
         """
-        clone = ToolCallingLLM(
+        clone = type(self)(
             tool_executor=tool_executor,
             max_steps=self.max_steps,
             llm=self.llm,
@@ -1136,12 +1138,203 @@ class ToolCallingLLM:
         approval = tool.requires_approval(params, context)
         return not approval or not approval.needs_approval
 
+    def _run_resume_preambles(
+        self,
+        msgs: Optional[list[dict]],
+        tool_decisions: Optional[List[ToolApprovalDecision]],
+        frontend_tool_results: Optional[List[FrontendToolResult]],
+        request_context: Optional[Dict[str, Any]],
+        trace_span: Any,
+    ) -> tuple[Optional[list[dict]], list[StreamMessage]]:
+        """Apply client-side resume data to the history before the loop starts.
+
+        Pure message-list transforms shared by every engine: approval
+        decisions, frontend tool results, and denial of abandoned tool calls
+        (every tool_use block must be followed by a tool_result block or the
+        next LLM call fails). Returns the rewritten history and the events to
+        emit for the tool results they produced.
+        """
+        events: list[StreamMessage] = []
+
+        if msgs and tool_decisions:
+            logging.info(f"Processing {len(tool_decisions)} tool decisions")
+            msgs, decision_events = self._execute_tool_decisions(
+                msgs, tool_decisions, request_context, trace_span=trace_span
+            )
+            events.extend(decision_events)
+
+        if msgs and frontend_tool_results:
+            logging.info(f"Processing {len(frontend_tool_results)} frontend tool results")
+            msgs, frontend_events = self._process_frontend_tool_results(
+                msgs, frontend_tool_results
+            )
+            events.extend(frontend_events)
+
+        if msgs:
+            msgs, orphan_events = self._resolve_orphaned_tool_calls(msgs)
+            events.extend(orphan_events)
+
+        return msgs, events
+
+    @staticmethod
+    def _mark_approval_unavailable(tool_call_result: ToolCallResult) -> None:
+        """Turn an APPROVAL_REQUIRED result into an ERROR result.
+
+        No approval flow exists in this conversation, so the error must state
+        that nothing was executed OR queued: a bare "requires approval" reads as
+        if an approval is now pending, and the model then tells the user the
+        command is waiting for a human to approve it, which is false.
+        """
+        original_error = tool_call_result.result.error or "This tool call requires approval."
+        tool_call_result.result.status = StructuredToolResultStatus.ERROR
+        tool_call_result.result.error = (
+            "Tool call rejected: it requires human approval, "
+            "and approval is not available in this conversation. "
+            f"({original_error}) "
+            "The command was NOT executed and NOT submitted or queued for approval - "
+            "nothing is waiting for anyone's approval. "
+            "Do not tell the user the command was submitted or is awaiting approval. "
+            "Instead, explain that you cannot run this command in this conversation and why."
+        )
+
+    def _run_llm_iteration(
+        self,
+        messages: list[dict],
+        tools: Optional[list],
+        tool_choice: Optional[str],
+        response_format: Optional[Union[dict, Type[BaseModel]]],
+        trace_span: Any,
+        iteration: int,
+        stats: RequestStats,
+    ) -> tuple[Any, RequestStats]:
+        """Run one LLM completion with tracing, cost accounting and error mapping.
+
+        Shared by every agent engine so the Robusta relay refusal mapping,
+        Azure error rewrite, OTel metrics and Langfuse logging stay in one
+        place. ``stats`` is updated in place with this call's usage.
+        """
+        # Create a child gen_ai.chat span for each LLM call iteration.
+        # The span is activated in context so httpx calls during completion()
+        # (e.g. LiteLLM HTTP calls) become children of this gen_ai.chat span.
+        with trace_span.start_span(name="gen_ai.chat") as llm_span:
+          try:
+            _llm_call_start = time.time()
+            full_response = self.llm.completion(
+                messages=parse_messages_tags(messages),  # type: ignore
+                tools=tools,
+                tool_choice=tool_choice,
+                response_format=response_format,
+                temperature=TEMPERATURE,
+                stream=False,
+                drop_params=True,
+            )
+            _merge_choices(full_response)
+
+            # Accumulate cost information for this iteration
+            response_stats = RequestStats.from_response(full_response)
+            if response_stats.total_tokens > 0:
+                cost_logger.debug(
+                    f"LLM iteration cost: ${response_stats.total_cost:.6f} | "
+                    f"Tokens: {response_stats.prompt_tokens} prompt + {response_stats.completion_tokens} completion = {response_stats.total_tokens} total"
+                )
+            elif response_stats.total_cost > 0:
+                cost_logger.debug(
+                    f"LLM iteration cost: ${response_stats.total_cost:.6f} | Token usage not available"
+                )
+            if LOG_LLM_USAGE_RESPONSE:
+                usage = getattr(full_response, "usage", None)
+                if usage:
+                    logging.info(f"LLM usage response:\n{usage}\n")
+            stats += response_stats
+
+            # Record OTel LLM metrics
+            otel_metrics = TracingFactory.get_metrics()
+            if otel_metrics:
+                model_attrs = {DIM_GEN_AI_REQUEST_MODEL: self.llm.model, DIM_GEN_AI_SYSTEM: "litellm"}
+                if response_stats.prompt_tokens > 0:
+                    otel_metrics.token_usage.add(response_stats.prompt_tokens, {**model_attrs, DIM_GEN_AI_TOKEN_TYPE: "input"})
+                if response_stats.completion_tokens > 0:
+                    otel_metrics.token_usage.add(response_stats.completion_tokens, {**model_attrs, DIM_GEN_AI_TOKEN_TYPE: "output"})
+                llm_duration = time.time() - _llm_call_start
+                otel_metrics.llm_call_duration.record(llm_duration, model_attrs)
+
+            # Log GenAI semantic convention attributes on the LLM child span
+            llm_span.log(metadata={
+                ATTR_GEN_AI_SYSTEM: "litellm",
+                ATTR_GEN_AI_REQUEST_MODEL: self.llm.model,
+                ATTR_GEN_AI_USAGE_INPUT_TOKENS: stats.prompt_tokens,
+                ATTR_GEN_AI_USAGE_OUTPUT_TOKENS: stats.completion_tokens,
+                ATTR_GEN_AI_USAGE_TOTAL_TOKENS: stats.total_tokens,
+                "holmesgpt.iteration": iteration,
+            })
+
+            # Log prompt (input) + response content/reasoning/tool_calls (output).
+            # Only needed when Langfuse enrichment is on. Must stay in the `with` block.
+            if HOLMES_LANGFUSE_ATTRIBUTES:
+                _resp_msg = full_response.choices[0].message  # type: ignore
+                _raw_tool_calls = getattr(_resp_msg, "tool_calls", None) or []
+                _tool_calls_out = []
+                for _tc in _raw_tool_calls:
+                    _dump = getattr(_tc, "model_dump", None)
+                    _tool_calls_out.append(_dump() if callable(_dump) else str(_tc))
+                llm_span.log(
+                    input=messages,
+                    output={
+                        "content": getattr(_resp_msg, "content", None),
+                        "reasoning": getattr(_resp_msg, "reasoning_content", None),
+                        "tool_calls": _tool_calls_out,
+                    },
+                )
+
+          # One clause, because the checks are ordered rather than typed:
+          # litellm maps a refusal by the body's error *type*, so a 401
+          # whose body says `invalid_request_error` arrives as a
+          # BadRequestError carrying status 401. The refusal is therefore
+          # recognised by status before anything keyed on the class runs;
+          # the Azure case below is a 400, so it can never be taken first.
+          except Exception as e:
+            if _is_robusta_refusal(self.llm, e):
+                # _is_robusta_refusal already established the status is one
+                # of REFUSAL_STATUS_CODES.
+                status_code = e.status_code  # type: ignore[attr-defined]
+                logging.warning(
+                    f"Relay refused the call on model={self.llm.model} "
+                    f"(status {status_code}): {e}"
+                )
+                raise RelayRefusal(_refusal_message(e), status_code) from e
+
+            # a known error that occurs with Azure, replaced with something
+            # more obvious to the user
+            if isinstance(e, BadRequestError):
+                if (
+                    "Unrecognized request arguments supplied: tool_choice, tools"
+                    in str(e)
+                ):
+                    raise Exception(
+                        "The Azure model you chose is not supported. Model version 1106 and higher required."
+                    ) from e
+                logging.error(
+                    f"LLM BadRequestError on model={self.llm.model} (streaming iteration {iteration}): {e}",
+                    exc_info=True,
+                )
+                raise
+
+            logging.error(
+                f"LLM call failed on model={self.llm.model} (streaming iteration {iteration}): "
+                f"{type(e).__name__}: {e}",
+                exc_info=True,
+            )
+            raise
+
+        return full_response, response_stats
+
     def _emit_token_count(
         self,
         messages: list[dict],
         tools: Optional[list],
         full_response: Any,
-        limit_result: Any,
+        max_context_size: int,
+        maximum_output_token: int,
         metadata: Dict[Any, Any],
         stats: RequestStats,
     ) -> StreamMessage:
@@ -1150,8 +1343,8 @@ class ToolCallingLLM:
         add_token_count_to_metadata(
             tokens=tokens,
             full_llm_response=full_response,
-            max_context_size=limit_result.max_context_size,
-            maximum_output_token=limit_result.maximum_output_token,
+            max_context_size=max_context_size,
+            maximum_output_token=maximum_output_token,
             metadata=metadata,
         )
         metadata["costs"] = stats.model_dump()
@@ -1186,43 +1379,20 @@ class ToolCallingLLM:
         self._request_context = request_context
         all_tool_calls: list[dict] = []
 
-        # Process tool decisions if provided (approval resume)
-        if msgs and tool_decisions:
-            logging.info(f"Processing {len(tool_decisions)} tool decisions")
-            msgs, events = self._execute_tool_decisions(
-                msgs, tool_decisions, request_context, trace_span=trace_span
-            )
-            for ev in events:
-                yield ev
-                # Collect tool results from approval re-invocations
-                if ev.event == StreamEvents.TOOL_RESULT:
-                    all_tool_calls.append(ev.data)
-
-        # Process frontend tool results if provided (frontend tool resume)
-        if msgs and frontend_tool_results:
-            logging.info(f"Processing {len(frontend_tool_results)} frontend tool results")
-            msgs, events = self._process_frontend_tool_results(msgs, frontend_tool_results)
-            for ev in events:
-                yield ev
-                if ev.event == StreamEvents.TOOL_RESULT:
-                    all_tool_calls.append(ev.data)
-
-        # Deny any tool calls the user abandoned (e.g. closed the approval modal
-        # or asked a new question without deciding). Otherwise the LLM call fails
-        # because every tool_use block must be followed by a tool_result block.
-        if msgs:
-            msgs, events = self._resolve_orphaned_tool_calls(msgs)
-            for ev in events:
-                yield ev
-                if ev.event == StreamEvents.TOOL_RESULT:
-                    all_tool_calls.append(ev.data)
+        msgs, preamble_events = self._run_resume_preambles(
+            msgs, tool_decisions, frontend_tool_results, request_context, trace_span
+        )
+        for ev in preamble_events:
+            yield ev
+            if ev.event == StreamEvents.TOOL_RESULT:
+                all_tool_calls.append(ev.data)
 
         messages: list[dict] = list(msgs) if msgs else []
         tool_calls: list[dict] = []
         guarded_tool_call_ids: set[str] = set()
         tools: Optional[list] = self._get_tools()
         max_steps = self.max_steps
-        metadata: Dict[Any, Any] = {}
+        metadata: Dict[Any, Any] = {"engine": self.engine_id}
         stats = RequestStats()
         if iteration_offset < 0:
             raise ValueError("iteration_offset must be non-negative")
@@ -1290,118 +1460,15 @@ class ToolCallingLLM:
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
-            # Create a child gen_ai.chat span for each LLM call iteration.
-            # The span is activated in context so httpx calls during completion()
-            # (e.g. LiteLLM HTTP calls) become children of this gen_ai.chat span.
-            with trace_span.start_span(name="gen_ai.chat") as llm_span:
-              try:
-                _llm_call_start = time.time()
-                full_response = self.llm.completion(
-                    messages=parse_messages_tags(messages),  # type: ignore
-                    tools=tools,
-                    tool_choice=tool_choice,
-                    response_format=response_format,
-                    temperature=TEMPERATURE,
-                    stream=False,
-                    drop_params=True,
-                )
-                _merge_choices(full_response)
-
-                # Accumulate cost information for this iteration
-                response_stats = RequestStats.from_response(full_response)
-                if response_stats.total_tokens > 0:
-                    cost_logger.debug(
-                        f"LLM iteration cost: ${response_stats.total_cost:.6f} | "
-                        f"Tokens: {response_stats.prompt_tokens} prompt + {response_stats.completion_tokens} completion = {response_stats.total_tokens} total"
-                    )
-                elif response_stats.total_cost > 0:
-                    cost_logger.debug(
-                        f"LLM iteration cost: ${response_stats.total_cost:.6f} | Token usage not available"
-                    )
-                if LOG_LLM_USAGE_RESPONSE:
-                    usage = getattr(full_response, "usage", None)
-                    if usage:
-                        logging.info(f"LLM usage response:\n{usage}\n")
-                stats += response_stats
-
-                # Record OTel LLM metrics
-                otel_metrics = TracingFactory.get_metrics()
-                if otel_metrics:
-                    model_attrs = {DIM_GEN_AI_REQUEST_MODEL: self.llm.model, DIM_GEN_AI_SYSTEM: "litellm"}
-                    if response_stats.prompt_tokens > 0:
-                        otel_metrics.token_usage.add(response_stats.prompt_tokens, {**model_attrs, DIM_GEN_AI_TOKEN_TYPE: "input"})
-                    if response_stats.completion_tokens > 0:
-                        otel_metrics.token_usage.add(response_stats.completion_tokens, {**model_attrs, DIM_GEN_AI_TOKEN_TYPE: "output"})
-                    llm_duration = time.time() - _llm_call_start
-                    otel_metrics.llm_call_duration.record(llm_duration, model_attrs)
-
-                # Log GenAI semantic convention attributes on the LLM child span
-                llm_span.log(metadata={
-                    ATTR_GEN_AI_SYSTEM: "litellm",
-                    ATTR_GEN_AI_REQUEST_MODEL: self.llm.model,
-                    ATTR_GEN_AI_USAGE_INPUT_TOKENS: stats.prompt_tokens,
-                    ATTR_GEN_AI_USAGE_OUTPUT_TOKENS: stats.completion_tokens,
-                    ATTR_GEN_AI_USAGE_TOTAL_TOKENS: stats.total_tokens,
-                    "holmesgpt.iteration": i,
-                })
-
-                # Log prompt (input) + response content/reasoning/tool_calls (output).
-                # Only needed when Langfuse enrichment is on. Must stay in the `with` block.
-                if HOLMES_LANGFUSE_ATTRIBUTES:
-                    _resp_msg = full_response.choices[0].message  # type: ignore
-                    _raw_tool_calls = getattr(_resp_msg, "tool_calls", None) or []
-                    _tool_calls_out = []
-                    for _tc in _raw_tool_calls:
-                        _dump = getattr(_tc, "model_dump", None)
-                        _tool_calls_out.append(_dump() if callable(_dump) else str(_tc))
-                    llm_span.log(
-                        input=messages,
-                        output={
-                            "content": getattr(_resp_msg, "content", None),
-                            "reasoning": getattr(_resp_msg, "reasoning_content", None),
-                            "tool_calls": _tool_calls_out,
-                        },
-                    )
-
-              # One clause, because the checks are ordered rather than typed:
-              # litellm maps a refusal by the body's error *type*, so a 401
-              # whose body says `invalid_request_error` arrives as a
-              # BadRequestError carrying status 401. The refusal is therefore
-              # recognised by status before anything keyed on the class runs;
-              # the Azure case below is a 400, so it can never be taken first.
-              except Exception as e:
-                if _is_robusta_refusal(self.llm, e):
-                    # _is_robusta_refusal already established the status is one
-                    # of REFUSAL_STATUS_CODES.
-                    status_code = e.status_code  # type: ignore[attr-defined]
-                    logging.warning(
-                        f"Relay refused the call on model={self.llm.model} "
-                        f"(status {status_code}): {e}"
-                    )
-                    raise RelayRefusal(_refusal_message(e), status_code) from e
-
-                # a known error that occurs with Azure, replaced with something
-                # more obvious to the user
-                if isinstance(e, BadRequestError):
-                    if (
-                        "Unrecognized request arguments supplied: tool_choice, tools"
-                        in str(e)
-                    ):
-                        raise Exception(
-                            "The Azure model you chose is not supported. Model version 1106 and higher required."
-                        ) from e
-                    logging.error(
-                        f"LLM BadRequestError on model={self.llm.model} (streaming iteration {i}): {e}",
-                        exc_info=True,
-                    )
-                    raise
-
-                logging.error(
-                    f"LLM call failed on model={self.llm.model} (streaming iteration {i}): "
-                    f"{type(e).__name__}: {e}",
-                    exc_info=True,
-                )
-                raise
+            full_response, response_stats = self._run_llm_iteration(
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                response_format=response_format,
+                trace_span=trace_span,
+                iteration=i,
+                stats=stats,
+            )
 
             if cancel_event and cancel_event.is_set():
                 raise LLMInterruptedError()
@@ -1415,7 +1482,11 @@ class ToolCallingLLM:
             )
 
             yield self._emit_token_count(
-                messages, tools, full_response, limit_result, metadata, stats
+                messages, tools, full_response,
+                limit_result.max_context_size,
+                limit_result.maximum_output_token,
+                metadata,
+                stats,
             )
 
             tools_to_call = getattr(response_message, "tool_calls", None)
@@ -1520,28 +1591,7 @@ class ToolCallingLLM:
                                 data=tool_result_dict,
                             )
                         else:
-                            # No approval flow exists in this conversation, so
-                            # the error must state that nothing was executed OR
-                            # queued: a bare "requires approval" reads as if an
-                            # approval is now pending, and the model then tells
-                            # the user the command is waiting for a human to
-                            # approve it, which is false.
-                            original_error = (
-                                tool_call_result.result.error
-                                or "This tool call requires approval."
-                            )
-                            tool_call_result.result.status = (
-                                StructuredToolResultStatus.ERROR
-                            )
-                            tool_call_result.result.error = (
-                                "Tool call rejected: it requires human approval, "
-                                "and approval is not available in this conversation. "
-                                f"({original_error}) "
-                                "The command was NOT executed and NOT submitted or queued for approval - "
-                                "nothing is waiting for anyone's approval. "
-                                "Do not tell the user the command was submitted or is awaiting approval. "
-                                "Instead, explain that you cannot run this command in this conversation and why."
-                            )
+                            self._mark_approval_unavailable(tool_call_result)
                             tool_result_dict = tool_call_result.to_client_dict()
 
                             tool_calls.append(tool_result_dict)
@@ -1589,7 +1639,11 @@ class ToolCallingLLM:
 
                 # Emit updated token counts after tool results
                 yield self._emit_token_count(
-                    messages, tools, full_response, limit_result, metadata, stats
+                    messages, tools, full_response,
+                limit_result.max_context_size,
+                limit_result.maximum_output_token,
+                metadata,
+                stats,
                 )
 
                 # Mark any pending frontend tool calls in assistant messages

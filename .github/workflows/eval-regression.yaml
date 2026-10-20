@@ -33,6 +33,10 @@ on:
         description: 'Number of iterations (1-10)'
         required: false
         default: '1'
+      engines:
+        description: 'Agent engine(s) to compare (legacy, openai_agents, pydantic_ai, langgraph). Comma-separated; empty runs the default engine.'
+        required: false
+        default: ''
       is_pr_trusted:
         description: 'Allow running on fork PRs (use with caution - grants fork code access to secrets)'
         required: false
@@ -311,6 +315,7 @@ jobs:
               markers: /^[a-zA-Z0-9_\- ()]*$/,
               filter: /^[a-zA-Z0-9_\- ]*$/,
               iterations: /^[0-9]+$/,
+              engines: /^[a-z_, ]*$/,
               pr_number: /^[0-9]*$/,
               branch: /^[a-zA-Z0-9_.\/-]*$/
             };
@@ -325,7 +330,7 @@ jobs:
             }
 
             function parseComment(body) {
-              const params = { model: '', markers: '', filter: '', iterations: '1', branch: '' };
+              const params = { model: '', markers: '', filter: '', iterations: '1', branch: '', engines: '' };
               const validKeys = new Set(Object.keys(params));
               // Aliases: tag/tags -> markers (preferred), marker -> markers (legacy), filters/filter -> filter (legacy), id -> filter (preferred)
               const keyAliases = { tag: 'markers', tags: 'markers', marker: 'markers', filters: 'filter', filter: 'filter', id: 'filter' };
@@ -342,7 +347,7 @@ jobs:
               return params;
             }
 
-            let model, markers, filter, iterations, isManual, triggerSource, prNumber, triggeredBy, branch, displayBranch;
+            let model, markers, filter, iterations, engines, isManual, triggerSource, prNumber, triggeredBy, branch, displayBranch;
             let skipEval = false;
             const event = context.eventName;
 
@@ -357,6 +362,7 @@ jobs:
               markers = validate(parsed.markers, 'markers');
               filter = validate(parsed.filter, 'filter');
               iterations = validate(parsed.iterations, 'iterations');
+              engines = validate(parsed.engines, 'engines');
               branch = validate(parsed.branch, 'branch');
               if ([model, markers, filter, iterations, branch].includes(null)) return;
               // displayBranch shows what branch we're testing: override branch or PR branch
@@ -412,6 +418,7 @@ jobs:
               markers = validate(${{ toJSON(github.event.inputs.markers) }} || '', 'markers');
               filter = validate(${{ toJSON(github.event.inputs.filter) }} || '', 'filter');
               iterations = validate(${{ toJSON(github.event.inputs.iterations) }} || '', 'iterations');
+              engines = validate(${{ toJSON(github.event.inputs.engines) }} || '', 'engines');
               const prNum = validate(${{ toJSON(github.event.inputs.pr_number) }} || '', 'pr_number');
               const isPrTrusted = ${{ toJSON(github.event.inputs.is_pr_trusted) }} === 'true';
               branch = ''; // workflow_dispatch doesn't support branch override yet
@@ -578,6 +585,10 @@ jobs:
             core.setOutput('markers', markers || '');
             core.setOutput('filter', filter);
             core.setOutput('iterations', iterNum.toString());
+            // Each engine becomes an ENV_CONFIGS entry so the eval suite runs every
+            // test once per engine and reports them side by side.
+            const engineList = (engines || '').split(',').map(e => e.trim()).filter(Boolean);
+            core.setOutput('env_configs', engineList.map(e => `${e}:AGENT_ENGINE=${e}`).join('|'));
             core.setOutput('is_manual', isManual.toString());
             core.setOutput('trigger_source', triggerSource);
             core.setOutput('pr_number', prNumber ? prNumber.toString() : '');
@@ -1245,6 +1256,7 @@ jobs:
           AWS_REGION_NAME: ${{ vars.AWS_REGION_NAME }}
           MODEL: ${{ steps.eval-params.outputs.model }}
           ITERATIONS: ${{ steps.eval-params.outputs.iterations }}
+          ENV_CONFIGS: ${{ steps.eval-params.outputs.env_configs }}
           CLASSIFIER_MODEL: ${{ vars.CLASSIFIER_MODEL || 'gpt-4.1' }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
