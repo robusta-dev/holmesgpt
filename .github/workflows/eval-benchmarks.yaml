@@ -263,7 +263,9 @@ jobs:
 
       - name: Notify Slack on failure or cancellation
         # github.event.inputs.notify is empty on scheduled runs, so they always notify
-        if: steps.run-benchmarks.outcome != 'success' && (github.ref_name == 'master' || github.ref_name == 'main') && github.event.inputs.notify != 'false'
+        # failure()/cancelled() needed: without a status-check function GitHub
+        # implies success(), which skips this step exactly when it should run
+        if: (failure() || cancelled()) && steps.run-benchmarks.outcome != 'success' && (github.ref_name == 'master' || github.ref_name == 'main') && github.event.inputs.notify != 'false'
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
