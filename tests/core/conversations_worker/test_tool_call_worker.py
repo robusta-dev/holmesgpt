@@ -112,7 +112,7 @@ def _worker_with_tool(exposed_instances: Optional[list], is_core=False):
     executor._tool_to_toolset = {"probe": toolset}
 
     config = MagicMock()
-    config.create_tool_executor.return_value = executor
+    config.create_server_tool_executor.return_value = executor
     config._get_llm.return_value = MagicMock(spec=LLM)
 
     return ToolCallWorker(dal=MagicMock(), config=config, holmes_id="h-test")
@@ -429,7 +429,7 @@ def _approval_worker(behavior):
     executor._tool_to_toolset = {"bash": toolset}
 
     config = MagicMock()
-    config.create_tool_executor.return_value = executor
+    config.create_server_tool_executor.return_value = executor
     config._get_llm.return_value = MagicMock(spec=LLM)
 
     return ToolCallWorker(dal=MagicMock(), config=config, holmes_id="h-test"), tool
