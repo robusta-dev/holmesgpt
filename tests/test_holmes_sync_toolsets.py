@@ -647,6 +647,35 @@ def test_contract_hash_ignores_the_order_of_enum_values_and_union_types():
     ) == _hash({"q": ToolParameter(type=["null", "string"], enum=[None, "b", "a"])})
 
 
+def test_contract_hash_keeps_the_primary_type_first():
+    # The first non-null type is what the formatter publishes and what
+    # coerce_params converts arguments to.
+    assert _hash({"q": ToolParameter(type=["string", "integer"])}) != _hash(
+        {"q": ToolParameter(type=["integer", "string"])}
+    )
+    assert _hash({"q": ToolParameter(type=["string", "integer", "boolean"])}) == _hash(
+        {"q": ToolParameter(type=["string", "boolean", "integer"])}
+    )
+    assert _hash({"q": ToolParameter(type=["null", "string"])}) == _hash(
+        {"q": ToolParameter(type=["string", "null"])}
+    )
+
+
+def test_contract_hash_treats_an_empty_enum_like_none():
+    assert _hash({"q": ToolParameter(type="string", enum=[])}) == _hash(
+        {"q": ToolParameter(type="string")}
+    )
+
+
+def test_contract_hash_treats_array_shorthand_like_items():
+    assert _hash({"q": ToolParameter(type="array[string]")}) == _hash(
+        {"q": ToolParameter(type="array", items=ToolParameter(type="string"))}
+    )
+    assert _hash({"q": ToolParameter(type="array[string]")}) != _hash(
+        {"q": ToolParameter(type="array[integer]")}
+    )
+
+
 def test_contract_hash_treats_an_explicit_default_like_an_unset_field():
     assert _hash({"q": ToolParameter(type="string", required=True)}) == _hash(
         {"q": ToolParameter()}

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import yaml
 import logging
 from datetime import datetime
@@ -101,6 +102,9 @@ def _schema_contract(schema: Any) -> Any:
     return contract
 
 
+_ARRAY_OF = re.compile(r"^array\[(?P<inner>\w+)\]$")
+
+
 def _parameter_contract(param: ToolParameter) -> dict:
     # exclude_defaults: a field added to ToolParameter later leaves the hash of
     # every parameter that does not set it unchanged.
@@ -109,9 +113,29 @@ def _parameter_contract(param: ToolParameter) -> dict:
         exclude_none=True,
         exclude_defaults=True,
     )
-    for key in ("enum", "type"):
-        if isinstance(contract.get(key), list):
-            contract[key] = _canonical_order(contract[key])
+    # An empty enum constrains nothing: the formatter omits it and nothing
+    # validates against it.
+    if not contract.get("enum"):
+        contract.pop("enum", None)
+    if isinstance(contract.get("enum"), list):
+        contract["enum"] = _canonical_order(contract["enum"])
+    if isinstance(contract.get("type"), list):
+        # The first non-null type is both what the formatter publishes and what
+        # coerce_params converts to, so it keeps its place; the rest only say
+        # what else the tool accepts.
+        types = contract["type"]
+        others = [t for t in types if t != "null"]
+        contract["type"] = (
+            [param.primary_type]
+            + _canonical_order(others[1:])
+            + (["null"] if "null" in types else [])
+        )
+    raw_type = contract.get("type")
+    array_of = _ARRAY_OF.match(raw_type) if isinstance(raw_type, str) else None
+    if array_of and param.items is None:
+        # "array[string]" publishes the same schema as an array of strings.
+        contract["type"] = "array"
+        contract["items"] = _parameter_contract(ToolParameter(type=array_of["inner"]))
     for key in ("additional_properties", "json_schema_extra"):
         if key in contract:
             contract[key] = _schema_contract(contract[key])
