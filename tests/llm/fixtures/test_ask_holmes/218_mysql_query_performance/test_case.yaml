@@ -18,7 +18,7 @@ include_tool_calls: true
 tags:
   - db-connectors
 
-setup_timeout: 120
+setup_timeout: 300
 
 port_forwards:
   - namespace: app-218
