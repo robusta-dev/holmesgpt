@@ -36,6 +36,11 @@ on:
         required: false
         type: boolean
         default: false
+      notify:
+        description: 'Send Slack notifications when the run finishes. Uncheck for quiet bulk runs.'
+        required: false
+        type: boolean
+        default: true
 
   # Run weekly on Sunday at 2 AM UTC
   schedule:
@@ -240,7 +245,8 @@ jobs:
           fi
 
       - name: Notify Slack on success
-        if: steps.run-benchmarks.outcome == 'success' && (github.ref_name == 'master' || github.ref_name == 'main')
+        # github.event.inputs.notify is empty on scheduled runs, so they always notify
+        if: steps.run-benchmarks.outcome == 'success' && (github.ref_name == 'master' || github.ref_name == 'main') && github.event.inputs.notify != 'false'
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
@@ -256,7 +262,10 @@ jobs:
             -d "{\"channel\": \"#backend\", \"text\": \"${TEXT}\"}"
 
       - name: Notify Slack on failure or cancellation
-        if: steps.run-benchmarks.outcome != 'success' && (github.ref_name == 'master' || github.ref_name == 'main')
+        # github.event.inputs.notify is empty on scheduled runs, so they always notify
+        # failure()/cancelled() needed: without a status-check function GitHub
+        # implies success(), which skips this step exactly when it should run
+        if: (failure() || cancelled()) && steps.run-benchmarks.outcome != 'success' && (github.ref_name == 'master' || github.ref_name == 'main') && github.event.inputs.notify != 'false'
         env:
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
         run: |
