@@ -10,6 +10,8 @@ expected_output:
 tags:
   - question-answer
   - kubernetes
+  # Setup needs the `vela` CLI, which is not installed on the CI runner
+  - no-cicd
 
 include_tool_calls: true
 
