@@ -1,7 +1,6 @@
 """HolmesStatus heartbeat capability flags for the platform UI's internal
 request kinds (oauth_callback / holmes_logs)."""
 
-import json
 from dataclasses import asdict
 from unittest.mock import MagicMock, patch
 
@@ -24,7 +23,7 @@ def _published_metadata(realtime_available):
         "holmes.utils.holmes_status._detect_runner_namespace", return_value="ns"
     ):
         update_holmes_status_in_db(dal, _config(), realtime_available=realtime_available)
-    return json.loads(dal.upsert_holmes_status.call_args[0][0]["metadata"])
+    return dal.upsert_holmes_status.call_args[0][0]["metadata"]
 
 
 def test_flags_published_once_realtime_verified():
@@ -48,7 +47,7 @@ def test_flags_off_when_conversation_worker_disabled():
         "holmes.utils.holmes_status._detect_runner_namespace", return_value=None
     ):
         update_holmes_status_in_db(dal, _config(), realtime_available=True)
-    metadata = json.loads(dal.upsert_holmes_status.call_args[0][0]["metadata"])
+    metadata = dal.upsert_holmes_status.call_args[0][0]["metadata"]
     assert metadata["supports_oauth_via_realtime"] is False
     assert metadata["supports_holmes_logs"] is False
 

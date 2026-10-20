@@ -140,6 +140,8 @@ def update_holmes_status_in_db(
             "cluster_id": config.cluster_name,
             "model": json.dumps(config.get_models_list()),
             "version": get_version(),
-            "metadata": json.dumps(asdict(metadata)),
+            # jsonb column: a json.dumps'd value is stored as a JSON string, not
+            # an object, and `metadata->>'key'` reads NULL from it.
+            "metadata": asdict(metadata),
         }
     )

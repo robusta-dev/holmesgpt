@@ -379,9 +379,11 @@ def test_heartbeat_advertises_the_refreshed_catalog(mock_cluster, monkeypatch):
 
     upserted = dal.upsert_holmes_status.call_args[0][0]
     assert json.loads(upserted["model"]) == ["Playtika-sonnet-5"]
+    # Sent as an object so the jsonb column holds one, not a JSON string.
+    assert isinstance(upserted["metadata"], dict)
     # This agent reads the catalog, so it reads the opt-out; the platform's
     # settings page tells such agents from the rest by this flag.
-    assert json.loads(upserted["metadata"])["honors_robusta_ai_disabled"] is True
+    assert upserted["metadata"]["honors_robusta_ai_disabled"] is True
 
 
 @patch("holmes.core.llm.ROBUSTA_AI", True)
@@ -407,7 +409,7 @@ def test_heartbeat_does_not_claim_the_opt_out_when_the_catalog_is_not_read(
         update_holmes_status_in_db(dal, config)
 
     upserted = dal.upsert_holmes_status.call_args[0][0]
-    assert json.loads(upserted["metadata"])["honors_robusta_ai_disabled"] is False
+    assert upserted["metadata"]["honors_robusta_ai_disabled"] is False
 
 
 # ---------------------------------------------------------------------------
