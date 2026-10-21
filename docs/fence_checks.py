@@ -6,9 +6,9 @@ MkDocs build does not run it, and needs none of Helm, Holmes or this module. The
 Kubernetes checks are `docs/chart_checks.py`'s, which needs no Holmes; this module adds Holmes's.
 
 The chart passes `toolsets`, `mcp_servers` (with the servers of the enabled `mcpAddons`) and
-`modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so their contents change
-the render; Holmes's own loaders check them, from the rendered ConfigMap, with each `<placeholder>`
-replaced as a reader replaces it.
+`modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so the keys under them are
+Holmes's, not the chart's; Holmes's own loaders check them, from the rendered ConfigMap, with each
+`<placeholder>` replaced as a reader replaces it.
 """
 
 import copy
@@ -37,6 +37,9 @@ PLACEHOLDER_RE = re.compile(r"<[A-Za-z0-9_-]+>")
 
 # The release name the docs' commands install the chart as.
 RELEASE = "holmes"
+
+# The values the chart passes on to Holmes, which reads the keys under them.
+PASSED_TO_HOLMES = ("toolsets", "mcp_servers", "modelList")
 
 
 @contextmanager
@@ -220,7 +223,7 @@ def check_fence(values: dict, environment: Dict[str, str], chart_dir: Path) -> L
     empty = empty_value(values)
     if empty:
         return [f"`{key_path(empty)}` has no value"]
-    render, errors = check_chart(chart_dir, values, RELEASE)
+    render, errors = check_chart(chart_dir, values, RELEASE, PASSED_TO_HOLMES)
     if render is None:
         return errors
     return errors + _holmes_errors(render, environment)

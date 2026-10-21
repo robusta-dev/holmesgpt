@@ -32,8 +32,10 @@ A robusta-region fence opens at the start of a line or indented by four spaces, 
 `yaml`, `bash` or `json`. A `multi-instance` body has `toolset`, `name` and `config`. Every other
 fence is a code block, opened and closed by three backticks at any indent, its opening naming one
 of `CODE_LANGUAGES` or none. Any other fence line (another info string or case, superfences'
-`{.<name>}`, `~~~`, more backticks) fails the build with a message naming the page and the line,
-and so do a body that is not valid YAML, an empty value, and a page whose rendered HTML shows
+`{.<name>}`, `~~~`, more backticks) fails the build with a message naming the page and the line.
+A tab line outside a code block is `=== "<label>"`, at the start of a line or indented by a
+multiple of four spaces; any other line starting with `===` (`===+`, `===!`, a setext heading's
+underline) fails the build the same way, and so do a body that is not valid YAML, an empty value, and a page whose rendered HTML shows
 a fence's markdown instead of its tabs (`on_post_page`). This module reads only files and imports
 nothing from `holmes`; `docs/fence_checks.py` checks each fence's Helm values against the chart,
 the Kubernetes API and Holmes, from tests/docs.
@@ -274,6 +276,9 @@ SUPPORTED_OPENING_RE = re.compile(
     rf"|^(?:    )?```(?P<region>{ROBUSTA_REGION_FENCE})(?: \{{lang=(?:yaml|bash|json)\}})?$"
 )
 CLOSING_LINE = "```"
+# A line pymdownx.tabbed could read as a tab, in any form, and the form pages write.
+TAB_LINE_RE = re.compile(r"^[ \t>]*===")
+SUPPORTED_TAB_LINE_RE = re.compile(r'^(?:    )*=== "[^"]+"$')
 # A line pymdownx.snippets reads as an include, in any form ...
 INCLUDE_RE = re.compile(r"^[ \t>]*;*-+8<-+")
 # ... and the form pages write.
@@ -708,10 +713,14 @@ def _unsupported(page: str, line: int, text: str, of: str = "a custom fence") ->
 
 def _check_fence_lines(lines: List[str], page: str, offset: int) -> None:
     """Fail the build on a line of `lines`, which start `offset` lines into the page's
-    source, that opens or closes a fence in a form no page writes."""
+    source, that opens or closes a fence, or outside a code block starts a tab, in a form
+    no page writes."""
+    code = set(_code_block_lines(lines, 0, len(lines)))
     for i, line in enumerate(lines):
         if FENCE_LINE_RE.match(line) and not (CODE_FENCE_RE.match(line) or SUPPORTED_OPENING_RE.match(line)):
             raise _unsupported(page, offset + i + 1, line, "a fence")
+        if TAB_LINE_RE.match(line) and not SUPPORTED_TAB_LINE_RE.match(line) and i not in code:
+            raise _unsupported(page, offset + i + 1, line, "a tab line")
 
 
 def _code_block_lines(lines: List[str], start: int, end: int) -> List[int]:

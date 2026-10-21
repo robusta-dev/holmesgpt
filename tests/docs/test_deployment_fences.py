@@ -2,7 +2,6 @@ import os
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import markdown
@@ -154,6 +153,22 @@ def test_a_fence_opening_in_a_form_no_page_writes_fails_the_build(tmp_path, monk
     monkeypatch.chdir(REPO)
     with pytest.raises(TabFenceError, match=rf"^index\.md:3: unsupported form of a fence: {re.escape(repr(opening))}"):
         build_page(tmp_path, f"{opening}\nmodelList:\n  gpt:\n    api_key: \"{{{{ env.OPENAI_API_KEY }}}}\"\n```\n")
+
+
+@pytest.mark.parametrize(
+    "line",
+    ['===+ "Holmes CLI"', '===! "Holmes CLI"', "=== Holmes CLI", '==="Holmes CLI"', '  === "Holmes CLI"', '=== "Holmes CLI" ', "====="],
+    ids=["open", "select", "unquoted", "no-space", "indent", "trailing-space", "setext-underline"],
+)
+def test_a_tab_line_in_a_form_no_page_writes_fails_the_build(tmp_path, monkeypatch, line):
+    monkeypatch.chdir(REPO)
+    with pytest.raises(TabFenceError, match=rf"^index\.md:3: unsupported form of a tab line: {re.escape(repr(line))}"):
+        build_page(tmp_path, f"{line}\n\n    Run holmes.\n")
+
+
+def test_a_tab_line_in_a_code_block_is_code(tmp_path, monkeypatch):
+    monkeypatch.chdir(REPO)
+    build_page(tmp_path, "```text\n=====\n```\n")
 
 
 INCLUDE = '--8<-- "snippets/toolsets_that_provide_logging.md"\n\n'
@@ -340,11 +355,15 @@ def test_the_chart_the_kubernetes_schemas_and_holmes_take_every_helm_tab_of_a_pa
 @pytest.mark.parametrize(
     "values, error",
     [
-        ({"crdPermissions": {"argoo": True}}, r"`crdPermissions\.argoo`: the render does not depend on its value$"),
+        ({"crdPermissions": {"argoo": True}}, r"`crdPermissions\.argoo` is not a key path of the chart's values\.yaml$"),
         (
-            # Any non-empty string is truthy, so the chart's `if` takes it as true either way.
-            {"namespaceScopedRBAC": "false"},
-            r"`namespaceScopedRBAC`: the render does not depend on its value$",
+            {"mcpAddons": {"github": {"enabled": True, "auth": {"secretName": "s"}, "config": {"customCACert": {"enable": True}}}}},
+            r"`mcpAddons\.github\.config\.customCACert\.enable` is not a key path of the chart's values\.yaml$",
+        ),
+        (
+            # The chart's default is a list of strings.
+            {"mcpAddons": {"kubernetesRemediation": {"enabled": True, "approvalRequiredTools": [{"name": "x"}]}}},
+            r"`mcpAddons\.kubernetesRemediation\.approvalRequiredTools\[0\]\.name` is not a key path of the chart's values\.yaml$",
         ),
         (
             {"additionalEnvVars": [{"value": "30"}]},
@@ -356,31 +375,50 @@ def test_the_chart_the_kubernetes_schemas_and_holmes_take_every_helm_tab_of_a_pa
             {"additionalVolumeMounts": [{"name": "x", "mountPath": "/x", "mountPth": "/x"}]},
             r"the rendered Deployment holmes-holmes does not match .*: Additional properties are not allowed \('mountPth' was unexpected\)",
         ),
-        (
-            # The addon's pod template carries a checksum of its config, which hashes the key too.
-            {"mcpAddons": {"github": {"enabled": True, "auth": {"secretName": "s"}, "config": {"customCACert": {"enable": True}}}}},
-            r"`mcpAddons\.github\.config\.customCACert\.enable`: the render does not depend on its value$",
-        ),
-        (
-            # The addon's Secret holds a token the chart generates at random on each render.
-            {"mcpAddons": {"kubernetesRemediation": {"enabled": True, "config": {"dcgmEnabeld": True}}}},
-            r"`mcpAddons\.kubernetesRemediation\.config\.dcgmEnabeld`: the render does not depend on its value$",
-        ),
-        (
-            # A template reads `clientId` only when `authMethod` is workload-identity or managed-identity.
-            {"mcpAddons": {"azure": {"enabled": True, "config": {"authMethod": "service-principal", "clientId": "c"}}}},
-            r"`mcpAddons\.azure\.config\.clientId`: the render does not depend on its value$",
-        ),
     ],
-    ids=[
-        "unread-key", "string-for-a-bool", "kubernetes-schema", "helm-refuses", "undeclared-field",
-        "unread-key-in-a-checksum", "unread-key-beside-a-random-token",
-        "read-under-a-condition-the-values-do-not-meet",
-    ],
+    ids=["unknown-key", "unknown-nested-key", "key-in-a-list-of-strings", "kubernetes-schema", "helm-refuses", "undeclared-field"],
 )
 def test_a_value_the_chart_or_kubernetes_refuses_is_an_error(values, error):
-    errors = fence_checks.check_fence(values, {}, CHART)
+    _, errors = chart_checks.check_chart(CHART, values, fence_checks.RELEASE, fence_checks.PASSED_TO_HOLMES)
     assert len(errors) == 1 and re.match(error, errors[0]), errors
+
+
+def test_every_dead_key_is_an_error_of_one_render(monkeypatch):
+    """The keys pages have shipped that no template reads, in one fence."""
+    render = chart_checks._render
+    renders = []
+
+    def counted(chart_dir, values, release):
+        renders.append(values)
+        return render(chart_dir, values, release)
+
+    monkeypatch.setattr(chart_checks, "_render", counted)
+    values = {
+        "config": {"x": "y"},
+        "podLabels": {"team": "sre"},
+        "extraVolumes": [{"name": "x", "emptyDir": {"medium": "Memory"}}],
+        "customToolsets": {"x": {"enabled": True}},
+    }
+    assert fence_checks.check_fence(values, {}, CHART) == [
+        f"`{key}` is not a key path of the chart's values.yaml" for key in values
+    ]
+    assert len(renders) == 1
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        {"serviceAccount": {"annotations": {"eks.amazonaws.com/role-arn": "arn:aws:iam::1:role/holmes"}}},
+        {"tolerations": [{"key": "dedicated", "operator": "Exists", "effect": "NoSchedule"}]},
+        {"nodeSelector": {"kubernetes.io/os": "linux"}},
+        {"toolsets": {"newrelic": {"enabled": True, "config": {"nr_account_id": "1"}}}},
+        {"mcpAddons": {"kubernetesRemediation": {"enabled": True, "approvalRequiredTools": ["run_kubectl_command"]}}},
+    ],
+    ids=["under-an-empty-mapping", "under-an-empty-list", "under-null", "passed-to-holmes", "a-list-of-strings"],
+)
+def test_any_key_resolves_under_a_free_form_default(values):
+    _, errors = chart_checks.check_chart(CHART, values, fence_checks.RELEASE, fence_checks.PASSED_TO_HOLMES)
+    assert errors == []
 
 
 @pytest.mark.parametrize(
@@ -397,58 +435,12 @@ def test_an_empty_value_is_an_error_off_the_pages_too(values, path):
 
 
 def chart(directory: Path, template: str) -> Path:
-    """A chart in `directory` with one template."""
+    """A chart in `directory` with no values and one template."""
     (directory / "templates").mkdir()
     (directory / "Chart.yaml").write_text("apiVersion: v2\nname: test\nversion: 0.1.0\n")
+    (directory / "values.yaml").write_text("")
     (directory / "templates" / "object.yaml").write_text(template)
     return directory
-
-
-def test_a_value_no_template_reads_is_an_error_beside_a_time_that_moves_on(tmp_path, monkeypatch):
-    """Each render of a changed value starts a second after the render before it, so its time
-    differs from that of every render of the fence's own values before it."""
-    values = {"read": "x", "unread": "y"}
-    time_and_read = chart(
-        tmp_path,
-        'apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: holmes\n'
-        'data:\n  rendered: {{ now | date "15:04:05" | quote }}\n  read: {{ .Values.read | quote }}\n',
-    )
-    render = chart_checks._render
-
-    def a_second_later(chart_dir, changed, release):
-        if changed != values:
-            time.sleep(1.1)
-        return render(chart_dir, changed, release)
-
-    monkeypatch.setattr(chart_checks, "_render", a_second_later)
-    assert fence_checks.check_fence(values, {}, time_and_read) == [
-        "`unread`: the render does not depend on its value"
-    ]
-
-
-def test_values_whose_renders_differ_in_their_number_of_lines_are_an_error(tmp_path, monkeypatch):
-    """The second render of the fence's own values has one more line, as a chart that writes a
-    random number of lines can give it."""
-    values = {"read": "x", "unread": "y"}
-    read = chart(
-        tmp_path, "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: holmes\ndata:\n  read: {{ .Values.read | quote }}\n"
-    )
-    render = chart_checks._render
-    renders_of_values = 0
-
-    def a_line_more_the_second_time(chart_dir, changed, release):
-        nonlocal renders_of_values
-        result = render(chart_dir, changed, release)
-        if changed == values:
-            renders_of_values += 1
-            if renders_of_values == 2:
-                result.stdout += "  line: line\n"
-        return result
-
-    monkeypatch.setattr(chart_checks, "_render", a_line_more_the_second_time)
-    assert fence_checks.check_fence(values, {}, read) == [
-        "two renders of these values differ in their number of lines, so which values the chart reads cannot be told"
-    ]
 
 
 def test_a_rendered_kind_with_no_kubernetes_schema_is_an_error(tmp_path):

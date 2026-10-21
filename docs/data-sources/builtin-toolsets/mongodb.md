@@ -76,6 +76,7 @@ toolsets:
 ---
 secret:
   - --from-literal=PROD_MONGO_URL='mongodb://holmes_readonly:your_secure_password@mongo.example.com:27017/mydb'
+  - --from-literal=ANALYTICS_MONGO_URL='mongodb://analyst:your_secure_password@analytics-mongo.example.com:27017/analytics'
 ```
 
 ## Configuration Options
