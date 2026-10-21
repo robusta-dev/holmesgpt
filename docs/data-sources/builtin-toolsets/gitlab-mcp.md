@@ -257,7 +257,7 @@ mcpAddons:
       secretName: "holmes-gitlab-mcp"
     config:
       # Hard allowlist — only these tools are exposed
-      tools: "get_file_contents,list_commits,get_pipeline,get_pipeline_jobs,get_job_logs"
+      tools: "get_file_contents,list_commits,get_pipeline,list_pipeline_jobs,get_pipeline_job_output"
 ```
 
 See the [`@zereight/mcp-gitlab` documentation](https://github.com/zereight/gitlab-mcp) for the full list of available toolsets and tools.
