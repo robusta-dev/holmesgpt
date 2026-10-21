@@ -427,134 +427,59 @@ kubectl create secret generic mcp-k8s-credentials \
 
 Replace `<DEX_ISSUER_URL>` with your Dex issuer URL (for example `https://dex.example.com`). All three Dex URLs below derive from the `issuer` in your Dex config: the server-side `authorization_url` is the issuer itself, and the Holmes-side `authorization_url` and `token_url` are the issuer followed by `/auth` and `/token`. The `offline_access` scope lets Dex issue refresh tokens, so users don't have to sign in again every time their token expires. Some connectors ignore it, notably the SAML connector.
 
-=== "Holmes Helm Chart"
+```yaml-helm-values
+# Inject the Dex client secret as an env var so the OAuth flow can read it.
+additionalEnvVars:
+  - name: MCP_OAUTH_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: mcp-k8s-credentials
+        key: client-secret
 
-    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+# Disable built-in Kubernetes toolsets — they run with the Holmes pod's
+# ServiceAccount, which would bypass per-user RBAC.
+toolsets:
+  kubernetes/core:
+    enabled: false
+  kubernetes/logs:
+    enabled: false
+  bash:
+    enabled: false
 
-    ```yaml
-    # Inject the Dex client secret as an env var so the OAuth flow can read it.
-    additionalEnvVars:
-      - name: MCP_OAUTH_CLIENT_SECRET
-        valueFrom:
-          secretKeyRef:
-            name: mcp-k8s-credentials
-            key: client-secret
+mcpAddons:
+  kubernetes:
+    enabled: true
 
-    # Disable built-in Kubernetes toolsets — they run with the Holmes pod's
-    # ServiceAccount, which would bypass per-user RBAC.
-    toolsets:
-      kubernetes/core:
-        enabled: false
-      kubernetes/logs:
-        enabled: false
-      bash:
-        enabled: false
+    serviceAccount:
+      create: true
+      name: "k8s-mcp-sa"
+      createClusterRoleBinding: false
 
-    mcpAddons:
-      kubernetes:
+    config:
+      readOnly: true
+
+      # Server-side: validate each user's Dex token, then pass it through to the API server.
+      serverConfig: |
+        require_oauth = true
+        accept_opaque_tokens = false
+        cluster_auth_mode = "passthrough"
+        authorization_url = "<DEX_ISSUER_URL>"
+        oauth_audience = "mcp-k8s"
+
+      # Holmes-side: tells Holmes which OAuth endpoints to drive in the browser.
+      oauth:
         enabled: true
-
-        serviceAccount:
-          create: true
-          name: "k8s-mcp-sa"
-          createClusterRoleBinding: false
-
-        config:
-          readOnly: true
-
-          # Server-side: validate each user's Dex token, then pass it through to the API server.
-          serverConfig: |
-            require_oauth = true
-            accept_opaque_tokens = false
-            cluster_auth_mode = "passthrough"
-            authorization_url = "<DEX_ISSUER_URL>"
-            oauth_audience = "mcp-k8s"
-
-          # Holmes-side: tells Holmes which OAuth endpoints to drive in the browser.
-          oauth:
-            enabled: true
-            authorization_url: "<DEX_ISSUER_URL>/auth"
-            token_url:         "<DEX_ISSUER_URL>/token"
-            client_id: "mcp-k8s"
-            client_secret: "{{ env.MCP_OAUTH_CLIENT_SECRET }}"
-            scopes:
-              - "openid"
-              - "profile"
-              - "email"
-              - "groups"
-              - "offline_access"
-    ```
-
-    Apply the configuration:
-
-    ```bash
-    helm upgrade holmes robusta/holmes -f values.yaml
-    ```
-
-=== "Robusta Helm Chart"
-
-    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
-
-    ```yaml
-    holmes:
-      # Inject the Dex client secret as an env var so the OAuth flow can read it.
-      additionalEnvVars:
-        - name: MCP_OAUTH_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: mcp-k8s-credentials
-              key: client-secret
-
-      # Disable built-in Kubernetes toolsets — they run with the Holmes pod's
-      # ServiceAccount, which would bypass per-user RBAC.
-      toolsets:
-        kubernetes/core:
-          enabled: false
-        kubernetes/logs:
-          enabled: false
-        bash:
-          enabled: false
-
-      mcpAddons:
-        kubernetes:
-          enabled: true
-
-          serviceAccount:
-            create: true
-            name: "k8s-mcp-sa"
-            createClusterRoleBinding: false
-
-          config:
-            readOnly: true
-
-            # Server-side: validate each user's Dex token, then pass it through to the API server.
-            serverConfig: |
-              require_oauth = true
-              accept_opaque_tokens = false
-              cluster_auth_mode = "passthrough"
-              authorization_url = "<DEX_ISSUER_URL>"
-              oauth_audience = "mcp-k8s"
-
-            # Holmes-side: tells Holmes which OAuth endpoints to drive in the browser.
-            oauth:
-              enabled: true
-              authorization_url: "<DEX_ISSUER_URL>/auth"
-              token_url:         "<DEX_ISSUER_URL>/token"
-              client_id: "mcp-k8s"
-              client_secret: "{{ env.MCP_OAUTH_CLIENT_SECRET }}"
-              scopes:
-                - "openid"
-                - "profile"
-                - "email"
-                - "groups"
-                - "offline_access"
-    ```
-
-    Apply the configuration:
-
-    ```bash
-    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-    ```
+        authorization_url: "<DEX_ISSUER_URL>/auth"
+        token_url:         "<DEX_ISSUER_URL>/token"
+        client_id: "mcp-k8s"
+        client_secret: "{{ env.MCP_OAUTH_CLIENT_SECRET }}"
+        scopes:
+          - "openid"
+          - "profile"
+          - "email"
+          - "groups"
+          - "offline_access"
+```
 
 ### Optional: Dex behind a private CA
 
@@ -578,70 +503,27 @@ The MCP server takes the CA as PEM (the contents of `dex-ca.pem`) in `certificat
 
 Merge these into your values from Step 3:
 
-=== "Holmes Helm Chart"
+```yaml-helm-values
+# Dex CA, base64-encoded, for Holmes's own calls to Dex
+certificate: "<BASE64_DEX_CA>"
 
-    When using the **standalone Holmes Helm Chart**, update your `values.yaml`:
+mcpAddons:
+  kubernetes:
+    config:
+      # Dex CA as PEM; mounted at /etc/kubernetes-mcp-ca/ca.crt
+      certificateAuthority: |
+        -----BEGIN CERTIFICATE-----
+        <DEX_CA_PEM_LINES>
+        -----END CERTIFICATE-----
 
-    ```yaml
-    # Dex CA, base64-encoded, for Holmes's own calls to Dex
-    certificate: "<BASE64_DEX_CA>"
-
-    mcpAddons:
-      kubernetes:
-        config:
-          # Dex CA as PEM; mounted at /etc/kubernetes-mcp-ca/ca.crt
-          certificateAuthority: |
-            -----BEGIN CERTIFICATE-----
-            <DEX_CA_PEM_LINES>
-            -----END CERTIFICATE-----
-
-          serverConfig: |
-            require_oauth = true
-            accept_opaque_tokens = false
-            cluster_auth_mode = "passthrough"
-            authorization_url = "<DEX_ISSUER_URL>"
-            oauth_audience = "mcp-k8s"
-            certificate_authority = "/etc/kubernetes-mcp-ca/ca.crt"
-    ```
-
-    Apply the configuration:
-
-    ```bash
-    helm upgrade holmes robusta/holmes -f values.yaml
-    ```
-
-=== "Robusta Helm Chart"
-
-    When using the **Robusta Helm Chart** (which includes HolmesGPT), update your `generated_values.yaml`:
-
-    ```yaml
-    holmes:
-      # Dex CA, base64-encoded, for Holmes's own calls to Dex
-      certificate: "<BASE64_DEX_CA>"
-
-      mcpAddons:
-        kubernetes:
-          config:
-            # Dex CA as PEM; mounted at /etc/kubernetes-mcp-ca/ca.crt
-            certificateAuthority: |
-              -----BEGIN CERTIFICATE-----
-              <DEX_CA_PEM_LINES>
-              -----END CERTIFICATE-----
-
-            serverConfig: |
-              require_oauth = true
-              accept_opaque_tokens = false
-              cluster_auth_mode = "passthrough"
-              authorization_url = "<DEX_ISSUER_URL>"
-              oauth_audience = "mcp-k8s"
-              certificate_authority = "/etc/kubernetes-mcp-ca/ca.crt"
-    ```
-
-    Apply the configuration:
-
-    ```bash
-    helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
-    ```
+      serverConfig: |
+        require_oauth = true
+        accept_opaque_tokens = false
+        cluster_auth_mode = "passthrough"
+        authorization_url = "<DEX_ISSUER_URL>"
+        oauth_audience = "mcp-k8s"
+        certificate_authority = "/etc/kubernetes-mcp-ca/ca.crt"
+```
 
 ## Common Use Cases
 
