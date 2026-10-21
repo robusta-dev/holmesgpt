@@ -16,7 +16,7 @@ Pick the latest benchmark with the most iterations from `docs/development/evalua
 # Judges are model_list names, e.g. the CI secret MODEL_LIST_YAML
 export MODEL_LIST_FILE_LOCATION=/path/to/model_list.yaml
 poetry run python .claude/skills/benchmark-judge/benchmark_judge.py <run_id> \
-  --judges haiku-4.5,gpt-6.1-sol-medium,deepseek-v4-pro,opus-5.5-medium
+  --judges haiku-5.5-medium,gpt-6.1-sol-medium,deepseek-v4-pro,opus-5.5-medium
 ```
 
 The script sends each candidate the exact prompt the CI judge received (stored on the `scorer` span in Braintrust), and records the CI verdict as `gpt-4.1-ci`. Results go to `/tmp/benchmark-judge/<run_id>/<judge>.jsonl`; reruns only replay missing or failed prompts. Requires `BRAINTRUST_API_KEY`.
