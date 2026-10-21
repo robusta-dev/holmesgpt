@@ -1,18 +1,16 @@
 """
-The checks of Helm values against a chart and the Kubernetes API: every leaf of the values must
-change the chart's render when it changes, and every rendered object must match its Kubernetes
-schema. `check_chart` takes any chart directory, values and release name, so a caller with
-another chart runs it too; `docs/fence_checks.py` runs it on each Holmes Helm Chart tab and adds
-Holmes's own checks. This module imports nothing from `holmes`: it needs Helm on PATH,
-kubernetes-validate, PyYAML and `docs/custom_fences.py`.
+The checks of Helm values against a chart and the Kubernetes API: every key path of the values
+must be one the chart's `values.yaml` declares, and every object of the values' one render must
+match its Kubernetes schema. `check_chart` takes any chart directory, values and release name, so
+a caller with another chart runs it too; `docs/fence_checks.py` runs it on each Holmes Helm Chart
+tab and adds Holmes's own checks. This module imports nothing from `holmes`: it needs Helm on
+PATH, kubernetes-validate, PyYAML and `docs/custom_fences.py`.
 """
 
-import copy
 import shutil
 import subprocess
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Iterator, List, NamedTuple, Optional, Set, Tuple
+from typing import Collection, Iterator, List, NamedTuple, Optional
 
 import yaml  # type: ignore
 
@@ -49,72 +47,29 @@ def _render(chart_dir: Path, values: dict, release: str) -> subprocess.Completed
     )
 
 
-def _lines(render: str) -> List[str]:
-    # A checksum annotation hashes a whole values subtree, so it changes with a value no template reads.
-    return [line for line in render.split("\n") if "checksum/" not in line]
+def chart_defaults(chart_dir: Path, passed_on: Collection[str] = ()) -> dict:
+    """The chart's `values.yaml`, with each top-level value in `passed_on`, which the chart
+    passes on to another program that reads the keys under it, free-form."""
+    defaults = yaml.safe_load((chart_dir / "values.yaml").read_text()) or {}
+    return {**defaults, **dict.fromkeys(passed_on, {})}
 
 
-def _differing(lines: List[str], other: List[str]) -> Set[int]:
-    return {index for index, (line, other_line) in enumerate(zip(lines, other)) if line != other_line}
-
-
-def _leaves(node, path: tuple = ()) -> Iterator[Tuple[tuple, object]]:
-    """(key path, value) of every scalar under the mapping or list `node`, at any depth, list
-    items included. An empty mapping or list has no leaf, so nothing here checks it."""
-    for key, value in node.items() if isinstance(node, dict) else enumerate(node):
-        if isinstance(value, (dict, list)):
-            yield from _leaves(value, path + (key,))
-        else:
-            yield path + (key,), value
-
-
-def _changed(value):
-    """A value other than `value`: a bool flipped, a number plus one, and any other value a string."""
-    if isinstance(value, bool):
-        return not value
-    if isinstance(value, (int, float)):
-        return value + 1
-    return f"{value}-changed"
-
-
-def _with(values: dict, path: tuple, value) -> dict:
-    changed = copy.deepcopy(values)
-    node = changed
-    for key in path[:-1]:
-        node = node[key]
-    node[path[-1]] = value
-    return changed
-
-
-def _unread(chart_dir: Path, values: dict, release: str, render: str) -> List[str]:
-    """An error for each leaf of `values` whose change leaves the chart's `render` the same.
-    A change Helm refuses, or one that changes the number of lines, counts as read."""
-    leaves = list(_leaves(values))
-    if not leaves:
-        return []
-    base = _lines(render)
-
-    def differing(leaf) -> Optional[Set[int]]:
-        path, value = leaf
-        result = _render(chart_dir, _with(values, path, _changed(value)), release)
-        lines = _lines(result.stdout)
-        if result.returncode != 0 or len(lines) != len(base):
-            return None
-        return _differing(base, lines)
-
-    with ThreadPoolExecutor() as pool:
-        changes = list(pool.map(differing, leaves))
-    # Rendered after every change, so it differs from `base` at each line holding a random value,
-    # or a time that moved on while the changes rendered: a change there says nothing about a value.
-    again = _lines(_render(chart_dir, values, release).stdout)
-    if len(again) != len(base):
-        return ["two renders of these values differ in their number of lines, so which values the chart reads cannot be told"]
-    unstable = _differing(base, again)
-    return [
-        f"`{key_path(path)}`: the render does not depend on its value"
-        for (path, _), lines in zip(leaves, changes)
-        if lines is not None and lines <= unstable
-    ]
+def unresolved_key_paths(values, defaults, path: tuple = ()) -> Iterator[tuple]:
+    """Each key path of `values` that `defaults`, a chart's values, does not declare, at any
+    depth. Under a key whose default is an empty mapping or list, or null, any key resolves;
+    a list entry resolves against the first entry of its default."""
+    if defaults is None or defaults == {} or defaults == []:
+        return
+    if isinstance(values, dict):
+        for key, value in values.items():
+            if isinstance(defaults, dict) and key in defaults:
+                yield from unresolved_key_paths(value, defaults[key], path + (key,))
+            else:
+                yield path + (key,)
+    elif isinstance(values, list):
+        entry = defaults[0] if isinstance(defaults, list) else defaults
+        for index, value in enumerate(values):
+            yield from unresolved_key_paths(value, entry, path + (index,))
 
 
 def _schema_errors(render: str) -> List[str]:
@@ -146,17 +101,17 @@ class ChartCheck(NamedTuple):
     errors: List[str]
 
 
-def check_chart(chart_dir: Path, values: dict, release: str) -> ChartCheck:
+def check_chart(chart_dir: Path, values: dict, release: str, passed_on: Collection[str] = ()) -> ChartCheck:
     """The render of the chart in `chart_dir` with `values` as the release `release`, and what
-    the chart and the Kubernetes API refuse in the values. The values must render with
-    `helm template`, every leaf must change the render when it changes (else the render does
-    not depend on its value), and every rendered object must match its Kubernetes schema. A
-    line that differs between two renders of `values`, such as a random token or the time, is
-    not counted as a change."""
+    the chart and the Kubernetes API refuse in the values. Every key path must be one the
+    chart's `values.yaml` declares (`unresolved_key_paths`; under a top-level key in
+    `passed_on`, any key resolves), the values must render once with `helm template`, and
+    every rendered object must match its Kubernetes schema."""
+    errors = [
+        f"`{key_path(path)}` is not a key path of the chart's values.yaml"
+        for path in unresolved_key_paths(values, chart_defaults(chart_dir, passed_on))
+    ]
     result = _render(chart_dir, values, release)
     if result.returncode != 0:
-        return ChartCheck(None, [f"helm template fails: {result.stderr.strip()}"])
-    return ChartCheck(
-        result.stdout,
-        _unread(chart_dir, values, release, result.stdout) + _schema_errors(result.stdout),
-    )
+        return ChartCheck(None, errors + [f"helm template fails: {result.stderr.strip()}"])
+    return ChartCheck(result.stdout, errors + _schema_errors(result.stdout))

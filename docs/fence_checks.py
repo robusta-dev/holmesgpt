@@ -6,9 +6,9 @@ MkDocs build does not run it, and needs none of Helm, Holmes or this module. The
 Kubernetes checks are `docs/chart_checks.py`'s, which needs no Holmes; this module adds Holmes's.
 
 The chart passes `toolsets`, `mcp_servers` (with the servers of the enabled `mcpAddons`) and
-`modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so their contents change
-the render; Holmes's own loaders check them, from the rendered ConfigMap, with each `<placeholder>`
-replaced as a reader replaces it.
+`modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so the keys under them are
+Holmes's, not the chart's; Holmes's own loaders check them, from the rendered ConfigMap, with each
+`<placeholder>` replaced as a reader replaces it.
 """
 
 import copy
@@ -37,6 +37,9 @@ PLACEHOLDER_RE = re.compile(r"<[A-Za-z0-9_-]+>")
 
 # The release name the docs' commands install the chart as.
 RELEASE = "holmes"
+
+# The values the chart passes on to Holmes, which reads the keys under them.
+PASSED_TO_HOLMES = ("toolsets", "mcp_servers", "modelList")
 
 
 @contextmanager
@@ -176,13 +179,20 @@ def _filled(value):
 
 def _model_errors(model_list: dict) -> List[str]:
     """Each entry of the rendered `model_list.yaml` that Holmes refuses, loaded as Holmes
-    loads the file: its env references substituted, then validated as a `ModelEntry`."""
+    loads the file: its env references substituted, then validated as a `ModelEntry`. A key
+    below the entry's own keys that the model validated has no field for is refused too; the
+    entry's own extra keys are not, as `ModelEntry` passes them on to LiteLLM."""
     errors = []
     for name, entry in model_list.items():
         try:
-            ModelEntry.model_validate(replace_env_vars_values(entry))
+            substituted = replace_env_vars_values(entry)
+            validated = ModelEntry.model_validate(substituted)
         except ValueError as e:
             errors.append(f"model_list.yaml `{name}`: Holmes refuses it: {e}")
+            continue
+        nested = [(path, model) for path, model in _undeclared(substituted, validated) if len(path) > 1]
+        if nested:
+            errors.append(f"model_list.yaml `{name}`: {_not_fields(nested)}")
     return errors
 
 
@@ -220,7 +230,7 @@ def check_fence(values: dict, environment: Dict[str, str], chart_dir: Path) -> L
     empty = empty_value(values)
     if empty:
         return [f"`{key_path(empty)}` has no value"]
-    render, errors = check_chart(chart_dir, values, RELEASE)
+    render, errors = check_chart(chart_dir, values, RELEASE, PASSED_TO_HOLMES)
     if render is None:
         return errors
     return errors + _holmes_errors(render, environment)
