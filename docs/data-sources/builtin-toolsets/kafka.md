@@ -105,7 +105,7 @@ This toolset uses the AdminClient of the [confluent-kafka python library](https:
 
 ### mTLS — certificate files (Kubernetes mounted secrets)
 
-Use this approach when the certificates are files: on your machine with the CLI, or in Kubernetes, mounted into the Holmes pod from a secret. Replace each `/path/to/` path with where the file is on your machine.
+Use this approach when the certificates are files: on your machine with the CLI, or in Kubernetes, mounted into the Holmes pod from a secret. With the CLI, the `/path/to/` paths in the config are paths on the machine that runs the CLI. With the Helm charts, the config paths are inside the Holmes pod (the secret's mount path), and the `/path/to/` paths in `kubectl create secret` are on the machine where you run `kubectl`.
 
 === "Holmes CLI"
 

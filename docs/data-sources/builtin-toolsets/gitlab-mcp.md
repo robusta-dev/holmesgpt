@@ -411,7 +411,7 @@ Reuses the `holmes-gitlab-mcp` secret created in the [Configuration](#configurat
           secretName: "holmes-gitlab-mcp"
         config:
           # Hard allowlist — only these tools are exposed
-          tools: "get_file_contents,list_commits,get_pipeline,get_pipeline_jobs,get_job_logs"
+          tools: "get_file_contents,list_commits,get_pipeline,list_pipeline_jobs,get_pipeline_job_output"
     ```
 
     Apply the configuration:
@@ -433,7 +433,7 @@ Reuses the `holmes-gitlab-mcp` secret created in the [Configuration](#configurat
             secretName: "holmes-gitlab-mcp"
           config:
             # Hard allowlist — only these tools are exposed
-            tools: "get_file_contents,list_commits,get_pipeline,get_pipeline_jobs,get_job_logs"
+            tools: "get_file_contents,list_commits,get_pipeline,list_pipeline_jobs,get_pipeline_job_output"
     ```
 
     Apply the configuration:
