@@ -785,6 +785,9 @@ Replace `<DEX_ISSUER_URL>` with your Dex issuer URL (for example `https://dex.ex
     helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
 
+!!! warning "`oauth_audience` is required"
+    Set `oauth_audience` in `serverConfig` to the same value as Holmes's `oauth.client_id` (`mcp-k8s` above). Without it the MCP server starts normally but rejects every token with `401 Unauthorized`, even right after a successful Dex login. If you write your own `serverConfig`, keep this line.
+
 ### Optional: Dex behind a private CA
 
 If Dex's certificate comes from a private CA (for example a cert-manager `Issuer` backed by Vault), the MCP server fails to start with `x509: certificate signed by unknown authority`. Both the MCP server and Holmes call Dex, so give both the CA. A CA certificate is public, so it is safe to keep in your values; never copy the private key (`tls.key`).
@@ -871,6 +874,22 @@ Merge these into your values from Step 3:
     ```bash
     helm upgrade robusta robusta/robusta -f generated_values.yaml --set clusterName=<YOUR_CLUSTER_NAME>
     ```
+
+### Troubleshooting Dex login
+
+If the Dex login succeeds but Holmes reports `401 Unauthorized` from the MCP server, read the MCP server log. Holmes words this as `OAuth credentials expired ... removing cached token` for any 401, even when the token is fresh. The chart logs authentication failures by default (`mcpAddons.kubernetes.config.logLevel: "1"`); on an older chart, set that value yourself.
+
+```bash
+kubectl logs -n <holmes-namespace> -l app.kubernetes.io/name=k8s-mcp-server --tail=-1 | grep "Authentication failed"
+```
+
+| Log message contains | Cause and fix |
+|---|---|
+| `oidc: invalid configuration, clientID must be provided` | `oauth_audience` is missing from `serverConfig`. Add it, set to Holmes's `oauth.client_id`. |
+| `invalid audience claim (aud)` | The token's `aud` does not contain `oauth_audience`. Set `oauth_audience` to Holmes's `oauth.client_id`. If the API server uses a different Dex client, see the note in Step 1. |
+| `missing or invalid bearer token` | The request carried no token. Expected before the first login. |
+
+If the MCP server pod does not start and its log shows `x509: certificate signed by unknown authority`, see [Dex behind a private CA](#optional-dex-behind-a-private-ca).
 
 ## Common Use Cases
 
