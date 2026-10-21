@@ -184,8 +184,8 @@ def _model_errors(model_list: dict) -> List[str]:
     entry's own extra keys are not, as `ModelEntry` passes them on to LiteLLM."""
     errors = []
     for name, entry in model_list.items():
-        substituted = replace_env_vars_values(entry)
         try:
+            substituted = replace_env_vars_values(entry)
             validated = ModelEntry.model_validate(substituted)
         except ValueError as e:
             errors.append(f"model_list.yaml `{name}`: Holmes refuses it: {e}")
