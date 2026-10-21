@@ -384,6 +384,7 @@ class ConversationProcessor:
                 model=chat_request.model,
                 tracer=server_tracer,
                 tool_results_dir=tool_results_dir,
+                conversation_id=task.conversation_id,
             )
 
             request_ai = self._inject_frontend_tools(ai, chat_request, task)
