@@ -179,13 +179,20 @@ def _filled(value):
 
 def _model_errors(model_list: dict) -> List[str]:
     """Each entry of the rendered `model_list.yaml` that Holmes refuses, loaded as Holmes
-    loads the file: its env references substituted, then validated as a `ModelEntry`."""
+    loads the file: its env references substituted, then validated as a `ModelEntry`. A key
+    below the entry's own keys that the model validated has no field for is refused too; the
+    entry's own extra keys are not, as `ModelEntry` passes them on to LiteLLM."""
     errors = []
     for name, entry in model_list.items():
+        substituted = replace_env_vars_values(entry)
         try:
-            ModelEntry.model_validate(replace_env_vars_values(entry))
+            validated = ModelEntry.model_validate(substituted)
         except ValueError as e:
             errors.append(f"model_list.yaml `{name}`: Holmes refuses it: {e}")
+            continue
+        nested = [(path, model) for path, model in _undeclared(substituted, validated) if len(path) > 1]
+        if nested:
+            errors.append(f"model_list.yaml `{name}`: {_not_fields(nested)}")
     return errors
 
 

@@ -3,6 +3,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import markdown
 import pytest
@@ -13,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from docs import chart_checks, custom_fences, fence_checks
 from docs.custom_fences import SUPPORTED_OPENING_RE, TabFenceError
 from holmes.config import Config
+from holmes.core.llm import ModelEntry
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
@@ -576,6 +578,25 @@ def with_tool(**fields) -> dict:
 def test_a_value_holmes_refuses_is_an_error(values, error):
     errors = fence_checks.check_fence(values, {}, CHART)
     assert len(errors) == 1 and re.match(error, errors[0], re.DOTALL), errors
+
+
+class Thinking(BaseModel):
+    budget_tokens: int
+
+
+class EntryWithThinking(ModelEntry):
+    """A ModelEntry with a nested model, which ModelEntry itself has none of."""
+
+    thinking: Optional[Thinking] = None
+
+
+def test_a_model_entry_keeps_its_own_extra_keys_and_refuses_an_undeclared_nested_key(monkeypatch):
+    monkeypatch.setattr(fence_checks, "ModelEntry", EntryWithThinking)
+    entry = {"model": "bedrock/anthropic.claude-sonnet-4-20250514-v1:0", "aws_region_name": "us-east-1"}
+    assert fence_checks.check_fence({"modelList": {"sonnet": {**entry, "thinking": {"budget_tokens": 1}}}}, {}, CHART) == []
+    assert fence_checks.check_fence({"modelList": {"sonnet": {**entry, "thinking": {"budget_tokens": 1, "type": "enabled"}}}}, {}, CHART) == [
+        "model_list.yaml `sonnet`: `thinking.type` is not a field of Thinking"
+    ]
 
 
 def fence_of(text: str) -> custom_fences.DeploymentFence:
