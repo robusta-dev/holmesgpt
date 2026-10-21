@@ -13,7 +13,8 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from langgraph.config import get_stream_writer
 from pydantic import ConfigDict, Field
 
-from holmes.core.engines.langgraph.messages import RAW_KEY, to_openai_dicts
+from holmes.core.engines import AgentPauseRequested
+from holmes.core.engines.langgraph.messages import RAW_KEY
 from holmes.core.engines.langgraph.tools import HolmesLangChainTool
 from holmes.core.llm_usage import extract_usage_from_response
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -48,6 +49,19 @@ class HolmesChatModel(BaseChatModel):
     @property
     def _identifying_params(self) -> Dict[str, Any]:
         return {"model": self.engine.llm.model}
+
+    def _token_count_event(self) -> StreamMessage:
+        run = self.run
+        engine = self.engine
+        return engine._emit_token_count(
+            run.messages,
+            run.last_tools,
+            run.last_response,
+            run.max_context_size or engine.llm.get_context_window_size(),
+            run.maximum_output_token or engine.llm.get_maximum_output_token(),
+            run.metadata,
+            run.stats,
+        )
 
     def bind_tools(
         self,
@@ -85,24 +99,28 @@ class HolmesChatModel(BaseChatModel):
             logging.debug(f"Coercing tool_choice {kwargs.get('tool_choice')!r} to 'auto'")
         tool_choice = "auto" if tools else None
 
-        chat_messages = to_openai_dicts(messages)
+        # run.messages is the authoritative transcript (the graph's messages are
+        # the same conversation, minus compaction and pending placeholders).
         writer = get_stream_writer()
         if run.last_response is not None:
             # Token count after the previous turn's tool results (legacy parity).
             # Emitted here rather than on the tools node's update: LangGraph may
             # deliver a worker thread's custom events after that update.
-            writer(
-                engine._emit_token_count(
-                    run.messages,
-                    run.last_tools,
-                    run.last_response,
-                    engine.llm.get_context_window_size(),
-                    engine.llm.get_maximum_output_token(),
-                    run.metadata,
-                    run.stats,
-                )
-            )
+            writer(self._token_count_event())
+        if run.has_pending:
+            raise AgentPauseRequested(run.pending_approvals, run.pending_frontend_calls)
+
         run.iteration += 1
+        with run.lock:
+            chat_messages = list(run.messages)
+        chat_messages, metadata, limit_result = engine._compact_before_call(
+            chat_messages, tools, run.stats, run.metadata, run.guard, writer
+        )
+        with run.lock:
+            run.messages = chat_messages
+            run.metadata.update(metadata)
+            run.max_context_size = limit_result.max_context_size
+            run.maximum_output_token = limit_result.maximum_output_token
         full_response, _ = engine._run_llm_iteration(
             messages=chat_messages,
             tools=tools,
@@ -122,17 +140,7 @@ class HolmesChatModel(BaseChatModel):
             run.last_response = full_response
             run.last_tools = tools
 
-        writer(
-            engine._emit_token_count(
-                run.messages,
-                tools,
-                full_response,
-                engine.llm.get_context_window_size(),
-                engine.llm.get_maximum_output_token(),
-                run.metadata,
-                run.stats,
-            )
-        )
+        writer(self._token_count_event())
 
         tool_calls: List[ToolCall] = []
         invalid: List[InvalidToolCall] = []

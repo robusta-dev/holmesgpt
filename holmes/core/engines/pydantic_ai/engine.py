@@ -22,10 +22,11 @@ from pydantic_ai.messages import FunctionToolResultEvent, ToolReturnPart
 from pydantic_ai.usage import RunUsage, UsageLimits
 from pydantic_graph import End
 
-from holmes.core.engines.pydantic_ai.convert import chat_to_model_messages, model_messages_to_chat
+from holmes.core.engines import AgentPauseRequested
+from holmes.core.engines.pydantic_ai.convert import chat_to_model_messages
+from holmes.core.engines.pydantic_ai.run_state import PydanticRunState
 from holmes.core.engines.pydantic_ai.model import HolmesPydanticModel
 from holmes.core.engines.pydantic_ai.toolset import HolmesToolset
-from holmes.core.llm_usage import RequestStats
 from holmes.core.models import FrontendToolResult, ToolApprovalDecision
 from holmes.core.tool_calling_llm import LLMInterruptedError, ToolCallingLLM
 from holmes.core.tracing import DummySpan
@@ -86,30 +87,37 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
 
         loop = asyncio.new_event_loop()
         events: "asyncio.Queue[Any]" = asyncio.Queue()
-        stats = RequestStats()
-        metadata: Dict[Any, Any] = {"engine": self.engine_id}
+        run = PydanticRunState(
+            emit=events.put_nowait,
+            enable_tool_approval=enable_tool_approval,
+            all_tool_calls=all_tool_calls,
+        )
+        run.metadata["engine"] = self.engine_id
+        stats = run.stats
+        metadata = run.metadata
         executor = ThreadPoolExecutor(max_workers=_TOOL_WORKERS, thread_name_prefix="holmes-tool")
         model = HolmesPydanticModel(
             self,
+            run,
             response_format=response_format,
             trace_span=trace_span,
             cancel_event=cancel_event,
             max_steps=self.max_steps,
-            stats=stats,
         )
         toolset = HolmesToolset(
             self,
+            run,
             request_context=request_context,
             trace_span=trace_span,
             cancel_event=cancel_event,
             max_steps=self.max_steps,
             tool_number_offset=tool_number_offset,
             executor=executor,
+            model=model,
             start_tool_callback=lambda name, call_id: events.put_nowait(
                 StreamMessage(event=StreamEvents.START_TOOL, data={"tool_name": name, "id": call_id})
             ),
         )
-        toolset.all_tool_calls = all_tool_calls
         agent = Agent(
             model,
             output_type=[str, None],  # an empty answer is a valid end, as in the legacy loop
@@ -125,8 +133,8 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                 messages_for_count,
                 record.tools,
                 record.raw_response,
-                self.llm.get_context_window_size(),
-                self.llm.get_maximum_output_token(),
+                run.max_context_size or self.llm.get_context_window_size(),
+                run.maximum_output_token or self.llm.get_maximum_output_token(),
                 metadata,
                 stats,
             )
@@ -141,6 +149,7 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                     usage_limits=UsageLimits(request_limit=self.max_steps),
                     usage=RunUsage(requests=iteration_offset),
                 ) as agent_run:
+                    holder["agent_run"] = agent_run
                     node = agent_run.next_node
                     while not isinstance(node, End):
                         if cancel_event and cancel_event.is_set():
@@ -151,9 +160,15 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                             async with node.stream(agent_run.ctx) as stream:
                                 async for event in stream:
                                     if isinstance(event, FunctionToolResultEvent):
-                                        events.put_nowait(self._tool_result_event(event.part))
+                                        tool_event = self._tool_result_event(event.part)
+                                        if tool_event is not None:
+                                            events.put_nowait(tool_event)
                             events.put_nowait(
-                                token_count(model_messages_to_chat(agent_run.ctx.state.message_history))
+                                token_count(
+                                    model.render_history(
+                                        agent_run.ctx.state.message_history, run.pending_call_ids
+                                    )
+                                )
                             )
                         node = await agent_run.next(node)
                         if Agent.is_call_tools_node(node):
@@ -175,7 +190,7 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                                 )
                     result = agent_run.result
                     assert result is not None
-                    holder["messages"] = model_messages_to_chat(result.all_messages())
+                    holder["messages"] = model.render_history(result.all_messages())
                     holder["num_llm_calls"] = result.usage.requests
             except BaseException as e:  # noqa: BLE001 - re-raised on the generator
                 holder["error"] = e
@@ -202,9 +217,22 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                     break
                 yield item
 
-            error = holder.get("error")
+            error = _unwrap(holder["error"]) if holder.get("error") is not None else None
+            if isinstance(error, AgentPauseRequested):
+                agent_run = holder["agent_run"]
+                history = model.render_history(
+                    agent_run.ctx.state.message_history, run.pending_call_ids
+                )
+                yield self._build_pause_event(
+                    history,
+                    error.pending_approvals,
+                    error.pending_frontend_calls,
+                    model.iteration + iteration_offset,
+                    stats,
+                )
+                return
             if error is not None:
-                raise self._map_error(_unwrap(error), model.iteration + iteration_offset)
+                raise self._map_error(error, model.iteration + iteration_offset)
 
             messages = holder["messages"]
             last_record = model.records[-1]
@@ -219,7 +247,7 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                     "content": content,
                     "messages": messages,
                     "metadata": metadata,
-                    "tool_calls": toolset.all_tool_calls,
+                    "tool_calls": run.all_tool_calls,
                     "num_llm_calls": holder["num_llm_calls"],
                     "prompt": json.dumps(messages, indent=2),
                     "costs": stats.model_dump(),
@@ -239,8 +267,10 @@ class PydanticAIToolCallingLLM(ToolCallingLLM):
                 loop.close()
 
     @staticmethod
-    def _tool_result_event(part: Any) -> StreamMessage:
-        if isinstance(part, ToolReturnPart) and part.metadata:
+    def _tool_result_event(part: Any) -> Optional[StreamMessage]:
+        if isinstance(part, ToolReturnPart) and isinstance(part.metadata, dict):
+            if part.metadata.get("holmes_pending"):
+                return None  # already emitted (approval) or not emitted at all (frontend)
             return StreamMessage(event=StreamEvents.TOOL_RESULT, data=part.metadata)
         # Pydantic AI produced this itself (e.g. an unknown tool name retry prompt).
         return StreamMessage(

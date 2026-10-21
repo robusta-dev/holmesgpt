@@ -722,8 +722,6 @@ class Config(RobustaBaseConfig):
         tool_results_dir: Optional[Path] = None,
         on_event: EventCallback = None,
         engine: Optional[str] = None,
-        needs_legacy_engine: bool = False,
-        needs_legacy_reason: str = "",
     ) -> "ToolCallingLLM":
         """
         Create a ToolCallingLLM with explicit behavioral controls.
@@ -764,13 +762,7 @@ class Config(RobustaBaseConfig):
                 tool_results_dir=tool_results_dir,
             )
         """
-        engine_id = resolve_engine(
-            engine,
-            self.agent_engine,
-            needs_legacy=needs_legacy_engine,
-            reason=needs_legacy_reason,
-        )
-        engine_class = get_engine_class(engine_id)
+        engine_class = get_engine_class(resolve_engine(engine, self.agent_engine))
 
         # Create LLM first so model info appears during toolset loading
         llm = self._get_llm(model_key=model, tracer=tracer, on_event=on_event)

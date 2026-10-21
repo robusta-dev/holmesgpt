@@ -14,8 +14,9 @@ from langchain.agents import create_agent
 from langgraph.errors import GraphRecursionError
 from pydantic import BaseModel
 
+from holmes.core.engines import AgentPauseRequested
 from holmes.core.engines.langgraph.chat_model import HolmesChatModel
-from holmes.core.engines.langgraph.messages import from_openai_dicts
+from holmes.core.engines.langgraph.messages import bookkeeping_messages
 from holmes.core.engines.langgraph.middleware import HolmesLoopMiddleware
 from holmes.core.engines.langgraph.run_state import LangGraphRunState
 from holmes.core.engines.langgraph.tools import build_langchain_tools
@@ -64,6 +65,7 @@ class LangGraphToolCallingLLM(ToolCallingLLM):
             request_context=request_context,
             trace_span=trace_span,
             max_steps=self.max_steps,
+            enable_tool_approval=enable_tool_approval,
             tool_number_offset=tool_number_offset,
             iteration=iteration_offset,
             all_tool_calls=all_tool_calls,
@@ -80,7 +82,7 @@ class LangGraphToolCallingLLM(ToolCallingLLM):
             middleware=[HolmesLoopMiddleware(self, run)],
             name="holmes",
         )
-        lc_input = from_openai_dicts(run.messages)
+        lc_input = bookkeeping_messages(run.messages)
         remaining = max(self.max_steps - iteration_offset, 1)
         config = {
             # One model step plus one tools step per iteration, plus slack.
@@ -96,6 +98,12 @@ class LangGraphToolCallingLLM(ToolCallingLLM):
                     yield chunk
                 if cancel_event and cancel_event.is_set():
                     raise LLMInterruptedError()
+        except AgentPauseRequested as pause:
+            yield self._build_pause_event(
+                run.messages, pause.pending_approvals, pause.pending_frontend_calls,
+                run.iteration, run.stats,
+            )
+            return
         except GraphRecursionError as e:
             raise Exception(
                 f"Too many LLM calls - exceeded max_steps: {run.iteration}/{self.max_steps}"

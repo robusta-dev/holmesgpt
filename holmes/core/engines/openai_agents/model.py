@@ -17,6 +17,7 @@ from openai.types.responses import (
 )
 from openai.types.responses.response_usage import InputTokensDetails, OutputTokensDetails
 
+from holmes.core.engines import AgentPauseRequested
 from holmes.core.engines.openai_agents.run_state import AgentRunState
 from holmes.core.llm_usage import extract_usage_from_response
 from holmes.utils.stream import StreamEvents, StreamMessage
@@ -77,6 +78,9 @@ class HolmesOpenAIAgentsModel(Model):
             call_id = item.get("call_id")
             if not call_id or call_id in self.run.absorbed_call_ids:
                 continue
+            if call_id in self.run.pending_call_ids:
+                # Waiting for a human or the client; no tool message until then.
+                continue
             self.run.absorbed_call_ids.add(call_id)
             result = self.run.results.get(call_id)
             if result is None:
@@ -107,14 +111,15 @@ class HolmesOpenAIAgentsModel(Model):
         return await invoke_holmes_tool(self.engine, self.run, call_id, name, arguments)
 
     def _token_count_event(self) -> StreamMessage:
+        run = self.run
         return self.engine._emit_token_count(
-            self.run.messages,
-            self.run.last_tools,
-            self.run.last_response,
-            self.engine.llm.get_context_window_size(),
-            self.engine.llm.get_maximum_output_token(),
-            self.run.metadata,
-            self.run.stats,
+            run.messages,
+            run.last_tools,
+            run.last_response,
+            run.max_context_size or self.engine.llm.get_context_window_size(),
+            run.maximum_output_token or self.engine.llm.get_maximum_output_token(),
+            run.metadata,
+            run.stats,
         )
 
     async def get_response(
@@ -141,6 +146,8 @@ class HolmesOpenAIAgentsModel(Model):
         if run.last_response is not None:
             # Token count after the previous turn's tool results (legacy parity).
             run.emit(self._token_count_event())
+        if run.has_pending:
+            raise AgentPauseRequested(run.pending_approvals, run.pending_frontend_calls)
 
         run.iteration += 1
         i = run.iteration
@@ -155,6 +162,21 @@ class HolmesOpenAIAgentsModel(Model):
                 self._set_agent_tools(holmes_tools)
         llm_tools = None if i == self.max_steps else holmes_tools
         tool_choice = "auto" if llm_tools else None
+
+        # Compaction mutates the shadow history; the SDK's own items are bookkeeping.
+        compacted, metadata, limit_result = await asyncio.to_thread(
+            self.engine._compact_before_call,
+            run.messages,
+            llm_tools,
+            run.stats,
+            run.metadata,
+            run.guard,
+            run.emit,
+        )
+        run.messages = compacted
+        run.metadata.update(metadata)
+        run.max_context_size = limit_result.max_context_size
+        run.maximum_output_token = limit_result.maximum_output_token
 
         full_response, _ = await asyncio.to_thread(
             self.engine._run_llm_iteration,

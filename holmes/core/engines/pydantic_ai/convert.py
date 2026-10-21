@@ -144,7 +144,12 @@ def _user_part_to_content(part: UserPromptPart) -> Any:
     return blocks
 
 
-def model_messages_to_chat(messages: List[ModelMessage]) -> List[dict]:
+def model_messages_to_chat(
+    messages: List[ModelMessage], skip_tool_call_ids: Optional[set] = None
+) -> List[dict]:
+    """Convert back to OpenAI dicts; tool returns in ``skip_tool_call_ids`` (pending
+    approvals or frontend tools) are left out, as the legacy loop leaves them out."""
+    skip = skip_tool_call_ids or set()
     out: List[dict] = []
     for message in messages:
         if isinstance(message, ModelResponse):
@@ -160,6 +165,8 @@ def model_messages_to_chat(messages: List[ModelMessage]) -> List[dict]:
             elif isinstance(part, UserPromptPart):
                 out.append({"role": "user", "content": _user_part_to_content(part)})
             elif isinstance(part, ToolReturnPart):
+                if part.tool_call_id in skip:
+                    continue
                 content = part.content
                 if not isinstance(content, (str, list)):
                     content = part.model_response_str()

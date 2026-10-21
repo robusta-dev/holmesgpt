@@ -10,10 +10,9 @@ from holmes.core.engines import (
     EngineNotInstalledError,
     UnknownEngineError,
     get_engine_class,
-    legacy_requirement,
     resolve_engine,
 )
-from holmes.core.models import ChatRequest, FrontendToolDefinition
+from holmes.core.models import ChatRequest
 from holmes.core.tool_calling_llm import ToolCallingLLM
 
 
@@ -35,27 +34,11 @@ def test_resolve_order_request_then_config_then_legacy():
     assert resolve_engine("langgraph", "pydantic_ai") == "langgraph"
 
 
-def test_resolve_falls_back_to_legacy_when_required():
-    assert resolve_engine("langgraph", None, needs_legacy=True, reason="x") == LEGACY_ENGINE
-    assert resolve_engine(LEGACY_ENGINE, None, needs_legacy=True) == LEGACY_ENGINE
-
-
 def test_missing_package_gives_install_hint(monkeypatch):
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
     with pytest.raises(EngineNotInstalledError) as exc:
         get_engine_class("openai_agents")
     assert "poetry install --with engine-openai-agents" in str(exc.value)
-
-
-def test_legacy_requirement():
-    assert legacy_requirement() is None
-    assert legacy_requirement(enable_tool_approval=True) == "tool approvals"
-    assert legacy_requirement(tool_decisions=[object()]) == "resuming from tool decisions"
-    assert legacy_requirement(frontend_tool_results=[object()]) == "resuming from frontend tool results"
-    pause = FrontendToolDefinition(name="t", description="d", mode="pause")
-    noop = FrontendToolDefinition(name="t", description="d", mode="noop")
-    assert legacy_requirement(frontend_tools=[noop]) is None
-    assert legacy_requirement(frontend_tools=[noop, pause]) == "pause-mode frontend tools"
 
 
 def test_with_executor_keeps_engine_subclass():

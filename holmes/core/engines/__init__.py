@@ -8,7 +8,6 @@ by id; everything above ``call_stream`` is unchanged.
 
 import importlib
 import importlib.util
-import logging
 from typing import TYPE_CHECKING, Optional, Type
 
 if TYPE_CHECKING:
@@ -100,48 +99,21 @@ def get_engine_class(engine_id: str) -> Type["ToolCallingLLM"]:
     return getattr(module, class_name)
 
 
-def resolve_engine(
-    requested: Optional[str],
-    config_default: Optional[str],
-    *,
-    needs_legacy: bool = False,
-    reason: str = "",
-) -> str:
-    """Pick the engine for a request.
+def resolve_engine(requested: Optional[str], config_default: Optional[str]) -> str:
+    """Pick the engine for a request: per-request value, then the configured default, then legacy."""
+    return validate_engine_id(requested or config_default or LEGACY_ENGINE)
 
-    Order: per-request value, then the configured default, then legacy.
-    Features the new engines do not support yet (tool approvals, pause-mode
-    frontend tools, resumes) force the legacy engine.
+
+class AgentPauseRequested(Exception):
+    """Raised inside a harness engine's model adapter to stop the run for a pause.
+
+    The tool wrappers record pending approvals and frontend tool calls while
+    the harness runs its tool batch; when the harness asks for the next model
+    call the adapter raises this instead, and the engine turns it into the
+    APPROVAL_REQUIRED event the legacy loop emits after its own batch.
     """
-    engine_id = validate_engine_id(requested or config_default or LEGACY_ENGINE)
-    if needs_legacy and engine_id != LEGACY_ENGINE:
-        logging.info(
-            f"Agent engine {engine_id!r} does not support {reason or 'this request'}; "
-            f"falling back to the {LEGACY_ENGINE!r} engine"
-        )
-        return LEGACY_ENGINE
-    return engine_id
 
-
-def legacy_requirement(
-    *,
-    enable_tool_approval: bool = False,
-    tool_decisions: Optional[list] = None,
-    frontend_tool_results: Optional[list] = None,
-    frontend_tools: Optional[list] = None,
-) -> Optional[str]:
-    """Return why a request must run on the legacy engine, or None.
-
-    The harness engines implement the plain loop only; anything that pauses
-    the stream or resumes it from client state is legacy-only for now.
-    """
-    if enable_tool_approval:
-        return "tool approvals"
-    if tool_decisions:
-        return "resuming from tool decisions"
-    if frontend_tool_results:
-        return "resuming from frontend tool results"
-    for tool in frontend_tools or []:
-        if getattr(tool, "mode", "pause") == "pause":
-            return "pause-mode frontend tools"
-    return None
+    def __init__(self, pending_approvals: list, pending_frontend_calls: list) -> None:
+        super().__init__("agent run paused for approval or frontend tools")
+        self.pending_approvals = pending_approvals
+        self.pending_frontend_calls = pending_frontend_calls

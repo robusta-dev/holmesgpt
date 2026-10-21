@@ -58,7 +58,7 @@ from holmes.core.conversation_links import resolve_conversation_link
 from holmes.core.conversations import (
     build_chat_messages,
 )
-from holmes.core.engines import LEGACY_ENGINE, installed_engines, legacy_requirement
+from holmes.core.engines import LEGACY_ENGINE, installed_engines
 from holmes.core.models import (
     ChatRequest,
     ChatResponse,
@@ -654,12 +654,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
         storage = tool_result_storage()
         tool_results_dir = storage.__enter__()
 
-        legacy_reason = legacy_requirement(
-            enable_tool_approval=bool(chat_request.enable_tool_approval),
-            tool_decisions=chat_request.tool_decisions,
-            frontend_tool_results=chat_request.frontend_tool_results,
-            frontend_tools=chat_request.frontend_tools,
-        )
         ai = config.create_toolcalling_llm(
             dal=dal,
             toolset_tag_filter=SERVER_TOOLSET_TAGS,
@@ -670,8 +664,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
             tracer=server_tracer,
             tool_results_dir=tool_results_dir,
             engine=chat_request.engine,
-            needs_legacy_engine=bool(legacy_reason),
-            needs_legacy_reason=legacy_reason or "",
         )
 
         global_instructions = dal.get_global_instructions_for_account()
@@ -966,7 +958,7 @@ def get_info(detail: Optional[str] = None) -> InfoResponse:
             disabled=disabled_count,
         ),
         runbooks_count=len(runbook_names),
-        agent_engine=config.agent_engine or LEGACY_ENGINE,
+        agent_engine=config.agent_engine if isinstance(config.agent_engine, str) else LEGACY_ENGINE,
         installed_engines=installed_engines(),
     )
 

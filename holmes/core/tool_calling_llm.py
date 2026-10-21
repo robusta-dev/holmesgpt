@@ -281,6 +281,51 @@ def _is_robusta_refusal(llm: LLM, error: Exception) -> bool:
     )
 
 
+
+class RepeatCallGuard:
+    """Tool calls the repeat-call safeguard compares against.
+
+    ``tool_calls`` is mutated in place so references held by callers stay valid
+    when compaction narrows it down to the calls whose outputs overflowed.
+    """
+
+    def __init__(self) -> None:
+        self.tool_calls: list[dict] = []
+        self.guarded_tool_call_ids: set[str] = set()
+
+    def keep_only_overflowing(self, overflowing_tool_call_ids) -> None:
+        self.guarded_tool_call_ids.update(overflowing_tool_call_ids)
+        self.tool_calls[:] = [
+            call for call in self.tool_calls if call.get("tool_call_id") in self.guarded_tool_call_ids
+        ]
+
+
+def pending_approval_from_result(tool_call_result: ToolCallResult) -> PendingToolApproval:
+    return PendingToolApproval(
+        tool_call_id=tool_call_result.tool_call_id,
+        tool_name=tool_call_result.tool_name,
+        description=tool_call_result.description,
+        params=tool_call_result.result.params or {},
+    )
+
+
+def pending_frontend_from_result(tool_call_result: ToolCallResult) -> PendingFrontendToolCall:
+    return PendingFrontendToolCall(
+        tool_call_id=tool_call_result.tool_call_id,
+        tool_name=tool_call_result.tool_name,
+        arguments=tool_call_result.result.params or {},
+    )
+
+
+def frontend_call_dict_from_result(tool_call_result: ToolCallResult) -> dict:
+    """What ``tool_calls`` records for a paused frontend tool (no result yet)."""
+    return {
+        "tool_call_id": tool_call_result.tool_call_id,
+        "tool_name": tool_call_result.tool_name,
+        "name": tool_call_result.tool_name,
+    }
+
+
 class ToolCallingLLM:
     # Identifier used by holmes.core.engines to select this loop implementation.
     engine_id: str = "legacy"
@@ -1197,6 +1242,138 @@ class ToolCallingLLM:
             "Instead, explain that you cannot run this command in this conversation and why."
         )
 
+    @staticmethod
+    def _classify_tool_result(
+        tool_call_result: ToolCallResult, enable_tool_approval: bool
+    ) -> str:
+        """Decide what the loop does with a tool result.
+
+        Returns ``"pending_approval"`` (pause for a human; OAuth approvals always
+        pause because the user must authenticate), ``"pending_frontend"`` (pause
+        for the client to run the tool) or ``"done"``. An approval the
+        conversation cannot grant is rewritten to an error in place.
+        """
+        status = tool_call_result.result.status
+        if status == StructuredToolResultStatus.APPROVAL_REQUIRED:
+            is_oauth = "__oauth_metadata" in (tool_call_result.result.params or {})
+            if enable_tool_approval or is_oauth:
+                return "pending_approval"
+            ToolCallingLLM._mark_approval_unavailable(tool_call_result)
+            return "done"
+        if status == StructuredToolResultStatus.FRONTEND_PAUSE:
+            return "pending_frontend"
+        return "done"
+
+    def _build_pause_event(
+        self,
+        messages: list[dict],
+        pending_approvals: List[PendingToolApproval],
+        pending_frontend_calls: List[PendingFrontendToolCall],
+        num_llm_calls: int,
+        stats: RequestStats,
+    ) -> StreamMessage:
+        """Mark pending tool calls in the history and build the APPROVAL_REQUIRED event.
+
+        Approvals get a signed token bound to {id, name, args_hash}; the server
+        is stateless, so the history the client sends back is the only state.
+        """
+        for fc in pending_frontend_calls:
+            tool_call = self.find_assistant_tool_call_request(
+                tool_call_id=fc.tool_call_id, messages=messages
+            )
+            tool_call["pending_frontend"] = True
+
+        for approval in pending_approvals:
+            tool_call = self.find_assistant_tool_call_request(
+                tool_call_id=approval.tool_call_id, messages=messages
+            )
+            token = mint_token(
+                tool_call_id=tool_call["id"],
+                tool_name=tool_call.get("function", {}).get("name", ""),
+                args_json=tool_call.get("function", {}).get("arguments", ""),
+            )
+            tool_call["pending_approval"] = True
+            tool_call["approval_token"] = token
+
+        return StreamMessage(
+            event=StreamEvents.APPROVAL_REQUIRED,
+            data={
+                "content": None,
+                "messages": messages,
+                "pending_approvals": [approval.model_dump() for approval in pending_approvals],
+                "pending_frontend_tool_calls": [fc.model_dump() for fc in pending_frontend_calls],
+                "num_llm_calls": num_llm_calls,
+                "costs": stats.model_dump(),
+            },
+        )
+
+    def _compact_before_call(
+        self,
+        messages: list[dict],
+        tools: Optional[list],
+        stats: RequestStats,
+        metadata: Dict[Any, Any],
+        guard: "RepeatCallGuard",
+        emit: Callable[[StreamMessage], None],
+    ) -> tuple[list[dict], Dict[Any, Any], Any]:
+        """Compact the history if it is near the context window, before an LLM call.
+
+        Emits compaction events through ``emit`` as they happen (also before a
+        ``CompactionInsufficientError`` is re-raised), accounts compaction cost in
+        ``stats`` and keeps the repeat-call guard consistent with the compacted
+        history. Returns the messages to send, the merged metadata and the
+        limiter output (context-window limits and token counts).
+        """
+        compaction_start_event = check_compaction_needed(self.llm, messages, tools)
+        if compaction_start_event:
+            emit(compaction_start_event)
+
+        try:
+            limit_result = compact_if_necessary(llm=self.llm, messages=messages, tools=tools)
+        except CompactionInsufficientError as e:
+            for ev in e.events:
+                emit(ev)
+            if e.compaction_usage and e.compaction_usage.total_tokens > 0:
+                stats += e.compaction_usage
+            raise
+
+        for ev in limit_result.events:
+            emit(ev)
+        messages = limit_result.messages
+        metadata = metadata | limit_result.metadata
+
+        # After compaction, emit a fresh token count so clients can update
+        if limit_result.conversation_history_compacted:
+            emit(
+                build_stream_event_token_count(
+                    metadata={
+                        "tokens": limit_result.tokens.model_dump(),
+                        "max_tokens": limit_result.max_context_size,
+                        "max_output_tokens": limit_result.maximum_output_token,
+                    }
+                )
+            )
+
+        # Accumulate compaction costs
+        compaction = limit_result.compaction_usage
+        if compaction and compaction.total_tokens > 0:
+            compaction.num_compactions = 1
+            stats += compaction
+            cost_logger.debug(
+                f"Compaction cost (streaming): ${compaction.total_cost:.6f} | "
+                f"Tokens: {compaction.prompt_tokens} prompt + {compaction.completion_tokens} completion = {compaction.total_tokens} total"
+            )
+
+        if limit_result.conversation_history_compacted and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION:
+            # Outputs that overflowed the history would overflow it again if
+            # fetched again, compacting in a loop until max_steps (ROB-1519).
+            # Keep those calls, and the ones kept by earlier compactions, so
+            # repeating one is refused and the agent narrows its query; every
+            # other call may run again as before.
+            guard.keep_only_overflowing(limit_result.compaction_overflowing_tool_call_ids)
+
+        return messages, metadata, limit_result
+
     def _run_llm_iteration(
         self,
         messages: list[dict],
@@ -1388,8 +1565,8 @@ class ToolCallingLLM:
                 all_tool_calls.append(ev.data)
 
         messages: list[dict] = list(msgs) if msgs else []
-        tool_calls: list[dict] = []
-        guarded_tool_call_ids: set[str] = set()
+        guard = RepeatCallGuard()
+        tool_calls = guard.tool_calls  # the guard narrows this list in place after compaction
         tools: Optional[list] = self._get_tools()
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {"engine": self.engine_id}
@@ -1408,55 +1585,14 @@ class ToolCallingLLM:
             tools = None if i == max_steps else tools
             tool_choice = "auto" if tools else None
 
-            compaction_start_event = check_compaction_needed(self.llm, messages, tools)
-            if compaction_start_event:
-                yield compaction_start_event
-
+            compaction_events: list[StreamMessage] = []
             try:
-                limit_result = compact_if_necessary(
-                    llm=self.llm, messages=messages, tools=tools
+                messages, metadata, limit_result = self._compact_before_call(
+                    messages, tools, stats, metadata, guard, compaction_events.append
                 )
-            except CompactionInsufficientError as e:
-                yield from e.events
-                if e.compaction_usage and e.compaction_usage.total_tokens > 0:
-                    stats += e.compaction_usage
-                raise
-
-            yield from limit_result.events
-            messages = limit_result.messages
-            metadata = metadata | limit_result.metadata
-
-            # After compaction, emit a fresh token count so clients can update
-            if limit_result.conversation_history_compacted:
-                yield build_stream_event_token_count(
-                    metadata={
-                        "tokens": limit_result.tokens.model_dump(),
-                        "max_tokens": limit_result.max_context_size,
-                        "max_output_tokens": limit_result.maximum_output_token,
-                    }
-                )
-
-            # Accumulate compaction costs
-            compaction = limit_result.compaction_usage
-            if compaction and compaction.total_tokens > 0:
-                compaction.num_compactions = 1
-                stats += compaction
-                cost_logger.debug(
-                    f"Compaction cost (streaming): ${compaction.total_cost:.6f} | "
-                    f"Tokens: {compaction.prompt_tokens} prompt + {compaction.completion_tokens} completion = {compaction.total_tokens} total"
-                )
-
-            if (
-                limit_result.conversation_history_compacted
-                and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
-            ):
-                # Outputs that overflowed the history would overflow it again if
-                # fetched again, compacting in a loop until max_steps (ROB-1519).
-                # Keep those calls, and the ones kept by earlier compactions, so
-                # repeating one is refused and the agent narrows its query; every
-                # other call may run again as before.
-                guarded_tool_call_ids.update(limit_result.compaction_overflowing_tool_call_ids)
-                tool_calls = [call for call in tool_calls if call.get("tool_call_id") in guarded_tool_call_ids]
+            finally:
+                # Events collected before a CompactionInsufficientError still reach the client.
+                yield from compaction_events
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
@@ -1567,71 +1703,30 @@ class ToolCallingLLM:
 
                     tool_call_result: ToolCallResult = future.result()
 
+                    outcome = self._classify_tool_result(tool_call_result, enable_tool_approval)
                     tool_result_dict = tool_call_result.to_client_dict()
 
-                    if (
-                        tool_call_result.result.status
-                        == StructuredToolResultStatus.APPROVAL_REQUIRED
-                    ):
-                        # OAuth approvals are always sent to frontend (user must authenticate)
-                        is_oauth = "__oauth_metadata" in (tool_call_result.result.params or {})
-                        if enable_tool_approval or is_oauth:
-                            pending_approvals.append(
-                                PendingToolApproval(
-                                    tool_call_id=tool_call_result.tool_call_id,
-                                    tool_name=tool_call_result.tool_name,
-                                    description=tool_call_result.description,
-                                    params=tool_call_result.result.params or {},
-                                )
-                            )
-
-                            all_tool_calls.append(tool_result_dict)
-                            yield StreamMessage(
-                                event=StreamEvents.TOOL_RESULT,
-                                data=tool_result_dict,
-                            )
-                        else:
-                            self._mark_approval_unavailable(tool_call_result)
-                            tool_result_dict = tool_call_result.to_client_dict()
-
-                            tool_calls.append(tool_result_dict)
-                            all_tool_calls.append(tool_result_dict)
-                            messages.append(
-                                tool_call_result.to_llm_message(
-                                    supports_vision=self._supports_vision()
-                                )
-                            )
-
-                            yield StreamMessage(
-                                event=StreamEvents.TOOL_RESULT,
-                                data=tool_result_dict,
-                            )
-
-                    elif (
-                        tool_call_result.result.status
-                        == StructuredToolResultStatus.FRONTEND_PAUSE
-                    ):
-                        # Frontend tool — collect for pause, don't feed result to LLM
-                        pending_frontend_calls.append(
-                            PendingFrontendToolCall(
-                                tool_call_id=tool_call_result.tool_call_id,
-                                tool_name=tool_call_result.tool_name,
-                                arguments=tool_call_result.result.params or {},
-                            )
+                    if outcome == "pending_approval":
+                        pending_approvals.append(pending_approval_from_result(tool_call_result))
+                        all_tool_calls.append(tool_result_dict)
+                        yield StreamMessage(
+                            event=StreamEvents.TOOL_RESULT,
+                            data=tool_result_dict,
                         )
-                        frontend_call_dict = {
-                            "tool_call_id": tool_call_result.tool_call_id,
-                            "tool_name": tool_call_result.tool_name,
-                            "name": tool_call_result.tool_name,
-                        }
+                    elif outcome == "pending_frontend":
+                        # Frontend tool — collect for pause, don't feed result to LLM
+                        pending_frontend_calls.append(pending_frontend_from_result(tool_call_result))
+                        frontend_call_dict = frontend_call_dict_from_result(tool_call_result)
                         tool_calls.append(frontend_call_dict)
                         all_tool_calls.append(frontend_call_dict)
-
                     else:
                         tool_calls.append(tool_result_dict)
                         all_tool_calls.append(tool_result_dict)
-                        messages.append(tool_call_result.to_llm_message())
-
+                        messages.append(
+                            tool_call_result.to_llm_message(
+                                supports_vision=self._supports_vision()
+                            )
+                        )
                         yield StreamMessage(
                             event=StreamEvents.TOOL_RESULT,
                             data=tool_result_dict,
@@ -1646,47 +1741,12 @@ class ToolCallingLLM:
                 stats,
                 )
 
-                # Mark any pending frontend tool calls in assistant messages
-                if pending_frontend_calls:
-                    for fc in pending_frontend_calls:
-                        tool_call = self.find_assistant_tool_call_request(
-                            tool_call_id=fc.tool_call_id, messages=messages
-                        )
-                        tool_call["pending_frontend"] = True
-
-                # Mark any pending approval tool calls in assistant messages
-                # and mint a signed token bound to {id, name, args_hash}.
-                if pending_approvals:
-                    for approval in pending_approvals:
-                        tool_call = self.find_assistant_tool_call_request(
-                            tool_call_id=approval.tool_call_id, messages=messages
-                        )
-                        token = mint_token(
-                            tool_call_id=tool_call["id"],
-                            tool_name=tool_call.get("function", {}).get("name", ""),
-                            args_json=tool_call.get("function", {}).get("arguments", ""),
-                        )
-                        tool_call["pending_approval"] = True
-                        tool_call["approval_token"] = token
-
                 # If either type of pause is needed, emit a single APPROVAL_REQUIRED
                 # event that carries both pending_approvals and pending_frontend_tool_calls.
                 # The client checks which lists are populated and handles accordingly.
                 if pending_approvals or pending_frontend_calls:
-                    yield StreamMessage(
-                        event=StreamEvents.APPROVAL_REQUIRED,
-                        data={
-                            "content": None,
-                            "messages": messages,
-                            "pending_approvals": [
-                                approval.model_dump() for approval in pending_approvals
-                            ],
-                            "pending_frontend_tool_calls": [
-                                fc.model_dump() for fc in pending_frontend_calls
-                            ],
-                            "num_llm_calls": i,
-                            "costs": stats.model_dump(),
-                        },
+                    yield self._build_pause_event(
+                        messages, pending_approvals, pending_frontend_calls, i, stats
                     )
                     return
 

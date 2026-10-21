@@ -26,6 +26,7 @@ from agents import (
 )
 from pydantic import BaseModel
 
+from holmes.core.engines import AgentPauseRequested
 from holmes.core.engines.openai_agents.hooks import HolmesRunHooks
 from holmes.core.engines.openai_agents.model import HolmesOpenAIAgentsModel
 from holmes.core.engines.openai_agents.run_state import AgentRunState
@@ -44,38 +45,23 @@ _CANCEL_POLL_SECONDS = 0.25
 
 
 def _to_sdk_input_items(messages: List[dict]) -> List[dict]:
-    """Best-effort Responses-style view of the history for the SDK's bookkeeping.
+    """Text-only view of the history for the SDK's bookkeeping.
 
-    The SDK only needs something sensible here; the real transcript the LLM
-    sees is ``AgentRunState.messages``.
+    The real transcript the LLM sees is ``AgentRunState.messages``. Tool calls
+    and their outputs are deliberately left out: the SDK would otherwise treat
+    earlier calls (e.g. ones a resume just answered) as work to redo.
     """
     items: List[dict] = []
     for m in messages:
         role = m.get("role")
-        if role == "tool":
-            items.append(
-                {
-                    "type": "function_call_output",
-                    "call_id": m.get("tool_call_id", ""),
-                    "output": _as_text(m.get("content")),
-                }
-            )
-        elif role == "assistant":
+        if role == "assistant":
             text = _as_text(m.get("content"))
             if text:
                 items.append({"role": "assistant", "content": text})
-            for tc in m.get("tool_calls") or []:
-                fn = tc.get("function") or {}
-                items.append(
-                    {
-                        "type": "function_call",
-                        "call_id": tc.get("id", ""),
-                        "name": fn.get("name", ""),
-                        "arguments": fn.get("arguments") or "{}",
-                    }
-                )
         elif role in ("user", "system"):
             items.append({"role": role, "content": _as_text(m.get("content"))})
+    if not items or items[-1].get("role") != "user":
+        items.append({"role": "user", "content": "(continue)"})
     return items
 
 
@@ -129,6 +115,7 @@ class OpenAIAgentsToolCallingLLM(ToolCallingLLM):
             cancel_event=cancel_event,
             request_context=request_context,
             trace_span=trace_span,
+            enable_tool_approval=enable_tool_approval,
             tool_number_offset=tool_number_offset,
             iteration=iteration_offset,
             all_tool_calls=all_tool_calls,
@@ -201,6 +188,12 @@ class OpenAIAgentsToolCallingLLM(ToolCallingLLM):
             yield item
 
         error = holder.get("error")
+        if isinstance(error, AgentPauseRequested):
+            yield self._build_pause_event(
+                run.messages, error.pending_approvals, error.pending_frontend_calls,
+                run.iteration, run.stats,
+            )
+            return
         if error is not None:
             raise self._map_error(error, run.iteration)
 

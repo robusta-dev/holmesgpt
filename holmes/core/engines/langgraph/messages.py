@@ -10,7 +10,14 @@ approval markers Holmes keeps on tool calls.
 import copy
 from typing import List
 
-from langchain_core.messages import BaseMessage, convert_to_messages, convert_to_openai_messages
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    convert_to_messages,
+    convert_to_openai_messages,
+)
 
 RAW_KEY = "holmes_raw"
 
@@ -36,3 +43,37 @@ def to_openai_dict(message: BaseMessage) -> dict:
 
 def to_openai_dicts(messages) -> List[dict]:
     return [to_openai_dict(m) for m in messages]
+
+
+def bookkeeping_messages(messages: List[dict]) -> List[BaseMessage]:
+    """Text-only view of the history to seed the graph state.
+
+    The chat model reads ``run.messages`` (the real transcript), so the graph
+    only needs a plausible conversation to route on. Tool calls and results
+    are left out: the graph would otherwise re-run calls that a resume has
+    already answered.
+    """
+    out: List[BaseMessage] = []
+    for m in messages:
+        role = m.get("role")
+        content = m.get("content")
+        text = content if isinstance(content, str) else _as_text(content)
+        if role == "system":
+            out.append(SystemMessage(content=text))
+        elif role == "user":
+            out.append(HumanMessage(content=text))
+        elif role == "assistant" and text:
+            out.append(AIMessage(content=text))
+    if not out or not isinstance(out[-1], HumanMessage):
+        out.append(HumanMessage(content="(continue)"))
+    return out
+
+
+def _as_text(content) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, list):
+        return "".join(
+            b.get("text", "") for b in content if isinstance(b, dict) and b.get("type") == "text"
+        )
+    return str(content)

@@ -20,8 +20,12 @@ from holmes.core.engines.pydantic_ai.convert import (
     model_messages_to_chat,
     parse_args_leniently,
 )
+from holmes.core.engines.pydantic_ai.run_state import PydanticRunState
 from holmes.core.models import ToolCallResult
 from holmes.core.tools import StructuredToolResult, StructuredToolResultStatus
+from holmes.utils.stream import StreamEvents, StreamMessage
+
+PENDING_PLACEHOLDER = "pending: waiting for the user"
 
 if TYPE_CHECKING:
     from holmes.core.tool_calling_llm import ToolCallingLLM
@@ -41,6 +45,7 @@ class HolmesToolset(AbstractToolset[None]):
     def __init__(
         self,
         engine: "ToolCallingLLM",
+        run: PydanticRunState,
         *,
         request_context: Optional[Dict[str, Any]],
         trace_span: Any,
@@ -48,20 +53,20 @@ class HolmesToolset(AbstractToolset[None]):
         max_steps: int,
         tool_number_offset: int,
         executor: ThreadPoolExecutor,
+        model: Any,
         start_tool_callback,
     ) -> None:
         self._engine = engine
+        self._run = run
         self._request_context = request_context
         self._trace_span = trace_span
         self._cancel_event = cancel_event
         self._max_steps = max_steps
         self._tool_number = tool_number_offset
         self._executor = executor
+        self._model = model  # for render_history (compacted prefix) in bash prefix scoping
         self._start_tool_callback = start_tool_callback
         self._lock = asyncio.Lock()
-        self.previous_tool_calls: List[dict] = []
-        self.all_tool_calls: List[dict] = []
-        self.results: Dict[str, ToolCallResult] = {}
 
     @property
     def id(self) -> str:
@@ -108,8 +113,12 @@ class HolmesToolset(AbstractToolset[None]):
         from holmes.core.tool_calling_llm import (
             LLMInterruptedError,
             extract_bash_session_prefixes_by_agent,
+            frontend_call_dict_from_result,
+            pending_approval_from_result,
+            pending_frontend_from_result,
         )
 
+        run = self._run
         if self._cancel_event and self._cancel_event.is_set():
             raise LLMInterruptedError()
         arguments = json.dumps(tool_args)
@@ -129,7 +138,7 @@ class HolmesToolset(AbstractToolset[None]):
             function=Function(name=name, arguments=arguments),
         )
         session_prefixes = extract_bash_session_prefixes_by_agent(
-            model_messages_to_chat(ctx.messages)
+            self._model.render_history(ctx.messages)
         )
         loop = asyncio.get_running_loop()
         try:
@@ -137,13 +146,13 @@ class HolmesToolset(AbstractToolset[None]):
                 self._executor,
                 lambda: self._engine._invoke_llm_tool_call(
                     tool_to_call=tool_call,
-                    previous_tool_calls=self.previous_tool_calls,
+                    previous_tool_calls=run.tool_calls,
                     trace_span=self._trace_span,
                     tool_number=tool_number,
                     user_approved=ctx.tool_call_approved,
                     session_approved_prefixes_by_agent=session_prefixes,
                     request_context=self._request_context,
-                    enable_tool_approval=False,
+                    enable_tool_approval=run.enable_tool_approval,
                 ),
             )
         except LLMInterruptedError:
@@ -159,17 +168,26 @@ class HolmesToolset(AbstractToolset[None]):
                 ),
             )
 
-        if result.result.status == StructuredToolResultStatus.APPROVAL_REQUIRED:
-            self._engine._mark_approval_unavailable(result)
-        elif result.result.status == StructuredToolResultStatus.FRONTEND_PAUSE:
-            result.result.status = StructuredToolResultStatus.ERROR
-            result.result.error = (
-                "Frontend tools that pause the conversation are not supported by this agent engine."
-            )
-
+        outcome = self._engine._classify_tool_result(result, run.enable_tool_approval)
         client_dict = result.to_client_dict()
-        self.previous_tool_calls.append(client_dict)
-        self.all_tool_calls.append(client_dict)
-        self.results[tool_call_id] = result
+        if outcome == "pending_approval":
+            run.pending_call_ids.add(tool_call_id)
+            run.pending_approvals.append(pending_approval_from_result(result))
+            run.all_tool_calls.append(client_dict)
+            # Legacy emits TOOL_RESULT for a pending approval; the metadata marks
+            # it so the engine does not emit a second one from the stream event.
+            run.emit(StreamMessage(event=StreamEvents.TOOL_RESULT, data=client_dict))
+            return ToolReturn(return_value=PENDING_PLACEHOLDER, metadata={"holmes_pending": True})
+        if outcome == "pending_frontend":
+            run.pending_call_ids.add(tool_call_id)
+            run.pending_frontend_calls.append(pending_frontend_from_result(result))
+            call_dict = frontend_call_dict_from_result(result)
+            run.tool_calls.append(call_dict)
+            run.all_tool_calls.append(call_dict)
+            return ToolReturn(return_value=PENDING_PLACEHOLDER, metadata={"holmes_pending": True})
+
+        run.tool_calls.append(client_dict)
+        run.all_tool_calls.append(client_dict)
+        run.results[tool_call_id] = result
         llm_message = result.to_llm_message(supports_vision=self._engine._supports_vision())
         return ToolReturn(return_value=llm_message["content"], metadata=client_dict)

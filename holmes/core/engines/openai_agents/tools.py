@@ -19,6 +19,8 @@ from holmes.utils.stream import StreamEvents, StreamMessage
 if TYPE_CHECKING:
     from holmes.core.tool_calling_llm import ToolCallingLLM
 
+PENDING_PLACEHOLDER = "pending: waiting for the user"
+
 
 def _error_result(tool_call_id: str, tool_name: str, error: str) -> ToolCallResult:
     return ToolCallResult(
@@ -41,11 +43,16 @@ async def invoke_holmes_tool(
     """Run one Holmes tool on a worker thread and publish its result.
 
     Reuses ``ToolCallingLLM._invoke_llm_tool_call`` (argument parsing, repeat
-    guard, spill-to-disk, OTel) so behaviour matches the legacy loop.
+    guard, spill-to-disk, OTel) so behaviour matches the legacy loop. A result
+    that needs a human or the client is recorded as pending; the run stops at
+    the next model call.
     """
     from holmes.core.tool_calling_llm import (
         LLMInterruptedError,
         extract_bash_session_prefixes_by_agent,
+        frontend_call_dict_from_result,
+        pending_approval_from_result,
+        pending_frontend_from_result,
     )
 
     if run.cancel_event and run.cancel_event.is_set():
@@ -67,7 +74,7 @@ async def invoke_holmes_tool(
                 run.messages
             ),
             request_context=run.request_context,
-            enable_tool_approval=False,
+            enable_tool_approval=run.enable_tool_approval,
         )
     except LLMInterruptedError:
         raise
@@ -77,17 +84,18 @@ async def invoke_holmes_tool(
         logging.error(f"Tool {name} raised: {e}", exc_info=True)
         result = _error_result(tool_call_id, name, str(e))
 
-    if result.result.status == StructuredToolResultStatus.APPROVAL_REQUIRED:
-        engine._mark_approval_unavailable(result)
-    elif result.result.status == StructuredToolResultStatus.FRONTEND_PAUSE:
-        result.result.status = StructuredToolResultStatus.ERROR
-        result.result.error = (
-            "Frontend tools that pause the conversation are not supported by this agent engine."
-        )
-
+    outcome = engine._classify_tool_result(result, run.enable_tool_approval)
     client_dict = result.to_client_dict()
-    run.register_result(result, client_dict)
-    run.emit(StreamMessage(event=StreamEvents.TOOL_RESULT, data=client_dict))
+    if outcome == "pending_approval":
+        run.register_pending_approval(result, pending_approval_from_result(result), client_dict)
+        run.emit(StreamMessage(event=StreamEvents.TOOL_RESULT, data=client_dict))
+    elif outcome == "pending_frontend":
+        run.register_pending_frontend(
+            result, pending_frontend_from_result(result), frontend_call_dict_from_result(result)
+        )
+    else:
+        run.register_result(result, client_dict)
+        run.emit(StreamMessage(event=StreamEvents.TOOL_RESULT, data=client_dict))
     return result
 
 
@@ -99,6 +107,8 @@ def build_function_tool(
 
     async def on_invoke(ctx: ToolContext[Any], args: str) -> Any:
         result = await invoke_holmes_tool(engine, run, ctx.tool_call_id, name, args)
+        if ctx.tool_call_id in run.pending_call_ids:
+            return PENDING_PLACEHOLDER
         llm_message = result.to_llm_message(supports_vision=engine._supports_vision())
         content = llm_message["content"]
         if isinstance(content, str):

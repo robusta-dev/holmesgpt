@@ -57,6 +57,9 @@ class HolmesLoopMiddleware(AgentMiddleware):
         from holmes.core.tool_calling_llm import (
             LLMInterruptedError,
             extract_bash_session_prefixes_by_agent,
+            frontend_call_dict_from_result,
+            pending_approval_from_result,
+            pending_frontend_from_result,
         )
 
         run = self.run
@@ -87,7 +90,7 @@ class HolmesLoopMiddleware(AgentMiddleware):
                     history_snapshot
                 ),
                 request_context=run.request_context,
-                enable_tool_approval=False,
+                enable_tool_approval=run.enable_tool_approval,
             )
         except LLMInterruptedError:
             raise
@@ -102,15 +105,30 @@ class HolmesLoopMiddleware(AgentMiddleware):
                 ),
             )
 
-        if result.result.status == StructuredToolResultStatus.APPROVAL_REQUIRED:
-            engine._mark_approval_unavailable(result)
-        elif result.result.status == StructuredToolResultStatus.FRONTEND_PAUSE:
-            result.result.status = StructuredToolResultStatus.ERROR
-            result.result.error = (
-                "Frontend tools that pause the conversation are not supported by this agent engine."
+        outcome = engine._classify_tool_result(result, run.enable_tool_approval)
+        client_dict = result.to_client_dict()
+        if outcome != "done":
+            # Waiting for a human or the client: no tool message in the transcript;
+            # the model adapter stops the run at the next model call.
+            with run.lock:
+                run.pending_call_ids.add(call_id)
+                if outcome == "pending_approval":
+                    run.pending_approvals.append(pending_approval_from_result(result))
+                    run.all_tool_calls.append(client_dict)
+                else:
+                    run.pending_frontend_calls.append(pending_frontend_from_result(result))
+                    call_dict = frontend_call_dict_from_result(result)
+                    run.tool_calls.append(call_dict)
+                    run.all_tool_calls.append(call_dict)
+            if outcome == "pending_approval":
+                writer(StreamMessage(event=StreamEvents.TOOL_RESULT, data=client_dict))
+            return ToolMessage(
+                content="pending: waiting for the user",
+                tool_call_id=call_id,
+                name=name,
+                additional_kwargs={"holmes_pending": True},
             )
 
-        client_dict = result.to_client_dict()
         llm_message = result.to_llm_message(supports_vision=engine._supports_vision())
         with run.lock:
             run.tool_calls.append(client_dict)

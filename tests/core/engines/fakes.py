@@ -7,7 +7,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from litellm import ModelResponse
-from pydantic import ConfigDict
+from pydantic import ConfigDict, Field
 
 from holmes.core.engines import get_engine_class
 from holmes.core.llm import LLM, ContextWindowUsage
@@ -115,6 +115,10 @@ class ScriptedLLM(LLM):
 class _FakeTool(Tool):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    # Tools that honour the toolset's approval_required_tools patterns carry a
+    # back-reference to their toolset (as the Prometheus and MCP tools do).
+    toolset: Any = Field(default=None, exclude=True)
+
     def get_parameterized_one_liner(self, params: Dict) -> str:
         return f"{self.name}({json.dumps(params, sort_keys=True)})"
 
@@ -195,6 +199,8 @@ def make_toolset() -> Toolset:
         tags=[ToolsetTag.CORE],
     )
     toolset.status = ToolsetStatusEnum.ENABLED
+    for tool in toolset.tools:
+        tool.toolset = toolset
     return toolset
 
 
@@ -211,3 +217,70 @@ BASE_MESSAGES = [
     {"role": "system", "content": "You are Holmes."},
     {"role": "user", "content": "What is wrong?"},
 ]
+
+
+class OAuthTool(_FakeTool):
+    """Mimics an MCP ``_connect`` tool: always needs the user to authenticate."""
+
+    name: str = "connect_service"
+    description: str = "Connect to a service"
+    parameters: Dict[str, ToolParameter] = {}
+
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
+        return StructuredToolResult(
+            status=StructuredToolResultStatus.APPROVAL_REQUIRED,
+            error="Authentication required",
+            params={"__oauth_metadata": {"authorization_url": "https://example/auth"}},
+        )
+
+
+class BigAnswerTool(_FakeTool):
+    name: str = "big"
+    description: str = "Returns a lot of text"
+    parameters: Dict[str, ToolParameter] = {
+        "chars": ToolParameter(description="size", type="integer", required=True)
+    }
+
+    def _invoke(self, params: Dict, context: ToolInvokeContext) -> StructuredToolResult:
+        return StructuredToolResult(
+            status=StructuredToolResultStatus.SUCCESS,
+            data="x" * int(params.get("chars", 100)),
+            params=params,
+        )
+
+
+def make_toolset_with(*extra_tools, approval_required_tools=None) -> Toolset:
+    toolset = FakeToolset(
+        name="fake",
+        description="fake toolset",
+        enabled=True,
+        tools=[EchoTool(), AsyncInsideTool(), BoomTool(), ImageTool(), SlowTool(), *extra_tools],
+        tags=[ToolsetTag.CORE],
+        approval_required_tools=list(approval_required_tools or []),
+    )
+    toolset.status = ToolsetStatusEnum.ENABLED
+    for tool in toolset.tools:
+        tool.toolset = toolset
+    return toolset
+
+
+class SmallWindowLLM(ScriptedLLM):
+    """A scripted LLM with a tiny context window so compaction triggers."""
+
+    def __init__(self, responses, context_window: int = 2500, max_output: int = 200):
+        super().__init__(responses)
+        self._context_window = context_window
+        self._max_output = max_output
+
+    def get_context_window_size(self) -> int:
+        return self._context_window
+
+    def get_maximum_output_token(self) -> int:
+        return self._max_output
+
+
+def make_engine_with(engine_id: str, llm, toolset, max_steps: int = 10):
+    executor = ToolExecutor([toolset])
+    return get_engine_class(engine_id)(
+        tool_executor=executor, max_steps=max_steps, llm=llm, tool_results_dir=None
+    )

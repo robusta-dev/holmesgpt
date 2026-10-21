@@ -1,7 +1,7 @@
 """``pydantic_ai.models.Model`` that delegates every request to ``DefaultLLM.completion``."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Sequence
 
 from pydantic_ai.messages import ModelMessage, ModelResponse, TextPart, ThinkingPart, ToolCallPart
 from pydantic_ai.models import Model, ModelRequestParameters
@@ -9,6 +9,7 @@ from pydantic_ai.profiles import ModelProfile
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import RequestUsage
 
+from holmes.core.engines import AgentPauseRequested
 from holmes.core.engines.pydantic_ai.convert import (
     PROVIDER_NAME,
     RAW_KEY,
@@ -18,7 +19,8 @@ from holmes.core.engines.pydantic_ai.convert import (
     model_messages_to_chat,
     tool_def_to_openai,
 )
-from holmes.core.llm_usage import RequestStats, extract_usage_from_response
+from holmes.core.engines.pydantic_ai.run_state import PydanticRunState
+from holmes.core.llm_usage import extract_usage_from_response
 
 if TYPE_CHECKING:
     from holmes.core.tool_calling_llm import ToolCallingLLM
@@ -42,12 +44,12 @@ class HolmesPydanticModel(Model):
     def __init__(
         self,
         engine: "ToolCallingLLM",
+        run: PydanticRunState,
         *,
         response_format: Any,
         trace_span: Any,
         cancel_event: Any,
         max_steps: int,
-        stats: RequestStats,
     ) -> None:
         super().__init__(
             settings=None,
@@ -61,11 +63,11 @@ class HolmesPydanticModel(Model):
             ),
         )
         self.engine = engine
+        self.run = run
         self.response_format = response_format
         self.trace_span = trace_span
         self.cancel_event = cancel_event
         self.max_steps = max_steps
-        self.stats = stats
         self.records: List[ModelCallRecord] = []
         self.iteration = 0
 
@@ -81,6 +83,17 @@ class HolmesPydanticModel(Model):
     def provider(self):  # type: ignore[override]
         return None
 
+    def render_history(
+        self, messages: Sequence[ModelMessage], skip_tool_call_ids: Iterable[str] = ()
+    ) -> List[dict]:
+        """OpenAI-format view of the state history with the compacted prefix applied."""
+        run = self.run
+        skip = set(skip_tool_call_ids)
+        if run.compacted_prefix_len and len(messages) >= run.compacted_prefix_len:
+            rest = model_messages_to_chat(list(messages[run.compacted_prefix_len :]), skip)
+            return list(run.compacted_prefix) + rest
+        return model_messages_to_chat(list(messages), skip)
+
     async def request(
         self,
         messages: list[ModelMessage],
@@ -89,11 +102,14 @@ class HolmesPydanticModel(Model):
     ) -> ModelResponse:
         from holmes.core.tool_calling_llm import LLMInterruptedError
 
+        run = self.run
         if self.cancel_event and self.cancel_event.is_set():
             raise LLMInterruptedError()
+        if run.has_pending:
+            raise AgentPauseRequested(run.pending_approvals, run.pending_frontend_calls)
         model_settings, params = self.prepare_request(model_settings, model_request_parameters)
 
-        chat_messages = model_messages_to_chat(messages)
+        chat_messages = self.render_history(messages)
         known_names = {t.name for t in params.function_tools}
         tools = [tool_def_to_openai(t) for t in params.function_tools if not is_internal_tool(t)] or None
         tool_choice = "auto" if tools else None
@@ -101,6 +117,16 @@ class HolmesPydanticModel(Model):
         self.iteration += 1
         # Blocking is fine: nothing else runs on the private loop during a model
         # call, and it keeps the OTel/Sentry context on the calling thread.
+        chat_messages, metadata, limit_result = self.engine._compact_before_call(
+            chat_messages, tools, run.stats, run.metadata, run.guard, run.emit
+        )
+        run.metadata.update(metadata)
+        run.max_context_size = limit_result.max_context_size
+        run.maximum_output_token = limit_result.maximum_output_token
+        if limit_result.conversation_history_compacted:
+            run.compacted_prefix_len = len(messages)
+            run.compacted_prefix = list(chat_messages)
+
         full_response, _ = self.engine._run_llm_iteration(
             messages=chat_messages,
             tools=tools,
@@ -108,7 +134,7 @@ class HolmesPydanticModel(Model):
             response_format=self.response_format,
             trace_span=self.trace_span,
             iteration=self.iteration,
-            stats=self.stats,
+            stats=run.stats,
         )
         if self.cancel_event and self.cancel_event.is_set():
             raise LLMInterruptedError()

@@ -37,16 +37,13 @@ curl -X POST localhost:5050/api/chat \
 `GET /api/info` reports the configured default (`agent_engine`) and the installed engines.
 Every answer carries the engine that produced it in `metadata.engine`.
 
-## Current limitations of the harness engines
+## What every engine supports
 
-The non-legacy engines implement the plain loop. Requests that need any of the following run
-on the legacy engine automatically (an info line is logged):
-
-- tool approvals (`enable_tool_approval`) and resumes from `tool_decisions`
-- frontend tools in `pause` mode and resumes from `frontend_tool_results`
-
-Conversation-history compaction is not applied by the harness engines yet; very long
-conversations can exceed the context window on them.
+Tool approvals (including the signed "don't ask again" bash prefixes), OAuth connect pauses,
+frontend tools in `pause` and `noop` mode, resuming from `tool_decisions` and
+`frontend_tool_results`, and conversation-history compaction behave the same on every engine;
+the parity test suite in `tests/core/engines/` asserts identical events and history against the
+legacy loop.
 
 ## Comparing engines with the eval suite
 
