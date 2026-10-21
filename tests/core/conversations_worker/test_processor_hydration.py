@@ -1,4 +1,4 @@
-"""Unit tests for the ConversationWorker task hydration logic.
+"""Unit tests for the ConversationProcessor task hydration logic.
 
 ``_hydrate_task_from_events`` consumes the flat chronological event list
 returned by the ``get_conversation_events`` RPC: ``[{event, data, ts}, ...]``.
@@ -6,14 +6,14 @@ There is no row/seq nesting at this level — the RPC flattens all events from
 all matching ConversationEvents rows into a single list ordered by
 ``(seq, ord)``. Turn boundaries are detected by the ``user_message`` event.
 """
+import json
+
 from holmes.core.conversations_worker.models import ConversationTask
-from holmes.core.conversations_worker.worker import ConversationWorker
+from holmes.core.conversations_worker.processor import ConversationProcessor
 
 
 def _make_worker():
-    """Build a ConversationWorker without calling its __init__ so we can test
-    _hydrate_task_from_events in isolation."""
-    return ConversationWorker.__new__(ConversationWorker)
+    return ConversationProcessor.__new__(ConversationProcessor)
 
 
 def _task(**kwargs):
@@ -58,6 +58,32 @@ def test_hydrate_followup_reconstructs_history():
     ]
     worker._hydrate_task_from_events(task, events)
     assert task.user_message_data["ask"] == "how are you?"
+    assert task.conversation_history == prev_messages
+
+
+def test_hydrate_followup_on_turn_written_by_older_holmes():
+    """Older Holmes also stored `prompt`, a JSON-string copy of `messages`;
+    history still comes from `messages`."""
+    worker = _make_worker()
+    task = _task(request_sequence=2)
+    prev_messages = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi there"},
+    ]
+    events = [
+        {"event": "user_message", "data": {"ask": "hello"}, "ts": "1"},
+        {
+            "event": "ai_answer_end",
+            "data": {
+                "content": "hi there",
+                "messages": prev_messages,
+                "prompt": json.dumps([{"role": "user", "content": "stale"}]),
+            },
+            "ts": "2",
+        },
+        {"event": "user_message", "data": {"ask": "how are you?"}, "ts": "3"},
+    ]
+    worker._hydrate_task_from_events(task, events)
     assert task.conversation_history == prev_messages
 
 
@@ -131,7 +157,7 @@ def test_extract_last_user_ask():
         {"role": "user", "content": "second question"},
         {"role": "assistant", "content": "answer 2"},
     ]
-    assert ConversationWorker._extract_last_user_ask(history) == "second question"
+    assert ConversationProcessor._extract_last_user_ask(history) == "second question"
 
     vision_history = [
         {"role": "system", "content": "sys"},
@@ -143,10 +169,10 @@ def test_extract_last_user_ask():
             ],
         },
     ]
-    assert ConversationWorker._extract_last_user_ask(vision_history) == "look at this"
+    assert ConversationProcessor._extract_last_user_ask(vision_history) == "look at this"
 
-    assert ConversationWorker._extract_last_user_ask(None) is None
-    assert ConversationWorker._extract_last_user_ask([]) is None
+    assert ConversationProcessor._extract_last_user_ask(None) is None
+    assert ConversationProcessor._extract_last_user_ask([]) is None
 
 
 def test_hydrate_extracts_all_user_message_fields():

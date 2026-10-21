@@ -27,6 +27,33 @@ toolsets:
 | kubernetes_tabular_query | Extract specific fields from resources in tabular format with optional filtering |
 | kubernetes_count | Count Kubernetes resources matching a jq filter |
 
+All three tools accept optional parameters that narrow the query on the Kubernetes API server, before any data is sent to HolmesGPT:
+
+| Parameter | Example | Notes |
+|-----------|---------|-------|
+| `namespace` | `payments` | Ignored for cluster-scoped kinds such as `nodes` |
+| `label_selector` | `app=checkout,tier!=db` or `env in (prod,staging)` | Standard Kubernetes label selector syntax |
+| `field_selector` | `status.phase!=Running` or `spec.nodeName=node-1` | Supported fields depend on the kind; unsupported fields return the API server's error |
+
+When none are set, the tools query every namespace. Each result includes a `scope` object showing the namespace and selectors that were applied.
+
+#### Large Clusters
+
+On clusters with thousands of namespaces or pods, unscoped queries are slow. Tell HolmesGPT about your cluster so it scopes its queries with the parameters above, by adding instructions to the Core toolset:
+
+```yaml-toolset-config
+toolsets:
+  kubernetes/core:
+    enabled: true
+    llm_instructions: |
+      This cluster is very large (thousands of namespaces and pods). Always pass
+      namespace and/or label_selector to kubernetes_jq_query, kubernetes_count and
+      kubernetes_tabular_query. Avoid unscoped cluster-wide queries unless the
+      question truly needs every namespace.
+```
+
+Adapt the text to your environment, for example by naming the label that identifies each team's workloads. Robusta platform users can add the same text to their account's Global Instructions instead.
+
 ### Logs
 
 !!! info "Enabled by Default"
