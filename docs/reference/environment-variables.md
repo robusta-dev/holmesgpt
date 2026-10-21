@@ -40,7 +40,11 @@ These settings matter with the Robusta platform, except that the interactive CLI
 Server only, when it is configured from environment variables (as with the Helm chart). `true` makes the Holmes server load the models the Robusta platform offers the account (Robusta AI); `false` keeps them out. When not set, the server loads them only when neither `MODEL` nor a model list is configured. The CLI never loads them.
 
 ### ROBUSTA_API_ENDPOINT
-**Default:** `https://api.robusta.dev`
+**Default:**
+
+```robusta-region
+https://api.robusta.dev
+```
 
 Base URL of the Robusta platform API. When Holmes connects to the platform, it fetches the data store's API key from it (`/api/config/supabase-keys`), and when the fetch or the login with the fetched key fails, it uses the `api_key` in the Robusta UI token (or `STORE_API_KEY` without a token) instead. Holmes also fetches the account's Robusta AI models from it, sends Robusta AI completions through it, and reaches the Robusta platform MCP server under it (unless `ROBUSTA_MCP_ENDPOINT` is set). The interactive CLI also checks it for the latest Holmes release, with or without the platform. Set it to your region's API, or to a self-hosted platform's API URL:
 
@@ -62,7 +66,11 @@ Base URL of the Robusta platform API. When Holmes connects to the platform, it f
     ```
 
 ### ROBUSTA_UI_DOMAIN
-**Default:** `https://platform.robusta.dev`
+**Default:**
+
+```robusta-region
+https://platform.robusta.dev
+```
 
 Base URL of the Robusta UI. Holmes builds links to platform chats on it, accepts conversation links on its host, and fetches the additional system prompt for scheduled prompts from it. Set it to your region's UI, or to a self-hosted platform's UI URL:
 
@@ -252,7 +260,7 @@ Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standa
 | `HTTP_PROXY` | Proxy URL for `http://` requests. |
 | `NO_PROXY` | Comma-separated hosts and domain suffixes reached directly, without the proxy. |
 
-The lowercase forms (`https_proxy`, `http_proxy`, `no_proxy`) work too. Add the in-cluster services Holmes queries to `NO_PROXY` (for example `.svc,.cluster.local` and the Kubernetes API's address), or their requests go to the proxy too.
+The lowercase forms (`https_proxy`, `http_proxy`, `no_proxy`) work too. Add the in-cluster services Holmes queries to `NO_PROXY` (for example `.svc,.cluster.local`), or their requests go to the proxy too. The `kubectl` commands the toolsets run inherit these variables and honor them, so add the Kubernetes API's address as well when `kubectl` should reach it directly.
 
 === "Holmes CLI"
 
