@@ -18,7 +18,7 @@ from holmes.core.tools import (
     YAMLTool,
 )
 from holmes.plugins.toolsets import load_builtin_toolsets
-from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPToolset
+from holmes.plugins.toolsets.mcp.toolset_mcp import RemoteMCPTool, RemoteMCPToolset
 from holmes.plugins.toolsets.multi_instance import INSTANCE_PARAM
 from holmes.utils.holmes_sync_toolsets import (
     build_remote_tools_meta,
@@ -691,3 +691,69 @@ def test_sync_publishes_the_holmes_version_on_every_row(mock_dal, mock_config):
     holmes_sync_toolsets_status(mock_dal, mock_config)
     rows = mock_dal.sync_toolsets.call_args.args[0]
     assert rows and {r["version"] for r in rows} == {get_version()}
+
+
+def test_contract_hash_ignores_a_json_schema_extra_holding_only_a_default():
+    plain = _hash({"n": ToolParameter(type="integer")})
+    with_default = _hash(
+        {"n": ToolParameter(type="integer", json_schema_extra={"default": 1})}
+    )
+    assert plain == with_default
+
+
+def test_contract_hash_tells_a_null_only_type_from_a_nullable_string():
+    assert _hash({"x": ToolParameter(type=["null"])}) != _hash(
+        {"x": ToolParameter(type=["string", "null"])}
+    )
+
+
+def test_contract_hash_reads_a_one_element_type_list_as_that_type():
+    assert _hash({"x": ToolParameter(type=["string"])}) == _hash(
+        {"x": ToolParameter(type="string")}
+    )
+    assert _hash({"x": ToolParameter(type=["integer"])}) == _hash(
+        {"x": ToolParameter(type="integer")}
+    )
+
+
+def _mcp_tool(input_schema):
+    return RemoteMCPTool.create(
+        MCP_Tool(name="query", description="d", inputSchema=input_schema),
+        toolset=RemoteMCPToolset(
+            name="hash-mcp",
+            description="d",
+            config={"url": "http://example.com/mcp", "mode": "sse"},
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "constraint",
+    [
+        {"format": "date-time"},
+        {"uniqueItems": True},
+        {"const": "x"},
+        {"multipleOf": 5},
+    ],
+)
+def test_contract_hash_of_an_mcp_tool_covers_its_full_input_schema(constraint):
+    base = {"type": "object", "properties": {"q": {"type": "string"}}}
+    constrained = {
+        "type": "object",
+        "properties": {"q": {"type": "string", **constraint}},
+    }
+    assert remote_tool_contract_hash(_mcp_tool(base)) != remote_tool_contract_hash(
+        _mcp_tool(constrained)
+    )
+
+
+def test_contract_hash_of_an_mcp_tool_ignores_annotations():
+    schema = {"type": "object", "properties": {"q": {"type": "string"}}}
+    annotated = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {"q": {"type": "string", "description": "the query", "default": "a"}},
+    }
+    assert remote_tool_contract_hash(_mcp_tool(schema)) == remote_tool_contract_hash(
+        _mcp_tool(annotated)
+    )

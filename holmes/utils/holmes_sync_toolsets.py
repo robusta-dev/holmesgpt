@@ -43,7 +43,7 @@ def _exposed_tools(toolset: Toolset, tool_executor: Any) -> List[Any]:
 
 # Keys that annotate a JSON schema without changing what it accepts.
 _SCHEMA_ANNOTATIONS = frozenset(
-    {"description", "title", "examples", "example", "default", "$comment"}
+    {"description", "title", "examples", "example", "default", "$comment", "$schema"}
 )
 
 
@@ -125,11 +125,12 @@ def _parameter_contract(param: ToolParameter) -> dict:
         # what else the tool accepts.
         types = contract["type"]
         others = [t for t in types if t != "null"]
-        contract["type"] = (
-            [param.primary_type]
-            + _canonical_order(others[1:])
-            + (["null"] if "null" in types else [])
+        canonical = (
+            others[:1] + _canonical_order(others[1:]) + (["null"] if "null" in types else [])
         )
+        contract["type"] = canonical[0] if len(canonical) == 1 else canonical
+        if contract["type"] == "string":
+            del contract["type"]  # the default, as exclude_defaults drops it
     raw_type = contract.get("type")
     array_of = _ARRAY_OF.match(raw_type) if isinstance(raw_type, str) else None
     if array_of and param.items is None:
@@ -139,6 +140,10 @@ def _parameter_contract(param: ToolParameter) -> dict:
     for key in ("additional_properties", "json_schema_extra"):
         if key in contract:
             contract[key] = _schema_contract(contract[key])
+            # An empty schema (say, json_schema_extra holding only a default)
+            # constrains nothing.
+            if contract[key] == {}:
+                del contract[key]
     if param.properties is not None:
         contract["properties"] = {
             name: _parameter_contract(p) for name, p in param.properties.items()
@@ -161,11 +166,17 @@ def remote_tool_contract_hash(tool: Tool) -> str:
     platform routes it per cluster. It is recognised by identity, since the
     wrapper injects that very object, so a tool's own `instance` param counts
     even when it is equal."""
-    contract = {
-        name: _parameter_contract(param)
-        for name, param in tool.parameters.items()
-        if not (name == INSTANCE_PARAM_NAME and param is INSTANCE_PARAM)
-    }
+    input_schema = getattr(tool, "input_schema", None)
+    if isinstance(input_schema, dict):
+        # An MCP server validates against its full inputSchema, of which the
+        # parsed parameters keep only part.
+        contract: Any = {"input_schema": _schema_contract(input_schema)}
+    else:
+        contract = {
+            name: _parameter_contract(param)
+            for name, param in tool.parameters.items()
+            if not (name == INSTANCE_PARAM_NAME and param is INSTANCE_PARAM)
+        }
     canonical = json.dumps(contract, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(canonical.encode()).hexdigest()
 
