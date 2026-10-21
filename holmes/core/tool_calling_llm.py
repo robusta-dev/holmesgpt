@@ -126,6 +126,21 @@ def _extract_text_from_content(content: Any) -> str:
     return ""
 
 
+def _merge_choices(response: Any) -> None:
+    """Fold multi-choice responses (e.g. Responses API) into choices[0]."""
+    choices = response.choices
+    if len(choices) < 2:
+        return
+    merged = choices[0]
+    tool_calls = [tc for choice in choices for tc in choice.message.tool_calls or []]
+    merged.message.content = "".join(choice.message.content or "" for choice in choices) or None
+    if tool_calls:
+        merged.message.tool_calls = tool_calls
+        merged.finish_reason = "tool_calls"
+    logging.info("Merged %d LLM choices into one (tool_calls=%d)", len(choices), len(tool_calls))
+    response.choices = [merged]
+
+
 # Scope key for the local (caller) cluster in the agent-keyed prefix map.
 _LOCAL_BASH_PREFIX_SCOPE = ""
 
@@ -1204,6 +1219,7 @@ class ToolCallingLLM:
 
         messages: list[dict] = list(msgs) if msgs else []
         tool_calls: list[dict] = []
+        guarded_tool_call_ids: set[str] = set()
         tools: Optional[list] = self._get_tools()
         max_steps = self.max_steps
         metadata: Dict[Any, Any] = {}
@@ -1264,7 +1280,13 @@ class ToolCallingLLM:
                 limit_result.conversation_history_compacted
                 and RESET_REPEATED_TOOL_CALL_CHECK_AFTER_COMPACTION
             ):
-                tool_calls = []
+                # Outputs that overflowed the history would overflow it again if
+                # fetched again, compacting in a loop until max_steps (ROB-1519).
+                # Keep those calls, and the ones kept by earlier compactions, so
+                # repeating one is refused and the agent narrows its query; every
+                # other call may run again as before.
+                guarded_tool_call_ids.update(limit_result.compaction_overflowing_tool_call_ids)
+                tool_calls = [call for call in tool_calls if call.get("tool_call_id") in guarded_tool_call_ids]
 
             logging.debug(f"sending messages={messages}\n\ntools={tools}")
 
@@ -1283,6 +1305,7 @@ class ToolCallingLLM:
                     stream=False,
                     drop_params=True,
                 )
+                _merge_choices(full_response)
 
                 # Accumulate cost information for this iteration
                 response_stats = RequestStats.from_response(full_response)
@@ -1420,7 +1443,6 @@ class ToolCallingLLM:
                         "metadata": metadata,
                         "tool_calls": all_tool_calls,
                         "num_llm_calls": i,
-                        "prompt": json.dumps(messages, indent=2),
                         "costs": stats.model_dump(),
                     },
                 )
