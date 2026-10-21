@@ -36,6 +36,6 @@ Write every verdict to a labels file, `{"<case id>": "A" | "B"}`, with the case 
 poetry run python .claude/skills/benchmark-judge/benchmark_judge.py <run_id> --labels labels.json
 ```
 
-Present the table and recommend a judge: lowest FP + FN first (a false pass hides a real regression, so weigh FP above FN), then p95 latency and total cost. Quote one disputed case each judge got wrong to show the failure mode.
+Present the accuracy, cost and latency tables (same shape as the benchmark reports) and recommend a judge: lowest FP + FN first (a false pass hides a real regression, so weigh FP above FN), then p95 latency and total cost. Quote one disputed case each judge got wrong to show the failure mode.
 
 To switch judges, set `CLASSIFIER_MODEL` (`vars.CLASSIFIER_MODEL` in `.github/workflows/eval-regression.yaml`). The classifier calls the OpenAI SDK directly, so the new judge needs an OpenAI-compatible endpoint (see `tests/llm/utils/classifiers.py`).

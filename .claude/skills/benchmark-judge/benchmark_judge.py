@@ -112,19 +112,25 @@ def report(out_dir: Path, cases: List[Dict[str, Any]], labels: Dict[str, str]) -
         else:
             disputed.append({"id": case["id"], "test": case["test"], "verdicts": verdicts, "prompt": case["messages"][-1]["content"]})
     (out_dir / "disputed.json").write_text(json.dumps(disputed, indent=2))
-    print(f"Ground truth: {len(truth)} cases ({len(labels)} labeled); {len(disputed)} disputed -> {out_dir / 'disputed.json'}\n")
-    print("| Judge | Correct | False pass (FP) | False fail (FN) | No verdict | Avg latency | p95 latency | Total cost |")
-    print("|---|---|---|---|---|---|---|---|")
+    print(f"Ground truth: {len(truth)} cases ({len(labels)} labeled); {len(disputed)} disputed -> {out_dir / 'disputed.json'}")
+    print("\n## Judge Accuracy Comparison\n\n| Judge | Correct | False pass (FP) | False fail (FN) | No verdict | Total | Accuracy |")
+    print("|---|---|---|---|---|---|---|")
     for judge, rows in results.items():
         choices = {case_id: rows.get(case_id, {}).get("choice") for case_id in truth}
         correct = sum(choices[c] == truth[c] for c in truth)
         false_pass = sum(choices[c] == "A" and truth[c] == "B" for c in truth)
         false_fail = sum(choices[c] == "B" and truth[c] == "A" for c in truth)
+        no_verdict = len(truth) - correct - false_pass - false_fail
+        print(f"| {judge} | {correct} | {false_pass} | {false_fail} | {no_verdict} | {len(truth)} | {100 * correct / max(len(truth), 1):.1f}% |")
+    print("\n## Judge Cost Comparison\n\n| Judge | Judgments | Avg Cost | Min Cost | Max Cost | Total Cost |\n|---|---|---|---|---|---|")
+    for judge, rows in results.items():
+        costs = sorted(row.get("cost") or 0 for row in rows.values())
+        print(f"| {judge} | {len(costs)} | ${sum(costs) / len(costs):.4f} | ${costs[0]:.4f} | ${costs[-1]:.4f} | ${sum(costs):.2f} |")
+    print("\n## Judge Latency Comparison\n\n| Judge | Avg (s) | Min (s) | Max (s) | P50 (s) | P95 (s) |\n|---|---|---|---|---|---|")
+    for judge, rows in results.items():
         latencies = sorted(row["latency"] for row in rows.values() if row.get("latency"))
-        p95 = latencies[int(0.95 * (len(latencies) - 1))] if latencies else 0
-        avg = sum(latencies) / max(len(latencies), 1)
-        total_cost = sum(row.get("cost") or 0 for row in rows.values())
-        print(f"| {judge} | {100 * correct / max(len(truth), 1):.1f}% ({correct}/{len(truth)}) | {false_pass} | {false_fail} | {len(truth) - correct - false_pass - false_fail} | {avg:.1f}s | {p95:.1f}s | ${total_cost:.2f} |")
+        p50, p95 = (latencies[int(q * (len(latencies) - 1))] for q in (0.5, 0.95))
+        print(f"| {judge} | {sum(latencies) / len(latencies):.1f} | {latencies[0]:.1f} | {latencies[-1]:.1f} | {p50:.1f} | {p95:.1f} |")
 
 
 def main() -> None:
