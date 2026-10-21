@@ -152,6 +152,22 @@ def test_a_fence_opening_in_a_form_no_page_writes_fails_the_build(tmp_path, monk
         build_page(tmp_path, f"{opening}\nmodelList:\n  gpt:\n    api_key: \"{{{{ env.OPENAI_API_KEY }}}}\"\n```\n")
 
 
+@pytest.mark.parametrize(
+    "line",
+    ['===+ "Holmes CLI"', '===! "Holmes CLI"', "=== Holmes CLI", '==="Holmes CLI"', '  === "Holmes CLI"', '=== "Holmes CLI" ', "====="],
+    ids=["open", "select", "unquoted", "no-space", "indent", "trailing-space", "setext-underline"],
+)
+def test_a_tab_line_in_a_form_no_page_writes_fails_the_build(tmp_path, monkeypatch, line):
+    monkeypatch.chdir(REPO)
+    with pytest.raises(TabFenceError, match=rf"^index\.md:3: unsupported form of a tab line: {re.escape(repr(line))}"):
+        build_page(tmp_path, f"{line}\n\n    Run holmes.\n")
+
+
+def test_a_tab_line_in_a_code_block_is_code(tmp_path, monkeypatch):
+    monkeypatch.chdir(REPO)
+    build_page(tmp_path, "```text\n=====\n```\n")
+
+
 INCLUDE = '--8<-- "snippets/toolsets_that_provide_logging.md"\n\n'
 FRONT_MATTER = "---\ntitle: Page\n---\n"
 
