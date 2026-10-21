@@ -84,7 +84,7 @@ secret:
   - --from-literal=SPLUNK_MCP_TOKEN=<YOUR_TOKEN>
 ```
 
-If the Splunk server's certificate is self-signed or issued by a private CA, trust that certificate or CA with the chart's `certificate` value, or the `CERTIFICATE` environment variable in the CLI (see [`CERTIFICATE`](../../reference/environment-variables.md#certificate)). Set `verify_ssl: false` under `config` only as a last resort: Holmes then sends the token without checking the server's identity.
+If the Splunk server's certificate is self-signed or issued by a private CA, trust that certificate or CA with the chart's `certificate` value, or the `CERTIFICATE` environment variable in the CLI (see [`CERTIFICATE`](../../reference/environment-variables.md#certificate)). Either one adds the CA to the certificates Holmes trusts for all its outbound HTTPS, not only for Splunk. Set `verify_ssl: false` under `config` only as a last resort: Holmes then sends the token without checking the server's identity.
 
 ## Available Tools
 
