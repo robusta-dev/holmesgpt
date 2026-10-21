@@ -2,8 +2,7 @@
 The checks of a deployment fence's Helm values against what reads them: the Holmes chart, the
 Kubernetes API for what its templates pass through into an object, and Holmes for what the chart
 passes on to it. tests/docs runs `check_fence` on the values of every Holmes Helm Chart tab; the
-MkDocs build does not run it, and needs none of Helm, Holmes or this module. The chart and
-Kubernetes checks are `docs/chart_checks.py`'s, which needs no Holmes; this module adds Holmes's.
+MkDocs build does not run it, and needs none of Helm, Holmes or this module.
 
 The chart passes `toolsets`, `mcp_servers` (with the servers of the enabled `mcpAddons`) and
 `modelList` on to Holmes in the `custom-toolsets-configmap` ConfigMap, so the keys under them are
@@ -15,15 +14,16 @@ import copy
 import functools
 import os
 import re
+import shutil
+import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 import yaml  # type: ignore
 from pydantic import BaseModel, ValidationError
 
-from docs.chart_checks import check_chart
 from docs.custom_fences import empty_value, key_path
 from holmes.core.llm import ModelEntry
 from holmes.core.tools import Toolset, ToolsetStatusEnum
@@ -40,6 +40,98 @@ RELEASE = "holmes"
 
 # The values the chart passes on to Holmes, which reads the keys under them.
 PASSED_TO_HOLMES = ("toolsets", "mcp_servers", "modelList")
+
+
+try:
+    import kubernetes_validate.utils
+except ImportError as e:
+    raise ImportError(
+        "the chart checks need kubernetes-validate, a dev dependency: run `poetry install --with dev`"
+    ) from e
+
+# The Kubernetes version whose API schemas, as kubernetes-validate bundles them, the rendered
+# objects are checked against.
+KUBERNETES_VERSION = "1.36"
+
+def _helm() -> str:
+    helm = shutil.which("helm")
+    if helm is None:
+        raise RuntimeError(
+            "the chart checks need Helm on PATH: install Helm 3 or later, https://helm.sh/docs/intro/install/"
+        )
+    return helm
+
+
+def _render(values: dict, chart_dir: Path) -> subprocess.CompletedProcess:
+    """`helm template` of the chart with `values`, under the release name the docs' commands use (`RELEASE`)."""
+    return subprocess.run(
+        [_helm(), "template", RELEASE, str(chart_dir), "-f", "-"],
+        input=yaml.safe_dump(values),
+        capture_output=True,
+        text=True,
+    )
+
+
+def chart_defaults(chart_dir: Path) -> dict:
+    """The chart's `values.yaml`, with each value it passes on to Holmes free-form."""
+    defaults = yaml.safe_load((chart_dir / "values.yaml").read_text()) or {}
+    return {**defaults, **dict.fromkeys(PASSED_TO_HOLMES, {})}
+
+
+def unresolved_key_paths(values, defaults, path: tuple = ()) -> Iterator[tuple]:
+    """Each key path of `values` that `defaults`, a chart's values, does not declare, at any
+    depth. Under a key whose default is an empty mapping or list, or null, any key resolves;
+    a list entry resolves against the first entry of its default."""
+    if defaults is None or defaults == {} or defaults == []:
+        return
+    if isinstance(values, dict):
+        for key, value in values.items():
+            if isinstance(defaults, dict) and key in defaults:
+                yield from unresolved_key_paths(value, defaults[key], path + (key,))
+            else:
+                yield path + (key,)
+    elif isinstance(values, list):
+        entry = defaults[0] if isinstance(defaults, list) else defaults
+        for index, value in enumerate(values):
+            yield from unresolved_key_paths(value, entry, path + (index,))
+
+
+def _schema_errors(render: str) -> List[str]:
+    """Why the Kubernetes API schemas refuse each object of the render, in strict mode, which
+    refuses a field the schema does not declare."""
+    errors = []
+    for document in yaml.safe_load_all(render):
+        if not document:
+            continue
+        name = f"{document['kind']} {document['metadata']['name']}"
+        try:
+            kubernetes_validate.utils.validate(document, KUBERNETES_VERSION, strict=True)
+        except kubernetes_validate.utils.ValidationError as e:
+            where = ".".join(map(str, e.path))
+            errors.append(
+                f"the rendered {name} does not match its Kubernetes {KUBERNETES_VERSION} schema at `{where}`: {e.message}"
+            )
+        except kubernetes_validate.utils.SchemaNotFoundError:
+            errors.append(
+                f"the rendered {name} has no Kubernetes {KUBERNETES_VERSION} schema in kubernetes-validate: "
+                f"kind {document['kind']}, apiVersion {document['apiVersion']}"
+            )
+    return errors
+
+
+def check_chart(chart_dir: Path, values: dict) -> Tuple[Optional[str], List[str]]:
+    """The render of the chart in `chart_dir` with `values`, None when Helm refuses them, and
+    what the chart and the Kubernetes API refuse in them. Every key path must be one the
+    chart's `values.yaml` declares (`unresolved_key_paths`); the values must render once with
+    `helm template`, and every rendered object must match its Kubernetes schema."""
+    errors = [
+        f"`{key_path(path)}` is not a key path of the chart's values.yaml"
+        for path in unresolved_key_paths(values, chart_defaults(chart_dir))
+    ]
+    result = _render(values, chart_dir)
+    if result.returncode != 0:
+        return None, errors + [f"helm template fails: {result.stderr.strip()}"]
+    return result.stdout, errors + _schema_errors(result.stdout)
 
 
 @contextmanager
@@ -230,7 +322,7 @@ def check_fence(values: dict, environment: Dict[str, str], chart_dir: Path) -> L
     empty = empty_value(values)
     if empty:
         return [f"`{key_path(empty)}` has no value"]
-    render, errors = check_chart(chart_dir, values, RELEASE, PASSED_TO_HOLMES)
+    render, errors = check_chart(chart_dir, values)
     if render is None:
         return errors
     return errors + _holmes_errors(render, environment)

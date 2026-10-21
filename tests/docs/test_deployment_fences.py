@@ -11,7 +11,7 @@ from mkdocs.commands.build import build
 from mkdocs.config import load_config
 from pydantic import BaseModel, ConfigDict, Field
 
-from docs import chart_checks, custom_fences, fence_checks
+from docs import custom_fences, fence_checks
 from docs.custom_fences import SUPPORTED_OPENING_RE, TabFenceError
 from holmes.config import Config
 from holmes.core.llm import ModelEntry
@@ -381,20 +381,20 @@ def test_the_chart_the_kubernetes_schemas_and_holmes_take_every_helm_tab_of_a_pa
     ids=["unknown-key", "unknown-nested-key", "key-in-a-list-of-strings", "kubernetes-schema", "helm-refuses", "undeclared-field"],
 )
 def test_a_value_the_chart_or_kubernetes_refuses_is_an_error(values, error):
-    _, errors = chart_checks.check_chart(CHART, values, fence_checks.RELEASE, fence_checks.PASSED_TO_HOLMES)
+    _, errors = fence_checks.check_chart(CHART, values)
     assert len(errors) == 1 and re.match(error, errors[0]), errors
 
 
 def test_every_dead_key_is_an_error_of_one_render(monkeypatch):
     """The keys pages have shipped that no template reads, in one fence."""
-    render = chart_checks._render
+    render = fence_checks._render
     renders = []
 
-    def counted(chart_dir, values, release):
+    def counted(values, chart_dir):
         renders.append(values)
-        return render(chart_dir, values, release)
+        return render(values, chart_dir)
 
-    monkeypatch.setattr(chart_checks, "_render", counted)
+    monkeypatch.setattr(fence_checks, "_render", counted)
     values = {
         "config": {"x": "y"},
         "podLabels": {"team": "sre"},
@@ -419,7 +419,7 @@ def test_every_dead_key_is_an_error_of_one_render(monkeypatch):
     ids=["under-an-empty-mapping", "under-an-empty-list", "under-null", "passed-to-holmes", "a-list-of-strings"],
 )
 def test_any_key_resolves_under_a_free_form_default(values):
-    _, errors = chart_checks.check_chart(CHART, values, fence_checks.RELEASE, fence_checks.PASSED_TO_HOLMES)
+    _, errors = fence_checks.check_chart(CHART, values)
     assert errors == []
 
 
@@ -455,33 +455,17 @@ def test_a_rendered_kind_with_no_kubernetes_schema_is_an_error(tmp_path):
     ]
 
 
-def test_the_chart_checks_without_helm_fail_saying_what_to_install(monkeypatch, tmp_path):
+def test_the_fence_checks_without_helm_fail_saying_what_to_install(monkeypatch, tmp_path):
     monkeypatch.setenv("PATH", str(tmp_path))
     with pytest.raises(RuntimeError, match=r"the chart checks need Helm on PATH: install Helm"):
         fence_checks.check_fence({}, {}, CHART)
 
 
-def test_the_chart_checks_without_kubernetes_validate_fail_saying_what_to_install():
-    hidden = "import sys; sys.modules['kubernetes_validate'] = None; import docs.chart_checks"
+def test_the_fence_checks_without_kubernetes_validate_fail_saying_what_to_install():
+    hidden = "import sys; sys.modules['kubernetes_validate'] = None; import docs.fence_checks"
     result = subprocess.run([sys.executable, "-c", hidden], cwd=REPO, capture_output=True, text=True)
     assert result.returncode != 0
     assert "the chart checks need kubernetes-validate, a dev dependency: run `poetry install --with dev`" in result.stderr
-
-
-def test_the_chart_checks_render_with_holmes_unimportable():
-    """Callers outside this repository render their own charts with docs/chart_checks.py
-    without installing Holmes."""
-    unimportable = (
-        "import sys; sys.modules['holmes'] = None\n"
-        "from pathlib import Path\n"
-        "from docs.chart_checks import check_chart\n"
-        "render, errors = check_chart(Path('helm/holmes'), {'logLevel': 'DEBUG'}, 'holmes')\n"
-        "print(errors, 'kind: Deployment' in render)"
-    )
-    result = subprocess.run(
-        [sys.executable, "-c", unimportable], cwd=REPO, capture_output=True, text=True, check=True
-    )
-    assert result.stdout.strip() == "[] True"
 
 
 def test_the_keys_a_derived_cli_tab_shows_are_holmes_config_keys():

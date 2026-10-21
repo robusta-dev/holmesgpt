@@ -6,7 +6,6 @@ repo_name: HolmesGPT/holmesgpt
 edit_uri: edit/master/docs/
 exclude_docs: |
     _*
-    /chart_checks.py
     /custom_fences.py
     /fence_checks.py
     /overrides/

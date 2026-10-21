@@ -2,13 +2,12 @@ import re
 from pathlib import Path
 from typing import List
 
-from docs.chart_checks import chart_defaults, unresolved_key_paths
 from docs import custom_fences as cf
-from docs.fence_checks import PASSED_TO_HOLMES
+from docs.fence_checks import chart_defaults, unresolved_key_paths
 
 REPO = Path(__file__).resolve().parents[2]
 DOCS = REPO / "docs"
-DEFAULTS = chart_defaults(REPO / "helm" / "holmes", PASSED_TO_HOLMES)
+DEFAULTS = chart_defaults(REPO / "helm" / "holmes")
 
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
 # The forms of a span that names a chart path: mapping keys joined by dots, optionally
