@@ -16,9 +16,10 @@ and the Kubernetes schemas take the values of every Holmes Helm Chart tab.
 """
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
+import yaml
 
 from docs import custom_fences as cf
 
@@ -219,6 +220,23 @@ def group_problems(lines, rendered, secret=""):
     return problems
 
 
+def expected_secret(opening, body, rel):
+    """The secret the body's own text needs: the `holmes-<page>[-<qualifier>]` secret when the
+    values reference `{{ env.X }}` outside a comment and outside `additionalEnvVars`, which
+    set their own variables; "" for none. Read from the text, not from the renderer the
+    secret step is checked against."""
+    values_text = body.split("\n---\n")[0]
+    code = "\n".join(line for line in values_text.split("\n") if not line.lstrip().startswith("#"))
+    plain = {
+        entry["name"]
+        for entry in (yaml.safe_load(values_text) or {}).get("additionalEnvVars") or []
+        if isinstance(entry, dict) and "name" in entry
+    }
+    if not set(cf.ENV_REFERENCE_RE.findall(code)) - plain:
+        return ""
+    return f"holmes-{PurePosixPath(rel).stem}" + (f"-{opening['qualifier']}" if opening["qualifier"] else "")
+
+
 def fence_expansions(rel, lines):
     """(line, markdown, secret) of every deployment fence in `lines` that renders;
     `secret` is the group's env secret, which its secret step must create, or "" for
@@ -236,13 +254,11 @@ def fence_expansions(rel, lines):
         except cf.FenceBodyError:
             group = None
         if group is not None:
-            parsed = cf._deployment_body(opening, body, rel)
-            yield i + 1, group, "" if opening["option"] == "reuse" else parsed.secret
+            yield i + 1, group, "" if opening["option"] == "reuse" else expected_secret(opening, body, rel)
 
 
-def page_problems(path):
-    rel = path.relative_to(DOCS).as_posix()
-    lines = path.read_text().split("\n")
+def text_problems(rel, text):
+    lines = text.split("\n")
     try:
         problems = [f"{rel}:{line}: {message}" for line, message in group_problems(lines, rendered=False)]
         for fence_line, group, secret in fence_expansions(rel, lines):
@@ -253,6 +269,10 @@ def page_problems(path):
     except FenceError as e:
         return [f"{rel}:{e.line}: {e}"]
     return problems
+
+
+def page_problems(path):
+    return text_problems(path.relative_to(DOCS).as_posix(), path.read_text())
 
 
 def test_there_are_pages():
@@ -284,3 +304,16 @@ def test_a_group_whose_renderer_drops_the_secret_step_fails():
     assert [message for _, message in group_problems(group.split("\n"), rendered=True, secret="holmes-datadog")] == [
         "no secret step, which the values' `{{ env.X }}` references need, creating `holmes-datadog`"
     ]
+
+
+PAGE = f"```{cf.TOOLSET_CONFIG_FENCE}\n{DATADOG}```\n"
+
+
+def test_a_renderer_that_drops_the_secret_keys_of_a_fence_that_references_env_fails(monkeypatch):
+    """The expected secret comes from the values' own `{{ env.X }}` references, so a renderer
+    that renders no secret step for them fails the tab shape check."""
+    page = "data-sources/builtin-toolsets/datadog.md"
+    assert text_problems(page, PAGE) == []
+    monkeypatch.setattr(cf, "_environment_keys", lambda *args: {})
+    problems = text_problems(page, PAGE)
+    assert problems and "no secret step" in problems[0]
