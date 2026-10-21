@@ -249,6 +249,20 @@ See [Tool Execution Safety](../data-sources/tool-execution-safety.md) for the fu
 export TOOL_MEMORY_LIMIT_MB=2000
 ```
 
+## Holmes Logs in the Robusta UI
+
+The Robusta UI shows Holmes's own pod logs. The whole result is limited to `REMOTE_TOOL_RESULT_MAX_BYTES` (default 1 MB) after JSON encoding; when the logs are longer, the newest lines are kept.
+
+### HOLMES_LOGS_DEFAULT_TAIL_LINES
+**Default:** `500`
+
+Lines per container that the UI gets when it does not ask for a number.
+
+### HOLMES_LOGS_MAX_TAIL_LINES
+**Default:** `5000`
+
+The largest number of lines per container that a request can ask for.
+
 ## Conversation Worker Executors
 
 The conversation runtime (Robusta platform deployments) runs each conversation on a named **executor**. `Conversations.executor` names it: `manual` for live user asks (chat, follow-ups, a single "Investigate now") and `auto` for background work (auto-triage, "Add to queue" / bulk investigations, triggered workflows). Executors are created on demand and sized from the account setting `conversation_executors.<name>` (Settings → LLMs sets `manual`, Settings → Triage sets `auto`; applied live, no restart), falling back to the built-in default (`manual`=10, `auto`=1). `CONVERSATION_WORKER_MAX_CONCURRENT` (default 5) only sizes an executor whose name has no built-in default.

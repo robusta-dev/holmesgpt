@@ -24,8 +24,7 @@ import colorlog
 import litellm
 from pydantic import BaseModel
 from holmes.core.oauth_config import OAuthConfigLookupError, OAuthTokenExchangeError
-from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, process_oauth_callback
-from holmes.core.oauth_utils import _get_token_manager
+from holmes.core.oauth_server_callbacks import get_toolset_oauth_config, handle_oauth_callback
 import sentry_sdk
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -68,7 +67,7 @@ from holmes.core.models import (
 )
 from holmes.core.prompt import PromptComponent
 from holmes.core.tool_calling_llm import RelayRefusal
-from holmes.core.tools import PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetTag, ToolsetType
+from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode, ToolsetStatusEnum, ToolsetType
 from holmes.core.scheduled_prompts import ScheduledPromptsExecutor
 from holmes.utils.connection_utils import patch_socket_create_connection
 from holmes.plugins.toolsets.robusta_platform_mcp.robusta_platform_mcp import (
@@ -87,6 +86,7 @@ from holmes.utils.log import (
     JSON_LOG_FMT,
     JSON_LOG_RENAME_FIELDS,
     build_json_formatter,
+    suppress_noisy_third_party_logs,
 )
 from holmes.admin.admin_api import init_admin_app
 from holmes.checks.checks_api import init_checks_app
@@ -129,9 +129,7 @@ def init_logging():
         )
     logging.getLogger().setLevel(logging_level)
 
-    httpx_logger = logging.getLogger("httpx")
-    if httpx_logger:
-        httpx_logger.setLevel(logging.WARNING)
+    suppress_noisy_third_party_logs()
 
     litellm_logger = logging.getLogger("LiteLLM")
     if litellm_logger:
@@ -262,19 +260,20 @@ def sync_before_server_start():
         logging.error("Failed to start scheduled prompts executor", exc_info=True)
 
 
-def _has_failed_mcp_toolsets() -> bool:
-    """Check if any MCP toolsets that the shortened backoff cycles would
-    re-check are in FAILED state. A toolset with its own status refresh
-    interval is re-checked on that interval, not on backoff cycles."""
+def _failed_mcp_toolset_names() -> List[str]:
+    """Names of the MCP toolsets in FAILED state that the shortened backoff
+    cycles would re-check. A toolset with its own status refresh interval is
+    re-checked on that interval, not on backoff cycles."""
     executor = config.cached_tool_executor  # thread-safe property
     if not executor:
-        return False
-    return any(
-        t.type == ToolsetType.MCP
+        return []
+    return [
+        t.name
+        for t in executor.toolsets
+        if t.type == ToolsetType.MCP
         and t.status == ToolsetStatusEnum.FAILED
         and t.status_refresh_interval_seconds is None
-        for t in executor.toolsets
-    )
+    ]
 
 
 def _get_next_refresh_interval(
@@ -306,12 +305,13 @@ def _toolset_status_refresh_loop():
 
         while True:
             # Use shorter intervals when MCP servers are failing
+            failed_mcp = _failed_mcp_toolset_names()
             sleep_time, backoff_index = _get_next_refresh_interval(
-                _has_failed_mcp_toolsets(), backoff_index, interval
+                bool(failed_mcp), backoff_index, interval
             )
             if sleep_time < interval:
                 logging.info(
-                    f"Failed MCP server(s) detected, retrying in {sleep_time} seconds"
+                    f"Failed MCP server(s) detected: {', '.join(failed_mcp)}, retrying in {sleep_time} seconds"
                 )
 
             time.sleep(sleep_time)
@@ -336,14 +336,13 @@ def _toolset_status_refresh_loop():
             try:
                 # Re-discover platform-mcp tools so the dynamic remote-tool
                 # surface (new clusters, flipped account flag) reaches a
-                # RUNNING caller without a pod restart.
-                executor = config.create_tool_executor(
-                    dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-                    enable_all_toolsets_possible=False,
-                    reuse_executor=True,
-                )
-                refresh_platform_mcp_tools(executor)
+                # RUNNING caller without a pod restart. With no executor built
+                # yet, the refresh below builds it, which discovers the tools;
+                # building it here would make that refresh check every toolset
+                # again in the same cycle.
+                executor = config.cached_tool_executor
+                if executor is not None:
+                    refresh_platform_mcp_tools(executor)
             except Exception:
                 logging.error(
                     "Failed to refresh platform-mcp tools", exc_info=True
@@ -351,7 +350,7 @@ def _toolset_status_refresh_loop():
             try:
                 changes = config.refresh_tool_executor(
                     dal,
-                    toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+                    toolset_tag_filter=SERVER_TOOLSET_TAGS,
                     enable_all_toolsets_possible=False,
                 )
                 if changes:
@@ -512,8 +511,7 @@ def oauth_callback(request: OAuthCallbackRequest) -> OAuthCallbackResponse:
         bool(request.code_verifier), request.redirect_uri,
     )
     try:
-        executor = config.create_tool_executor(dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED)
-        return process_oauth_callback(request, executor.toolsets, _get_token_manager(), executor=executor)
+        return handle_oauth_callback(request, config, dal)
     except OAuthConfigLookupError as e:
         logging.error("OAuth config error for '%s': %s", request.toolset_name, e.detail)
         raise HTTPException(status_code=400, detail=e.detail)
@@ -656,9 +654,11 @@ def chat(chat_request: ChatRequest, http_request: Request):
         storage = tool_result_storage()
         tool_results_dir = storage.__enter__()
 
+        # No conversation_id: here it is caller-supplied (a ChatHistory id, a
+        # Teams activity id, or anything); see ROBUSTA_CONVERSATION_ID_HEADER.
         ai = config.create_toolcalling_llm(
             dal=dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
+            toolset_tag_filter=SERVER_TOOLSET_TAGS,
             enable_all_toolsets_possible=False,
             prerequisite_cache=PrerequisiteCacheMode.DISABLED,
             reuse_executor=True,
@@ -931,9 +931,7 @@ class InfoResponse(BaseModel):
 @app.get("/api/info", response_model=InfoResponse, response_model_exclude_none=True)
 def get_info(detail: Optional[str] = None) -> InfoResponse:
     """Return server info. Use ?detail=full for per-toolset breakdown."""
-    executor = config.create_tool_executor(
-        dal=dal, reuse_executor=True, prerequisite_cache=PrerequisiteCacheMode.DISABLED,
-    )
+    executor = config.create_server_tool_executor(dal)
     all_toolsets = executor.toolsets
 
     enabled_count = sum(1 for t in all_toolsets if t.status == ToolsetStatusEnum.ENABLED)
