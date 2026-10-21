@@ -676,3 +676,10 @@ def test_the_undeclared_key_walk_pairs_what_was_written_with_what_was_validated(
         (("single", "timout"), "Tool"),
         (("toolz",), "Server"),
     ]
+
+
+def test_a_non_string_environment_value_is_set_as_a_string_and_the_process_environment_is_restored():
+    before = dict(os.environ)
+    with fence_checks._environment({"RETRIES": 30, "DEBUG": True}):
+        assert dict(os.environ) == {"RETRIES": "30", "DEBUG": "True"}
+    assert dict(os.environ) == before
