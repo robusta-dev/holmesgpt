@@ -727,13 +727,16 @@ def _check_fence_lines(lines: List[str], page: str, offset: int) -> None:
 
 def _code_block_lines(lines: List[str], start: int, end: int) -> List[int]:
     """The lines from `start` to `end` that open, hold or close a code block or a
-    robusta-region fence."""
+    robusta-region fence. A block closes at the opening line's indent plus the closing
+    line, so a code block indented inside a fence's `cli` field does not close the fence."""
     inside: List[int] = []
     opening = None
+    closing = CLOSING_LINE
     for i in range(start, end):
         if opening is None and (CODE_FENCE_RE.match(lines[i]) or SUPPORTED_OPENING_RE.match(lines[i])):
             opening = i
-        elif opening is not None and lines[i].strip() == CLOSING_LINE:
+            closing = lines[i][: len(lines[i]) - len(lines[i].lstrip(" "))] + CLOSING_LINE
+        elif opening is not None and lines[i] == closing:
             inside.extend(range(opening, i + 1))
             opening = None
     return inside

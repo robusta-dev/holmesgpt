@@ -135,13 +135,14 @@ def check_chart(chart_dir: Path, values: dict) -> Tuple[Optional[str], List[str]
 
 
 @contextmanager
-def _environment(variables: Dict[str, str]):
-    """Run with only these environment variables set. `os.environ` is the process's, so nothing
-    else may run in the process meanwhile."""
+def _environment(variables: Dict[str, object]):
+    """Run with only these environment variables set, each as the string Kubernetes gives the
+    container (a YAML `value: 30` is 30). `os.environ` is the process's, so nothing else may
+    run in the process meanwhile."""
     saved = dict(os.environ)
-    os.environ.clear()
-    os.environ.update(variables)
     try:
+        os.environ.clear()
+        os.environ.update({name: str(value) for name, value in variables.items()})
         yield
     finally:
         os.environ.clear()

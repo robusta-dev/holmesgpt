@@ -167,6 +167,15 @@ def test_a_tab_line_in_a_form_no_page_writes_fails_the_build(tmp_path, monkeypat
         build_page(tmp_path, f"{line}\n\n    Run holmes.\n")
 
 
+def test_an_indented_code_block_in_a_fences_cli_field_does_not_close_the_fence(tmp_path, monkeypatch):
+    """The fence ends at its own closing line, so a tab line between it and the next code block is checked."""
+    monkeypatch.chdir(REPO)
+    fence = "```yaml-toolset-config\ntoolsets:\n  kubernetes/core:\n    enabled: true\n---\ncli: |\n  ```bash\n  holmes ask\n  ```\n  Done.\n```\n"
+    line = "=== Holmes CLI"
+    with pytest.raises(TabFenceError, match=rf"^index\.md:15: unsupported form of a tab line: {re.escape(repr(line))}"):
+        build_page(tmp_path, f"{fence}\n{line}\n\n```text\nDone.\n```\n")
+
+
 def test_a_tab_line_in_a_code_block_is_code(tmp_path, monkeypatch):
     monkeypatch.chdir(REPO)
     build_page(tmp_path, "```text\n=====\n```\n")
@@ -677,3 +686,10 @@ def test_the_undeclared_key_walk_pairs_what_was_written_with_what_was_validated(
         (("single", "timout"), "Tool"),
         (("toolz",), "Server"),
     ]
+
+
+def test_a_non_string_environment_value_is_set_as_a_string_and_the_process_environment_is_restored():
+    before = dict(os.environ)
+    with fence_checks._environment({"RETRIES": 30, "DEBUG": True}):
+        assert dict(os.environ) == {"RETRIES": "30", "DEBUG": "True"}
+    assert dict(os.environ) == before
