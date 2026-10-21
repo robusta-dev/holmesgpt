@@ -124,7 +124,8 @@ def _from_body(body: dict) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _clean_text(raw: str) -> str:
-    text = _RETRY_SUFFIX.sub("", raw.strip(), count=1)
+    # Bound the input first: _RETRY_SUFFIX is quadratic on long whitespace runs.
+    text = _RETRY_SUFFIX.sub("", raw[: _MAX_PARSE_CHARS + 1].strip(), count=1)
     text = _ERROR_PREFIX.sub("", text, count=1)
     text = _PROVIDER_PREFIX.sub("", text, count=1)
     return _STATUS_PREFIX.sub("", text, count=1).strip()
@@ -254,7 +255,11 @@ class ErrorInfo:
                     provider = body["provider"]
                 first_llm_link = False
         error_class = _class_name(exc)
-        if _THROTTLE_MARKER in _text(exc) and status_code is None:
+        if (
+            type(exc) is Exception
+            and _THROTTLE_MARKER in _text(exc)
+            and status_code is None
+        ):
             # Bedrock raises a bare Exception for throttling.
             error_class = "RateLimitError"
             provider = provider or "bedrock"

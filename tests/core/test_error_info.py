@@ -1,3 +1,5 @@
+import time
+
 import httpx
 import litellm
 import pytest
@@ -480,3 +482,15 @@ def test_a_specific_nested_type_is_still_the_code():
     }
 
     assert ErrorInfo.from_exception(exc).code == "overloaded_error"
+
+
+def test_a_long_whitespace_run_in_the_text_is_not_quadratic():
+    started = time.monotonic()
+    parse_provider_text("OpenAIException - a" + " " * 400_000 + "b")
+
+    assert time.monotonic() - started < 2
+
+
+def test_only_a_bare_exception_is_a_bedrock_throttle():
+    assert ErrorInfo.from_exception(RuntimeError("Model is getting throttled")).error_class == "RuntimeError"
+    assert ErrorInfo.from_exception(Exception("Model is getting throttled")).error_class == "RateLimitError"
