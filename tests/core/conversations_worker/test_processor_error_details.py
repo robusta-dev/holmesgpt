@@ -1,10 +1,14 @@
 """A failed worker turn keeps the sanitized cause: error class, provider status
 and the provider's reason, for customer-key and Robusta-hosted models alike."""
 
+from unittest.mock import patch
+
 import litellm
 import pytest
 
+from holmes.core.conversations_worker.processor import ConversationProcessor
 from holmes.core.relay_refusal import RelayRefusal
+from tests.core.conversations_worker.test_processor import _processor, _task
 from tests.core.conversations_worker.test_processor_usage_recorder import (
     _bare_worker,
     _run,
@@ -20,7 +24,7 @@ def _error_event(worker):
     return event["data"]
 
 
-def _provider_error(cls, message, status, provider="bedrock"):
+def _provider_error(cls, message, provider="bedrock"):
     return cls(message=message, model="m", llm_provider=provider)
 
 
@@ -31,7 +35,6 @@ def test_provider_failure_keeps_class_status_and_reason(is_robusta_model):
     exc = _provider_error(
         litellm.ServiceUnavailableError,
         "BedrockException - Bedrock is unable to process your request.",
-        503,
     )
 
     _run(w, ai, consume_side_effect=exc)
@@ -59,7 +62,6 @@ def test_a_message_that_is_not_plain_prose_is_dropped_but_the_code_is_kept():
         "OpenAIException - Error code: 401 - {'error': {'message': 'Incorrect API key provided: "
         "sk-proj-AAAABBBBCCCCDDDD1234567890 for admin@corp.com at 10.1.2.3:8443', "
         "'type': 'invalid_request_error', 'code': 'invalid_api_key'}}",
-        401,
         provider="openai",
     )
 
@@ -86,7 +88,6 @@ def test_the_robusta_account_limit_sentence_survives_for_the_ui():
         "OpenAIException - Error code: 429 - {'error': {'message': 'Your Robusta AI account limit has "
         "been reached. Contact support@robusta.dev to increase limits.', "
         "'type': 'rate_limit_exceeded', 'code': 'account_limit_reached'}}",
-        429,
         provider="openai",
     )
 
@@ -124,11 +125,6 @@ def test_relay_refusal_event_also_carries_its_class_and_status():
 
 
 def test_the_outer_failure_handler_keeps_the_class_too():
-    from unittest.mock import patch
-
-    from holmes.core.conversations_worker.processor import ConversationProcessor
-    from tests.core.conversations_worker.test_processor import _processor, _task
-
     p = _processor()
     exc = litellm.RateLimitError(
         message="OpenAIException - Rate limit reached", model="m", llm_provider="openai"
@@ -143,6 +139,8 @@ def test_the_outer_failure_handler_keeps_the_class_too():
     (event,) = p.dal.post_conversation_events.call_args.kwargs["events"]
     assert event["data"]["error_class"] == "RateLimitError"
     assert event["data"]["provider_status"] == 429
+    assert event["data"]["description"].startswith("AI provider error: RateLimitError")
+    assert event["data"]["description"] == event["data"]["msg"]
 
 
 def test_a_provider_error_without_a_message_omits_raw_error():

@@ -48,6 +48,8 @@ _CODE_KEYS = ("provider_code", "code", "type", "__type")
 _MESSAGE_KEYS = ("provider_message", "message")
 
 _CODE = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{1,47}")
+# Anthropic wraps every error in {"type": "error", ...}; that says nothing.
+_GENERIC_CODES = frozenset({"error"})
 # A word is plain letters: no digits, hyphens, slashes, '@' or ':' can appear,
 # so identifiers, hosts, paths, emails and keys never qualify.
 _WORD = re.compile(r"(?:[A-Z]?[a-z']{1,14}|[A-Z]{2,6})")
@@ -88,6 +90,8 @@ def _code(value: Any) -> Optional[str]:
     if not isinstance(value, str):
         return None
     value = value.rsplit("#", 1)[-1]
+    if value.lower() in _GENERIC_CODES:
+        return None
     if _CODE.fullmatch(value) and sum(c.isdigit() for c in value) <= 8:
         return value
     return None
@@ -126,16 +130,24 @@ def _clean_text(raw: str) -> str:
     return _STATUS_PREFIX.sub("", text, count=1).strip()
 
 
+def _extract_text(raw: str) -> Tuple[Optional[str], Optional[str], Optional[dict]]:
+    """``(code, message, body)`` from an exception's text; ``body`` is the
+    parsed JSON / dict body when there was one."""
+    text = _clean_text(raw)
+    body = _parse_body(text)
+    if body is None:
+        return None, short_message(text), None
+    code, message = _from_body(body)
+    return code, message, body
+
+
 def parse_provider_text(raw: str) -> Tuple[Optional[str], Optional[str]]:
     """``(code, message)`` the provider reported in an exception's text.
 
     A JSON / dict body is read field by field; anything else is only a message
     candidate as a whole."""
-    text = _clean_text(raw)
-    body = _parse_body(text)
-    if body is None:
-        return None, short_message(text)
-    return _from_body(body)
+    code, message, _ = _extract_text(raw)
+    return code, message
 
 
 def _structured_body(exc: BaseException) -> Optional[dict]:
@@ -233,10 +245,12 @@ class ErrorInfo:
                 body = _structured_body(link)
                 code, message = _from_body(body) if body else (None, None)
                 if code is None and message is None:
-                    code, message = parse_provider_text(_text(link))
-                    body = _parse_body(_clean_text(_text(link))) or body
+                    code, message, text_body = _extract_text(_text(link))
+                    body = text_body or body
                 # Relay names the provider it called; litellm only sees relay.
-                if body and _valid_provider(body.get("provider")):
+                # Its error_class marks the body as relay's, so an arbitrary
+                # upstream body cannot relabel the provider.
+                if body and body.get("error_class") and _valid_provider(body.get("provider")):
                     provider = body["provider"]
                 first_llm_link = False
         error_class = _class_name(exc)

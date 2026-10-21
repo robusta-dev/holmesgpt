@@ -16,9 +16,12 @@ object the recorder passed in.
 from typing import List
 from unittest.mock import MagicMock
 
+import litellm
 import pytest
 
+from holmes.core.models import ChatRequest
 from holmes.core.usage_recorder import (
+    build_chat_recorder_state,
     UsageRecorderState,
     record_error,
     record_from_llm_result,
@@ -589,8 +592,6 @@ def _failing_stream(exc: Exception):
 
 
 def _provider_503():
-    import litellm
-
     return litellm.ServiceUnavailableError(
         message="BedrockException - capacity exhausted",
         model="m",
@@ -658,8 +659,6 @@ def test_record_error_records_the_class_too(monkeypatch):
 
 
 def test_a_throttle_keeps_its_rate_limited_status_and_gains_the_class(monkeypatch):
-    import litellm
-
     _patch_inline_thread(monkeypatch)
     state = _make_state()
 
@@ -691,9 +690,6 @@ def test_frontend_cannot_forge_any_backend_error_key_on_a_failed_run(monkeypatch
 
 
 def test_frontend_cannot_forge_error_keys_on_a_successful_run():
-    from holmes.core.models import ChatRequest
-    from holmes.core.usage_recorder import build_chat_recorder_state
-
     request = ChatRequest(
         ask="q",
         meta={"error_class": "Forged", "error_status_code": 500, "ok_key": 1},

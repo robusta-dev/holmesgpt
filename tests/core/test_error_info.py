@@ -1,3 +1,4 @@
+import httpx
 import litellm
 import pytest
 
@@ -339,8 +340,6 @@ def test_the_structured_body_on_the_exception_is_read_before_its_text():
 
 
 def test_the_json_of_the_wrapped_response_is_read_when_there_is_no_body_attribute():
-    import httpx
-
     exc = _litellm(litellm.ServiceUnavailableError, "OpenAIException - gateway text: 10.0.0.1")
     exc.response = httpx.Response(
         503,
@@ -362,8 +361,6 @@ def test_a_body_without_usable_fields_falls_back_to_the_text(body):
 
 
 def test_a_response_that_cannot_be_decoded_falls_back_to_the_text():
-    import httpx
-
     exc = _litellm(litellm.ServiceUnavailableError, "OpenAIException - Overloaded.")
     exc.response = httpx.Response(503, content=b"<html>", request=httpx.Request("POST", "http://x"))
 
@@ -401,7 +398,12 @@ def test_the_provider_relay_reports_wins_over_the_one_litellm_sees():
         llm_provider="openai",
         response=None,
     )
-    exc.body = {"msg": "x", "provider": "bedrock", "provider_code": "capacity"}
+    exc.body = {
+        "msg": "x",
+        "error_class": "ServiceUnavailableError",
+        "provider": "bedrock",
+        "provider_code": "capacity",
+    }
 
     info = ErrorInfo.from_exception(exc)
 
@@ -420,8 +422,8 @@ def test_a_provider_name_in_the_body_that_is_not_a_name_is_ignored():
 
 def test_the_provider_relay_reports_in_the_exception_text_is_used_too():
     exc = litellm.ServiceUnavailableError(
-        message="OpenAIException - Error code: 503 - {'msg': 'x', 'provider': "
-        "'bedrock', 'provider_code': 'capacity'}",
+        message="OpenAIException - Error code: 503 - {'msg': 'x', 'error_class': "
+        "'ServiceUnavailableError', 'provider': 'bedrock', 'provider_code': 'capacity'}",
         model="m",
         llm_provider="openai",
     )
@@ -434,8 +436,8 @@ def test_the_provider_relay_reports_in_the_exception_text_is_used_too():
 
 def test_the_provider_in_the_text_body_is_used_when_the_exception_body_is_unusable():
     exc = litellm.ServiceUnavailableError(
-        message="OpenAIException - Error code: 503 - {'msg': 'x', 'provider': "
-        "'bedrock', 'provider_code': 'capacity'}",
+        message="OpenAIException - Error code: 503 - {'msg': 'x', 'error_class': "
+        "'ServiceUnavailableError', 'provider': 'bedrock', 'provider_code': 'capacity'}",
         model="m",
         llm_provider="openai",
     )
@@ -445,3 +447,36 @@ def test_the_provider_in_the_text_body_is_used_when_the_exception_body_is_unusab
 
     assert info.provider == "bedrock"
     assert info.code == "capacity"
+
+
+def test_a_provider_key_in_a_body_that_is_not_relays_is_ignored():
+    exc = litellm.ServiceUnavailableError(
+        message="OpenAIException - Capacity.", model="m", llm_provider="openai"
+    )
+    exc.body = {"provider": "bedrock", "message": "Capacity."}
+
+    assert ErrorInfo.from_exception(exc).provider == "openai"
+
+
+def test_the_generic_anthropic_envelope_type_is_not_a_code():
+    exc = litellm.ServiceUnavailableError(
+        message="AnthropicException - x", model="m", llm_provider="anthropic"
+    )
+    exc.body = {"type": "error", "error": {"message": "Overloaded"}}
+
+    info = ErrorInfo.from_exception(exc)
+
+    assert info.code is None
+    assert info.message == "Overloaded"
+
+
+def test_a_specific_nested_type_is_still_the_code():
+    exc = litellm.ServiceUnavailableError(
+        message="AnthropicException - x", model="m", llm_provider="anthropic"
+    )
+    exc.body = {
+        "type": "error",
+        "error": {"type": "overloaded_error", "message": "Overloaded"},
+    }
+
+    assert ErrorInfo.from_exception(exc).code == "overloaded_error"

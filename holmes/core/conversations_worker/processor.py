@@ -49,6 +49,21 @@ if TYPE_CHECKING:
     from holmes.core.supabase_dal import SupabaseDal
 
 
+GENERIC_FAILURE_DESCRIPTION = "An internal error occurred while processing your request"
+
+
+def _failure_description(error_info: ErrorInfo) -> str:
+    return (
+        error_info.summary()
+        if error_info.from_provider
+        else GENERIC_FAILURE_DESCRIPTION
+    )
+
+
+def _failure_raw_error(error_info: ErrorInfo) -> Optional[str]:
+    return error_info.message if error_info.from_provider else None
+
+
 class ConversationProcessor:
     """Runs one conversation turn and writes its outcome.
 
@@ -86,10 +101,12 @@ class ConversationProcessor:
                 e,
                 exc_info=True,
             )
+            error_info = ErrorInfo.from_exception(e)
             self.fail(
                 task,
-                "An internal error occurred while processing your request",
-                error_info=ErrorInfo.from_exception(e),
+                _failure_description(error_info),
+                raw_error=_failure_raw_error(error_info),
+                error_info=error_info,
             )
 
     def _process_conversation(self, task: ConversationTask) -> None:
@@ -537,10 +554,8 @@ class ConversationProcessor:
             error_info = ErrorInfo.from_exception(e)
             self.fail(
                 task,
-                error_info.summary()
-                if error_info.from_provider
-                else "An internal error occurred while processing your request",
-                raw_error=error_info.message if error_info.from_provider else None,
+                _failure_description(error_info),
+                raw_error=_failure_raw_error(error_info),
                 error_info=error_info,
             )
         finally:
