@@ -300,18 +300,18 @@ The hosts Holmes connects to for each LLM provider, over HTTPS (port 443) unless
 | OpenAI | `api.openai.com` |
 | Anthropic | `api.anthropic.com` |
 | Google Gemini | `generativelanguage.googleapis.com` |
-| Google Vertex AI | `<location>-aiplatform.googleapis.com` (`aiplatform.googleapis.com` for the `global` location), and `oauth2.googleapis.com` for service account tokens |
+| Google Vertex AI | `<location>-aiplatform.googleapis.com` (`aiplatform.googleapis.com` for the `global` location, `aiplatform.<location>.rep.googleapis.com` for a multi-region location such as `us` or `eu`), and `oauth2.googleapis.com` for service account tokens |
 | AWS Bedrock | `bedrock-runtime.<region>.amazonaws.com`, and `sts.<region>.amazonaws.com` (or `sts.amazonaws.com` for the global endpoint) when Holmes assumes a role |
 | Azure AI Foundry / Azure OpenAI | The host of `AZURE_API_BASE` (e.g. `<resource>.services.ai.azure.com`, `<resource>.cognitiveservices.azure.com` or `<resource>.openai.azure.com`), and `login.microsoftonline.com` with `AZURE_AD_TOKEN_AUTH`, workload identity or a service principal (managed identity uses the instance metadata endpoint instead) |
 | OpenRouter | `openrouter.ai` |
 | OpenAI-compatible endpoints | The host of `OPENAI_API_BASE` |
 | GitHub Models | `models.inference.ai.azure.com` |
-| GitHub Copilot | The API host GitHub returns with the Copilot token (`api.githubcopilot.com`, or a business or enterprise host on those plans), and `github.com` and `api.github.com` for the device login and token exchange |
+| GitHub Copilot | The API host GitHub returns with the Copilot token (under `*.githubcopilot.com`; see [GitHub's Copilot allowlist reference](https://docs.github.com/en/copilot/reference/allowlist-reference)), and `github.com` and `api.github.com` for the device login and token exchange |
 | Baseten | `inference.baseten.co` |
 | Ollama | The host of `OLLAMA_API_BASE` |
 | Robusta AI | The host of [`ROBUSTA_API_ENDPOINT`](#robusta_api_endpoint), and the data store host (the store URL in your `ROBUSTA_UI_TOKEN`, the Robusta config file's token or `STORE_URL`) for the session token and realtime connection. See [the platform allowlist](troubleshooting.md#firewall-blocking-robusta-platform) |
 
-With every provider, LiteLLM downloads its model catalog from `raw.githubusercontent.com` at startup; allow it or point [`LITELLM_MODEL_COST_MAP_URL`](#litellm_model_cost_map_url) at a mirror. It also fetches an Anthropic beta-headers file from the same host and falls back to a bundled copy when that fails, so a mirror for the cost map alone does not remove all traffic to it. Set `LITELLM_LOCAL_MODEL_COST_MAP=True` to skip the catalog download and `LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS=True` to skip the beta-headers download; both use the bundled copies.
+With every provider, LiteLLM downloads its model catalog from `raw.githubusercontent.com` at startup and on each refresh (see [`LITELLM_COST_MAP_REFRESH_INTERVAL_SECONDS`](#litellm_cost_map_refresh_interval_seconds)); allow it or point [`LITELLM_MODEL_COST_MAP_URL`](#litellm_model_cost_map_url) at a mirror. It also fetches an Anthropic beta-headers file from the same host and falls back to a bundled copy when that fails, so a mirror for the cost map alone does not remove all traffic to it. Set `LITELLM_LOCAL_MODEL_COST_MAP=True` to skip the catalog download, refreshes included, and `LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS=True` to skip the beta-headers download; both use the bundled copies.
 
 ## Tool Result Size Limits
 
