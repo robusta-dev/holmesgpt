@@ -32,7 +32,7 @@ This page documents all environment variables that can be used to configure Holm
 
 ## Robusta AI { #robusta-ai }
 
-These settings matter only with the Robusta platform. See [Robusta AI](../ai-providers/robusta-ai.md) for setting it up.
+These settings matter with the Robusta platform, except that the interactive CLI also uses `ROBUSTA_API_ENDPOINT` to check for the latest Holmes release. See [Robusta AI](../ai-providers/robusta-ai.md) for setting it up.
 
 ### ROBUSTA_AI
 **Default:** not set
@@ -42,24 +42,46 @@ Server only. `true` makes the Holmes server load the models the Robusta platform
 ### ROBUSTA_API_ENDPOINT
 **Default:** `https://api.robusta.dev`
 
-Base URL of the Robusta platform API. When Holmes connects to the platform, it fetches the data store's API key from it (`/api/config/supabase-keys`), so a wrong-region endpoint degrades that login. Holmes also fetches the account's Robusta AI models from it, sends Robusta AI completions through it, and reaches the Robusta platform MCP server under it (unless `ROBUSTA_MCP_ENDPOINT` is set). The interactive CLI also checks it for the latest Holmes release. Set it to your region's API, or to a self-hosted platform's API URL:
+Base URL of the Robusta platform API. When Holmes connects to the platform, it fetches the data store's API key from it (`/api/config/supabase-keys`), and when that fetch fails it logs in with the `api_key` in the Robusta UI token instead. Holmes also fetches the account's Robusta AI models from it, sends Robusta AI completions through it, and reaches the Robusta platform MCP server under it (unless `ROBUSTA_MCP_ENDPOINT` is set). The interactive CLI also checks it for the latest Holmes release, with or without the platform. Set it to your region's API, or to a self-hosted platform's API URL:
 
-```robusta-region {lang=yaml}
-additionalEnvVars:
-  - name: ROBUSTA_API_ENDPOINT
-    value: "https://api.robusta.dev"
-```
+=== "Holmes Helm Chart"
+
+    ```robusta-region {lang=yaml}
+    additionalEnvVars:
+      - name: ROBUSTA_API_ENDPOINT
+        value: "https://api.robusta.dev"
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```robusta-region {lang=yaml}
+    holmes:
+      additionalEnvVars:
+        - name: ROBUSTA_API_ENDPOINT
+          value: "https://api.robusta.dev"
+    ```
 
 ### ROBUSTA_UI_DOMAIN
 **Default:** `https://platform.robusta.dev`
 
 Base URL of the Robusta UI. Holmes builds links to platform chats on it, accepts conversation links on its host, and fetches the additional system prompt for scheduled prompts from it. Set it to your region's UI, or to a self-hosted platform's UI URL:
 
-```robusta-region {lang=yaml}
-additionalEnvVars:
-  - name: ROBUSTA_UI_DOMAIN
-    value: "https://platform.robusta.dev"
-```
+=== "Holmes Helm Chart"
+
+    ```robusta-region {lang=yaml}
+    additionalEnvVars:
+      - name: ROBUSTA_UI_DOMAIN
+        value: "https://platform.robusta.dev"
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```robusta-region {lang=yaml}
+    holmes:
+      additionalEnvVars:
+        - name: ROBUSTA_UI_DOMAIN
+          value: "https://platform.robusta.dev"
+    ```
 
 ### ROBUSTA_UI_TOKEN
 **Default:** not set
@@ -222,7 +244,7 @@ Serve the HolmesGPT API over **HTTPS directly from the application** (in-app TLS
 
 ## Proxies { #http-proxy }
 
-Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standard proxy variables are set: LLM calls, the Robusta platform and its realtime connection, and the toolsets' HTTP calls, except the ClickHouse HTTP query path, which ignores the proxy variables.
+Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standard proxy variables are set: LLM calls, the Robusta platform and its realtime connection, and the toolsets' HTTP calls, except the ClickHouse HTTP query path and the in-process Kubernetes client (Kubernetes API calls from the Prometheus service discovery and Holmes's own log reader), which ignore the proxy variables.
 
 | Variable | Description |
 | --- | --- |
@@ -283,9 +305,13 @@ The hosts Holmes connects to for each LLM provider, all over HTTPS (port 443). A
 | Azure AI Foundry / Azure OpenAI | The host of `AZURE_API_BASE` (e.g. `<resource>.openai.azure.com`), and `login.microsoftonline.com` with `AZURE_AD_TOKEN_AUTH`, workload identity or a service principal (managed identity uses the instance metadata endpoint instead) |
 | OpenRouter | `openrouter.ai` |
 | OpenAI-compatible endpoints | The host of `OPENAI_API_BASE` |
-| Robusta AI | The host of [`ROBUSTA_API_ENDPOINT`](#robusta_api_endpoint), and the data store host (the `store_url` in your `ROBUSTA_UI_TOKEN`) for the session token and realtime connection. See [the platform allowlist](troubleshooting.md#firewall-blocking-robusta-platform) |
+| GitHub Models | `models.inference.ai.azure.com` |
+| GitHub Copilot | `api.githubcopilot.com`, and `github.com` and `api.github.com` for the device login and token exchange |
+| Baseten | `inference.baseten.co` |
+| Ollama | The host of `OLLAMA_API_BASE` |
+| Robusta AI | The host of [`ROBUSTA_API_ENDPOINT`](#robusta_api_endpoint), and the data store host (the store URL in your `ROBUSTA_UI_TOKEN`, the Robusta config file's token or `STORE_URL`) for the session token and realtime connection. See [the platform allowlist](troubleshooting.md#firewall-blocking-robusta-platform) |
 
-With every provider, LiteLLM downloads its model catalog from `raw.githubusercontent.com` at startup; allow it or point [`LITELLM_MODEL_COST_MAP_URL`](#litellm_model_cost_map_url) at a mirror.
+With every provider, LiteLLM downloads its model catalog from `raw.githubusercontent.com` at startup; allow it or point [`LITELLM_MODEL_COST_MAP_URL`](#litellm_model_cost_map_url) at a mirror. It also fetches an Anthropic beta-headers file from the same host and falls back to a bundled copy when that fails, so a mirror for the cost map alone does not remove all traffic to it.
 
 ## Tool Result Size Limits
 

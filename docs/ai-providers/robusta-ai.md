@@ -174,7 +174,7 @@ Check that:
 
 ## Environment Variables
 
-`ROBUSTA_AI` and `ROBUSTA_API_ENDPOINT` are documented in [Environment Variables](../reference/environment-variables.md#robusta-ai). Set `ROBUSTA_API_ENDPOINT` per region (`https://api.robusta.dev`, `https://api.eu.robusta.dev`, `https://api.ap.robusta.dev`) or to your on-premise URL; see [Selecting a Region](#selecting-a-region).
+`ROBUSTA_AI` and `ROBUSTA_API_ENDPOINT` are documented in [Environment Variables](../reference/environment-variables.md#robusta-ai).
 
 ## See Also
 
