@@ -252,7 +252,7 @@ Serve the HolmesGPT API over **HTTPS directly from the application** (in-app TLS
 
 ## Proxies { #http-proxy }
 
-Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standard proxy variables are set: LLM calls, the Robusta platform and its realtime connection, and the toolsets' HTTP calls, except the ClickHouse HTTP query path and the in-process Kubernetes client (Kubernetes API calls from the Prometheus service discovery and Holmes's own log reader), which ignore the proxy variables.
+Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standard proxy variables are set: LLM calls, the Robusta platform and its realtime connection, and the toolsets' HTTP calls, except the ClickHouse HTTP query path and the in-process Kubernetes client (Kubernetes API calls from the Prometheus service discovery and Holmes's own log reader), which ignore the proxy variables. The commands tools run (`kubectl` and other CLIs) inherit the variables too, so each follows its own proxy handling.
 
 | Variable | Description |
 | --- | --- |
