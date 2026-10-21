@@ -49,7 +49,7 @@ modelList:
 ---
 secret:
   - --from-literal=VERTEXAI_PROJECT="your-project-id"
-  - --from-literal=VERTEXAI_LOCATION="us-central1"
+  - --from-literal=VERTEXAI_LOCATION="global"
 named-secrets:
   - name: holmes-google-vertex-ai-credentials
     keys:
@@ -57,7 +57,7 @@ named-secrets:
 cli: |
   ```bash
   export VERTEXAI_PROJECT="your-project-id"
-  export VERTEXAI_LOCATION="us-central1"
+  export VERTEXAI_LOCATION="global"
   export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
 
   holmes ask "what pods are failing?" --model="vertex_ai/<your-vertex-model>"
