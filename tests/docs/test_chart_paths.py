@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 
 from docs.chart_checks import chart_defaults, unresolved_key_paths
-from docs.custom_fences import FENCE_LINE_RE
+from docs import custom_fences as cf
 from docs.fence_checks import PASSED_TO_HOLMES
 
 REPO = Path(__file__).resolve().parents[2]
@@ -33,19 +33,34 @@ def _values_at(keys: List[str]) -> dict:
     return values
 
 
+def prose_lines(lines: List[str], page: str) -> List[int]:
+    """The indexes of the lines of `lines` that are prose: outside every code block and
+    custom fence, plus the lines of a fence's fields (after its `---` line) outside the code
+    blocks of its `cli` field. Fences are found as the build finds them."""
+    fences = list(cf._custom_fences(lines, page, 0))
+    code = set()
+    prose = []
+    previous = 0
+    for start, end, _, _ in fences:
+        code.update(cf._code_block_lines(lines, previous, start))
+        prose += [i for i in range(previous, start) if i not in code]
+        separator = next((i for i in range(start + 1, end) if lines[i] == cf.FIELDS_SEPARATOR), end)
+        in_fields = set(cf._code_block_lines(lines, separator, end))
+        prose += [i for i in range(separator, end) if i not in in_fields]
+        previous = end + 1
+    code.update(cf._code_block_lines(lines, previous, len(lines)))
+    return prose + [i for i in range(previous, len(lines)) if i not in code]
+
+
 def unknown_chart_paths(text: str, page: str) -> List[str]:
-    """An error for each inline code span outside a fence that starts with a top-level key of
-    the Holmes chart's values and names a path the values do not have, resolved as the chart
-    check of a fence resolves its key paths."""
+    """An error for each inline code span in prose (`prose_lines`) that starts with a top-level
+    key of the Holmes chart's values and names a path the values do not have, resolved as the
+    chart check of a fence resolves its key paths."""
     errors = []
-    in_fence = False
-    for number, line in enumerate(text.split("\n"), 1):
-        if FENCE_LINE_RE.match(line):
-            in_fence = not in_fence
-            continue
-        if in_fence:
-            continue
-        for span in INLINE_CODE_RE.findall(line):
+    lines = text.split("\n")
+    for index in sorted(prose_lines(lines, page)):
+        number = index + 1
+        for span in INLINE_CODE_RE.findall(lines[index]):
             if re.split(r"[.:\[ =]", span, maxsplit=1)[0] not in DEFAULTS or span in NOT_CHART_PATHS:
                 continue
             match = CHART_PATH_RE.fullmatch(span)
@@ -77,4 +92,24 @@ def test_a_chart_path_the_values_lack_is_an_error_naming_the_page_and_line():
     assert unknown_chart_paths(text, "page.md") == [
         "page.md:5: `mcpAddons.aws.serviceAccount.missing`: `mcpAddons.aws.serviceAccount.missing` is not a key path of the chart's values.yaml",
         "page.md:5: `resources.limits[0]` starts with a chart key but is not a chart path in a form this check reads",
+    ]
+
+
+def test_prose_in_a_fences_cli_field_is_checked_and_its_code_blocks_are_not():
+    text = (
+        f"```{cf.HELM_VALUES_FENCE}\n"
+        "mcpAddons:\n  aws:\n    enabled: true\n"
+        f"{cf.FIELDS_SEPARATOR}\n"
+        "cli: |\n"
+        "  Set `mcpAddons.bogusInCliProse` first.\n"
+        "\n"
+        "  ```bash\n"
+        "  echo `mcpAddons.bogusInBash`\n"
+        "  ```\n"
+        "```\n"
+        "Then `mcpAddons.bogusAfter`.\n"
+    )
+    assert unknown_chart_paths(text, "page.md") == [
+        "page.md:7: `mcpAddons.bogusInCliProse`: `mcpAddons.bogusInCliProse` is not a key path of the chart's values.yaml",
+        "page.md:13: `mcpAddons.bogusAfter`: `mcpAddons.bogusAfter` is not a key path of the chart's values.yaml",
     ]
