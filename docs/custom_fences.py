@@ -608,6 +608,8 @@ def _deployment_body(opening, body: str, page: str) -> Optional[DeploymentBody]:
     keys = _environment_keys(values_text, values, fields.secret or {})
     secret = ""
     if keys:
+        if "extraEnvVarsSecrets" in values:
+            raise FenceBodyError("`extraEnvVarsSecrets` is written by the fence; list other secrets under `named-secrets`")
         secret = f"holmes-{PurePosixPath(page).stem}"
         if opening["qualifier"]:
             secret += f"-{opening['qualifier']}"
