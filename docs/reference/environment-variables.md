@@ -30,6 +30,42 @@ This page documents all environment variables that can be used to configure Holm
 - `VERTEXAI_LOCATION` - Vertex AI location (e.g., "us-central1")
 - `GOOGLE_APPLICATION_CREDENTIALS` - Path to service account key JSON file
 
+## Robusta AI { #robusta-ai }
+
+These settings matter only when Holmes runs as a server connected to the Robusta platform. See [Robusta AI](../ai-providers/robusta-ai.md) for setting it up.
+
+### ROBUSTA_AI
+**Default:** not set
+
+`true` makes the Holmes server load the models the Robusta platform offers the account (Robusta AI); `false` keeps them out. When not set, the server loads them only when neither `MODEL` nor a model list is configured. The CLI never loads them.
+
+### ROBUSTA_API_ENDPOINT
+**Default:** the US region's API URL (the US tab below)
+
+Base URL of the Robusta platform API. Holmes fetches the account's Robusta AI models from it, sends Robusta AI completions through it, and reaches the Robusta platform MCP server under it (unless `ROBUSTA_MCP_ENDPOINT` is set). The interactive CLI also checks it for the latest Holmes release. Set it to your region's API, or to a self-hosted platform's API URL:
+
+```robusta-region {lang=yaml}
+additionalEnvVars:
+  - name: ROBUSTA_API_ENDPOINT
+    value: "https://api.robusta.dev"
+```
+
+### ROBUSTA_UI_DOMAIN
+**Default:** the US region's UI URL (the US tab below)
+
+Base URL of the Robusta UI. Holmes builds links to platform chats on it, accepts conversation links on its host, and fetches the additional system prompt for scheduled prompts from it. Set it to your region's UI, or to a self-hosted platform's UI URL:
+
+```robusta-region {lang=yaml}
+additionalEnvVars:
+  - name: ROBUSTA_UI_DOMAIN
+    value: "https://platform.robusta.dev"
+```
+
+### ROBUSTA_UI_TOKEN
+**Default:** not set
+
+The Robusta UI token: base64-encoded JSON carrying the account ID and the credentials and URL of the account's data store. Holmes uses it to connect to the Robusta platform. When it is not set, Holmes reads the token of the `robusta_sink` in the Robusta config file (`ROBUSTA_CONFIG_PATH`, default `/etc/robusta/config/active_playbooks.yaml`). With neither, Holmes does not connect to the platform and cannot use Robusta AI.
+
 ## LLM Tool Calling Configuration
 
 ### HOLMES_DISABLE_STRICT_TOOL_CALLS
@@ -183,6 +219,71 @@ Serve the HolmesGPT API over **HTTPS directly from the application** (in-app TLS
 
 !!! note "Certificate rotation"
     The server reads the certificate once at startup and does not hot-reload it. After rotating the certificate (or its secret), restart the process/pod for the new certificate to take effect.
+
+## Proxies { #http-proxy }
+
+Holmes sends its outbound HTTP and HTTPS traffic through a proxy when the standard proxy variables are set: LLM calls, the Robusta platform and its realtime connection, and the toolsets' HTTP calls.
+
+| Variable | Description |
+| --- | --- |
+| `HTTPS_PROXY` | Proxy URL for `https://` (and `wss://`) requests, e.g. `http://proxy.example.com:3128`. |
+| `HTTP_PROXY` | Proxy URL for `http://` requests. |
+| `NO_PROXY` | Comma-separated hosts and domain suffixes reached directly, without the proxy. |
+
+The lowercase forms (`https_proxy`, `http_proxy`, `no_proxy`) work too. Add the in-cluster services Holmes queries to `NO_PROXY` (for example `.svc,.cluster.local` and the Kubernetes API's address), or their requests go to the proxy too.
+
+=== "Holmes CLI"
+
+    ```bash
+    export HTTPS_PROXY=http://proxy.example.com:3128
+    export HTTP_PROXY=http://proxy.example.com:3128
+    export NO_PROXY=localhost,127.0.0.1,.svc,.cluster.local
+    ```
+
+=== "Holmes Helm Chart"
+
+    ```yaml
+    additionalEnvVars:
+      - name: HTTPS_PROXY
+        value: "http://proxy.example.com:3128"
+      - name: HTTP_PROXY
+        value: "http://proxy.example.com:3128"
+      - name: NO_PROXY
+        value: "localhost,127.0.0.1,.svc,.cluster.local"
+    ```
+
+=== "Robusta Helm Chart"
+
+    ```yaml
+    holmes:
+      additionalEnvVars:
+        - name: HTTPS_PROXY
+          value: "http://proxy.example.com:3128"
+        - name: HTTP_PROXY
+          value: "http://proxy.example.com:3128"
+        - name: NO_PROXY
+          value: "localhost,127.0.0.1,.svc,.cluster.local"
+    ```
+
+If the proxy intercepts TLS, give Holmes its CA with [`CERTIFICATE`](#certificate).
+
+## LLM Provider Hosts { #llm-provider-hosts }
+
+The hosts Holmes connects to for each LLM provider, all over HTTPS (port 443). Allow only the providers you use.
+
+| Provider | Hosts |
+| --- | --- |
+| OpenAI | `api.openai.com` |
+| Anthropic | `api.anthropic.com` |
+| Google Gemini | `generativelanguage.googleapis.com` |
+| Google Vertex AI | `<location>-aiplatform.googleapis.com` (`aiplatform.googleapis.com` for the `global` location), and `oauth2.googleapis.com` for service account tokens |
+| AWS Bedrock | `bedrock-runtime.<region>.amazonaws.com`, and the AWS STS endpoint when Holmes assumes a role |
+| Azure AI Foundry / Azure OpenAI | The host of `AZURE_API_BASE` (e.g. `<resource>.openai.azure.com`), and `login.microsoftonline.com` with `AZURE_AD_TOKEN_AUTH` |
+| OpenRouter | `openrouter.ai` |
+| OpenAI-compatible endpoints | The host of `OPENAI_API_BASE` |
+| Robusta AI | The host of [`ROBUSTA_API_ENDPOINT`](#robusta_api_endpoint) |
+
+With every provider, LiteLLM downloads its model catalog from `raw.githubusercontent.com` at startup; allow it or point [`LITELLM_MODEL_COST_MAP_URL`](#litellm_model_cost_map_url) at a mirror.
 
 ## Tool Result Size Limits
 
