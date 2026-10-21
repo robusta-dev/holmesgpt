@@ -61,7 +61,7 @@ export TOOL_SCHEMA_NO_PARAM_OBJECT_IF_NO_PARAMS=true
 ### LLM_RATE_LIMIT_MAX_WAIT_SECONDS
 **Default:** `30`
 
-Maximum time a single LLM call may spend backing off from provider rate-limit errors (HTTP 429, Bedrock throttling), Anthropic overloaded errors (HTTP 529) and service-unavailable errors (HTTP 503, e.g. Bedrock `ServiceUnavailableException`) before the error is returned. HolmesGPT waits at least as long as the provider's `Retry-After` header asks, and otherwise backs off exponentially with jitter from 2 to 60 seconds. A retry never starts if its wait would go over the budget. Only the failing LLM call is retried, so tool calls already made during an investigation are kept. Set to `0` to disable these retries.
+Maximum time a single LLM call may spend backing off from provider rate-limit errors (HTTP 429, Bedrock throttling), Anthropic overloaded errors (HTTP 529) and service-unavailable errors (HTTP 503, e.g. Bedrock `ServiceUnavailableException`) before the error is returned. HolmesGPT waits at least as long as the provider's `Retry-After` header asks, and otherwise backs off exponentially with jitter from 2 to 60 seconds. A backoff that would go over the budget is shortened to what is left; if the provider's `Retry-After` alone goes over it, the error is returned without waiting. Time spent in the requests themselves is not counted, so a call whose failing attempts are each slow takes longer than the budget overall. Only the failing LLM call is retried, so tool calls already made during an investigation are kept. Set to `0` to disable these retries.
 
 Not retried:
 

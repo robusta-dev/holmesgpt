@@ -1316,13 +1316,12 @@ class ToolCallingLLM:
             compaction = limit_result.compaction_usage
             if compaction and compaction.total_tokens > 0:
                 compaction.num_compactions = 1
-                stats += compaction
                 cost_logger.debug(
                     f"Compaction cost (streaming): ${compaction.total_cost:.6f} | "
                     f"Tokens: {compaction.prompt_tokens} prompt + {compaction.completion_tokens} completion = {compaction.total_tokens} total"
                 )
-            elif compaction:
-                # A failed compaction can still have backed off.
+            if compaction:
+                # Also a failed compaction, which can still have backed off.
                 stats += compaction
 
             if (

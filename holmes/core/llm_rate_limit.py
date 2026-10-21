@@ -201,12 +201,21 @@ def retry_after_seconds(e: BaseException) -> Optional[float]:
     return max(0.0, when.timestamp() - time.time())
 
 
-def _wait(retry_state: RetryCallState) -> float:
+def _wait(max_wait_seconds: float) -> Callable[[RetryCallState], float]:
     # Retry-After is a floor, not an exact time: a hint of 0 or a few ms must not
     # turn into a tight loop, and callers given the same hint must not wake together.
-    exc = retry_state.outcome.exception() if retry_state.outcome else None
-    hinted = retry_after_seconds(exc) if exc else None
-    return max(hinted or 0.0, _backoff(retry_state))
+    # A jittered draw past the budget is cut to what is left, so the budget is
+    # used up; a hint past it still fails fast.
+    def wait(retry_state: RetryCallState) -> float:
+        exc = retry_state.outcome.exception() if retry_state.outcome else None
+        hinted = retry_after_seconds(exc) if exc else None
+        backoff = _backoff(retry_state)
+        remaining = max_wait_seconds - retry_state.idle_for
+        if remaining >= _backoff.min:
+            backoff = min(backoff, remaining)
+        return max(hinted or 0.0, backoff)
+
+    return wait
 
 
 def _stop(max_wait_seconds: float) -> Callable[[RetryCallState], bool]:
@@ -310,7 +319,7 @@ def call_with_rate_limit_retry(fn: Callable[[], T], model: str) -> T:
     sleeper = _Sleeper(scope.cancel_event)
     retrying = Retrying(
         retry=retry_if_exception(is_retryable_llm_error),
-        wait=_wait,
+        wait=_wait(max_wait),
         stop=_stop(max_wait),
         sleep=sleeper,
         before_sleep=_log_retry(model),

@@ -239,6 +239,21 @@ class TestStreamWithUsageRecording:
         assert s.tool_call_count == 1
         assert s.meta["error_class"] == "RuntimeError"
 
+    def test_streamed_error_mentioning_rate_and_limit_is_an_error(self, monkeypatch):
+        """Only record_error keeps the legacy text match; "generate" and
+        "limit" in a streamed error are not a rate limit."""
+        _patch_inline_thread(monkeypatch)
+        state = _make_state()
+
+        def failing_stream():
+            yield StreamMessage(event=StreamEvents.TOOL_RESULT, data={"tool_name": "kubectl"})
+            raise RuntimeError("could not generate a reply: output limit was reached")
+
+        with pytest.raises(RuntimeError):
+            list(stream_with_usage_recording(failing_stream(), state))
+
+        assert _state_arg(state).status == "error"
+
     def test_rate_limit_escaping_the_stream_is_rate_limited(self, monkeypatch):
         """Retries from earlier iterations (TOKEN_COUNT costs) and from the
         failing call (on the exception) are both counted."""
@@ -356,7 +371,7 @@ class TestStreamWithUsageRecording:
         assert s.stats.total_tokens == 1700
         assert s.stats.prompt_tokens == 1500
         assert s.stats.total_cost == pytest.approx(0.012)
-        assert s.status == "rate_limited"
+        assert s.status == "error"
         # Tool calls before the exception were counted.
         assert s.tool_call_count == 2
 

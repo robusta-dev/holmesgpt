@@ -47,6 +47,7 @@ from holmes.common.env_vars import (
     STORE_PASSWORD,
     STORE_URL,
 )
+from holmes.core.llm_rate_limit import RETRIES_KEY, WAIT_MS_KEY
 from holmes.core.resource_instruction import (
     ResourceInstructionDocument,
     ResourceInstructions,
@@ -1225,7 +1226,7 @@ class SupabaseDal:
             stats = state.stats  # may be None on aborted/error rows
             retry_meta = {
                 key: getattr(stats, key, 0) or 0
-                for key in ("llm_rate_limit_retries", "llm_rate_limit_wait_ms")
+                for key in (RETRIES_KEY, WAIT_MS_KEY)
             }
             self.client.table(HOLMES_USAGE_EVENTS_TABLE).insert({
                 "account_id": self.account_id,

@@ -446,6 +446,28 @@ class TestWaitAndBudget:
         assert call_with_rate_limit_retry(fn, model="m") == "ok"
         assert all(slept >= 2 for slept in clock.sleeps)
 
+    def test_backoff_past_the_budget_is_cut_to_what_is_left(
+        self, clock, budget, monkeypatch
+    ):
+        class FixedBackoff:
+            min = 2.0
+
+            def __call__(self, retry_state):
+                return 6.0
+
+        monkeypatch.setattr(llm_rate_limit, "_backoff", FixedBackoff())
+        budget(10)
+        fn = scripted(rate_limit(), rate_limit(), "ok")
+        assert call_with_rate_limit_retry(fn, model="m") == "ok"
+        assert clock.sleeps == [6, 4]
+
+    def test_retry_after_past_the_budget_is_not_cut(self, clock, budget):
+        budget(10)
+        fn = scripted(rate_limit({"Retry-After": "12"}), "ok")
+        with pytest.raises(litellm.RateLimitError):
+            call_with_rate_limit_retry(fn, model="m")
+        assert clock.sleeps == []
+
     def test_retry_after_is_a_floor(self, clock, budget):
         fn = scripted(rate_limit({"Retry-After": "7"}), "ok")
         call_with_rate_limit_retry(fn, model="m")
@@ -628,3 +650,10 @@ def test_nested_total_budget_draws_from_the_outer_one(clock, budget):
                 call_with_rate_limit_retry(second, model="m")
         assert llm_rate_limit._retry_scope.get().shared_budget.remaining == 2
     assert clock.sleeps == [4, 4]
+
+
+def test_retry_counter_keys_are_request_stats_fields():
+    """retry_counts() feeds RequestStats(**...), which ignores unknown keys."""
+    assert {llm_rate_limit.RETRIES_KEY, llm_rate_limit.WAIT_MS_KEY} <= set(
+        RequestStats.model_fields
+    )

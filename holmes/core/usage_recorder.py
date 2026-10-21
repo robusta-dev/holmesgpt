@@ -428,8 +428,12 @@ class UsageRecorderState:
             metadata.get("finish_reason") or self.finish_reason
         )
 
-    def _capture_error(self, exc: BaseException) -> None:
+    def _capture_error(self, exc: BaseException, match_message: bool = False) -> None:
         """Set the failed status and record the error class in ``meta``.
+
+        ``match_message`` keeps ``record_error``'s legacy "rate" + "limit"
+        text match, so non-streaming ``rate_limited`` counts stay comparable;
+        streamed rows never had it.
 
         The request's usage carried on the error (``attach_request_usage``)
         replaces the last TOKEN_COUNT total, which lags behind it. Otherwise
@@ -437,7 +441,9 @@ class UsageRecorderState:
         TOKEN_COUNT event.
         """
         msg = str(exc).lower()
-        if is_rate_limit_error(exc) or ("rate" in msg and "limit" in msg):
+        if is_rate_limit_error(exc) or (
+            match_message and "rate" in msg and "limit" in msg
+        ):
             self.status = RequestStatus.RATE_LIMITED
         else:
             self.status = RequestStatus.ERROR
@@ -595,7 +601,7 @@ def record_from_llm_result(
 
 def record_error(state: UsageRecorderState, exc: Exception) -> None:
     """Record a failed call where an exception bubbled before getting a result."""
-    state._capture_error(exc)
+    state._capture_error(exc, match_message=True)
     state._fire()
 
 
