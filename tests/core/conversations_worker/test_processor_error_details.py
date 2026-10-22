@@ -163,18 +163,31 @@ def test_a_provider_error_without_a_message_omits_raw_error():
     assert "raw_error" not in data
 
 
-def test_a_relay_refusal_message_is_gated_like_any_provider_message():
+def test_a_relay_refusal_sentence_is_kept_as_it_is():
     w, ai = _bare_worker()
+    message = "Robusta-hosted models are disabled for this account."
 
-    _run(
-        w,
-        ai,
-        consume_side_effect=RelayRefusal(
-            "Unauthorized for key sk-" + "proj-AAAABBBB1234 on 10.1.2.3", 401
-        ),
-    )
+    _run(w, ai, consume_side_effect=RelayRefusal(message, 403))
 
     data = _error_event(w)
-    assert "raw_error" not in data
+    assert data["description"] == message
+    assert data["msg"] == message
+    assert data["raw_error"] == message
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Refused.\nTraceback (most recent call last):\n  File x",
+        "word " * 100,
+        "<html>" + "a" * 400 + "</html>",
+    ],
+)
+def test_text_that_is_not_a_refusal_sentence_is_dropped(text):
+    w, ai = _bare_worker()
+
+    _run(w, ai, consume_side_effect=RelayRefusal(text, 401))
+
+    data = _error_event(w)
     assert data["description"] == "The Robusta platform refused the request."
-    assert data["msg"] == data["description"]
+    assert "raw_error" not in data

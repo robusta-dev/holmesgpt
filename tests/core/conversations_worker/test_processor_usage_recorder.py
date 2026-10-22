@@ -625,7 +625,7 @@ def test_a_relay_refusal_fails_the_conversation_with_its_own_code():
 
     w, ai = _bare_worker()
     ai.llm.is_robusta_model = True
-    message = "Robusta AI models are disabled for this account."
+    message = "Robusta-hosted models are disabled for this account."
 
     _run(w, ai, consume_side_effect=RelayRefusal(message, 403))
 

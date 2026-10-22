@@ -64,6 +64,20 @@ def _failure_raw_error(error_info: ErrorInfo) -> Optional[str]:
     return error_info.message if error_info.from_provider else None
 
 
+# A relay refusal is the platform's own sentence ("Robusta-hosted models are
+# disabled for this account."): it is what the user has to act on, so it is not
+# held to the provider-message prose gate. Anything longer than a sentence, or
+# spanning lines, is not a refusal sentence and is dropped.
+MAX_REFUSAL_CHARS = 300
+
+
+def _refusal_text(refusal: RelayRefusal) -> Optional[str]:
+    text = str(refusal).strip()
+    if text and "\n" not in text and len(text) <= MAX_REFUSAL_CHARS:
+        return text
+    return None
+
+
 class ConversationProcessor:
     """Runs one conversation turn and writes its outcome.
 
@@ -536,13 +550,13 @@ class ConversationProcessor:
                 e.status_code,
                 e,
             )
-            error_info = ErrorInfo.from_exception(e)
+            refusal = _refusal_text(e)
             self.fail(
                 task,
-                error_info.message or "The Robusta platform refused the request.",
+                refusal or "The Robusta platform refused the request.",
                 error_code=RELAY_REFUSAL_ERROR_CODES[e.status_code],
-                raw_error=error_info.message,
-                error_info=error_info,
+                raw_error=refusal,
+                error_info=ErrorInfo.from_exception(e),
             )
         except Exception as e:
             logging.exception(
