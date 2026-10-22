@@ -494,3 +494,26 @@ def test_a_long_whitespace_run_in_the_text_is_not_quadratic():
 def test_only_a_bare_exception_is_a_bedrock_throttle():
     assert ErrorInfo.from_exception(RuntimeError("Model is getting throttled")).error_class == "RuntimeError"
     assert ErrorInfo.from_exception(Exception("Model is getting throttled")).error_class == "RateLimitError"
+
+
+def test_relays_own_msg_and_a_fastapi_detail_are_read_through_the_gate():
+    relay = litellm.RateLimitError(message="OpenAIException - 12345", model="m", llm_provider="openai")
+    relay.body = {"msg": "Rate limit exceeded. Please try again later.", "error_code": 5001}
+    fastapi = litellm.BadRequestError(message="OpenAIException - 12345", model="m", llm_provider="openai")
+    fastapi.body = {"detail": "The request was malformed."}
+    listed = litellm.BadRequestError(message="OpenAIException - 12345", model="m", llm_provider="openai")
+    listed.body = {"detail": [{"loc": ["body"], "msg": "field required"}]}
+    gated = litellm.BadRequestError(message="OpenAIException - 12345", model="m", llm_provider="openai")
+    gated.body = {"msg": "Key sk-proj-AAAA1234 for admin@corp.com is invalid."}
+
+    assert ErrorInfo.from_exception(relay).message == "Rate limit exceeded. Please try again later."
+    assert ErrorInfo.from_exception(fastapi).message == "The request was malformed."
+    assert ErrorInfo.from_exception(listed).message is None
+    assert ErrorInfo.from_exception(gated).message is None
+
+
+def test_the_providers_message_wins_over_relays_own_msg():
+    exc = litellm.BadGatewayError(message="OpenAIException - 12345", model="m", llm_provider="openai")
+    exc.body = {"msg": "An error occurred.", "provider_message": "Upstream failed."}
+
+    assert ErrorInfo.from_exception(exc).message == "Upstream failed."
