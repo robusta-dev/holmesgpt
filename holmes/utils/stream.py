@@ -127,6 +127,20 @@ def stream_chat_formatter(
             yield create_sse_error_message(description=str(e), error_code=1, msg=str(e))
 
 
+def add_follow_up_actions(
+    call_stream: Generator[StreamMessage, None, None], followups: List[dict]
+) -> Generator[StreamMessage, None, None]:
+    """Puts the follow-up actions on the turn's answer, where
+    stream_chat_formatter puts them for /api/chat."""
+    for message in call_stream:
+        if message.event in (StreamEvents.ANSWER_END, StreamEvents.APPROVAL_REQUIRED):
+            message = StreamMessage(
+                event=message.event,
+                data={**message.data, "follow_up_actions": followups},
+            )
+        yield message
+
+
 def add_token_count_to_metadata(
     tokens: ContextWindowUsage,
     metadata: dict,

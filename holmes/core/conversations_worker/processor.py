@@ -27,7 +27,7 @@ from holmes.core.conversations_worker.models import (
     ConversationTask,
     conversation_identity,
 )
-from holmes.core.models import ChatRequest
+from holmes.core.models import ChatRequest, build_follow_up_actions
 from holmes.core.prompt import PromptComponent
 from holmes.core.relay_refusal import RELAY_REFUSAL_ERROR_CODES, RelayRefusal
 from holmes.core.tools import SERVER_TOOLSET_TAGS, PrerequisiteCacheMode
@@ -41,7 +41,7 @@ from holmes.core.usage_recorder import (
     build_chat_recorder_state,
     stream_with_usage_recording,
 )
-from holmes.utils.stream import StreamEvents
+from holmes.utils.stream import StreamEvents, add_follow_up_actions
 
 if TYPE_CHECKING:
     from holmes.config import Config
@@ -473,7 +473,15 @@ class ConversationProcessor:
                     request_context=request_context,
                     trace_span=trace_span,
                 )
-                stream = stream_with_usage_recording(raw_stream, recorder_state)
+                stream = add_follow_up_actions(
+                    stream_with_usage_recording(raw_stream, recorder_state),
+                    [
+                        f.model_dump()
+                        for f in build_follow_up_actions(
+                            chat_request.conversation_history
+                        )
+                    ],
+                )
 
                 terminal = publisher.consume(stream)
                 if terminal is None:

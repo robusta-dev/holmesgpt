@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 from holmes.core.conversations_worker.models import ConversationTask
 from holmes.core.conversations_worker.processor import ConversationProcessor
 from holmes.core.models import ChatRequest
+from holmes.utils.stream import StreamEvents, StreamMessage
 
 
 def _bare_worker():
@@ -68,7 +69,12 @@ def _run(worker, ai, task=None, chat_request=None, consume_side_effect=None):
     publisher raises while consuming the stream, for the failure branches.
     """
     raw_stream = iter(["raw-event-1", "raw-event-2"])
-    wrapped_stream_sentinel = object()
+    wrapped_stream_sentinel = iter(
+        [
+            StreamMessage(event=StreamEvents.AI_MESSAGE, data={"content": "x"}),
+            StreamMessage(event=StreamEvents.ANSWER_END, data={"content": "done"}),
+        ]
+    )
 
     ai.call_stream = MagicMock(return_value=raw_stream)
     # _inject_frontend_tools just returns the AI back when there are no
@@ -78,7 +84,6 @@ def _run(worker, ai, task=None, chat_request=None, consume_side_effect=None):
     publisher = MagicMock()
     # consume returns ANSWER_END so the worker doesn't take the failed-conversation
     # branch and try to call _fail_conversation.
-    from holmes.utils.stream import StreamEvents
     publisher.consume = MagicMock(
         return_value=StreamEvents.ANSWER_END, side_effect=consume_side_effect
     )
@@ -152,10 +157,45 @@ def test_publisher_consumes_wrapped_stream_not_raw():
     captured = _run(worker, ai)
 
     consume_args, _ = captured["publisher"].consume.call_args
-    assert consume_args[0] is captured["wrapped_stream"], (
-        "publisher.consume() must receive the wrapped stream, not the raw one. "
-        f"Got {consume_args[0]!r}"
-    )
+    consumed = list(consume_args[0])
+    assert [m.event for m in consumed] == [
+        StreamEvents.AI_MESSAGE,
+        StreamEvents.ANSWER_END,
+    ], "publisher.consume() must drain the wrapped stream, not the raw one."
+    assert next(captured["wrapped_stream"], None) is None
+
+
+def test_first_answer_is_stored_with_follow_up_actions():
+    worker, ai = _bare_worker()
+    captured = _run(worker, ai)
+
+    consume_args, _ = captured["publisher"].consume.call_args
+    answer = list(consume_args[0])[-1]
+    assert [a["id"] for a in answer.data["follow_up_actions"]] == [
+        "logs",
+        "graphs",
+        "articles",
+    ]
+    assert set(answer.data["follow_up_actions"][0]) == {
+        "id",
+        "action_label",
+        "pre_action_notification_text",
+        "prompt",
+    }
+
+
+def test_follow_up_turn_is_stored_with_no_follow_up_actions():
+    worker, ai = _bare_worker()
+    chat_request = _chat_request()
+    chat_request.conversation_history = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "a"},
+    ]
+    captured = _run(worker, ai, chat_request=chat_request)
+
+    consume_args, _ = captured["publisher"].consume.call_args
+    assert list(consume_args[0])[-1].data["follow_up_actions"] == []
 
 
 def test_recorder_state_uses_workers_dal_and_streaming_flag():
