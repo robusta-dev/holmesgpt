@@ -6,7 +6,19 @@ By default, the Holmes Helm chart creates a cluster-wide, read-only `ClusterRole
 
 When Holmes is scoped to one namespace, it can only see resources in that namespace. Tools that query cluster-scoped resources (nodes, persistent volumes, storage classes, CRDs) or that list across all namespaces (`kubectl get ... --all-namespaces`, `kubectl top pods -A`) will return `forbidden` errors. Holmes keeps running and simply reports those errors, but investigations are limited to the target namespace.
 
-## Configuration
+## Scope Holmes to Its Own Namespace
+
+To limit Holmes to the namespace it is deployed in, set one Helm value:
+
+```yaml
+namespaceScopedRBAC: true
+```
+
+The chart then renders a namespaced `Role` + `RoleBinding` (same read rules) instead of the `ClusterRole` + `ClusterRoleBinding`, and sets the `SCOPED_NAMESPACES` environment variable so Holmes knows its scope up front — investigations start with namespace-scoped commands instead of discovering the restriction from `forbidden` errors. Everything stays Helm-managed, and multiple Holmes installs in different namespaces cannot collide on cluster-scoped RBAC names.
+
+To scope Holmes to a **different** set of namespaces than its own, use the manual configuration below.
+
+## Manual Configuration
 
 Point Holmes at your own service account instead of the chart-managed cluster-wide one.
 
@@ -17,16 +29,30 @@ Set the following in your Helm values:
 createServiceAccount: false
 # Use the namespace-scoped service account you create below
 customServiceAccountName: holmes
+# Tell Holmes its scope so investigations start namespace-scoped
+# instead of discovering the restriction from forbidden errors
+additionalEnvVars:
+  - name: SCOPED_NAMESPACES
+    value: "monitoring"   # comma-separated for multiple namespaces
 ```
 
-Create the service account, `Role`, and `RoleBinding` (`holmes-namespace-scoped.yaml`). Replace `monitoring` with the namespace you want Holmes to investigate, and `holmes` with the namespace Holmes is installed in:
+Create the service account, `Role`, and `RoleBinding` (`holmes-namespace-scoped.yaml`).
+
+!!! warning "The service account must live in the namespace where Holmes is deployed"
+    Create the `ServiceAccount` in the **same namespace where the Holmes agent runs** (the release namespace, e.g. the namespace you pass to `helm install ... -n <namespace>`). If it is created in a different namespace, Holmes' pod won't be able to use it and the setup will not work. The `RoleBinding` in the target namespace then references this service account by its name **and** its namespace.
+
+In the manifest below, replace:
+
+- `monitoring` — the namespace you want Holmes to investigate
+- `<HOLMES_NAMESPACE>` — the namespace where the Holmes agent is deployed (both places it appears)
 
 ```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: holmes
-  namespace: holmes
+  # Must match the namespace where the Holmes agent is deployed
+  namespace: <HOLMES_NAMESPACE>
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -83,7 +109,8 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: holmes
-    namespace: holmes
+    # Must match the namespace where the Holmes agent is deployed
+    namespace: <HOLMES_NAMESPACE>
 ```
 
 Apply it, then upgrade Holmes with the values above:
@@ -92,7 +119,7 @@ Apply it, then upgrade Holmes with the values above:
 kubectl apply -f holmes-namespace-scoped.yaml
 ```
 
-To grant access to more than one namespace, create an additional `Role` + `RoleBinding` in each namespace, all bound to the same `holmes` service account.
+To grant access to more than one namespace, create an additional `Role` + `RoleBinding` in each namespace, all bound to the same `holmes` service account (still referencing it in its own `<HOLMES_NAMESPACE>`).
 
 ## Verify the Configuration
 
@@ -102,6 +129,8 @@ kubectl get role holmes-namespace-scoped -n monitoring
 kubectl get rolebinding holmes-namespace-scoped -n monitoring
 
 # Check what the service account can and cannot do
-kubectl auth can-i list pods -n monitoring --as=system:serviceaccount:holmes:holmes
-kubectl auth can-i list nodes --as=system:serviceaccount:holmes:holmes  # expected: no
+# Replace <HOLMES_NAMESPACE> with the namespace where Holmes is deployed before running these commands.
+# Format: system:serviceaccount:<HOLMES_NAMESPACE>:<serviceaccount-name>
+kubectl auth can-i list pods -n monitoring --as=system:serviceaccount:<HOLMES_NAMESPACE>:holmes
+kubectl auth can-i list nodes --as=system:serviceaccount:<HOLMES_NAMESPACE>:holmes  # expected: no
 ```

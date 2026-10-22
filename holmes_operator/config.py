@@ -20,6 +20,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 MAX_HISTORY_ITEMS = int(os.getenv("MAX_HISTORY_ITEMS", "10"))
 CLEANUP_COMPLETED_CHECKS = load_bool("CLEANUP_COMPLETED_CHECKS", False)
 COMPLETED_CHECK_TTL_HOURS = int(os.getenv("COMPLETED_CHECK_TTL_HOURS", "24"))
+ENABLE_JSON_LOGS_FORMAT = load_bool("ENABLE_JSON_LOGS_FORMAT", False)
+
 # When set, the operator watches only this namespace instead of the whole
 # cluster. Enables deployment in multi-tenant/restricted clusters where the
 # operator lacks cluster-scoped RBAC. Unset (the default) keeps cluster-wide

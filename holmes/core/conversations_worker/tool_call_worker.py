@@ -10,18 +10,26 @@ writes tool_response + terminal status in one atomic UPDATE
 (post_remote_tool_call_result RPC).
 
 Tool calls run in their own thread pool (TOOL_CALLER_MAX_CONCURRENT) so they
-never compete with user chats for the conversation worker's pool.
+never compete with user chats for the conversation executors' slots.
+
+Rows whose metadata carries a ``kind`` are internal requests from the
+platform UI (``oauth_callback``, ``holmes_logs``), not tool calls: they skip
+the caller-version guard and tool lookup, since their payloads are stable
+request models rather than tool schemas, and are never offered to an LLM.
 
 Design: relay repo, docs/design/2026-06-10_remote-tool-execution.md.
 """
 
 import base64
 import gzip
+import json
 import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from pydantic import ValidationError
 
 from holmes.common.env_vars import (
     CONVERSATION_WORKER_POLL_INTERVAL_SECONDS_WITH_REALTIME,
@@ -31,12 +39,15 @@ from holmes.common.env_vars import (
     TOOL_CALLER_MAX_CONCURRENT,
 )
 from holmes.core.conversations_worker.models import RemoteToolCallStatus
+from holmes.core.holmes_key import open_sealed
+from holmes.core.models import OAuthCallbackRequest
+from holmes.core.oauth_config import OAuthConfigLookupError, OAuthTokenExchangeError
+from holmes.core.oauth_server_callbacks import handle_oauth_callback
+from holmes.core.self_logs import HolmesLogsRequest, get_holmes_logs
 from holmes.core.tools import (
-    PrerequisiteCacheMode,
     StructuredToolResult,
     StructuredToolResultStatus,
     ToolInvokeContext,
-    ToolsetTag,
 )
 from holmes.version import get_version
 
@@ -112,10 +123,39 @@ def serialize_tool_response(
     return payload
 
 
+INTERNAL_KIND_OAUTH_CALLBACK = "oauth_callback"
+INTERNAL_KIND_HOLMES_LOGS = "holmes_logs"
+
+
+def _validation_error_summary(e: ValidationError) -> str:
+    # Field locations and messages only: the inputs may be OAuth secrets.
+    parts = [
+        f"{'.'.join(str(p) for p in err.get('loc', ())) or '<payload>'}: {err.get('msg')}"
+        for err in e.errors(include_input=False, include_url=False)
+    ]
+    return "; ".join(parts)
+
+
+def _internal_success(data: Any, elapsed_seconds: float) -> Dict[str, Any]:
+    # Through serialize_tool_response so the size cap and gzip rules match
+    # tool results; relay's existing inflate logic then applies unchanged.
+    result = StructuredToolResult(
+        status=StructuredToolResultStatus.SUCCESS,
+        data=json.dumps(data, ensure_ascii=False),
+    )
+    return serialize_tool_response(result, elapsed_seconds)
+
+
+# Saturation must persist continuously this long before the INFO line fires
+# (mirrors worker.py's _SATURATION_LOG_AFTER_SECONDS; kept local to avoid a
+# circular import — worker.py imports this module).
+_SATURATION_LOG_AFTER_SECONDS = 60.0
+
+
 class ToolCallWorker:
     """Claims and executes remote tool calls for this cluster.
 
-    Lifecycle mirrors the conversation worker's claim loop, with its own
+    Lifecycle mirrors a conversation executor's claim loop, with its own
     notify event (woken by the 'pending_tool_calls' broadcast via
     RealtimeManager) and its own thread pool.
     """
@@ -137,6 +177,14 @@ class ToolCallWorker:
         # rows stay 'pending' for the next poll or another Holmes instance.
         self._active_lock = threading.Lock()
         self._active_count = 0
+        # Saturation-transition logging (ROB-759): claiming used to be
+        # skipped silently at full capacity, which looks identical to a dead
+        # claim loop. Same debounced enter/exit scheme as ConversationExecutor
+        # (see _note_saturation there): the INFO fires only after 60s of
+        # CONTINUOUS saturation, so backlog churn (free→refill per completed
+        # call) never flickers.
+        self._saturated_since: Optional[float] = None
+        self._saturation_logged = False
 
     # ---- lifecycle ----
 
@@ -204,7 +252,31 @@ class ToolCallWorker:
         with self._active_lock:
             free = TOOL_CALLER_MAX_CONCURRENT - self._active_count
         if free <= 0:
+            now = time.monotonic()
+            if self._saturated_since is None:
+                self._saturated_since = now
+            elif (
+                not self._saturation_logged
+                and now - self._saturated_since >= _SATURATION_LOG_AFTER_SECONDS
+            ):
+                self._saturation_logged = True
+                logging.info(
+                    "ToolCallWorker claim capacity saturated for %.0fs: all %d "
+                    "slots in use; pending tool calls will not be claimed "
+                    "until one finishes.",
+                    now - self._saturated_since,
+                    TOOL_CALLER_MAX_CONCURRENT,
+                )
             return
+        if self._saturation_logged:
+            logging.info(
+                "ToolCallWorker claim capacity available again (free=%d) "
+                "after %.0fs saturated",
+                free,
+                time.monotonic() - (self._saturated_since or 0.0),
+            )
+        self._saturated_since = None
+        self._saturation_logged = False
         # Check pool/running BEFORE claiming so we never claim rows we won't
         # submit; once claimed we dispatch every row (no mid-loop _running
         # check) so a racing stop() can't strand claimed rows until timeout.
@@ -249,6 +321,7 @@ class ToolCallWorker:
                 )
                 response = _error_response(f"executor failure: {e}")
                 status = RemoteToolCallStatus.FAILED
+
             ok = self.dal.post_remote_tool_call_result(
                 tool_call_id=row_id,
                 assignee=self.holmes_id,
@@ -272,6 +345,9 @@ class ToolCallWorker:
     def _execute(self, row: Dict[str, Any]) -> Dict[str, Any]:
         tool_request = row.get("tool_request") or {}
         metadata = row.get("metadata") or {}
+        kind = metadata.get("kind")
+        if kind is not None:
+            return self._execute_internal(kind, row)
         tool_name = tool_request.get("tool_name")
         tool_params = dict(tool_request.get("tool_params") or {})
         instance = tool_request.get("instance")
@@ -327,50 +403,153 @@ class ToolCallWorker:
                 f"tool '{tool_name}' does not support instances on this cluster"
             )
 
-        # 3. Pre-approved mode only — no approval round-trip.
+        tool_call_id = str(tool_request.get("tool_call_id") or row.get("id") or "")
+        user_approved = bool(metadata.get("remote_tool_approved"))
+        session_approved_prefixes = tool_request.get("session_approved_prefixes") or []
+
+        # 4. Tool invocation context.
         context = ToolInvokeContext(
             tool_number=None,
-            user_approved=False,
+            user_approved=user_approved,
             llm=self._get_llm(),
             max_token_count=int(tool_request.get("max_token_count")),
-            tool_call_id=str(tool_request.get("tool_call_id") or row.get("id") or ""),
+            tool_call_id=tool_call_id,
             tool_name=tool_name,
-            session_approved_prefixes=[],
+            session_approved_prefixes=session_approved_prefixes,
             request_context={"user_id": row.get("user_id")},
         )
-        approval = tool._get_approval_requirement(tool_params, context)
-        if approval and approval.needs_approval:
-            return _error_response(
-                "command/tool requires approval; approvals are not supported "
-                f"for remote execution ({approval.reason})"
-            )
 
         started = time.monotonic()
         result = tool.invoke(tool_params, context)
         elapsed = time.monotonic() - started
 
+        # 5. Handle approval-required status.
         if result.status == StructuredToolResultStatus.APPROVAL_REQUIRED:
-            return _error_response(
-                "command/tool requires approval; approvals are not supported "
-                "for remote execution"
-            )
+            if user_approved:
+                return _error_response(
+                    "tool still requires approval after user approval "
+                    "(internal error); refusing to re-request to avoid a loop",
+                    invocation=result.invocation,
+                )
+            return {
+                "status": StructuredToolResultStatus.APPROVAL_REQUIRED.value,
+                "data": None,
+                "compressed": False,
+                "data_gz_b64": None,
+                "error": result.error,
+                "return_code": result.return_code,
+                "invocation": result.invocation,
+                "elapsed_seconds": round(elapsed, 3),
+                "executor_holmes_version": get_version(),
+                "approval_params": tool_params,
+            }
 
-        # 4. Inline result, <=1MB uncompressed, gzip over 100k, no images, no files.
+        # 6. Inline result, <=1MB uncompressed, gzip over 100k, no images, no files.
         result.images = None
         return serialize_tool_response(result, elapsed)
+
+    # ---- internal request kinds ----
+
+    def _execute_internal(self, kind: Any, row: Dict[str, Any]) -> Dict[str, Any]:
+        tool_request = row.get("tool_request") or {}
+        payload = tool_request.get("payload")
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, dict):
+            return _error_response(
+                f"internal request '{kind}': payload must be an object"
+            )
+        if kind == INTERNAL_KIND_OAUTH_CALLBACK:
+            return self._execute_oauth_callback(row, payload)
+        if kind == INTERNAL_KIND_HOLMES_LOGS:
+            return self._execute_holmes_logs(payload)
+        return _error_response(
+            f"unknown internal request kind '{kind}'; supported kinds: "
+            f"{INTERNAL_KIND_OAUTH_CALLBACK}, {INTERNAL_KIND_HOLMES_LOGS}"
+        )
+
+    def _execute_oauth_callback(
+        self, row: Dict[str, Any], payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        user_id = row.get("user_id")
+        if not user_id:
+            # Tokens are stored per user; without one they would land on the
+            # shared default user.
+            return _error_response("oauth_callback: row has no user_id")
+        fields = {k: v for k, v in payload.items() if k != "user_id"}
+        sealed = fields.pop("sealed", None)
+        if sealed is not None:
+            try:
+                fields.update(json.loads(open_sealed(sealed)))
+            except Exception as e:
+                return _error_response(
+                    f"oauth_callback: cannot decrypt the payload: {type(e).__name__}"
+                )
+        try:
+            request = OAuthCallbackRequest(**fields, user_id=user_id)
+        except ValidationError as e:
+            return _error_response(
+                f"oauth_callback: invalid payload: {_validation_error_summary(e)}"
+            )
+        except TypeError as e:
+            return _error_response(f"oauth_callback: invalid payload: {e}")
+
+        logging.info(
+            "ToolCallWorker: oauth_callback %s toolset=%s client_id=%s "
+            "client_secret_present=%s code_present=%s code_verifier_present=%s",
+            row.get("id"),
+            request.toolset_name,
+            request.client_id,
+            bool(request.client_secret),
+            bool(request.code),
+            bool(request.code_verifier),
+        )
+        started = time.monotonic()
+        try:
+            response = handle_oauth_callback(request, self.config, self.dal)
+        except OAuthConfigLookupError as e:
+            logging.error(
+                "oauth_callback config error for '%s': %s",
+                request.toolset_name,
+                e.detail,
+            )
+            return _error_response(f"OAuth config error: {e.detail}")
+        except OAuthTokenExchangeError as e:
+            logging.error(
+                "oauth_callback token exchange failed for '%s': %s",
+                request.toolset_name,
+                e,
+            )
+            return _error_response(str(e))
+        except Exception as e:
+            logging.error(
+                "oauth_callback failed for '%s'",
+                request.toolset_name,
+                exc_info=True,
+            )
+            return _error_response(f"OAuth callback failed: {e}")
+        return _internal_success(response.model_dump(), time.monotonic() - started)
+
+    def _execute_holmes_logs(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            request = HolmesLogsRequest(**payload)
+        except (ValidationError, ValueError, TypeError) as e:
+            detail = (
+                _validation_error_summary(e)
+                if isinstance(e, ValidationError)
+                else str(e)
+            )
+            return _error_response(f"holmes_logs: invalid payload: {detail}")
+        started = time.monotonic()
+        data = get_holmes_logs(request)
+        return _internal_success(data, time.monotonic() - started)
 
     # ---- helpers ----
 
     def _get_tool_executor(self):
-        # reuse_executor=True returns the same cached executor the toolset
-        # sync built at startup — no prerequisite re-checks per call.
-        return self.config.create_tool_executor(
-            self.dal,
-            toolset_tag_filter=[ToolsetTag.CORE, ToolsetTag.CLUSTER],
-            enable_all_toolsets_possible=False,
-            prerequisite_cache=PrerequisiteCacheMode.ENABLED,
-            reuse_executor=True,
-        )
+        # Returns the server's cached executor, usually built by the toolset
+        # sync at startup, so a call doesn't re-check prerequisites.
+        return self.config.create_server_tool_executor(self.dal)
 
     def _get_llm(self):
         # The executor's own configured LLM: used only for in-tool token

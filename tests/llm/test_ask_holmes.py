@@ -14,13 +14,14 @@ import pytest
 from holmes.config import Config
 from holmes.core.conversations import build_chat_messages
 from holmes.core.models import ChatRequest
-from holmes.core.prompt import PromptComponent, build_initial_ask_messages
+from holmes.core.prompt import build_initial_ask_messages, todowrite_overrides
 from holmes.core.tool_calling_llm import LLMResult, ToolCallingLLM
 from holmes.core.tools_utils.filesystem_result_storage import tool_result_storage
 from holmes.core.tools_utils.frontend_tools import inject_frontend_tools
 from holmes.core.tools_utils.tool_executor import ToolExecutor
 from holmes.core.tracing import SpanType, TracingFactory
 from holmes.plugins.skills.skill_loader import SkillCatalog, load_skill_catalog
+from tests.llm.utils.answer_dump import dump_eval_answer
 from tests.llm.utils.braintrust import log_to_braintrust
 from tests.llm.utils.classifiers import evaluate_correctness
 from tests.llm.utils.commands import apply_env_config, set_test_env_vars
@@ -39,6 +40,7 @@ from tests.llm.utils.property_manager import (
 from tests.llm.utils.skill_suggestions import (
     count_fetch_skill_calls,
     extract_suggested_skills,
+    join_frontend_tool_turn_content,
     write_suggestions_as_skill_files,
 )
 from tests.llm.utils.retry_handler import retry_on_throttle
@@ -147,7 +149,19 @@ def test_ask_holmes(
         )
         raise
 
-    output = result.result
+    # Models may write their final answer as content on the same turn as a
+    # frontend tool call. SuggestSkills replies "continue naturally as if this
+    # tool was never called", so the model then adds only a short trailing
+    # remark - and result.result keeps just that last turn, losing the answer.
+    # The UI renders it correctly (the content ships as an ai_message event,
+    # collected into intermediateMessages), so we rejoin it here instead of
+    # changing product code.
+    frontend_payload = load_frontend_tools(test_case)
+    output = join_frontend_tool_turn_content(
+        result.result,
+        result.messages,
+        {t.name for t in frontend_payload.tools} if frontend_payload else None,
+    )
 
     suggested_memories = extract_suggested_skills(result.tool_calls)
     update_property(request, "suggested_memories", suggested_memories)
@@ -207,6 +221,17 @@ def test_ask_holmes(
             update_property(request, "actual_correctness_score", 0)
             scores["correctness"] = 0
 
+    # Before the raising checks below: an answer they reject is part of the
+    # population too, and dumping after them would bias the sample.
+    dump_eval_answer(
+        test_case.id,
+        output,
+        scores.get("correctness", 0),
+        model=model,
+        env_config=env_config.name,
+        tools=[getattr(tc, "tool_name", "?") for tc in (result.tool_calls or [])],
+    )
+
     if eval_span:
         log_to_braintrust(
             eval_span=eval_span,
@@ -250,6 +275,20 @@ def test_ask_holmes(
     assert (
         int(scores.get("correctness", 0)) == 1
     ), f"Test {test_case.id} failed (score: {scores.get('correctness', 0)})\nActual: {output}\nExpected: {expected_output}"
+
+    # Deterministic negative check: assert Holmes did NOT call tools it should
+    # not have (e.g. an unnecessary lookup when the answer was already in the
+    # request). This checks actual tool calls, not prompt content or LLM grading.
+    forbidden_tools = getattr(test_case, "forbidden_tools", None) or []
+    if forbidden_tools:
+        called = [
+            getattr(tc, "tool_name", None) for tc in (result.tool_calls or [])
+        ]
+        offending = sorted({t for t in called if t in forbidden_tools})
+        assert not offending, (
+            f"Test {test_case.id}: Holmes called forbidden tool(s) {offending} "
+            f"when it should not have. All tool calls: {called}"
+        )
 
     # Check token limit if configured
     if test_case.max_tokens is not None:
@@ -568,15 +607,10 @@ def ask_holmes(
                     if p
                 )
 
-        # Todos (TodoWrite) are disabled by default in evals; turn off the
-        # related prompt instructions/reminder unless the test opts in. The
-        # TodoWrite tool itself is dropped by TestToolsetManager (above).
-        prompt_component_overrides = None
-        if not getattr(test_case, "enable_todo", False):
-            prompt_component_overrides = {
-                PromptComponent.TODOWRITE_INSTRUCTIONS: False,
-                PromptComponent.TODOWRITE_REMINDER: False,
-            }
+        # TodoWrite prompt components are opt-in via enable_todo
+        prompt_component_overrides = todowrite_overrides(
+            getattr(test_case, "enable_todo", False)
+        )
 
         test_type = (
             test_case.test_type

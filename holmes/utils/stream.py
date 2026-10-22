@@ -10,7 +10,9 @@ from litellm.types.utils import ModelResponse, TextCompletionResponse
 from pydantic import BaseModel, Field
 
 from holmes.common.env_vars import TRACE_TOKEN_USAGE
+from holmes.core.error_info import ErrorInfo
 from holmes.core.llm import ContextWindowUsage, build_usage_metadata
+from holmes.core.relay_refusal import RELAY_REFUSAL_ERROR_CODES, RelayRefusal
 
 
 class StreamEvents(str, Enum):
@@ -36,16 +38,21 @@ def create_sse_message(event_type: str, data: Optional[dict] = None):
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
 
 
-def create_sse_error_message(description: str, error_code: int, msg: str):
-    return create_sse_message(
-        StreamEvents.ERROR.value,
-        {
-            "description": description,
-            "error_code": error_code,
-            "msg": msg,
-            "success": False,
-        },
-    )
+def create_sse_error_message(
+    description: str,
+    error_code: int,
+    msg: str,
+    error_info: Optional[ErrorInfo] = None,
+):
+    data = {
+        "description": description,
+        "error_code": error_code,
+        "msg": msg,
+        "success": False,
+    }
+    if error_info is not None:
+        data.update(error_info.event_fields())
+    return create_sse_message(StreamEvents.ERROR.value, data)
 
 
 create_rate_limit_error_message = partial(
@@ -108,12 +115,26 @@ def stream_chat_formatter(
                 )
             else:
                 yield create_sse_message(message.event.value, message.data)
+    except RelayRefusal as e:
+        # The platform refused the call; the stream's HTTP status is long
+        # committed, so the refusal rides the error event's code, with relay's
+        # own sentence as the text (ROB-1389).
+        logging.warning(f"Relay refused the streamed chat (status {e.status_code}): {e}")
+        yield create_sse_error_message(
+            description=str(e),
+            error_code=RELAY_REFUSAL_ERROR_CODES[e.status_code],
+            msg=str(e),
+            error_info=ErrorInfo.from_exception(e),
+        )
     except Exception as e:
         logging.error(f"Error during streaming chat: {e}", exc_info=True)
+        error_info = ErrorInfo.from_exception(e)
         if _is_rate_limit_error(e):
-            yield create_rate_limit_error_message(str(e))
+            yield create_rate_limit_error_message(str(e), error_info=error_info)
         else:
-            yield create_sse_error_message(description=str(e), error_code=1, msg=str(e))
+            yield create_sse_error_message(
+                description=str(e), error_code=1, msg=str(e), error_info=error_info
+            )
 
 
 def add_token_count_to_metadata(

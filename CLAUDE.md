@@ -14,6 +14,25 @@ HolmesGPT is an AI-powered troubleshooting agent that connects to observability 
 poetry install
 ```
 
+**Use Poetry 1.8.5 to regenerate `poetry.lock`.** The committed lockfile is
+`lock-version = "2.0"`, which Poetry 1.8.x produces. Running `poetry lock` under
+Poetry 2.x rewrites the whole file to `lock-version = "2.1"` and produces a huge
+diff of unrelated churn. Always lock with 1.8.5, and prefer `--no-update` so only
+your dependency change appears in the diff:
+
+```bash
+poetry lock --no-update   # with Poetry 1.8.5
+poetry check --lock       # verify the lockfile matches pyproject.toml
+```
+
+If your system Poetry is 2.x, install 1.8.5 into a throwaway venv and use it just
+for locking:
+
+```bash
+python3 -m venv /tmp/poetry185 && /tmp/poetry185/bin/pip install "poetry==1.8.5"
+/tmp/poetry185/bin/poetry lock --no-update
+```
+
 ### Testing
 
 ```bash
@@ -262,6 +281,7 @@ When adding a new toolset or integration, update all of the following pages to k
 2. `docs/walkthrough/why-holmesgpt.md` — Categorized integration list under "Every Major Observability Platform"
 3. `docs/data-sources/builtin-toolsets/index.md` — Grid cards listing on the toolsets index page
 4. `docs/data-sources/builtin-toolsets/{name}.md` — Dedicated documentation page for the new toolset
+   - Its deployment tabs follow the shape `tests/docs/test_deployment_tab_groups.py` checks
 5. Add a logo image to `images/integration_logos/` if one is available
 
 ## Debugging CLI / Rich Live Display Issues
