@@ -166,12 +166,11 @@ def test_api_chat_all_fields(
     assert "analysis" in data
     assert "conversation_history" in data
     assert "tool_calls" in data
-    assert "follow_up_actions" in data
+    assert "follow_up_actions" not in data
 
     assert isinstance(data["analysis"], str)
     assert isinstance(data["conversation_history"], list)
     assert isinstance(data["tool_calls"], list)
-    assert isinstance(data["follow_up_actions"], list)
 
     assert any(msg.get("role") == "user" for msg in data["conversation_history"])
 
@@ -181,13 +180,6 @@ def test_api_chat_all_fields(
         assert "tool_name" in tool_call
         assert "description" in tool_call
         assert "result" in tool_call
-
-    if data["follow_up_actions"]:
-        action = data["follow_up_actions"][0]
-        assert "id" in action
-        assert "action_label" in action
-        assert "prompt" in action
-        assert "pre_action_notification_text" in action
 
 
 @patch("holmes.config.Config.create_toolcalling_llm")
@@ -236,7 +228,6 @@ def test_api_chat_with_images(
     assert "analysis" in data
     assert "conversation_history" in data
     assert "tool_calls" in data
-    assert "follow_up_actions" in data
 
     # Verify the messages were captured
     assert len(captured_messages) == 1
