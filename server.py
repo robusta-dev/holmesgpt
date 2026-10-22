@@ -62,7 +62,6 @@ from holmes.core.models import (
     ChatRequest,
     ChatResponse,
     OAuthCallbackRequest,
-    build_follow_up_actions,
     OAuthCallbackResponse,
 )
 from holmes.core.prompt import PromptComponent
@@ -605,8 +604,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
                 except ValueError:
                     logging.warning(f"Unknown behavior_controls key '{k}', ignoring")
 
-        follow_up_actions = build_follow_up_actions(chat_request.conversation_history)
-
         request_context = extract_passthrough_headers(http_request)
         if chat_request.user_id:
             request_context.setdefault("headers", {})
@@ -727,7 +724,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
             )
             stream = stream_chat_formatter(
                 recorded_stream,
-                [f.model_dump() for f in follow_up_actions],
                 model=chat_request.model or config.model,
             )
             return StreamingResponse(
@@ -814,7 +810,6 @@ def chat(chat_request: ChatRequest, http_request: Request):
                     analysis=llm_call.result,
                     tool_calls=llm_call.tool_calls,
                     conversation_history=llm_call.messages,
-                    follow_up_actions=follow_up_actions,
                     metadata=response_metadata,
                 )
                 return response

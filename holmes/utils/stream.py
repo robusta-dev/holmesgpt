@@ -2,7 +2,7 @@ import json
 import logging
 from enum import Enum
 from functools import partial
-from typing import Generator, List, Optional, Union
+from typing import Generator, Optional, Union
 
 import litellm
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
@@ -74,7 +74,6 @@ def _is_rate_limit_error(e: Exception) -> bool:
 
 def stream_chat_formatter(
     call_stream: Generator[StreamMessage, None, None],
-    followups: Optional[List[dict]] = None,
     model: Optional[str] = None,
 ):
     try:
@@ -91,7 +90,6 @@ def stream_chat_formatter(
                 response_data = {
                     "analysis": message.data.get("content"),
                     "conversation_history": message.data.get("messages"),
-                    "follow_up_actions": followups,
                     "metadata": message.data.get("metadata") or {},
                 }
 
@@ -100,7 +98,6 @@ def stream_chat_formatter(
                 response_data = {
                     "analysis": message.data.get("content"),
                     "conversation_history": message.data.get("messages"),
-                    "follow_up_actions": followups,
                     "requires_approval": True,
                     "pending_approvals": message.data.get(
                         "pending_approvals", []
@@ -135,20 +132,6 @@ def stream_chat_formatter(
             yield create_sse_error_message(
                 description=str(e), error_code=1, msg=str(e), error_info=error_info
             )
-
-
-def add_follow_up_actions(
-    call_stream: Generator[StreamMessage, None, None], followups: List[dict]
-) -> Generator[StreamMessage, None, None]:
-    """Puts the follow-up actions on the turn's answer, where
-    stream_chat_formatter puts them for /api/chat."""
-    for message in call_stream:
-        if message.event in (StreamEvents.ANSWER_END, StreamEvents.APPROVAL_REQUIRED):
-            message = StreamMessage(
-                event=message.event,
-                data={**message.data, "follow_up_actions": followups},
-            )
-        yield message
 
 
 def add_token_count_to_metadata(

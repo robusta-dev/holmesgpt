@@ -352,45 +352,9 @@ class ChatRequest(ChatRequestBaseModel):
     )
 
 
-class FollowUpAction(BaseModel):
-    id: str
-    action_label: str
-    pre_action_notification_text: str
-    prompt: str
-
-
-def build_follow_up_actions(
-    conversation_history: Optional[List[dict]],
-) -> List[FollowUpAction]:
-    """The follow-ups offered with a conversation's first answer only."""
-    if any(m.get("role") == "assistant" for m in conversation_history or []):
-        return []
-    return [
-        FollowUpAction(
-            id="logs",
-            action_label="Logs",
-            prompt="Show me the relevant logs",
-            pre_action_notification_text="Fetching relevant logs...",
-        ),
-        FollowUpAction(
-            id="graphs",
-            action_label="Graphs",
-            prompt="Show me the relevant graphs. Use prometheus and make sure you embed the results with `<< >>` to display a graph",
-            pre_action_notification_text="Drawing some graphs...",
-        ),
-        FollowUpAction(
-            id="articles",
-            action_label="Articles",
-            prompt="List the relevant runbooks and links used. Write a short summary for each",
-            pre_action_notification_text="Looking up and summarizing runbooks and links...",
-        ),
-    ]
-
-
 class ChatResponse(BaseModel):
     analysis: str
     conversation_history: list[dict]
     tool_calls: Optional[List[ToolCallResult]] = []
-    follow_up_actions: Optional[List[FollowUpAction]] = []
     pending_approvals: Optional[List[PendingToolApproval]] = None
     metadata: Optional[Dict[Any, Any]] = None
