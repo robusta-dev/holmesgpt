@@ -88,8 +88,9 @@ def stream_chat_formatter(
                         f"cached={costs.get('cached_tokens')}, total={costs.get('total_tokens')}, "
                         f"cost=${costs.get('total_cost', 0):.4f}"
                     )
+                content = message.data.get("content")
                 response_data = {
-                    "analysis": message.data.get("content"),
+                    "analysis": content if content is not None else "",
                     "conversation_history": message.data.get("messages"),
                     "follow_up_actions": followups,
                     "metadata": message.data.get("metadata") or {},
